@@ -1,12 +1,15 @@
-import { useState, useEffect } from 'react';
-import { Calendar, Search, TrendingUp, TrendingDown, AlertTriangle, DollarSign, Clock, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Minus, Plus, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Search, TrendingUp, TrendingDown, AlertTriangle, DollarSign, Clock, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Plus, Download } from 'lucide-react';
 import cashService from '../services/cashService';
 import reportService from '../services/reportService';
+import { useConfig } from '../context/ConfigContext';
+import { toast } from 'react-hot-toast';
+import clsx from 'clsx';
 
 const CashHistory = () => {
+    const { formatCurrency } = useConfig();
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
     const [expandedId, setExpandedId] = useState(null);
     const [downloading, setDownloading] = useState(false);
 
@@ -31,12 +34,11 @@ const CashHistory = () => {
 
     const fetchHistory = async (filters) => {
         setLoading(true);
-        setError('');
         try {
             const data = await cashService.getHistory(filters);
             setSessions(Array.isArray(data) ? data : []);
         } catch (err) {
-            setError(err.response?.data?.detail || 'Error al cargar el historial');
+            toast.error(err.response?.data?.detail || 'Error al cargar el historial');
             setSessions([]);
         } finally {
             setLoading(false);
@@ -63,18 +65,8 @@ const CashHistory = () => {
         });
     };
 
-    const formatCurrency = (amount, currency = 'USD') => {
-        const value = parseFloat(amount || 0);
-        if (currency === 'USD' || currency === '$') {
-            return `$${value.toFixed(2)}`;
-        }
-        return `${currency} ${value.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    };
-
-    // Get session alert status based on all currency differences
     const getSessionAlertStatus = (session) => {
         if (!session.currencies || session.currencies.length === 0) {
-            // Legacy session - check old difference field
             const diff = parseFloat(session.difference || 0);
             if (Math.abs(diff) < 0.01) return 'ok';
             return diff < 0 ? 'shortage' : 'overage';
@@ -94,22 +86,12 @@ const CashHistory = () => {
         return 'ok';
     };
 
-    // Get border color based on alert status
-    const getBorderColor = (status) => {
-        switch (status) {
-            case 'shortage': return 'border-l-8 border-red-500';
-            case 'overage': return 'border-l-8 border-yellow-500';
-            default: return 'border-l-8 border-green-500';
-        }
-    };
-
-    // Get difference badge styling
     const getDifferenceBadge = (difference, currencySymbol) => {
         const diff = parseFloat(difference || 0);
 
         if (Math.abs(diff) < 0.01) {
             return (
-                <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full flex items-center gap-1">
+                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-emerald-100">
                     <CheckCircle size={14} />
                     OK
                 </span>
@@ -118,58 +100,48 @@ const CashHistory = () => {
 
         if (diff < 0) {
             return (
-                <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full flex items-center gap-1">
+                <span className="px-2.5 py-1 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-rose-100">
                     <TrendingDown size={14} />
-                    Faltan {formatCurrency(Math.abs(diff), currencySymbol)}
+                    Faltan {currencySymbol} {formatCurrency(Math.abs(diff), 'USD').replace('$', '')}
                 </span>
             );
         }
 
         return (
-            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full flex items-center gap-1">
+            <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-blue-100">
                 <TrendingUp size={14} />
-                Sobran {formatCurrency(diff, currencySymbol)}
+                Sobran {currencySymbol} {formatCurrency(diff, 'USD').replace('$', '')}
             </span>
         );
     };
 
-    // Calculate KPIs for the period
     const calculateKPIs = () => {
         const closedSessions = sessions.filter(s => s.status === 'CLOSED');
-
         let totalShortages = 0;
         let totalOverages = 0;
         let totalCashSales = 0;
 
         closedSessions.forEach(session => {
+            // Simplified logic for KPI approximation (using base currency or USD if simpler)
+            // Real multi-currency KPI aggregation is complex without normalization
+            // We'll trust the backend or simple summing for "primary" currency indicators
             if (session.currencies && session.currencies.length > 0) {
-                // Multi-currency session
-                session.currencies.forEach(curr => {
-                    const diff = parseFloat(curr.difference || 0);
-                    if (diff < -0.01) {
-                        totalShortages += Math.abs(diff);
-                    } else if (diff > 0.01) {
-                        totalOverages += diff;
-                    }
+                // Try to find USD or base currency for stats
+                const relevant = session.currencies.find(c => c.is_anchor) || session.currencies[0];
+                const diff = parseFloat(relevant.difference || 0);
+                if (diff < -0.01) totalShortages += Math.abs(diff);
+                else if (diff > 0.01) totalOverages += diff;
 
-                    // Calculate sales for this currency
-                    const expected = parseFloat(curr.final_expected || 0);
-                    const initial = parseFloat(curr.initial_amount || 0);
-                    const sales = expected - initial;
-                    if (sales > 0) totalCashSales += sales;
-                });
-            } else {
-                // Legacy session
-                const diff = parseFloat(session.difference || 0);
-                if (diff < -0.01) {
-                    totalShortages += Math.abs(diff);
-                } else if (diff > 0.01) {
-                    totalOverages += diff;
-                }
-
-                const expected = parseFloat(session.final_cash_expected || session.expected_cash || 0);
-                const initial = parseFloat(session.initial_cash || 0);
+                const expected = parseFloat(relevant.final_expected || 0);
+                const initial = parseFloat(relevant.initial_amount || 0);
                 const sales = expected - initial;
+                if (sales > 0) totalCashSales += sales;
+            } else {
+                // Legacy
+                const diff = parseFloat(session.difference || 0);
+                if (diff < -0.01) totalShortages += Math.abs(diff);
+                else if (diff > 0.01) totalOverages += diff;
+                const sales = (parseFloat(session.final_cash_expected || 0) - parseFloat(session.initial_cash || 0));
                 if (sales > 0) totalCashSales += sales;
             }
         });
@@ -181,359 +153,222 @@ const CashHistory = () => {
 
     const handleDownloadReport = async () => {
         setDownloading(true);
+        const toastId = toast.loading('Generando reporte auditoría...');
         try {
             await reportService.downloadGeneralReport(startDate, endDate);
+            toast.success('Reporte descargado', { id: toastId });
         } catch (error) {
             console.error('Error downloading report:', error);
-            alert('Error al descargar el reporte. Por favor intenta de nuevo.');
+            toast.error('Error al descargar reporte', { id: toastId });
         } finally {
             setDownloading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-6">
-            <div className="max-w-7xl mx-auto">
-                {/* Header */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h1 className="text-3xl font-black text-gray-800 flex items-center gap-3">
-                                <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl shadow-lg">
-                                    <DollarSign className="text-white" size={32} />
-                                </div>
-                                Panel de Auditoría de Cajas 360°
-                            </h1>
-                            <p className="text-gray-600 mt-2">Monitoreo multi-moneda y control de cierres</p>
+        <div className="h-[calc(100vh-64px)] flex flex-col bg-slate-50 p-6 overflow-hidden">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 flex-shrink-0">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                        <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                            <Clock size={24} />
                         </div>
-                        <button
-                            onClick={handleDownloadReport}
-                            disabled={downloading || loading}
-                            className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center gap-2"
-                        >
-                            <Download size={20} />
-                            {downloading ? 'Generando...' : 'Exportar Auditoría 360°'}
-                        </button>
-                    </div>
-
-                    {/* Date Filters */}
-                    <div className="flex flex-wrap gap-4 items-end">
-                        <div className="flex-1 min-w-[200px]">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">
-                                <Calendar className="inline mr-1" size={16} />
-                                Desde
-                            </label>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="w-full border-2 border-gray-300 rounded-xl p-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
-                            />
-                        </div>
-
-                        <div className="flex-1 min-w-[200px]">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">
-                                <Calendar className="inline mr-1" size={16} />
-                                Hasta
-                            </label>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className="w-full border-2 border-gray-300 rounded-xl p-3 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
-                            />
-                        </div>
-
-                        <button
-                            onClick={handleSearch}
-                            disabled={loading}
-                            className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2"
-                        >
-                            <Search size={20} />
-                            Buscar
-                        </button>
-                    </div>
+                        Historial de Caja
+                    </h1>
+                    <p className="text-slate-500 font-medium ml-12">Auditoría de cierres y movimientos</p>
                 </div>
 
-                {/* KPI Cards */}
-                {!loading && sessions.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        {/* Total Shortages */}
-                        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-2xl shadow-xl p-6 text-white">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 bg-white/20 rounded-xl">
-                                    <TrendingDown size={28} />
-                                </div>
-                                <AlertTriangle size={24} className="opacity-70" />
-                            </div>
-                            <p className="text-sm font-medium opacity-90 mb-1">Total Faltantes del Período</p>
-                            <p className="text-3xl font-black">{formatCurrency(kpis.totalShortages)}</p>
-                            <p className="text-xs mt-2 opacity-75">Dinero faltante en cierres</p>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl shadow-sm border border-slate-200">
+                        <Calendar size={18} className="text-slate-400" />
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="border-none focus:ring-0 text-sm font-medium text-slate-700 outline-none bg-transparent"
+                        />
+                        <span className="text-slate-300 font-light mx-1">|</span>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="border-none focus:ring-0 text-sm font-medium text-slate-700 outline-none bg-transparent"
+                        />
+                        <button
+                            onClick={handleSearch}
+                            className="ml-2 p-1.5 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
+                        >
+                            <Search size={16} />
+                        </button>
+                    </div>
+
+                    <button
+                        onClick={handleDownloadReport}
+                        disabled={downloading || loading}
+                        className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2.5 rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-200 font-bold text-sm active:scale-95 disabled:opacity-50"
+                    >
+                        <Download size={18} />
+                        <span>{downloading ? '...' : 'Exportar'}</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* KPIs */}
+            {!loading && sessions.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 flex-shrink-0">
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                        <div>
+                            <p className="text-slate-400 text-xs font-bold uppercase mb-1">Faltantes (Aprox)</p>
+                            <p className="text-2xl font-black text-rose-600">{formatCurrency(kpis.totalShortages)}</p>
                         </div>
-
-                        {/* Total Overages */}
-                        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-xl p-6 text-white">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 bg-white/20 rounded-xl">
-                                    <TrendingUp size={28} />
-                                </div>
-                                <CheckCircle size={24} className="opacity-70" />
-                            </div>
-                            <p className="text-sm font-medium opacity-90 mb-1">Total Sobrantes del Período</p>
-                            <p className="text-3xl font-black">{formatCurrency(kpis.totalOverages)}</p>
-                            <p className="text-xs mt-2 opacity-75">Dinero sobrante en cierres</p>
-                        </div>
-
-                        {/* Total Cash Sales */}
-                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-xl p-6 text-white">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="p-3 bg-white/20 rounded-xl">
-                                    <DollarSign size={28} />
-                                </div>
-                                <Plus size={24} className="opacity-70" />
-                            </div>
-                            <p className="text-sm font-medium opacity-90 mb-1">Total Ventas en Efectivo</p>
-                            <p className="text-3xl font-black">{formatCurrency(kpis.totalCashSales)}</p>
-                            <p className="text-xs mt-2 opacity-75">Ingresos en efectivo del período</p>
+                        <div className="bg-rose-50 p-3 rounded-xl text-rose-600 border border-rose-100">
+                            <TrendingDown size={24} />
                         </div>
                     </div>
-                )}
-
-                {/* Error Message */}
-                {error && (
-                    <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-6 flex items-center gap-3">
-                        <AlertTriangle className="text-red-600" size={24} />
-                        <p className="text-red-800 font-medium">{error}</p>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                        <div>
+                            <p className="text-slate-400 text-xs font-bold uppercase mb-1">Sobrantes (Aprox)</p>
+                            <p className="text-2xl font-black text-emerald-600">{formatCurrency(kpis.totalOverages)}</p>
+                        </div>
+                        <div className="bg-emerald-50 p-3 rounded-xl text-emerald-600 border border-emerald-100">
+                            <TrendingUp size={24} />
+                        </div>
                     </div>
-                )}
-
-                {/* Loading State */}
-                {loading && (
-                    <div className="text-center py-12">
-                        <div className="inline-block w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                        <p className="text-gray-600 font-medium">Cargando historial...</p>
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                        <div>
+                            <p className="text-slate-400 text-xs font-bold uppercase mb-1">Ventas Efectivo (Aprox)</p>
+                            <p className="text-2xl font-black text-indigo-600">{formatCurrency(kpis.totalCashSales)}</p>
+                        </div>
+                        <div className="bg-indigo-50 p-3 rounded-xl text-indigo-600 border border-indigo-100">
+                            <DollarSign size={24} />
+                        </div>
                     </div>
-                )}
+                </div>
+            )}
 
-                {/* Empty State */}
-                {!loading && sessions.length === 0 && (
-                    <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
-                        <DollarSign className="mx-auto text-gray-300 mb-4" size={64} />
-                        <p className="text-gray-500 font-medium text-lg">No se encontraron sesiones de caja</p>
-                        <p className="text-gray-400 text-sm mt-2">Intenta con un rango de fechas diferente</p>
+            {/* List */}
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div>
+                        Cargando historial...
                     </div>
-                )}
+                ) : sessions.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 opacity-60">
+                        <Clock size={48} className="mb-2" />
+                        <p className="font-medium">No se encontraron sesiones</p>
+                    </div>
+                ) : (
+                    sessions.map((session) => {
+                        const isExpanded = expandedId === session.id;
+                        const isClosed = session.status === 'CLOSED';
+                        const alertStatus = getSessionAlertStatus(session);
 
-                {/* Sessions List */}
-                {!loading && sessions.length > 0 && (
-                    <div className="space-y-4">
-                        {sessions.map((session) => {
-                            const isExpanded = expandedId === session.id;
-                            const isClosed = session.status === 'CLOSED';
-                            const alertStatus = getSessionAlertStatus(session);
-                            const borderColor = getBorderColor(alertStatus);
-
-                            return (
+                        return (
+                            <div
+                                key={session.id}
+                                className={clsx(
+                                    "bg-white rounded-2xl shadow-sm border transaction-all overflow-hidden transition-all",
+                                    alertStatus === 'shortage' ? "border-rose-200" :
+                                        alertStatus === 'overage' ? "border-blue-200" :
+                                            "border-slate-200"
+                                )}
+                            >
                                 <div
-                                    key={session.id}
-                                    className={`bg-white rounded-2xl shadow-md hover:shadow-xl transition-all overflow-hidden border-2 border-gray-100 ${borderColor}`}
+                                    className={clsx("p-5 cursor-pointer hover:bg-slate-50 transition-colors flex flex-col md:flex-row gap-4 justify-between", isExpanded && "bg-slate-50/80")}
+                                    onClick={() => toggleExpand(session.id)}
                                 >
-                                    {/* Card Header - Multi-Currency Summary */}
-                                    <div
-                                        className="p-6 cursor-pointer hover:bg-gray-50 transition-colors"
-                                        onClick={() => toggleExpand(session.id)}
-                                    >
-                                        <div className="flex items-start justify-between gap-6">
-                                            {/* Left: Session Info */}
-                                            <div className="flex items-center gap-4 flex-1">
-                                                <div className={`p-3 rounded-xl ${isClosed ? 'bg-green-100' : 'bg-yellow-100'}`}>
-                                                    {isClosed ? (
-                                                        <CheckCircle className="text-green-600" size={24} />
-                                                    ) : (
-                                                        <Clock className="text-yellow-600" size={24} />
-                                                    )}
-                                                </div>
-
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <h3 className="text-lg font-bold text-gray-800">
-                                                            Sesión #{session.id}
-                                                        </h3>
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${isClosed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                                                            }`}>
-                                                            {isClosed ? 'CERRADA' : 'ABIERTA'}
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                                                        <div className="flex items-center gap-1">
-                                                            <User size={14} />
-                                                            <span>{session.user?.full_name || session.user?.username || `Usuario #${session.user_id}`}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <Clock size={14} />
-                                                            <span>{formatDate(session.opened_at || session.start_time)}</span>
-                                                        </div>
-                                                        {isClosed && session.closed_at && (
-                                                            <div className="flex items-center gap-1">
-                                                                <XCircle size={14} />
-                                                                <span>Cerrado: {formatDate(session.closed_at || session.end_time)}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className={clsx("p-3 rounded-xl", isClosed ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")}>
+                                            {isClosed ? <CheckCircle size={24} /> : <Clock size={24} />}
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <span className="font-bold text-slate-800 text-lg">Sesión #{session.id}</span>
+                                                <span className={clsx("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider", isClosed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
+                                                    {isClosed ? 'Cerrada' : 'Abierta'}
+                                                </span>
                                             </div>
-
-                                            {/* Right: Multi-Currency Summary */}
-                                            <div className="flex-1">
-                                                {session.currencies && session.currencies.length > 0 ? (
-                                                    <div className="space-y-2">
-                                                        {session.currencies.map((curr) => (
-                                                            <div key={curr.id} className="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-lg">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="font-bold text-gray-700">{curr.currency_symbol}</span>
-                                                                    <span className="text-sm text-gray-600">
-                                                                        {formatCurrency(curr.final_reported || 0, curr.currency_symbol)}
-                                                                    </span>
-                                                                </div>
-                                                                {isClosed && getDifferenceBadge(curr.difference, curr.currency_symbol)}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    // Legacy session fallback
-                                                    <div className="space-y-2">
-                                                        <div className="flex items-center justify-between gap-4 p-3 bg-gray-50 rounded-lg">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-gray-700">USD</span>
-                                                                <span className="text-sm text-gray-600">
-                                                                    {formatCurrency(session.final_cash_reported || session.final_cash || 0)}
-                                                                </span>
-                                                            </div>
-                                                            {isClosed && getDifferenceBadge(session.difference, 'USD')}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Expand Icon */}
-                                            <div className="ml-4">
-                                                {isExpanded ? (
-                                                    <ChevronUp className="text-gray-400" size={24} />
-                                                ) : (
-                                                    <ChevronDown className="text-gray-400" size={24} />
-                                                )}
+                                            <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
+                                                <span className="flex items-center gap-1"><User size={12} /> {session.user?.full_name || session.user?.username}</span>
+                                                <span className="flex items-center gap-1"><Clock size={12} /> {formatDate(session.opened_at || session.start_time)}</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Expanded Details */}
-                                    {isExpanded && (
-                                        <div className="border-t-2 border-gray-100 bg-gray-50 p-6">
-                                            <div className="space-y-4">
-                                                {/* Currency Breakdown */}
-                                                {session.currencies && session.currencies.length > 0 ? (
-                                                    <div>
-                                                        <h4 className="text-sm font-bold text-gray-700 mb-3 uppercase">Desglose Detallado por Moneda</h4>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                            {session.currencies.map((curr) => {
-                                                                const diff = curr.difference || 0;
-                                                                const hasDiff = Math.abs(diff) >= 0.01;
-
-                                                                return (
-                                                                    <div key={curr.id} className="bg-white rounded-xl p-4 border-2 border-gray-200 shadow-sm">
-                                                                        <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
-                                                                            <span className="font-bold text-gray-700">{curr.currency_symbol}</span>
-                                                                            {isClosed && hasDiff && (
-                                                                                <span className={`text-xs font-bold px-2 py-1 rounded-full ${diff > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                                                                                    }`}>
-                                                                                    {diff > 0 ? 'Sobró' : 'Faltó'}
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-
-                                                                        <div className="space-y-2">
-                                                                            <div>
-                                                                                <p className="text-xs text-gray-500 uppercase">Inicial</p>
-                                                                                <p className="font-mono font-bold text-gray-800">
-                                                                                    {formatCurrency(curr.initial_amount, curr.currency_symbol)}
-                                                                                </p>
-                                                                            </div>
-
-                                                                            {isClosed && (
-                                                                                <>
-                                                                                    <div>
-                                                                                        <p className="text-xs text-gray-500 uppercase">Esperado</p>
-                                                                                        <p className="font-mono font-bold text-blue-600">
-                                                                                            {formatCurrency(curr.final_expected, curr.currency_symbol)}
-                                                                                        </p>
-                                                                                    </div>
-                                                                                    <div>
-                                                                                        <p className="text-xs text-gray-500 uppercase">Reportado</p>
-                                                                                        <p className="font-mono font-bold text-purple-600">
-                                                                                            {formatCurrency(curr.final_reported, curr.currency_symbol)}
-                                                                                        </p>
-                                                                                    </div>
-                                                                                    {hasDiff && (
-                                                                                        <div className={`p-2 rounded-lg ${diff > 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-                                                                                            <p className="text-xs text-gray-500 uppercase">Diferencia</p>
-                                                                                            <p className={`font-mono font-bold ${diff > 0 ? 'text-green-700' : 'text-red-700'}`}>
-                                                                                                {diff > 0 ? '+' : ''}{formatCurrency(diff, curr.currency_symbol)}
-                                                                                            </p>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    /* Fallback for legacy sessions */
-                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                        <div className="bg-white rounded-xl p-4 border-2 border-blue-100">
-                                                            <p className="text-xs font-bold text-gray-500 uppercase mb-2">Efectivo Inicial</p>
-                                                            <p className="text-xl font-black text-blue-600">
-                                                                {formatCurrency(session.initial_cash)}
-                                                            </p>
-                                                        </div>
-
-                                                        {isClosed && (
-                                                            <>
-                                                                <div className="bg-white rounded-xl p-4 border-2 border-purple-100">
-                                                                    <p className="text-xs font-bold text-gray-500 uppercase mb-2">Efectivo Esperado</p>
-                                                                    <p className="text-xl font-black text-purple-600">
-                                                                        {formatCurrency(session.final_cash_expected || session.expected_cash)}
-                                                                    </p>
-                                                                </div>
-
-                                                                <div className="bg-white rounded-xl p-4 border-2 border-green-100">
-                                                                    <p className="text-xs font-bold text-gray-500 uppercase mb-2">Efectivo Contado</p>
-                                                                    <p className="text-xl font-black text-green-600">
-                                                                        {formatCurrency(session.final_cash_reported || session.final_cash)}
-                                                                    </p>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {/* Notes */}
-                                                {session.notes && (
-                                                    <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4">
-                                                        <p className="text-xs font-bold text-yellow-800 uppercase mb-2">Notas del Cierre</p>
-                                                        <p className="text-sm text-yellow-900">{session.notes}</p>
-                                                    </div>
-                                                )}
+                                    {/* Mini Summary */}
+                                    <div className="flex flex-wrap gap-3 items-center justify-end">
+                                        {(session.currencies || []).slice(0, 3).map(curr => (
+                                            <div key={curr.id} className="flex items-center gap-2 bg-white border border-slate-100 px-3 py-1.5 rounded-lg shadow-sm">
+                                                <span className="text-xs font-bold text-slate-400">{curr.currency_symbol}</span>
+                                                <span className="text-sm font-bold text-slate-700">{formatCurrency(curr.final_reported || 0)}</span>
+                                                {isClosed && getDifferenceBadge(curr.difference, '')}
                                             </div>
-                                        </div>
-                                    )}
+                                        ))}
+                                        <ChevronDown className={clsx("text-slate-400 transition-transform", isExpanded && "rotate-180")} />
+                                    </div>
                                 </div>
-                            );
-                        })}
-                    </div>
+
+                                {isExpanded && (
+                                    <div className="p-6 border-t border-slate-100 bg-slate-50/50">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            {(session.currencies || []).map(curr => {
+                                                const diff = parseFloat(curr.difference || 0);
+                                                return (
+                                                    <div key={curr.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                                        <div className="flex justify-between items-center mb-3">
+                                                            <span className="font-black text-slate-700 text-lg">{curr.currency_symbol}</span>
+                                                            {isClosed && Math.abs(diff) >= 0.01 && (
+                                                                <span className={clsx("text-xs font-bold px-2 py-1 rounded-md border", diff > 0 ? "bg-blue-50 text-blue-700 border-blue-100" : "bg-rose-50 text-rose-700 border-rose-100")}>
+                                                                    {diff > 0 ? 'Sobrante' : 'Faltante'}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="space-y-2 text-sm">
+                                                            <div className="flex justify-between">
+                                                                <span className="text-slate-500 font-medium">Inicial</span>
+                                                                <span className="font-bold text-slate-700">{formatCurrency(curr.initial_amount)}</span>
+                                                            </div>
+                                                            {isClosed && (
+                                                                <>
+                                                                    <div className="flex justify-between">
+                                                                        <span className="text-slate-500 font-medium">Esperado</span>
+                                                                        <span className="font-bold text-indigo-600">{formatCurrency(curr.final_expected)}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between border-t border-dashed border-slate-200 pt-2 mt-2">
+                                                                        <span className="text-slate-500 font-bold">Reportado</span>
+                                                                        <span className="font-black text-slate-800 text-base">{formatCurrency(curr.final_reported)}</span>
+                                                                    </div>
+                                                                    {Math.abs(diff) >= 0.01 && (
+                                                                        <div className={clsx("flex justify-between bg-slate-50 p-2 rounded-lg mt-2", diff > 0 ? "bg-blue-50" : "bg-rose-50")}>
+                                                                            <span className={clsx("font-bold text-xs uppercase", diff > 0 ? "text-blue-600" : "text-rose-600")}>Diferencia</span>
+                                                                            <span className={clsx("font-black", diff > 0 ? "text-blue-700" : "text-rose-700")}>
+                                                                                {diff > 0 ? '+' : ''}{formatCurrency(diff)}
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        {session.notes && (
+                                            <div className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-sm font-medium flex items-start gap-3">
+                                                <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
+                                                <div>
+                                                    <p className="font-bold text-amber-900 mb-1">Notas del Cierre:</p>
+                                                    {session.notes}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
                 )}
             </div>
         </div>

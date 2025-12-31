@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from ..database.db import Base
 import datetime
 import enum
+from ..utils.time_utils import get_venezuela_now
 
 class MovementType(enum.Enum):
     PURCHASE = "PURCHASE"
@@ -43,7 +44,7 @@ class Supplier(Base):
     address = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.datetime.now)
+    created_at = Column(DateTime, default=get_venezuela_now)
     
     # Financial fields for Accounts Payable
     current_balance = Column(Numeric(12, 2), default=0.00)  # Current debt
@@ -70,8 +71,8 @@ class ExchangeRate(Base):
     rate = Column(Numeric(14, 4), nullable=False)  # Exchange rate to USD
     is_default = Column(Boolean, default=False)  # Default rate for this currency
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.datetime.now)
-    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)
     
     # Relationships
     products = relationship("Product", back_populates="exchange_rate")
@@ -113,7 +114,7 @@ class Product(Base):
     
     # Image Support
     image_url = Column(String(255), nullable=True)  # Relative path to product image
-    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)  # Auto-updated timestamp
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)  # Auto-updated timestamp
 
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
@@ -206,7 +207,7 @@ class Kardex(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    date = Column(DateTime, default=datetime.datetime.now)
+    date = Column(DateTime, default=get_venezuela_now)
     movement_type = Column(Enum(MovementType), nullable=False)
     quantity = Column(Numeric(12, 3), nullable=False) # Positive or Negative
     balance_after = Column(Numeric(12, 3), nullable=False)
@@ -221,7 +222,7 @@ class Sale(Base):
     __tablename__ = "sales"
 
     id = Column(Integer, primary_key=True, index=True)
-    date = Column(DateTime, default=datetime.datetime.now, index=True)
+    date = Column(DateTime, default=get_venezuela_now, index=True)
     total_amount = Column(Numeric(12, 2), nullable=False)
     payment_method = Column(String, default="Efectivo") # Efectivo, Tarjeta, Credito
     
@@ -302,7 +303,7 @@ class CashSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    start_time = Column(DateTime, default=datetime.datetime.now)
+    start_time = Column(DateTime, default=get_venezuela_now)
     end_time = Column(DateTime, nullable=True)
     initial_cash = Column(Numeric(12, 2), default=0.00)
     initial_cash_bs = Column(Numeric(12, 2), default=0.00) # Initial amount in Bs
@@ -348,7 +349,7 @@ class CashMovement(Base):
     currency = Column(String, default="USD") # USD or BS
     exchange_rate = Column(Numeric(14, 4), default=1.0000)
     description = Column(Text, nullable=True)
-    date = Column(DateTime, default=datetime.datetime.now)
+    date = Column(DateTime, default=get_venezuela_now)
 
     session = relationship("CashSession", back_populates="movements")
 
@@ -370,7 +371,7 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.CASHIER)
     full_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.datetime.now)
+    created_at = Column(DateTime, default=get_venezuela_now)
 
     def __repr__(self):
         return f"<User(username='{self.username}', role='{self.role}')>"
@@ -380,7 +381,7 @@ class Return(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
-    date = Column(DateTime, default=datetime.datetime.now)
+    date = Column(DateTime, default=get_venezuela_now)
     total_refunded = Column(Numeric(12, 2), nullable=False)
     reason = Column(Text, nullable=True)
 
@@ -434,7 +435,7 @@ class Payment(Base):
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
-    date = Column(DateTime, default=datetime.datetime.now)
+    date = Column(DateTime, default=get_venezuela_now)
     description = Column(Text, nullable=True)
     
     # Dual Currency Support
@@ -467,7 +468,7 @@ class Quote(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
-    date = Column(DateTime, default=datetime.datetime.now)
+    date = Column(DateTime, default=get_venezuela_now)
     total_amount = Column(Numeric(12, 2), nullable=False)
     status = Column(String, default="PENDING")  # PENDING, CONVERTED, EXPIRED
     notes = Column(Text, nullable=True)
@@ -539,7 +540,7 @@ class PurchaseOrder(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
-    purchase_date = Column(DateTime, default=datetime.datetime.now)
+    purchase_date = Column(DateTime, default=get_venezuela_now)
     due_date = Column(DateTime, nullable=True)  # Calculated from purchase_date + payment_terms
     
     # Payment tracking
@@ -565,7 +566,7 @@ class PurchasePayment(Base):
     id = Column(Integer, primary_key=True, index=True)
     purchase_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
-    payment_date = Column(DateTime, default=datetime.datetime.now)
+    payment_date = Column(DateTime, default=get_venezuela_now)
     payment_method = Column(String, default="Efectivo")  # Efectivo, Transferencia, Cheque
     reference = Column(String, nullable=True)  # Transfer/check number
     notes = Column(Text, nullable=True)
@@ -603,7 +604,9 @@ class AuditLog(Base):
     record_id = Column(Integer, nullable=True)
     changes = Column(Text, nullable=True) # JSON String
     ip_address = Column(String, nullable=True)
-    timestamp = Column(DateTime, default=datetime.datetime.now, index=True)
+    timestamp = Column(DateTime, default=get_venezuela_now, index=True)
+
+    user = relationship("User")
 
 class Warehouse(Base):
     __tablename__ = "warehouses"
@@ -646,7 +649,7 @@ class TestAutoMigration(Base):
     id = Column(Integer, primary_key=True, index=True)
     test_name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.now)
+    created_at = Column(DateTime, default=get_venezuela_now)
     is_active = Column(Boolean, default=True)
 
 
@@ -656,10 +659,10 @@ class InventoryTransfer(Base):
     id = Column(Integer, primary_key=True, index=True)
     source_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
     target_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
-    date = Column(DateTime, default=datetime.datetime.now)
+    date = Column(DateTime, default=get_venezuela_now)
     status = Column(String, default="PENDING") # PENDING, COMPLETED, CANCELLED
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.now)
+    created_at = Column(DateTime, default=get_venezuela_now)
     updated_at = Column(DateTime, onupdate=datetime.datetime.now)
 
     source_warehouse = relationship("Warehouse", foreign_keys=[source_warehouse_id])

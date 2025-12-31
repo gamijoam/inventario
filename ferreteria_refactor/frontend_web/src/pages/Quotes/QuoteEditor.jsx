@@ -1,22 +1,23 @@
-import { useState, useEffect, useRef } from 'react';
-import { Search, Save, Trash2, Plus, Minus, User, MapPin, Layers, UserPlus } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Save, Trash2, Plus, Minus, User, MapPin, Layers, UserPlus, FileText, ChevronRight, ShoppingCart, ArrowLeft } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import ProductThumbnail from '../../components/products/ProductThumbnail';
 import QuickCustomerModal from '../../components/pos/QuickCustomerModal';
-import CustomerSearch from '../../components/pos/CustomerSearch'; // Import
+import CustomerSearch from '../../components/pos/CustomerSearch';
 import { useConfig } from '../../context/ConfigContext';
+import clsx from 'clsx';
 
 const QuoteEditor = ({ quoteId, onBack }) => {
     // State
     const [searchTerm, setSearchTerm] = useState('');
     const [catalog, setCatalog] = useState([]);
-    const [cart, setCart] = useState([]); // Local cart for quote
+    const [cart, setCart] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
     const [notes, setNotes] = useState('');
     const [saving, setSaving] = useState(false);
-    const [customers, setCustomers] = useState([]); // New state for customers
+    const [customers, setCustomers] = useState([]);
 
     // Refs
     const searchRef = useRef(null);
@@ -25,10 +26,10 @@ const QuoteEditor = ({ quoteId, onBack }) => {
     const { currencies } = useConfig();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
-    // Load initial data (Catalog + Quote if editing)
+    // Load initial data
     useEffect(() => {
         fetchCatalog();
-        fetchCustomers(); // Fetch customers
+        fetchCustomers();
         if (quoteId) {
             loadQuote(quoteId);
         }
@@ -56,9 +57,6 @@ const QuoteEditor = ({ quoteId, onBack }) => {
     const loadQuote = async (id) => {
         try {
             const { data } = await apiClient.get(`/quotes/${id}`);
-            // Restore Items
-            // Note: Mapping might depend on how backend returns items.
-            // Assuming simplified mapping for now.
             const mappedItems = data.items.map(item => ({
                 id: item.product_id,
                 name: item.product?.name || "Producto Desconocido",
@@ -66,16 +64,15 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                 unit_price: item.unit_price,
                 subtotal: item.subtotal,
                 image_url: item.product?.image_url,
-                price: item.unit_price // Fallback
+                price: item.unit_price,
+                sku: item.product?.sku
             }));
             setCart(mappedItems);
-            
-            // Restore Customer
+
             if (data.customer) {
                 setSelectedCustomer(data.customer);
             }
-            
-            // Restore Notes
+
             setNotes(data.notes || '');
         } catch (error) {
             console.error("Error loading quote:", error);
@@ -87,7 +84,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
     const filteredCatalog = catalog.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
-    ).slice(0, 20); // Limit to 20 for perf
+    ).slice(0, 24);
 
     // Cart Logic
     const addToCart = (product) => {
@@ -106,8 +103,9 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                 subtotal: Number(product.price)
             }];
         });
-        setSearchTerm(''); // Clear search after add
+        setSearchTerm('');
         searchRef.current?.focus();
+        toast.success("Producto agregado");
     };
 
     const updateQuantity = (id, delta) => {
@@ -138,13 +136,13 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                     quantity: item.quantity,
                     unit_price: item.unit_price,
                     subtotal: item.subtotal,
-                    is_box: false // Simplified for now
+                    is_box: false
                 }))
             };
 
             await apiClient.post('/quotes', payload);
-            toast.success("Cotización Guardada");
-            onBack(); // Return to list
+            toast.success("Cotización Guardada Exitosamente");
+            onBack();
         } catch (error) {
             console.error(error);
             toast.error("Error al guardar cotización");
@@ -154,78 +152,102 @@ const QuoteEditor = ({ quoteId, onBack }) => {
     };
 
     const totalAmount = cart.reduce((sum, item) => sum + Number(item.subtotal), 0);
-    
-    // Handle new customer creation from modal
+
     const handleCustomerCreated = (newCustomer) => {
         setCustomers(prev => [...prev, newCustomer]);
         setSelectedCustomer(newCustomer);
     };
 
     return (
-        <div className="h-full flex flex-col md:flex-row">
-            {/* LEFT: Catalog (60%) */}
-            <div className="flex-1 bg-slate-50 flex flex-col p-4 overflow-hidden border-r border-gray-200">
+        <div className="h-full flex flex-col md:flex-row gap-4 p-4 lg:p-0">
+            {/* LEFT: Catalog (60-70%) */}
+            <div className="flex-1 bg-slate-50 flex flex-col overflow-hidden rounded-2xl border border-slate-200">
                 {/* Search Bar */}
-                <div className="relative mb-4">
-                    <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-                    <input
-                        ref={searchRef}
-                        type="text"
-                        placeholder="Buscar productos (nombre o código)..."
-                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 shadow-sm"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        autoFocus
-                    />
+                <div className="p-4 bg-white border-b border-slate-200">
+                    <div className="relative">
+                        <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
+                        <input
+                            ref={searchRef}
+                            type="text"
+                            placeholder="Buscar productos para agregar a la cotización..."
+                            className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-inner font-medium text-lg"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
                 </div>
 
                 {/* Grid */}
-                <div className="flex-1 overflow-y-auto grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 content-start pb-20">
-                    {filteredCatalog.map(product => (
-                        <div
-                            key={product.id}
-                            onClick={() => addToCart(product)}
-                            className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:border-blue-400 hover:shadow-md transition-all group"
-                        >
-                            <div className="mb-2">
-                                <ProductThumbnail
-                                    imageUrl={product.image_url}
-                                    productName={product.name}
-                                    updatedAt={product.updated_at}
-                                    size="sm"
-                                />
-                            </div>
-                            <h4 className="font-bold text-gray-700 text-sm line-clamp-2 leading-tight mb-1">{product.name}</h4>
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {filteredCatalog.map(product => (
+                            <div
+                                key={product.id}
+                                onClick={() => addToCart(product)}
+                                className="bg-white rounded-xl shadow-sm border border-slate-200 cursor-pointer hover:border-indigo-400 hover:shadow-md hover:-translate-y-1 transition-all group overflow-hidden flex flex-col h-[260px]"
+                            >
+                                <div className="p-3 bg-slate-50 border-b border-slate-100 flex justify-center items-center h-[140px] relative">
+                                    <ProductThumbnail
+                                        imageUrl={product.image_url}
+                                        productName={product.name}
+                                        updatedAt={product.updated_at}
+                                        size="lg"
+                                        className="w-24 h-24 object-contain transition-transform group-hover:scale-110"
+                                    />
+                                    <div className="absolute top-2 right-2 bg-indigo-600 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                                        <Plus size={16} strokeWidth={3} />
+                                    </div>
+                                </div>
 
-                            {/* SKU & Location */}
-                            <div className="flex flex-wrap gap-1 mb-2">
-                                <span className="text-[10px] bg-slate-100 px-1.5 rounded text-slate-500 font-mono">{product.sku}</span>
-                                {product.location && (
-                                    <span className="text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-100 px-1 rounded flex items-center gap-0.5">
-                                        <MapPin size={8} /> {product.location}
-                                    </span>
-                                )}
-                            </div>
+                                <div className="p-3 flex-1 flex flex-col justify-between">
+                                    <div>
+                                        <h4 className="font-bold text-slate-700 text-sm line-clamp-2 leading-tight mb-1.5">{product.name}</h4>
+                                        <div className="flex flex-wrap gap-1 mb-2">
+                                            <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono border border-slate-200">{product.sku}</span>
+                                        </div>
+                                    </div>
 
-                            <div className="flex justify-between items-end mt-auto">
-                                <span className="font-black text-gray-800">{anchorCurrency.symbol}{Number(product.price).toFixed(2)}</span>
-                                <div className="text-[10px] text-gray-500">
-                                    Stock: {Number(product.stock).toFixed(0)}
+                                    <div className="flex justify-between items-end">
+                                        <span className="font-black text-slate-800 text-lg flex items-baseline gap-0.5">
+                                            <span className="text-xs text-slate-400">$</span>
+                                            {Number(product.price).toFixed(2)}
+                                        </span>
+                                        <div className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                                            Stock: {Number(product.stock).toFixed(0)}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            {/* RIGHT: Quote Builder (40%) */}
-            <div className="w-full md:w-[400px] xl:w-[450px] bg-white flex flex-col shadow-xl z-20">
+            {/* RIGHT: Quote Builder (30-40%) */}
+            <div className="w-full md:w-[400px] xl:w-[480px] bg-white flex flex-col shadow-xl z-20 rounded-2xl border border-slate-200 overflow-hidden">
+                {/* Header Actions */}
+                <div className="p-4 border-b border-slate-200 bg-slate-50/80 backdrop-blur-sm flex items-center justify-between">
+                    <button
+                        onClick={onBack}
+                        className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 hover:text-slate-800 transition-colors"
+                        title="Volver"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <h2 className="font-bold text-slate-700 flex items-center gap-2">
+                        <FileText size={18} className="text-indigo-600" /> Detalle de Cotización
+                    </h2>
+                </div>
+
                 {/* Customer Section */}
-                <div className="p-4 bg-slate-50 border-b border-gray-200">
-                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cliente</label>
-                     <div className="flex gap-2">
+                <div className="p-4 bg-white border-b border-slate-100">
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-1">
+                        <User size={12} /> Cliente
+                    </label>
+                    <div className="flex gap-2">
                         <div className="flex-1">
-                            <CustomerSearch 
+                            <CustomerSearch
                                 customers={customers}
                                 selectedCustomer={selectedCustomer}
                                 onSelect={setSelectedCustomer}
@@ -233,76 +255,86 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                         </div>
                         <button
                             onClick={() => setIsCustomerModalOpen(true)}
-                            className="bg-blue-100 text-blue-600 p-3 rounded-lg hover:bg-blue-200 transition-colors"
+                            className="bg-indigo-50 text-indigo-600 p-3 rounded-xl hover:bg-indigo-100 transition-colors border border-indigo-100 shadow-sm"
                             title="Crear Nuevo Cliente"
                         >
                             <UserPlus size={20} />
                         </button>
-                     </div>
+                    </div>
                 </div>
 
                 {/* Items List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50/30">
                     {cart.map(item => (
-                        <div key={item.id} className="flex gap-3 py-3 border-b border-gray-100 group">
-                            <div className="flex-1">
-                                <div className="font-bold text-gray-800 text-sm">{item.name}</div>
-                                <div className="text-xs text-blue-600 font-medium">
+                        <div key={item.id} className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex gap-3 group">
+                            {/* Image Placeholder */}
+                            <div className="w-12 h-12 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center p-1">
+                                <ProductThumbnail imageUrl={item.image_url} size="xs" />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                                <div className="font-bold text-slate-800 text-sm truncate">{item.name}</div>
+                                <div className="text-xs text-slate-500 font-medium mt-0.5">
                                     {anchorCurrency.symbol}{Number(item.unit_price).toFixed(2)} x unidad
                                 </div>
                             </div>
 
-                            {/* Qty Controls */}
-                            <div className="flex items-center gap-3">
-                                <div className="flex items-center bg-slate-100 rounded-lg">
-                                    <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-slate-200 rounded-l-lg"><Minus size={14} /></button>
-                                    <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                                    <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-slate-200 rounded-r-lg"><Plus size={14} /></button>
+                            {/* Qty Controls & Total */}
+                            <div className="flex flex-col items-end gap-2">
+                                <div className="font-black text-slate-800 text-base">
+                                    ${Number(item.subtotal).toFixed(2)}
                                 </div>
-                                <div className="flex flex-col items-end min-w-[60px]">
-                                    <span className="font-bold text-gray-900">{anchorCurrency.symbol}{Number(item.subtotal).toFixed(2)}</span>
+                                <div className="flex items-center bg-slate-100 rounded-lg border border-slate-200 p-0.5">
+                                    <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600"><Minus size={12} /></button>
+                                    <span className="w-6 text-center text-xs font-bold text-slate-700">{item.quantity}</span>
+                                    <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all text-indigo-600"><Plus size={12} /></button>
                                 </div>
-                                <button onClick={() => removeItem(item.id)} className="text-gray-300 hover:text-red-500 transition-colors">
-                                    <Trash2 size={16} />
-                                </button>
                             </div>
+
+                            <button
+                                onClick={() => removeItem(item.id)}
+                                className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 p-1.5 bg-rose-50 text-rose-500 rounded-lg hover:bg-rose-100 transition-all pointer-events-none group-hover:pointer-events-auto"
+                            >
+                                <Trash2 size={14} />
+                            </button>
                         </div>
                     ))}
+
                     {cart.length === 0 && (
-                        <div className="text-center text-gray-400 py-10 italic text-sm">
-                            Agrega productos desde el catálogo
+                        <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-60">
+                            <ShoppingCart size={48} className="mb-2" />
+                            <p className="text-sm font-medium">Carrito vacío</p>
                         </div>
                     )}
                 </div>
 
                 {/* Footer Controls */}
-                <div className="p-4 border-t border-gray-200 bg-slate-50 space-y-3">
-                    <textarea
-                        className="w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 outline-none resize-none"
-                        rows="2"
-                        placeholder="Notas para la cotización (ej: Válido por 5 días)..."
-                        value={notes}
-                        onChange={e => setNotes(e.target.value)}
-                    ></textarea>
+                <div className="p-5 border-t border-slate-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-30">
+                    <div className="mb-4">
+                        <textarea
+                            className="w-full text-sm p-3 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none bg-slate-50 transition-all"
+                            rows="2"
+                            placeholder="Notas para la cotización (ej: Válido por 5 días)..."
+                            value={notes}
+                            onChange={e => setNotes(e.target.value)}
+                        ></textarea>
+                    </div>
 
-                    <div className="flex justify-between items-center text-lg font-bold text-gray-800 px-2">
-                        <span>Total:</span>
-                        <span className="text-2xl">{anchorCurrency.symbol}{totalAmount.toFixed(2)}</span>
+                    <div className="flex justify-between items-end mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <span className="text-slate-500 font-bold uppercase text-xs mb-1 block">Total Estimado</span>
+                        <span className="text-3xl font-black text-slate-800 leading-none">{anchorCurrency.symbol}{totalAmount.toFixed(2)}</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <button
-                            onClick={onBack}
-                            className="w-full py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors"
-                        >
-                            Cancelar
-                        </button>
-                        <button
                             onClick={handleSave}
                             disabled={cart.length === 0 || saving}
-                            className={`w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-all ${saving ? 'opacity-70' : ''}`}
+                            className={clsx(
+                                "py-3.5 px-6 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 hover:bg-indigo-700 hover:-translate-y-0.5 active:scale-95 transition-all col-span-2",
+                                (saving || cart.length === 0) && "opacity-50 cursor-not-allowed shadow-none translate-y-0"
+                            )}
                         >
-                            <Save size={18} />
+                            <Save size={20} />
                             {saving ? 'Guardando...' : 'Guardar Cotización'}
                         </button>
                     </div>

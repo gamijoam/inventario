@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Building2, Phone, Mail, CreditCard } from 'lucide-react';
+import { Plus, Edit2, Trash2, Building2, Phone, Mail, Search, Truck, MapPin, FileText, CheckCircle, X, CreditCard } from 'lucide-react';
 import { useWebSocket } from '../context/WebSocketContext';
 import apiClient from '../config/axios';
+import clsx from 'clsx';
+import { toast } from 'react-hot-toast';
 
 const Suppliers = () => {
     const { subscribe } = useWebSocket();
@@ -9,17 +11,19 @@ const Suppliers = () => {
     const [showModal, setShowModal] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchSuppliers();
 
-        // WebSocket subscriptions for real-time updates
         const unsubCreate = subscribe('supplier:created', (newSupplier) => {
             setSuppliers(prev => [newSupplier, ...prev]);
+            toast.success(`Proveedor "${newSupplier.name}" creado`);
         });
 
         const unsubUpdate = subscribe('supplier:updated', (updatedSupplier) => {
             setSuppliers(prev => prev.map(s => s.id === updatedSupplier.id ? { ...s, ...updatedSupplier } : s));
+            toast.success(`Proveedor "${updatedSupplier.name}" actualizado`);
         });
 
         return () => {
@@ -34,6 +38,7 @@ const Suppliers = () => {
             setSuppliers(response.data);
         } catch (error) {
             console.error('Error fetching suppliers:', error);
+            toast.error('Error cargando proveedores');
         } finally {
             setLoading(false);
         }
@@ -50,8 +55,9 @@ const Suppliers = () => {
         try {
             await apiClient.delete(`/suppliers/${id}`);
             fetchSuppliers();
+            toast.success('Proveedor eliminado');
         } catch (error) {
-            alert(error.response?.data?.detail || 'Error al eliminar proveedor');
+            toast.error(error.response?.data?.detail || 'Error al eliminar proveedor');
         }
     };
 
@@ -65,95 +71,130 @@ const Suppliers = () => {
         handleModalClose();
     };
 
+    const filteredSuppliers = suppliers.filter(s =>
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.contact_person?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     return (
-        <div className="p-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div className="p-6 max-w-[1600px] mx-auto min-h-screen flex flex-col">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Proveedores</h1>
-                    <p className="text-gray-600">Gestión de proveedores y términos de crédito</p>
+                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                        <Truck className="text-indigo-600" size={32} /> Proveedores
+                    </h1>
+                    <p className="text-slate-500 font-medium">Gestión de proveedores, contactos y términos de crédito</p>
                 </div>
                 <button
                     onClick={() => setShowModal(true)}
-                    className="w-full md:w-auto flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors"
+                    className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all"
                 >
-                    <Plus size={20} className="mr-2" />
+                    <Plus size={20} />
                     Nuevo Proveedor
                 </button>
             </div>
 
+            {/* Search Bar */}
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6 flex items-center gap-4">
+                <div className="relative flex-1 group">
+                    <Search className="absolute left-3 top-3 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Buscar proveedor por nombre o contacto..."
+                        className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-slate-50 focus:bg-white transition-all"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <div className="hidden md:flex items-center gap-2 text-sm text-slate-500 font-medium px-4 border-l border-slate-100">
+                    <Building2 size={16} />
+                    {filteredSuppliers.length} Proveedores
+                </div>
+            </div>
+
             {/* Suppliers Table (Desktop) */}
-            <div className="hidden md:block bg-white rounded-lg shadow">
+            <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <table className="w-full">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                            <th className="text-left p-4 font-semibold text-gray-700">Proveedor</th>
-                            <th className="text-left p-4 font-semibold text-gray-700">Contacto</th>
-                            <th className="text-center p-4 font-semibold text-gray-700">Términos Pago</th>
-                            <th className="text-right p-4 font-semibold text-gray-700">Límite Crédito</th>
-                            <th className="text-right p-4 font-semibold text-gray-700">Deuda Actual</th>
-                            <th className="text-right p-4 font-semibold text-gray-700">Acciones</th>
+                            <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Proveedor</th>
+                            <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Contacto Principal</th>
+                            <th className="text-center py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Términos Pago</th>
+                            <th className="text-right py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Límite Crédito</th>
+                            <th className="text-right py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Deuda Actual</th>
+                            <th className="text-right py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody className="divide-y divide-slate-100">
                         {loading ? (
                             <tr>
-                                <td colSpan="6" className="text-center p-8 text-gray-500">
+                                <td colSpan="6" className="text-center py-16 text-slate-400">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-2"></div>
                                     Cargando...
                                 </td>
                             </tr>
-                        ) : suppliers.length === 0 ? (
+                        ) : filteredSuppliers.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="text-center p-8 text-gray-500">
-                                    No hay proveedores registrados
+                                <td colSpan="6" className="text-center py-16 text-slate-400">
+                                    <Truck size={48} className="mx-auto mb-3 opacity-20" />
+                                    <p className="font-medium">No se encontraron proveedores</p>
                                 </td>
                             </tr>
                         ) : (
-                            suppliers.map(supplier => (
-                                <tr key={supplier.id} className="hover:bg-gray-50">
-                                    <td className="p-4">
-                                        <div className="font-medium text-gray-800">{supplier.name}</div>
+                            filteredSuppliers.map((supplier, idx) => (
+                                <tr key={supplier.id} className={clsx("hover:bg-slate-50/80 transition-colors", idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                                    <td className="py-4 px-6">
+                                        <div className="font-bold text-slate-800">{supplier.name}</div>
                                         {supplier.email && (
-                                            <div className="text-xs text-gray-500">{supplier.email}</div>
+                                            <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                                                <Mail size={12} /> {supplier.email}
+                                            </div>
                                         )}
                                     </td>
-                                    <td className="p-4">
+                                    <td className="py-4 px-6">
                                         <div className="text-sm">
-                                            {supplier.contact_person && (
-                                                <div className="text-gray-700">{supplier.contact_person}</div>
-                                            )}
+                                            {supplier.contact_person ? (
+                                                <div className="text-slate-700 font-medium flex items-center gap-1.5">
+                                                    <Building2 size={14} className="text-slate-400" /> {supplier.contact_person}
+                                                </div>
+                                            ) : <span className="text-slate-400 italic">No registrado</span>}
                                             {supplier.phone && (
-                                                <div className="text-gray-500">{supplier.phone}</div>
+                                                <div className="text-slate-500 text-xs mt-0.5 flex items-center gap-1">
+                                                    <Phone size={12} /> {supplier.phone}
+                                                </div>
                                             )}
                                         </div>
                                     </td>
-                                    <td className="p-4 text-center">
-                                        <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                                    <td className="py-4 px-6 text-center">
+                                        <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-xs font-bold">
                                             {supplier.payment_terms || 0} días
                                         </span>
                                     </td>
-                                    <td className="p-4 text-right font-medium">
-                                        {supplier.credit_limit ? `$${Number(supplier.credit_limit).toFixed(2)}` : '-'}
+                                    <td className="py-4 px-6 text-right font-medium text-slate-600">
+                                        {supplier.credit_limit ? `$${Number(supplier.credit_limit).toLocaleString()}` : <span className="text-slate-300">-</span>}
                                     </td>
-                                    <td className="p-4 text-right">
-                                        <span className={`font-bold ${supplier.current_balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                            ${Number(supplier.current_balance || 0).toFixed(2)}
+                                    <td className="py-4 px-6 text-right">
+                                        <span className={clsx("font-bold px-2 py-1 rounded-lg text-sm",
+                                            supplier.current_balance > 0 ? 'bg-rose-50 text-rose-600' : 'text-emerald-600'
+                                        )}>
+                                            ${Number(supplier.current_balance || 0).toLocaleString()}
                                         </span>
                                     </td>
-                                    <td className="p-4">
+                                    <td className="py-4 px-6">
                                         <div className="flex justify-end gap-2">
                                             <button
                                                 onClick={() => handleEdit(supplier)}
-                                                className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                                 title="Editar"
                                             >
-                                                <Edit2 size={18} />
+                                                <Edit2 size={16} />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(supplier.id, supplier.name)}
-                                                className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                                                 title="Eliminar"
                                             >
-                                                <Trash2 size={18} />
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                     </td>
@@ -165,62 +206,64 @@ const Suppliers = () => {
             </div>
 
             {/* Mobile Card View */}
-            <div className="md:hidden space-y-4">
+            <div className="md:hidden grid grid-cols-1 gap-4">
                 {loading ? (
-                    <div className="text-center p-8 text-gray-500">Cargando...</div>
-                ) : suppliers.length === 0 ? (
-                    <div className="text-center p-8 text-gray-500">No hay proveedores registrados</div>
+                    <div className="text-center p-8 text-slate-500">Cargando...</div>
+                ) : filteredSuppliers.length === 0 ? (
+                    <div className="text-center p-8 text-slate-500 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
+                        No se encontraron proveedores
+                    </div>
                 ) : (
-                    suppliers.map(supplier => (
-                        <div key={supplier.id} className="bg-white p-4 rounded-lg shadow border border-gray-100 flex flex-col gap-3">
+                    filteredSuppliers.map(supplier => (
+                        <div key={supplier.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-4">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <h3 className="font-bold text-gray-800 text-lg">{supplier.name}</h3>
+                                    <h3 className="font-bold text-slate-800 text-lg">{supplier.name}</h3>
                                     {supplier.contact_person && (
-                                        <div className="text-sm text-gray-600 flex items-center mt-1">
-                                            <Building2 size={14} className="mr-1" /> {supplier.contact_person}
+                                        <div className="text-sm text-slate-500 font-medium flex items-center gap-1.5 mt-1">
+                                            <Building2 size={14} /> {supplier.contact_person}
                                         </div>
                                     )}
                                 </div>
                                 <div className="text-right">
-                                    <div className={`font-bold text-lg ${supplier.current_balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                        ${Number(supplier.current_balance || 0).toFixed(2)}
+                                    <div className={clsx("font-black text-lg", supplier.current_balance > 0 ? 'text-rose-600' : 'text-emerald-600')}>
+                                        ${Number(supplier.current_balance || 0).toLocaleString()}
                                     </div>
-                                    <div className="text-xs text-gray-500">Deuda Actual</div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-400">Deuda Actual</div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-sm border-t border-b border-gray-100 py-2">
+                            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
                                 <div>
-                                    <div className="text-gray-500 text-xs">Teléfono</div>
-                                    <div className="font-medium">{supplier.phone || '-'}</div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Teléfono</div>
+                                    <div className="font-medium text-slate-700 text-sm truncate">{supplier.phone || '-'}</div>
                                 </div>
                                 <div>
-                                    <div className="text-gray-500 text-xs">Email</div>
-                                    <div className="font-medium truncate">{supplier.email || '-'}</div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Email</div>
+                                    <div className="font-medium text-slate-700 text-sm truncate">{supplier.email || '-'}</div>
                                 </div>
                                 <div>
-                                    <div className="text-gray-500 text-xs">Crédito</div>
-                                    <div className="font-medium">{supplier.credit_limit ? `$${Number(supplier.credit_limit).toFixed(2)}` : '-'}</div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Crédito</div>
+                                    <div className="font-medium text-slate-700 text-sm">{supplier.credit_limit ? `$${Number(supplier.credit_limit).toLocaleString()}` : '-'}</div>
                                 </div>
                                 <div>
-                                    <div className="text-gray-500 text-xs">Plazo</div>
-                                    <div className="font-medium">{supplier.payment_terms || 0} días</div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Plazo</div>
+                                    <div className="font-medium text-slate-700 text-sm">{supplier.payment_terms || 0} días</div>
                                 </div>
                             </div>
 
                             <div className="flex justify-end gap-3 pt-2">
                                 <button
                                     onClick={() => handleEdit(supplier)}
-                                    className="flex items-center text-blue-600 bg-blue-50 px-3 py-2 rounded-lg font-medium text-sm"
+                                    className="flex-1 flex items-center justify-center text-indigo-700 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 py-2.5 rounded-xl font-bold text-sm transition-colors"
                                 >
-                                    <Edit2 size={16} className="mr-1" /> Editar
+                                    <Edit2 size={16} className="mr-2" /> Editar
                                 </button>
                                 <button
                                     onClick={() => handleDelete(supplier.id, supplier.name)}
-                                    className="flex items-center text-red-600 bg-red-50 px-3 py-2 rounded-lg font-medium text-sm"
+                                    className="flex-1 flex items-center justify-center text-rose-700 bg-rose-50 border border-rose-100 hover:bg-rose-100 py-2.5 rounded-xl font-bold text-sm transition-colors"
                                 >
-                                    <Trash2 size={16} className="mr-1" /> Eliminar
+                                    <Trash2 size={16} className="mr-2" /> Eliminar
                                 </button>
                             </div>
                         </div>
@@ -271,161 +314,190 @@ const SupplierModal = ({ supplier, onClose, onSuccess }) => {
                 await apiClient.post('/suppliers', payload);
             }
 
-            alert('Proveedor guardado exitosamente');
+            toast.success('Proveedor guardado exitosamente');
             onSuccess();
         } catch (error) {
             console.error('Error saving supplier:', error);
-            alert(error.response?.data?.detail || 'Error al guardar proveedor');
+            toast.error(error.response?.data?.detail || 'Error al guardar proveedor');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
-                <div className="p-6 border-b bg-gray-50">
-                    <h3 className="text-xl font-bold text-gray-800">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden transform transition-all scale-100">
+                <div className="p-5 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center">
+                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <Truck className="text-indigo-600" size={24} />
                         {supplier ? 'Editar Proveedor' : 'Nuevo Proveedor'}
                     </h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                        <X size={20} />
+                    </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-140px)]">
+                <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
                     {/* Basic Info */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="md:col-span-2">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 pb-1 border-b border-slate-100">Información General</h4>
+                        </div>
+
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                                 Nombre del Proveedor *
                             </label>
                             <input
                                 type="text"
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
+                                placeholder="Ej: Distribuidora Ferretera C.A."
                                 required
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ">
                                 Persona de Contacto
                             </label>
-                            <input
-                                type="text"
-                                value={formData.contact_person}
-                                onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
+                            <div className="relative">
+                                <Building2 className="absolute left-3 top-3 text-slate-400" size={18} />
+                                <input
+                                    type="text"
+                                    value={formData.contact_person}
+                                    onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
+                                    placeholder="Nombre del Vendedor"
+                                />
+                            </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                                 Teléfono
                             </label>
-                            <input
-                                type="tel"
-                                value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
+                            <div className="relative">
+                                <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
+                                <input
+                                    type="tel"
+                                    value={formData.phone}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
+                                    placeholder="+58 ..."
+                                />
+                            </div>
                         </div>
 
-                        <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                                 Email
                             </label>
-                            <input
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                            />
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
+                                <input
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
+                                    placeholder="contacto@proveedor.com"
+                                />
+                            </div>
                         </div>
 
-                        <div className="col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Dirección
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                Dirección Fiscal
                             </label>
-                            <textarea
-                                value={formData.address}
-                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                                rows="2"
-                            />
+                            <div className="relative">
+                                <MapPin className="absolute left-3 top-3 text-slate-400" size={18} />
+                                <textarea
+                                    value={formData.address}
+                                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none font-medium text-slate-700"
+                                    rows="2"
+                                    placeholder="Dirección completa..."
+                                />
+                            </div>
                         </div>
                     </div>
 
                     {/* Financial Info */}
-                    <div className="border-t pt-4">
-                        <h4 className="text-md font-bold text-gray-700 mb-3 flex items-center">
-                            <CreditCard size={18} className="mr-2" />
+                    <div className="border-t border-slate-100 pt-6">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 pb-1 flex items-center gap-2">
+                            <CreditCard size={16} />
                             Información Financiera
                         </h4>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Términos de Pago (días)
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Términos de Pago
                                 </label>
-                                <input
-                                    type="number"
-                                    value={formData.payment_terms}
-                                    onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                    min="0"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Ej: 15, 30, 60 días de crédito
-                                </p>
+                                <div className="relative">
+                                    <input
+                                        type="number"
+                                        value={formData.payment_terms}
+                                        onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
+                                        className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700"
+                                        min="0"
+                                    />
+                                    <span className="absolute right-4 top-3 text-slate-400 text-sm font-medium">días</span>
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Límite de Crédito ($)
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                                    Límite de Crédito
                                 </label>
-                                <input
-                                    type="number"
-                                    value={formData.credit_limit}
-                                    onChange={(e) => setFormData({ ...formData, credit_limit: e.target.value })}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                    min="0"
-                                    step="0.01"
-                                    placeholder="Opcional"
-                                />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Monto máximo de deuda permitido
-                                </p>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                                    <input
+                                        type="number"
+                                        value={formData.credit_limit}
+                                        onChange={(e) => setFormData({ ...formData, credit_limit: e.target.value })}
+                                        className="w-full pl-8 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Notes */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Notas
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                            Notas Adicionales
                         </label>
-                        <textarea
-                            value={formData.notes}
-                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                            rows="3"
-                            placeholder="Observaciones adicionales..."
-                        />
+                        <div className="relative">
+                            <FileText className="absolute left-3 top-3 text-slate-400" size={18} />
+                            <textarea
+                                value={formData.notes}
+                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none text-sm text-slate-700"
+                                rows="3"
+                                placeholder="Observaciones, horarios de entrega, etc..."
+                            />
+                        </div>
                     </div>
                 </form>
 
-                <div className="p-6 border-t bg-gray-50 flex justify-end gap-3">
+                <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3 rounded-b-2xl sticky bottom-0 z-10">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium transition-colors"
+                        className="px-5 py-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 font-bold rounded-xl transition-colors"
                     >
                         Cancelar
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
                     >
+                        <CheckCircle size={18} />
                         {loading ? 'Guardando...' : 'Guardar Proveedor'}
                     </button>
                 </div>
