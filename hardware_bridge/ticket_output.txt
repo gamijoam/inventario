@@ -1,0 +1,36 @@
+=== TICKET DE VENTA ===
+INVENTARIO
+
+RIF: 
+Tel: 
+================================
+Fecha: 25/12/2025 19:30
+Factura: #10
+Cliente: Consumidor Final
+DOC: 
+
+================================
+CANT   PRODUCTO         TOTAL
+--------------------------------
+
+1 x Silicon Tableros
+
+       $3.50
+
+
+1 x Pepito Pequeño
+
+       $0.50
+
+
+================================
+SUBTOTAL:       $4.00
+
+TOTAL A PAGAR:  $4.00
+================================
+PAGOS:
+
+- Efectivo: USD4.00
+
+================================
+      Gracias por su compra

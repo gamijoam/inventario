@@ -1,0 +1,7 @@
+Carpeta para alojar las actualizaciones.
+Cuando generes una nueva versión:
+1. Comprime tu carpeta 'InventarioSoft' (la que genera el build).
+2. Nombra el archivo como 'update_ferreteria.zip'.
+3. Ponlo aquí.
+4. Sube los cambios a GitHub (git push).
+5. Netlify lo publicará en: https://TU-SITIO.netlify.app/downloads/update_ferreteria.zip
