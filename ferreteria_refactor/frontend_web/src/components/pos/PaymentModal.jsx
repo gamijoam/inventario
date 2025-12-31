@@ -213,58 +213,62 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row h-[600px]">
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row h-[600px] animate-in fade-in zoom-in-95 duration-200">
                 {/* Left: Totals Summary */}
                 <div className="bg-slate-900 text-white p-8 md:w-1/3 flex flex-col relative">
-                    <h3 className="text-gray-400 uppercase text-sm font-bold mb-6">Resumen de Pago</h3>
+                    <h3 className="text-slate-400 uppercase text-xs font-bold tracking-widest mb-6 border-b border-slate-800 pb-2">Resumen de Pago</h3>
 
                     <div className="mb-8">
-                        <div className="text-sm text-gray-400">Total a Pagar</div>
-                        <div className="text-4xl font-bold text-white tracking-tight">
+                        <div className="text-sm text-slate-400 font-medium">Total a Pagar</div>
+                        <div className="text-4xl font-black text-white tracking-tight">
                             ${formatCurrency(totalUSD, 'USD')}
                         </div>
                     </div>
 
-                    <div className="space-y-4 mb-8 flex-1 overflow-y-auto">
-                        <div className="space-y-4 mb-8 flex-1 overflow-y-auto">
-                            <h4 className="text-xs text-gray-500 font-bold uppercase border-b border-gray-700 pb-1 mb-2">Restante por Pagar</h4>
-                            {currencies.map(curr => {
-                                // Calculate REMAINING amount in this currency
-                                const amount = Math.max(0, remainingUSD) * (curr.rate || 1);
+                    <div className="space-y-4 mb-8 flex-1 overflow-y-auto pr-2 custom-scrollbar-dark">
+                        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-800">
+                            <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-3">Pendiente por Pagar</h4>
+                            <div className="space-y-3">
+                                {currencies.map(curr => {
+                                    // Calculate REMAINING amount in this currency
+                                    const amount = Math.max(0, remainingUSD) * (curr.rate || 1);
 
-                                return (
-                                    <div key={curr.symbol} className="flex justify-between items-center border-b border-gray-700 pb-2 last:border-0">
-                                        <span className="text-gray-400 text-sm">{curr.name}</span>
-                                        <span className="font-mono text-blue-300 flex flex-col items-end">
-                                            <span className={`text-lg font-bold ${amount > 0.005 ? 'text-white' : 'text-green-500'}`}>
-                                                {amount > 0.005
-                                                    ? `${formatCurrency(amount, curr.symbol)} ${curr.symbol}`
-                                                    : '¡COMPLETO!'
-                                                }
-                                            </span>
-                                            {curr.symbol !== 'USD' && (
-                                                <span className="text-xs text-gray-500">Tasa: {formatCurrency(curr.rate, 'VE')}</span>
-                                            )}
-                                        </span>
-                                    </div>
-                                );
-                            })}
+                                    return (
+                                        <div key={curr.symbol} className="flex justify-between items-end border-b border-slate-700/50 pb-2 last:border-0 last:pb-0">
+                                            <span className="text-slate-400 text-sm font-medium">{curr.name}</span>
+                                            <div className="flex flex-col items-end">
+                                                <span className={`text-base font-bold font-mono ${amount > 0.005 ? 'text-white' : 'text-emerald-400'}`}>
+                                                    {amount > 0.005
+                                                        ? `${formatCurrency(amount, curr.symbol)}`
+                                                        : 'COMPLETO'
+                                                    }
+                                                </span>
+                                                {curr.symbol !== 'USD' && amount > 0.005 && (
+                                                    <span className="text-[10px] text-slate-600">Tasa: {formatCurrency(curr.rate, 'VE')}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
                     {!isCreditSale && (
-                        <div className={`mt-auto p-4 rounded-lg ${isComplete ? 'bg-green-600/20 border border-green-500' : 'bg-red-600/20 border border-red-500'}`}>
+                        <div className={`mt-auto p-4 rounded-xl border-2 ${isComplete
+                            ? 'bg-emerald-500/10 border-emerald-500/20'
+                            : 'bg-rose-500/10 border-rose-500/20'
+                            }`}>
                             {isComplete ? (
                                 <div className="text-center">
-                                    <div className="text-sm text-green-300 mb-1">Cambio / Vuelto</div>
-                                    <div className="text-3xl font-bold text-green-400">${formatCurrency(changeUSD, 'USD')}</div>
+                                    <div className="text-xs font-bold text-emerald-400 uppercase tracking-wide mb-1">Su Cambio / Vuelto</div>
+                                    <div className="text-3xl font-black text-emerald-300 tracking-tight">${formatCurrency(changeUSD, 'USD')}</div>
                                     {currencies.find(c => !c.is_anchor) && (
-                                        <div className="text-lg font-bold text-green-400/70 mt-1">
+                                        <div className="text-sm font-bold text-emerald-400/60 mt-1 font-mono">
                                             {(() => {
                                                 const local = currencies.find(c => !c.is_anchor);
                                                 const amount = changeUSD * (local.rate || 1);
-                                                // Ensure we don't show negative change roughly
                                                 const displayAmount = Math.max(0, amount);
                                                 return `${local.symbol} ${formatCurrency(displayAmount, local.symbol)}`;
                                             })()}
@@ -273,10 +277,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                                 </div>
                             ) : (
                                 <div className="text-center">
-                                    <div className="text-sm text-red-300 mb-1">Falta por Pagar</div>
-                                    <div className="text-3xl font-bold text-red-400">${formatCurrency(Math.abs(remainingUSD), 'USD')}</div>
+                                    <div className="text-xs font-bold text-rose-400 uppercase tracking-wide mb-1">Falta por Pagar</div>
+                                    <div className="text-3xl font-black text-rose-300 tracking-tight">${formatCurrency(Math.abs(remainingUSD), 'USD')}</div>
                                     {currencies.find(c => !c.is_anchor) && (
-                                        <div className="text-lg font-bold text-red-400/70 mt-1">
+                                        <div className="text-sm font-bold text-rose-400/60 mt-1 font-mono">
                                             {(() => {
                                                 const local = currencies.find(c => !c.is_anchor);
                                                 const amount = Math.abs(remainingUSD) * (local.rate || 1);
@@ -290,13 +294,25 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                     )}
 
                     {selectedCustomer && (
-                        <div className={`mt-auto p-4 rounded-lg ${isCreditSale ? 'bg-blue-600/20 border border-blue-500' : 'bg-gray-800 border border-gray-700'}`}>
-                            <div className="text-center">
-                                <div className={`text-sm mb-1 ${isCreditSale ? 'text-blue-300' : 'text-gray-400'}`}>Cliente Asignado</div>
-                                <div className={`text-lg font-bold ${isCreditSale ? 'text-blue-400' : 'text-white'}`}>{selectedCustomer.name}</div>
+                        <div className={`mt-3 px-4 py-3 rounded-xl border ${isCreditSale
+                            ? 'bg-indigo-500/10 border-indigo-500/30'
+                            : 'bg-slate-800 border-slate-700'
+                            }`}>
+                            <div className="flex justify-between items-center">
+                                <div className="flex flex-col text-left">
+                                    <span className={`text-[10px] uppercase font-bold ${isCreditSale ? 'text-indigo-300' : 'text-slate-500'}`}>
+                                        Cliente
+                                    </span>
+                                    <span className={`text-sm font-bold truncate max-w-[150px] ${isCreditSale ? 'text-indigo-200' : 'text-slate-300'}`}>
+                                        {selectedCustomer.name}
+                                    </span>
+                                </div>
                                 {isCreditSale && (
-                                    <div className="text-xs text-blue-300 mt-2">
-                                        Límite: ${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}
+                                    <div className="text-right">
+                                        <span className="block text-[10px] text-indigo-300 font-bold uppercase">Límite</span>
+                                        <span className="text-sm font-mono font-bold text-indigo-400">
+                                            ${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}
+                                        </span>
                                     </div>
                                 )}
                             </div>
@@ -305,33 +321,34 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                 </div>
 
                 {/* Right: Payment Input */}
-                <div className="p-8 md:w-2/3 bg-gray-50 flex flex-col">
+                <div className="p-8 md:w-2/3 bg-white flex flex-col">
                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-gray-800 font-bold text-xl flex items-center">
-                            <Banknote className="mr-2" /> Método de Pago
+                        <h3 className="text-slate-800 font-bold text-xl flex items-center gap-2">
+                            <Banknote className="text-slate-400" size={24} />
+                            Método de Pago
                         </h3>
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
                             <X size={24} />
                         </button>
                     </div>
 
                     {/* Customer Selection (Generic for ALL sales) */}
-                    <div className={`mb-6 p-4 rounded-xl border-2 transition-colors ${isCreditSale && !selectedCustomer
-                        ? 'bg-red-50 border-red-200'
-                        : 'bg-white border-transparent'
+                    <div className={`mb-6 p-4 rounded-xl border-2 transition-all duration-300 ${isCreditSale && !selectedCustomer
+                        ? 'bg-rose-50 border-rose-200 shadow-inner'
+                        : 'bg-slate-50 border-slate-100'
                         }`}>
-                        <label className="block text-sm font-medium text-gray-700 mb-2 flex justify-between items-center">
-                            <span className="flex items-center gap-1">
+                        <div className="flex justify-between items-center mb-3">
+                            <label className="text-sm font-bold text-slate-700 flex items-center gap-1">
                                 Cliente
-                                {isCreditSale && <span className="text-red-500 font-bold" title="Requerido para crédito">*</span>}
-                            </span>
+                                {isCreditSale && <span className="text-rose-500 font-bold text-xs bg-rose-100 px-1.5 py-0.5 rounded-full ml-1">Requerido</span>}
+                            </label>
                             <button
                                 onClick={() => setIsQuickCustomerOpen(true)}
-                                className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full hover:bg-blue-200 transition flex items-center gap-1 font-bold shadow-sm"
+                                className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition flex items-center gap-1 font-bold shadow-sm"
                             >
-                                <UserPlus size={14} /> Nuevo Cliente
+                                <UserPlus size={12} /> Nuevo Cliente
                             </button>
-                        </label>
+                        </div>
 
                         <CustomerSearch
                             customers={customers}
@@ -340,56 +357,71 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                         />
 
                         {isCreditSale && !selectedCustomer && (
-                            <div className="mt-2 text-xs text-red-600 font-medium animate-pulse">
-                                ⚠ Debe seleccionar un cliente para proceder con la venta a crédito.
+                            <div className="mt-2 text-xs text-rose-600 font-medium flex items-center gap-1 animate-pulse">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                                Debe seleccionar un cliente para proceder con la venta a crédito.
                             </div>
                         )}
 
                         {isCreditSale && selectedCustomer && (
-                            <div className="mt-3 flex gap-3 text-sm bg-blue-50 p-2 rounded-lg border border-blue-100">
+                            <div className="mt-3 flex gap-4 text-sm bg-white p-3 rounded-lg border border-indigo-100 shadow-sm">
                                 <div className="flex-1">
-                                    <span className="block text-xs text-gray-500 uppercase font-bold">Límite de Crédito</span>
-                                    <span className="font-bold text-blue-700">${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}</span>
+                                    <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Límite de Crédito</span>
+                                    <span className="font-bold text-indigo-600 font-mono text-base">${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}</span>
                                 </div>
-                                <div className="flex-1 border-l border-blue-200 pl-3">
-                                    <span className="block text-xs text-gray-500 uppercase font-bold">Plazo de Pago</span>
-                                    <span className="font-bold text-blue-700">{selectedCustomer.payment_term_days || 15} días</span>
+                                <div className="flex-1 border-l border-slate-100 pl-4">
+                                    <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Plazo de Pago</span>
+                                    <span className="font-bold text-slate-700">{selectedCustomer.payment_term_days || 15} días</span>
                                 </div>
                             </div>
                         )}
                     </div>
 
                     {/* Credit Sale Toggle */}
-                    <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                        <label className="flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={isCreditSale}
-                                onChange={(e) => setIsCreditSale(e.target.checked)}
-                                className="w-5 h-5 mr-3"
-                            />
-                            <Users className="mr-2 text-blue-600" size={20} />
-                            <span className="font-semibold text-blue-800">Venta a Crédito</span>
+                    <div className={`mb-6 p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-md ${isCreditSale
+                        ? 'bg-indigo-50 border-indigo-200'
+                        : 'bg-white border-slate-200 hover:border-indigo-200'
+                        }`}>
+                        <label className="flex items-center cursor-pointer w-full select-none">
+                            <div className="relative flex items-center">
+                                <input
+                                    type="checkbox"
+                                    checked={isCreditSale}
+                                    onChange={(e) => setIsCreditSale(e.target.checked)}
+                                    className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-300 bg-white checked:border-indigo-500 checked:bg-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                                />
+                                <CheckCircle className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100" size={14} strokeWidth={3} />
+                            </div>
+                            <span className="ml-3 flex-1">
+                                <span className={`block font-bold transition-colors ${isCreditSale ? 'text-indigo-800' : 'text-slate-700'}`}>
+                                    Venta a Crédito
+                                </span>
+                                <span className={`block text-xs transition-colors ${isCreditSale ? 'text-indigo-600' : 'text-slate-400'}`}>
+                                    El pago se registrará como pendiente
+                                </span>
+                            </span>
+                            <Users className={`ml-2 transition-colors ${isCreditSale ? 'text-indigo-500' : 'text-slate-300'}`} size={24} />
                         </label>
                     </div>
 
                     {/* Payment Rows (only for cash sales) */}
                     {!isCreditSale && (
                         <>
-                            <div className="flex justify-end mb-3">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Desglose de Pago</span>
                                 <button
                                     onClick={addPaymentRow}
-                                    className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-bold hover:bg-blue-200 transition"
+                                    className="text-xs bg-slate-50 text-indigo-600 border border-indigo-100 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-50 hover:border-indigo-200 transition"
                                 >
                                     + Agregar Método
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto space-y-3 mb-6 pr-2">
+                            <div className="flex-1 overflow-y-auto space-y-3 mb-6 pr-2 custom-scrollbar">
                                 {payments.map((payment, index) => (
-                                    <div key={index} className="flex gap-2 items-center bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+                                    <div key={index} className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all">
                                         <select
-                                            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                            className="bg-slate-50 border-0 text-slate-700 text-sm font-semibold rounded-lg focus:ring-0 block p-2.5 min-w-[120px]"
                                             value={payment.method}
                                             onChange={(e) => updatePayment(index, 'method', e.target.value)}
                                         >
@@ -399,7 +431,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                                         </select>
 
                                         <select
-                                            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 w-24"
+                                            className="bg-slate-50 border-0 text-slate-700 text-sm font-bold rounded-lg focus:ring-0 block p-2.5 w-20 text-center"
                                             value={payment.currency}
                                             onChange={(e) => updatePayment(index, 'currency', e.target.value)}
                                         >
@@ -408,13 +440,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                                             ))}
                                         </select>
 
-                                        <span className="flex items-center bg-gray-50 border border-gray-300 border-r-0 rounded-l-lg px-3 text-gray-500 font-bold min-w-[3rem] justify-center">
-                                            {payment.currency}
-                                        </span>
+                                        <div className="h-6 w-px bg-slate-200 mx-1"></div>
+
                                         <CurrencyInput
                                             currencySymbol={payment.currency === 'USD' ? '$' : payment.currency}
-                                            placeholder="Monto"
-                                            className="flex-1 bg-white border border-gray-300 text-gray-900 text-sm rounded-r-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
+                                            placeholder="0.00"
+                                            className="flex-1 bg-transparent border-none text-slate-900 text-lg font-bold placeholder-slate-300 focus:ring-0 block p-2 text-right"
                                             value={payment.amount}
                                             onChange={(val) => updatePayment(index, 'amount', val)}
                                         />
@@ -422,9 +453,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                                         {payments.length > 1 && (
                                             <button
                                                 onClick={() => removePaymentRow(index)}
-                                                className="text-red-400 hover:text-red-600 p-2"
+                                                className="text-slate-300 hover:text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors"
                                             >
-                                                &times;
+                                                <X size={18} />
                                             </button>
                                         )}
                                     </div>
@@ -434,19 +465,19 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                     )}
 
                     {/* Actions */}
-                    <div className="mt-auto flex gap-4">
+                    <div className="mt-auto flex gap-4 pt-4 border-t border-slate-100">
                         <button
                             onClick={onClose}
-                            className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-semibold transition-colors"
+                            className="flex-1 px-6 py-4 border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-slate-800 transition-all"
                         >
                             Cancelar
                         </button>
                         <button
                             onClick={handleConfirm}
                             disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)}
-                            className={`flex-1 px-6 py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)
-                                ? 'bg-gray-300 cursor-not-allowed'
-                                : 'bg-green-600 hover:bg-green-700 text-white'
+                            className={`flex-[2] px-6 py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)
+                                ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
+                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
                                 }`}
                         >
                             {processing ? (
@@ -454,7 +485,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                             ) : isCreditSale ? (
                                 <>
                                     <CreditCard size={20} />
-                                    Registrar Venta a Crédito
+                                    Registrar Crédito
                                 </>
                             ) : (
                                 <>

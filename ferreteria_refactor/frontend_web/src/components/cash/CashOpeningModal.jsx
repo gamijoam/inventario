@@ -61,46 +61,53 @@ const CashOpeningModal = ({ onOpen }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-8">
-                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Lock size={40} className="text-red-500" />
+        <div className="fixed inset-0 bg-slate-900 flex items-center justify-center z-50">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 animate-in fade-in zoom-in duration-300">
+                <div className="w-24 h-24 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <Lock size={40} className="text-rose-500" />
                 </div>
 
-                <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">Caja Cerrada</h2>
-                <p className="text-gray-500 mb-6 text-center">Ingresa el dinero inicial para cada moneda</p>
+                <h2 className="text-2xl font-black text-slate-800 mb-2 text-center tracking-tight">Caja Cerrada</h2>
+                <p className="text-slate-500 mb-8 text-center px-4 leading-relaxed">
+                    Para comenzar a vender, ingresa el dinero inicial disponible en caja para cada moneda.
+                </p>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    {currencies.map(curr => (
-                        <div key={curr.symbol}>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">
-                                {curr.name} ({curr.symbol})
-                            </label>
-                            <div className="relative">
-                                <DollarSign className="absolute left-3 top-3 text-gray-400" size={20} />
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    className="w-full pl-10 p-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 outline-none"
-                                    placeholder="0.00"
-                                    value={amounts[curr.symbol]}
-                                    onChange={(e) => setAmounts({ ...amounts, [curr.symbol]: e.target.value })}
-                                />
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-4">
+                        {currencies.map(curr => (
+                            <div key={curr.symbol}>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 pl-1">
+                                    {curr.name} ({curr.symbol})
+                                </label>
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <DollarSign className="text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                                    </div>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        className="w-full pl-10 p-4 bg-slate-50 border-2 border-slate-100 rounded-xl focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-lg text-slate-800 placeholder:text-slate-300"
+                                        placeholder="0.00"
+                                        value={amounts[curr.symbol]}
+                                        onChange={(e) => setAmounts({ ...amounts, [curr.symbol]: e.target.value })}
+                                        autoFocus={curr.symbol === 'USD'}
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
 
-                    <div className="flex flex-col gap-3 mt-6">
+                    <div className="flex flex-col gap-3 pt-4">
                         <button
                             type="submit"
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow transition-colors"
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
                         >
                             Abrir Turno
                         </button>
                         <button
                             type="button"
                             onClick={() => navigate('/')}
-                            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg transition-colors"
+                            className="w-full bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 font-bold py-4 px-6 rounded-xl transition-colors border-2 border-transparent hover:border-slate-100"
                         >
                             Cancelar
                         </button>
