@@ -1,0 +1,72 @@
+GUIA EXPLICATIVA: FLUJO DE COMPRAS E INVENTARIO
+===============================================
+
+Esta guía explica cómo funciona el ingreso de mercadería en el sistema y cómo se calculan los precios automáticamente para proteger tu ganancia.
+
+CONCEPTOS CLAVE (IMPORTANTE LEER)
+---------------------------------
+Para entender por qué los números se comportan como lo hacen, debes distinguir dos cosas:
+
+1. COSTO PROMEDIO (Para Contabilidad):
+   Es el valor de tu inventario mezclado. Si tenías productos baratos viejos y compras nuevos caros, el valor de tu bodega es un promedio entre ambos. Esto es lo correcto contablemente.
+
+2. PRECIO DE VENTA (Para Ganar Dinero):
+   Este NO debe basarse en el promedio (que suele ser bajo), sino en el COSTO DE REPOSICIÓN (lo último que pagaste).
+   ¿Por qué? Porque si vendes barato basándote en stock viejo, cuando tengas que volver a comprar, ¡no te alcanzará el dinero! El sistema protege esto.
+
+--------------------------------------------------------------------------------
+
+PASO A PASO: INGRESANDO UNA FACTURA
+===================================
+
+PASO 1: DATOS DE LA FACTURA
+- Vas a "Nueva Compra".
+- Seleccionas el Proveedor e ingresas el Número de Factura.
+
+PASO 2: AGREGAR UN PRODUCTO
+- Buscas el producto (ej: "Martillo").
+- El sistema te muestra un "Costo Referencial".
+- Ingresas la CANTIDAD que compraste.
+- Ingresas el COSTO UNITARIO que dice tu factura de papel.
+
+PASO 3: EL SISTEMA DETECTA CAMBIOS DE PRECIO
+Si el costo que ingresaste es diferente al que tenías registrado, el sistema te mostrará una ALERTA.
+
+   [ VENTANA EMERGENTE: Actualización de Costos ]
+   
+   Aquí tienes dos opciones clave:
+   
+   A) ¿Confirmar nuevo costo? -> SÍ.
+      Esto actualizará el promedio de tu inventario.
+      
+   B) ¿Actualizar Precio de Venta? (Casilla de verificación)
+      * SI NO LA MARCAS: El precio al público se queda igual (peligroso si el costo subió).
+      * SI LA MARCAS (Recomendado): El sistema calculará el nuevo PVP automáticamente.
+
+   ¿CÓMO CALCULA EL PRECIO AUTOMÁTICO?
+   El sistema toma el COSTO DE LA FACTURA ACTUAL (ej: $20), le suma tu MARGEN DE GANANCIA y el IVA.
+   
+   Fórmula: $20 + 30% Ganancia + IVA = $27.84 (Nuevo Precio).
+   
+   IMPORTANTE: El sistema ignora tu costo promedio viejo para este cálculo y usa el nuevo costo alto, para asegurar que ganes dinero sobre la nueva mercadería.
+
+PASO 4: FINALIZAR
+- Le das a "Guardar Compra".
+
+RESULTADO FINAL (LO QUE VES DESPUÉS)
+------------------------------------
+Si vas a ver tu inventario (Menú Productos), verás esto:
+
+1. PRECIO DE VENTA (PVP): Verás el precio nuevo y alto ($27.84). 
+   ¡Esto es bueno! Venderás todo (incluso lo viejo) al precio nuevo, ganando más margen en el stock antiguo.
+
+2. COSTO (Costo Promedio): Puede que veas un valor más bajo (ej: $15.50).
+   NO TE ASUSTES. Esto es normal. Significa que, contablemente, como tenías muchas unidades baratas antiguas, el valor promedio de cada unidad en tu bodega es $15.50. 
+   
+   Al vender en $27.84, tu ganancia real contable será enorme, pero tu precio está protegido para futura reposición.
+
+--------------------------------------------------------------------------------
+RESUMEN RÁPIDO:
+- El PRECIO se actualiza con la Factura Nueva (Costo Nuevo).
+- El COSTO visible se actualiza con el Promedio (Mezcla Nuevo + Viejo).
+--------------------------------------------------------------------------------

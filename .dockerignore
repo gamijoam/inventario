@@ -1,0 +1,19 @@
+node_modules
+venv
+__pycache__
+.git
+.env
+dist
+ferreteria_refactor/frontend_web/node_modules
+ferreteria_refactor/frontend_web/dist
+# --- Base de Datos Local (CRÍTICO) ---
+*.db
+*.sqlite
+*.sqlite3
+ferreteria.db
+
+# --- Configuración Local (CRÍTICO) ---
+.env
+.env.local
+.env.development
+# Excepción: si tienes un .env.production específico, ese sí podría ir, pero mejor no.

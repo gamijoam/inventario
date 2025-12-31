@@ -1,0 +1,60 @@
+========================================
+  FERRETERÍA POS - Instrucciones
+========================================
+
+INSTALACIÓN:
+1. Descomprimir todo el contenido en una carpeta
+2. ¡Listo! No requiere instalación adicional
+
+USO DIARIO:
+1. Doble clic en "iniciar.bat"
+2. Se abrirá automáticamente en tu navegador
+3. Trabajar normalmente
+4. Al terminar:
+   - Cerrar la pestaña del navegador
+   - Presionar Ctrl+C en la ventana negra
+
+CREDENCIALES INICIALES:
+Usuario: admin
+Contraseña: admin123
+
+CAMBIAR CONTRASEÑA:
+Después del primer inicio de sesión, ve a:
+Configuración → Usuarios → Editar Admin
+
+REQUISITOS:
+- Windows 10 o superior
+- Navegador web (Chrome, Edge, Firefox)
+- Puerto 8001 disponible
+
+SOLUCIÓN DE PROBLEMAS:
+
+1. Error "Puerto 8001 ocupado":
+   - Cerrar cualquier instancia anterior del programa
+   - Abrir Administrador de Tareas
+   - Finalizar proceso "backend.exe" si existe
+   - Intentar de nuevo
+
+2. No se abre el navegador:
+   - Abrir manualmente: http://localhost:8001
+
+3. Pantalla en blanco:
+   - Refrescar la página (F5)
+   - Verificar que backend.exe esté ejecutándose
+
+CARACTERÍSTICAS:
+✓ Gestión de inventario
+✓ Punto de venta (POS)
+✓ Clientes y créditos
+✓ Reportes y estadísticas
+✓ Sincronización con nube (opcional)
+✓ Impresión de tickets
+✓ Múltiples monedas
+
+SOPORTE:
+Para ayuda, contactar al administrador del sistema.
+
+========================================
+Versión: 1.0.0 PWA
+Fecha: 2025-12-29
+========================================

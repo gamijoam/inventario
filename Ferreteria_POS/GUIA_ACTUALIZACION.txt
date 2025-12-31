@@ -1,0 +1,73 @@
+==============================================================================
+GUÍA TÉCNICA: CÓMO ACTUALIZAR Y RECONSTRUIR LA APLICACIÓN FERRETERÍA POS
+==============================================================================
+
+Esta guía explica cómo aplicar cambios en el código y generar una nueva versión 
+de la aplicación "Ferreteria_POS".
+
+ESTRUCTURA DE CARPETAS DE DESARROLLO
+------------------------------------
+El código fuente no está en esta carpeta. Se encuentra en:
+..\ferreteria_refactor\
+   ├── backend_api\      (Código Python del servidor)
+   └── frontend_web\     (Código React de la interfaz)
+
+==============================================================================
+PARTE 1: ACTUALIZAR EL FRONTEND (Interfaz Visual)
+==============================================================================
+
+Si haces cambios en pantallas, colores, lógica de React, etc:
+
+1. Abrir terminal en: `ferreteria_refactor\frontend_web`
+2. Instalar dependencias (solo la primera vez):
+   > npm install
+
+3. Probar cambios en modo desarrollo (opcional):
+   > npm run dev
+
+4. COMPILAR (Generar versión final):
+   > npm run build
+
+   Esto creará una carpeta `dist` dentro de `frontend_web`.
+
+5. ACTUALIZAR LA APP:
+   Borra el contenido de `Ferreteria_POS\frontend` y pega todo el contenido 
+   nuevo de la carpeta `dist`.
+
+==============================================================================
+PARTE 2: ACTUALIZAR EL BACKEND (Lógica y Base de Datos)
+==============================================================================
+
+Si haces cambios en Python (API, Base de Datos, Sync, Impresión):
+
+1. Abrir terminal en la raíz del proyecto: `c:\Users\Gamijoam\Documents\ferreteria`
+2. Activar entorno virtual (recomendado):
+   > .\venv\Scripts\activate
+
+3. COMPILAR EXE:
+   Ejecuta el siguiente comando para crear el nuevo ejecutable:
+   > pyinstaller backend.spec --clean --noconfirm
+
+   Esto generará un archivo `ferreteria_backend.exe` en la carpeta `dist` 
+   (ojo: carpeta dist en la raíz, NO dentro de frontend_web).
+
+4. ACTUALIZAR LA APP:
+   Renombra `dist\ferreteria_backend.exe` a `backend.exe` y reemplaza el 
+   archivo existente en `Ferreteria_POS\backend.exe`.
+
+==============================================================================
+PARTE 3: AUTOMATIZACIÓN (RECOMENDADO)
+==============================================================================
+
+Para facilitar tu trabajo, he creado un script automático llamado:
+`construir_todo.bat`
+
+Ubicado en la carpeta raíz del proyecto (`c:\Users\Gamijoam\Documents\ferreteria`).
+
+Simplemente dale doble clic a ese archivo y él automáticamente:
+1. Compilará el Frontend.
+2. Compilará el Backend.
+3. Copiará los archivos nuevos a la carpeta `Ferreteria_POS`.
+4. Dejará todo listo para usar.
+
+¡Usa ese script para ahorrar tiempo!

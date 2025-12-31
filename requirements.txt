@@ -1,0 +1,49 @@
+# ============================================
+# Requirements - Sistema de Ferretería
+# ============================================
+
+# Web Framework
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Database
+SQLAlchemy
+psycopg2-binary
+alembic
+
+# Data Models & Validation
+pydantic
+
+# Security & Authentication
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==3.2.2
+
+# Configuration
+python-dotenv
+
+# Data Processing & Reports
+pandas
+openpyxl
+reportlab
+xlrd
+
+# HTTP Client
+requests
+
+# WebSocket
+websockets
+
+# Hardware Bridge (Thermal Printer)
+python-escpos
+pyusb
+# pywin32  # Windows-only, not needed in Docker/Linux
+jinja2==3.1.2
+aiofiles
+
+# Image Processing
+Pillow>=10.0.0
+python-multipart>=0.0.6
+
+httpx
