@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, FolderTree, Folder } from 'lucide-react';
+import { Plus, Edit2, Trash2, FolderTree, Folder, Tags, X, Check } from 'lucide-react';
 import apiClient from '../config/axios';
+import clsx from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 const Categories = () => {
     const [categories, setCategories] = useState([]);
@@ -58,37 +60,39 @@ const Categories = () => {
     const rootCategories = categories.filter(cat => !cat.parent_id);
     const getChildren = (parentId) => categories.filter(cat => cat.parent_id === parentId);
 
-    if (loading) return <div className="p-6">Cargando...</div>;
+    if (loading) return <div className="p-12 text-center text-slate-400">Cargando categorías...</div>;
 
     return (
-        <div className="p-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Categorías</h1>
-                    <p className="text-gray-600">Gestiona las categorías y subcategorías de productos</p>
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center">
+                        <Tags className="mr-2 text-indigo-600" /> Categorías de Productos
+                    </h1>
+                    <p className="text-slate-500 text-sm mt-1">Organiza tu inventario en categorías y subcategorías.</p>
                 </div>
                 <button
                     onClick={openCreateModal}
-                    className="w-full md:w-auto flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all font-bold text-sm flex items-center justify-center gap-2"
                 >
-                    <Plus size={20} className="mr-2" />
+                    <Plus size={18} />
                     Nueva Categoría
                 </button>
             </div>
 
-            {/* Desktop Table */}
-            <div className="hidden md:block bg-white rounded-lg shadow">
-                <table className="w-full">
-                    <thead className="bg-gray-50 border-b">
+            {/* Desktop Table (Zebra Bento) */}
+            <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <table className="min-w-full divide-y divide-slate-100">
+                    <thead className="bg-slate-50/50">
                         <tr>
-                            <th className="text-left p-4 font-semibold text-gray-700">Nombre</th>
-                            <th className="text-left p-4 font-semibold text-gray-700">Descripción</th>
-                            <th className="text-left p-4 font-semibold text-gray-700">Tipo</th>
-                            <th className="text-right p-4 font-semibold text-gray-700">Acciones</th>
+                            <th className="text-left px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">Nombre</th>
+                            <th className="text-left px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">Descripción</th>
+                            <th className="text-left px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">Tipo</th>
+                            <th className="text-right px-6 py-4 font-bold text-slate-500 text-xs uppercase tracking-wider">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
-                        {rootCategories.map(category => (
+                    <tbody className="divide-y divide-slate-50 bg-white">
+                        {rootCategories.map((category, index) => (
                             <CategoryRow
                                 key={category.id}
                                 category={category}
@@ -96,11 +100,12 @@ const Categories = () => {
                                 getChildren={getChildren}
                                 onEdit={openEditModal}
                                 onDelete={handleDelete}
+                                isEven={index % 2 === 0}
                             />
                         ))}
                         {rootCategories.length === 0 && (
                             <tr>
-                                <td colSpan="4" className="text-center p-8 text-gray-500">
+                                <td colSpan="4" className="text-center py-12 text-slate-400 font-medium">
                                     No hay categorías. Crea una para comenzar.
                                 </td>
                             </tr>
@@ -112,7 +117,7 @@ const Categories = () => {
             {/* Mobile View */}
             <div className="md:hidden space-y-4">
                 {rootCategories.length === 0 ? (
-                    <div className="text-center p-8 text-gray-500 bg-white rounded-lg shadow">
+                    <div className="text-center py-12 text-slate-400 font-medium bg-white rounded-xl border border-slate-200">
                         No hay categorías. Crea una para comenzar.
                     </div>
                 ) : (
@@ -142,44 +147,53 @@ const Categories = () => {
 };
 
 // Recursive component for Desktop Table
-const CategoryRow = ({ category, level, getChildren, onEdit, onDelete }) => {
+const CategoryRow = ({ category, level, getChildren, onEdit, onDelete, isEven }) => {
     const children = getChildren(category.id);
     const indent = level * 32;
 
     return (
         <>
-            <tr className="hover:bg-gray-50">
-                <td className="p-4">
+            <tr className={clsx(
+                "transition-colors duration-200 hover:bg-indigo-50/40",
+                isEven ? "bg-white" : "bg-slate-50/30"
+            )}>
+                <td className="px-6 py-4">
                     <div className="flex items-center" style={{ paddingLeft: `${indent}px` }}>
                         {level === 0 ? (
-                            <FolderTree size={18} className="mr-2 text-blue-600" />
+                            <div className="bg-indigo-50 p-1.5 rounded-lg mr-3 text-indigo-600 border border-indigo-100">
+                                <FolderTree size={16} />
+                            </div>
                         ) : (
-                            <Folder size={18} className="mr-2 text-gray-500" />
+                            <div className="relative mr-3 before:absolute before:content-[''] before:w-4 before:h-[1px] before:bg-slate-300 before:-left-4 before:top-1/2">
+                                <Folder size={16} className="text-slate-400" />
+                            </div>
                         )}
-                        <span className="font-medium text-gray-800">{category.name}</span>
+                        <span className={`font-bold ${level === 0 ? 'text-slate-800' : 'text-slate-600'}`}>
+                            {category.name}
+                        </span>
                     </div>
                 </td>
-                <td className="p-4 text-gray-600">{category.description || '-'}</td>
-                <td className="p-4">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${level === 0
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-700'
+                <td className="px-6 py-4 text-sm text-slate-500">{category.description || <span className="text-slate-300 italic">Sin descripción</span>}</td>
+                <td className="px-6 py-4">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${level === 0
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
                         }`}>
                         {level === 0 ? 'Principal' : 'Subcategoría'}
                     </span>
                 </td>
-                <td className="p-4">
+                <td className="px-6 py-4">
                     <div className="flex justify-end gap-2">
                         <button
                             onClick={() => onEdit(category)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                             title="Editar"
                         >
                             <Edit2 size={16} />
                         </button>
                         <button
                             onClick={() => onDelete(category.id, category.name)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                             title="Eliminar"
                         >
                             <Trash2 size={16} />
@@ -187,7 +201,7 @@ const CategoryRow = ({ category, level, getChildren, onEdit, onDelete }) => {
                     </div>
                 </td>
             </tr>
-            {children.map(child => (
+            {children.map((child, idx) => (
                 <CategoryRow
                     key={child.id}
                     category={child}
@@ -195,6 +209,7 @@ const CategoryRow = ({ category, level, getChildren, onEdit, onDelete }) => {
                     getChildren={getChildren}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    isEven={isEven} // Keep background consistent for children block or alternate? Let's keep consistent for tree clarity or just inherit.
                 />
             ))}
         </>
@@ -204,44 +219,52 @@ const CategoryRow = ({ category, level, getChildren, onEdit, onDelete }) => {
 // Recursive component for Mobile List
 const MobileCategoryItem = ({ category, level, getChildren, onEdit, onDelete }) => {
     const children = getChildren(category.id);
-    const indent = level * 16; // Smaller indent for mobile
+    const indent = level * 12;
 
     return (
         <div className="flex flex-col gap-2">
-            <div className="bg-white p-4 rounded-lg shadow border border-gray-100" style={{ marginLeft: `${indent}px` }}>
+            <div
+                className={clsx(
+                    "bg-white p-4 rounded-xl shadow-sm border border-slate-200",
+                    level > 0 && "ml-4 border-l-4 border-l-slate-200"
+                )}
+            // style={{ marginLeft: `${indent}px` }} // Use tailwind margin for cleaner nesting
+            >
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center">
                         {level === 0 ? (
-                            <FolderTree size={18} className="mr-2 text-blue-600" />
+                            <div className="bg-indigo-50 p-1.5 rounded-lg mr-2 text-indigo-600 border border-indigo-100">
+                                <FolderTree size={16} />
+                            </div>
                         ) : (
-                            <Folder size={18} className="mr-2 text-gray-500" />
+                            <Folder size={16} className="mr-2 text-slate-400" />
                         )}
-                        <h3 className="font-bold text-gray-800">{category.name}</h3>
+                        <h3 className="font-bold text-slate-800">{category.name}</h3>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${level === 0
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-700'
+                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide border ${level === 0
+                        ? 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
                         }`}>
-                        {level === 0 ? 'Principal' : 'Sub'}
+                        {level === 0 ? 'root' : 'sub'}
                     </span>
                 </div>
 
                 {category.description && (
-                    <p className="text-gray-600 text-sm mb-3">{category.description}</p>
+                    <p className="text-slate-500 text-sm mb-3 pl-8">{category.description}</p>
                 )}
 
-                <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 mt-2">
                     <button
                         onClick={() => onEdit(category)}
-                        className="flex items-center text-blue-600 bg-blue-50 px-3 py-2 rounded-lg font-medium text-xs"
+                        className="flex items-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-lg font-bold text-xs transition-colors"
                     >
-                        <Edit2 size={14} className="mr-1" /> Editar
+                        <Edit2 size={14} className="mr-1.5" /> Editar
                     </button>
                     <button
                         onClick={() => onDelete(category.id, category.name)}
-                        className="flex items-center text-red-600 bg-red-50 px-3 py-2 rounded-lg font-medium text-xs"
+                        className="flex items-center text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-lg font-bold text-xs transition-colors"
                     >
-                        <Trash2 size={14} className="mr-1" /> Eliminar
+                        <Trash2 size={14} className="mr-1.5" /> Eliminar
                     </button>
                 </div>
             </div>
@@ -298,58 +321,69 @@ const CategoryModal = ({ category, categories, onClose, onSuccess }) => {
         : categories;
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-                <div className="p-6 border-b">
-                    <h2 className="text-xl font-bold text-gray-800">
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        {category ? <Edit2 size={20} className="text-indigo-600" /> : <Plus size={20} className="text-indigo-600" />}
                         {category ? 'Editar Categoría' : 'Nueva Categoría'}
                     </h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+                        <X size={24} />
+                    </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Nombre *
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                            Nombre <span className="text-rose-500">*</span>
                         </label>
                         <input
                             type="text"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
+                            placeholder="Ej. Herramientas Manuales"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
                             Descripción
                         </label>
                         <textarea
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300 resize-none"
                             rows="3"
+                            placeholder="Breve descripción de la categoría..."
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Categoría Padre (opcional)
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                            Categoría Padre (Opcional)
                         </label>
-                        <select
-                            value={formData.parent_id || ''}
-                            onChange={(e) => setFormData({ ...formData, parent_id: e.target.value ? parseInt(e.target.value) : null })}
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                        >
-                            <option value="">-- Categoría Principal --</option>
-                            {availableParents.filter(cat => !cat.parent_id).map(cat => (
-                                <option key={cat.id} value={cat.id}>
-                                    {cat.name}
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">
-                            Deja vacío para crear una categoría principal
+                        <div className="relative">
+                            <select
+                                value={formData.parent_id || ''}
+                                onChange={(e) => setFormData({ ...formData, parent_id: e.target.value ? parseInt(e.target.value) : null })}
+                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white appearance-none"
+                            >
+                                <option value="">-- Categoría Principal --</option>
+                                {availableParents.filter(cat => !cat.parent_id).map(cat => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                <FolderTree size={16} />
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium ml-1">
+                            Selecciona una categoría padre para crear una subcategoría.
                         </p>
                     </div>
 
@@ -357,16 +391,20 @@ const CategoryModal = ({ category, categories, onClose, onSuccess }) => {
                         <button
                             type="button"
                             onClick={onClose}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                            className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition-colors"
                         >
                             Cancelar
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                            className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                         >
-                            {loading ? 'Guardando...' : 'Guardar'}
+                            {loading ? 'Guardando...' : (
+                                <>
+                                    <Check size={18} /> Guardar
+                                </>
+                            )}
                         </button>
                     </div>
                 </form>

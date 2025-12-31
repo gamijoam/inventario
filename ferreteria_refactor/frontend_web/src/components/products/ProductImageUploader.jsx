@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import apiClient from '../../config/axios';
+import clsx from 'clsx';
 
 export default function ProductImageUploader({ productId, currentImageUrl, onImageUpdate }) {
   const [uploading, setUploading] = useState(false);
@@ -10,20 +11,18 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
   // Cache busting: add timestamp to force reload
   const getImageUrl = (url) => {
     if (!url) return null;
-    // Use relative path - works in both dev and production
     return `${url}?v=${Date.now()}`;
   };
 
   const handleUpload = async (file) => {
     if (!file) return;
 
-    // Validate file size (2MB max)
+    // Validate using filesize (2MB max)
     if (file.size > 2 * 1024 * 1024) {
       setError('La imagen es muy pesada (máximo 2MB)');
       return;
     }
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setError('El archivo debe ser una imagen');
       return;
@@ -36,7 +35,6 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
       const formData = new FormData();
       formData.append('file', file);
 
-      // Use apiClient which already has /api/v1 prefix
       const response = await apiClient.post(
         `/products/${productId}/image`,
         formData,
@@ -62,7 +60,6 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
     setError(null);
 
     try {
-      // Use apiClient which already has /api/v1 prefix
       await apiClient.delete(`/products/${productId}/image`);
       onImageUpdate(null);
     } catch (err) {
@@ -102,29 +99,37 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
     <div className="space-y-4">
       {/* Preview */}
       {currentImageUrl ? (
-        <div className="relative inline-block">
-          <img
-            src={getImageUrl(currentImageUrl)}
-            alt="Producto"
-            className="w-64 h-64 object-cover rounded-lg border-2 border-gray-200"
-            onError={(e) => {
-              e.target.src = '/placeholder.png'; // Fallback
-            }}
-          />
-          <button
-            onClick={handleDelete}
-            disabled={uploading}
-            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 disabled:opacity-50"
-            title="Eliminar imagen"
-          >
-            <X size={16} />
-          </button>
+        <div className="relative inline-block group">
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-slate-50">
+            <img
+              src={getImageUrl(currentImageUrl)}
+              alt="Producto"
+              className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
+              onError={(e) => {
+                e.target.src = '/placeholder.png';
+              }}
+            />
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+              <button
+                onClick={handleDelete}
+                disabled={uploading}
+                className="bg-rose-500 text-white p-3 rounded-xl hover:bg-rose-600 disabled:opacity-50 transform hover:scale-110 transition-all shadow-lg"
+                title="Eliminar imagen"
+              >
+                <X size={24} />
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         /* Upload Area */
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-            }`}
+          className={clsx(
+            "border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300",
+            dragActive
+              ? 'border-indigo-500 bg-indigo-50/50 scale-[1.02]'
+              : 'border-slate-300 hover:border-indigo-300 hover:bg-slate-50'
+          )}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
@@ -143,14 +148,21 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
             className="cursor-pointer flex flex-col items-center"
           >
             {uploading ? (
-              <Upload className="animate-spin text-blue-500" size={48} />
+              <div className="p-4 bg-indigo-50 rounded-full mb-3">
+                <Upload className="animate-spin text-indigo-500" size={32} />
+              </div>
             ) : (
-              <ImageIcon className="text-gray-400" size={48} />
+              <div className={clsx(
+                "p-4 rounded-full mb-3 transition-colors",
+                dragActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500"
+              )}>
+                <ImageIcon size={32} />
+              </div>
             )}
-            <p className="mt-2 text-sm text-gray-600">
-              {uploading ? 'Subiendo...' : 'Arrastra una imagen o haz clic para seleccionar'}
+            <p className="mt-2 text-sm font-bold text-slate-700">
+              {uploading ? 'Subiendo...' : 'Arrastra una imagen o haz clic aquí'}
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-slate-400 mt-1 font-medium">
               JPG, PNG o WebP (máx. 2MB)
             </p>
           </label>
@@ -159,7 +171,8 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center">
+          <X size={16} className="mr-2 flex-shrink-0" />
           {error}
         </div>
       )}
