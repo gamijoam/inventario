@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard,
@@ -12,6 +13,7 @@ import {
     Briefcase,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     Archive,
     Tags,
     Warehouse,
@@ -22,38 +24,65 @@ import {
     BookOpen,
     ClipboardList,
     DollarSign,
-    CornerDownLeft
+    CornerDownLeft,
+    PieChart
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 
-const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: ShoppingCart, label: 'Ventas (POS)', path: '/pos' },
-    { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
-    { icon: BarChart2, label: 'Detalles de Ventas', path: '/reports/detailed' },
-    { icon: FileText, label: 'Historial Ventas', path: '/sales-history' },
-    { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
-    { icon: Users, label: 'Clientes', path: '/customers' },
-
-    // Inventory Section
-    { icon: Package, label: 'Catálogo', path: '/products' },
-    { icon: Tags, label: 'Categorías', path: '/categories' },
-    { icon: Archive, label: 'Kardex', path: '/inventory' },
-    { icon: Warehouse, label: 'Almacenes', path: '/warehouses' },
-    { icon: ArrowRightLeft, label: 'Traslados', path: '/transfers' },
-
-    // Purchasing & Finance
-    { icon: Briefcase, label: 'Compras', path: '/purchases' },
-    { icon: Truck, label: 'Proveedores', path: '/suppliers' },
-    { icon: CreditCard, label: 'Cuentas por Cobrar', path: '/accounts-receivable' },
-    { icon: DollarSign, label: 'Cuentas por Pagar', path: '/accounts-payable' },
-
-    // Admin & Tools
-    { icon: RefreshCcw, label: 'Historial de Caja', path: '/cash-history' },
-    { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
-    { icon: BookOpen, label: 'Ayuda', path: '/help' },
-    { icon: Settings, label: 'Configuración', path: '/settings' },
+// Define groups logic
+const menuStructure = [
+    {
+        type: 'single',
+        item: { icon: LayoutDashboard, label: 'Dashboard', path: '/' }
+    },
+    {
+        type: 'group',
+        label: 'Ventas y Atención',
+        icon: ShoppingCart, // Used for collapsed tooltip or main icon
+        items: [
+            { icon: ShoppingCart, label: 'Nueva Venta', path: '/pos' },
+            { icon: FileText, label: 'Historial', path: '/sales-history' },
+            { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
+            { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
+            { icon: Users, label: 'Clientes', path: '/customers' },
+        ]
+    },
+    {
+        type: 'group',
+        label: 'Inventario',
+        icon: Package,
+        items: [
+            { icon: Package, label: 'Productos', path: '/products' },
+            { icon: Tags, label: 'Categorías', path: '/categories' },
+            { icon: Archive, label: 'Movimientos', path: '/inventory' },
+            { icon: Warehouse, label: 'Almacenes', path: '/warehouses' },
+            { icon: ArrowRightLeft, label: 'Traslados', path: '/transfers' },
+        ]
+    },
+    {
+        type: 'group',
+        label: 'Finanzas y Compras',
+        icon: DollarSign,
+        items: [
+            { icon: Briefcase, label: 'Compras', path: '/purchases' },
+            { icon: Truck, label: 'Proveedores', path: '/suppliers' },
+            { icon: RefreshCcw, label: 'Corte de Caja', path: '/cash-history' },
+            { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
+            { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
+            { icon: BarChart2, label: 'Reportes', path: '/reports/detailed' },
+        ]
+    },
+    {
+        type: 'group',
+        label: 'Sistema',
+        icon: Settings,
+        items: [
+            { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
+            { icon: Settings, label: 'Configuración', path: '/settings' },
+            { icon: BookOpen, label: 'Ayuda', path: '/help' },
+        ]
+    }
 ];
 
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
@@ -61,15 +90,49 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     const navigate = useNavigate();
     const { logout, user } = useAuth();
 
+    // State for expanded groups
+    const [expandedGroups, setExpandedGroups] = useState({});
+
+    // Auto-expand group if current path is inside it
+    useEffect(() => {
+        if (isCollapsed) return; // Don't messy auto-expand if collapsed
+
+        const newExpanded = { ...expandedGroups };
+
+        menuStructure.forEach(group => {
+            if (group.type === 'group') {
+                const hasActiveItem = group.items.some(item => item.path === location.pathname);
+                if (hasActiveItem) {
+                    newExpanded[group.label] = true;
+                }
+            }
+        });
+
+        // Only update if changed (to prevent loops, though object creation makes it tricky, simple check here)
+        // For simplicity, just setting it is fine as effect runs on path change
+        setExpandedGroups(prev => ({ ...prev, ...newExpanded }));
+    }, [location.pathname, isCollapsed]);
+
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
 
+    const toggleGroup = (label) => {
+        if (isCollapsed) {
+            toggleSidebar(); // Auto open sidebar if user clicks a group in collapsed mode
+            setTimeout(() => {
+                setExpandedGroups(prev => ({ ...prev, [label]: true }));
+            }, 50);
+            return;
+        }
+        setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+    };
+
     return (
         <aside
             className={cn(
-                "bg-white border-r border-slate-200 fixed h-full flex flex-col z-20 transition-all duration-300 ease-in-out shadow-sm",
+                "bg-white border-r border-slate-200 fixed h-full flex flex-col z-50 transition-all duration-300 ease-in-out shadow-sm",
                 isCollapsed ? "w-20" : "w-64"
             )}
         >
@@ -99,38 +162,137 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             </div>
 
             <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
-                {menuItems.map((item) => {
-                    const isActive = location.pathname === item.path;
-                    return (
-                        <Link
-                            key={item.path}
-                            to={item.path}
-                            className={cn(
-                                "flex items-center px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative my-0.5",
-                                isActive
-                                    ? "bg-indigo-50 text-indigo-600 shadow-sm"
-                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-                                isCollapsed && "justify-center"
-                            )}
-                        >
-                            <item.icon
-                                size={20}
+                {menuStructure.map((group, idx) => {
+                    // RENDER SINGLE ITEM
+                    if (group.type === 'single') {
+                        const isActive = location.pathname === group.item.path;
+                        return (
+                            <Link
+                                key={group.item.path}
+                                to={group.item.path}
                                 className={cn(
-                                    "transition-colors flex-shrink-0",
-                                    isActive ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600"
+                                    "flex items-center px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative my-1",
+                                    isActive
+                                        ? "bg-indigo-50 text-indigo-600 shadow-sm"
+                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                                    isCollapsed && "justify-center"
                                 )}
-                            />
+                            >
+                                <group.item.icon
+                                    size={20}
+                                    className={cn(
+                                        "transition-colors flex-shrink-0",
+                                        isActive ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600"
+                                    )}
+                                />
+                                {!isCollapsed && <span className="ml-3 truncate">{group.item.label}</span>}
+                                {isCollapsed && (
+                                    <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 shadow-xl translate-x-2 group-hover:translate-x-0">
+                                        {group.item.label}
+                                        <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-800 transform rotate-45"></div>
+                                    </div>
+                                )}
+                            </Link>
+                        );
+                    }
 
-                            {!isCollapsed && <span className="ml-3 truncate">{item.label}</span>}
+                    // RENDER GROUP
+                    const isExpanded = expandedGroups[group.label];
+                    const hasActiveChild = group.items.some(item => item.path === location.pathname);
 
-                            {/* Tooltip for collapsed state */}
-                            {isCollapsed && (
-                                <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 shadow-xl translate-x-2 group-hover:translate-x-0">
-                                    {item.label}
-                                    <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-800 transform rotate-45"></div>
+                    if (isCollapsed) {
+                        // Collapsed mode: Show group icon only (simplified)
+                        // Or show main icon and a tooltip with subitems (Advanced) -- Let's keep it simple: Main icon that expands sidebar
+                        return (
+                            <div
+                                key={idx}
+                                className="group relative my-1 flex justify-center"
+                            >
+                                <button
+                                    onClick={() => toggleGroup(group.label)}
+                                    className={cn(
+                                        "flex items-center justify-center w-10 h-10 rounded-xl transition-all",
+                                        hasActiveChild ? "bg-indigo-50 text-indigo-600" : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+                                    )}
+                                >
+                                    <group.icon size={20} />
+                                </button>
+                                {/* Tooltip for group */}
+                                <div className="absolute left-full ml-4 top-0 bg-slate-800 text-white rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-50 shadow-xl translate-x-2 group-hover:translate-x-0 overflow-hidden min-w-[150px]">
+                                    <div className="px-3 py-2 border-b border-slate-700 font-bold text-xs bg-slate-900/50">
+                                        {group.label}
+                                    </div>
+                                    <div className="py-1">
+                                        {group.items.map(subItem => (
+                                            <div key={subItem.path} className="px-3 py-1.5 text-xs text-slate-300 flex items-center gap-2">
+                                                <subItem.icon size={12} />
+                                                {subItem.label}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="absolute left-0 top-3 -translate-x-1 w-2 h-2 bg-slate-800 transform rotate-45"></div>
                                 </div>
-                            )}
-                        </Link>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div key={idx} className="my-1">
+                            <button
+                                onClick={() => toggleGroup(group.label)}
+                                className={cn(
+                                    "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group select-none",
+                                    hasActiveChild && !isExpanded
+                                        ? "text-indigo-600 bg-indigo-50/50"
+                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                )}
+                            >
+                                <div className="flex items-center">
+                                    <group.icon
+                                        size={20}
+                                        className={cn(
+                                            "transition-colors",
+                                            hasActiveChild && !isExpanded ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600"
+                                        )}
+                                    />
+                                    <span className="ml-3">{group.label}</span>
+                                </div>
+                                <ChevronDown
+                                    size={16}
+                                    className={cn(
+                                        "transition-transform duration-200 text-slate-400",
+                                        isExpanded ? "transform rotate-180" : ""
+                                    )}
+                                />
+                            </button>
+
+                            {/* Submenu */}
+                            <div
+                                className={cn(
+                                    "overflow-hidden transition-all duration-300 ease-in-out pl-4 space-y-0.5 border-l-2 border-slate-100 ml-4 mt-1",
+                                    isExpanded ? "max-h-[500px] opacity-100 mb-2" : "max-h-0 opacity-0"
+                                )}
+                            >
+                                {group.items.map(subItem => {
+                                    const isSubActive = location.pathname === subItem.path;
+                                    return (
+                                        <Link
+                                            key={subItem.path}
+                                            to={subItem.path}
+                                            className={cn(
+                                                "flex items-center px-3 py-2 rounded-lg text-xs font-medium transition-all relative",
+                                                isSubActive
+                                                    ? "text-indigo-600 bg-indigo-50"
+                                                    : "text-slate-500 hover:text-indigo-600 hover:translate-x-1"
+                                            )}
+                                        >
+                                            <span className={cn("w-1.5 h-1.5 rounded-full mr-2 transition-colors", isSubActive ? "bg-indigo-500" : "bg-slate-300")}></span>
+                                            {subItem.label}
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     );
                 })}
             </nav>
