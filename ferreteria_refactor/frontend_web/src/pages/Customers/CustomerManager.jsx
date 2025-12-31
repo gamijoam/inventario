@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle } from 'lucide-react';
+import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin } from 'lucide-react';
 import apiClient from '../../config/axios';
+import { toast } from 'react-hot-toast';
+import clsx from 'clsx';
 
 const CustomerManager = () => {
     const [customers, setCustomers] = useState([]);
@@ -25,8 +27,8 @@ const CustomerManager = () => {
         phone: '',
         email: '',
         address: '',
-        credit_limit: '',  // Changed from 0 to empty string
-        payment_term_days: '',  // Changed from 15 to empty string
+        credit_limit: '',
+        payment_term_days: '',
         is_blocked: false
     });
 
@@ -63,6 +65,7 @@ const CustomerManager = () => {
             setCustomers(response.data);
         } catch (error) {
             console.error('Error fetching customers:', error);
+            toast.error('Error cargando clientes');
         }
     };
 
@@ -97,7 +100,7 @@ const CustomerManager = () => {
     const handleCreateCustomer = async () => {
         try {
             await apiClient.post('/customers', customerForm);
-            alert('✅ Cliente creado exitosamente');
+            toast.success('Cliente creado exitosamente');
             setShowCreateModal(false);
             setCustomerForm({
                 name: '',
@@ -111,20 +114,20 @@ const CustomerManager = () => {
             });
             fetchCustomers();
         } catch (error) {
-            alert('Error al crear cliente: ' + (error.response?.data?.detail || error.message));
+            toast.error('Error al crear cliente: ' + (error.response?.data?.detail || error.message));
         }
     };
 
     const handleEditCustomer = async () => {
         try {
             await apiClient.put(`/customers/${selectedCustomer.id}`, customerForm);
-            alert('✅ Cliente actualizado');
+            toast.success('Cliente actualizado');
             setShowEditModal(false);
             setSelectedCustomer({ ...selectedCustomer, ...customerForm });
             fetchCustomers();
             fetchFinancialStatus();
         } catch (error) {
-            alert('Error al actualizar cliente');
+            toast.error('Error al actualizado cliente');
         }
     };
 
@@ -132,13 +135,13 @@ const CustomerManager = () => {
         if (!confirm('¿Estás seguro de eliminar este cliente?')) return;
         try {
             await apiClient.delete(`/customers/${customerId}`);
-            alert('✅ Cliente eliminado');
+            toast.success('Cliente eliminado');
             if (selectedCustomer?.id === customerId) {
                 setSelectedCustomer(null);
             }
             fetchCustomers();
         } catch (error) {
-            alert('Error al eliminar cliente: ' + (error.response?.data?.detail || error.message));
+            toast.error('Error al eliminar cliente: ' + (error.response?.data?.detail || error.message));
         }
     };
 
@@ -151,9 +154,9 @@ const CustomerManager = () => {
             setSelectedCustomer({ ...selectedCustomer, credit_limit: tempCreditLimit });
             setEditingCredit(false);
             fetchFinancialStatus();
-            alert('✅ Límite de crédito actualizado');
+            toast.success('Límite de crédito actualizado');
         } catch (error) {
-            alert('Error al actualizar límite de crédito');
+            toast.error('Error al actualizar límite de crédito');
         }
     };
 
@@ -166,9 +169,9 @@ const CustomerManager = () => {
             setSelectedCustomer({ ...selectedCustomer, payment_term_days: tempPaymentTerms });
             setEditingTerms(false);
             fetchFinancialStatus();
-            alert('✅ Días de crédito actualizados');
+            toast.success('Días de crédito actualizados');
         } catch (error) {
-            alert('Error al actualizar días de crédito');
+            toast.error('Error al actualizar días de crédito');
         }
     };
 
@@ -181,52 +184,55 @@ const CustomerManager = () => {
             });
             setSelectedCustomer({ ...selectedCustomer, is_blocked: newBlockStatus });
             fetchFinancialStatus();
-            alert(newBlockStatus ? '🚫 Cliente bloqueado' : '✅ Cliente desbloqueado');
+            toast.success(newBlockStatus ? 'Cliente bloqueado' : 'Cliente desbloqueado');
         } catch (error) {
-            alert('Error al cambiar estado de bloqueo');
+            toast.error('Error al cambiar estado de bloqueo');
         }
     };
 
     const getInvoiceStatus = (sale) => {
-        if (sale.paid) return { label: 'Pagada', color: 'text-green-600', bg: 'bg-green-100' };
-        if (!sale.due_date) return { label: 'Pendiente', color: 'text-yellow-600', bg: 'bg-yellow-100' };
+        if (sale.paid) return { label: 'Pagada', color: 'text-emerald-700 bg-emerald-50 border-emerald-100' };
+        if (!sale.due_date) return { label: 'Pendiente', color: 'text-amber-700 bg-amber-50 border-amber-100' };
 
         const dueDate = new Date(sale.due_date);
         const now = new Date();
         const daysOverdue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
 
         if (daysOverdue > 0) {
-            return { label: `Vencida (+${daysOverdue} días)`, color: 'text-red-600', bg: 'bg-red-100' };
+            return { label: `Vencida (+${daysOverdue}d)`, color: 'text-rose-700 bg-rose-50 border-rose-100' };
         }
 
-        return { label: 'A Tiempo', color: 'text-green-600', bg: 'bg-green-100' };
+        return { label: 'A Tiempo', color: 'text-emerald-700 bg-emerald-50 border-emerald-100' };
     };
 
     return (
-        <div className="p-6">
-            <div className="mb-6 flex justify-between items-center">
+        <div className="p-6 max-w-[1600px] mx-auto min-h-screen">
+            <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Gestión de Clientes</h1>
-                    <p className="text-gray-600">Administra clientes y su salud financiera</p>
+                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                        <Users className="text-indigo-600" size={32} />
+                        Gestión de Clientes
+                    </h1>
+                    <p className="text-slate-500 font-medium">Administra clientes, límites de crédito y estados de cuenta</p>
                 </div>
                 <button
                     onClick={() => {
                         resetForm();  // Reset form before opening
                         setShowCreateModal(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5"
                 >
                     <Plus size={20} />
                     Nuevo Cliente
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 h-[calc(100vh-140px)]">
                 {/* Left Panel - Customer List */}
-                <div className={`bg-white rounded-lg shadow-md p-4 ${selectedCustomer ? 'hidden md:block' : 'block'} md:col-span-1`}>
-                    <div className="mb-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
+                <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col md:col-span-1 overflow-hidden h-full ${selectedCustomer ? 'hidden md:flex' : 'flex'}`}>
+                    <div className="p-4 border-b border-slate-100">
+                        <div className="relative group">
+                            <Search className="absolute left-3 top-3 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
                             <input
                                 type="text"
                                 value={searchQuery}
@@ -235,49 +241,64 @@ const CustomerManager = () => {
                                     fetchCustomers();
                                 }}
                                 placeholder="Buscar cliente..."
-                                className="w-full pl-10 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-full pl-10 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-slate-50 focus:bg-white transition-all"
                             />
                         </div>
                     </div>
 
-                    <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
                         {customers.map(customer => (
                             <div
                                 key={customer.id}
-                                className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedCustomer?.id === customer.id
-                                    ? 'bg-blue-100 border-2 border-blue-500'
-                                    : 'bg-gray-50 hover:bg-gray-100'
-                                    }`}
+                                onClick={() => setSelectedCustomer(customer)}
+                                className={clsx(
+                                    "p-3 rounded-xl cursor-pointer transition-all border",
+                                    selectedCustomer?.id === customer.id
+                                        ? 'bg-indigo-50 border-indigo-200 shadow-sm'
+                                        : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-200'
+                                )}
                             >
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center flex-1" onClick={() => setSelectedCustomer(customer)}>
-                                        <User className="mr-2 text-gray-600" size={20} />
-                                        <div>
-                                            <p className="font-semibold text-gray-800">{customer.name}</p>
-                                            <p className="text-xs text-gray-500">{customer.id_number || 'Sin ID'}</p>
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                        <div className={clsx(
+                                            "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0",
+                                            selectedCustomer?.id === customer.id ? "bg-indigo-200 text-indigo-700" : "bg-slate-100 text-slate-500"
+                                        )}>
+                                            {customer.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className={clsx("font-bold truncate", selectedCustomer?.id === customer.id ? "text-indigo-900" : "text-slate-700")}>
+                                                {customer.name}
+                                            </p>
+                                            <p className={clsx("text-xs truncate", selectedCustomer?.id === customer.id ? "text-indigo-600/70" : "text-slate-400")}>
+                                                {customer.id_number || 'Sin ID'}
+                                            </p>
                                         </div>
                                     </div>
-                                    <div className="flex gap-1">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setCustomerForm(customer);
-                                                setShowEditModal(true);
-                                            }}
-                                            className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteCustomer(customer.id);
-                                            }}
-                                            className="p-1 text-red-600 hover:bg-red-100 rounded"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
+
+                                    {selectedCustomer?.id === customer.id && (
+                                        <div className="flex gap-1 animate-in fade-in slide-in-from-right-2 duration-200">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setCustomerForm(customer);
+                                                    setShowEditModal(true);
+                                                }}
+                                                className="p-1.5 text-indigo-600 hover:bg-indigo-200 rounded-lg transition-colors"
+                                            >
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteCustomer(customer.id);
+                                                }}
+                                                className="p-1.5 text-rose-500 hover:bg-rose-100 rounded-lg transition-colors"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -285,42 +306,63 @@ const CustomerManager = () => {
                 </div>
 
                 {/* Right Panel - Customer Profile */}
-                <div className={`md:col-span-2 ${!selectedCustomer ? 'hidden md:block' : 'block'}`}>
+                <div className={`md:col-span-2 h-full flex flex-col ${!selectedCustomer ? 'hidden md:flex' : 'flex'}`}>
                     {!selectedCustomer ? (
-                        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                            <User className="mx-auto mb-4 text-gray-400" size={64} />
-                            <p className="text-gray-600">Selecciona un cliente para ver su perfil</p>
+                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 h-full flex flex-col items-center justify-center text-center p-8 border-dashed">
+                            <div className="bg-slate-50 p-6 rounded-full mb-4">
+                                <Users className="text-slate-300" size={64} />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-700">Ningún cliente seleccionado</h3>
+                            <p className="text-slate-500 max-w-sm mt-2">Selecciona un cliente de la lista para ver su perfil, historial de crédito y gestionar sus datos.</p>
                         </div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
                             {/* Mobile Back Button */}
                             <button
                                 onClick={() => setSelectedCustomer(null)}
-                                className="md:hidden flex items-center text-gray-600 mb-2"
+                                className="md:hidden flex items-center text-slate-500 font-bold mb-2 hover:bg-slate-100 p-2 rounded-lg self-start"
                             >
                                 <Users className="mr-2" size={20} /> Volver a lista
                             </button>
 
-                            {/* Header */}
-                            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-lg p-6">
-                                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                            {/* Header Card */}
+                            <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl shadow-lg p-6 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-32 bg-white opacity-5 rounded-full blur-3xl transform translate-x-10 -translate-y-10"></div>
+                                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start gap-6">
                                     <div>
-                                        <h2 className="text-2xl font-bold mb-2">{selectedCustomer.name}</h2>
-                                        <div className="space-y-1 text-blue-100">
-                                            <p>📋 ID: {selectedCustomer.id_number || 'No registrado'}</p>
-                                            <p>📞 Teléfono: {selectedCustomer.phone || 'No registrado'}</p>
-                                            <p>📧 Email: {selectedCustomer.email || 'No registrado'}</p>
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <h2 className="text-3xl font-bold tracking-tight">{selectedCustomer.name}</h2>
+                                            {selectedCustomer.is_blocked && (
+                                                <span className="bg-rose-500/20 text-rose-200 border border-rose-500/30 px-3 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                                    Bloqueado
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-4 text-slate-300 text-sm font-medium">
+                                            <div className="flex items-center gap-1.5"><CreditCard size={14} /> {selectedCustomer.id_number || 'No ID'}</div>
+                                            <div className="flex items-center gap-1.5"><Phone size={14} /> {selectedCustomer.phone || 'No Tel'}</div>
+                                            <div className="flex items-center gap-1.5"><Mail size={14} /> {selectedCustomer.email || 'No Email'}</div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3 w-full md:w-auto">
-                                        <label className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg cursor-pointer w-full md:w-auto justify-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedCustomer.is_blocked || false}
-                                                onChange={handleToggleBlock}
-                                                className="w-5 h-5"
-                                            />
-                                            <span className="font-medium">Bloquear Crédito</span>
+
+                                    <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center">
+                                        <label className={clsx(
+                                            "flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all select-none",
+                                            selectedCustomer.is_blocked
+                                                ? "bg-rose-500/20 text-rose-200"
+                                                : "hover:bg-white/10 text-slate-300 hover:text-white"
+                                        )}>
+                                            <div className="relative">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedCustomer.is_blocked || false}
+                                                    onChange={handleToggleBlock}
+                                                    className="sr-only"
+                                                />
+                                                <div className={clsx("w-8 h-4 rounded-full transition-colors", selectedCustomer.is_blocked ? "bg-rose-500" : "bg-slate-600")}></div>
+                                                <div className={clsx("absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform", selectedCustomer.is_blocked ? "translate-x-4" : "translate-x-0")}></div>
+                                            </div>
+                                            <span className="font-bold text-xs uppercase tracking-wider">Bloqueo Crédito</span>
                                         </label>
                                     </div>
                                 </div>
@@ -328,31 +370,27 @@ const CustomerManager = () => {
 
                             {/* Financial KPIs */}
                             {loading ? (
-                                <div className="text-center p-8">Cargando estado financiero...</div>
+                                <div className="text-center p-12">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-2"></div>
+                                    <p className="text-slate-400">Cargando datos financieros...</p>
+                                </div>
                             ) : financialStatus && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {/* Credit Limit */}
-                                    <div className="bg-white rounded-lg shadow-md p-6">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-sm text-gray-600">Límite de Crédito</p>
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 group hover:border-indigo-200 transition-colors">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Límite Crédito</p>
                                             {!editingCredit ? (
                                                 <button
-                                                    onClick={() => {
-                                                        setEditingCredit(true);
-                                                        setTempCreditLimit(financialStatus.credit_limit);
-                                                    }}
-                                                    className="text-blue-600 hover:text-blue-800"
+                                                    onClick={() => { setEditingCredit(true); setTempCreditLimit(financialStatus.credit_limit); }}
+                                                    className="text-indigo-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                                 >
-                                                    <Edit2 size={16} />
+                                                    <Edit2 size={14} />
                                                 </button>
                                             ) : (
                                                 <div className="flex gap-2">
-                                                    <button onClick={handleUpdateCreditLimit} className="text-green-600">
-                                                        <Save size={16} />
-                                                    </button>
-                                                    <button onClick={() => setEditingCredit(false)} className="text-red-600">
-                                                        <X size={16} />
-                                                    </button>
+                                                    <button onClick={handleUpdateCreditLimit} className="text-emerald-600 hover:bg-emerald-50 rounded p-1"><CheckCircle size={14} /></button>
+                                                    <button onClick={() => setEditingCredit(false)} className="text-rose-600 hover:bg-rose-50 rounded p-1"><X size={14} /></button>
                                                 </div>
                                             )}
                                         </div>
@@ -361,71 +399,65 @@ const CustomerManager = () => {
                                                 type="number"
                                                 value={tempCreditLimit}
                                                 onChange={(e) => setTempCreditLimit(parseFloat(e.target.value))}
-                                                className="w-full text-3xl font-bold text-blue-600 border-2 border-blue-300 rounded p-2"
+                                                className="w-full text-xl font-bold text-slate-800 border-b-2 border-indigo-500 focus:outline-none bg-transparent"
                                                 autoFocus
                                             />
                                         ) : (
-                                            <p className="text-3xl font-bold text-blue-600">
+                                            <p className="text-2xl font-black text-slate-800 tracking-tight">
                                                 ${financialStatus.credit_limit.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                                             </p>
                                         )}
                                     </div>
 
                                     {/* Current Debt */}
-                                    <div className="bg-white rounded-lg shadow-md p-6">
-                                        <p className="text-sm text-gray-600 mb-2">Deuda Actual</p>
-                                        <p className={`text-3xl font-bold ${financialStatus.total_debt > financialStatus.credit_limit * 0.8
-                                            ? 'text-red-600'
-                                            : 'text-gray-800'
-                                            }`}>
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Deuda Actual</p>
+                                        <p className={clsx("text-2xl font-black tracking-tight",
+                                            financialStatus.total_debt > financialStatus.credit_limit * 0.8 ? 'text-rose-600' : 'text-slate-800'
+                                        )}>
                                             ${financialStatus.total_debt.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                                         </p>
                                     </div>
 
                                     {/* Available Credit */}
-                                    <div className="bg-white rounded-lg shadow-md p-6">
-                                        <p className="text-sm text-gray-600 mb-2">Cupo Disponible</p>
-                                        <p className="text-3xl font-bold text-green-600">
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Cupo Disponible</p>
+                                        <p className="text-2xl font-black text-emerald-600 tracking-tight">
                                             ${financialStatus.available_credit.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                                         </p>
                                     </div>
 
                                     {/* Payment Terms */}
-                                    <div className="bg-white rounded-lg shadow-md p-6">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <p className="text-sm text-gray-600">Días de Crédito</p>
+                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 group hover:border-indigo-200 transition-colors">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Días Crédito</p>
                                             {!editingTerms ? (
                                                 <button
-                                                    onClick={() => {
-                                                        setEditingTerms(true);
-                                                        setTempPaymentTerms(financialStatus.payment_term_days);
-                                                    }}
-                                                    className="text-blue-600 hover:text-blue-800"
+                                                    onClick={() => { setEditingTerms(true); setTempPaymentTerms(financialStatus.payment_term_days); }}
+                                                    className="text-indigo-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
                                                 >
-                                                    <Edit2 size={16} />
+                                                    <Edit2 size={14} />
                                                 </button>
                                             ) : (
                                                 <div className="flex gap-2">
-                                                    <button onClick={handleUpdatePaymentTerms} className="text-green-600">
-                                                        <Save size={16} />
-                                                    </button>
-                                                    <button onClick={() => setEditingTerms(false)} className="text-red-600">
-                                                        <X size={16} />
-                                                    </button>
+                                                    <button onClick={handleUpdatePaymentTerms} className="text-emerald-600 hover:bg-emerald-50 rounded p-1"><CheckCircle size={14} /></button>
+                                                    <button onClick={() => setEditingTerms(false)} className="text-rose-600 hover:bg-rose-50 rounded p-1"><X size={14} /></button>
                                                 </div>
                                             )}
                                         </div>
                                         {editingTerms ? (
-                                            <input
-                                                type="number"
-                                                value={tempPaymentTerms}
-                                                onChange={(e) => setTempPaymentTerms(parseInt(e.target.value))}
-                                                className="w-full text-3xl font-bold text-purple-600 border-2 border-purple-300 rounded p-2"
-                                                autoFocus
-                                            />
+                                            <div className="flex items-center gap-1">
+                                                <input
+                                                    type="number"
+                                                    value={tempPaymentTerms}
+                                                    onChange={(e) => setTempPaymentTerms(parseInt(e.target.value))}
+                                                    className="w-full text-xl font-bold text-indigo-600 border-b-2 border-indigo-500 focus:outline-none bg-transparent"
+                                                    autoFocus
+                                                />
+                                            </div>
                                         ) : (
-                                            <p className="text-3xl font-bold text-purple-600">
-                                                {financialStatus.payment_term_days} días
+                                            <p className="text-2xl font-black text-indigo-600 tracking-tight">
+                                                {financialStatus.payment_term_days} <span className="text-sm font-bold text-indigo-300 uppercase">días</span>
                                             </p>
                                         )}
                                     </div>
@@ -434,61 +466,65 @@ const CustomerManager = () => {
 
                             {/* Overdue Alert */}
                             {financialStatus && financialStatus.overdue_invoices > 0 && (
-                                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 flex items-center">
-                                    <AlertTriangle className="text-red-600 mr-3" size={24} />
+                                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-4 animate-pulse">
+                                    <div className="bg-rose-100 p-2 rounded-full text-rose-600">
+                                        <AlertTriangle size={24} />
+                                    </div>
                                     <div>
-                                        <p className="font-bold text-red-800">
-                                            ⚠️ {financialStatus.overdue_invoices} Factura(s) Vencida(s)
+                                        <p className="font-bold text-rose-800 text-lg">
+                                            {financialStatus.overdue_invoices} Factura(s) Vencida(s)
                                         </p>
-                                        <p className="text-red-600">
-                                            Monto vencido: ${financialStatus.overdue_amount.toFixed(2)}
+                                        <p className="text-rose-600 font-medium text-sm">
+                                            Monto total vencido: <span className="font-bold">${financialStatus.overdue_amount.toFixed(2)}</span>
                                         </p>
                                     </div>
                                 </div>
                             )}
 
                             {/* Credit History */}
-                            <div className="bg-white rounded-lg shadow-md p-6">
-                                <h3 className="text-xl font-bold text-gray-800 mb-4">Historial de Crédito</h3>
-                                {/* Desktop Table */}
-                                <div className="hidden md:block overflow-x-auto">
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
+                                <div className="p-5 border-b border-slate-100 bg-white">
+                                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                        <FileText size={20} className="text-slate-400" />
+                                        Historial de Crédito
+                                    </h3>
+                                </div>
+                                <div className="flex-1 overflow-auto">
                                     <table className="w-full">
-                                        <thead className="bg-gray-50">
+                                        <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
                                             <tr>
-                                                <th className="text-left p-3 font-semibold text-gray-700">Factura</th>
-                                                <th className="text-left p-3 font-semibold text-gray-700">Fecha</th>
-                                                <th className="text-right p-3 font-semibold text-gray-700">Monto</th>
-                                                <th className="text-left p-3 font-semibold text-gray-700">Vencimiento</th>
-                                                <th className="text-center p-3 font-semibold text-gray-700">Estado</th>
+                                                <th className="text-left py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Factura</th>
+                                                <th className="text-left py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Emisión</th>
+                                                <th className="text-right py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Monto</th>
+                                                <th className="text-left py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider pl-8">Vencimiento</th>
+                                                <th className="text-center py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y">
+                                        <tbody className="divide-y divide-slate-100">
                                             {creditHistory.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan="5" className="text-center p-8 text-gray-500">
-                                                        No hay historial de crédito
+                                                    <td colSpan="5" className="text-center py-12 text-slate-400">
+                                                        <FileText size={48} className="mx-auto mb-3 opacity-20" />
+                                                        <p>No hay historial de crédito disponible</p>
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                creditHistory.map(sale => {
+                                                creditHistory.map((sale, idx) => {
                                                     const status = getInvoiceStatus(sale);
                                                     return (
-                                                        <tr key={sale.id} className="hover:bg-gray-50">
-                                                            <td className="p-3 font-medium">#{sale.id}</td>
-                                                            <td className="p-3">
+                                                        <tr key={sale.id} className={clsx("hover:bg-slate-50/80 transition-colors", idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                                                            <td className="py-3 px-5 font-bold text-indigo-600">#{sale.id}</td>
+                                                            <td className="py-3 px-5 text-slate-600 text-sm">
                                                                 {new Date(sale.date).toLocaleDateString('es-ES')}
                                                             </td>
-                                                            <td className="p-3 text-right font-bold">
+                                                            <td className="py-3 px-5 text-right font-bold text-slate-800">
                                                                 ${sale.total_amount.toFixed(2)}
                                                             </td>
-                                                            <td className="p-3">
-                                                                {sale.due_date
-                                                                    ? new Date(sale.due_date).toLocaleDateString('es-ES')
-                                                                    : 'N/A'
-                                                                }
+                                                            <td className="py-3 px-5 text-slate-600 pl-8 text-sm">
+                                                                {sale.due_date ? new Date(sale.due_date).toLocaleDateString('es-ES') : '-'}
                                                             </td>
-                                                            <td className="p-3 text-center">
-                                                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${status.bg} ${status.color}`}>
+                                                            <td className="py-3 px-5 text-center">
+                                                                <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${status.color}`}>
                                                                     {status.label}
                                                                 </span>
                                                             </td>
@@ -499,185 +535,131 @@ const CustomerManager = () => {
                                         </tbody>
                                     </table>
                                 </div>
-
-                                {/* Mobile Credit Cards */}
-                                <div className="md:hidden space-y-3">
-                                    {creditHistory.length === 0 ? (
-                                        <div className="text-center p-8 text-gray-500">
-                                            No hay historial de crédito
-                                        </div>
-                                    ) : (
-                                        creditHistory.map(sale => {
-                                            const status = getInvoiceStatus(sale);
-                                            return (
-                                                <div key={sale.id} className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <div className="font-bold text-gray-800">#{sale.id}</div>
-                                                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${status.bg} ${status.color}`}>
-                                                            {status.label}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm mb-1">
-                                                        <span className="text-gray-500">Fecha:</span>
-                                                        <span>{new Date(sale.date).toLocaleDateString('es-ES')}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-sm mb-2">
-                                                        <span className="text-gray-500">Vence:</span>
-                                                        <span>{sale.due_date ? new Date(sale.due_date).toLocaleDateString('es-ES') : 'N/A'}</span>
-                                                    </div>
-                                                    <div className="flex justify-end text-lg font-bold text-gray-800 pt-2 border-t border-gray-200">
-                                                        ${sale.total_amount.toFixed(2)}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
                             </div>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Create Customer Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold">Nuevo Cliente</h3>
-                            <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">
-                                <X size={24} />
+            {/* Create/Edit Modal */}
+            {(showCreateModal || showEditModal) && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform scale-100 transition-all">
+                        <div className="p-5 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                {showCreateModal ? <Plus className="text-indigo-600" size={24} /> : <Edit2 className="text-indigo-600" size={24} />}
+                                {showCreateModal ? 'Nuevo Cliente' : 'Editar Cliente'}
+                            </h3>
+                            <button onClick={() => { setShowCreateModal(false); setShowEditModal(false); }} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                                <X size={20} />
                             </button>
                         </div>
-                        <div className="space-y-3">
-                            <input
-                                type="text"
-                                placeholder="Nombre *"
-                                value={customerForm.name}
-                                onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
-                                className="w-full p-2 border rounded"
-                            />
-                            <input
-                                type="text"
-                                placeholder="RIF/Cédula"
-                                value={customerForm.id_number}
-                                onChange={(e) => setCustomerForm({ ...customerForm, id_number: e.target.value })}
-                                className="w-full p-2 border rounded"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Teléfono"
-                                value={customerForm.phone}
-                                onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
-                                className="w-full p-2 border rounded"
-                            />
-                            <input
-                                type="email"
-                                placeholder="Email"
-                                value={customerForm.email}
-                                onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
-                                className="w-full p-2 border rounded"
-                            />
-                            <input
-                                type="number"
-                                placeholder="Límite de Crédito"
-                                value={customerForm.credit_limit}
-                                onChange={(e) => setCustomerForm({ ...customerForm, credit_limit: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                                className="w-full p-2 border rounded"
-                            />
-                            <input
-                                type="number"
-                                placeholder="Días de Plazo"
-                                value={customerForm.payment_term_days}
-                                onChange={(e) => setCustomerForm({ ...customerForm, payment_term_days: e.target.value === '' ? '' : parseInt(e.target.value) })}
-                                className="w-full p-2 border rounded"
-                            />
-                        </div>
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => setShowCreateModal(false)}
-                                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleCreateCustomer}
-                                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                            >
-                                Crear
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Edit Customer Modal */}
-            {showEditModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold">Editar Cliente</h3>
-                            <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">
-                                <X size={24} />
-                            </button>
+                        <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nombre Completo *</label>
+                                <input
+                                    type="text"
+                                    value={customerForm.name}
+                                    onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+                                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
+                                    placeholder="Ej: Juan Pérez"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">RIF / Cédula</label>
+                                    <div className="relative">
+                                        <CreditCard className="absolute left-3 top-3 text-slate-400" size={18} />
+                                        <input
+                                            type="text"
+                                            value={customerForm.id_number}
+                                            onChange={(e) => setCustomerForm({ ...customerForm, id_number: e.target.value })}
+                                            className="w-full pl-10 pr-4 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
+                                            placeholder="V-12345678"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Teléfono</label>
+                                    <div className="relative">
+                                        <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
+                                        <input
+                                            type="text"
+                                            value={customerForm.phone}
+                                            onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                                            className="w-full pl-10 pr-4 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
+                                            placeholder="0414-1234567"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
+                                    <input
+                                        type="email"
+                                        value={customerForm.email}
+                                        onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+                                        className="w-full pl-10 pr-4 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
+                                        placeholder="cliente@email.com"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Dirección</label>
+                                <div className="relative">
+                                    <MapPin className="absolute left-3 top-3 text-slate-400" size={18} />
+                                    <textarea
+                                        value={customerForm.address}
+                                        onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
+                                        className="w-full pl-10 pr-4 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 resize-none placeholder:text-slate-300"
+                                        rows="2"
+                                        placeholder="Dirección fiscal..."
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Límite Crédito ($)</label>
+                                    <input
+                                        type="number"
+                                        value={customerForm.credit_limit}
+                                        onChange={(e) => setCustomerForm({ ...customerForm, credit_limit: e.target.value === '' ? '' : parseFloat(e.target.value) })}
+                                        className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700"
+                                        placeholder="0.00"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Plazo (Días)</label>
+                                    <input
+                                        type="number"
+                                        value={customerForm.payment_term_days}
+                                        onChange={(e) => setCustomerForm({ ...customerForm, payment_term_days: e.target.value === '' ? '' : parseInt(e.target.value) })}
+                                        className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700"
+                                        placeholder="15"
+                                    />
+                                </div>
+                            </div>
                         </div>
-                        <div className="space-y-3">
-                            <input
-                                type="text"
-                                placeholder="Nombre *"
-                                value={customerForm.name}
-                                onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
-                                className="w-full p-2 border rounded"
-                            />
-                            <input
-                                type="text"
-                                placeholder="RIF/Cédula"
-                                value={customerForm.id_number}
-                                onChange={(e) => setCustomerForm({ ...customerForm, id_number: e.target.value })}
-                                className="w-full p-2 border rounded"
-                            />
-                            <input
-                                type="text"
-                                placeholder="Teléfono"
-                                value={customerForm.phone}
-                                onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
-                                className="w-full p-2 border rounded"
-                            />
-                            <input
-                                type="email"
-                                placeholder="Email"
-                                value={customerForm.email}
-                                onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
-                                className="w-full p-2 border rounded"
-                            />
-                            {/* NEW: Add credit fields to edit modal */}
-                            <input
-                                type="number"
-                                placeholder="Límite de Crédito"
-                                value={customerForm.credit_limit}
-                                onChange={(e) => setCustomerForm({ ...customerForm, credit_limit: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                                className="w-full p-2 border rounded"
-                            />
-                            <input
-                                type="number"
-                                placeholder="Días de Plazo"
-                                value={customerForm.payment_term_days}
-                                onChange={(e) => setCustomerForm({ ...customerForm, payment_term_days: e.target.value === '' ? '' : parseInt(e.target.value) })}
-                                className="w-full p-2 border rounded"
-                            />
-                        </div>
-                        <div className="flex gap-3 mt-6">
+
+                        <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex gap-3">
                             <button
-                                onClick={() => setShowEditModal(false)}
-                                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                                onClick={() => { setShowCreateModal(false); setShowEditModal(false); }}
+                                className="flex-1 py-2.5 font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-xl transition-colors"
                             >
                                 Cancelar
                             </button>
                             <button
-                                onClick={handleEditCustomer}
-                                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                onClick={showCreateModal ? handleCreateCustomer : handleEditCustomer}
+                                className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95"
                             >
-                                Guardar
+                                {showCreateModal ? 'Crear Cliente' : 'Guardar Cambios'}
                             </button>
                         </div>
                     </div>
