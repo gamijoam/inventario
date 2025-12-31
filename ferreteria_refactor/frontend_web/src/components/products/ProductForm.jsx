@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, AlertCircle, Coins, Receipt, ArrowRight, Calculator, SlidersHorizontal } from 'lucide-react';
+import { X, Plus, Trash2, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, AlertCircle, Coins, Receipt, ArrowRight, Calculator, SlidersHorizontal, Check } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductUnitManager from './ProductUnitManager';
 import ComboManager from './ComboManager';
 import ProductImageUploader from './ProductImageUploader';
+import clsx from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     const { getActiveCurrencies, convertPrice, currencies } = useConfig();
@@ -13,7 +15,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     const [activeTab, setActiveTab] = useState('general');
     const [categories, setCategories] = useState([]);
     const [exchangeRates, setExchangeRates] = useState([]);
-    const [warehouses, setWarehouses] = useState([]); // NEW: Warehouses state
+    const [warehouses, setWarehouses] = useState([]);
     const [formData, setFormData] = useState({
         name: '',
         sku: '',
@@ -27,15 +29,13 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         unit_type: 'UNID',
         exchange_rate_id: null,
         is_combo: false,
-        // Pricing System Fields
         profit_margin: null,
-
         discount_percentage: 0,
         is_discount_active: false,
-        tax_rate: 0, // NEW: Tax Rate
+        tax_rate: 0,
         units: [],
         combo_items: [],
-        warehouse_stocks: [] // NEW: Stocks per warehouse
+        warehouse_stocks: []
     });
 
     // Calculated values for display
@@ -43,29 +43,18 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     const [calculatedMargin, setCalculatedMargin] = useState(null);
     const [finalPriceWithDiscount, setFinalPriceWithDiscount] = useState(null);
 
-    // Reset or Populate on simple change
+    // Reset or Populate
     useEffect(() => {
         if (isOpen) {
-            // Fetch categories
             fetchCategories();
-            // Fetch exchange rates
-            // Fetch exchange rates
             fetchExchangeRates();
-            // Fetch default tax rate
             fetchDefaultTaxRate();
-            // Fetch warehouses for stock management
             fetchWarehouses();
 
             if (initialData) {
-                // Map backend units to frontend format
                 const mappedUnits = (initialData.units || []).map(u => {
-                    // Determine type based on conversion_factor
                     const isPacking = u.conversion_factor >= 1;
                     const type = isPacking ? 'packing' : 'fraction';
-
-                    // Calculate user_input from conversion_factor
-                    // For packing: factor is the number (e.g., 12 units)
-                    // For fraction: factor is 1/n, so user_input is 1/factor (e.g., 1/0.001 = 1000)
                     const user_input = isPacking
                         ? u.conversion_factor
                         : (u.conversion_factor > 0 ? 1 / u.conversion_factor : 1000);
@@ -79,7 +68,6 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                         barcode: u.barcode || '',
                         price_usd: u.price_usd || 0,
                         exchange_rate_id: u.exchange_rate_id || null,
-                        // Fix: Map Discount Fields
                         discount_percentage: u.discount_percentage || 0,
                         is_discount_active: u.is_discount_active || false
                     };
@@ -99,52 +87,40 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                         ? ((initialData.price - initialData.cost_price) / initialData.price) * 100
                         : 0,
                     exchange_rate_id: initialData.exchange_rate_id || null,
-                    is_combo: initialData.is_combo || false,  // NEW
-                    // Pricing System Fields - Fix Uncontrolled Input
+                    is_combo: initialData.is_combo || false,
                     profit_margin: initialData.profit_margin || null,
-
                     discount_percentage: initialData.discount_percentage || 0,
                     is_discount_active: initialData.is_discount_active || false,
-                    tax_rate: initialData.tax_rate !== undefined ? initialData.tax_rate : 0, // Load tax rate
+                    tax_rate: initialData.tax_rate !== undefined ? initialData.tax_rate : 0,
                     units: mappedUnits,
-                    combo_items: initialData.combo_items || [], // NEW
-                    warehouse_stocks: initialData.stocks || [] // NEW: Load existing stocks
+                    combo_items: initialData.combo_items || [],
+                    warehouse_stocks: initialData.stocks || []
                 });
             } else {
-                // Reset for new product
                 setFormData({
                     name: '', sku: '', category_id: null,
                     cost: 0, price: 0, stock: 0, min_stock: 5, location: '',
                     margin: 0, unit_type: 'UNID', exchange_rate_id: null,
                     is_combo: false, units: [], combo_items: [],
-                    tax_rate: 0, // Reset tax
-                    warehouse_stocks: [] // NEW: Empty stocks
+                    tax_rate: 0,
+                    warehouse_stocks: []
                 });
             }
             setActiveTab('general');
         }
     }, [isOpen, initialData]);
 
-    // ========================================
     // PRICING CALCULATIONS
-    // ========================================
-
-    // Auto-calculate price from cost + profit margin + tax
-    // Auto-calculate price from cost + profit margin + tax
     useEffect(() => {
-        // Calculate if we have at least a cost
         if (formData.cost) {
             const cost = parseFloat(formData.cost);
-            const margin = parseFloat(formData.profit_margin) || 0; // Default to 0 if empty
-            const tax = parseFloat(formData.tax_rate) || 0; // Default to 0 if empty
+            const margin = parseFloat(formData.profit_margin) || 0;
+            const tax = parseFloat(formData.tax_rate) || 0;
 
             if (cost > 0) {
-                // Price = Cost * (1 + Margin) * (1 + Tax)
                 const priceBeforeTax = cost * (1 + margin / 100);
                 const finalPrice = priceBeforeTax * (1 + tax / 100);
-
                 setCalculatedPrice(finalPrice.toFixed(2));
-                // Auto-update price field
                 setFormData(prev => ({ ...prev, price: finalPrice.toFixed(2) }));
             }
         } else {
@@ -152,7 +128,6 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         }
     }, [formData.cost, formData.profit_margin, formData.tax_rate]);
 
-    // Reverse-calculate margin from cost + price (when margin is not set)
     useEffect(() => {
         if (formData.cost && formData.price && !formData.profit_margin) {
             const cost = parseFloat(formData.cost);
@@ -168,7 +143,6 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         }
     }, [formData.cost, formData.price, formData.profit_margin]);
 
-    // Calculate final price with discount
     useEffect(() => {
         if (formData.price && formData.is_discount_active && formData.discount_percentage) {
             const price = parseFloat(formData.price);
@@ -188,8 +162,6 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         const { name, value } = e.target;
         let newValue = value;
 
-        // For numeric fields, allow empty string (for better UX while typing)
-        // Convert to number only if value is not empty
         if (['cost', 'price', 'stock', 'min_stock'].includes(name)) {
             newValue = value === '' ? '' : parseFloat(value) || 0;
         }
@@ -239,7 +211,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     };
 
     const fetchDefaultTaxRate = async () => {
-        if (initialData) return; // Don't override if editing
+        if (initialData) return;
         try {
             const response = await apiClient.get('/config/tax-rate/default');
             setFormData(prev => ({ ...prev, tax_rate: response.data.rate || 0 }));
@@ -248,33 +220,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         }
     };
 
-    // ... Unit Management (keep existing helper functions)
-    const handleAddUnit = (type) => {
-        const newUnit = {
-            id: Date.now(),
-            unit_name: '',
-            user_input: type === 'packing' ? 12 : 1000,
-            conversion_factor: 1,
-            type: type,
-            barcode: '',
-            price_usd: 0
-        };
-        setFormData(prev => ({ ...prev, units: [...prev.units, newUnit] }));
-    };
-
-    const handleUnitChange = (id, field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            units: prev.units.map(u => (u.id === id ? { ...u, [field]: value } : u))
-        }));
-    };
-
-    const removeUnit = (id) => {
-        setFormData(prev => ({ ...prev, units: prev.units.filter(u => u.id !== id) }));
-    };
-
     const handleSubmit = () => {
-        // Validation
         if (!formData.name.trim()) {
             alert('El nombre del producto es obligatorio');
             return;
@@ -300,12 +246,10 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
             location: formData.location,
             exchange_rate_id: formData.exchange_rate_id ? parseInt(formData.exchange_rate_id) : null,
             is_combo: formData.is_combo,
-            // Pricing System Fields
             profit_margin: formData.profit_margin ? parseFloat(formData.profit_margin) : null,
-
             discount_percentage: parseFloat(formData.discount_percentage) || 0,
             is_discount_active: formData.is_discount_active,
-            tax_rate: parseFloat(formData.tax_rate) || 0, // Send Tax Rate
+            tax_rate: parseFloat(formData.tax_rate) || 0,
             units: formData.units.map(u => {
                 let factor = parseFloat(u.user_input);
                 if (u.type === 'fraction') factor = factor !== 0 ? 1 / factor : 0;
@@ -322,7 +266,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                 child_product_id: ci.child_product_id,
                 quantity: parseFloat(ci.quantity)
             })) : [],
-            warehouse_stocks: formData.warehouse_stocks // NEW: Send stocks
+            warehouse_stocks: formData.warehouse_stocks
         };
         onSubmit(payload);
     };
@@ -332,82 +276,85 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
     const TabButton = ({ id, label, icon: Icon }) => (
         <button
             onClick={() => setActiveTab(id)}
-            className={`flex items-center px-6 py-4 font-medium transition-colors border-b-2 ${activeTab === id
-                ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
+            className={clsx(
+                "flex items-center px-6 py-4 font-bold text-sm transition-all border-b-2",
+                activeTab === id
+                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+            )}
         >
-            <Icon size={18} className="mr-2" />
+            <Icon size={18} className={clsx("mr-2", activeTab === id ? "text-indigo-600" : "text-slate-400")} />
             {label}
         </button>
     );
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between p-5 border-b bg-gray-50">
+                <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-white">
                     <div>
-                        <h3 className="text-2xl font-bold text-gray-800">
+                        <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            {initialData ? <Package className="text-indigo-600" /> : <Plus className="text-indigo-600" />}
                             {initialData ? 'Editar Producto' : 'Nuevo Producto'}
                         </h3>
-                        <p className="text-gray-500 text-sm mt-1">
+                        <p className="text-slate-500 text-sm mt-1 font-medium">
                             Complete la información del inventario
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-500">
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400 hover:text-slate-600">
                         <X size={24} />
                     </button>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex border-b bg-white sticky top-0 z-10">
+                <div className="flex border-b border-slate-100 bg-white sticky top-0 z-10 overflow-x-auto scrollbar-hide">
                     <TabButton id="general" label="General" icon={Barcode} />
-                    <TabButton id="pricing" label="Precios & Stock" icon={DollarSign} />
+                    <TabButton id="pricing" label="Precios y Stock" icon={DollarSign} />
                     <TabButton id="units" label="Presentaciones" icon={Layers} />
                     <TabButton id="combos" label="Combos" icon={Package} />
                 </div>
 
                 {/* Content */}
-                <div className="p-8 overflow-y-auto flex-1 bg-gray-50/30">
+                <div className="p-8 overflow-y-auto flex-1 bg-slate-50/50">
                     {activeTab === 'general' && (
-                        <div className="space-y-6 max-w-3xl mx-auto anime-fade-in">
+                        <div className="space-y-6 max-w-3xl mx-auto">
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="col-span-2">
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre del Producto <span className="text-red-500">*</span></label>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nombre del Producto <span className="text-rose-500">*</span></label>
                                     <input
                                         type="text"
                                         name="name"
                                         value={formData.name}
                                         onChange={handleInputChange}
-                                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 py-3 px-4 text-lg"
+                                        className="w-full border-slate-200 rounded-xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500/20 py-3 px-4 text-lg font-semibold text-slate-800 placeholder-slate-300 transition-all"
                                         placeholder="Ej: Cemento Gris Portland Tipo I"
                                         autoFocus
                                     />
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">SKU / Código <span className="text-gray-400 font-normal">(Opcional)</span></label>
+                                <div className="col-span-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">SKU / Código <span className="text-slate-300 font-normal normal-case">(Opcional)</span></label>
                                     <div className="relative">
-                                        <Barcode className="absolute left-3 top-3 text-gray-400" size={18} />
+                                        <Barcode className="absolute left-3 top-3 text-slate-400" size={18} />
                                         <input
                                             type="text"
                                             name="sku"
                                             value={formData.sku}
                                             onChange={handleInputChange}
-                                            className="w-full pl-10 border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                                            className="w-full pl-10 border-slate-200 rounded-xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500/20 py-2.5 font-medium text-slate-700 transition-all"
                                             placeholder="SCAN-001"
                                         />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Categoría</label>
+                                <div className="col-span-1">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Categoría</label>
                                     <div className="relative">
-                                        <Tag className="absolute left-3 top-3 text-gray-400" size={18} />
+                                        <Tag className="absolute left-3 top-3 text-slate-400" size={18} />
                                         <select
                                             name="category_id"
                                             value={formData.category_id || ''}
                                             onChange={handleInputChange}
-                                            className="w-full pl-10 border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
+                                            className="w-full pl-10 border-slate-200 rounded-xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500/20 py-2.5 font-medium text-slate-700 appearance-none bg-white transition-all"
                                         >
                                             <option value="">-- Sin categoría --</option>
                                             {categories.filter(cat => !cat.parent_id).map(parent => (
@@ -420,7 +367,6 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                                     ))}
                                                 </optgroup>
                                             ))}
-                                            {/* Standalone categories without children */}
                                             {categories.filter(cat => !cat.parent_id && !categories.some(c => c.parent_id === cat.id)).length === 0 && categories.filter(cat => !cat.parent_id).map(cat => (
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                                             ))}
@@ -428,50 +374,50 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                     </div>
                                 </div>
                                 <div className="col-span-2">
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Ubicación en Almacén</label>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Ubicación en Almacén</label>
                                     <input
                                         type="text"
                                         name="location"
                                         value={formData.location}
                                         onChange={handleInputChange}
-                                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
-                                        placeholder="Pasillo 4, Estante B"
+                                        className="w-full border-slate-200 rounded-xl shadow-sm focus:border-indigo-500 focus:ring-indigo-500/20 py-2.5 font-medium text-slate-700 transition-all"
+                                        placeholder="Ej: Pasillo 4, Estante B"
                                     />
                                 </div>
 
                                 {/* Product Image Upload */}
                                 {initialData && initialData.id && (
-                                    <div className="col-span-2 mt-4">
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Imagen del Producto</label>
+                                    <div className="col-span-2 mt-2">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Imagen del Producto</label>
                                         <ProductImageUploader
                                             productId={initialData.id}
                                             currentImageUrl={formData.image_url}
                                             onImageUpdate={(newUrl) => setFormData({
                                                 ...formData,
                                                 image_url: newUrl,
-                                                updated_at: new Date().toISOString() // Force cache bust
+                                                updated_at: new Date().toISOString()
                                             })}
                                         />
                                     </div>
                                 )}
 
                                 {/* Combo Checkbox */}
-                                <div className="col-span-2 mt-4">
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div className="col-span-2 mt-2">
+                                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
                                         <label className="flex items-center cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 checked={formData.is_combo}
                                                 onChange={(e) => setFormData({ ...formData, is_combo: e.target.checked })}
-                                                className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                                             />
-                                            <span className="ml-3 text-sm font-medium text-gray-900">
+                                            <span className="ml-3 text-sm font-bold text-slate-800">
                                                 🎁 Este producto es un Combo/Bundle
                                             </span>
                                         </label>
-                                        <p className="text-xs text-gray-600 mt-2 ml-8">
+                                        <p className="text-xs text-slate-500 mt-2 ml-8 font-medium">
                                             Los combos son productos virtuales compuestos por otros productos.
-                                            El stock se descuenta de los componentes, no del combo.
+                                            El stock se descuenta de los componentes.
                                         </p>
                                     </div>
                                 </div>
@@ -480,135 +426,135 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                     )}
 
                     {activeTab === 'pricing' && (
-                        <div className="space-y-6 max-w-4xl mx-auto anime-fade-in p-1">
+                        <div className="space-y-6 max-w-4xl mx-auto">
 
                             {/* SECTION 1: PRICING ENGINE */}
-                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                                <h4 className="text-lg font-bold text-gray-800 mb-6 flex items-center border-b pb-4">
-                                    <Calculator className="mr-2 text-green-600" size={20} /> Estructura de Precios
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                                <h4 className="text-sm font-bold text-slate-800 mb-6 flex items-center border-b border-slate-100 pb-4 uppercase tracking-wide">
+                                    <Calculator className="mr-2 text-emerald-500" size={18} /> Estructura de Precios
                                 </h4>
 
                                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                                     {/* Cost */}
                                     <div className="md:col-span-3">
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Costo Neto</label>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Costo Neto</label>
                                         <div className="relative">
-                                            <span className="absolute left-3 top-3 text-gray-400 font-bold">{anchorCurrency.symbol}</span>
+                                            <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-sm">{anchorCurrency.symbol}</span>
                                             <input
                                                 type="number"
                                                 name="cost"
                                                 value={formData.cost}
                                                 onChange={handleInputChange}
-                                                className="w-full pl-8 border-gray-300 rounded-lg shadow-sm focus:border-green-500 focus:ring-green-500 py-2.5 font-bold text-gray-700"
+                                                className="w-full pl-8 border-slate-200 rounded-xl shadow-sm focus:border-emerald-500 focus:ring-emerald-500/20 py-2.5 font-bold text-slate-700 transition-all text-sm"
                                                 placeholder="0.00"
                                             />
                                         </div>
                                     </div>
 
                                     {/* Visual Flow + */}
-                                    <div className="hidden md:flex md:col-span-1 justify-center text-gray-300">
-                                        <Plus size={20} />
+                                    <div className="hidden md:flex md:col-span-1 justify-center text-slate-300">
+                                        <Plus size={18} />
                                     </div>
 
                                     {/* Margin & Tax */}
                                     <div className="md:col-span-3 space-y-3">
                                         <div className="relative">
-                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Margen %</label>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Margen %</label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
                                                     value={formData.profit_margin || ''}
                                                     onChange={(e) => setFormData({ ...formData, profit_margin: e.target.value })}
-                                                    className="w-full pr-8 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 py-2 text-sm"
+                                                    className="w-full pr-8 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-indigo-500/20 py-2 text-sm font-medium transition-all"
                                                     placeholder="0"
                                                 />
-                                                <span className="absolute right-3 top-2 text-gray-400 text-xs">%</span>
+                                                <span className="absolute right-3 top-2 text-slate-400 text-xs font-bold">%</span>
                                             </div>
                                         </div>
                                         <div className="relative">
-                                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Impuesto (IVA) %</label>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">IVA %</label>
                                             <div className="relative">
                                                 <input
                                                     type="number"
                                                     name="tax_rate"
                                                     value={formData.tax_rate}
                                                     onChange={handleInputChange}
-                                                    className="w-full pr-8 border-gray-200 rounded-lg focus:border-orange-500 focus:ring-orange-500 py-2 text-sm"
+                                                    className="w-full pr-8 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-indigo-500/20 py-2 text-sm font-medium transition-all"
                                                     placeholder="0"
                                                 />
-                                                <span className="absolute right-3 top-2 text-gray-400 text-xs">%</span>
+                                                <span className="absolute right-3 top-2 text-slate-400 text-xs font-bold">%</span>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Visual Flow = */}
-                                    <div className="hidden md:flex md:col-span-1 justify-center text-gray-300">
-                                        <ArrowRight size={20} />
+                                    <div className="hidden md:flex md:col-span-1 justify-center text-slate-300">
+                                        <ArrowRight size={18} />
                                     </div>
 
                                     {/* Final Price */}
-                                    <div className="md:col-span-4 bg-green-50 rounded-xl border border-green-100 p-4">
-                                        <label className="block text-xs font-bold text-green-700 uppercase tracking-wider mb-1">Precio Venta Final</label>
+                                    <div className="md:col-span-4 bg-emerald-50/50 rounded-xl border border-emerald-100 p-4">
+                                        <label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">Precio Venta Final</label>
                                         <div className="relative">
-                                            <span className="absolute left-3 top-4 text-green-600 font-bold text-xl">{anchorCurrency.symbol}</span>
+                                            <span className="absolute left-0 top-3 text-emerald-600 font-bold text-xl">{anchorCurrency.symbol}</span>
                                             <input
                                                 type="number"
                                                 name="price"
                                                 value={formData.price}
                                                 onChange={handleInputChange}
-                                                className="w-full pl-8 text-3xl font-black text-green-700 bg-transparent border-none focus:ring-0 p-0 placeholder-green-300"
+                                                className="w-full pl-6 text-3xl font-black text-emerald-700 bg-transparent border-none focus:ring-0 p-0 placeholder-emerald-300/50"
                                                 placeholder="0.00"
                                             />
                                         </div>
-                                        <p className="text-xs text-green-600 mt-1 font-medium">Autocalculado según costo y tasas.</p>
+                                        <p className="text-[10px] text-emerald-600/80 mt-1 font-bold">Autocalculado tras impuestos o manual</p>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* SECTION 2: INVENTORY */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full">
-                                    <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                                        <Package className="mr-2 text-blue-600" size={20} /> Inventario por Almacén
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 h-full flex flex-col">
+                                    <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center uppercase tracking-wide">
+                                        <Package className="mr-2 text-indigo-600" size={18} /> Inventario por Almacén
                                     </h4>
-                                    <div className="space-y-4">
-                                        {/* Total Stock (Auto-calculated) */}
+                                    <div className="space-y-4 flex-1">
+                                        {/* Total Stock */}
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Stock Total (Suma Automática)</label>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Stock Total (Suma Automática)</label>
                                             <input
                                                 type="number"
                                                 name="stock"
                                                 value={formData.stock}
                                                 readOnly
-                                                className="w-full border-gray-200 rounded-lg shadow-sm bg-gray-100 text-gray-500 py-3 text-lg font-bold cursor-not-allowed"
+                                                className="w-full border-slate-100 rounded-xl shadow-inner bg-slate-50 text-slate-500 py-3 px-4 text-lg font-bold cursor-not-allowed"
                                                 placeholder="0"
                                             />
                                         </div>
 
                                         {/* Warehouses Table */}
-                                        <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
-                                            <table className="min-w-full divide-y divide-gray-200">
-                                                <thead className="bg-gray-50 sticky top-0">
+                                        <div className="border border-slate-100 rounded-xl overflow-hidden">
+                                            <table className="min-w-full divide-y divide-slate-100">
+                                                <thead className="bg-slate-50/50">
                                                     <tr>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Almacén</th>
-                                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                                                        <th className="px-3 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Almacén</th>
+                                                        <th className="px-3 py-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cant.</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="bg-white divide-y divide-gray-200">
+                                                <tbody className="bg-white divide-y divide-slate-100">
                                                     {warehouses.map(wh => {
                                                         const stockEntry = formData.warehouse_stocks.find(s => s.warehouse_id === wh.id);
                                                         const qty = stockEntry ? stockEntry.quantity : 0;
                                                         return (
-                                                            <tr key={wh.id}>
-                                                                <td className="px-3 py-2 text-sm text-gray-900">
-                                                                    <div className="font-medium">{wh.name}</div>
-                                                                    <div className="text-xs text-gray-500">{wh.is_main ? 'Principal' : 'Sucursal'}</div>
+                                                            <tr key={wh.id} className="hover:bg-slate-50/30 transition-colors">
+                                                                <td className="px-3 py-2.5 text-sm text-slate-800">
+                                                                    <div className="font-bold text-xs">{wh.name}</div>
+                                                                    <div className="text-[10px] text-slate-400 font-medium">{wh.is_main ? 'Principal' : 'Sucursal'}</div>
                                                                 </td>
-                                                                <td className="px-3 py-2">
+                                                                <td className="px-3 py-2.5 text-right">
                                                                     <input
                                                                         type="number"
                                                                         min="0"
-                                                                        className="w-24 text-right border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                                                        className="w-20 text-right border-slate-200 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-xs font-bold py-1 px-2"
                                                                         value={qty}
                                                                         onChange={(e) => {
                                                                             const val = parseFloat(e.target.value) || 0;
@@ -619,13 +565,12 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                                                             } else {
                                                                                 newStocks.push({ warehouse_id: wh.id, quantity: val });
                                                                             }
-                                                                            // Update stocks array
                                                                             setFormData(prev => {
                                                                                 const total = newStocks.reduce((sum, s) => sum + s.quantity, 0);
                                                                                 return {
                                                                                     ...prev,
                                                                                     warehouse_stocks: newStocks,
-                                                                                    stock: total // Auto-update total stock
+                                                                                    stock: total
                                                                                 };
                                                                             });
                                                                         }}
@@ -636,8 +581,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                                     })}
                                                     {warehouses.length === 0 && (
                                                         <tr>
-                                                            <td colSpan="2" className="px-3 py-4 text-center text-sm text-gray-500">
-                                                                No hay almacenes registrados.
+                                                            <td colSpan="2" className="px-3 py-4 text-center text-xs text-slate-400 italic">
+                                                                No hay almacenes.
                                                             </td>
                                                         </tr>
                                                     )}
@@ -646,48 +591,54 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Stock Mínimo Global (Alerta)</label>
-                                            <input
-                                                type="number"
-                                                name="min_stock"
-                                                value={formData.min_stock}
-                                                onChange={handleInputChange}
-                                                className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2.5"
-                                                placeholder="5.0"
-                                            />
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Stock Mínimo (Alerta)</label>
+                                            <div className="relative">
+                                                <AlertTriangle size={14} className="absolute left-3 top-3 text-amber-400" />
+                                                <input
+                                                    type="number"
+                                                    name="min_stock"
+                                                    value={formData.min_stock}
+                                                    onChange={handleInputChange}
+                                                    className="w-full pl-9 border-slate-200 rounded-xl shadow-sm focus:border-amber-500 focus:ring-amber-500/20 py-2.5 text-sm font-medium"
+                                                    placeholder="5.0"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* SECTION 3: ADVANCED OPTIONS */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full">
-                                    <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                                        <SlidersHorizontal className="mr-2 text-purple-600" size={20} /> Opciones
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 h-full">
+                                    <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center uppercase tracking-wide">
+                                        <SlidersHorizontal className="mr-2 text-purple-600" size={18} /> Opciones Avanzadas
                                     </h4>
 
                                     {/* Discount Toggle */}
-                                    <div className="mb-6">
-                                        <label className="flex items-center cursor-pointer mb-2">
+                                    <div className="mb-6 p-4 bg-rose-50/50 rounded-xl border border-rose-100">
+                                        <label className="flex items-center cursor-pointer mb-3">
                                             <input
                                                 type="checkbox"
                                                 checked={formData.is_discount_active}
                                                 onChange={(e) => setFormData({ ...formData, is_discount_active: e.target.checked })}
-                                                className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                                                className="w-4 h-4 text-rose-600 border-slate-300 rounded focus:ring-rose-500"
                                             />
-                                            <span className="ml-2 text-sm font-semibold text-gray-700">Activar Descuento</span>
+                                            <span className="ml-2 text-sm font-bold text-rose-700">Activar Descuento Promocional</span>
                                         </label>
 
                                         {formData.is_discount_active && (
-                                            <div className="flex items-center gap-3 animate-fade-in-down">
-                                                <input
-                                                    type="number"
-                                                    value={formData.discount_percentage}
-                                                    onChange={(e) => setFormData({ ...formData, discount_percentage: e.target.value })}
-                                                    className="w-24 border-red-200 rounded-lg py-2 px-3 text-sm focus:border-red-500 focus:ring-red-500"
-                                                    placeholder="%"
-                                                />
-                                                <div className="text-sm text-gray-500">
-                                                    Precio final: <span className="font-bold text-red-600">{anchorCurrency.symbol}{finalPriceWithDiscount}</span>
+                                            <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                                                <div className="relative">
+                                                    <input
+                                                        type="number"
+                                                        value={formData.discount_percentage}
+                                                        onChange={(e) => setFormData({ ...formData, discount_percentage: e.target.value })}
+                                                        className="w-24 border-rose-200 rounded-lg py-2 pl-3 pr-8 text-sm font-bold focus:border-rose-500 focus:ring-rose-500"
+                                                        placeholder="0"
+                                                    />
+                                                    <span className="absolute right-3 top-2 text-rose-400 text-xs font-bold">%</span>
+                                                </div>
+                                                <div className="text-xs text-rose-600 font-medium bg-rose-100 px-2 py-1 rounded-md">
+                                                    Nuevo Precio: <span className="font-bold">{anchorCurrency.symbol}{finalPriceWithDiscount}</span>
                                                 </div>
                                             </div>
                                         )}
@@ -695,20 +646,21 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
 
                                     {/* Exchange Rate */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Tasa de Cambio</label>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tasa de Cambio Específica</label>
                                         <select
                                             name="exchange_rate_id"
                                             value={formData.exchange_rate_id || ''}
                                             onChange={handleInputChange}
-                                            className="w-full border-gray-200 rounded-lg shadow-sm focus:border-purple-500 focus:ring-purple-500 py-2 text-sm bg-gray-50 mb-2"
+                                            className="w-full border-slate-200 rounded-xl shadow-sm focus:border-purple-500 focus:ring-purple-500/20 py-2.5 text-sm font-medium bg-white"
                                         >
-                                            <option value="">Automática (Según configuración)</option>
+                                            <option value="">Automática (Global)</option>
                                             {exchangeRates.map(rate => (
                                                 <option key={rate.id} value={rate.id}>
                                                     {rate.name} - {rate.currency_code} ({Number(rate.rate).toFixed(2)})
                                                 </option>
                                             ))}
                                         </select>
+                                        <p className="text-[10px] text-slate-400 mt-1.5">Solo cambiar si este producto mana una tasa diferente a la global.</p>
                                     </div>
                                 </div>
                             </div>
@@ -728,29 +680,30 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                     )}
 
                     {activeTab === 'combos' && (
-                        <div className="space-y-6 max-w-4xl mx-auto anime-fade-in">
+                        <div className="space-y-6 max-w-4xl mx-auto">
                             {/* Header */}
-                            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
-                                <h4 className="text-xl font-bold text-purple-900 mb-2 flex items-center">
-                                    <Package className="mr-2" size={24} />
-                                    Gestión de Combos/Bundles
+                            <div className="bg-gradient-to-r from-indigo-50 to-white rounded-xl p-6 border border-indigo-100">
+                                <h4 className="text-lg font-bold text-indigo-900 mb-1 flex items-center">
+                                    <Package className="mr-2" size={20} />
+                                    Gestión de Combos
                                 </h4>
-                                <p className="text-sm text-purple-700">
-                                    Define los productos que componen este combo y sus cantidades.
+                                <p className="text-sm text-indigo-700 font-medium">
+                                    Define los productos componentes y sus cantidades.
                                 </p>
                             </div>
 
                             {/* Combo Toggle */}
                             {!formData.is_combo && (
-                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                                    <AlertCircle className="mx-auto mb-3 text-yellow-600" size={48} />
-                                    <p className="text-gray-700 mb-4">
-                                        Este producto no está marcado como combo.
+                                <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center">
+                                    <AlertCircle className="mx-auto mb-3 text-amber-500" size={40} />
+                                    <h5 className="text-amber-900 font-bold mb-1">Producto Estándar</h5>
+                                    <p className="text-amber-700/80 mb-6 text-sm font-medium">
+                                        Actualmente este es un producto simple con su propio stock.
                                     </p>
                                     <button
                                         type="button"
                                         onClick={() => setFormData({ ...formData, is_combo: true })}
-                                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+                                        className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all text-sm"
                                     >
                                         Convertir en Combo
                                     </button>
@@ -770,9 +723,20 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium">Cancelar</button>
-                    <button onClick={handleSubmit} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium">Guardar Producto</button>
+                <div className="p-4 border-t border-slate-100 bg-white flex justify-end space-x-3">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2.5 text-slate-600 hover:bg-slate-50 font-bold rounded-xl transition-colors"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all flex items-center gap-2"
+                    >
+                        <Check size={18} />
+                        Guardar Producto
+                    </button>
                 </div>
             </div>
         </div>

@@ -6,8 +6,9 @@ import InventoryValuationCard from '../components/products/InventoryValuationCar
 import ProductThumbnail from '../components/products/ProductThumbnail';
 import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
-
 import apiClient from '../config/axios';
+import clsx from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 // Helper to format stock: show as integer if whole number, otherwise show decimals
 const formatStock = (stock) => {
@@ -16,7 +17,7 @@ const formatStock = (stock) => {
 };
 
 const Products = () => {
-    const { getActiveCurrencies, convertPrice, convertProductPrice } = useConfig();
+    const { getActiveCurrencies, convertProductPrice } = useConfig();
     const { subscribe } = useWebSocket();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null); // For editing
@@ -28,10 +29,10 @@ const Products = () => {
     // Filters State
     const [categories, setCategories] = useState([]);
     const [exchangeRates, setExchangeRates] = useState([]);
-    const [warehouses, setWarehouses] = useState([]); // NEW
+    const [warehouses, setWarehouses] = useState([]);
     const [filterCategory, setFilterCategory] = useState('');
     const [filterExchangeRate, setFilterExchangeRate] = useState('');
-    const [filterWarehouse, setFilterWarehouse] = useState(''); // NEW
+    const [filterWarehouse, setFilterWarehouse] = useState('');
 
     const fetchProducts = async () => {
         try {
@@ -62,11 +63,11 @@ const Products = () => {
             const [catRes, rateRes, whRes] = await Promise.all([
                 apiClient.get('/categories'),
                 apiClient.get('/config/exchange-rates', { params: { is_active: true } }),
-                apiClient.get('/warehouses') // NEW
+                apiClient.get('/warehouses')
             ]);
             setCategories(catRes.data);
             setExchangeRates(rateRes.data);
-            setWarehouses(whRes.data); // NEW
+            setWarehouses(whRes.data);
         } catch (error) {
             console.error("Error fetching filters:", error);
         }
@@ -103,7 +104,10 @@ const Products = () => {
             const stockEntry = product.stocks?.find(s => s.warehouse_id === parseInt(filterWarehouse));
             const quantity = stockEntry ? stockEntry.quantity : 0;
             return (
-                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${quantity > 10 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                <span className={`px-2.5 py-0.5 inline-flex text-xs font-bold rounded-full border ${quantity > 10
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}>
                     {formatStock(quantity)}
                 </span>
             );
@@ -114,7 +118,10 @@ const Products = () => {
 
             return (
                 <div className="flex flex-col items-start gap-1">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-bold rounded-full ${totalStock > 10 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <span className={`px-2.5 py-0.5 inline-flex text-xs font-bold rounded-full border ${totalStock > 10
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                        }`}>
                         Total: {formatStock(totalStock)}
                     </span>
                     {hasStocks ? (
@@ -122,14 +129,14 @@ const Products = () => {
                             {product.stocks.filter(s => s.quantity > 0).map(stock => {
                                 const whName = warehouses.find(w => w.id === stock.warehouse_id)?.name || 'N/A';
                                 return (
-                                    <span key={stock.id} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200" title={`Ubicación: ${stock.location || 'Sin definir'}`}>
+                                    <span key={stock.id} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200 font-medium" title={`Ubicación: ${stock.location || 'Sin definir'}`}>
                                         {whName}: {formatStock(stock.quantity)}
                                     </span>
                                 );
                             })}
                         </div>
                     ) : (
-                        <span className="text-[10px] text-gray-400 italic">Sin asignar</span>
+                        <span className="text-[10px] text-slate-400 italic">Sin asignar</span>
                     )}
                 </div>
             );
@@ -137,22 +144,22 @@ const Products = () => {
     };
 
     return (
-        <div className="container mx-auto">
-            <div className="flex items-center justify-between mb-6">
+        <div className="space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-                        <Package className="mr-2" /> Inventario de Productos
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center">
+                        <Package className="mr-2 text-indigo-600" /> Catalogo de Productos
                     </h1>
-                    <p className="text-gray-500">Gestiona tu catálogo y existencias</p>
+                    <p className="text-slate-500 text-sm mt-1">Gestiona precios, existencias y códigos.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     {/* Bulk Import/Export Actions */}
                     <BulkProductActions onImportComplete={fetchProducts} />
 
                     {/* Nuevo Producto Button */}
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center shadow-sm transition-all"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl flex items-center shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all font-bold text-sm"
                     >
                         <Plus size={20} className="mr-2" />
                         Nuevo Producto
@@ -164,25 +171,25 @@ const Products = () => {
             <InventoryValuationCard />
 
             {/* Filters Bar */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row gap-4 items-center">
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
                 <div className="relative flex-1 w-full">
-                    <Search className="absolute left-3 top-2.5 text-gray-400" size={20} />
+                    <Search className="absolute left-3 top-2.5 text-slate-400" size={20} />
                     <input
                         type="text"
-                        placeholder="Buscar por nombre, SKU..."
-                        className="w-full pl-10 pr-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Buscar por nombre, SKU, Código..."
+                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-700"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
 
-                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                <div className="flex flex-wrap gap-2 w-full md:w-auto">
                     {/* Warehouse Filter */}
-                    <div className="relative min-w-[150px]">
+                    <div className="relative min-w-[160px] flex-1 md:flex-none">
                         <select
                             value={filterWarehouse}
                             onChange={(e) => setFilterWarehouse(e.target.value)}
-                            className={`w-full appearance-none pl-3 pr-8 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold ${filterWarehouse ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white'}`}
+                            className={`w-full appearance-none pl-3 pr-8 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm font-bold transition-all ${filterWarehouse ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
                         >
                             <option value="">Todas las Bodegas</option>
                             {warehouses.map(wh => (
@@ -191,14 +198,14 @@ const Products = () => {
                                 </option>
                             ))}
                         </select>
-                        <Filter className={`absolute right-2 top-2.5 pointer-events-none ${filterWarehouse ? 'text-blue-500' : 'text-gray-400'}`} size={16} />
+                        <Filter className={`absolute right-3 top-2.5 pointer-events-none ${filterWarehouse ? 'text-indigo-500' : 'text-slate-400'}`} size={16} />
                     </div>
 
-                    <div className="relative min-w-[150px]">
+                    <div className="relative min-w-[160px] flex-1 md:flex-none">
                         <select
                             value={filterCategory}
                             onChange={(e) => setFilterCategory(e.target.value)}
-                            className="w-full appearance-none pl-3 pr-8 py-2 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            className="w-full appearance-none pl-3 pr-8 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium text-slate-600 hover:border-slate-300 transition-colors"
                         >
                             <option value="">Todas las Categorías</option>
                             {categories.filter(cat => !cat.parent_id).map(parent => (
@@ -215,14 +222,14 @@ const Products = () => {
                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                             ))}
                         </select>
-                        <Filter className="absolute right-2 top-2.5 text-gray-400 pointer-events-none" size={16} />
+                        <Filter className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" size={16} />
                     </div>
 
-                    <div className="relative min-w-[150px]">
+                    <div className="relative min-w-[140px] flex-1 md:flex-none">
                         <select
                             value={filterExchangeRate}
                             onChange={(e) => setFilterExchangeRate(e.target.value)}
-                            className="w-full appearance-none pl-3 pr-8 py-2 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            className="w-full appearance-none pl-3 pr-8 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium text-slate-600 hover:border-slate-300 transition-colors"
                         >
                             <option value="">Todas las Tasas</option>
                             {exchangeRates.map(rate => (
@@ -231,7 +238,7 @@ const Products = () => {
                                 </option>
                             ))}
                         </select>
-                        <Filter className="absolute right-2 top-2.5 text-gray-400 pointer-events-none" size={16} />
+                        <Filter className="absolute right-3 top-2.5 text-slate-400 pointer-events-none" size={16} />
                     </div>
 
                     {(filterCategory || filterExchangeRate || filterWarehouse) && (
@@ -241,7 +248,7 @@ const Products = () => {
                                 setFilterExchangeRate('');
                                 setFilterWarehouse('');
                             }}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-md transition-colors"
+                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-100"
                             title="Limpiar Filtros"
                         >
                             <X size={20} />
@@ -251,21 +258,20 @@ const Products = () => {
             </div>
 
             {/* Desktop Table View */}
-            <div className="hidden md:block bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+            <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <table className="min-w-full divide-y divide-slate-100">
+                    <thead className="bg-slate-50/50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imagen</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Publico</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Producto</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">SKU / Unidad</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Precio Publico</th>
+                            <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                                 {filterWarehouse ? 'Stock (Bodega)' : 'Stock Total'}
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                            <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white divide-y divide-slate-50">
                         {products
                             .filter(product => {
                                 // 1. Search Logic
@@ -283,43 +289,50 @@ const Products = () => {
                                 // 3. Exchange Rate Filter
                                 const matchesRate = !filterExchangeRate || product.exchange_rate_id === parseInt(filterExchangeRate);
 
-                                // 4. Warehouse Filter (Optional: Hide products not in warehouse?)
-                                // For now, we show all, but stock will be 0 if not present.
-                                // If user wants to see ONLY what is in warehouse:
+                                // 4. Warehouse Filter
                                 const matchesWarehouse = !filterWarehouse || true;
 
                                 return matchesSearch && matchesCategory && matchesRate && matchesWarehouse;
                             })
-                            .map(product => {
+                            .map((product, index) => {
                                 return (
-                                    <tr key={product.id} className="hover:bg-gray-50 transition-colors">
+                                    <tr
+                                        key={product.id}
+                                        className={clsx(
+                                            "transition-colors duration-200",
+                                            index % 2 === 0 ? "bg-white" : "bg-slate-50/40",
+                                            "hover:bg-indigo-50/40"
+                                        )}
+                                    >
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <ProductThumbnail
-                                                imageUrl={product.image_url}
-                                                productName={product.name}
-                                                updatedAt={product.updated_at}
-                                                size="md"
-                                            />
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="flex items-center">
-                                                <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900 flex items-center">
+                                            <div className="flex items-center gap-4">
+                                                <ProductThumbnail
+                                                    imageUrl={product.image_url}
+                                                    productName={product.name}
+                                                    updatedAt={product.updated_at}
+                                                    size="md"
+                                                />
+                                                <div>
+                                                    <div className="text-sm font-bold text-slate-900 flex items-center">
                                                         {product.name}
-                                                        {product.units && product.units.length > 0 && (
-                                                            <span className="ml-2 px-2 py-0.5 text-[10px] bg-purple-100 text-purple-700 rounded-full border border-purple-200">
-                                                                Multi-formato
-                                                            </span>
-                                                        )}
                                                     </div>
-                                                    <div className="text-sm text-gray-500">{product.unit}</div>
+                                                    {product.units && product.units.length > 0 && (
+                                                        <span className="inline-flex mt-1 px-2 py-0.5 text-[10px] bg-purple-100 text-purple-700 font-bold rounded-full border border-purple-200">
+                                                            Multi-formato
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.sku}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <div className="text-sm font-semibold text-gray-900">${Number(product.price).toFixed(2)}</div>
-                                            <div className="text-xs text-gray-500 flex flex-col">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-medium text-slate-600">{product.sku || '---'}</span>
+                                                <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">{product.unit}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="text-sm font-black text-slate-800">${Number(product.price).toFixed(2)}</div>
+                                            <div className="text-xs text-slate-500 flex flex-col mt-0.5">
                                                 {getActiveCurrencies().map(currency => (
                                                     <span key={currency.id}>
                                                         {convertProductPrice(product, currency.currency_code).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency.symbol}
@@ -330,21 +343,21 @@ const Products = () => {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             {renderStockCell(product)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <div className="flex items-center gap-3">
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex items-center justify-end gap-2">
                                                 <button
                                                     onClick={() => {
                                                         setSelectedProduct(product);
                                                         setIsModalOpen(true);
                                                     }}
-                                                    className="text-blue-600 hover:text-blue-800 transition-colors"
+                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                                     title="Editar"
                                                 >
                                                     <Pencil size={18} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(product)}
-                                                    className="text-red-600 hover:text-red-900 transition-colors"
+                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                                                     title="Eliminar"
                                                 >
                                                     <Trash2 size={18} />
@@ -354,6 +367,20 @@ const Products = () => {
                                     </tr>
                                 );
                             })}
+                        {products.length === 0 && !isLoading && (
+                            <tr>
+                                <td colSpan="5" className="text-center py-12 text-slate-400">
+                                    No se encontraron productos.
+                                </td>
+                            </tr>
+                        )}
+                        {isLoading && (
+                            <tr>
+                                <td colSpan="5" className="text-center py-12 text-slate-400">
+                                    Cargando inventario...
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>
@@ -371,14 +398,13 @@ const Products = () => {
                         })();
                         const matchesCategory = !filterCategory || product.category_id === parseInt(filterCategory);
                         const matchesRate = !filterExchangeRate || product.exchange_rate_id === parseInt(filterExchangeRate);
-                        // 4. Warehouse Filter
                         const matchesWarehouse = !filterWarehouse || true;
 
                         return matchesSearch && matchesCategory && matchesRate && matchesWarehouse;
                     })
                     .map(product => {
                         return (
-                            <div key={product.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col gap-3">
+                            <div key={product.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm active:scale-[0.98] transition-all">
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-3">
                                         <ProductThumbnail
@@ -388,29 +414,23 @@ const Products = () => {
                                             size="md"
                                         />
                                         <div>
-                                            <div className="font-bold text-gray-800">{product.name}</div>
-                                            <div className="text-xs text-gray-500 flex gap-2">
+                                            <div className="font-bold text-slate-800 text-sm leading-tight">{product.name}</div>
+                                            <div className="text-xs text-slate-500 flex gap-2 mt-1 font-medium">
                                                 <span>{product.sku || 'Sin SKU'}</span>
                                                 <span>•</span>
-                                                <span>{product.unit}</span>
+                                                <span className="uppercase">{product.unit}</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col items-end">
+                                    <div className="flex flex-col items-end pl-2">
                                         {renderStockCell(product)}
                                     </div>
                                 </div>
 
-                                <div className="flex justify-between items-end border-t pt-3 mt-1">
+                                <div className="flex justify-between items-end border-t border-slate-100 pt-3 mt-3">
                                     <div>
-                                        <div className="text-lg font-bold text-blue-600">${Number(product.price).toFixed(2)}</div>
-                                        <div className="text-xs text-gray-500 flex flex-col">
-                                            {getActiveCurrencies().map(currency => (
-                                                <span key={currency.id}>
-                                                    {convertProductPrice(product, currency.currency_code).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency.symbol}
-                                                </span>
-                                            ))}
-                                        </div>
+                                        <div className="text-lg font-black text-indigo-600">${Number(product.price).toFixed(2)}</div>
+                                        <div className="text-xs text-slate-400 font-medium">Precio Base</div>
                                     </div>
                                     <div className="flex gap-2">
                                         <button
@@ -418,25 +438,24 @@ const Products = () => {
                                                 setSelectedProduct(product);
                                                 setIsModalOpen(true);
                                             }}
-                                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
                                         >
-                                            Editar
+                                            <Pencil size={14} /> Editar
                                         </button>
                                         <button
                                             onClick={() => handleDelete(product)}
-                                            className="bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-lg transition-colors"
+                                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 p-2 rounded-lg transition-colors"
                                             title="Eliminar"
                                         >
-                                            <Trash2 size={20} />
+                                            <Trash2 size={18} />
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         );
                     })}
-                {/* Empty State Helper for Mobile */}
-                {products.length === 0 && (
-                    <div className="text-center py-10 text-gray-500">
+                {!isLoading && products.length === 0 && (
+                    <div className="text-center py-10 text-slate-400 font-medium">
                         No se encontraron productos.
                     </div>
                 )}

@@ -12,16 +12,22 @@ import {
     CreditCard,
     Briefcase,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Archive,
+    Tags,
+    Warehouse
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 
 const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: ShoppingCart, label: 'Ventas', path: '/pos' },
+    { icon: ShoppingCart, label: 'Ventas (POS)', path: '/pos' },
+    { icon: Package, label: 'Catálogo', path: '/products' },
+    { icon: Archive, label: 'Kardex', path: '/inventory' },
+    { icon: Tags, label: 'Categorías', path: '/categories' }, // You'll need to import Tags
+    { icon: Warehouse, label: 'Almacenes', path: '/warehouses' }, // You'll need to import Warehouse
     { icon: FileText, label: 'Historial', path: '/sales-history' },
-    { icon: Package, label: 'Inventario', path: '/inventory' },
     { icon: Users, label: 'Clientes', path: '/customers' },
     { icon: Truck, label: 'Proveedores', path: '/suppliers' },
     { icon: Briefcase, label: 'Compras', path: '/purchases' },
