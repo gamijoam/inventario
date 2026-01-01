@@ -21,7 +21,7 @@ const formatCurrency = (amount, currencySymbol) => {
     });
 };
 
-const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId }) => {
+const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null }) => {
     const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods } = useConfig();
     const { subscribe } = useWebSocket();
     const allCurrencies = [{ id: 'base', symbol: 'USD', name: 'Dólar', rate: 1, is_anchor: true }, ...getActiveCurrencies()];
@@ -175,8 +175,22 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                 notes: ""
             };
 
-            const response = await apiClient.post('/products/sales/', saleData);
-            const saleId = response.data.sale_id;
+            let response;
+
+            if (customSubmit) {
+                // If custom handler provided, use it (Restaurant Flow)
+                response = await customSubmit({
+                    ...saleData,
+                    payments: saleData.payments, // Ensure payments are explicit
+                    client_id: saleData.customer_id
+                });
+            } else {
+                // Standard POS Flow
+                response = await apiClient.post('/products/sales/', saleData);
+            }
+
+            // Handle different response structures if necessary
+            const saleId = response.data?.sale_id || response.sale_id;
 
             onConfirm({
                 payments: isCreditSale ? [] : payments,

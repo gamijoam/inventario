@@ -689,3 +689,8 @@ class TransferDetail(Base):
 
 
 
+
+# ============================================
+# RESTAURANT MODULE
+# ============================================
+from .restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem

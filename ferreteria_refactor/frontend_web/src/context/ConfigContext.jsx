@@ -9,6 +9,11 @@ export const ConfigProvider = ({ children }) => {
     const [business, setBusiness] = useState(null);
     const [currencies, setCurrencies] = useState([]);
     const [loading, setLoading] = useState(true);
+    // Module Feature Flags (Hardcoded for now, could be DB-driven later)
+    const [modules] = useState({
+        restaurant: true,
+        retail: true
+    });
     const { subscribe } = useWebSocket();
 
     // WebSocket Subscriptions for Real-Time Updates
@@ -240,7 +245,8 @@ export const ConfigProvider = ({ children }) => {
             convertProductPrice,
 
             paymentMethods,
-            formatCurrency
+            formatCurrency,
+            modules // Expose modules
         }}>
             {children}
         </ConfigContext.Provider>

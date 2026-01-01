@@ -31,5 +31,8 @@ class Settings:
         print("WARNING: SECRET_KEY not set in .env. Using stable dev key.")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    
+    # Modules
+    MODULE_RESTAURANT_ENABLED: bool = True
 
 settings = Settings()

@@ -25,70 +25,85 @@ import {
     ClipboardList,
     DollarSign,
     CornerDownLeft,
-    PieChart
+    PieChart,
+    Utensils,
+    ChefHat
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
+import { useConfig } from '../../context/ConfigContext';
 
-// Define groups logic
-const menuStructure = [
-    {
-        type: 'single',
-        item: { icon: LayoutDashboard, label: 'Dashboard', path: '/' }
-    },
-    {
-        type: 'group',
-        label: 'Ventas y Atención',
-        icon: ShoppingCart, // Used for collapsed tooltip or main icon
-        items: [
-            { icon: ShoppingCart, label: 'Nueva Venta', path: '/pos' },
-            { icon: FileText, label: 'Historial', path: '/sales-history' },
-            { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
-            { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
-            { icon: Users, label: 'Clientes', path: '/customers' },
-        ]
-    },
-    {
-        type: 'group',
-        label: 'Inventario',
-        icon: Package,
-        items: [
-            { icon: Package, label: 'Productos', path: '/products' },
-            { icon: Tags, label: 'Categorías', path: '/categories' },
-            { icon: Archive, label: 'Movimientos', path: '/inventory' },
-            { icon: Warehouse, label: 'Almacenes', path: '/warehouses' },
-            { icon: ArrowRightLeft, label: 'Traslados', path: '/transfers' },
-        ]
-    },
-    {
-        type: 'group',
-        label: 'Finanzas y Compras',
-        icon: DollarSign,
-        items: [
-            { icon: Briefcase, label: 'Compras', path: '/purchases' },
-            { icon: Truck, label: 'Proveedores', path: '/suppliers' },
-            { icon: RefreshCcw, label: 'Corte de Caja', path: '/cash-history' },
-            { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
-            { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
-            { icon: BarChart2, label: 'Reportes', path: '/reports/detailed' },
-        ]
-    },
-    {
-        type: 'group',
-        label: 'Sistema',
-        icon: Settings,
-        items: [
-            { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
-            { icon: Settings, label: 'Configuración', path: '/settings' },
-            { icon: BookOpen, label: 'Ayuda', path: '/help' },
-        ]
-    }
-];
+// Moved inside component to use context
 
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
     const location = useLocation();
     const navigate = useNavigate();
     const { logout, user } = useAuth();
+    const { modules } = useConfig();
+
+    const menuStructure = [
+        {
+            type: 'single',
+            item: { icon: LayoutDashboard, label: 'Dashboard', path: '/' }
+        },
+        // RESTAURANT MODULE
+        ...(modules?.restaurant ? [{
+            type: 'group',
+            label: 'Restaurante',
+            icon: Utensils,
+            items: [
+                { icon: Utensils, label: 'Mapa de Mesas', path: '/restaurant/tables' },
+                { icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' },
+            ]
+        }] : []),
+        {
+            type: 'group',
+            label: 'Ventas y Atención',
+            icon: ShoppingCart, // Used for collapsed tooltip or main icon
+            items: [
+                { icon: ShoppingCart, label: 'Nueva Venta', path: '/pos' },
+                { icon: FileText, label: 'Historial', path: '/sales-history' },
+                { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
+                { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
+                { icon: Users, label: 'Clientes', path: '/customers' },
+            ]
+        },
+        {
+            type: 'group',
+            label: 'Inventario',
+            icon: Package,
+            items: [
+                { icon: Package, label: 'Productos', path: '/products' },
+                { icon: Tags, label: 'Categorías', path: '/categories' },
+                { icon: Archive, label: 'Movimientos', path: '/inventory' },
+                { icon: Warehouse, label: 'Almacenes', path: '/warehouses' },
+                { icon: ArrowRightLeft, label: 'Traslados', path: '/transfers' },
+            ]
+        },
+        {
+            type: 'group',
+            label: 'Finanzas y Compras',
+            icon: DollarSign,
+            items: [
+                { icon: Briefcase, label: 'Compras', path: '/purchases' },
+                { icon: Truck, label: 'Proveedores', path: '/suppliers' },
+                { icon: RefreshCcw, label: 'Corte de Caja', path: '/cash-history' },
+                { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
+                { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
+                { icon: BarChart2, label: 'Reportes', path: '/reports/detailed' },
+            ]
+        },
+        {
+            type: 'group',
+            label: 'Sistema',
+            icon: Settings,
+            items: [
+                { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
+                { icon: Settings, label: 'Configuración', path: '/settings' },
+                { icon: BookOpen, label: 'Ayuda', path: '/help' },
+            ]
+        }
+    ];
 
     // State for expanded groups
     const [expandedGroups, setExpandedGroups] = useState({});

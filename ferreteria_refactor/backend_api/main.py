@@ -90,6 +90,12 @@ app.include_router(warehouses.router, prefix="/api/v1", tags=["Almacenes"])
 app.include_router(transfers.router, prefix="/api/v1", tags=["Traslados"]) # New Transfer Router # New line for warehouses
 app.include_router(cloud.router, prefix="/api/v1", tags=["Cloud Configuration"]) # Cloud testing
 
+# --- RESTAURANT MODULE ---
+from .routers.modules.restaurant import tables as restaurant_tables
+from .routers.modules.restaurant import orders as restaurant_orders
+app.include_router(restaurant_tables.router, prefix="/api/v1/restaurant", tags=["Restaurante"])
+app.include_router(restaurant_orders.router, prefix="/api/v1/restaurant")
+
 # DEBUG ENDPOINT - Remove after debugging
 @app.get("/api/v1/debug/routes")
 def list_routes():

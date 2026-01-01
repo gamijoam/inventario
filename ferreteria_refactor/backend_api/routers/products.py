@@ -27,12 +27,26 @@ def run_broadcast(event: str, data: dict):
     finally:
         loop.close()
 
+from typing import Optional
+from sqlalchemy import or_
+
 @router.get("/", response_model=List[schemas.ProductRead])
 @router.get("", response_model=List[schemas.ProductRead], include_in_schema=False)
-def read_products(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db)):
+def read_products(skip: int = 0, limit: int = 5000, search: Optional[str] = None, db: Session = Depends(get_db)):
     try:
-        products = db.query(models.Product).options(joinedload(models.Product.units), joinedload(models.Product.stocks)).filter(models.Product.is_active == True).offset(skip).limit(limit).all()
-        print(f"[OK] Loaded {len(products)} products successfully")
+        query = db.query(models.Product).options(joinedload(models.Product.units), joinedload(models.Product.stocks)).filter(models.Product.is_active == True)
+        
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(
+                or_(
+                    models.Product.name.ilike(search_term),
+                    models.Product.sku.ilike(search_term)
+                )
+            )
+            
+        products = query.offset(skip).limit(limit).all()
+        print(f"[OK] Loaded {len(products)} products successfully (Search: {search})")
         return products
     except Exception as e:
         print(f"[ERROR] ERROR loading products: {type(e).__name__}: {str(e)}")
