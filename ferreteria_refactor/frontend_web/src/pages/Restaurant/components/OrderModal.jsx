@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Plus, ChefHat } from 'lucide-react';
+import { X, Search, Plus, ChefHat, Settings, ArrowRight, Split } from 'lucide-react';
 import restaurantService from '../../../services/restaurantService';
-// Importamos un servicio de productos existente o usamos uno nuevo simplificado.
-// Asumimos que existe un servicio genérico o usamos el endpoint de products.
 import axiosInstance from '../../../config/axios';
 import PaymentModal from '../../../components/pos/PaymentModal';
+import MoveTableModal from './MoveTableModal';
+import SplitCheckModal from './SplitCheckModal';
 import toast from 'react-hot-toast';
 
 const OrderModal = ({ table, onClose, onUpdate }) => {
@@ -18,6 +18,11 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
 
     // Payment State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+    // Modals State
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [showSplitModal, setShowSplitModal] = useState(false);
+    const [showOptions, setShowOptions] = useState(false);
 
     // Selection State
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -154,6 +159,18 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
         }
     };
 
+    const handleSplitSuccess = async (newOrderId) => {
+        try {
+            const newOrder = await restaurantService.getOrder(newOrderId);
+            setOrder(newOrder); // Switch context to new order
+            setShowSplitModal(false);
+            setShowPaymentModal(true); // Open payment immediately
+            toast("Sub-cuenta lista para cobrar");
+        } catch (error) {
+            toast.error("Error cargando la nueva cuenta");
+        }
+    };
+
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
@@ -164,9 +181,43 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                         <h2 className="text-xl font-bold text-gray-800">{table.name}</h2>
                         <p className="text-sm text-gray-500">{table.zone}</p>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition">
-                        <X size={20} />
-                    </button>
+
+                    <div className="flex gap-2">
+                        {/* Toggle Options */}
+                        {table.status === 'OCCUPIED' && order && (
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowOptions(!showOptions)}
+                                    className={`p-2 rounded-full transition ${showOptions ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-200 text-gray-600'}`}
+                                >
+                                    <Settings size={20} />
+                                </button>
+
+                                {showOptions && (
+                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                        <button
+                                            onClick={() => { setShowOptions(false); setShowMoveModal(true); }}
+                                            className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm font-medium text-gray-700"
+                                        >
+                                            <ArrowRight size={16} /> Mover Mesa
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowOptions(false); setShowSplitModal(true); }}
+                                            className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm font-medium text-gray-700"
+                                        >
+                                            <Split size={16} /> Dividir Cuenta
+                                        </button>
+                                    </div>
+                                )}
+                                {/* Backdrop for menu */}
+                                {showOptions && <div className="fixed inset-0 z-40" onClick={() => setShowOptions(false)}></div>}
+                            </div>
+                        )}
+
+                        <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition">
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Content */}
@@ -234,8 +285,8 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                                                     key={section.id}
                                                     onClick={() => setActiveSectionId(section.id)}
                                                     className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeSectionId === section.id
-                                                            ? 'bg-blue-600 text-white shadow-md'
-                                                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                                                        ? 'bg-blue-600 text-white shadow-md'
+                                                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
                                                         }`}
                                                 >
                                                     {section.name}
@@ -405,6 +456,28 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                     onConfirm={() => { }}
                     customSubmit={handleCheckout}
                     warehouseId={null}
+                />
+            )}
+
+            {showMoveModal && order && (
+                <MoveTableModal
+                    isOpen={showMoveModal}
+                    onClose={() => setShowMoveModal(false)}
+                    orderId={order.id}
+                    currentTableName={table.name}
+                    onMoveSuccess={() => {
+                        onClose(); // Close OrderModal to invalidate everything
+                        onUpdate(); // Reload Map
+                    }}
+                />
+            )}
+
+            {showSplitModal && order && (
+                <SplitCheckModal
+                    isOpen={showSplitModal}
+                    onClose={() => setShowSplitModal(false)}
+                    order={order}
+                    onSplitSuccess={handleSplitSuccess}
                 />
             )}
         </div>
