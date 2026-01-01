@@ -28,6 +28,8 @@ import UsersManager from './pages/Users/UsersManager';
 import CashHistory from './pages/CashHistory';
 import AuditLogs from './pages/AuditLogs';
 import Help from './pages/Help';
+import TableMap from './pages/Restaurant/TableMap';
+import KitchenDisplay from './pages/Restaurant/KitchenDisplay';
 import { CartProvider } from './context/CartContext';
 import { CashProvider } from './context/CashContext';
 import { ConfigProvider } from './context/ConfigContext';
@@ -172,6 +174,18 @@ function App() {
                             <Route path="/audit-logs" element={
                               <ProtectedRoute roles={['ADMIN']}>
                                 <AuditLogs />
+                              </ProtectedRoute>
+                            } />
+
+                            {/* Restaurant Module - Phase 1 */}
+                            <Route path="/restaurant/tables" element={
+                              <ProtectedRoute>
+                                <TableMap />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/restaurant/kitchen" element={
+                              <ProtectedRoute>
+                                <KitchenDisplay />
                               </ProtectedRoute>
                             } />
 

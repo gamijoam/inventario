@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List, Annotated
 
 from .database.db import get_db
-from .config import settings
+from .database.db import get_db
+from .config import settings, Settings
 from .models.models import User, UserRole
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -75,3 +76,10 @@ warehouse_or_admin = has_role([UserRole.ADMIN, UserRole.WAREHOUSE])
 
 # All authenticated users (any role)
 any_authenticated = Depends(get_current_active_user)
+
+def require_restaurant_module(settings: Settings = Depends(lambda: settings)):
+    if not settings.MODULE_RESTAURANT_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Restaurant module is disabled"
+        )
