@@ -7,7 +7,7 @@ from ....database.db import get_db
 from ....dependencies import get_current_active_user, require_restaurant_module
 from ....models.restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem, RestaurantRecipe, TableStatusDB, OrderStatusDB, OrderItemStatusDB
 from ....models.models import Product
-from ....schemas.restaurant import OrderCreate, OrderRead, OrderItemCreate, TableRead
+from ....schemas.restaurant import OrderCreate, OrderRead, OrderItemCreate, TableRead, OrderMove, OrderSplit
 from ....schemas.restaurant_checkout import RestaurantCheckout
 from ....services.sales_service import SalesService
 from ....services.printer_service import PrinterService
@@ -80,6 +80,20 @@ def get_current_order(table_id: int, db: Session = Depends(get_db)):
     # Eager loading items handled by schema from_attributes automatically if relationship works, 
     # but efficient query might need .options(joinedload(RestaurantOrder.items))
     return active_order
+
+@router.get("/{order_id}", response_model=OrderRead)
+def get_order_by_id(order_id: int, db: Session = Depends(get_db)):
+    """
+    Obtener una orden específica por ID.
+    """
+    order = db.query(RestaurantOrder).filter(RestaurantOrder.id == order_id).options(
+        joinedload(RestaurantOrder.items).joinedload(RestaurantOrderItem.product)
+    ).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    return order
 
 @router.post("/{order_id}/items", response_model=OrderRead)
 def add_items_to_order(order_id: int, items: List[OrderItemCreate], background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
@@ -372,3 +386,138 @@ def print_precheck(
         return {"status": "success", "message": "Pre-check print queued"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error printing pre-check: {e}")
+
+@router.post("/{order_id}/move")
+def move_order(order_id: int, move_data: OrderMove, db: Session = Depends(get_db)):
+    """
+    Mover una orden a otra mesa (Cambio de Mesa).
+    La mesa destino debe estar disponible.
+    """
+    # 1. Validar Orden
+    order = db.query(RestaurantOrder).filter(RestaurantOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # 2. Validar Mesa Destino
+    target_table = db.query(RestaurantTable).filter(RestaurantTable.id == move_data.target_table_id).first()
+    if not target_table:
+        raise HTTPException(status_code=404, detail="Target table not found")
+    
+    if target_table.status != TableStatusDB.AVAILABLE:
+        raise HTTPException(status_code=400, detail="Target table is not available")
+
+    # 3. Mover
+    old_table = order.table
+    
+    # Actualizar puntero de mesa en orden
+    order.table_id = target_table.id
+    
+    # Actualizar estados de mesa
+    target_table.status = TableStatusDB.OCCUPIED
+    
+    # Liberar mesa anterior (si no tiene otras órdenes activas)
+    # Verificamos si hay otras ordenes activas en la mesa vieja
+    other_orders = db.query(RestaurantOrder).filter(
+        RestaurantOrder.table_id == old_table.id,
+        RestaurantOrder.id != order.id,
+        RestaurantOrder.status.in_([OrderStatusDB.PENDING, OrderStatusDB.PREPARING, OrderStatusDB.READY, OrderStatusDB.DELIVERED])
+    ).count()
+    
+    if other_orders == 0:
+        old_table.status = TableStatusDB.AVAILABLE
+
+    db.commit()
+    return {"status": "success", "message": f"Moved order to table {target_table.name}"}
+
+
+@router.post("/{order_id}/split")
+def split_order(order_id: int, split_data: OrderSplit, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """
+    Dividir una cuenta.
+    Crea una NUEVA orden en la MISMA mesa con los items seleccionados.
+    Retorna el ID de la nueva orden para cobrarla.
+    """
+    # 1. Validar Orden Origen
+    original_order = db.query(RestaurantOrder).filter(RestaurantOrder.id == order_id).first()
+    if not original_order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if not split_data.items_to_split:
+         raise HTTPException(status_code=400, detail="No items selected to split")
+
+    # 2. Crear Nueva Orden (Sub-cuenta)
+    # Misma mesa, mismo mesero
+    new_order = RestaurantOrder(
+        table_id=original_order.table_id,
+        waiter_id=current_user.id,
+        status=OrderStatusDB.PENDING,
+        total_amount=0
+    )
+    db.add(new_order)
+    db.flush() # Get new ID
+
+    total_moved = 0
+    total_removed_from_original = 0
+
+    # 3. Procesar Items
+    for split_item in split_data.items_to_split:
+        # Buscar item original
+        original_item = db.query(RestaurantOrderItem).filter(
+            RestaurantOrderItem.id == split_item.item_id, 
+            RestaurantOrderItem.order_id == original_order.id
+        ).first()
+        
+        if not original_item:
+            continue # O error
+            
+        qty_to_move = float(split_item.quantity)
+        qty_original = float(original_item.quantity)
+        
+        if qty_to_move > qty_original:
+            raise HTTPException(status_code=400, detail=f"Cannot split more than available for item {original_item.id}")
+        
+        # Calculate Logic
+        price = float(original_item.unit_price)
+        subtotal_moved = price * qty_to_move
+        
+        # A. Crear Item en Nueva Orden
+        new_item = RestaurantOrderItem(
+            order_id=new_order.id,
+            product_id=original_item.product_id,
+            quantity=qty_to_move,
+            unit_price=original_item.unit_price,
+            subtotal=subtotal_moved, # Calc subtotal
+            notes=original_item.notes,
+            status=original_item.status # Preserve status (e.g. if already cooked)
+        )
+        db.add(new_item)
+        total_moved += subtotal_moved
+        
+        # B. Reducir/Eliminar de Original
+        if qty_to_move == qty_original:
+            # Mover todo -> Eliminar de original (o marcar status, pero mejor eliminar para 'split')
+            # Ojo: delete() en ORM a veces es tricky con listas, mejor db.delete
+            db.delete(original_item)
+            total_removed_from_original += float(original_item.subtotal)
+        else:
+            # Reducir parcial
+            original_item.quantity = qty_original - qty_to_move
+            original_item.subtotal = float(original_item.subtotal) - subtotal_moved
+            total_removed_from_original += subtotal_moved
+    
+    # 4. Actualizar Totales
+    new_order.total_amount = total_moved
+    original_order.total_amount = float(original_order.total_amount) - total_removed_from_original
+    
+    # Validaciones de integridad
+    if original_order.total_amount < 0:
+         original_order.total_amount = 0 # Should not happen with validation above
+         
+    db.commit()
+    
+    return {
+        "status": "success", 
+        "new_order_id": new_order.id, 
+        "original_order_id": original_order.id,
+        "message": "Order split successfully"
+    }

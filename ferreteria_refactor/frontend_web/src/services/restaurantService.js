@@ -52,6 +52,22 @@ const restaurantService = {
     printPreCheck: async (orderId) => {
         const response = await axiosInstance.post(`/restaurant/orders/${orderId}/precheck`);
         return response.data;
+    },
+
+    moveOrder: async (orderId, targetTableId) => {
+        const response = await axiosInstance.post(`/restaurant/orders/${orderId}/move`, { target_table_id: targetTableId });
+        return response.data;
+    },
+
+    splitOrder: async (orderId, itemsToSplit) => {
+        // itemsToSplit: [{ item_id: 1, quantity: 1 }]
+        const response = await axiosInstance.post(`/restaurant/orders/${orderId}/split`, { items_to_split: itemsToSplit });
+        return response.data;
+    },
+
+    getOrder: async (orderId) => {
+        const response = await axiosInstance.get(`/restaurant/orders/${orderId}`);
+        return response.data;
     }
 };
 

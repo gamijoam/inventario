@@ -87,3 +87,14 @@ class OrderRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --- Move & Split Schemas ---
+class OrderMove(BaseModel):
+    target_table_id: int = Field(..., description="ID de la mesa destino")
+
+class SplitItem(BaseModel):
+    item_id: int
+    quantity: Decimal = Field(..., gt=0, description="Cantidad a separar")
+
+class OrderSplit(BaseModel):
+    items_to_split: List[SplitItem]
