@@ -43,9 +43,15 @@ def create_default_config(config_path):
         'nombre_caja': 'caja-1'
     }
     
-    config['IMPRESORA'] = {
-        'modo': 'VIRTUAL',
-        'nombre': 'POS-58'
+    config['IMPRESORAS'] = {
+        '# Definicion de impresoras por funcion (target = nombre_en_windows)': '',
+        'default': 'POS-58',
+        'cocina': 'EPSON TM-U220',
+        'caja': 'POS-58'
+    }
+
+    config['CONFIG'] = {
+        'modo': 'WINDOWS' # WINDOWS, VIRTUAL
     }
     
     with open(config_path, 'w', encoding='utf-8') as f:
@@ -56,12 +62,8 @@ def create_default_config(config_path):
     print("="*60)
     print(f"Se ha creado el archivo: {config_path}")
     print()
-    print("Por favor, edite el archivo config.ini con los datos correctos:")
-    print("  - url_primary: URL del servidor VPS (ej: wss://cliente1.invensoft.lat)")
-    print("  - url_secondary: URL del servidor Local (ej: ws://localhost:8000)")
-    print("  - nombre_caja: Identificador único de esta caja (ej: caja-1)")
-    print()
-    print("Luego, reinicie el programa.")
+    print("Por favor, edite el archivo config.ini con los datos correctos.")
+    print("Reinicie el programa para aplicar cambios.")
     print("="*60)
     input("\nPresione ENTER para salir...")
     sys.exit(0)
@@ -81,61 +83,73 @@ def load_config():
         config.read(config_path, encoding='utf-8')
         
         # Validate required sections
-        if 'SERVIDOR' not in config or 'IMPRESORA' not in config:
-            print(f"❌ Error: config.ini está incompleto o corrupto")
-            print(f"Eliminando archivo corrupto...")
-            config_path.unlink()
-            create_default_config(config_path)
-        
+        if 'SERVIDOR' not in config:
+             print(f"❌ Error: Sección [SERVIDOR] faltante en config.ini")
+             # Don't delete immediately, just warn or exit
+             return None
+
         # Extract values
-        # Extract values (Support backward compatibility with url_servidor)
         url_primary = config['SERVIDOR'].get('url_primary')
         if not url_primary:
             url_primary = config['SERVIDOR'].get('url_servidor', 'wss://demo.invensoft.lat')
             
         url_secondary = config['SERVIDOR'].get('url_secondary', 'ws://localhost:8000')
-        
         client_id = config['SERVIDOR'].get('nombre_caja', 'caja-1')
-        printer_mode = config['IMPRESORA'].get('modo', 'VIRTUAL').upper()
-        printer_name = config['IMPRESORA'].get('nombre', 'POS-58')
         
+        # Printer Config
+        printer_mode = 'VIRTUAL'
+        if 'CONFIG' in config:
+            printer_mode = config['CONFIG'].get('modo', 'VIRTUAL').upper()
+        elif 'IMPRESORA' in config: # Backward compatibility
+             printer_mode = config['IMPRESORA'].get('modo', 'VIRTUAL').upper()
+
+        # Load Printers Map
+        printers_map = {}
+        if 'IMPRESORAS' in config:
+            for key in config['IMPRESORAS']:
+                if not key.startswith('#'):
+                     printers_map[key.lower()] = config['IMPRESORAS'][key]
+        elif 'IMPRESORA' in config: # Backwards compatibility
+            printers_map['default'] = config['IMPRESORA'].get('nombre', 'POS-58')
+
         return {
             'url_primary': url_primary,
             'url_secondary': url_secondary,
             'client_id': client_id,
             'printer_mode': printer_mode,
-            'printer_name': printer_name
+            'printers': printers_map
         }
     
     except Exception as e:
         print(f"❌ Error leyendo config.ini: {e}")
-        print(f"Recreando archivo de configuración...")
-        config_path.unlink(missing_ok=True)
-        create_default_config(config_path)
+        return None
 
 
 # Load configuration
 CONFIG = load_config()
-# Load configuration
-CONFIG = load_config()
+if not CONFIG:
+    sys.exit(1)
+
 URL_PRIMARY = CONFIG['url_primary']
 URL_SECONDARY = CONFIG['url_secondary']
 CLIENT_ID = CONFIG['client_id']
 PRINTER_MODE = CONFIG['printer_mode']
-PRINTER_NAME = CONFIG['printer_name']
+PRINTERS_MAP = CONFIG['printers']
 
 print("="*60)
-print("Hardware Bridge v3.1 - Hybrid Mode")
+print("Hardware Bridge v4.0 - Multi-Printer")
 print("="*60)
 print(f"Servidor Primario (VPS): {URL_PRIMARY}")
 print(f"Servidor Secundario:     {URL_SECONDARY}")
 print(f"Caja:                   {CLIENT_ID}")
-print(f"Modo Impresora: {PRINTER_MODE}")
-print(f"Nombre Impresora: {PRINTER_NAME}")
+print(f"Modo Impresora:         {PRINTER_MODE}")
+print("Impresoras Configuradas:")
+for role, name in PRINTERS_MAP.items():
+    print(f"  - {role}: {name}")
 print("="*60)
 
 # ========================================
-# PRINTING FUNCTIONS (from old main.py)
+# PRINTING FUNCTIONS
 # ========================================
 
 def get_windows_printers():
@@ -150,15 +164,19 @@ def get_windows_printers():
     return printers
 
 
-def print_to_windows(commands):
+def print_to_windows(commands, printer_name):
     """Print using Windows Print Spooler"""
     try:
         import win32print
-        import win32ui
-        from PIL import Image, ImageDraw, ImageFont
+        
+        print(f"🖨️  Sending job to Windows Printer: {printer_name}")
         
         # Open printer
-        hPrinter = win32print.OpenPrinter(PRINTER_NAME)
+        try:
+            hPrinter = win32print.OpenPrinter(printer_name)
+        except Exception:
+            print(f"❌ Error opening printer '{printer_name}'. Check if it exists.")
+            return False
         
         try:
             # Start print job
@@ -199,7 +217,7 @@ def print_to_windows(commands):
             win32print.EndPagePrinter(hPrinter)
             win32print.EndDocPrinter(hPrinter)
             
-            print(f"✅ Printed to {PRINTER_NAME}")
+            print(f"✅ Printed successfully to {printer_name}")
             return True
             
         finally:
@@ -210,10 +228,11 @@ def print_to_windows(commands):
         return False
 
 
-def print_virtual(commands):
+def print_virtual(commands, printer_name="VIRTUAL"):
     """Print to console/file (for testing)"""
     width = 48
     output = []
+    output.append(f"--- START TICKET ({printer_name}) ---")
     
     for cmd in commands:
         if cmd['type'] == 'cut':
@@ -231,11 +250,13 @@ def print_virtual(commands):
             else:
                 output.append(content)
     
+    output.append(f"--- END TICKET ({printer_name}) ---")
     result = '\\n'.join(output)
     print(result)
     
     # Save to file
-    with open("ticket_output.txt", "w", encoding="utf-8") as f:
+    filename = f"ticket_output_{printer_name}.txt"
+    with open(filename, "w", encoding="utf-8") as f:
         f.write(result)
     
     return True
@@ -296,19 +317,32 @@ def execute_print(payload):
     try:
         template = payload.get('template')
         context = payload.get('context')
+        target = payload.get('target', 'default').lower() # default, kitchen, bar, etc.
         
         if not template or not context:
             print("❌ Invalid payload: missing template or context")
             return False
         
+        # Resolve Printer Name
+        printer_name = PRINTERS_MAP.get(target)
+        if not printer_name:
+            print(f"⚠️ Target printer '{target}' not found using default.")
+            printer_name = PRINTERS_MAP.get('default')
+            
+        if not printer_name:
+             print(f"❌ No printer found for target '{target}' and no default.")
+             return False
+
+        print(f"🖨️  Job Target: {target} -> Physical: {printer_name}")
+
         # Render template
         commands = print_from_template(template, context)
         
         # Print based on mode
         if PRINTER_MODE == "WINDOWS":
-            return print_to_windows(commands)
+            return print_to_windows(commands, printer_name)
         else:
-            return print_virtual(commands)
+            return print_virtual(commands, printer_name)
             
     except Exception as e:
         print(f"❌ Print execution error: {e}")
@@ -343,7 +377,7 @@ async def connect_to_server(base_url, server_name):
                 async for message in websocket:
                     try:
                         data = json.loads(message)
-                        print(f"\n📥 [{server_name}] Received: {data.get('type', 'unknown')}")
+                        print(f"\\n📥 [{server_name}] Received: {data.get('type', 'unknown')}")
                         
                         if data.get('type') == 'print':
                             print(f"🖨️ [{server_name}] Processing print command sale #{data.get('sale_id')}")
@@ -388,12 +422,14 @@ if __name__ == "__main__":
         if PRINTER_MODE == "WINDOWS":
             printers = get_windows_printers()
             print(f"\\n📋 Available printers: {printers}")
-            if PRINTER_NAME not in printers:
-                print(f"⚠️ WARNING: Printer '{PRINTER_NAME}' not found!")
+            
+            # Check configured printers
+            for role, name in PRINTERS_MAP.items():
+                if name not in printers:
+                    print(f"⚠️ WARNING: Printer for '{role}' ({name}) not found!")
         
-        # Start WebSocket client
         # Start WebSocket clients (Hybrid Mode)
-        print("\n🚀 Starting Hybrid Bridge...")
+        print("\\n🚀 Starting Hybrid Bridge...")
         
         async def main():
             # Run both connections concurrently

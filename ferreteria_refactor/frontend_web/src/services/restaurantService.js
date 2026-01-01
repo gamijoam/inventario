@@ -41,6 +41,11 @@ const restaurantService = {
     checkoutOrder: async (orderId, checkoutData) => {
         const response = await axiosInstance.post(`/restaurant/orders/${orderId}/checkout`, checkoutData);
         return response.data;
+    },
+
+    printPreCheck: async (orderId) => {
+        const response = await axiosInstance.post(`/restaurant/orders/${orderId}/precheck`);
+        return response.data;
     }
 };
 

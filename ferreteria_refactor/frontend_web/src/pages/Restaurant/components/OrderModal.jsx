@@ -275,9 +275,27 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
 
                 {/* Footer */}
                 <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
-                    <button onClick={onClose} className="px-5 py-2 text-gray-600 font-bold hover:bg-gray-200 rounded-lg transition">
-                        Cerrar
-                    </button>
+                    <div className="flex gap-2">
+                        {table.status === 'OCCUPIED' && order && order.items && order.items.length > 0 && (
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        await restaurantService.printPreCheck(order.id);
+                                        toast.success("Pre-cuenta enviada a imprimir");
+                                    } catch (e) {
+                                        toast.error("Error imprimiendo pre-cuenta");
+                                    }
+                                }}
+                                className="px-4 py-2 border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 rounded-lg transition"
+                                title="Imprimir Pre-Cuenta"
+                            >
+                                🖨️
+                            </button>
+                        )}
+                        <button onClick={onClose} className="px-5 py-2 text-gray-600 font-bold hover:bg-gray-200 rounded-lg transition">
+                            Cerrar
+                        </button>
+                    </div>
 
                     {table.status === 'OCCUPIED' && order && order.items && order.items.length > 0 && (
                         <button

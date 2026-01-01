@@ -10,7 +10,21 @@ from ....models.models import Product
 from ....schemas.restaurant import OrderCreate, OrderRead, OrderItemCreate, TableRead
 from ....schemas.restaurant_checkout import RestaurantCheckout
 from ....services.sales_service import SalesService
+from ....services.printer_service import PrinterService
+from ....websocket.manager import manager
+from ....websocket.events import WebSocketEvents
 from .... import schemas
+from fastapi import BackgroundTasks
+import asyncio
+
+# Helper for WebSocket broadcast
+def run_broadcast(event: str, data: dict):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(manager.broadcast(event, data))
+    finally:
+        loop.close()
 
 router = APIRouter(
     prefix="/orders",
@@ -68,7 +82,7 @@ def get_current_order(table_id: int, db: Session = Depends(get_db)):
     return active_order
 
 @router.post("/{order_id}/items", response_model=OrderRead)
-def add_items_to_order(order_id: int, items: List[OrderItemCreate], db: Session = Depends(get_db)):
+def add_items_to_order(order_id: int, items: List[OrderItemCreate], background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Agregar productos a una orden existente. recalcula el total.
     """
@@ -80,6 +94,7 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreate], db: Session 
         raise HTTPException(status_code=400, detail="Cannot add items to a closed order")
 
     # Procesar items
+    new_items_list = []
     for item_in in items:
         # Validar producto
         product = db.query(Product).filter(Product.id == item_in.product_id).first()
@@ -101,13 +116,37 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreate], db: Session 
             subtotal=subtotal
         )
         db.add(new_item)
+        db.flush() # Get ID and auto-populate defaults
         
         # Actualizar total de la orden (simple suma incremental o recalculo total)
         order.total_amount += subtotal
         
+        # Collect for printing
+        new_items_list.append(new_item)
+        
     order.updated_at = datetime.now()
     db.commit()
     db.refresh(order)
+    
+    # TRIGGER KITCHEN PRINT
+    try:
+        if new_items_list:
+            # Generate Payload
+            print_payload = PrinterService.generate_kitchen_ticket(order, new_items_list)
+            
+            # Send to WebSocket (Target: Kitchen)
+            background_tasks.add_task(
+                run_broadcast, 
+                "print_kitchen_ticket", 
+                {
+                    "type": "print",
+                    "sale_id": order.id, # Using order ID as sale ID context
+                    "payload": print_payload
+                }
+            )
+    except Exception as e:
+        print(f"Error queuing kitchen ticket: {e}")
+
     return order
 
 # --- KITCHEN ENDPOINTS ---
@@ -258,3 +297,36 @@ def checkout_order(
     db.commit()
     
     return {"status": "success", "sale_id": new_sale_id, "message": "Order closed and table freed"}
+
+@router.post("/{order_id}/precheck")
+def print_precheck(
+    order_id: int, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """
+    Imprimir Pre-Cuenta (Pro-Forma).
+    No altera el estado de la orden.
+    """
+    order = db.query(RestaurantOrder).filter(RestaurantOrder.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    try:
+        # Generate Payload
+        print_payload = PrinterService.generate_pre_check_ticket(order)
+        
+        # Send to WebSocket (Target: Cashier/Default)
+        background_tasks.add_task(
+            run_broadcast, 
+            "print_precheck", 
+            {
+                "type": "print",
+                "sale_id": order.id,
+                "payload": print_payload
+            }
+        )
+        return {"status": "success", "message": "Pre-check print queued"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error printing pre-check: {e}")
