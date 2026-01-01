@@ -6,7 +6,11 @@ from .. import schemas
 from ..database.db import get_db
 from ..models import models
 from typing import List
-from ..security import verify_password, get_password_hash
+from datetime import timedelta
+from ..security import verify_password, get_password_hash, create_access_token
+from ..config import settings
+from ..dependencies import get_current_active_user
+
 
 router = APIRouter(
     prefix="/users",
@@ -108,6 +112,55 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
         "message": "Login successful"
     }
 
+@router.post("/pin-login")
+def pin_login(payload: dict, db: Session = Depends(get_db)):
+    """
+    Login rápido con PIN.
+    Payload: { "pin": "0000" }
+    """
+    pin = payload.get("pin")
+    if not pin:
+        raise HTTPException(status_code=400, detail="PIN is required")
+
+    # Buscar usuarios con ese PIN (y activos)
+    users = db.query(models.User).filter(
+        models.User.pin == pin,
+        models.User.is_active == True
+    ).all()
+
+    if not users:
+        raise HTTPException(status_code=401, detail="Invalid PIN")
+
+    # Prioridad: ADMIN > CASHIER > WAITER > KITCHEN
+    # Definimos un score manual si hay colisión
+    role_priority = {
+        models.UserRole.ADMIN: 10,
+        models.UserRole.CASHIER: 8,
+        models.UserRole.WAITER: 5,
+        models.UserRole.KITCHEN: 2
+    }
+
+    # Ordenar usuarios por prioridad
+    selected_user = sorted(users, key=lambda u: role_priority.get(u.role, 0), reverse=True)[0]
+
+    # Generar Token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": selected_user.username, "role": selected_user.role.value if hasattr(selected_user.role, 'value') else selected_user.role},
+        expires_delta=access_token_expires
+    )
+
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "id": selected_user.id,
+            "username": selected_user.username,
+            "role": selected_user.role.value if hasattr(selected_user.role, 'value') else selected_user.role,
+            "full_name": selected_user.full_name
+        }
+    }
+
 @router.post("/verify-pin/{user_id}")
 def verify_pin(user_id: int, pin: str, db: Session = Depends(get_db)):
     """Verify user PIN for authorization (e.g., discounts)"""
@@ -146,3 +199,17 @@ def update_pin(user_id: int, pin_data: dict, db: Session = Depends(get_db)):
         "message": "PIN updated successfully"
     }
 
+@router.put("/me/pin")
+def update_own_pin(pin_data: dict, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """
+    Actualizar PIN del usuario logueado.
+    Payload: { "pin": "0000" }
+    """
+    pin = pin_data.get("pin", "")
+    if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
+        raise HTTPException(status_code=400, detail="PIN must be 4-6 digits")
+    
+    current_user.pin = pin
+    db.commit()
+    
+    return {"status": "success", "message": "PIN updated successfully"}

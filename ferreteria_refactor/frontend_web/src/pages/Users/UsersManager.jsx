@@ -141,13 +141,17 @@ const UsersManager = () => {
         const badges = {
             ADMIN: 'bg-purple-100 text-purple-800 border-purple-200',
             CASHIER: 'bg-blue-100 text-blue-800 border-blue-200',
-            WAREHOUSE: 'bg-green-100 text-green-800 border-green-200'
+            WAREHOUSE: 'bg-green-100 text-green-800 border-green-200',
+            WAITER: 'bg-orange-100 text-orange-800 border-orange-200',
+            KITCHEN: 'bg-red-100 text-red-800 border-red-200'
         };
 
         const labels = {
             ADMIN: 'Administrador',
             CASHIER: 'Cajero',
-            WAREHOUSE: 'Almacén'
+            WAREHOUSE: 'Almacén',
+            WAITER: 'Mesero',
+            KITCHEN: 'Cocina'
         };
 
         return (
@@ -363,11 +367,15 @@ const UsersManager = () => {
                                             <option value="ADMIN">Administrador</option>
                                             <option value="CASHIER">Cajero</option>
                                             <option value="WAREHOUSE">Almacén</option>
+                                            <option value="WAITER">Mesero</option>
+                                            <option value="KITCHEN">Cocina</option>
                                         </select>
                                         <p className="text-xs text-gray-500 mt-1">
                                             {formData.role === 'ADMIN' && '✓ Acceso completo al sistema'}
                                             {formData.role === 'CASHIER' && '✓ Acceso a ventas y POS'}
                                             {formData.role === 'WAREHOUSE' && '✓ Acceso a inventario y productos'}
+                                            {formData.role === 'WAITER' && '✓ Acceso a comandera móvil'}
+                                            {formData.role === 'KITCHEN' && '✓ Acceso a pantalla de cocina'}
                                         </p>
                                     </div>
                                 </>

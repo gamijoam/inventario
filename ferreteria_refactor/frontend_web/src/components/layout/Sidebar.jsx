@@ -27,7 +27,8 @@ import {
     CornerDownLeft,
     PieChart,
     Utensils,
-    ChefHat
+    ChefHat,
+    Smartphone
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -54,6 +55,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             items: [
                 { icon: Utensils, label: 'Mapa de Mesas', path: '/restaurant/tables' },
                 { icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' },
+                { icon: Smartphone, label: 'Comandera Móvil', path: '/mobile/login' },
                 { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
                 { icon: ClipboardList, label: 'Recetas / Escandallos', path: '/restaurant/recipes' },
             ]
@@ -100,6 +102,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             label: 'Sistema',
             icon: Settings,
             items: [
+                { icon: Users, label: 'Usuarios', path: '/users' },
                 { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
                 { icon: Settings, label: 'Configuración', path: '/settings' },
                 { icon: BookOpen, label: 'Ayuda', path: '/help' },

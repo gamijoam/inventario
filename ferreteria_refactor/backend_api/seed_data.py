@@ -28,7 +28,7 @@ def seed_data():
         # 1. Users
         print("Creating Users...")
         users = [
-            {"username": "admin", "password": "123", "role": models.UserRole.ADMIN, "pin_code": "1234"},
+            {"username": "admin", "password": "123", "role": models.UserRole.ADMIN, "pin_code": "0000"},
             {"username": "cajero", "password": "123", "role": models.UserRole.CASHIER, "pin_code": "0000"},
             {"username": "almacen", "password": "123", "role": models.UserRole.WAREHOUSE, "pin_code": "1111"},
         ]

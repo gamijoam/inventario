@@ -1,4 +1,4 @@
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
@@ -39,6 +39,11 @@ import { WebSocketProvider } from './context/WebSocketContext';
 import { CloudConfigProvider } from './context/CloudConfigContext';
 import { AutoSyncProvider } from './context/AutoSyncContext';
 
+import MobileWaiterLayout from './layouts/MobileWaiterLayout';
+import WaiterLogin from './pages/Mobile/WaiterLogin';
+import MobileTableGrid from './pages/Mobile/MobileTableGrid';
+import MobileOrderTaker from './pages/Mobile/MobileOrderTaker';
+
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
 
@@ -56,6 +61,19 @@ function App() {
                     <Router>
                       <Routes>
                         <Route path="/login" element={<Login />} />
+
+                        {/* Mobile Waiter Routes */}
+                        <Route path="/mobile/login" element={<WaiterLogin />} />
+                        <Route path="/mobile" element={
+                          <ProtectedRoute>
+                            <MobileWaiterLayout />
+                          </ProtectedRoute>
+                        }>
+                          <Route index element={<Navigate to="tables" replace />} />
+                          <Route path="tables" element={<MobileTableGrid />} />
+                          <Route path="order/:tableId" element={<MobileOrderTaker />} />
+                        </Route>
+
                         <Route path="/unauthorized" element={<Unauthorized />} />
 
                         {/* Reports Routes */}
