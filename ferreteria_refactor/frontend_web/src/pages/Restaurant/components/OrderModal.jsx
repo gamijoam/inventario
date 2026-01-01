@@ -24,6 +24,11 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
 
+    // Menu State
+    const [menuSections, setMenuSections] = useState([]);
+    const [activeSectionId, setActiveSectionId] = useState(null);
+    const [menuLoading, setMenuLoading] = useState(false);
+
     // Load order if occupied
     useEffect(() => {
         if (table.status === 'OCCUPIED') {
@@ -42,6 +47,25 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
             setLoadingOrder(false);
         }
     };
+
+    const loadMenu = async () => {
+        setMenuLoading(true);
+        try {
+            const data = await restaurantService.getMenuFull();
+            if (data.sections && data.sections.length > 0) {
+                setMenuSections(data.sections);
+                setActiveSectionId(data.sections[0].id);
+            }
+        } catch (error) {
+            console.error("Error loading menu:", error);
+        } finally {
+            setMenuLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadMenu();
+    }, []);
 
     const handleOpenTable = async () => {
         try {
@@ -167,24 +191,25 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                     {/* STATE: OCCUPIED -> MANAGE ORDER */}
                     {(table.status === 'OCCUPIED' || order) && (
                         <>
-                            {/* Product Search */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Agregar Producto</label>
+                            {/* Menu & Search Area */}
+                            <div className="space-y-4">
+                                {/* Search Bar */}
                                 <div className="relative">
                                     <Search className="absolute left-3 top-3 text-gray-400" size={18} />
                                     <input
                                         type="text"
-                                        placeholder="Buscar plato o bebida..."
-                                        className="w-full pl-10 pr-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                                        placeholder="Buscar producto por nombre..."
+                                        className="w-full pl-10 pr-4 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50"
                                         value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
+                                        onChange={e => { setSearchTerm(e.target.value); if (e.target.value) setActiveSectionId(null); }}
                                     />
                                     {searching && <div className="absolute right-3 top-3 animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>}
                                 </div>
 
-                                {/* Search Results Dropdown */}
-                                {searchResults.length > 0 && (
-                                    <div className="border rounded-xl shadow-lg bg-white overflow-hidden divide-y">
+                                {/* SEARCH RESULTS vs MENU GRID */}
+                                {searchTerm.length > 0 ? (
+                                    /* Search Results */
+                                    <div className="border rounded-xl shadow-sm bg-white overflow-hidden divide-y max-h-60 overflow-y-auto">
                                         {searchResults.map(prod => (
                                             <button
                                                 key={prod.id}
@@ -195,6 +220,57 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                                                 <span className="font-bold text-gray-900">${prod.price}</span>
                                             </button>
                                         ))}
+                                        {searchResults.length === 0 && !searching && (
+                                            <div className="p-4 text-center text-gray-500 italic">No se encontraron productos</div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    /* VISUAL MENU */
+                                    <div className="flex flex-col h-[400px]">
+                                        {/* Categories (Tabs) */}
+                                        <div className="flex gap-2 overflow-x-auto pb-2 mb-2 custom-scrollbar">
+                                            {menuSections.map(section => (
+                                                <button
+                                                    key={section.id}
+                                                    onClick={() => setActiveSectionId(section.id)}
+                                                    className={`px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeSectionId === section.id
+                                                            ? 'bg-blue-600 text-white shadow-md'
+                                                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'
+                                                        }`}
+                                                >
+                                                    {section.name}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        {/* Items Grid */}
+                                        <div className="flex-1 overflow-y-auto bg-gray-50 rounded-xl p-3 border border-gray-200">
+                                            {activeSectionId ? (
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    {menuSections.find(s => s.id === activeSectionId)?.items.map(item => (
+                                                        <button
+                                                            key={item.id}
+                                                            onClick={() => setSelectedProduct({
+                                                                id: item.product_id,
+                                                                name: item.alias || item.product_name,
+                                                                price: item.price // Use override or product price
+                                                            })}
+                                                            className="flex flex-col justify-between p-3 bg-white rounded-lg border shadow-sm hover:border-blue-500 hover:shadow-md transition text-left h-24"
+                                                        >
+                                                            <span className="font-bold text-sm text-gray-800 line-clamp-2">{item.alias || item.product_name}</span>
+                                                            <span className="text-green-600 font-bold self-end">${item.price}</span>
+                                                        </button>
+                                                    ))}
+                                                    {menuSections.find(s => s.id === activeSectionId)?.items.length === 0 && (
+                                                        <div className="col-span-3 text-center py-8 text-gray-400 italic">Sección vacía</div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="h-full flex items-center justify-center text-gray-400 italic">
+                                                    {menuSections.length > 0 ? "Selecciona una categoría" : "No hay menú configurado"}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>

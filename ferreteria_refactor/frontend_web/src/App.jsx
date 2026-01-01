@@ -30,6 +30,8 @@ import AuditLogs from './pages/AuditLogs';
 import Help from './pages/Help';
 import TableMap from './pages/Restaurant/TableMap';
 import KitchenDisplay from './pages/Restaurant/KitchenDisplay';
+import MenuManager from './pages/Restaurant/MenuManager';
+import RecipeEditor from './pages/Restaurant/RecipeEditor';
 import { CartProvider } from './context/CartContext';
 import { CashProvider } from './context/CashContext';
 import { ConfigProvider } from './context/ConfigContext';
@@ -186,6 +188,18 @@ function App() {
                             <Route path="/restaurant/kitchen" element={
                               <ProtectedRoute>
                                 <KitchenDisplay />
+                              </ProtectedRoute>
+                            } />
+
+                            {/* Restaurant Management */}
+                            <Route path="/restaurant/menu" element={
+                              <ProtectedRoute roles={['ADMIN']}>
+                                <MenuManager />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/restaurant/recipes" element={
+                              <ProtectedRoute roles={['ADMIN']}>
+                                <RecipeEditor />
                               </ProtectedRoute>
                             } />
 
