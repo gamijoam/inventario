@@ -2,4 +2,4 @@ websockets
 jinja2==3.1.2
 python-escpos
 pyusb
-# pywin32  # Windows-only, installed separately
+pywin32

@@ -100,36 +100,19 @@ TOTAL:       {{ sale.total }}
 
     const handleTestPrint = async () => {
         try {
-            // 1. Obtener datos de prueba (Template + Contexto Dummy) desde el Backend (Nube)
+            // 1. Solicitar impresión de prueba al Backend
+            // El backend se encarga de enviar la orden al Hardware Bridge vía WebSocket
             const response = await apiClient.post('/config/test-print');
-            const printPayload = response.data;
 
-            // 2. Enviar estos datos al Hardware Bridge LOCAL (Tu PC)
-            try {
-                const bridgeResponse = await fetch('http://localhost:5001/print', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        template: printPayload.template,
-                        context: printPayload.context
-                    })
-                });
-
-                if (!bridgeResponse.ok) {
-                    throw new Error('Bridge error: ' + bridgeResponse.statusText);
-                }
-
-                toast.success('Ticket enviado al Hardware Bridge Local');
-            } catch (bridgeError) {
-                console.error("Local Bridge Error:", bridgeError);
-                toast.error('Error conectando con tu Impresora Local (localhost:5001). Asegúrate de que BridgeInvensoft.exe esté corriendo.');
+            if (response.data.status === 'success') {
+                toast.success('Ticket enviado al Hardware Bridge');
+            } else {
+                toast.success('Ticket generado'); // Fallback logic
             }
 
         } catch (error) {
             console.error('Error getting test data:', error);
-            toast.error('Error obteniendo datos de prueba del servidor.');
+            toast.error('Error enviando prueba de impresión');
         }
     };
 
