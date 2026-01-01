@@ -360,6 +360,8 @@ class UserRole(str, enum.Enum):
     ADMIN = "ADMIN"
     CASHIER = "CASHIER"
     WAREHOUSE = "WAREHOUSE"
+    WAITER = "WAITER"
+    KITCHEN = "KITCHEN"
 
 class User(Base):
     __tablename__ = "users"

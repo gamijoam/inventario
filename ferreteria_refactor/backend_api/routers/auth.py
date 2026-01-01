@@ -104,10 +104,16 @@ def init_admin_user(db: Session):
             password_hash=p_hash,
             role=models.UserRole.ADMIN,
             full_name="Administrador Sistema",
-            is_active=True
+            is_active=True,
+            pin="0000" # Default PIN
         )
         db.add(new_admin)
         db.commit()
-        print("[OK] Admin user created with default password 'admin123'")
+        print("[OK] Admin user created with default password 'admin123' and PIN '0000'")
     else:
-        print("[OK] Admin user already exists, skipping initialization")
+        # Ensure PIN exists for existing admin
+        if not admin.pin:
+             print("[INFO] Setting default PIN '0000' for existing admin.")
+             admin.pin = "0000"
+             db.commit()
+        print("[OK] Admin user verified")
