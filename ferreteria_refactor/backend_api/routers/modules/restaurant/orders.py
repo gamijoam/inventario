@@ -5,7 +5,7 @@ from datetime import datetime
 
 from ....database.db import get_db
 from ....dependencies import get_current_active_user, require_restaurant_module
-from ....models.restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem, TableStatusDB, OrderStatusDB, OrderItemStatusDB
+from ....models.restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem, RestaurantRecipe, TableStatusDB, OrderStatusDB, OrderItemStatusDB
 from ....models.models import Product
 from ....schemas.restaurant import OrderCreate, OrderRead, OrderItemCreate, TableRead
 from ....schemas.restaurant_checkout import RestaurantCheckout
@@ -184,6 +184,21 @@ def get_pending_kitchen_orders(db: Session = Depends(get_db)):
         print(f"ERROR KITCHEN: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.put("/items/{item_id}/status")
+def update_order_item_status(item_id: int, status: str, db: Session = Depends(get_db)):
+    """
+    Actualizar estado de un item (ej: PENDING -> READY)
+    """
+    try:
+        # Validate Enum
+        new_status = OrderItemStatusDB(status)
+    except ValueError:
+         raise HTTPException(status_code=400, detail=f"Invalid status. Allowed: {[e.value for e in OrderItemStatusDB]}")
+
+    item = db.query(RestaurantOrderItem).filter(RestaurantOrderItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
     item.status = new_status
     db.commit()
     
@@ -225,12 +240,39 @@ def checkout_order(
         # Check if product is correctly loaded
         if not item.product:
              continue 
-             
+        
+        # --- RECIPE INVENTORY LOGIC (ESCANDALLO) ---
+        try:
+            # 1. Check if this product is a Dish with a Recipe
+            recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == item.product_id).all()
+            
+            if recipes:
+                # It has a recipe! Deduct ingredients.
+                for recipe_item in recipes:
+                    # Assuming recipe_item.ingredient is loaded or we fetch it
+                    # We need to fetch the ingredient product to update its stock
+                    ingredient = db.query(Product).filter(Product.id == recipe_item.ingredient_id).first()
+                    if ingredient:
+                        try:
+                            # Safely handle potential None/Decimal types
+                            qty_needed = float(recipe_item.quantity or 0)
+                            qty_sold = float(item.quantity or 0)
+                            total_needed = qty_needed * qty_sold
+                            
+                            current_stock = float(ingredient.stock or 0)
+                            ingredient.stock = current_stock - total_needed
+                            db.add(ingredient)
+                        except Exception as e:
+                            print(f"[ERROR] Error calculating recipe deduction for {ingredient.name}: {e}")
+                # NOTE: The Dish itself (item.product) will still be processed by SalesService.
+        except Exception as e:
+            print(f"[ERROR] Critical Recipe Logic Failed: {e}")
+        
         sale_items.append(schemas.SaleDetailCreate(
             product_id=item.product_id,
             quantity=float(item.quantity),
-            unit_price=float(item.unit_price), # Correct field name
-            subtotal=float(item.subtotal), # Required field
+            unit_price=float(item.unit_price), 
+            subtotal=float(item.subtotal), 
             conversion_factor=1,
             discount=0,
             discount_type="NONE"

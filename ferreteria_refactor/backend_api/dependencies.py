@@ -67,6 +67,7 @@ def has_role(allowed_roles: List[UserRole]):
 
 # Admin only - full access
 admin_only = has_role([UserRole.ADMIN])
+require_admin_role = admin_only # Alias for compatibility
 
 # Cashier or Admin - POS operations, sales, returns
 cashier_or_admin = has_role([UserRole.ADMIN, UserRole.CASHIER])

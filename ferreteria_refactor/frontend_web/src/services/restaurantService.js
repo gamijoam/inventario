@@ -22,6 +22,12 @@ const restaurantService = {
         return true;
     },
 
+    // --- MENU ---
+    getMenuFull: async () => {
+        const response = await axiosInstance.get('/restaurant/menu/full');
+        return response.data;
+    },
+
     // --- ORDERS (Phase 3) ---
     openTable: async (tableId) => {
         const response = await axiosInstance.post(`/restaurant/orders/open/${tableId}`);

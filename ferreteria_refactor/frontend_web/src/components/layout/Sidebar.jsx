@@ -54,6 +54,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             items: [
                 { icon: Utensils, label: 'Mapa de Mesas', path: '/restaurant/tables' },
                 { icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' },
+                { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
+                { icon: ClipboardList, label: 'Recetas / Escandallos', path: '/restaurant/recipes' },
             ]
         }] : []),
         {

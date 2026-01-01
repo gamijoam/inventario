@@ -97,3 +97,39 @@ class RestaurantOrderItem(Base):
 
     def __repr__(self):
         return f"<RestaurantOrderItem(order={self.order_id}, product={self.product_id}, status='{self.status}')>"
+
+class RestaurantRecipe(Base):
+    __tablename__ = "restaurant_recipes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False) # The Dish (e.g. Burger)
+    ingredient_id = Column(Integer, ForeignKey("products.id"), nullable=False) # The Ingredient (e.g. Bread)
+    quantity = Column(Numeric(12, 3), nullable=False) # Amount to deduct per dish
+    
+    product = relationship("Product", foreign_keys=[product_id])
+    ingredient = relationship("Product", foreign_keys=[ingredient_id])
+
+class RestaurantMenuSection(Base):
+    __tablename__ = "restaurant_menu_sections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+    
+    items = relationship("RestaurantMenuItem", back_populates="section", cascade="all, delete-orphan")
+
+class RestaurantMenuItem(Base):
+    __tablename__ = "restaurant_menu_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    section_id = Column(Integer, ForeignKey("restaurant_menu_sections.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    
+    alias = Column(String, nullable=True) # Override name for menu
+    price_override = Column(Numeric(12, 2), nullable=True) # Optional price override
+    sort_order = Column(Integer, default=0)
+    is_active = Column(Boolean, default=True)
+
+    section = relationship("RestaurantMenuSection", back_populates="items")
+    product = relationship("Product")
