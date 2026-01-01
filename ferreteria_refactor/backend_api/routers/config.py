@@ -260,16 +260,29 @@ def test_print_ticket(db: Session = Depends(get_db)):
     # Add alias 'products' to avoid Jinja collision with dict.items()
     context["sale"]["products"] = context["sale"]["items"]
     
-    # Send to hardware bridge? 
-    # NO! In SaaS mode, the backend cannot reach the printer.
-    # We return the payload so the FRONTEND can send it to the local bridge.
+    # Construct print payload
+    payload = {
+        "template": template_config.value if (template_config and template_config.value) else "NOTE: No template saved. This is a test.",
+        "context": context
+    }
     
-    template_content = template_config.value if (template_config and template_config.value) else "NOTE: No template saved. This is a test."
+    # Broadcast to hardware bridge
+    import asyncio
+    from ..services.websocket_manager import manager
+    
+    asyncio.run_coroutine_threadsafe(
+        manager.broadcast({
+            "type": "print",
+            "sale_id": "TEST",
+            "payload": payload
+        }),
+        asyncio.get_running_loop()
+    )
     
     return {
-        "status": "ready_to_print",
-        "message": "Payload generated. Send this to local bridge.",
-        "template": template_content,
+        "status": "success",
+        "message": "Test print sent to Hardware Bridge",
+        "template": payload["template"],
         "context": context
     }
 

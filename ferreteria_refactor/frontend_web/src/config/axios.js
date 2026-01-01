@@ -6,8 +6,9 @@ const isElectron = !window.location.host || window.location.protocol === 'file:'
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 // In Electron, use absolute URL to localhost:8001
-// In web, use relative URL (proxy handles it)
-const baseURL = isElectron ? 'http://localhost:8001/api/v1' : '/api/v1';
+// In web, use relative URL (proxy handles it) or VITE_API_URL if defined
+const envApiUrl = import.meta.env.VITE_API_URL;
+const baseURL = isElectron ? (envApiUrl || 'http://localhost:8001/api/v1') : (envApiUrl || '/api/v1');
 
 console.log('🔧 Axios config:', { isElectron, isDevelopment, baseURL, hostname: window.location.hostname, protocol: window.location.protocol });
 

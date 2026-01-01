@@ -18,6 +18,67 @@ if sys.stderr is None:
     sys.stderr = open("bridge_debug.log", "w", encoding="utf-8")
 
 # ========================================
+# HTTP SERVER (LEGACY SUPPORT)
+# ========================================
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
+
+class LocalPrintHandler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
+    def do_POST(self):
+        if self.path == '/print':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                payload = json.loads(post_data.decode('utf-8'))
+                
+                print(f"🖨️ [HTTP] Received print job via port 5001")
+                
+                # Execute Print (Thread-safe enough for this simple usage)
+                success = execute_print(payload)
+                
+                self.send_response(200 if success else 500)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                
+                response = {"status": "success" if success else "error"}
+                self.wfile.write(json.dumps(response).encode('utf-8'))
+                
+            except Exception as e:
+                print(f"❌ [HTTP] Error: {e}")
+                self.send_response(500)
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": str(e)}).encode('utf-8'))
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        # Silence default HTTP logs to keep console clean
+        pass
+
+def start_http_server():
+    """Start HTTP server in background thread"""
+    port = 5001
+    try:
+        server = HTTPServer(('0.0.0.0', port), LocalPrintHandler)
+        print(f"🌍 Legacy HTTP Server listening on port {port}")
+        
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+    except Exception as e:
+        print(f"❌ Failed to start HTTP Server on {port}: {e}")
+
+# ========================================
 # CONFIGURATION MANAGEMENT
 # ========================================
 
@@ -429,7 +490,10 @@ if __name__ == "__main__":
                     print(f"⚠️ WARNING: Printer for '{role}' ({name}) not found!")
         
         # Start WebSocket clients (Hybrid Mode)
-        print("\\n🚀 Starting Hybrid Bridge...")
+        print("\n🚀 Starting Hybrid Bridge...")
+        
+        # Start Legacy HTTP Server
+        start_http_server()
         
         async def main():
             # Run both connections concurrently

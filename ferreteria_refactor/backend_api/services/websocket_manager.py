@@ -54,6 +54,20 @@ class ConnectionManager:
         """Check if a specific client is connected"""
         return client_id in self.active_connections
 
+    async def broadcast(self, message: dict):
+        """Send a message to ALL connected hardware bridges"""
+        if not self.active_connections:
+            print("[WARN] No hardware bridges connected for broadcast")
+            return
+            
+        print(f"[BROADCAST] Sending to {len(self.active_connections)} active bridges")
+        for client_id, websocket in list(self.active_connections.items()):
+            try:
+                await websocket.send_json(message)
+            except Exception as e:
+                print(f"[ERROR] Broadcast to {client_id} failed: {e}")
+                self.disconnect(client_id)
+
 
 # Global instance
 manager = ConnectionManager()
