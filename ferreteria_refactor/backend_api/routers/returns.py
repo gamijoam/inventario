@@ -264,3 +264,16 @@ def get_return(return_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Return not found")
     
     return ret
+
+@router.get("/sales/{sale_id}/print-payload")
+def get_sale_print_payload(sale_id: int, db: Session = Depends(get_db)):
+    """Get print payload for reprinting a sale ticket"""
+    from ..services.sales_service import SalesService
+    
+    try:
+        payload = SalesService.get_sale_print_payload(db, sale_id)
+        return payload
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating print payload: {str(e)}")
