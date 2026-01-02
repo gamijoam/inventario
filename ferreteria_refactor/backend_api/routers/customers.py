@@ -178,7 +178,9 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "success", "message": "Cliente eliminado"}
 
-@router.post("/{customer_id}/payments")
+from ..dependencies import cashier_or_admin
+
+@router.post("/{customer_id}/payments", dependencies=[Depends(cashier_or_admin)])
 def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCreate, db: Session = Depends(get_db)):
     db_customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not db_customer:
@@ -193,8 +195,58 @@ def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCr
         exchange_rate_used=payment.exchange_rate,
         # Calculate amount_bs if currency is Bs, or convert if needed.
         # For simple storage, we store what was paid.
-        amount_bs = payment.amount if payment.currency == "Bs" else (payment.amount * payment.exchange_rate)
+        amount_bs = payment.amount if payment.currency in ["Bs", "VES"] else (payment.amount * payment.exchange_rate)
     )
     db.add(new_payment)
+    
+    # 2. FIFO Debt Reduction Logic (CRITICAL FIX)
+    # Convert payment to USD to apply against debt (which is tracked in USD)
+    payment_value_usd = float(payment.amount)
+    if payment.currency in ["Bs", "VES"] and payment.exchange_rate > 0:
+        payment_value_usd = float(payment.amount) / float(payment.exchange_rate)
+    
+    remaining_payment = payment_value_usd
+    
+    # Get unpaid sales ordered by date (Oldest first)
+    pending_sales = db.query(models.Sale).filter(
+        models.Sale.customer_id == customer_id,
+        models.Sale.is_credit == True,
+        models.Sale.paid == False
+    ).order_by(models.Sale.date.asc()).all()
+    
+    print(f"[CREDIT] Applying Payment ${payment_value_usd:.2f} to {len(pending_sales)} pending sales")
+    
+    for sale in pending_sales:
+        if remaining_payment <= 0:
+            break
+            
+        balance = float(sale.balance_pending or 0)
+        
+        if balance <= 0:
+            sale.paid = True # Should already be paid, but safety check
+            continue
+            
+        if remaining_payment >= balance:
+            # Pay off this sale completely
+            remaining_payment -= balance
+            sale.balance_pending = 0
+            sale.paid = True
+            print(f"   -> Sale #{sale.id} PAID FULL. (Amt: ${balance})")
+        else:
+            # Partial payment
+            sale.balance_pending = balance - remaining_payment
+            remaining_payment = 0
+            print(f"   -> Sale #{sale.id} Partial. Remaining Balance: ${sale.balance_pending}")
+            
     db.commit()
-    return {"status": "success"}
+    
+    # Broadcast customer updated
+    customer = db_customer
+    total_debt = db.query(models.Sale.balance_pending).filter(
+        models.Sale.customer_id == customer_id,
+        models.Sale.is_credit == True,
+        models.Sale.paid == False
+    ).limit(100).all() # Just trigger update, frontend calls financial-status
+    # Re-trigger broadcast
+    
+    return {"status": "success", "applied_usd": payment_value_usd}

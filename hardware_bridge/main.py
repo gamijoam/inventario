@@ -397,6 +397,11 @@ def execute_print(payload):
         print(f"🖨️  Job Target: {target} -> Physical: {printer_name}")
 
         # Render template
+        print(f"🔍 DEBUG: Attempting to render template:\n{template}\n--- END TEMPLATE ---")
+        print(f"🔍 DEBUG: Context keys: {context.keys()}")
+        if 'sale' in context:
+             print(f"🔍 DEBUG: Sale keys: {context['sale'].keys()}")
+        
         commands = print_from_template(template, context)
         
         # Print based on mode

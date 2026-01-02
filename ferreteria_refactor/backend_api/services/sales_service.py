@@ -362,85 +362,212 @@ class SalesService:
         for config in configs:
             business_config[config.key] = config.value
             
-        # Get ticket template
-        template = business_config.get('ticket_template')
-        if not template:
-            # Fallback to a basic message if no template
-            template = "Error: No ticket template configured."
-            
-        # Determine Currency and Values
-        currency_symbol = "$"
-        is_foreign_currency = False
-        rate = sale.exchange_rate_used or 1
+        # Determine Exchange Rate (Implied or Explicit)
+        # We always want to print in Fiscal Currency (VES/Bs) if possible, with USD reference.
+        total_usd = float(sale.total_amount)
+        total_bs = float(sale.total_amount_bs) if sale.total_amount_bs else 0.0
         
-        # Check if Sale is in Bs/VES
-        if sale.currency in ["VES", "Bs", "Bs."]:
-            currency_symbol = "Bs."
-            is_foreign_currency = True
-        elif sale.currency == "USD":
-            currency_symbol = "$"
-            
-        # Helper to convert if needed
-        def get_value(usd_value):
-            if is_foreign_currency:
-                return float(usd_value) * float(rate)
-            return float(usd_value)
+        # Calculate effective rate for print
+        if total_bs > 0 and total_usd > 0:
+            print_rate = total_bs / total_usd
+        else:
+            print_rate = float(sale.exchange_rate_used) if sale.exchange_rate_used else 1.0
+            total_bs = total_usd * print_rate # Fallback calculation
 
-        # Build context for template
+        currency_symbol = "Bs"
+        
+        # Helper to convert to VES
+        def to_ves(usd_val):
+            return float(usd_val) * print_rate
+
+        # Build Items List in VES
+        print_items = []
+        for item in sale.details:
+            # We use the USD prices and convert
+            unit_price_usd = float(item.unit_price)
+            subtotal_usd = float(item.subtotal)
+            
+            print_items.append({
+                "product": {"name": item.product.name if item.product else "Producto"},
+                "quantity": float(item.quantity) if item.quantity % 1 != 0 else int(item.quantity),
+                "unit_price": to_ves(unit_price_usd),
+                "subtotal": to_ves(subtotal_usd),
+                "unit_price_usd": unit_price_usd, # Ref
+                "currency_symbol": currency_symbol,
+                "discount_percentage": float(item.discount) if hasattr(item, 'discount_type') and item.discount_type == 'PERCENT' else 0.0
+            })
+
+        # Calculate Due Date for Credit
+        due_date_str = ""
+        if sale.is_credit:
+             # If due_date is stored in sale (added in model check?), use it.
+             # Model has due_date column.
+             if sale.due_date:
+                 due_date_str = sale.due_date.strftime("%d/%m/%Y")
+             elif sale.customer and sale.customer.payment_term_days:
+                 # Calc on fly if missing
+                 d_date = sale.date + timedelta(days=sale.customer.payment_term_days)
+                 due_date_str = d_date.strftime("%d/%m/%Y")
+
+        # Improved Template (Hardcoded to ensure alignment fix)
+        # User requested: Name Left, Price Right.
         context = {
             "business": {
                 "name": business_config.get('business_name', 'MI NEGOCIO'),
-                "document_id": business_config.get('business_doc', ''),
+                "document_id": business_config.get('business_doc', ''),  # RIF
                 "address": business_config.get('business_address', ''),
                 "phone": business_config.get('business_phone', ''),
-                "email": business_config.get('business_email', '')
             },
             "sale": {
                 "id": sale.id,
                 "date": sale.date.strftime("%d/%m/%Y %H:%M") if sale.date else "",
-                "total": get_value(sale.total_amount), # CONVERTED TOTAL
-                "currency": sale.currency,
+                "total": total_bs,         # Main Total in VES
+                "total_usd": total_usd,    # Ref Total in USD
                 "currency_symbol": currency_symbol,
-                "exchange_rate": float(rate),
+                "exchange_rate": print_rate,
+                "discount": 0.0, # Added missing field for legacy templates
                 "is_credit": sale.is_credit,
-                # Calculate total discount from details
-                "discount": get_value(sum(d.discount for d in sale.details if d.discount)),
-                "balance": get_value(sale.balance_pending) if sale.balance_pending else 0.0,
+                "due_date": due_date_str,
                 "customer": {
-                    "name": sale.customer.name if sale.customer else None,
-                    "id_number": sale.customer.id_number if sale.customer else None
-                } if sale.customer else None,
-                "items": [
-                    {
-                        "product": {"name": item.product.name if item.product else "Producto"},
-                        "quantity": float(item.quantity),
-                        "unit_price": get_value(item.unit_price), # CONVERTED PRICE
-                        "subtotal": get_value(item.subtotal),     # CONVERTED SUBTOTAL
-                        "discount_percentage": float(item.discount) if item.discount else 0,
-                        "currency_symbol": currency_symbol
-                    }
-                    for item in sale.details
-                ],
+                    "name": sale.customer.name[:25] if sale.customer else "CLIENTE CONTADO",
+                    "id_number": sale.customer.id_number if sale.customer else ""
+                },
+                "products": print_items,
                 "payments": [
                     {
                         "amount": float(p.amount),
                         "currency": p.currency,
-                        "method": p.payment_method,
-                        "exchange_rate": float(p.exchange_rate)
-                    }
-                    for p in sale.payments
+                        "method": p.payment_method
+                    } for p in sale.payments
                 ]
-            },
-            "currency_symbol": currency_symbol
+            }
         }
-        # Add alias 'products' to avoid Jinja collision with dict.items()
-        context["sale"]["products"] = context["sale"]["items"]
         
-        # DEBUG: Print context items to verify discount
-        print("[DEBUG] TICKET CONTEXT ITEMS:")
-        for i in context["sale"]["items"]:
-            print(f"   - {i['product']['name']}: Price={i['unit_price']}, Discount%={i.get('discount_percentage')}, Subtotal={i['subtotal']}")
 
+        # Use stored template or fallback to default
+        template_config = db.query(models.BusinessConfig).get("ticket_template")
+        if template_config and template_config.value:
+             template = template_config.value
+             # HOTFIX: Ensure sale.items -> sale.products replacement here too just in case
+             if "sale.items" in template:
+                 template = template.replace("sale.items", "sale.products")
+        else:
+            # Fallback Template
+            template = """
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.document_id }}
+{{ business.address }}
+{{ business.phone }}
+--------------------------------
+TICKET DE VENTA: #{{ sale.id }}
+FECHA: {{ sale.date }}
+CLIENTE: {{ sale.customer.name }}
+R.I.F/C.I: {{ sale.customer.id_number }}
+{% if sale.is_credit %}
+CONDICION: CREDITO
+VENCE: {{ sale.due_date }}
+{% endif %}
+--------------------------------
+DESCRIPCION       CANT     TOTAL
+--------------------------------
+{% for item in sale.products %}
+<bold>{{ item.product.name }}</bold>
+               x{{ item.quantity }}    {{ "%.2f"|format(item.subtotal) }}
+{% endfor %}
+--------------------------------
+<right>
+<bold>TOTAL Bs: {{ "%.2f"|format(sale.total) }}</bold>
+REF USD: ${{ "%.2f"|format(sale.total_usd) }}
+(Tasa: {{ "%.2f"|format(sale.exchange_rate) }})
+</right>
+--------------------------------
+<center>
+¡GRACIAS POR SU COMPRA!
+</center>
+<cut>
+"""
+        return {
+            "status": "ready",
+            "template": template,
+            "context": context
+        }
+
+    @staticmethod
+    def generate_z_report_payload(db: Session, session_id: int):
+        """
+        Generates Z Report (Corte de Caja) Payload
+        """
+        # Fetch Session with loaded relationships
+        session = db.query(models.CashSession).options(
+            joinedload(models.CashSession.currencies),
+            joinedload(models.CashSession.user)
+        ).filter(models.CashSession.id == session_id).first()
+        
+        if not session:
+            return None
+            
+        # Get Business Config
+        business_config = {}
+        configs = db.query(models.BusinessConfig).all()
+        for config in configs:
+            business_config[config.key] = config.value
+
+        # Build Context
+        context = {
+            "business": {
+                "name": business_config.get('business_name', 'MI NEGOCIO'),
+                "document_id": business_config.get('business_doc', ''),
+            },
+            "session": {
+                "id": session.id,
+                "user": session.user.full_name if session.user else "Usuario",
+                "start_time": session.start_time.strftime("%d/%m/%Y %H:%M"),
+                "end_time": session.end_time.strftime("%d/%m/%Y %H:%M") if session.end_time else "N/A",
+                "initial_usd": float(session.initial_cash or 0),
+                "initial_bs": float(session.initial_cash_bs or 0),
+                "sales_usd": float(session.final_cash_expected or 0) - float(session.initial_cash or 0), # Approx
+                "sales_bs": float(session.final_cash_expected_bs or 0) - float(session.initial_cash_bs or 0), # Approx
+                "total_expected_usd": float(session.final_cash_expected or 0),
+                "total_expected_bs": float(session.final_cash_expected_bs or 0),
+                "total_reported_usd": float(session.final_cash_reported or 0),
+                "total_reported_bs": float(session.final_cash_reported_bs or 0),
+                "diff_usd": float(session.difference or 0),
+                "diff_bs": float(session.difference_bs or 0),
+                
+            }
+        }
+        
+        template = """
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.document_id }}
+REPORTE Z (CORTE DE CAJA)
+ID: #{{ session.id }}
+CAJERO: {{ session.user }}
+APERTURA: {{ session.start_time }}
+CIERRE: {{ session.end_time }}
+--------------------------------
+<bold>RESUMEN DE CAJA</bold>
+--------------------------------
+FONDO INICIAL USD: {{ "%.2f"|format(session.initial_usd) }}
+FONDO INICIAL BS : {{ "%.2f"|format(session.initial_bs) }}
+--------------------------------
+<bold>ARQUEO (CONTADO)</bold>
+--------------------------------
+USD FISICO:     {{ "%.2f"|format(session.total_reported_usd) }}
+(Esperado:      {{ "%.2f"|format(session.total_expected_usd) }})
+DIFERENCIA MS:  {{ "%.2f"|format(session.diff_usd) }}
+.
+BS FISICO:      {{ "%.2f"|format(session.total_reported_bs) }}
+(Esperado:      {{ "%.2f"|format(session.total_expected_bs) }})
+DIFERENCIA BS:  {{ "%.2f"|format(session.diff_bs) }}
+--------------------------------
+<center>
+FIN DEL REPORTE
+</center>
+<cut>
+"""
         return {
             "status": "ready",
             "template": template,

@@ -117,8 +117,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         return acc + (amount / rate);
     }, 0);
 
-    const remainingUSD = totalUSD - totalPaidUSD;
-    const changeUSD = totalPaidUSD - totalUSD;
+    // FIX: Floating point precision adjustment
+    const remainingUSD = Number((totalUSD - totalPaidUSD).toFixed(4));
+    const changeUSD = Number((totalPaidUSD - totalUSD).toFixed(4));
 
     // Strict validation: Must effectively be zero or overpaid.
     // Floating point tolerance lowered to 0.005 (half a cent) to fix "missing 2 Bs" issue.

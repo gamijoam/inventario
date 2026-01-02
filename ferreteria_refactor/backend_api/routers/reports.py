@@ -794,19 +794,34 @@ def get_daily_close(
     start_dt = datetime.combine(date, datetime.min.time())
     end_dt = datetime.combine(date, datetime.max.time())
     
-    # 1. Sales by Payment Method
+    # 1. Sales by Payment Method (DETAILED Breakdown from Payments Table)
+    # This separates Cash USD from Cash Bs, and handles split payments correctly.
     sales_by_method = db.query(
-        models.Sale.payment_method,
-        func.sum(models.Sale.total_amount).label('total'),
-        func.count(models.Sale.id).label('count')
-    ).filter(
+        models.SalePayment.payment_method,
+        models.SalePayment.currency,
+        func.sum(models.SalePayment.amount).label('total'),
+        func.count(models.SalePayment.id).label('count')
+    ).join(models.Sale).filter(
         models.Sale.date >= start_dt,
-        models.Sale.date <= end_dt,
-        # Exclude voided sales (sales with returns)? Or keep them and show net?
-        # Usually daily close shows GROSS sales and then subtracts returns.
-        # But for simplicity, let's filter out completely voided ones if that's the logic,
-        # or just sum valid sales.
-    ).group_by(models.Sale.payment_method).all()
+        models.Sale.date <= end_dt
+    ).group_by(
+        models.SalePayment.payment_method,
+        models.SalePayment.currency
+    ).all()
+    
+    # Format for Frontend (e.g. "Efectivo (USD)", "Efectivo (Bs)")
+    formatted_breakdown = []
+    for r in sales_by_method:
+        method = r[0] or "N/A"
+        currency = r[1] or "USD"
+        label = f"{method} ({currency})"
+        
+        formatted_breakdown.append({
+            "method": label,
+            "total": float(r[2]),
+            "count": r[3],
+            "raw_currency": currency # Helpful for frontend if needed
+        })
     
     # 2. Total Change Given (Vueltos)
     total_change_query = db.query(
@@ -818,10 +833,7 @@ def get_daily_close(
     
     return {
         "date": date.isoformat(),
-        "sales_by_method": [
-            {"method": r[0] or "N/A", "total": float(r[1]), "count": r[2]} 
-            for r in sales_by_method
-        ],
+        "sales_by_method": formatted_breakdown,
         "total_change_given": float(total_change_query),
         "system_status": "OK"
     }
