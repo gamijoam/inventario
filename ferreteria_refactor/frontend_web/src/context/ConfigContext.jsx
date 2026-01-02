@@ -9,11 +9,12 @@ export const ConfigProvider = ({ children }) => {
     const [business, setBusiness] = useState(null);
     const [currencies, setCurrencies] = useState([]);
     const [loading, setLoading] = useState(true);
-    // Module Feature Flags (Hardcoded for now, could be DB-driven later)
-    const [modules] = useState({
-        restaurant: true,
+    // Module Feature Flags
+    const [modules, setModules] = useState({
+        restaurant: false, // Default hidden
         retail: true
     });
+
     const { subscribe } = useWebSocket();
 
     // WebSocket Subscriptions for Real-Time Updates
@@ -79,8 +80,20 @@ export const ConfigProvider = ({ children }) => {
 
     const fetchConfig = async () => {
         try {
-            // Load Payment Methods
+            // 1. Fetch Feature Flags (Public)
+            try {
+                const publicConfig = await apiClient.get('/config/public');
+                if (publicConfig.data?.modules) {
+                    setModules(prev => ({ ...prev, ...publicConfig.data.modules }));
+                }
+            } catch (error) {
+                console.warn("Failed to load feature flags:", error);
+            }
+
+            // 2. Load Payment Methods
             fetchPaymentMethods();
+
+            // ... (rest of existing fetchConfig logic) ...
 
             // Mock data loading if backend routes aren't ready yet or fail
             // In prod, you'd rely on the API success
