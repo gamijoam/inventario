@@ -41,7 +41,7 @@ export const WebSocketProvider = ({ children }) => {
 
             // DEVELOPMENT OVERRIDE: If on localhost:5173, point to backend at 8000
             if (window.location.hostname === 'localhost' && window.location.port === '5173') {
-                host = 'localhost:8000';
+                host = '127.0.0.1:8000';
             }
         }
 

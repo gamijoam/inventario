@@ -94,7 +94,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 { icon: RefreshCcw, label: 'Corte de Caja', path: '/cash-history' },
                 { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
                 { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
-                { icon: BarChart2, label: 'Reportes', path: '/reports/detailed' },
+                { icon: BarChart2, label: 'Reportes', path: '/reports/unified' },
             ]
         },
         {
