@@ -256,7 +256,16 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             <div className="space-y-3">
                                 {currencies.map(curr => {
                                     // Calculate REMAINING amount in this currency
-                                    const amount = Math.max(0, remainingUSD) * (curr.rate || 1);
+                                    let amount = 0;
+                                    // FIXED: Use TotalBS from Frontend (Cart) for true multi-rate accuracy
+                                    const isLocalCurrency = curr.symbol === 'Bs' || curr.symbol === 'VES' || !curr.is_anchor;
+
+                                    if (isLocalCurrency && totalBs > 0 && totalUSD > 0) {
+                                        // Proportional Calculation to maintain source of truth total
+                                        amount = totalBs * (Math.max(0, remainingUSD) / totalUSD);
+                                    } else {
+                                        amount = Math.max(0, remainingUSD) * (curr.rate || 1);
+                                    }
 
                                     return (
                                         <div key={curr.symbol} className="flex justify-between items-end border-b border-slate-700/50 pb-2 last:border-0 last:pb-0">
@@ -269,7 +278,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                     }
                                                 </span>
                                                 {curr.symbol !== 'USD' && amount > 0.005 && (
-                                                    <span className="text-[10px] text-slate-600">Tasa: {formatCurrency(curr.rate, 'VE')}</span>
+                                                    <span className="text-[10px] text-slate-600">
+                                                        {isLocalCurrency && totalBs ? 'Tasa Promedio' : `Tasa: ${formatCurrency(curr.rate, 'VE')}`}
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
