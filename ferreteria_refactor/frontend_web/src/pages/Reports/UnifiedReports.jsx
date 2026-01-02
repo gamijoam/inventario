@@ -246,6 +246,30 @@ const UnifiedReports = () => {
         </div>
     );
 
+    const handleExport = async () => {
+        const toastId = toast.loading("Generando reporte Excel...");
+        try {
+            const blob = await unifiedReportService.downloadExcelReport({
+                start_date: dateRange.start,
+                end_date: dateRange.end
+            });
+
+            // Create download link
+            const url = window.URL.createObjectURL(new Blob([blob]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Reporte_Gerencial_${dateRange.start}_${dateRange.end}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+
+            toast.success("Reporte descargado correctamente", { id: toastId });
+        } catch (error) {
+            console.error(error);
+            toast.error("Error generando Excel", { id: toastId });
+        }
+    };
+
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             {/* Header & Controls */}
@@ -289,6 +313,7 @@ const UnifiedReports = () => {
                     </button>
 
                     <button
+                        onClick={handleExport}
                         className="p-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition"
                         title="Exportar Excel"
                     >

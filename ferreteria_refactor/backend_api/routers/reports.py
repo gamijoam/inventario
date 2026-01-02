@@ -759,14 +759,13 @@ def get_daily_close(
         # or just sum valid sales.
     ).group_by(models.Sale.payment_method).all()
     
-    # 2. Sales by Cashier (User)
-    # Note: Sale model currently commented out user_id. If active, uncomment.
-    # Assuming we might not have user_id populated yet, but let's try.
-    # checking models.py -> user_id is NOT in Sale model yet (commented out).
-    # So we skip this or use 'System' for now.
-    
-    # 3. Cash Flow (Cash Payments vs Other)
-    # We can reuse get_dashboard_cashflow logic if needed, but simplified for one day.
+    # 2. Total Change Given (Vueltos)
+    total_change_query = db.query(
+        func.sum(models.Sale.change_amount)
+    ).filter(
+        models.Sale.date >= start_dt,
+        models.Sale.date <= end_dt
+    ).scalar() or 0.00
     
     return {
         "date": date.isoformat(),
@@ -774,6 +773,7 @@ def get_daily_close(
             {"method": r[0] or "N/A", "total": float(r[1]), "count": r[2]} 
             for r in sales_by_method
         ],
+        "total_change_given": float(total_change_query),
         "system_status": "OK"
     }
 

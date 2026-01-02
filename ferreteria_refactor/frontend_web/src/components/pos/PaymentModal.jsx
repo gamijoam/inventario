@@ -21,7 +21,7 @@ const formatCurrency = (amount, currencySymbol) => {
     });
 };
 
-const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null }) => {
+const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null }) => {
     const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods } = useConfig();
     const { subscribe } = useWebSocket();
     const allCurrencies = [{ id: 'base', symbol: 'USD', name: 'Dólar', rate: 1, is_anchor: true }, ...getActiveCurrencies()];
@@ -146,10 +146,20 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalsByCurrency, cart, onCon
                 saleCurrency = payments[0].currency === "$" ? "USD" : payments[0].currency;
             }
 
+            // Calculate Change in VES
+            const bsRate = getExchangeRate('Bs') || 1;
+            const changeVES = changeUSD > 0.005 ? (changeUSD * bsRate) : 0;
+
             const saleData = {
                 total_amount: totalUSD,
+                // NEW: Frontend Source of Truth for VES Total
+                total_amount_bs: totalBs,
+                // NEW: Register Change/Vuelto
+                change_amount: changeVES,
+                change_currency: "VES",
+
                 currency: saleCurrency, // Dynamic Currency
-                exchange_rate: getExchangeRate('Bs') || 1,
+                exchange_rate: bsRate,
                 payment_method: isCreditSale ? "Credito" : (payments[0]?.method || "Efectivo"),
                 payments: isCreditSale ? [] : payments.map(p => ({
                     amount: parseFloat(p.amount) || 0,
