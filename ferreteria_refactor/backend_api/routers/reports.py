@@ -8,6 +8,7 @@ from decimal import Decimal
 from ..database.db import get_db
 from ..models import models
 from ..dependencies import admin_only
+from ..utils.payment_utils import normalize_payment_method, get_currency_symbol, normalize_currency_code
 
 router = APIRouter(
     prefix="/reports",
@@ -814,17 +815,19 @@ def get_daily_close(
     db: Session = Depends(get_db)
 ):
     """
-    Daily Closing Report:
-    - Sales by Payment Method
-    - Sales by Cashier (User)
-    - Cash Flow Summary
+    Daily Closing Report (IMPROVED):
+    - Normalized payment methods (consolidates variants)
+    - Proper currency separation with symbols
+    - Structured cash flow data
+    - Cash reconciliation
+    - Category sales breakdown
     """
+    
     start_dt = datetime.combine(date, datetime.min.time())
     end_dt = datetime.combine(date, datetime.max.time())
     
-    # 1. Sales by Payment Method (DETAILED Breakdown from Payments Table)
-    # This separates Cash USD from Cash Bs, and handles split payments correctly.
-    sales_by_method = db.query(
+    # 1. Query Sales by Payment Method (from SalePayment table for accuracy)
+    sales_by_method_raw = db.query(
         models.SalePayment.payment_method,
         models.SalePayment.currency,
         func.sum(models.SalePayment.amount).label('total'),
@@ -837,34 +840,173 @@ def get_daily_close(
         models.SalePayment.currency
     ).all()
     
-    # Format for Frontend (e.g. "Efectivo (USD)", "Efectivo (Bs)")
-    formatted_breakdown = []
-    for r in sales_by_method:
-        method = r[0] or "N/A"
-        currency = r[1] or "USD"
-        label = f"{method} ({currency})"
-        
-        formatted_breakdown.append({
-            "method": label,
-            "total": float(r[2]),
-            "count": r[3],
-            "raw_currency": currency # Helpful for frontend if needed
-        })
+    # 2. Normalize and structure payment breakdown
+    payment_breakdown = []
+    total_revenue_usd = Decimal("0.00")
+    total_revenue_ves = Decimal("0.00")
+    total_sales_count = 0
     
-    # 2. Total Change Given (Vueltos)
+    # Track cash sales for reconciliation
+    cash_usd = Decimal("0.00")
+    cash_ves = Decimal("0.00")
+    
+    for r in sales_by_method_raw:
+        raw_method = r[0] or "N/A"
+        currency = r[1] or "USD"
+        amount = Decimal(str(r[2]))
+        count = r[3]
+        
+        # Normalize method name
+        normalized_method = normalize_payment_method(raw_method)
+        
+        # Get currency symbol
+        symbol = get_currency_symbol(currency)
+        
+        # Normalize currency name
+        currency_normalized = "VES" if symbol == "Bs" else "USD"
+        
+        payment_breakdown.append({
+            "method": normalized_method,
+            "currency": currency_normalized,
+            "symbol": symbol,
+            "amount": float(amount),
+            "count": count
+        })
+        
+        # Track totals
+        total_sales_count += count
+        if symbol == "Bs":
+            total_revenue_ves += amount
+            # Track cash for reconciliation
+            if normalized_method == "Efectivo":
+                cash_ves += amount
+        else:
+            total_revenue_usd += amount
+            # Track cash for reconciliation
+            if normalized_method == "Efectivo":
+                cash_usd += amount
+    
+    # 3. Calculate change given
     total_change_query = db.query(
         func.sum(models.Sale.change_amount)
     ).filter(
         models.Sale.date >= start_dt,
         models.Sale.date <= end_dt
-    ).scalar() or 0.00
+    ).scalar() or Decimal("0.00")
     
+    # 4. Cash Reconciliation (try to get from cash session, otherwise estimate)
+    # Find cash session for this date
+    cash_session = db.query(models.CashSession).filter(
+        models.CashSession.start_time >= start_dt,
+        models.CashSession.start_time <= end_dt
+    ).first()
+    
+    cash_reconciliation = {
+        "usd": {
+            "inbound": float(cash_usd),
+            "outbound": 0.00,
+            "expected_in_drawer": float(cash_usd)
+        },
+        "ves": {
+            "inbound": float(cash_ves),
+            "outbound": 0.00,
+            "expected_in_drawer": float(cash_ves)
+        }
+    }
+    
+    # If we have a cash session, use its data
+    if cash_session:
+        # Query movements for this session
+        movements = db.query(models.CashMovement).filter(
+            models.CashMovement.session_id == cash_session.id
+        ).all()
+        
+        # Calculate movements
+        deposits_usd = sum(
+            (Decimal(str(m.amount)) for m in movements 
+             if m.type == "DEPOSIT" and m.currency == "USD"),
+            Decimal("0.00")
+        )
+        expenses_usd = sum(
+            (Decimal(str(m.amount)) for m in movements 
+             if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and m.currency == "USD"),
+            Decimal("0.00")
+        )
+        
+        deposits_ves = sum(
+            (Decimal(str(m.amount)) for m in movements 
+             if m.type == "DEPOSIT" and m.currency in ["VES", "Bs", "VEF"]),
+            Decimal("0.00")
+        )
+        expenses_ves = sum(
+            (Decimal(str(m.amount)) for m in movements 
+             if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and m.currency in ["VES", "Bs", "VEF"]),
+            Decimal("0.00")
+        )
+        
+        initial_usd = Decimal(str(cash_session.initial_cash or 0))
+        initial_ves = Decimal(str(cash_session.initial_cash_bs or 0))
+        
+        cash_reconciliation = {
+            "usd": {
+                "initial": float(initial_usd),
+                "inbound": float(cash_usd + deposits_usd),
+                "outbound": float(expenses_usd),
+                "expected_in_drawer": float(initial_usd + cash_usd + deposits_usd - expenses_usd)
+            },
+            "ves": {
+                "initial": float(initial_ves),
+                "inbound": float(cash_ves + deposits_ves),
+                "outbound": float(expenses_ves),
+                "expected_in_drawer": float(initial_ves + cash_ves + deposits_ves - expenses_ves)
+            }
+        }
+    
+    # 5. Query Category Sales Breakdown
+    category_sales = db.query(
+        models.Category.name.label('category_name'),
+        func.sum(models.SaleDetail.subtotal).label('total_usd'),
+        func.count(models.SaleDetail.id).label('count')
+    ).join(
+        models.Product, models.SaleDetail.product_id == models.Product.id
+    ).outerjoin(
+        models.Category, models.Product.category_id == models.Category.id
+    ).join(
+        models.Sale, models.SaleDetail.sale_id == models.Sale.id
+    ).filter(
+        models.Sale.date >= start_dt,
+        models.Sale.date <= end_dt
+    ).group_by(
+        models.Category.name
+    ).all()
+    
+    # Build category breakdown
+    category_breakdown = []
+    for cat in category_sales:
+        category_breakdown.append({
+            "category": cat.category_name or "Sin Categoría",
+            "total_usd": float(cat.total_usd or 0),
+            "count": cat.count
+        })
+    
+    # Sort by revenue (highest first)
+    category_breakdown.sort(key=lambda x: x["total_usd"], reverse=True)
+    
+    # 6. Build structured response
     return {
         "date": date.isoformat(),
-        "sales_by_method": formatted_breakdown,
+        "summary": {
+            "total_sales_count": total_sales_count,
+            "total_revenue_usd": float(total_revenue_usd),
+            "total_revenue_ves": float(total_revenue_ves)
+        },
+        "payment_breakdown": payment_breakdown,
+        "category_breakdown": category_breakdown,
+        "cash_reconciliation": cash_reconciliation,
         "total_change_given": float(total_change_query),
         "system_status": "OK"
     }
+
 
 
 # ===== EXCEL EXPORT ENDPOINT =====
