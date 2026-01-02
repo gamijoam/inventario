@@ -388,16 +388,78 @@ const UnifiedReports = () => {
                                 <h3 className="text-lg font-bold">Módulo de Cierre Diario</h3>
                                 <p>Selecciona una fecha individual para ver el detalle de cierre.</p>
                                 {dailyClose && (
-                                    <div className="mt-8 text-left bg-white p-6 rounded-xl border border-slate-200 max-w-lg mx-auto">
+                                    <div className="mt-8 text-left bg-white p-6 rounded-xl border border-slate-200 max-w-2xl mx-auto">
                                         <h4 className="font-bold border-b pb-2 mb-4">Resumen del {dailyClose.date}</h4>
-                                        <div className="space-y-3">
-                                            {dailyClose.sales_by_method.map((m, i) => (
-                                                <div key={i} className="flex justify-between">
-                                                    <span>{m.method} ({m.count})</span>
-                                                    <span className="font-bold">{formatCurrency(m.total)}</span>
+
+                                        {/* Summary */}
+                                        <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-1">Total Ventas</p>
+                                                <p className="text-lg font-bold text-slate-800">{dailyClose.summary?.total_sales_count || 0}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-1">Ingresos USD</p>
+                                                <p className="text-lg font-bold text-emerald-600">{formatCurrency(dailyClose.summary?.total_revenue_usd || 0)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-slate-500 mb-1">Ingresos Bs</p>
+                                                <p className="text-lg font-bold text-blue-600">Bs {(dailyClose.summary?.total_revenue_ves || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Payment Breakdown */}
+                                        <h5 className="font-bold text-sm text-slate-600 mb-3">Métodos de Pago</h5>
+                                        <div className="space-y-2 mb-6">
+                                            {dailyClose.payment_breakdown?.map((m, i) => (
+                                                <div key={i} className="flex justify-between items-center p-2 hover:bg-slate-50 rounded">
+                                                    <span className="text-sm">
+                                                        <span className="font-medium">{m.method}</span>
+                                                        <span className="text-slate-400 ml-2">({m.count})</span>
+                                                    </span>
+                                                    <span className="font-bold text-sm">
+                                                        {m.symbol} {m.amount.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                                                    </span>
                                                 </div>
                                             ))}
                                         </div>
+
+                                        {/* Category Breakdown */}
+                                        {dailyClose.category_breakdown && dailyClose.category_breakdown.length > 0 && (
+                                            <>
+                                                <h5 className="font-bold text-sm text-slate-600 mb-3 mt-6">Ventas por Categoría</h5>
+                                                <div className="space-y-2">
+                                                    {dailyClose.category_breakdown.map((cat, i) => (
+                                                        <div key={i} className="flex justify-between items-center p-2 hover:bg-slate-50 rounded">
+                                                            <span className="text-sm font-medium">{cat.category}</span>
+                                                            <span className="font-bold text-sm text-emerald-600">
+                                                                {formatCurrency(cat.total_usd)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Cash Reconciliation */}
+                                        {dailyClose.cash_reconciliation && (
+                                            <>
+                                                <h5 className="font-bold text-sm text-slate-600 mb-3 mt-6">Arqueo de Caja</h5>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                                                        <p className="text-xs text-green-700 mb-1">Esperado USD</p>
+                                                        <p className="text-lg font-bold text-green-800">
+                                                            {formatCurrency(dailyClose.cash_reconciliation.usd?.expected_in_drawer || 0)}
+                                                        </p>
+                                                    </div>
+                                                    <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                        <p className="text-xs text-blue-700 mb-1">Esperado Bs</p>
+                                                        <p className="text-lg font-bold text-blue-800">
+                                                            Bs {(dailyClose.cash_reconciliation.ves?.expected_in_drawer || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                             </div>

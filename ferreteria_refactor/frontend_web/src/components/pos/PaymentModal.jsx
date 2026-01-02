@@ -45,7 +45,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     useEffect(() => {
         if (isOpen) {
-            setPayments([{ amount: '', currency: 'USD', method: 'Efectivo' }]);
+            setPayments([{ amount: '', currency: 'Bs', method: 'Efectivo' }]);
             setIsCreditSale(false);
 
             // Priority: Initial Customer > Null

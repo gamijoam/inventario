@@ -626,9 +626,6 @@ const POS = () => {
                     </div>
                     {/* Search Bar - Centered & Elegant */}
                     <div className="flex-1 max-w-xl mx-4 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-16 flex items-center pointer-events-none z-10">
-                            <Search className="text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
-                        </div>
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                             <span className="text-[10px] font-bold text-slate-300 border border-slate-200 rounded px-1">F3</span>
                         </div>
