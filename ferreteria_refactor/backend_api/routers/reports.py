@@ -441,6 +441,7 @@ def get_sales_summary(
         "cash_sales": float(cash_sales),
         "credit_sales": float(credit_sales),
         "total_items_sold": float(total_items),
+        "total_refunded": float(total_refunded),
         "average_ticket": float(avg_ticket)
     }
 
@@ -502,37 +503,61 @@ def get_top_products(
     by: str = "quantity",
     db: Session = Depends(get_db)
 ):
-    """Top products by quantity sold or revenue"""
+    """Top products by NET quantity or revenue (Gross - Returns)"""
     start_dt = datetime.combine(start_date, datetime.min.time())
     end_dt = datetime.combine(end_date, datetime.max.time())
     
-    if by == "quantity":
-        results = db.query(
-            models.Product.id,
-            models.Product.name,
-            func.sum(models.SaleDetail.quantity).label('total_quantity')
-        ).join(models.SaleDetail).join(models.Sale).filter(
-            models.Sale.date >= start_dt,
-            models.Sale.date <= end_dt
-        ).group_by(models.Product.id, models.Product.name).order_by(
-            func.sum(models.SaleDetail.quantity).desc()
-        ).limit(limit).all()
-        
-        return [{"product_id": r[0], "product_name": r[1], "quantity_sold": r[2]} for r in results]
+    # 1. Get Gross Sales
+    sales_query = db.query(
+        models.Product.id,
+        models.Product.name,
+        func.sum(models.SaleDetail.quantity).label('gross_qty'),
+        func.sum(models.SaleDetail.subtotal).label('gross_rev')
+    ).join(models.SaleDetail).join(models.Sale).filter(
+        models.Sale.date >= start_dt,
+        models.Sale.date <= end_dt
+    ).group_by(models.Product.id, models.Product.name).all()
     
-    else:  # by revenue
-        results = db.query(
-            models.Product.id,
-            models.Product.name,
-            func.sum(models.SaleDetail.subtotal).label('total_revenue')
-        ).join(models.SaleDetail).join(models.Sale).filter(
-            models.Sale.date >= start_dt,
-            models.Sale.date <= end_dt
-        ).group_by(models.Product.id, models.Product.name).order_by(
-            func.sum(models.SaleDetail.subtotal).desc()
-        ).limit(limit).all()
+    sales_map = {r[0]: {"name": r[1], "gross_qty": float(r[2]), "gross_rev": float(r[3])} for r in sales_query}
+    
+    # 2. Get Returns in period
+    # Note: We filter returns by DATE of return, regardless of when sale happened (Cash flow perspective)
+    # Or by Sale Date? Usually "Top Products" for a period implies Net Movement in that period.
+    returns_query = db.query(
+        models.Product.id,
+        func.sum(models.ReturnDetail.quantity).label('ret_qty'),
+        func.sum(models.ReturnDetail.quantity * models.ReturnDetail.unit_price).label('ret_rev') # Approximate revenue reversal
+    ).join(models.ReturnDetail).join(models.Return).filter(
+        models.Return.date >= start_dt,
+        models.Return.date <= end_dt
+    ).group_by(models.Product.id).all()
+    
+    returns_map = {r[0]: {"qty": float(r[1]), "rev": float(r[2] or 0)} for r in returns_query}
+    
+    # 3. Calculate Net
+    final_list = []
+    for pid, data in sales_map.items():
+        ret_data = returns_map.get(pid, {"qty": 0, "rev": 0})
+        net_qty = data["gross_qty"] - ret_data["qty"]
+        net_rev = data["gross_rev"] - ret_data["rev"]
         
-        return [{"product_id": r[0], "product_name": r[1], "revenue": r[2]} for r in results]
+        if net_qty > 0: # Only show positive net sales
+            final_list.append({
+                "product_id": pid,
+                "product_name": data["name"],
+                "quantity_sold": net_qty,
+                "revenue": net_rev,
+                "gross_quantity": data["gross_qty"],
+                "returned_quantity": ret_data["qty"]
+            })
+            
+    # 4. Sort and Limit
+    if by == "quantity":
+        final_list.sort(key=lambda x: x["quantity_sold"], reverse=True)
+    else:
+        final_list.sort(key=lambda x: x["revenue"], reverse=True)
+        
+    return final_list[:limit]
 
 @router.get("/customer-debts")
 def get_customer_debt_report(db: Session = Depends(get_db)):
@@ -675,22 +700,46 @@ def get_sales_profitability(
     total_cost = 0
     
     for detail in details:
-        total_revenue += detail.subtotal
+        total_revenue += float(detail.subtotal)
         
         # HISTORICAL COST LOGIC
-        cost_price = detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else detail.product.cost_price
-        total_cost += cost_price * detail.quantity
+        cost_price = float(detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else detail.product.cost_price)
+        total_cost += cost_price * float(detail.quantity)
+        
+    # --- SUBTRACT RETURNS (Net Financials) ---
+    returns_query = db.query(models.ReturnDetail).join(models.Return).filter(
+        models.Return.date >= (start_dt if start_date else datetime.min),
+        models.Return.date <= (end_dt if end_date else datetime.max)
+    ).options(joinedload(models.ReturnDetail.product)).all()
     
-    total_profit = total_revenue - total_cost
+    total_refunds = 0
+    total_refund_cost = 0
+    
+    for rd in returns_query:
+        qty = float(rd.quantity)
+        refund_amt = float(rd.unit_price) * qty
+        total_refunds += refund_amt
+        
+        # Restock Cost Reversal (Using historical unit_cost from return detail)
+        r_cost = float(rd.unit_cost if (rd.unit_cost is not None and rd.unit_cost > 0) else rd.product.cost_price)
+        total_refund_cost += r_cost * qty
+
+    # Calculate Nets
+    net_revenue = total_revenue - total_refunds
+    net_cost = total_cost - total_refund_cost
+    net_profit = net_revenue - net_cost
+    
     avg_margin = 0
-    if total_revenue > 0:
-        avg_margin = (total_profit / total_revenue) * 100
+    if net_revenue > 0:
+        avg_margin = (net_profit / net_revenue) * 100
     
     return {
-        'total_revenue': total_revenue,
-        'total_cost': total_cost,
-        'total_profit': total_profit,
+        'total_revenue': net_revenue,
+        'total_cost': net_cost,
+        'total_profit': net_profit,
         'avg_margin': avg_margin,
+        'gross_revenue': total_revenue,
+        'returns_amount': total_refunds,
         'num_sales': len(set(d.sale_id for d in details))
     }
 
@@ -777,7 +826,37 @@ def get_daily_close(
         "system_status": "OK"
     }
 
+
 # ===== EXCEL EXPORT ENDPOINT =====
+from ..services import sales_export_service
+from fastapi.responses import StreamingResponse
+import io
+
+@router.get("/export/sales", summary="Exportar Ventas a Excel Detallado")
+def export_sales_excel(
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db),
+    # current_user: models.User = Depends(get_current_active_user) # Uncomment when auth is ready or if generic
+):
+    """
+    Genera un archivo Excel (.xlsx) con el desglose financiero exacto:
+    - Costos (Históricos)
+    - Ganancia Real
+    - Totales en USD y VES
+    - Tasa Implícita
+    """
+    
+    excel_file = sales_export_service.generate_sales_excel(db, start_date, end_date)
+    
+    # Filename with dates
+    filename = f"Ventas_Detalladas_{start_date}_{end_date}.xlsx"
+    
+    return StreamingResponse(
+        excel_file,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 
 

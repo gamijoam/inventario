@@ -39,7 +39,7 @@ const unifiedReportService = {
 
     downloadExcelReport: async (params) => {
         // params: { start_date, end_date }
-        const response = await apiClient.get('/reports/export/excel', {
+        const response = await apiClient.get('/reports/export/sales', {
             params,
             responseType: 'blob' // Important for file handling
         });

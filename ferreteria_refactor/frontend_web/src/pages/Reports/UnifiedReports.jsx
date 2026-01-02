@@ -112,7 +112,16 @@ const UnifiedReports = () => {
                 <KPI_Card
                     title="Ventas Totales"
                     value={formatCurrency(salesSummary?.total_revenue)}
-                    subvalue={`${salesSummary?.total_transactions || 0} Transacciones`}
+                    subvalue={
+                        <div>
+                            <p>{salesSummary?.total_transactions || 0} Transacciones</p>
+                            {salesSummary?.total_refunded > 0 && (
+                                <p className="text-rose-400 text-xs mt-0.5">
+                                    Devoluciones: -{formatCurrency(salesSummary.total_refunded)}
+                                </p>
+                            )}
+                        </div>
+                    }
                     icon={DollarSign}
                     color="bg-indigo-500"
                 />
@@ -138,20 +147,30 @@ const UnifiedReports = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Top Products Table */}
+                {/* Updated to show Net Sales and Returns */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 className="text-lg font-bold text-slate-800 mb-4">Top 5 Productos (Ingresos)</h3>
+                    <h3 className="text-lg font-bold text-slate-800 mb-4">Top 5 Productos (Ingresos Netos)</h3>
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-slate-50 text-slate-500 font-medium">
                                 <tr>
                                     <th className="px-4 py-2 rounded-l-lg">Producto</th>
+                                    <th className="px-4 py-2 text-center text-xs text-rose-500">Devol.</th>
                                     <th className="px-4 py-2 rounded-r-lg text-right">Ingresos</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {topProducts.map((p, i) => (
                                     <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-4 py-3 font-medium text-slate-700">{p.product_name}</td>
+                                        <td className="px-4 py-3 font-medium text-slate-700">
+                                            {p.product_name}
+                                            <div className="text-[10px] text-slate-400">
+                                                Vendido: {p.gross_quantity || p.quantity_sold} {p.returned_quantity > 0 ? `| Neto: ${p.quantity_sold}` : ''}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-center text-rose-600 font-bold text-xs">
+                                            {p.returned_quantity > 0 ? `-${p.returned_quantity}` : '-'}
+                                        </td>
                                         <td className="px-4 py-3 text-right font-bold text-slate-800">
                                             {formatCurrency(p.revenue)}
                                         </td>
@@ -159,7 +178,7 @@ const UnifiedReports = () => {
                                 ))}
                                 {topProducts.length === 0 && (
                                     <tr>
-                                        <td colSpan="2" className="text-center py-4 text-slate-400">Sin datos</td>
+                                        <td colSpan="3" className="text-center py-4 text-slate-400">Sin datos</td>
                                     </tr>
                                 )}
                             </tbody>
