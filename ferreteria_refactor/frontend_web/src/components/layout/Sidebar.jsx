@@ -161,15 +161,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 {!isCollapsed && (
                     <div className="flex items-center gap-2 font-bold text-xl text-slate-800 transition-opacity duration-300">
                         <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md shadow-indigo-200">
-                            F
+                            I
                         </div>
-                        <span className="tracking-tight">Ferretería</span>
+                        <span className="tracking-tight">InvenSoft</span>
                     </div>
                 )}
                 {isCollapsed && (
                     <div className="w-full flex justify-center">
                         <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-md shadow-indigo-200">
-                            F
+                            I
                         </div>
                     </div>
                 )}

@@ -164,7 +164,7 @@ const InvoicePDF = ({ sale, business, currencyCode = "USD" }) => {
                 {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.headerLeft}>
-                        <Text style={styles.logo}>{business?.name || "FERRETERÍA"}</Text>
+                        <Text style={styles.logo}>{business?.name || "InvenSoft"}</Text>
                         <Text style={styles.businessInfo}>{business?.address || "Dirección del Negocio"}</Text>
                         <Text style={styles.businessInfo}>{business?.document_id || "RIF: J-00000000-0"}</Text>
                         <Text style={styles.businessInfo}>{business?.phone || "Tel: 0000-0000000"}</Text>

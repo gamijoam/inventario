@@ -157,12 +157,21 @@ const SalesHistory = () => {
 
     const handleReprint = async (sale) => {
         try {
-            // Call print endpoint (assuming it exists)
-            await apiClient.post(`/sales/${sale.id}/print`);
-            alert('Ticket enviado a impresora');
+            // Get print payload from backend
+            const response = await apiClient.get(`/returns/sales/${sale.id}/print-payload`);
+
+            // Send to hardware bridge via WebSocket or HTTP
+            const bridgeUrl = 'http://localhost:5001/print';
+            await fetch(bridgeUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(response.data)
+            });
+
+            alert('✅ Ticket enviado a impresora');
         } catch (error) {
             console.error('Error reprinting:', error);
-            alert('Error al reimprimir ticket');
+            alert('❌ Error al reimprimir. Verifica que el Hardware Bridge esté activo.');
         }
     };
 
