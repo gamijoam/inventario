@@ -127,8 +127,15 @@ def get_dashboard_financials(
     for detail in sale_details:
         if detail.subtotal is not None:
             total_revenue += detail.subtotal
-        if detail.product and detail.product.cost_price and detail.quantity is not None:
-            total_cost += Decimal(str(detail.product.cost_price)) * Decimal(str(detail.quantity))
+        
+        # HISTORICAL COST LOGIC
+        # Use cost_at_sale if available (new sales), otherwise fallback to current product cost (legacy)
+        cost_price = detail.product.cost_price
+        if detail.cost_at_sale is not None and detail.cost_at_sale > 0:
+            cost_price = detail.cost_at_sale
+            
+        if cost_price and detail.quantity is not None:
+            total_cost += Decimal(str(cost_price)) * Decimal(str(detail.quantity))
             
     # Subtract returns from revenue and add back cost (roughly)
     # Ideally we'd look at ReturnDetails for exact cost reversal, but for estimation:
@@ -151,9 +158,14 @@ def get_dashboard_financials(
         
         total_refunds_revenue += (quantity * unit_price)
         
-        if rd.product and rd.product.cost_price:
-            cost_price = Decimal(str(rd.product.cost_price))
-            total_refunds_cost += (quantity * cost_price)
+        # HISTORICAL RETURN COST LOGIC
+        cost_price = rd.product.cost_price
+        if rd.unit_cost is not None and rd.unit_cost > 0:
+            cost_price = rd.unit_cost
+            
+        if cost_price:
+            cost_price_dec = Decimal(str(cost_price))
+            total_refunds_cost += (quantity * cost_price_dec)
 
     # Adjusted Profit
     # Revenue = (Sales Revenue - Refunds)
@@ -576,7 +588,12 @@ def get_product_profitability(product_id: int, db: Session = Depends(get_db)):
     
     # Calculate total profit
     sales = db.query(models.SaleDetail).filter(models.SaleDetail.product_id == product_id).all()
-    total_profit = sum((detail.unit_price - product.cost_price) * detail.quantity for detail in sales)
+    
+    total_profit = 0
+    # Update logic to use historical cost
+    for detail in sales:
+        cost_price = detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else product.cost_price
+        total_profit += (detail.unit_price - cost_price) * detail.quantity
     
     margin = 0
     if product.price > 0:
@@ -615,7 +632,10 @@ def get_sales_profitability(
     
     for detail in details:
         total_revenue += detail.subtotal
-        total_cost += detail.product.cost_price * detail.quantity
+        
+        # HISTORICAL COST LOGIC
+        cost_price = detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else detail.product.cost_price
+        total_cost += cost_price * detail.quantity
     
     total_profit = total_revenue - total_cost
     avg_margin = 0
@@ -648,7 +668,10 @@ def get_month_profitability(db: Session = Depends(get_db)):
     
     for detail in details:
         total_revenue += detail.subtotal
-        total_cost += detail.product.cost_price * detail.quantity
+        
+        # HISTORICAL COST LOGIC
+        cost_price = detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else detail.product.cost_price
+        total_cost += cost_price * detail.quantity
     
     total_profit = total_revenue - total_cost
     avg_margin = 0

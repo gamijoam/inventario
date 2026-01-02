@@ -289,6 +289,9 @@ class SaleDetail(Base):
     
     # Tax Support
     tax_rate = Column(Numeric(5, 2), default=0.00)  # Tax rate applied at moment of sale (e.g. 16.00)
+    
+    # Financial Integrity
+    cost_at_sale = Column(Numeric(14, 4), default=0.0000)  # Historical cost at moment of sale
 
     subtotal = Column(Numeric(12, 2), nullable=False)
     is_box_sale = Column(Boolean, default=False) # Was it sold as a box?
@@ -402,6 +405,7 @@ class ReturnDetail(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Numeric(12, 3), nullable=False) # Units returned
     unit_price = Column(Numeric(12, 2), default=0.00)  # Price at time of return
+    unit_cost = Column(Numeric(14, 4), default=0.0000) # Cost at time of return (historical)
 
     return_obj = relationship("Return", back_populates="details")
     product = relationship("Product")

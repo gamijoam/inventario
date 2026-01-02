@@ -129,12 +129,24 @@ def process_return(return_data: schemas.ReturnCreate, db: Session = Depends(get_
         refund_amount = detail.unit_price * item.quantity
         total_refund += refund_amount
         
+        # Determine Cost to Return (Try to use historical, fallback to current)
+        cost_to_return = detail.cost_at_sale 
+        
+        # If historical cost was not recorded (legacy data), use current product cost
+        if cost_to_return is None or cost_to_return == 0:
+             current_product = db.query(models.Product).get(item.product_id)
+             if current_product:
+                 cost_to_return = current_product.cost_price
+             else:
+                 cost_to_return = 0.0000
+
         # Create Return Detail
         ret_detail = models.ReturnDetail(
             return_id=new_return.id,
             product_id=item.product_id,
             quantity=item.quantity,
-            unit_price=detail.unit_price  # Add unit price from original sale
+            unit_price=detail.unit_price,  # Add unit price from original sale
+            unit_cost=cost_to_return # CRITICAL: Record cost of returned item
         )
         db.add(ret_detail)
         
