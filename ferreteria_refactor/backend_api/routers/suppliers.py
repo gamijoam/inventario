@@ -142,3 +142,93 @@ def get_supplier_purchases(
             query = query.filter(models.PurchaseOrder.payment_status == status)
     
     return query.order_by(models.PurchaseOrder.purchase_date.desc()).all()
+
+@router.get("/{supplier_id}/ledger")
+def get_supplier_ledger(supplier_id: int, db: Session = Depends(get_db)):
+    """
+    Returns a chronological ledger of purchases and payments for a supplier.
+    """
+    # 1. Get Supplier
+    supplier = db.query(models.Supplier).filter(models.Supplier.id == supplier_id).first()
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Proveedor no encontrado")
+        
+    # 2. Get Purchases (Credits for Supplier / Debits for Us)
+    # Careful with terms: "Credit" usually means we owe them.
+    purchases = db.query(models.PurchaseOrder).filter(
+        models.PurchaseOrder.supplier_id == supplier_id,
+        # Only unpaid? No, History should be EVERYTHING.
+        # models.PurchaseOrder.payment_status.in_([models.PaymentStatus.PENDING, models.PaymentStatus.PARTIAL])
+    ).all()
+    
+    ledger_entries = []
+    
+    # Process Purchases (We incur debt)
+    for purchase in purchases:
+        ledger_entries.append({
+            "date": purchase.purchase_date,
+            "type": "COMPRA", # Purchase Order
+            "ref": f"Factura {purchase.invoice_number or '#' + str(purchase.id)}",
+            "debit": 0.0, # We owe (Liability increases) -> Credit in Accounting terms, but let's stick to "User perspective":
+                          # Let's use: "Debt Increase" vs "Debt Decrease"
+                          # For Client Ledger: Debit = Debt Increase (Sale), Credit = Debt Decrease (Payment).
+                          # For Supplier Ledger: Credit = Debt Increase (Purchase), Debit = Debt Decrease (Payment).
+                          # BUT reusing the FE component "ClientLedger" expects "debit" and "credit" columns.
+                          # Let's map: 
+                          # "debit" (Left col) = Purchase (Debt +)
+                          # "credit" (Right col) = Payment (Debt -)
+                          # This matches the Client Ledger visual layout.
+            "debit": float(purchase.total_amount), 
+            "credit": 0.0,
+            "original_obj": purchase
+        })
+        
+        # Process Payments linked to this purchase
+        for payment in purchase.payments:
+            amount_usd = float(payment.amount)
+            details_str = f"Pago a Fact. {purchase.invoice_number or '#' + str(purchase.id)}"
+            
+            # Normalize to USD if needed
+            if payment.currency and payment.currency != "USD":
+                rate = float(payment.exchange_rate) if payment.exchange_rate else 1.0
+                if rate > 0:
+                    amount_usd = float(payment.amount) / rate
+                details_str += f" ({payment.amount} {payment.currency} @ {rate})"
+
+            ledger_entries.append({
+                "date": payment.payment_date if payment.payment_date else purchase.purchase_date,
+                "type": "PAGO",
+                "ref": details_str,
+                "debit": 0.0,
+                "credit": round(amount_usd, 2), # Reduces debt
+                "original_obj": payment
+            })
+            
+    # Sort by Date
+    ledger_entries.sort(key=lambda x: x["date"])
+    
+    # Calculate Balance
+    balance = 0.0
+    final_output = []
+    
+    for entry in ledger_entries:
+        balance += entry["debit"]
+        balance -= entry["credit"]
+        final_output.append({
+            "date": entry["date"].isoformat() if entry["date"] else None,
+            "type": entry["type"],
+            "ref": entry["ref"],
+            "debit": entry["debit"],
+            "credit": entry["credit"],
+            "balance": round(balance, 2)
+        })
+        
+    return {
+        "supplier": {
+            "id": supplier.id,
+            "name": supplier.name,
+            "limit": float(supplier.credit_limit or 0)
+        },
+        "ledger": final_output,
+        "current_balance": round(balance, 2)
+    }

@@ -582,6 +582,8 @@ class PurchasePayment(Base):
     payment_method = Column(String, default="Efectivo")  # Efectivo, Transferencia, Cheque
     reference = Column(String, nullable=True)  # Transfer/check number
     notes = Column(Text, nullable=True)
+    currency = Column(String, default="USD")
+    exchange_rate = Column(Numeric(14, 4), default=1.0000)
     
     # Relationship
     purchase = relationship("PurchaseOrder", back_populates="payments")

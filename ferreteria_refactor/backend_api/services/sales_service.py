@@ -294,14 +294,17 @@ class SalesService:
                     db.add(new_payment)
             else:
                 # Fallback for legacy calls or single payment
-                fallback_payment = models.SalePayment(
-                    sale_id=new_sale.id,
-                    amount=sale_data.total_amount,
-                    currency=sale_data.currency,
-                    payment_method=sale_data.payment_method,
-                    exchange_rate=sale_data.exchange_rate
-                )
-                db.add(fallback_payment)
+                # CRITICAL FIX: Only create auto-payment if it's NOT a credit sale.
+                # Credit sales with no specific down-payment should have NO payments.
+                if not new_sale.is_credit:
+                    fallback_payment = models.SalePayment(
+                        sale_id=new_sale.id,
+                        amount=sale_data.total_amount,
+                        currency=sale_data.currency,
+                        payment_method=sale_data.payment_method,
+                        exchange_rate=sale_data.exchange_rate
+                    )
+                    db.add(fallback_payment)
             
             db.commit()
             

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
+from decimal import Decimal
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
@@ -231,16 +232,26 @@ def register_payment(
             amount=payment_data.amount,
             payment_method=payment_data.payment_method,
             reference=payment_data.reference,
-            notes=payment_data.notes
+            notes=payment_data.notes,
+            currency=payment_data.currency,
+            exchange_rate=payment_data.exchange_rate
         )
         db.add(payment)
         
-        # Update purchase paid amount
-        purchase.paid_amount += payment_data.amount
+        # Calculate Amount in USD (Anchor) for debt reduction
+        amount_usd = float(payment_data.amount)
+        if payment_data.currency != "USD":
+            rate = float(payment_data.exchange_rate) if payment_data.exchange_rate and payment_data.exchange_rate > 0 else 1.0
+            amount_usd = amount_usd / rate
+
+        # Update purchase paid amount (in USD)
+        purchase.paid_amount += Decimal(amount_usd)
         
         # Update payment status
-        if purchase.paid_amount >= purchase.total_amount:
+        # Allow small floating point tolerance
+        if purchase.paid_amount >= (purchase.total_amount - Decimal('0.01')):
             purchase.payment_status = models.PaymentStatus.PAID
+            purchase.paid_amount = purchase.total_amount # Cap at total
         elif purchase.paid_amount > 0:
             purchase.payment_status = models.PaymentStatus.PARTIAL
         
@@ -248,6 +259,9 @@ def register_payment(
         supplier = db.query(models.Supplier).filter(models.Supplier.id == purchase.supplier_id).first()
         if supplier:
             # Recalculate total debt from all pending purchases
+            # IMPORTANT: We can't just sum(total - paid) because paid_amount is now updated.
+            # Ideally we re-query freely.
+            
             pending_purchases = db.query(models.PurchaseOrder).filter(
                 models.PurchaseOrder.supplier_id == supplier.id,
                 models.PurchaseOrder.payment_status.in_([models.PaymentStatus.PENDING, models.PaymentStatus.PARTIAL])

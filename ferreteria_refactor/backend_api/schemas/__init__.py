@@ -685,6 +685,8 @@ class PurchasePaymentCreate(BaseModel):
     payment_method: str = "Efectivo"
     reference: Optional[str] = None
     notes: Optional[str] = None
+    currency: Optional[str] = "USD"
+    exchange_rate: Optional[float] = 1.0
 
 class PurchasePaymentResponse(BaseModel):
     id: int
@@ -694,6 +696,8 @@ class PurchasePaymentResponse(BaseModel):
     payment_method: str
     reference: Optional[str] = None
     notes: Optional[str] = None
+    currency: Optional[str] = "USD"
+    exchange_rate: Optional[float] = 1.0
     
     class Config:
         from_attributes = True

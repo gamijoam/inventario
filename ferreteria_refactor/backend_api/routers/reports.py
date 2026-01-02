@@ -732,6 +732,31 @@ def get_sales_profitability(
     avg_margin = 0
     if net_revenue > 0:
         avg_margin = (net_profit / net_revenue) * 100
+        
+    # --- REALIZED PROFIT (Cash Basis Approximation) ---
+    # Formula: Realized Profit = Total Profit * (Collection Ratio)
+    # Collection Ratio = (Total Revenue - Total Outstanding) / Total Revenue
+    
+    # Calculate Total Outstanding Debt for these specific sales
+    total_outstanding = 0
+    sale_ids = set(d.sale_id for d in details)
+    
+    if sale_ids:
+        # Fetch scales to get balance_pending
+        sales_in_period = db.query(models.Sale).filter(models.Sale.id.in_(sale_ids)).all()
+        for s in sales_in_period:
+            if s.is_credit and not s.paid:
+                 total_outstanding += float(s.balance_pending if s.balance_pending is not None else s.total_amount)
+    
+    # Realized Revenue (Cash In)
+    realized_revenue = max(0, net_revenue - total_outstanding)
+    
+    # Collection Ratio
+    collection_ratio = 1.0
+    if net_revenue > 0:
+        collection_ratio = realized_revenue / net_revenue
+    
+    realized_profit = net_profit * collection_ratio
     
     return {
         'total_revenue': net_revenue,
@@ -740,7 +765,10 @@ def get_sales_profitability(
         'avg_margin': avg_margin,
         'gross_revenue': total_revenue,
         'returns_amount': total_refunds,
-        'num_sales': len(set(d.sale_id for d in details))
+        'num_sales': len(sale_ids),
+        'realized_profit': realized_profit,
+        'outstanding_debt_in_period': total_outstanding,
+        'collection_ratio': collection_ratio
     }
 
 @router.get("/profit/month")
