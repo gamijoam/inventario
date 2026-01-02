@@ -17,20 +17,42 @@ router = APIRouter(
 
 @router.post("/add", dependencies=[Depends(warehouse_or_admin)])
 async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Depends(get_db)):
-    """Add stock (Purchase/Entry)"""
+    """Add stock (Purchase/Entry) - Multi-Warehouse Support"""
     product = db.query(models.Product).filter(models.Product.id == adjustment.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # Update Stock (quantity already in base units from frontend)
+    # 1. Update/Create Specific Warehouse Stock
+    product_stock = db.query(models.ProductStock).filter(
+        models.ProductStock.product_id == product.id,
+        models.ProductStock.warehouse_id == adjustment.warehouse_id
+    ).first()
+
+    if not product_stock:
+        # Check if warehouse exists first
+        warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == adjustment.warehouse_id).first()
+        if not warehouse:
+             raise HTTPException(status_code=404, detail="Warehouse not found")
+
+        product_stock = models.ProductStock(
+            product_id=product.id,
+            warehouse_id=adjustment.warehouse_id,
+            quantity=0
+        )
+        db.add(product_stock)
+    
+    product_stock.quantity += adjustment.quantity
+
+    # 2. Update Global Stock (Cache)
     product.stock += adjustment.quantity
     
     # Create Kardex
     kardex_entry = models.Kardex(
         product_id=product.id,
+        warehouse_id=adjustment.warehouse_id, # NEW
         movement_type=adjustment.type,
         quantity=adjustment.quantity,
-        balance_after=product.stock,
+        balance_after=product.stock, # Keeping global balance for now
         description=adjustment.reason,
         date=datetime.now()
     )
@@ -41,7 +63,7 @@ async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Dep
     
     # AUDIT LOG
     from ..audit_utils import log_action
-    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product.id, changes=f"Stock Adjustment (IN): +{adjustment.quantity}. Reason: {adjustment.reason}")
+    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product.id, changes=f"Stock Adjustment (IN) [Wh:{adjustment.warehouse_id}]: +{adjustment.quantity}. Reason: {adjustment.reason}")
 
     await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, {
         "id": product.id,
@@ -60,20 +82,33 @@ async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Dep
 
 @router.post("/remove", dependencies=[Depends(warehouse_or_admin)])
 async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Depends(get_db)):
-    """Remove stock (Adjustment/Loss)"""
+    """Remove stock (Adjustment/Loss) - Multi-Warehouse Support"""
     product = db.query(models.Product).filter(models.Product.id == adjustment.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if product.stock < adjustment.quantity:
-        raise HTTPException(status_code=400, detail=f"Insufficient stock. Current: {product.stock}")
+    # 1. Validate Specific Warehouse Stock
+    product_stock = db.query(models.ProductStock).filter(
+        models.ProductStock.product_id == product.id,
+        models.ProductStock.warehouse_id == adjustment.warehouse_id
+    ).first()
 
-    # Update Stock (quantity already in base units)
+    if not product_stock:
+         raise HTTPException(status_code=400, detail="Producto no tiene stock en esta bodega")
+    
+    if product_stock.quantity < adjustment.quantity:
+        raise HTTPException(status_code=400, detail=f"Stock insuficiente en bodega (Disponible: {product_stock.quantity})")
+
+    # 2. Update Specific Stock
+    product_stock.quantity -= adjustment.quantity
+
+    # 3. Update Global Stock (Cache)
     product.stock -= adjustment.quantity
     
     # Create Kardex
     kardex_entry = models.Kardex(
         product_id=product.id,
+        warehouse_id=adjustment.warehouse_id, # NEW
         movement_type=adjustment.type,
         quantity=-adjustment.quantity,  # Negative for outgoing
         balance_after=product.stock,
@@ -87,7 +122,7 @@ async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = 
     
     # AUDIT LOG
     from ..audit_utils import log_action
-    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product.id, changes=f"Stock Adjustment (OUT): -{adjustment.quantity}. Reason: {adjustment.reason}")
+    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product.id, changes=f"Stock Adjustment (OUT) [Wh:{adjustment.warehouse_id}]: -{adjustment.quantity}. Reason: {adjustment.reason}")
 
     await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, {
         "id": product.id,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useConfig } from '../../context/ConfigContext';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, DollarSign, Calendar, FileText, CreditCard, Package, User, Clock, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
+import { ArrowLeft, DollarSign, Calendar, FileText, CreditCard, Package, User, Clock, CheckCircle, AlertCircle, TrendingUp, ChevronDown } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
@@ -118,6 +118,13 @@ const PurchaseDetail = () => {
                             <p className="text-slate-500 font-medium flex items-center gap-2">
                                 <FileText size={16} />
                                 Ref. Factura: <span className="text-slate-700 font-bold">{purchase.invoice_number || 'Sin número'}</span>
+                                {purchase.warehouse && (
+                                    <>
+                                        <span className="w-1 h-1 rounded-full bg-slate-300 mx-1"></span>
+                                        <Package size={16} />
+                                        Bodega: <span className="text-slate-700 font-bold">{purchase.warehouse.name}</span>
+                                    </>
+                                )}
                             </p>
                         </div>
 

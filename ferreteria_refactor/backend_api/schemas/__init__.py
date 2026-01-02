@@ -551,6 +551,7 @@ class StockAdjustmentCreate(BaseModel):
     type: str  # ADJUSTMENT_IN, ADJUSTMENT_OUT, DAMAGED, INTERNAL_USE
     quantity: Decimal  # Already in base units
     reason: str
+    warehouse_id: int # NEW: Required warehouse
 
 class KardexRead(BaseModel):
     id: int
@@ -641,6 +642,7 @@ class PurchaseOrderCreate(PurchaseOrderBase):
     total_amount: Decimal
     items: List[PurchaseItemCreate] = []
     payment_type: str = "CREDIT"  # CASH or CREDIT
+    warehouse_id: int # NEW: Required warehouse
 
 class PurchaseOrderUpdate(BaseModel):
     invoice_number: Optional[str] = None

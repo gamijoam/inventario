@@ -10,6 +10,7 @@ const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
     const [products, setProducts] = useState([]);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [loadingProducts, setLoadingProducts] = useState(false);
+    const [warehouses, setWarehouses] = useState([]);
 
     const [adjustmentData, setAdjustmentData] = useState({
         type: 'ADJUSTMENT_IN', // ADJUSTMENT_IN, ADJUSTMENT_OUT, DAMAGED, INTERNAL_USE
@@ -35,14 +36,28 @@ const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
                 type: 'ADJUSTMENT_IN',
                 quantity: 1,
                 unit: null,
-                reason: ''
+                reason: '',
+                warehouse_id: '' // NEW
             });
 
-            apiClient.get('/products/')
-                .then(res => setProducts(res.data))
+            // Parallel fetch: Products + Warehouses
+            setLoadingProducts(true);
+            Promise.all([
+                apiClient.get('/products/'),
+                apiClient.get('/warehouses')
+            ])
+                .then(([prodRes, whRes]) => {
+                    setProducts(prodRes.data);
+                    setWarehouses(whRes.data);
+                    // Default to first warehouse (Main usually)
+                    if (whRes.data?.length > 0) {
+                        const mainWh = whRes.data.find(w => w.is_main) || whRes.data[0];
+                        setAdjustmentData(prev => ({ ...prev, warehouse_id: mainWh.id }));
+                    }
+                })
                 .catch(err => {
                     console.error(err);
-                    toast.error('Error al cargar catálogo');
+                    toast.error('Error al cargar datos necesarios');
                 })
                 .finally(() => setLoadingProducts(false));
         }
@@ -69,7 +84,8 @@ const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
                 product_id: selectedProduct.id,
                 type: adjustmentData.type,
                 quantity: totalQuantity,
-                reason: adjustmentData.reason
+                reason: adjustmentData.reason,
+                warehouse_id: adjustmentData.warehouse_id // NEW
             };
 
             const endpoint = ['ADJUSTMENT_IN', 'PURCHASE'].includes(adjustmentData.type)
@@ -83,7 +99,39 @@ const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
             onClose();
         } catch (error) {
             console.error("Adjustment failed", error);
-            toast.error('Error al registrar ajuste: ' + (error.response?.data?.detail || error.message));
+
+            // Nuclear option: Ensure errorMessage is ALWAYS a string
+            let errorMessage = 'Error al registrar ajuste';
+
+            try {
+                if (error.response?.data?.detail) {
+                    const detail = error.response.data.detail;
+                    if (Array.isArray(detail)) {
+                        // Handle Pydantic validation errors
+                        errorMessage += ': ' + detail.map(err => {
+                            if (typeof err === 'object' && err.msg) return err.msg;
+                            if (typeof err === 'string') return err;
+                            return JSON.stringify(err);
+                        }).join(', ');
+                    } else if (typeof detail === 'object') {
+                        errorMessage += ': ' + JSON.stringify(detail);
+                    } else {
+                        errorMessage += ': ' + String(detail);
+                    }
+                } else {
+                    errorMessage += ': ' + (error.message || 'Error desconocido');
+                }
+            } catch (e) {
+                console.error("Error parsing error message:", e);
+                errorMessage = 'Error crítico al procesar solicitud';
+            }
+
+            // Final safety check
+            if (typeof errorMessage !== 'string') {
+                errorMessage = JSON.stringify(errorMessage);
+            }
+
+            toast.error(errorMessage);
         }
     };
 
@@ -208,6 +256,23 @@ const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
                                         </label>
                                     ))}
                                 </div>
+                            </div>
+
+                            {/* Warehouse Selector */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bodega Afectada</label>
+                                <select
+                                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none bg-white font-medium text-slate-700"
+                                    value={adjustmentData.warehouse_id}
+                                    onChange={(e) => setAdjustmentData({ ...adjustmentData, warehouse_id: Number(e.target.value) })}
+                                    required
+                                >
+                                    {warehouses.map(wh => (
+                                        <option key={wh.id} value={wh.id}>
+                                            {wh.name} {wh.is_main ? '(Principal)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
