@@ -563,29 +563,39 @@ REF USD: ${{ "%.2f"|format(sale.total_usd) }}
 <center>
 <bold>{{ business.name }}</bold>
 {{ business.document_id }}
-REPORTE Z (CORTE DE CAJA)
-ID: #{{ session.id }}
-CAJERO: {{ session.user }}
-APERTURA: {{ session.start_time }}
-CIERRE: {{ session.end_time }}
---------------------------------
-<bold>RESUMEN DE CAJA</bold>
---------------------------------
-FONDO INICIAL USD: {{ "%.2f"|format(session.initial_usd) }}
-FONDO INICIAL BS : {{ "%.2f"|format(session.initial_bs) }}
---------------------------------
-<bold>ARQUEO (CONTADO)</bold>
---------------------------------
-USD FISICO:     {{ "%.2f"|format(session.total_reported_usd) }}
-(Esperado:      {{ "%.2f"|format(session.total_expected_usd) }})
-DIFERENCIA MS:  {{ "%.2f"|format(session.diff_usd) }}
-.
-BS FISICO:      {{ "%.2f"|format(session.total_reported_bs) }}
-(Esperado:      {{ "%.2f"|format(session.total_expected_bs) }})
-DIFERENCIA BS:  {{ "%.2f"|format(session.diff_bs) }}
---------------------------------
+================================
+<bold>REPORTE Z - CORTE DE CAJA</bold>
+================================
+</center>
+Sesion: #{{ session.id }}
+Cajero: {{ session.user }}
+Apertura: {{ session.start_time }}
+Cierre:   {{ session.end_time }}
+================================
+<bold>FONDOS INICIALES</bold>
+================================
+USD:  ${{ "%.2f"|format(session.initial_usd) }}
+Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
+================================
+<bold>VENTAS DEL TURNO</bold>
+================================
+USD:  ${{ "%.2f"|format(session.sales_usd) }}
+Bs:   Bs {{ "%.2f"|format(session.sales_bs) }}
+================================
+<bold>ARQUEO DE CAJA</bold>
+================================
+<bold>DOLARES ($)</bold>
+  Esperado:  ${{ "%.2f"|format(session.total_expected_usd) }}
+  Reportado: ${{ "%.2f"|format(session.total_reported_usd) }}
+  Diferencia: {{ "%+.2f"|format(session.diff_usd) }}
+
+<bold>BOLIVARES (Bs)</bold>
+  Esperado:  Bs {{ "%.2f"|format(session.total_expected_bs) }}
+  Reportado: Bs {{ "%.2f"|format(session.total_reported_bs) }}
+  Diferencia: {{ "%+.2f"|format(session.diff_bs) }}
+================================
 <center>
-FIN DEL REPORTE
+<bold>FIN DEL REPORTE</bold>
 </center>
 <cut>
 """

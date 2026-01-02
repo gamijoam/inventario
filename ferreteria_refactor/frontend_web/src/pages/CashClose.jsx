@@ -91,7 +91,22 @@ const CashClose = () => {
 
             const success = await closeSession(closeData);
             if (success) {
-                alert("Caja Cerrada Exitosamente");
+                // AUTO-PRINT Z-REPORT
+                try {
+                    const response = await apiClient.get(`/cash/sessions/${session.id}/z-report-payload`);
+                    const bridgeUrl = 'http://localhost:5001/print';
+                    await fetch(bridgeUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(response.data)
+                    });
+                    console.log('✅ Z-Report sent to printer');
+                } catch (error) {
+                    console.error('Error auto-printing Z-Report:', error);
+                    // Don't block navigation on print failure
+                }
+
+                alert("Caja Cerrada Exitosamente. Reporte Z enviado a impresora.");
                 navigate('/');
             }
         }

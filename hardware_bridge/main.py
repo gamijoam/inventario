@@ -247,31 +247,43 @@ def print_to_windows(commands, printer_name):
             # Convert commands to ESC/POS
             esc_pos_data = b""
             
+            # Initialize printer
+            esc_pos_data += b'\x1b\x40'  # ESC @ - Initialize printer
+            
             for cmd in commands:
                 if cmd['type'] == 'text':
                     text = cmd['content']
                     
                     # Alignment
                     if cmd['align'] == 'center':
-                        esc_pos_data += b'\\x1b\\x61\\x01'  # Center
+                        esc_pos_data += b'\x1b\x61\x01'  # Center
                     elif cmd['align'] == 'right':
-                        esc_pos_data += b'\\x1b\\x61\\x02'  # Right
+                        esc_pos_data += b'\x1b\x61\x02'  # Right
                     else:
-                        esc_pos_data += b'\\x1b\\x61\\x00'  # Left
+                        esc_pos_data += b'\x1b\x61\x00'  # Left
                     
                     # Bold
                     if cmd['bold']:
-                        esc_pos_data += b'\\x1b\\x45\\x01'  # Bold ON
+                        esc_pos_data += b'\x1b\x45\x01'  # Bold ON
                     
-                    # Text
-                    esc_pos_data += text.encode('cp437', errors='replace') + b'\\n'
+                    # Text - try UTF-8 first, fallback to cp437
+                    try:
+                        esc_pos_data += text.encode('utf-8', errors='replace')
+                    except:
+                        esc_pos_data += text.encode('cp437', errors='replace')
+                    
+                    esc_pos_data += b'\x0a'  # Line feed (LF)
                     
                     # Reset bold
                     if cmd['bold']:
-                        esc_pos_data += b'\\x1b\\x45\\x00'  # Bold OFF
+                        esc_pos_data += b'\x1b\x45\x00'  # Bold OFF
+                    
+                    # Reset alignment to left after each line
+                    esc_pos_data += b'\x1b\x61\x00'
                 
                 elif cmd['type'] == 'cut':
-                    esc_pos_data += b'\\x1d\\x56\\x00'  # Cut
+                    esc_pos_data += b'\x0a\x0a\x0a'  # 3 line feeds before cut
+                    esc_pos_data += b'\x1d\x56\x00'  # Cut
             
             # Send to printer
             win32print.WritePrinter(hPrinter, esc_pos_data)
@@ -297,7 +309,7 @@ def print_virtual(commands, printer_name="VIRTUAL"):
     
     for cmd in commands:
         if cmd['type'] == 'cut':
-            output.append('\\n' + '=' * width + ' [CORTE] ' + '=' * width + '\\n')
+            output.append('\n' + '=' * width + ' [CORTE] ' + '=' * width + '\n')
         elif cmd['type'] == 'text':
             content = cmd['content']
             
@@ -312,7 +324,7 @@ def print_virtual(commands, printer_name="VIRTUAL"):
                 output.append(content)
     
     output.append(f"--- END TICKET ({printer_name}) ---")
-    result = '\\n'.join(output)
+    result = '\n'.join(output)
     print(result)
     
     # Save to file
@@ -328,22 +340,38 @@ def parse_format_tags(line, printer_output):
     align = 'left'
     bold = False
     
+    # Handle opening and closing tags
     if '<center>' in line:
         align = 'center'
-        line = line.replace('<center>', '').replace('</center>', '')
-    elif '<right>' in line:
+        line = line.replace('<center>', '')
+    if '</center>' in line:
+        line = line.replace('</center>', '')
+        
+    if '<right>' in line:
         align = 'right'
-        line = line.replace('<right>', '').replace('</right>', '')
-    elif '<left>' in line:
+        line = line.replace('<right>', '')
+    if '</right>' in line:
+        line = line.replace('</right>', '')
+        
+    if '<left>' in line:
         align = 'left'
-        line = line.replace('<left>', '').replace('</left>', '')
+        line = line.replace('<left>', '')
+    if '</left>' in line:
+        line = line.replace('</left>', '')
     
     if '<bold>' in line:
         bold = True
-        line = line.replace('<bold>', '').replace('</bold>', '')
+        line = line.replace('<bold>', '')
+    if '</bold>' in line:
+        line = line.replace('</bold>', '')
     
     if '<cut>' in line:
         printer_output.append({'type': 'cut'})
+        return
+    
+    # Skip empty lines that were just closing tags
+    line = line.strip()
+    if not line:
         return
     
     if not line.strip():
@@ -365,7 +393,8 @@ def print_from_template(template_str, context_data):
     rendered = template.render(context_data)
     
     printer_output = []
-    lines = rendered.split('\\n')
+    # Split on actual newlines, not the literal string '\n'
+    lines = rendered.split('\n')
     
     for line in lines:
         parse_format_tags(line, printer_output)
