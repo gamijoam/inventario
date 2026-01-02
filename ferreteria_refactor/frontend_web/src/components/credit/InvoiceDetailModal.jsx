@@ -110,14 +110,85 @@ const InvoiceDetailModal = ({ isOpen, onClose, sale }) => {
                         </div>
                     </div>
 
+                    {/* Payment History Section */}
+                    {sale.payments && sale.payments.length > 0 && (
+                        <div className="mb-6 animate-in fade-in slide-in-from-bottom-2">
+                            <h3 className="text-sm font-bold text-slate-800 mb-3 uppercase tracking-wide flex items-center gap-2">
+                                <DollarSign size={16} /> Historial de Abonos
+                            </h3>
+                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <table className="w-full border-collapse">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
+                                        <tr>
+                                            <th className="text-left p-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Monto</th>
+                                            <th className="text-left p-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Moneda</th>
+                                            <th className="text-left p-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Método</th>
+                                            <th className="text-right p-3 text-xs font-bold text-slate-400 uppercase tracking-wider">Tasa</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {sale.payments.map((payment, index) => (
+                                            <tr key={index} className="hover:bg-slate-50/50 transition-colors">
+                                                <td className="p-3 text-sm font-bold text-slate-700">
+                                                    {parseFloat(payment.amount).toFixed(2)}
+                                                </td>
+                                                <td className="p-3 text-sm font-medium text-slate-600">
+                                                    <span className={payment.currency === 'USD' ? 'bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded font-bold' : 'bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded font-bold'}>
+                                                        {payment.currency}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3 text-sm font-medium text-slate-600">
+                                                    {payment.payment_method}
+                                                </td>
+                                                <td className="p-3 text-sm font-mono text-slate-500 text-right">
+                                                    {parseFloat(payment.exchange_rate) > 1
+                                                        ? parseFloat(payment.exchange_rate).toFixed(2)
+                                                        : '-'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Total Section */}
-                    <div className="flex flex-col items-end border-t border-slate-100 pt-6 mb-6">
-                        <div className="text-right">
-                            <span className="text-sm font-medium text-slate-500 block mb-1">Total Deuda (USD)</span>
-                            <span className="text-4xl font-black text-slate-800 flex items-center justify-end gap-1 tracking-tight">
-                                <span className="text-lg text-slate-400 font-bold self-start mt-2">$</span>
-                                {parseFloat(sale.total_amount).toFixed(2)}
-                            </span>
+                    <div className="border-t border-slate-100 pt-6 mb-6">
+                        <div className="flex flex-col gap-2 items-end">
+                            {/* Original Total */}
+                            <div className="flex justify-between w-full md:w-1/2 text-slate-500">
+                                <span className="text-sm font-medium">Monto Original</span>
+                                <span className="text-sm font-bold">${parseFloat(sale.total_amount).toFixed(2)}</span>
+                            </div>
+
+                            {/* Paid Amount */}
+                            <div className="flex justify-between w-full md:w-1/2 text-emerald-600">
+                                <span className="text-sm font-medium">Total Abonado</span>
+                                <span className="text-sm font-bold">
+                                    - ${(parseFloat(sale.total_amount) - (sale.paid ? 0 : parseFloat(sale.balance_pending || sale.total_amount))).toFixed(2)}
+                                </span>
+                            </div>
+
+                            {/* Divider */}
+                            <div className="w-full md:w-1/2 h-px bg-slate-200 my-1"></div>
+
+                            {/* Pending Balance */}
+                            <div className="text-right">
+                                <span className="text-sm font-bold text-slate-400 block mb-1 uppercase tracking-wider">Resta por Pagar</span>
+                                <span className={`text-4xl font-black flex items-center justify-end gap-1 tracking-tight ${sale.paid ? 'text-emerald-500' : 'text-rose-600'}`}>
+                                    <span className="text-lg opacity-50 font-bold self-start mt-2">$</span>
+                                    {sale.paid
+                                        ? "0.00"
+                                        : parseFloat(sale.balance_pending !== null ? sale.balance_pending : sale.total_amount).toFixed(2)
+                                    }
+                                </span>
+                                {sale.paid && (
+                                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block mt-2">
+                                        ¡Factura Pagada!
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
 

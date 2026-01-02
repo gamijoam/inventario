@@ -575,3 +575,61 @@ FIN DEL REPORTE
         }
 
 # REMOVED: print_sale_ticket (Old Server-Side Logic)
+
+    @staticmethod
+    def register_payment(db: Session, payment_data: schemas.SalePaymentCreate):
+        """
+        Register a payment for a credit sale and update balance.
+        Handles currency conversion automatically.
+        """
+        # 1. Verify sale exists
+        sale = db.query(models.Sale).filter(models.Sale.id == payment_data.sale_id).first()
+        if not sale:
+            raise HTTPException(status_code=404, detail="Sale not found")
+        
+        # 2. Record Payment
+        payment = models.SalePayment(
+            sale_id=payment_data.sale_id,
+            amount=payment_data.amount,
+            currency=payment_data.currency,
+            payment_method=payment_data.payment_method,
+            exchange_rate=payment_data.exchange_rate
+        )
+        db.add(payment)
+        
+        # 3. Calculate Amount in Sales Currency (USD/Anchor)
+        # Assuming sale.balance_pending is in USD (Anchor)
+        amount_usd = 0.0
+        
+        is_anchor = payment_data.currency == "USD" # Simplified check, should ideally check config
+        
+        if is_anchor:
+            amount_usd = float(payment_data.amount)
+        else:
+            # Convert to USD
+            # rate = Bs / USD. So USD = Bs / rate
+            if payment_data.exchange_rate and payment_data.exchange_rate > 0:
+                amount_usd = float(payment_data.amount) / float(payment_data.exchange_rate)
+            else:
+                 # Fallback if no rate provided (shouldn't happen from frontend)
+                 # Try to find today's rate or error out?
+                 # ideally we trust the rate sent with payment
+                 amount_usd = 0 # Safety, or raise error?
+                 print(f"[WARNING] Payment in {payment_data.currency} without rate!")
+
+        # 4. Update Balance
+        current_balance = float(sale.balance_pending if sale.balance_pending is not None else sale.total_amount)
+        new_balance = max(0.0, current_balance - amount_usd)
+        
+        sale.balance_pending = new_balance
+        sale.paid = (new_balance <= 0.01) # Trace threshold
+        
+        db.commit()
+        db.refresh(payment)
+        
+        return {
+            "status": "success",
+            "payment_id": payment.id,
+            "new_balance": new_balance,
+            "paid": sale.paid
+        }

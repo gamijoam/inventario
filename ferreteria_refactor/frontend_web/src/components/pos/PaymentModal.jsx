@@ -188,12 +188,21 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 // This is cleaner for consistency, though backend now trusts total_amount_bs directly.
 
                 payment_method: isCreditSale ? "Credito" : (payments[0]?.method || "Efectivo"),
-                payments: isCreditSale ? [] : payments.map(p => ({
-                    amount: parseFloat(p.amount) || 0,
-                    currency: p.currency === "$" ? "USD" : p.currency, // Ensure consistency
-                    payment_method: p.method,
-                    exchange_rate: getExchangeRate(p.currency) || 1
-                })),
+                payments: isCreditSale ? [] : payments.map(p => {
+                    // FIX: Split Efectivo into USD/Bs for Reporting
+                    let finalMethod = p.method;
+                    if (p.method === 'Efectivo') {
+                        const isBs = p.currency === 'Bs' || p.currency === 'VES';
+                        finalMethod = isBs ? 'Efectivo Bs' : 'Efectivo USD';
+                    }
+
+                    return {
+                        amount: parseFloat(p.amount),
+                        currency: p.currency === '$' ? 'USD' : p.currency,
+                        method: finalMethod,
+                        exchange_rate: (p.currency === 'Bs' || p.currency === 'VES') ? effectiveBsRate : (getExchangeRate(p.currency) || 1)
+                    };
+                }),
                 items: cart.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity,
