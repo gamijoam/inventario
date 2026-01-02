@@ -2,6 +2,7 @@ import { createContext, useState, useContext, useEffect } from 'react';
 import apiClient from '../config/axios';
 import { useWebSocket } from './WebSocketContext';
 import toast from 'react-hot-toast';
+import printerService from '../services/printerService';
 
 const CashContext = createContext();
 
@@ -63,18 +64,25 @@ export const CashProvider = ({ children }) => {
         // WebSocket Subscriptions
         const unsubOpen = subscribe('cash_session:opened', (data) => {
             console.log('💵 Session Opened Real-time:', data);
-
-            // To be safe, we might want to fetch full session details because 'data' from WS might be partial
-            // But for now let's assume valid
             setIsSessionOpen(true);
-            // Ideally we should setSession, but if WS data is small, fetch full
-            checkStatus(); // Safe way: re-check status
+            checkStatus();
         });
 
         const unsubClose = subscribe('cash_session:closed', (data) => {
             console.log('💵 Session Closed Real-time:', data);
             setIsSessionOpen(false);
             setSession(null);
+
+            // AUTO-PRINT Z REPORT
+            if (data.print_payload) {
+                console.log("🖨️ Printing Z Report automatically...");
+                printerService.printRaw(data.print_payload).then(() => {
+                    toast.success("Reporte Z enviado a la impresora");
+                }).catch(err => {
+                    console.error("Failed to auto-print Z Report", err);
+                    toast.error("Error imprimiendo Reporte Z");
+                });
+            }
         });
 
         return () => {

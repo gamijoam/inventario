@@ -72,6 +72,27 @@ const printerService = {
     },
 
     /**
+     * Send raw payload (e.g. Z Report) to Hardware Bridge
+     * @param {Object} payload - The print payload { template, context, status }
+     */
+    printRaw: async (payload) => {
+        try {
+            const response = await apiClient.post(`/products/print/remote/payload`, {
+                client_id: HARDWARE_CLIENT_ID,
+                payload: payload
+            });
+            return response.data;
+        } catch (error) {
+            console.error("Print Raw Error:", error);
+            // Re-throw or handle silently?
+            // If offline, maybe can't print.
+            if (error.response?.status === 503) {
+                console.warn("Bridge Disconnected - Cannot print Z Report automatically.");
+            }
+        }
+    },
+
+    /**
      * Get current configured client ID
      */
     getClientId: () => HARDWARE_CLIENT_ID,

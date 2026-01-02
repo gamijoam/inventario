@@ -214,7 +214,7 @@ def update_business_info(
     return get_business_info(db)
 
 @router.post("/test-print")
-def test_print_ticket(db: Session = Depends(get_db)):
+async def test_print_ticket(db: Session = Depends(get_db)):
     """Send test ticket to hardware bridge"""
     print("DEBUG: /test-print endpoint hit") # Debug log
     # Get template
@@ -239,7 +239,12 @@ def test_print_ticket(db: Session = Depends(get_db)):
             "id": 9999,
             "date": datetime.now().strftime("%d/%m/%Y %H:%M"),
             "total": 125.50,
+            "total_usd": 3.50, # Added for completeness
+            "exchange_rate": 35.80, # Added for completeness
+            "currency_symbol": "$", # Added for templates
+            "discount": 0.0,
             "is_credit": True,
+            "due_date": "2023-12-31", # Added mock due date
             "balance": 75.50,
             "customer": {
                 "name": "Juan Pérez",
@@ -247,47 +252,53 @@ def test_print_ticket(db: Session = Depends(get_db)):
             },
             "items": [
                 {
-                    "product": {"name": "Cemento Gris 50kg"},
+                    "product": {"name": "Cemento Gris 50kg", "sku": "CEM01"},
                     "quantity": 2.0,
                     "unit_price": 15.00,
-                    "subtotal": 30.00
+                    "subtotal": 30.00,
+                    "discount_percentage": 0
                 },
                 {
-                    "product": {"name": "Cabilla 3/8 x 12m"},
+                    "product": {"name": "Cabilla 3/8 x 12m", "sku": "CAB02"},
                     "quantity": 5.0,
                     "unit_price": 12.50,
-                    "subtotal": 62.50
+                    "subtotal": 62.50,
+                    "discount_percentage": 0
                 },
                 {
-                    "product": {"name": "Pala Metálica"},
+                    "product": {"name": "Pala Metálica", "sku": "PAL01"},
                     "quantity": 1.0,
                     "unit_price": 33.00,
-                    "subtotal": 33.00
+                    "subtotal": 33.00,
+                    "discount_percentage": 0
                 }
-            ]
+            ],
+            "payments": [] # Added payments list
         }
     }
     # Add alias 'products' to avoid Jinja collision with dict.items()
     context["sale"]["products"] = context["sale"]["items"]
     
     # Construct print payload
+    template_str = template_config.value if (template_config and template_config.value) else "NOTE: No template saved. This is a test."
+    
+    # FIX: Jinja2 dict.items collision. Force usage of sale.products
+    if "sale.items" in template_str:
+        template_str = template_str.replace("sale.items", "sale.products")
+
     payload = {
-        "template": template_config.value if (template_config and template_config.value) else "NOTE: No template saved. This is a test.",
+        "template": template_str,
         "context": context
     }
     
     # Broadcast to hardware bridge
-    import asyncio
     from ..services.websocket_manager import manager
     
-    asyncio.run_coroutine_threadsafe(
-        manager.broadcast({
+    await manager.broadcast({
             "type": "print",
             "sale_id": "TEST",
             "payload": payload
-        }),
-        asyncio.get_running_loop()
-    )
+    })
     
     return {
         "status": "success",

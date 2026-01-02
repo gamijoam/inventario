@@ -514,6 +514,10 @@ async def close_cash_session(
     db.refresh(session)
     
     # Broadcast cash session closed event to all connected clients
+    # Generate Z Report Payload for automatic printing
+    from ..services.sales_service import SalesService
+    z_report_payload = SalesService.generate_z_report_payload(db, session.id)
+
     await manager.broadcast("cash_session:closed", {
         "session_id": session.id,
         "end_time": session.end_time.isoformat(),
@@ -521,8 +525,9 @@ async def close_cash_session(
         "final_cash_reported_bs": float(session.final_cash_reported_bs),
         "difference": float(session.difference),
         "difference_bs": float(session.difference_bs),
-        "credit_pending": total_credit_pending,  # NEW: Include unpaid credits
-        "credit_count": len(credit_sales)  # NEW: Count of unpaid sales
+        "credit_pending": total_credit_pending,
+        "credit_count": len(credit_sales),
+        "print_payload": z_report_payload # Payload for frontend to print
     })
     
     return session

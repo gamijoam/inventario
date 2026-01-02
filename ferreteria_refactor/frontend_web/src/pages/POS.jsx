@@ -415,6 +415,17 @@ const POS = () => {
     const rootCategories = categories.filter(cat => !cat.parent_id);
     const getSubcategories = (parentId) => categories.filter(cat => cat.parent_id === parentId);
 
+    const focusSearch = () => {
+        // Small timeout to allow UI updates/modal closing
+        setTimeout(() => {
+            if (searchInputRef.current) {
+                searchInputRef.current.focus();
+                // Select all text if any (optional, but good for rapid scanning)
+                searchInputRef.current.select();
+            }
+        }, 50);
+    };
+
     const handleProductClick = (product) => {
         // Multi-Unit Logic
         if (product.units && product.units.length > 0) {
@@ -424,6 +435,7 @@ const POS = () => {
 
         // Classic Logic (Base Unit)
         addBaseProductToCart(product);
+        focusSearch(); // FOCUS TRAP ADDED
     };
 
     const addBaseProductToCart = (product) => {
@@ -568,6 +580,7 @@ const POS = () => {
         // Agregar al carrito
         addToCart(product, unit);
         setSelectedProductForUnits(null);
+        focusSearch(); // FOCUS TRAP ADDED
     };
 
     const handleCheckout = (paymentData) => {
@@ -976,7 +989,10 @@ const POS = () => {
             {/* Payment Modal */}
             <PaymentModal
                 isOpen={isPaymentOpen}
-                onClose={() => setIsPaymentOpen(false)}
+                onClose={() => {
+                    setIsPaymentOpen(false);
+                    focusSearch();
+                }}
                 totalUSD={totalUSD}
                 totalBs={totalBs} // PASSING TOTAL BS FOR MULTI-CURRENCY FIX
                 totalsByCurrency={totalsByCurrency}
@@ -989,7 +1005,10 @@ const POS = () => {
 
             <CashMovementModal
                 isOpen={isMovementOpen}
-                onClose={() => setIsMovementOpen(false)}
+                onClose={() => {
+                    setIsMovementOpen(false);
+                    focusSearch();
+                }}
             />
 
             <SaleSuccessModal

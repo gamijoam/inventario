@@ -29,6 +29,7 @@ def run_broadcast(event: str, data: dict):
 
 from typing import Optional
 from sqlalchemy import or_
+from pydantic import BaseModel
 
 @router.get("/", response_model=List[schemas.ProductRead])
 @router.get("", response_model=List[schemas.ProductRead], include_in_schema=False)
@@ -598,6 +599,46 @@ async def print_remote(
         "status": "success",
         "message": f"Comando de impresión enviado a {request.client_id}",
         "sale_id": request.sale_id
+    }
+
+class RemotePrintPayloadRequest(BaseModel):
+    client_id: str
+    payload: dict
+
+@router.post("/print/remote/payload", dependencies=[Depends(cashier_or_admin)])
+async def print_remote_payload(
+    request: RemotePrintPayloadRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Send raw print payload to Hardware Bridge via WebSocket
+    """
+    from ..services.websocket_manager import manager
+    
+    # Check if Hardware Bridge is connected
+    if not manager.is_client_connected(request.client_id):
+        raise HTTPException(
+            status_code=503,
+            detail=f"Hardware Bridge '{request.client_id}' no está conectado."
+        )
+    
+    # Send to Hardware Bridge via WebSocket
+    message = {
+        "type": "print",
+        "payload": request.payload
+    }
+    
+    success = await manager.send_to_client(request.client_id, message)
+    
+    if not success:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error enviando comando de impresión a '{request.client_id}'"
+        )
+    
+    return {
+        "status": "success",
+        "message": f"Reporte enviado a {request.client_id}"
     }
 
 @router.post("/sales/payments", dependencies=[Depends(cashier_or_admin)])
