@@ -430,6 +430,50 @@ def get_credit_sales(db: Session = Depends(get_db)):
     
     return query.all()
 
+@router.get("/sales/", dependencies=[Depends(cashier_or_admin)])
+def get_all_sales(
+    limit: int = 50,
+    offset: int = 0,
+    sort: str = "date",
+    order: str = "desc",
+    db: Session = Depends(get_db)
+):
+    """
+    Get all sales (cash, credit, card, etc.) with pagination and sorting.
+    Used by Dashboard and reports.
+    
+    Query params:
+    - limit: Max number of results (default 50)
+    - offset: Pagination offset (default 0)
+    - sort: Field to sort by (default 'date')
+    - order: 'asc' or 'desc' (default 'desc')
+    """
+    query = db.query(models.Sale).options(
+        joinedload(models.Sale.customer),
+        joinedload(models.Sale.payments),
+        joinedload(models.Sale.details).joinedload(models.SaleDetail.product)
+    )
+    
+    # Apply sorting
+    if sort == "date":
+        if order == "desc":
+            query = query.order_by(models.Sale.date.desc())
+        else:
+            query = query.order_by(models.Sale.date.asc())
+    elif sort == "total_amount":
+        if order == "desc":
+            query = query.order_by(models.Sale.total_amount.desc())
+        else:
+            query = query.order_by(models.Sale.total_amount.asc())
+    else:
+        # Default to date desc
+        query = query.order_by(models.Sale.date.desc())
+    
+    # Apply pagination
+    query = query.offset(offset).limit(limit)
+    
+    return query.all()
+
 
 
 @router.get("/{product_id}", response_model=schemas.ProductRead)

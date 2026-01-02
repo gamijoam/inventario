@@ -91,7 +91,13 @@ const RecentSalesTable = ({ sales = [] }) => {
                                 {sale.customer?.name || 'Cliente General'}
                             </td>
                             <td className="px-6 py-4 text-slate-500">
-                                {new Date(sale.created_at).toLocaleDateString('es-VE')}
+                                {sale.date ? new Date(sale.date).toLocaleDateString('es-VE', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                }) : 'N/A'}
                             </td>
                             <td className="px-6 py-4">
                                 <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-blue-50 text-blue-700 ring-blue-600/20">
@@ -105,6 +111,65 @@ const RecentSalesTable = ({ sales = [] }) => {
                     ))}
                 </tbody>
             </table>
+        </div>
+    );
+};
+
+const LowStockWidget = () => {
+    const [lowStockProducts, setLowStockProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLowStock = async () => {
+            try {
+                const data = await unifiedReportService.getLowStock(5);
+                setLowStockProducts(Array.isArray(data) ? data : []);
+            } catch (error) {
+                console.error('Error fetching low stock:', error);
+                setLowStockProducts([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchLowStock();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
+                <div className="animate-pulse">
+                    <div className="h-4 bg-rose-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-rose-100 rounded w-1/2"></div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
+            <div className="flex items-center gap-2 text-rose-700 mb-3">
+                <AlertCircle size={16} />
+                <span className="font-bold text-sm">Stock Bajo</span>
+                <span className="ml-auto text-xs bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full font-bold">
+                    {lowStockProducts.length}
+                </span>
+            </div>
+            {lowStockProducts.length > 0 ? (
+                <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {lowStockProducts.slice(0, 5).map(product => (
+                        <div key={product.id} className="flex justify-between items-center text-xs">
+                            <span className="text-slate-700 truncate flex-1 pr-2">
+                                {product.name}
+                            </span>
+                            <span className="font-bold text-rose-600 shrink-0">
+                                {product.stock || 0} un.
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-xs text-rose-600">✓ Todo el stock está bien</p>
+            )}
         </div>
     );
 };
@@ -146,21 +211,36 @@ const Dashboard = () => {
             setProfitData(profit);
             setRecentSales(Array.isArray(transactions) ? transactions : []);
 
-            // Fetch weekly data for chart
-            const weeklyData = await unifiedReportService.getSalesSummary({
-                start_date: weekAgo,
-                end_date: today
-            });
+            // Generate chart data for last 7 days
+            // Since backend doesn't provide daily breakdown, we'll fetch each day individually
+            const chartPromises = [];
+            const chartLabels = [];
 
-            // Transform data for chart (if backend provides daily breakdown)
-            if (weeklyData.daily_breakdown) {
-                setChartData(weeklyData.daily_breakdown);
-            } else {
-                // Fallback: create simple chart data
-                setChartData([
-                    { name: 'Hoy', sales: sales?.total_revenue || 0 }
-                ]);
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+
+                // Create label (e.g., "Lun", "Mar")
+                const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                const label = i === 0 ? 'Hoy' : dayNames[date.getDay()];
+                chartLabels.push(label);
+
+                chartPromises.push(
+                    unifiedReportService.getSalesSummary({
+                        start_date: dateStr,
+                        end_date: dateStr
+                    }).catch(() => ({ total_revenue: 0 }))
+                );
             }
+
+            const dailyResults = await Promise.all(chartPromises);
+            const chartDataArray = dailyResults.map((result, index) => ({
+                name: chartLabels[index],
+                sales: result?.total_revenue || 0
+            }));
+
+            setChartData(chartDataArray);
 
             if (showToast) {
                 toast.success('Dashboard actualizado');
@@ -325,22 +405,14 @@ const Dashboard = () => {
                             Modo Retail
                         </h3>
                         <div className="space-y-4">
-                            <div className="p-4 bg-rose-50 rounded-lg border border-rose-200">
-                                <div className="flex items-center gap-2 text-rose-700 mb-2">
-                                    <AlertCircle size={16} />
-                                    <span className="font-bold text-sm">Stock Bajo</span>
-                                </div>
-                                <p className="text-xs text-rose-600">
-                                    Widget próximamente
-                                </p>
-                            </div>
+                            <LowStockWidget />
                             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                                 <div className="flex items-center gap-2 text-blue-700 mb-2">
                                     <Users size={16} />
                                     <span className="font-bold text-sm">Cuentas por Cobrar</span>
                                 </div>
                                 <p className="text-xs text-blue-600">
-                                    Widget próximamente
+                                    {recentSales.filter(s => s.is_credit && !s.paid).length} pendientes
                                 </p>
                             </div>
                         </div>
