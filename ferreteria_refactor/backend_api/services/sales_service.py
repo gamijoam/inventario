@@ -377,24 +377,35 @@ class SalesService:
             print_rate = float(sale.exchange_rate_used) if sale.exchange_rate_used else 1.0
             total_bs = total_usd * print_rate # Fallback calculation
 
-        currency_symbol = "Bs"
+        # CHECK SALE MODE: USD or BS
+        is_usd_mode = sale.currency == 'USD'
+        currency_symbol = "$" if is_usd_mode else "Bs"
         
         # Helper to convert to VES
         def to_ves(usd_val):
             return float(usd_val) * print_rate
 
-        # Build Items List in VES
+        # Build Items List
         print_items = []
         for item in sale.details:
             # We use the USD prices and convert
             unit_price_usd = float(item.unit_price)
             subtotal_usd = float(item.subtotal)
             
+            if is_usd_mode:
+                 # Print in USD
+                 item_price = unit_price_usd
+                 item_total = subtotal_usd
+            else:
+                 # Print in VES
+                 item_price = to_ves(unit_price_usd)
+                 item_total = to_ves(subtotal_usd)
+            
             print_items.append({
                 "product": {"name": item.product.name if item.product else "Producto"},
                 "quantity": float(item.quantity) if item.quantity % 1 != 0 else int(item.quantity),
-                "unit_price": to_ves(unit_price_usd),
-                "subtotal": to_ves(subtotal_usd),
+                "unit_price": item_price,
+                "subtotal": item_total,
                 "unit_price_usd": unit_price_usd, # Ref
                 "currency_symbol": currency_symbol,
                 "discount_percentage": float(item.discount) if hasattr(item, 'discount_type') and item.discount_type == 'PERCENT' else 0.0
@@ -424,8 +435,10 @@ class SalesService:
             "sale": {
                 "id": sale.id,
                 "date": sale.date.strftime("%d/%m/%Y %H:%M") if sale.date else "",
-                "total": total_bs,         # Main Total in VES
-                "total_usd": total_usd,    # Ref Total in USD
+                "total": total_usd if is_usd_mode else total_bs,         # Main Total (Dynamic)
+                "total_bs": total_bs,
+                "total_usd": total_usd,    # Ref Total
+                "is_usd": is_usd_mode,
                 "currency_symbol": currency_symbol,
                 "exchange_rate": print_rate,
                 "discount": 0.0, # Added missing field for legacy templates
@@ -480,8 +493,13 @@ DESCRIPCION       CANT     TOTAL
 {% endfor %}
 --------------------------------
 <right>
+{% if sale.is_usd %}
+<bold>TOTAL USD: ${{ "%.2f"|format(sale.total) }}</bold>
+REF Bs: {{ "%.2f"|format(sale.total_bs) }}
+{% else %}
 <bold>TOTAL Bs: {{ "%.2f"|format(sale.total) }}</bold>
 REF USD: ${{ "%.2f"|format(sale.total_usd) }}
+{% endif %}
 (Tasa: {{ "%.2f"|format(sale.exchange_rate) }})
 </right>
 --------------------------------
