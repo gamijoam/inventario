@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Search, TrendingUp, TrendingDown, AlertTriangle, DollarSign, Clock, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Plus, Download } from 'lucide-react';
+import { Calendar, Search, TrendingUp, TrendingDown, AlertTriangle, DollarSign, Clock, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Plus, Download, Printer, FileText } from 'lucide-react';
 import cashService from '../services/cashService';
 import reportService from '../services/reportService';
 import { useConfig } from '../context/ConfigContext';
 import { toast } from 'react-hot-toast';
+import { pdf } from '@react-pdf/renderer';
+import ZReportPDF from '../components/pdf/ZReportPDF';
+import apiClient from '../config/axios';
 import clsx from 'clsx';
 
 const CashHistory = () => {
-    const { formatCurrency } = useConfig();
+    const { formatCurrency, business } = useConfig();
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [expandedId, setExpandedId] = useState(null);
@@ -162,6 +165,40 @@ const CashHistory = () => {
             toast.error('Error al descargar reporte', { id: toastId });
         } finally {
             setDownloading(false);
+        }
+    };
+
+    const handleReprintZReport = async (sessionId) => {
+        const toastId = toast.loading('Enviando a impresora...');
+        try {
+            const response = await apiClient.get(`/cash/sessions/${sessionId}/z-report-payload`);
+            const bridgeUrl = 'http://localhost:5001/print';
+            await fetch(bridgeUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(response.data)
+            });
+            toast.success('✅ Reporte Z enviado a impresora', { id: toastId });
+        } catch (error) {
+            console.error('Error reprinting Z-Report:', error);
+            toast.error('❌ Error al reimprimir. Verifica que el Hardware Bridge esté activo.', { id: toastId });
+        }
+    };
+
+    const handleDownloadZReportPDF = async (session) => {
+        const toastId = toast.loading('Generando PDF...');
+        try {
+            const blob = await pdf(<ZReportPDF session={session} business={business} />).toBlob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Reporte-Z-Sesion-${session.id}.pdf`;
+            link.click();
+            URL.revokeObjectURL(url);
+            toast.success('✅ PDF descargado', { id: toastId });
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            toast.error('❌ Error al generar PDF', { id: toastId });
         }
     };
 
@@ -362,6 +399,32 @@ const CashHistory = () => {
                                                     <p className="font-bold text-amber-900 mb-1">Notas del Cierre:</p>
                                                     {session.notes}
                                                 </div>
+                                            </div>
+                                        )}
+
+                                        {/* Action Buttons for Closed Sessions */}
+                                        {isClosed && (
+                                            <div className="mt-4 flex gap-3 border-t border-slate-200 pt-4">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleReprintZReport(session.id);
+                                                    }}
+                                                    className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 active:scale-95"
+                                                >
+                                                    <Printer size={18} />
+                                                    Reimprimir Reporte Z
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDownloadZReportPDF(session);
+                                                    }}
+                                                    className="flex-1 px-4 py-3 bg-white border-2 border-indigo-200 text-indigo-600 rounded-xl font-bold flex items-center justify-center gap-2 hover:border-indigo-300 transition-colors active:scale-95"
+                                                >
+                                                    <FileText size={18} />
+                                                    Descargar PDF
+                                                </button>
                                             </div>
                                         )}
                                     </div>

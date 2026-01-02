@@ -1,34 +1,26 @@
---- START TICKET (POS-58) ---\n=== TICKET DE VENTA ===
-MI NEGOCIO
-
-RIF: 
-Tel: 
+--- START TICKET (POS-58) ---
+=== TICKET DE VENTA ===
+EL NEGOCIO NUEVO
+CALLE NUEVA
+RIF: 987654
+Tel: 123456
 ================================
-Fecha: 02/01/2026 08:19
-Factura: #13
-Cliente: JUAN PEREZ
-DOC: 11111
-
+Fecha: 02/01/2026 13:34
+Factura: #16
+Cliente: Gabriel
+DOC:
 CONDICION: A CREDITO
 Vence: 12/01/2026
-
 ================================
 CANT   PRODUCTO         TOTAL
 --------------------------------
-
-1 x MARTILLO
-
-       500.00
-
-
+1 x PRODUCTO PARALELO
+10.00
 ================================
-SUBTOTAL:       500.00
-
-TOTAL A PAGAR:  500.00
+SUBTOTAL:       10.00
+TOTAL A PAGAR:  10.00
 ================================
 PAGOS:
-
-- Credito: USD10.00
-
 ================================
-      Gracias por su compra\n--- END TICKET (POS-58) ---
+Gracias por su compra
+--- END TICKET (POS-58) ---

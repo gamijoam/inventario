@@ -518,7 +518,7 @@ const CustomerManager = () => {
                                                                 {new Date(sale.date).toLocaleDateString('es-ES')}
                                                             </td>
                                                             <td className="py-3 px-5 text-right font-bold text-slate-800">
-                                                                ${sale.total_amount.toFixed(2)}
+                                                                ${Number(sale.total_amount || 0).toFixed(2)}
                                                             </td>
                                                             <td className="py-3 px-5 text-slate-600 pl-8 text-sm">
                                                                 {sale.due_date ? new Date(sale.due_date).toLocaleDateString('es-ES') : '-'}

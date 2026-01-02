@@ -532,3 +532,17 @@ async def close_cash_session(
     
     return session
 
+@router.get("/sessions/{session_id}/z-report-payload")
+def get_z_report_payload(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Get Z-Report print payload for reprinting"""
+    from ..services.sales_service import SalesService
+    
+    payload = SalesService.generate_z_report_payload(db, session_id)
+    if not payload:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return payload
+
