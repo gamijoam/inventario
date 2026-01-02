@@ -973,14 +973,14 @@ const POS = () => {
                 onUpdate={updateQuantity}
                 onDelete={removeFromCart}
             />
-
+            {/* Payment Modal */}
             <PaymentModal
                 isOpen={isPaymentOpen}
-                totalUSD={totalUSD}
-                totalBs={totalBs}
-                totalsByCurrency={totalsByCurrency} // Pass calculated totals
-                cart={cart}
                 onClose={() => setIsPaymentOpen(false)}
+                totalUSD={totalUSD}
+                totalBs={totalBs} // PASSING TOTAL BS FOR MULTI-CURRENCY FIX
+                totalsByCurrency={totalsByCurrency}
+                cart={cart}
                 onConfirm={handleCheckout}
                 warehouseId={selectedWarehouseId}
                 initialCustomer={quoteCustomer}

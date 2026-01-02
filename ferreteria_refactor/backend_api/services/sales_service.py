@@ -82,7 +82,8 @@ class SalesService:
                         raise HTTPException(status_code=500, detail="No active warehouse found to deduct stock")
 
             # 1. Create Sale Header
-            total_bs = sale_data.total_amount * sale_data.exchange_rate
+            # CRITICAL FIX: Respect Frontend's VES calculation (preserves anchoring)
+            total_bs = sale_data.total_amount_bs
             
             # Calculate due date for credit sales
             due_date = None
@@ -102,6 +103,11 @@ class SalesService:
                 currency=sale_data.currency,
                 exchange_rate_used=sale_data.exchange_rate,
                 total_amount_bs=total_bs,
+                
+                # Change Handling
+                change_amount=sale_data.change_amount,
+                change_currency=sale_data.change_currency,
+                
                 notes=sale_data.notes,
                 due_date=due_date,
                 balance_pending=balance_pending,

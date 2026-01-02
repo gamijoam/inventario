@@ -232,6 +232,10 @@ class Sale(Base):
     exchange_rate_used = Column(Numeric(14, 4), default=1.0000) # Rate at time of sale
     total_amount_bs = Column(Numeric(12, 2), nullable=True) # Amount in Bs if applicable
     
+    # Change / Vuelto Logic
+    change_amount = Column(Numeric(12, 2), default=0.00) # Amount returned to customer
+    change_currency = Column(String(3), default='VES') # Currency of the change (usually VES)
+    
     # Credit Sales
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
     is_credit = Column(Boolean, default=False)

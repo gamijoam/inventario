@@ -214,8 +214,13 @@ class SaleCreate(BaseModel):
     payments: List[SalePaymentCreate] = Field([], description="Lista de pagos desglosados (Multi-moneda)")
     items: List[SaleDetailCreate] = Field(..., description="Lista de productos a vender")
     total_amount: Decimal = Field(..., description="Monto total de la venta en USD", gt=0, example="150.50")
+    # NEW: Multi-currency Source of Truth
+    total_amount_bs: Decimal = Field(..., description="Monto total en VES calculado por Frontend (respetando anclajes)", ge=0)
+    change_amount: Decimal = Field(Decimal("0.00"), description="Monto del vuelto entregado", ge=0)
+    change_currency: str = Field("VES", description="Moneda del vuelto (VES/USD)")
+    
     currency: str = Field("USD", description="Moneda de referencia de la venta", example="USD")
-    exchange_rate: Decimal = Field(Decimal("1.0"), description="Tasa de cambio aplicada", example="35.5")
+    exchange_rate: Decimal = Field(Decimal("1.0"), description="Tasa de cambio global (Referencia)", example="35.5")
     notes: Optional[str] = Field(None, description="Notas adicionales o observaciones", example="Entregar en puerta trasera")
     is_credit: bool = Field(False, description="Indica si es una venta a crédito")
     
@@ -258,6 +263,10 @@ class SaleRead(BaseModel):
     id: int
     date: datetime
     total_amount: Decimal
+    total_amount_bs: Optional[Decimal] = None # NEW
+    change_amount: Optional[Decimal] = None # NEW
+    change_currency: Optional[str] = None # NEW
+    
     payment_method: str
     customer_id: Optional[int]
     customer: Optional['CustomerRead'] = None
