@@ -17,17 +17,21 @@ try:
 except ImportError:
     pytz = None
 
+from ..config import settings
+
 def get_venezuela_now():
     """
-    Returns the current time in Venezuela (UTC-4) as a naive datetime object.
+    Returns the current time in the configured timezone (default America/Caracas) 
+    as a naive datetime object.
+    
     This ensures that when saved to the DB (timestamp without timezone),
-    it reflects the wall-clock time in Venezuela.
+    it reflects the wall-clock time in the specific region.
     """
-    tz_name = 'America/Caracas'
+    tz_name = settings.TIMEZONE
     
     if ZoneInfo:
         try:
-            # Get current time in Venezuela
+            # Get current time in Configured Timezone
             tz = ZoneInfo(tz_name)
             now_aware = datetime.now(tz)
             # Return naive datetime (for compatibility with existing DB columns)
@@ -43,8 +47,8 @@ def get_venezuela_now():
         except Exception as e:
             print(f"Error using pytz: {e}")
             
-    # Fallback: Manual offset (UTC-4)
-    # This is rough but works if timezone libs are missing
+    # Fallback: Manual offset (UTC-4 for VET) if libraries fail
+    # Note: Ideally we should calculate offset from timezone name, but fallback is fallback.
     utc_now = datetime.utcnow()
     venezuela_time = utc_now - timedelta(hours=4)
     return venezuela_time

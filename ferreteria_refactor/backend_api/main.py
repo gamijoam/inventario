@@ -20,7 +20,7 @@ from .routers import (
     auth, products, users, reports, customers, suppliers, 
     purchases, cash, config, quotes, warehouses, transfers, 
     inventory, returns, categories, websocket, audit, system, 
-    payment_methods, sync, sync_local, cloud
+    payment_methods, sync, sync_local, cloud, credits
 )
 from .audit_utils import log_action
 from .models.models import UserRole
@@ -82,6 +82,7 @@ app.include_router(categories, prefix="/api/v1", tags=["Categorías"])
 app.include_router(websocket, prefix="/api/v1", tags=["WebSocket Events"])
 app.include_router(audit, prefix="/api/v1", tags=["Auditoría"])
 app.include_router(system, prefix="/api/v1", tags=["Sistema y Licencias"])
+app.include_router(credits.router, prefix="/api/v1", tags=["Créditos y Cobranzas"])
 app.include_router(payment_methods.router, prefix="/api/v1", tags=["Métodos de Pago"])
 app.include_router(hardware_bridge_router, prefix="/api/v1", tags=["Hardware Bridge"])
 app.include_router(sync.router, prefix="/api/v1", tags=["Sincronización Híbrida"]) # VPS Side
@@ -184,13 +185,46 @@ def startup_event():
         init_exchange_rates(db)
 
         # Initialize Payment Methods
+        # Initialize Payment Methods with Better Names
         if db.query(models.PaymentMethod).count() == 0:
             print("[INFO] Inicializando metodos de pago por defecto...")
-            defaults = ["Efectivo", "Pago Movil", "Punto de Venta", "Zelle", "Transferencia", "Credito"]
+            defaults = [
+                "Efectivo Divisa ($)", 
+                "Efectivo Bolívares (Bs)", 
+                "Punto de Venta (Bs)", 
+                "Pago Móvil (Bs)", 
+                "Zelle / Transferencia ($)",
+                "Crédito",
+                "Biopago (Bs)"
+            ]
             for name in defaults:
                 db.add(models.PaymentMethod(name=name, is_active=True, is_system=True))
             db.commit()
             print("[OK] Metodos de pago creados.")
+        else:
+             # Migración rápida de nombres (Safe Update)
+             try:
+                 # Map Old -> New
+                 replacements = {
+                     "Efectivo": "Efectivo Divisa ($)",
+                     "Punto de Venta": "Punto de Venta (Bs)",
+                     "Pago Movil": "Pago Móvil (Bs)",
+                     "Zelle": "Zelle / Transferencia ($)",
+                     "Transferencia": "Transferencia (Bs)"
+                 }
+                 
+                 for old_name, new_name in replacements.items():
+                     # Check if old exists and new doesn't
+                     old_method = db.query(models.PaymentMethod).filter(models.PaymentMethod.name == old_name).first()
+                     new_method_exists = db.query(models.PaymentMethod).filter(models.PaymentMethod.name == new_name).first()
+                     
+                     if old_method and not new_method_exists:
+                         old_method.name = new_name
+                         print(f"[MIGRATION] Renombrado '{old_name}' -> '{new_name}'")
+                         
+                 db.commit()
+             except Exception as e:
+                 print(f"[WARN] Error en migración de nombres de pago: {e}")
     except Exception as e:
         print(f"[WARN] Nota de Inicializacion: {e}")
     finally:

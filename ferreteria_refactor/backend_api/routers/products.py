@@ -412,6 +412,26 @@ def export_pdf(db: Session = Depends(get_db)):
 # PRODUCT CRUD ENDPOINTS (with dynamic routes)
 # ========================================
 
+@router.get("/credits", dependencies=[Depends(cashier_or_admin)])
+def get_credit_sales(db: Session = Depends(get_db)):
+    """
+    Get all credit sales (invoices) for Accounts Receivable.
+    Used by the CxC module.
+    Returns both Pending and Paid to allow history filtering on frontend.
+    """
+    query = db.query(models.Sale).filter(
+        models.Sale.is_credit == True
+    ).options(
+        joinedload(models.Sale.customer),
+        joinedload(models.Sale.payments),
+        joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
+        joinedload(models.Sale.returns)
+    ).order_by(models.Sale.due_date.asc())
+    
+    return query.all()
+
+
+
 @router.get("/{product_id}", response_model=schemas.ProductRead)
 def read_product(product_id: int, db: Session = Depends(get_db)):
     product = db.query(models.Product).options(joinedload(models.Product.units), joinedload(models.Product.stocks)).filter(models.Product.id == product_id).first()
@@ -647,23 +667,8 @@ def register_sale_payment(
     db: Session = Depends(get_db)
 ):
     """Register a payment (abono) for a credit sale"""
-    # Verify sale exists
-    sale = db.query(models.Sale).filter(models.Sale.id == payment_data.sale_id).first()
-    if not sale:
-        raise HTTPException(status_code=404, detail="Sale not found")
-    
-    # Create SalePayment record
-    payment = models.SalePayment(
-        sale_id=payment_data.sale_id,
-        amount=payment_data.amount,
-        currency=payment_data.currency,
-        payment_method=payment_data.payment_method,
-        exchange_rate=payment_data.exchange_rate
-    )
-    db.add(payment)
-    db.commit()
-    
-    return {"status": "success", "payment_id": payment.id}
+    from ..services.sales_service import SalesService
+    return SalesService.register_payment(db, payment_data)
 
 @router.put("/sales/{sale_id}", dependencies=[Depends(cashier_or_admin)])
 def update_sale(
@@ -868,20 +873,4 @@ def delete_product_image(product_id: int, db: Session = Depends(get_db)):
         "success": True,
         "message": "Imagen eliminada correctamente"
     }
-@router.get("/credits/pending", dependencies=[Depends(cashier_or_admin)])
-def get_pending_credit_sales(db: Session = Depends(get_db)):
-    """
-    Get all pending credit sales (invoices) for Accounts Receivable.
-    Used by the CxC module.
-    """
-    query = db.query(models.Sale).filter(
-        models.Sale.is_credit == True,
-        models.Sale.paid == False
-    ).options(
-        joinedload(models.Sale.customer),
-        joinedload(models.Sale.payments),
-        joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
-        joinedload(models.Sale.returns)
-    ).order_by(models.Sale.due_date.asc())
-    
-    return query.all()
+

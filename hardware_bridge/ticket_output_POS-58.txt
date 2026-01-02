@@ -4,30 +4,31 @@ MI NEGOCIO
 RIF: 
 Tel: 
 ================================
-Fecha: 02/01/2026 08:09
-Factura: #12
-Cliente: CLIENTE CONTADO
-DOC: 
+Fecha: 02/01/2026 08:19
+Factura: #13
+Cliente: JUAN PEREZ
+DOC: 11111
+
+CONDICION: A CREDITO
+Vence: 12/01/2026
 
 ================================
 CANT   PRODUCTO         TOTAL
 --------------------------------
 
-1 x MARTILLO 2
+1 x MARTILLO
 
-       600.00
+       500.00
 
 
 ================================
-SUBTOTAL:       600.00
+SUBTOTAL:       500.00
 
-TOTAL A PAGAR:  600.00
+TOTAL A PAGAR:  500.00
 ================================
 PAGOS:
 
-- Efectivo: USD5.00
-
-- Efectivo: Bs300.00
+- Credito: USD10.00
 
 ================================
       Gracias por su compra\n--- END TICKET (POS-58) ---

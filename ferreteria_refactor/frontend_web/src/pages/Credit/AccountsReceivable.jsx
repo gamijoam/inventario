@@ -10,10 +10,12 @@ const AccountsReceivable = () => {
     const { getExchangeRate, currencies, getActiveCurrencies, paymentMethods } = useConfig();
 
     // Get all active currencies including USD (anchor)
-    const availableCurrencies = [
-        currencies.find(c => c.is_anchor), // USD
-        ...getActiveCurrencies() // Other active currencies
-    ].filter(Boolean); // Remove undefined if anchor not found
+    // Get all active currencies unique by symbol
+    const availableCurrencies = Array.from(new Map(
+        [currencies.find(c => c.is_anchor), ...getActiveCurrencies()]
+            .filter(Boolean)
+            .map(c => [c.symbol, c])
+    ).values());
 
     const [invoices, setInvoices] = useState([]);
     const [filteredInvoices, setFilteredInvoices] = useState([]);
@@ -41,6 +43,13 @@ const AccountsReceivable = () => {
     const [selectedInvoices, setSelectedInvoices] = useState([]); // Array of IDs
     const [isBulkPay, setIsBulkPay] = useState(false);
 
+    // VALUATION STATE
+    const [valuationData, setValuationData] = useState(null);
+    const [loadingValuation, setLoadingValuation] = useState(false);
+    const [amountBs, setAmountBs] = useState(''); // Text input for Bs
+    const [rateMode, setRateMode] = useState('valuation'); // 'valuation', 'custom', 'currency_{id}'
+    const [customRate, setCustomRate] = useState(0);
+
     useEffect(() => {
         fetchInvoices();
     }, []);
@@ -52,7 +61,7 @@ const AccountsReceivable = () => {
     const fetchInvoices = async () => {
         setLoading(true);
         try {
-            const response = await apiClient.get('/products/credits/pending');
+            const response = await apiClient.get('/products/credits'); // Updated to fetch all history
             setInvoices(response.data);
         } catch (error) {
             console.error('Error fetching invoices:', error);
@@ -64,12 +73,30 @@ const AccountsReceivable = () => {
 
     const applyFilter = () => {
         const now = new Date();
+        // Normalize 'now' to start of day to avoid time collisions on the same day
+        now.setHours(0, 0, 0, 0);
+
         let filtered = [];
 
         if (filter === 'pending') {
-            filtered = invoices.filter(inv => !inv.paid && (!inv.due_date || new Date(inv.due_date) >= now));
+            // Pending: Not paid AND (No due date OR Due Date >= Today)
+            filtered = invoices.filter(inv => {
+                if (inv.paid) return false;
+                if (!inv.due_date) return true;
+                const due = new Date(inv.due_date);
+                // Adjust due date timezone offset if it's just a date string coming as UTC
+                // Simple fix: Add timezone offset or use string comparison if format is YYYY-MM-DD
+                // Better: new Date(inv.due_date + 'T23:59:59') to ensure end of day
+                return new Date(inv.due_date + 'T23:59:59') >= now;
+            });
         } else if (filter === 'overdue') {
-            filtered = invoices.filter(inv => !inv.paid && inv.due_date && new Date(inv.due_date) < now);
+            // Overdue: Not paid AND Due Date < Today
+            filtered = invoices.filter(inv => {
+                if (inv.paid) return false;
+                if (!inv.due_date) return false;
+                // Check if *really* overdue (yesterday or before)
+                return new Date(inv.due_date + 'T23:59:59') < now;
+            });
         } else if (filter === 'paid') {
             filtered = invoices.filter(inv => inv.paid);
         }
@@ -95,13 +122,41 @@ const AccountsReceivable = () => {
         return diff > 0 ? diff : 0;
     };
 
-    const handleRegisterPayment = (invoice) => {
+    const handleRegisterPayment = async (invoice) => {
         setSelectedInvoice(invoice);
-        setPaymentAmount(invoice.balance_pending || invoice.total_amount);
-        setPaymentMethod('Efectivo');
+        const debt = invoice.balance_pending || invoice.total_amount;
+        setPaymentAmount(debt);
+        setPaymentMethod('Efectivo Divisa ($)');
         setPaymentCurrency('USD');
         setIsBulkPay(false);
-        setShowPaymentModal(true);
+        setShowPaymentModal(true); // Open immediately
+
+        // Fetch Valuation
+        setLoadingValuation(true);
+        setValuationData(null);
+        setAmountBs('');
+        try {
+            const { data } = await apiClient.get(`/credits/sales/${invoice.id}/valuation`);
+            setValuationData(data);
+
+            // Set default rate to System Active Rate (not Valuation avg)
+            const activeBs = currencies.find(c => c.is_active && !c.is_anchor);
+            if (activeBs) {
+                setRateMode(`currency_${activeBs.id}`);
+                // Default Bs Amount = Debt * Active Rate
+                setAmountBs((debt * activeBs.rate).toFixed(2));
+                setCustomRate(activeBs.rate);
+            } else {
+                // Fallback if no active Bs found
+                setRateMode('custom');
+                setAmountBs((debt * 1).toFixed(2));
+                setCustomRate(1);
+            }
+        } catch (error) {
+            console.error("Error fetching valuation", error);
+        } finally {
+            setLoadingValuation(false);
+        }
     };
 
     const handleBulkPayment = () => {
@@ -116,7 +171,21 @@ const AccountsReceivable = () => {
         setPaymentMethod('Efectivo');
         setPaymentCurrency('USD');
         setIsBulkPay(true);
+        setIsBulkPay(true);
         setShowPaymentModal(true);
+
+        // Initialize Rate (Same as single payment)
+        const activeBs = currencies.find(c => c.is_active && !c.is_anchor);
+        if (activeBs) {
+            setRateMode(`currency_${activeBs.id}`);
+            setCustomRate(activeBs.rate);
+            // Pre-calculate total in Bs
+            setAmountBs((totalToPay * activeBs.rate).toFixed(2));
+        } else {
+            setRateMode('custom');
+            setCustomRate(1);
+            setAmountBs((totalToPay * 1).toFixed(2));
+        }
     };
 
     const handleSelectInvoice = (id) => {
@@ -149,51 +218,86 @@ const AccountsReceivable = () => {
         }
     };
 
+    // Helper to get selected rate
+    const getCurrentRate = () => {
+        if (rateMode === 'custom') return customRate;
+        if (rateMode === 'valuation' && valuationData) return valuationData.exchange_rate_used;
+        if (rateMode.startsWith('currency_')) {
+            const id = parseInt(rateMode.split('_')[1]);
+            const curr = currencies.find(c => c.id === id);
+            return curr ? curr.rate : 1;
+        }
+        return getExchangeRate(paymentCurrency) || 1;
+    };
+
     const handleSavePayment = async () => {
         if (paymentAmount <= 0) {
             toast.error('Ingrese un monto válido');
             return;
         }
 
-        const currentExchangeRate = getExchangeRate(paymentCurrency);
-        const amountInAnchor = paymentAmount / (currentExchangeRate || 1);
+        // Determine Rate to Use
+        let rateToUse = getCurrentRate();
+        // If currency is USD, rate is functionally 1 for calculations, but we record the rate used?
+        // Actually, if paying in USD, rate is irrelevant for the payment itself, but useful for reference.
+        // However, backend requires rate if converting.
 
-        // BULK PAYMENT LOGIC
+        const amountInAnchor = paymentAmount; // paymentAmount state is USD
+
+        // Check Validity
+        const effectiveLimit = isBulkPay
+            ? invoices.filter(inv => selectedInvoices.includes(inv.id)).reduce((sum, inv) => sum + (inv.balance_pending || inv.total_amount), 0)
+            : (selectedInvoice?.balance_pending || selectedInvoice?.total_amount);
+
+        if (amountInAnchor > effectiveLimit + 0.01) {
+            toast.error(`El monto ingresado excede el saldo ($${effectiveLimit.toFixed(2)})`);
+            return;
+        }
+
+        // Determine Final Amount to Send (Matches Currency)
+        let finalAmount = paymentAmount;
+        const isLocal = paymentCurrency === 'Bs' || paymentCurrency === 'VES';
+        if (isLocal) {
+            // If paying in Bs, use the Bs value
+            if (amountBs) finalAmount = parseFloat(amountBs);
+            else finalAmount = paymentAmount * rateToUse;
+        }
+
+        // BULK PAYMENT
         if (isBulkPay) {
             const invoicesToPay = invoices.filter(inv => selectedInvoices.includes(inv.id));
-            const totalBalance = invoicesToPay.reduce((sum, inv) => sum + (inv.balance_pending || inv.total_amount), 0);
-
-            if (amountInAnchor > totalBalance + 0.01) {
-                toast.error(`El monto ingresado excede el total de las facturas (` + totalBalance.toFixed(2) + `)`);
-                return;
-            }
-
             try {
-                let remainingPayment = amountInAnchor;
+                // For Bulk, logic is tricky with custom rates. Distribute USD amount?
+                // We'll stick to USD distribution for simplicity or re-calc per invoice?
+                // Simplified: Pay in USD (backend handles conversion using rate)
+                // Or if Paying Bs, we send Bs Amount?
+                // If we send Bs Amount, how to split?
+
+                // Strategy: Distribute the USD Amount (paymentAmount).
+                // Convert to Currency for each specific payment?
+                // Providing `amount` in `paymentCurrency` for each call.
+
+                let remainingUSD = amountInAnchor;
 
                 for (const invoice of invoicesToPay) {
-                    if (remainingPayment <= 0.001) break;
+                    if (remainingUSD <= 0.001) break;
 
                     const invBalance = invoice.balance_pending || invoice.total_amount;
-                    const payAmount = Math.min(invBalance, remainingPayment);
-                    const payAmountInCurrency = payAmount * (currentExchangeRate || 1);
+                    const payAmountUSD = Math.min(invBalance, remainingUSD);
+
+                    // Convert back to chosen currency for the API call
+                    // If Currency is Bs, calc Bs amount for this portion
+                    const payAmountCurrency = isLocal ? (payAmountUSD * rateToUse) : payAmountUSD;
 
                     await apiClient.post('/products/sales/payments', {
                         sale_id: invoice.id,
-                        amount: payAmountInCurrency,
+                        amount: payAmountCurrency,
                         currency: paymentCurrency,
                         payment_method: paymentMethod,
-                        exchange_rate: currentExchangeRate
+                        exchange_rate: rateToUse
                     });
 
-                    const newBalance = Math.max(0, invBalance - payAmount);
-                    const isPaid = newBalance <= 0.01;
-
-                    await apiClient.put(`/products/sales/${invoice.id}`, null, {
-                        params: { balance_pending: isPaid ? 0 : newBalance, paid: isPaid }
-                    });
-
-                    remainingPayment -= payAmount;
+                    remainingUSD -= payAmountUSD;
                 }
 
                 toast.success('Pagos registrados correctamente');
@@ -203,50 +307,34 @@ const AccountsReceivable = () => {
 
             } catch (error) {
                 console.error('Error in bulk payment:', error);
-                toast.error('Error al registrar pagos masivos: ' + error.message);
+                toast.error('Error al registrar pagos masivos');
             }
             return;
         }
 
-        // SINGLE INVOICE LOGIC
-        if (!selectedInvoice) return;
-
-        const balancePending = selectedInvoice.balance_pending || selectedInvoice.total_amount;
-
-        if (amountInAnchor > balancePending + 0.01) {
-            toast.error(`El monto excede el saldo pendiente ($${balancePending.toFixed(2)})`);
-            return;
-        }
-
+        // SINGLE PAYMENT
         try {
             await apiClient.post('/products/sales/payments', {
                 sale_id: selectedInvoice.id,
-                amount: paymentAmount,
+                amount: finalAmount,
                 currency: paymentCurrency,
                 payment_method: paymentMethod,
-                exchange_rate: currentExchangeRate
+                exchange_rate: rateToUse
             });
 
-            const newBalance = Math.max(0, balancePending - amountInAnchor);
-            const isPaid = newBalance <= 0.01;
-
-            await apiClient.put(`/products/sales/${selectedInvoice.id}`, null, {
-                params: {
-                    balance_pending: isPaid ? 0 : newBalance,
-                    paid: isPaid
-                }
-            });
-
+            // Cash Movement (Optional validation)
             try {
-                await apiClient.post('/cash/movements', {
-                    type: 'DEPOSIT',
-                    amount: paymentAmount,
-                    currency: paymentCurrency,
-                    exchange_rate: currentExchangeRate,
-                    description: `Abono CxC - Factura #${selectedInvoice.id} - ${selectedInvoice.customer?.name || 'Cliente'}`
-                });
+                if (paymentMethod.toLowerCase().includes('efectivo')) {
+                    await apiClient.post('/cash/movements', {
+                        type: 'DEPOSIT',
+                        amount: finalAmount,
+                        currency: paymentCurrency,
+                        exchange_rate: rateToUse,
+                        description: `Abono CxC - Factura #${selectedInvoice.id} - ${selectedInvoice.customer?.name || 'Cliente'}`
+                    });
+                }
             } catch (cashError) {
-                console.warn('No open cash session');
+                console.warn('No open cash session or error recording movement');
             }
 
             toast.success(`Pago registrado correctamente`);
@@ -768,17 +856,123 @@ const AccountsReceivable = () => {
                             </div>
 
                             {/* Input Amount */}
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Monto A Pagar</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-3.5 text-slate-400 font-bold">$</span>
-                                    <input
-                                        type="number"
-                                        value={paymentAmount}
-                                        onChange={(e) => setPaymentAmount(e.target.value === '' ? '' : parseFloat(e.target.value))}
-                                        className="w-full pl-8 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-lg text-slate-800 transition-all placeholder:text-slate-300"
-                                        step="0.01"
-                                    />
+                            {/* Valuation Display */}
+                            {/* Rate Selector Enabled for All Modes */}
+                            {true && (
+                                <div className="bg-white/50 rounded-xl animate-in fade-in">
+                                    <div className="mt-3">
+                                        <label className="block text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Tasa de Cambio a Aplicar</label>
+                                        <select
+                                            value={rateMode}
+                                            onChange={(e) => {
+                                                const mode = e.target.value;
+                                                setRateMode(mode);
+
+                                                // Recalculate Bs based on new rate
+                                                let newRate = 1;
+                                                if (mode === 'custom') newRate = customRate;
+                                                else if (mode === 'valuation') newRate = valuationData.exchange_rate_used;
+                                                else if (mode.startsWith('currency_')) {
+                                                    const id = parseInt(mode.split('_')[1]);
+                                                    const c = currencies.find(x => x.id === id);
+                                                    if (c) newRate = c.rate;
+                                                }
+
+                                                if (paymentAmount) {
+                                                    setAmountBs((paymentAmount * newRate).toFixed(2));
+                                                }
+                                            }}
+                                            className="w-full p-2 bg-white border border-indigo-200 rounded-lg text-sm font-bold text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                        >
+                                            {/* Removed 'valuation' option per user request */}
+                                            {currencies.filter(c => c.is_active && !c.is_anchor).map(c => (
+                                                <option key={c.id} value={`currency_${c.id}`}>
+                                                    {c.name} ({(c.rate || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })})
+                                                </option>
+                                            ))}
+                                            <option value="custom">Manual / Personalizada</option>
+                                        </select>
+
+                                        {rateMode === 'custom' && (
+                                            <div className="mt-2 flex items-center gap-2 animate-in fade-in">
+                                                <span className="text-xs font-bold text-indigo-400">Tasa: BS</span>
+                                                <input
+                                                    type="number"
+                                                    value={customRate}
+                                                    onChange={(e) => {
+                                                        const newRate = parseFloat(e.target.value) || 0;
+                                                        setCustomRate(newRate);
+                                                        if (paymentAmount) setAmountBs((paymentAmount * newRate).toFixed(2));
+                                                    }}
+                                                    className="flex-1 px-3 py-2 text-right text-sm font-bold border border-indigo-200 rounded-lg focus:border-indigo-500 outline-none"
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Dual Inputs */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Monto USD ($)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
+                                        <input
+                                            type="number"
+                                            value={paymentAmount}
+                                            onChange={(e) => {
+                                                const val = e.target.value === '' ? '' : parseFloat(e.target.value);
+                                                setPaymentAmount(val);
+                                                // Update Bs
+                                                const rate = getCurrentRate();
+                                                // Rate might depend on state that hasn't updated in this closure if using function. 
+                                                // Better to calc rate locally or rely on effect? 
+                                                // We can calc locally for immediate feedback.
+                                                let r = 1;
+                                                if (rateMode === 'custom') r = customRate;
+                                                else if (rateMode === 'valuation') r = valuationData?.exchange_rate_used || 1;
+                                                else if (rateMode.startsWith('currency_')) {
+                                                    const id = parseInt(rateMode.split('_')[1]);
+                                                    const c = currencies.find(x => x.id === id);
+                                                    if (c) r = c.rate;
+                                                }
+
+                                                if (val !== '') setAmountBs((val * r).toFixed(2));
+                                                else setAmountBs('');
+                                            }}
+                                            className="w-full pl-6 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-lg text-slate-800"
+                                            step="0.01"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Monto Bs</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-3 text-slate-400 font-bold text-xs mt-0.5">Bs</span>
+                                        <input
+                                            type="number"
+                                            value={amountBs}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setAmountBs(val);
+                                                // Update USD
+                                                let r = 1;
+                                                if (rateMode === 'custom') r = customRate;
+                                                else if (rateMode === 'valuation') r = valuationData?.exchange_rate_used || 1;
+                                                else if (rateMode.startsWith('currency_')) {
+                                                    const id = parseInt(rateMode.split('_')[1]);
+                                                    const c = currencies.find(x => x.id === id);
+                                                    if (c) r = c.rate;
+                                                }
+
+                                                if (val && r > 0) setPaymentAmount((parseFloat(val) / r).toFixed(2));
+                                                else if (!val) setPaymentAmount('');
+                                            }}
+                                            className="w-full pl-8 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-lg text-slate-800"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
@@ -788,7 +982,7 @@ const AccountsReceivable = () => {
                                     <select
                                         value={paymentMethod}
                                         onChange={(e) => setPaymentMethod(e.target.value)}
-                                        className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
+                                        className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 text-sm"
                                     >
                                         {paymentMethods.filter(pm => pm.is_active).map(pm => (
                                             <option key={pm.id} value={pm.name}>{pm.name}</option>

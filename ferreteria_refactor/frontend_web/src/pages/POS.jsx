@@ -871,9 +871,12 @@ const POS = () => {
                                             {/* Quantity Controls */}
                                             <CartItemQuantityInput
                                                 quantity={item.quantity}
-                                                onUpdate={(newQty) => updateQuantity(item.id, newQty)} // FIX: Use item.id
+                                                onUpdate={(newQty) => {
+                                                    updateQuantity(item.id, newQty);
+                                                    focusSearch();
+                                                }}
                                                 unitName={item.unit_name}
-                                                min={0} // Allow 0 to remove
+                                                min={0}
                                             />
                                             <span className="text-[10px] font-medium text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-100">
                                                 {item.unit_name}
