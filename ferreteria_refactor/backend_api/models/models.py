@@ -212,6 +212,7 @@ class Kardex(Base):
     quantity = Column(Numeric(12, 3), nullable=False) # Positive or Negative
     balance_after = Column(Numeric(12, 3), nullable=False)
     description = Column(Text, nullable=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True) # NEW: Warehouse link
 
     product = relationship("Product")
 
@@ -544,6 +545,7 @@ class PurchaseOrder(Base):
     supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
     purchase_date = Column(DateTime, default=get_venezuela_now)
     due_date = Column(DateTime, nullable=True)  # Calculated from purchase_date + payment_terms
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True) # NEW: Receiving warehouse
     
     # Payment tracking
     total_amount = Column(Numeric(12, 2), default=0.00)

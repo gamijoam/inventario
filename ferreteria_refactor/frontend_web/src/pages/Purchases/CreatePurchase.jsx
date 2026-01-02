@@ -19,7 +19,9 @@ const CreatePurchase = () => {
     // State
     const [suppliers, setSuppliers] = useState([]);
     const [products, setProducts] = useState([]);
+    const [warehouses, setWarehouses] = useState([]); // NEW
     const [selectedSupplier, setSelectedSupplier] = useState(null);
+    const [selectedWarehouse, setSelectedWarehouse] = useState(null); // NEW
     const [supplierSearch, setSupplierSearch] = useState('');
     const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
 
@@ -36,7 +38,7 @@ const CreatePurchase = () => {
     const [paymentType, setPaymentType] = useState('CREDIT'); // CASH or CREDIT
     const [showCostUpdateModal, setShowCostUpdateModal] = useState(null);
 
-    // Load suppliers and products
+    // Load suppliers, products, and warehouses
     const fetchSuppliers = async () => {
         try {
             const response = await apiClient.get('/suppliers');
@@ -57,9 +59,25 @@ const CreatePurchase = () => {
         }
     };
 
+    const fetchWarehouses = async () => { // NEW
+        try {
+            const response = await apiClient.get('/warehouses');
+            if (response.data && response.data.length > 0) {
+                setWarehouses(response.data);
+                // Default to main warehouse
+                const main = response.data.find(w => w.is_main) || response.data[0];
+                setSelectedWarehouse(main.id);
+            }
+        } catch (error) {
+            console.error('Error fetching warehouses:', error);
+            // Non-blocking, will default to 1 in submit if needed
+        }
+    };
+
     useEffect(() => {
         fetchSuppliers();
         fetchProducts();
+        fetchWarehouses(); // NEW
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -185,8 +203,12 @@ const CreatePurchase = () => {
         }
 
         try {
+            // Use selected warehouse or default to 1 (safeguard)
+            const warehouseId = selectedWarehouse || 1;
+
             const purchaseData = {
                 supplier_id: selectedSupplier.id,
+                warehouse_id: warehouseId,
                 invoice_number: invoiceData.invoice_number,
                 notes: invoiceData.notes,
                 total_amount: total,
@@ -206,7 +228,39 @@ const CreatePurchase = () => {
             navigate('/purchases');
         } catch (error) {
             console.error('Error creating purchase:', error);
-            toast.error(error.response?.data?.detail || 'Error al registrar compra');
+
+            // Nuclear option: Ensure errorMessage is ALWAYS a string
+            let errorMessage = 'Error al registrar compra';
+
+            try {
+                if (error.response?.data?.detail) {
+                    const detail = error.response.data.detail;
+                    if (Array.isArray(detail)) {
+                        // Handle Pydantic validation errors
+                        errorMessage += ': ' + detail.map(err => {
+                            if (typeof err === 'object' && err.msg) return err.msg;
+                            if (typeof err === 'string') return err;
+                            return JSON.stringify(err);
+                        }).join(', ');
+                    } else if (typeof detail === 'object') {
+                        errorMessage += ': ' + JSON.stringify(detail);
+                    } else {
+                        errorMessage += ': ' + String(detail);
+                    }
+                } else {
+                    errorMessage += ': ' + (error.message || 'Error desconocido');
+                }
+            } catch (e) {
+                console.error("Error parsing error message:", e);
+                errorMessage = 'Error crítico al procesar solicitud';
+            }
+
+            // Final safety check
+            if (typeof errorMessage !== 'string') {
+                errorMessage = JSON.stringify(errorMessage);
+            }
+
+            toast.error(errorMessage);
         }
     };
 
@@ -259,6 +313,27 @@ const CreatePurchase = () => {
                                     ))}
                                 </div>
                             )}
+                        </div>
+
+                        {/* Warehouse Selector */}
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
+                                <Package size={12} /> Bodega Destino
+                            </label>
+                            <div className="relative">
+                                <select
+                                    value={selectedWarehouse || ''}
+                                    onChange={(e) => setSelectedWarehouse(Number(e.target.value))}
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-800 outline-none text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-all appearance-none"
+                                >
+                                    {warehouses.map(wh => (
+                                        <option key={wh.id} value={wh.id}>
+                                            {wh.name} {wh.is_main ? '(Principal)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown className="absolute right-3 top-3 text-slate-400 pointer-events-none" size={16} />
+                            </div>
                         </div>
 
                         {/* Invoice Data */}

@@ -16,7 +16,7 @@ router = APIRouter(
 async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Session = Depends(get_db)):
     """
     Create a new purchase order with automatic:
-    - Stock updates
+    - Multi-Warehouse Stock updates (ProductStock + Global)
     - Debt generation (if credit)
     - Cost price updates
     """
@@ -25,6 +25,11 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         supplier = db.query(models.Supplier).filter(models.Supplier.id == order_data.supplier_id).first()
         if not supplier:
             raise HTTPException(status_code=404, detail="Supplier not found")
+
+        # Validate Warehouse
+        warehouse = db.query(models.Warehouse).filter(models.Warehouse.id == order_data.warehouse_id).first()
+        if not warehouse:
+             raise HTTPException(status_code=404, detail="Warehouse not found")
         
         # Calculate due date
         from datetime import datetime, timedelta
@@ -34,6 +39,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         # Create purchase order
         purchase = models.PurchaseOrder(
             supplier_id=order_data.supplier_id,
+            warehouse_id=order_data.warehouse_id, # Link to warehouse
             invoice_number=order_data.invoice_number,
             notes=order_data.notes,
             total_amount=order_data.total_amount,
@@ -62,7 +68,27 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             )
             db.add(purchase_item)
 
-            # Update stock
+            # =================================================
+            # MULTI-WAREHOUSE STOCK LOGIC
+            # =================================================
+            # 1. Update Specific Warehouse Stock
+            product_stock = db.query(models.ProductStock).filter(
+                models.ProductStock.product_id == product.id,
+                models.ProductStock.warehouse_id == order_data.warehouse_id
+            ).first()
+
+            if not product_stock:
+                # Create if not exists
+                product_stock = models.ProductStock(
+                    product_id=product.id,
+                    warehouse_id=order_data.warehouse_id,
+                    quantity=0
+                )
+                db.add(product_stock)
+            
+            product_stock.quantity += item.quantity
+
+            # 2. Update Global Stock (Cache)
             old_stock = product.stock
             product.stock += item.quantity
             
@@ -86,18 +112,18 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                          tax_multiplier = 1 + (product.tax_rate / 100) if product.tax_rate else 1
                          margin_multiplier = 1 + (product.profit_margin / 100)
                          product.price = item.unit_cost * margin_multiplier * tax_multiplier
-
-            
+ 
             # Auto-update profit margin (Markup) based on new values
             if product.cost_price > 0 and product.price > 0:
                 product.profit_margin = ((product.price - product.cost_price) / product.cost_price) * 100
 
-            # Create Kardex entry
+            # Create Kardex entry LINKED TO WAREHOUSE
             kardex = models.Kardex(
                 product_id=product.id,
+                warehouse_id=order_data.warehouse_id, # IMPORTANT
                 movement_type=models.MovementType.PURCHASE,
                 quantity=item.quantity,
-                balance_after=product.stock,
+                balance_after=product.stock, # Note: Current Kardex balance logic is global, refactor later for per-warehouse balance
                 description=f"Compra #{purchase.id} - {supplier.name}",
                 date=purchase_date
             )
@@ -108,9 +134,9 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 "id": product.id,
                 "name": product.name,
                 "price": float(product.price),
-                "cost_price": float(product.cost_price), # NEW: Send cost
+                "cost_price": float(product.cost_price), 
                 "stock": float(product.stock),
-                "profit_margin": float(product.profit_margin) if product.profit_margin else 0, # NEW: Send margin
+                "profit_margin": float(product.profit_margin) if product.profit_margin else 0,
                 "exchange_rate_id": product.exchange_rate_id
             })
         
