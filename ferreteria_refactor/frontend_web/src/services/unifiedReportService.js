@@ -44,6 +44,21 @@ const unifiedReportService = {
             responseType: 'blob' // Important for file handling
         });
         return response.data; // Returns Blob
+    },
+
+    // Recent Transactions
+    // Note: Using credits endpoint as workaround since there's no general sales list endpoint
+    // Returns credit sales only; for complete solution, backend needs GET /sales endpoint
+    getRecentTransactions: async (limit = 10) => {
+        try {
+            const response = await apiClient.get('/products/credits');
+            const sales = Array.isArray(response.data) ? response.data : [];
+            // Return most recent, limited
+            return sales.slice(0, limit);
+        } catch (error) {
+            console.warn('Could not fetch recent transactions:', error);
+            return []; // Return empty array on error to prevent dashboard crash
+        }
     }
 };
 
