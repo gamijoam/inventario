@@ -93,10 +93,28 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     if (!isOpen) return null;
 
     // Calculate Totals
+    // Calculate Totals with Effective Rate
+    // FIXED: Calculate the effective average rate of the cart (TotalBs / TotalUSD)
+    // This allows payments in Bs to be credited at the same "value" they were debited.
+    const effectiveBsRate = (totalBs > 0 && totalUSD > 0)
+        ? (totalBs / totalUSD)
+        : (getExchangeRate('Bs') || 1);
+
     const totalPaidUSD = payments.reduce((acc, p) => {
         const amount = parseFloat(p.amount) || 0;
-        const rate = getExchangeRate(p.currency);
-        return acc + (amount / (rate || 1));
+        let rate = 1;
+
+        if (p.currency === 'USD' || p.currency === '$') {
+            rate = 1;
+        } else if (p.currency === 'Bs' || p.currency === 'VES') {
+            // Use EFFECTIVE rate for Bs payments to match debt valuation
+            rate = effectiveBsRate;
+        } else {
+            // Other currencies use their global rate
+            rate = getExchangeRate(p.currency) || 1;
+        }
+
+        return acc + (amount / rate);
     }, 0);
 
     const remainingUSD = totalUSD - totalPaidUSD;
@@ -147,8 +165,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             }
 
             // Calculate Change in VES
-            const bsRate = getExchangeRate('Bs') || 1;
-            const changeVES = changeUSD > 0.005 ? (changeUSD * bsRate) : 0;
+            // FIXED: Use correct effective rate for change calculation
+            const effectiveBsRate = (totalBs > 0 && totalUSD > 0)
+                ? (totalBs / totalUSD)
+                : (getExchangeRate('Bs') || 1);
+
+            const changeVES = changeUSD > 0.005 ? (changeUSD * effectiveBsRate) : 0;
 
             const saleData = {
                 total_amount: totalUSD,
@@ -159,7 +181,11 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 change_currency: "VES",
 
                 currency: saleCurrency, // Dynamic Currency
-                exchange_rate: bsRate,
+                exchange_rate: effectiveBsRate, // Store the effective rate used for this transaction? Or Global?
+                // Actually, backend stores "exchange_rate_used". If we send effective rate, 
+                // recalculations based on total_usd * rate will match total_bs. 
+                // This is cleaner for consistency, though backend now trusts total_amount_bs directly.
+
                 payment_method: isCreditSale ? "Credito" : (payments[0]?.method || "Efectivo"),
                 payments: isCreditSale ? [] : payments.map(p => ({
                     amount: parseFloat(p.amount) || 0,
@@ -303,7 +329,16 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         <div className="text-sm font-bold text-emerald-400/60 mt-1 font-mono">
                                             {(() => {
                                                 const local = currencies.find(c => !c.is_anchor);
-                                                const amount = changeUSD * (local.rate || 1);
+                                                const isLocalCurrency = local.symbol === 'Bs' || local.symbol === 'VES';
+
+                                                let amount = 0;
+                                                if (isLocalCurrency && totalBs > 0 && totalUSD > 0) {
+                                                    // Use Effective Rate for Change too (Consistency)
+                                                    amount = totalBs * (changeUSD / totalUSD);
+                                                } else {
+                                                    amount = changeUSD * (local.rate || 1);
+                                                }
+
                                                 const displayAmount = Math.max(0, amount);
                                                 return `${local.symbol} ${formatCurrency(displayAmount, local.symbol)}`;
                                             })()}
