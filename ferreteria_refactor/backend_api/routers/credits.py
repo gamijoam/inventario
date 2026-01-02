@@ -126,3 +126,146 @@ def get_sale_valuation(sale_id: int, db: Session = Depends(get_db)):
         "breakdown": final_breakdown,
         "exchange_rate_used": round(effective_rate, 4)
     }
+
+from datetime import datetime, timedelta
+
+@router.get("/aging-report")
+def get_aging_report(db: Session = Depends(get_db)):
+    """
+    Generates a breakdown of Accounts Receivable by age of debt.
+    Buckets: Current (0-15), 15-30, 30-60, 60+ days.
+    """
+    # Get all customers with 'credit' sales pending
+    # We fetch ALL customers to ensure we don't miss anyone, but filtering by Sales is better
+    
+    # 1. Fetch all pending credit sales
+    pending_sales = db.query(models.Sale).filter(
+        models.Sale.is_credit == True,
+        models.Sale.paid == False,
+        models.Sale.balance_pending > 0
+    ).options(joinedload(models.Sale.customer)).all()
+    
+    report = {}
+    
+    now = datetime.now()
+    
+    for sale in pending_sales:
+        client_id = sale.customer_id
+        client_name = sale.customer.name if sale.customer else "Unknown"
+        
+        if client_id not in report:
+            report[client_id] = {
+                "client_id": client_id,
+                "client_name": client_name,
+                "total_debt": 0.0,
+                "current": 0.0,   # 0-15 days
+                "days_15_30": 0.0,
+                "days_30_60": 0.0,
+                "days_60_plus": 0.0
+            }
+            
+        debt = float(sale.balance_pending)
+        report[client_id]["total_debt"] += debt
+        
+        # Calculate Age
+        # Using Sale Date as reference for Age (Invoice Age)
+        age_days = (now - sale.date).days
+        
+        if age_days <= 15:
+            report[client_id]["current"] += debt
+        elif age_days <= 30:
+            report[client_id]["days_15_30"] += debt
+        elif age_days <= 60:
+            report[client_id]["days_30_60"] += debt
+        else:
+            report[client_id]["days_60_plus"] += debt
+
+    # Convert to list
+    return list(report.values())
+
+@router.get("/client/{client_id}/ledger")
+def get_client_ledger(client_id: int, db: Session = Depends(get_db)):
+    """
+    Returns a chronological ledger of sales and payments for a client.
+    Equivalent to a "Statement of Account".
+    """
+    # 1. Get Client to ensure exists
+    client = db.query(models.Customer).filter(models.Customer.id == client_id).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+        
+    # 2. Get Sales (Debits)
+    sales = db.query(models.Sale).filter(
+        models.Sale.customer_id == client_id,
+        models.Sale.is_credit == True
+    ).all()
+    
+    # 3. Get Payments (Credits) is TRICKY because payments are linked to SALES in SalePayment
+    # OR linked to Customer in Payment model (legacy/general).
+    # We should look at BOTH or strictly SalePayment?
+    # The current system uses SalePayment for credit payments.
+    
+    ledger_entries = []
+    
+    # Process Sales
+    for sale in sales:
+        ledger_entries.append({
+            "date": sale.date,
+            "type": "VENTA",
+            "ref": f"Factura #{sale.id}",
+            "debit": float(sale.total_amount),
+            "credit": 0.0,
+            "original_obj": sale
+        })
+        
+        # Process Payments linked to this sale
+        for payment in sale.payments:
+            amount_usd = float(payment.amount)
+            details_str = f"Abono a Fact. #{sale.id}"
+            
+            # Normalize to USD if needed
+            if payment.currency != "USD":
+                rate = float(payment.exchange_rate) if payment.exchange_rate else 1.0
+                if rate > 0:
+                    amount_usd = amount_usd / rate
+                details_str += f" ({payment.amount} {payment.currency} @ {rate})"
+
+            ledger_entries.append({
+                "date": payment.created_at if hasattr(payment, 'created_at') and payment.created_at else sale.date,
+                "type": "ABONO",
+                "ref": details_str, # Updated to include details
+                "debit": 0.0,
+                "credit": round(amount_usd, 2), # Normalized to USD for balance math
+                "original_obj": payment,
+                "original_currency": payment.currency,
+                "original_amount": float(payment.amount)
+            })
+            
+    # Sort by Date
+    ledger_entries.sort(key=lambda x: x["date"])
+    
+    # Calculate Balance
+    balance = 0.0
+    final_output = []
+    
+    for entry in ledger_entries:
+        balance += entry["debit"]
+        balance -= entry["credit"]
+        final_output.append({
+            "date": entry["date"].isoformat() if entry["date"] else None,
+            "type": entry["type"],
+            "ref": entry["ref"],
+            "debit": entry["debit"],
+            "credit": entry["credit"],
+            "balance": round(balance, 2)
+        })
+        
+    return {
+        "client": {
+            "id": client.id,
+            "name": client.name,
+            "limit": float(client.credit_limit or 0)
+        },
+        "ledger": final_output,
+        "current_balance": round(balance, 2)
+    }

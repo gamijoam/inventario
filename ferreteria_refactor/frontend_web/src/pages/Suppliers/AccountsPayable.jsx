@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { DollarSign, AlertTriangle, FileText, CreditCard, ArrowLeft, TrendingDown, Eye, CheckCircle, Clock, Calendar } from 'lucide-react';
 import apiClient from '../../config/axios';
@@ -7,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
 
 const AccountsPayable = () => {
+    const navigate = useNavigate();
     const [suppliers, setSuppliers] = useState([]);
     const [selectedSupplier, setSelectedSupplier] = useState(null);
     const [supplierPurchases, setSupplierPurchases] = useState([]);
@@ -26,11 +28,12 @@ const AccountsPayable = () => {
     const fetchSuppliersWithDebt = async () => {
         try {
             const response = await apiClient.get('/suppliers');
-            const suppliersWithDebt = response.data.filter(s => s.current_balance > 0);
-            setSuppliers(suppliersWithDebt);
+            // Show all suppliers, sort by debt descending
+            const allSuppliers = response.data.sort((a, b) => Number(b.current_balance || 0) - Number(a.current_balance || 0));
+            setSuppliers(allSuppliers);
 
             // Calculate totals
-            const total = suppliersWithDebt.reduce((sum, s) => sum + Number(s.current_balance || 0), 0);
+            const total = allSuppliers.reduce((sum, s) => sum + Number(s.current_balance || 0), 0);
             setTotalDebt(total);
 
             // Get overdue count
@@ -300,6 +303,13 @@ const AccountsPayable = () => {
                                             </td>
                                             <td className="p-4 text-right flex items-center justify-end gap-2">
                                                 <button
+                                                    onClick={() => navigate(`/suppliers/${selectedSupplier.id}/ledger`)}
+                                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                    title="Ver Historial"
+                                                >
+                                                    <Clock size={20} />
+                                                </button>
+                                                <button
                                                     onClick={() => handleViewItems(purchase)}
                                                     className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                                     title="Ver Productos"
@@ -343,21 +353,41 @@ const AccountsPayable = () => {
 
 // Payment Modal Component
 const PaymentModal = ({ purchase, onClose, onSuccess }) => {
-    const { paymentMethods } = useConfig();
+    const { paymentMethods, currencies, exchangeRate } = useConfig();
     const balance = Number(purchase.total_amount || 0) - Number(purchase.paid_amount || 0);
     const [formData, setFormData] = useState({
         amount: balance,
-        payment_method: 'Transferencia',
+        payment_method: '',
         reference: '',
-        notes: ''
+        notes: '',
+        currency: 'USD',
+        exchange_rate: exchangeRate
     });
     const [loading, setLoading] = useState(false);
+
+    // Filter Currencies for Rate Selection (Non-anchor ie. Non-USD)
+    const activeRates = (currencies || []).filter(c => c.is_active && !c.is_anchor);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (formData.amount <= 0 || formData.amount > balance) {
-            toast.error(`El monto debe estar entre $0.01 y $${Number(balance).toFixed(2)}`);
+        // Calculate USD equivalent for validation
+        const rate = parseFloat(formData.exchange_rate) || 1;
+        const amount = parseFloat(formData.amount) || 0;
+
+        let amountUSD = amount;
+        if (formData.currency !== 'USD') {
+            amountUSD = amount / rate;
+        }
+
+        // Tolerance for float comparison
+        if (amountUSD <= 0.001) {
+            toast.error("El monto debe ser mayor a 0");
+            return;
+        }
+
+        if (amountUSD > (balance + 1)) {
+            toast.error(`El monto ($${amountUSD.toFixed(2)}) excede el saldo pendiente ($${balance.toFixed(2)})`);
             return;
         }
 
@@ -372,6 +402,13 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const getEquivUSD = () => {
+        if (formData.currency === 'USD') return parseFloat(formData.amount) || 0;
+        const rate = parseFloat(formData.exchange_rate) || 1;
+        const amount = parseFloat(formData.amount) || 0;
+        return amount / rate;
     };
 
     return (
@@ -405,22 +442,90 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
                         </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Moneda</label>
+                            <select
+                                value={formData.currency}
+                                onChange={(e) => {
+                                    const newCurr = e.target.value;
+                                    // Default to first active rate if switching to VES
+                                    let newRate = 1.0;
+                                    if (newCurr !== 'USD' && activeRates.length > 0) {
+                                        newRate = activeRates[0].rate;
+                                    }
+
+                                    setFormData({
+                                        ...formData,
+                                        currency: newCurr,
+                                        exchange_rate: newRate
+                                    });
+                                }}
+                                className="w-full p-3 border border-slate-200 rounded-xl font-bold"
+                            >
+                                <option value="USD">USD ($)</option>
+                                <option value="VES">Bolívares (Bs)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Tasa</label>
+                            {formData.currency === 'USD' ? (
+                                <input
+                                    type="number"
+                                    disabled
+                                    value="1.00"
+                                    className="w-full p-3 border border-slate-200 rounded-xl font-bold bg-slate-50 text-slate-400"
+                                />
+                            ) : (
+                                <div className="space-y-2">
+                                    <select
+                                        className="w-full p-2 text-sm border border-slate-200 rounded-lg font-medium"
+                                        onChange={(e) => setFormData({ ...formData, exchange_rate: parseFloat(e.target.value) })}
+                                        value={activeRates.some(r => r.rate == formData.exchange_rate) ? formData.exchange_rate : ''}
+                                    >
+                                        <option value="" disabled>Seleccionar Tasa</option>
+                                        {activeRates.map(r => (
+                                            <option key={r.id} value={r.rate}>
+                                                {r.name} - {r.rate}
+                                            </option>
+                                        ))}
+                                        <option value={formData.exchange_rate}>Manual ({formData.exchange_rate})</option>
+                                    </select>
+
+                                    {/* Allow manual override always visible or just use the select? 
+                                        User asked for 'Tasas Activas'. Let's keep input for fine tuning.
+                                    */}
+                                    <input
+                                        type="number"
+                                        value={formData.exchange_rate}
+                                        onChange={(e) => setFormData({ ...formData, exchange_rate: e.target.value })}
+                                        className="w-full p-2 border border-slate-200 rounded-lg font-bold text-sm"
+                                        placeholder="Tasa manual"
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">
-                            Monto a Abonar *
+                            Monto a Abonar ({formData.currency}) *
                         </label>
                         <div className="relative">
-                            <span className="absolute left-4 top-3.5 text-slate-400 font-bold">$</span>
                             <input
                                 type="number"
                                 value={formData.amount}
                                 onChange={(e) => setFormData({ ...formData, amount: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                                className="w-full pl-8 pr-4 py-3 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-lg font-bold text-slate-800"
+                                className="w-full pl-4 pr-4 py-3 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-lg font-bold text-slate-800"
                                 step="0.01"
                                 min="0.01"
-                                max={balance}
                                 required
                             />
+                            {formData.currency !== 'USD' && (
+                                <div className="absolute right-4 top-3.5 text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
+                                    = ${getEquivUSD().toFixed(2)} USD
+                                </div>
+                            )}
                         </div>
                     </div>
 

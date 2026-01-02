@@ -10,6 +10,7 @@ router = APIRouter(prefix="/ws", tags=["websocket"])
 
 
 @router.websocket("")
+@router.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint for real-time updates
@@ -17,6 +18,7 @@ async def websocket_endpoint(websocket: WebSocket):
     """
     try:
         await manager.connect(websocket)
+        await websocket.send_text(json.dumps({"type": "conn_ack", "msg": "Connected"}))
     except Exception as e:
         print(f"[WS] Error connecting WebSocket: {e}")
         return

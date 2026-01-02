@@ -1,3 +1,4 @@
+import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -16,6 +17,9 @@ import CreatePurchase from './pages/Purchases/CreatePurchase';
 import PurchaseDetail from './pages/Purchases/PurchaseDetail';
 import AccountsPayable from './pages/Suppliers/AccountsPayable';
 import DetailedReports from './pages/Reports/DetailedReports';
+
+// Supplier Ledger
+const SupplierLedger = React.lazy(() => import('./pages/Suppliers/SupplierLedger'));
 import UnifiedReports from './pages/Reports/UnifiedReports';
 
 // ... existing imports ...
@@ -29,6 +33,8 @@ import QuotesManager from './pages/Quotes/QuotesManager';
 import WarehouseManager from './pages/Warehouses/WarehouseManager';
 import InventoryTransfers from './pages/Warehouses/InventoryTransfers';
 import AccountsReceivable from './pages/Credit/AccountsReceivable';
+import AgingReport from './pages/Credit/AgingReport';
+import ClientLedger from './pages/Credit/ClientLedger';
 import UsersManager from './pages/Users/UsersManager';
 import CashHistory from './pages/CashHistory';
 import AuditLogs from './pages/AuditLogs';
@@ -157,6 +163,16 @@ function App() {
                                 <AccountsReceivable />
                               </ProtectedRoute>
                             } />
+                            <Route path="/credit/aging" element={
+                              <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                <AgingReport />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/credit/ledger/:clientId" element={
+                              <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                <ClientLedger />
+                              </ProtectedRoute>
+                            } />
 
                             {/* Purchases - ADMIN or WAREHOUSE */}
                             <Route path="/purchases" element={
@@ -182,6 +198,11 @@ function App() {
                             <Route path="/accounts-payable" element={
                               <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                 <AccountsPayable />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/suppliers/:supplierId/ledger" element={
+                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <SupplierLedger />
                               </ProtectedRoute>
                             } />
                             <Route path="/returns" element={

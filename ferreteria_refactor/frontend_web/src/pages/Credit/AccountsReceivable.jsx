@@ -79,16 +79,9 @@ const AccountsReceivable = () => {
         let filtered = [];
 
         if (filter === 'pending') {
-            // Pending: Not paid AND (No due date OR Due Date >= Today)
-            filtered = invoices.filter(inv => {
-                if (inv.paid) return false;
-                if (!inv.due_date) return true;
-                const due = new Date(inv.due_date);
-                // Adjust due date timezone offset if it's just a date string coming as UTC
-                // Simple fix: Add timezone offset or use string comparison if format is YYYY-MM-DD
-                // Better: new Date(inv.due_date + 'T23:59:59') to ensure end of day
-                return new Date(inv.due_date + 'T23:59:59') >= now;
-            });
+            // Pending: Show ALL unpaid invoices (both future and overdue)
+            // User requested "Cuentas por Cobrar", so default view should show everything owed.
+            filtered = invoices.filter(inv => !inv.paid);
         } else if (filter === 'overdue') {
             // Overdue: Not paid AND Due Date < Today
             filtered = invoices.filter(inv => {
@@ -460,7 +453,7 @@ const AccountsReceivable = () => {
                 {/* Filters */}
                 <div className="flex bg-slate-100 p-1.5 rounded-xl w-full lg:w-auto overflow-x-auto">
                     {[
-                        { id: 'pending', label: 'Por Vencer', icon: DollarSign },
+                        { id: 'pending', label: 'Pendientes', icon: DollarSign },
                         { id: 'overdue', label: 'Vencidas', icon: AlertCircle },
                         { id: 'paid', label: 'Pagadas', icon: CheckCircle }
                     ].map(tab => (

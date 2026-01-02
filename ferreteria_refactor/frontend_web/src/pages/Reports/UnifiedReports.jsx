@@ -219,10 +219,16 @@ const UnifiedReports = () => {
                     </h3>
                 </div>
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm bg-gradient-to-br from-emerald-50 to-white">
-                    <p className="text-emerald-600 text-sm font-bold">Ganancia Bruta (Profit)</p>
+                    <p className="text-emerald-600 text-sm font-bold">Ganancia Realizada (Caja)</p>
                     <h3 className="text-3xl font-black text-emerald-600 mt-1">
-                        {formatCurrency(profitData?.total_profit)}
+                        {formatCurrency(profitData?.realized_profit || 0)}
                     </h3>
+                    <div className="mt-2 text-xs text-slate-500 font-medium">
+                        Total Proyectado: {formatCurrency(profitData?.total_profit)}
+                    </div>
+                    <div className="mt-2 text-xs text-slate-400">
+                        Ratio Cobro: {profitData?.collection_ratio ? (profitData.collection_ratio * 100).toFixed(0) : 0}%
+                    </div>
                     <div className="mt-2 inline-flex items-center px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-xs font-bold">
                         Margen: {profitData?.avg_margin ? profitData.avg_margin.toFixed(1) : 0}%
                     </div>
