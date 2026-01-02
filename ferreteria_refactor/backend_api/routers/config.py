@@ -11,11 +11,21 @@ from ..dependencies import admin_only
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from ..template_presets import get_all_presets, get_preset_by_id
+from ..config import settings
 
 router = APIRouter(
     prefix="/config",
     tags=["config"]
 )
+
+@router.get("/public")
+def get_public_config():
+    """Get public configuration and feature flags"""
+    return {
+        "modules": {
+            "restaurant": settings.MODULE_RESTAURANT_ENABLED
+        }
+    }
 
 # ========================================
 # EXCHANGE RATE MANAGEMENT (NEW SYSTEM)

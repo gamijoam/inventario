@@ -3,10 +3,12 @@ import { Users, Plus, Edit, Trash2, Key, Shield, X, Check, Lock } from 'lucide-r
 import apiClient from '../../config/axios';
 import { useAuth } from '../../context/AuthContext';
 import SetPinModal from '../../components/users/SetPinModal';
+import { useConfig } from '../../context/ConfigContext';
 import userService from '../../services/userService';
 
 const UsersManager = () => {
     const { user: currentUser } = useAuth();
+    const { modules } = useConfig();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -367,15 +369,19 @@ const UsersManager = () => {
                                             <option value="ADMIN">Administrador</option>
                                             <option value="CASHIER">Cajero</option>
                                             <option value="WAREHOUSE">Almacén</option>
-                                            <option value="WAITER">Mesero</option>
-                                            <option value="KITCHEN">Cocina</option>
+                                            {modules.restaurant && (
+                                                <>
+                                                    <option value="WAITER">Mesero</option>
+                                                    <option value="KITCHEN">Cocina</option>
+                                                </>
+                                            )}
                                         </select>
                                         <p className="text-xs text-gray-500 mt-1">
                                             {formData.role === 'ADMIN' && '✓ Acceso completo al sistema'}
                                             {formData.role === 'CASHIER' && '✓ Acceso a ventas y POS'}
                                             {formData.role === 'WAREHOUSE' && '✓ Acceso a inventario y productos'}
-                                            {formData.role === 'WAITER' && '✓ Acceso a comandera móvil'}
-                                            {formData.role === 'KITCHEN' && '✓ Acceso a pantalla de cocina'}
+                                            {modules.restaurant && formData.role === 'WAITER' && '✓ Acceso a comandera móvil'}
+                                            {modules.restaurant && formData.role === 'KITCHEN' && '✓ Acceso a pantalla de cocina'}
                                         </p>
                                     </div>
                                 </>

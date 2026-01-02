@@ -33,6 +33,6 @@ class Settings:
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     
     # Modules
-    MODULE_RESTAURANT_ENABLED: bool = True
+    MODULE_RESTAURANT_ENABLED: bool = os.getenv("MODULE_RESTAURANT_ENABLED", "false").lower() == "true"
 
 settings = Settings()
