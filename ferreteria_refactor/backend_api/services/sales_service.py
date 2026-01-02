@@ -267,6 +267,7 @@ class SalesService:
                     product_id=product.id,
                     quantity=units_to_deduct,
                     unit_price=item.unit_price,
+                    cost_at_sale=product.cost_price or 0.0000, # CRITICAL: Capture historical cost
                     subtotal=subtotal,
                     is_box_sale=False,
                     discount=item.discount,
