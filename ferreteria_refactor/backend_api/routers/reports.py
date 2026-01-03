@@ -113,7 +113,11 @@ def get_dashboard_financials(
                 avg_rate = Decimal("1.0")
             
             # Convert to USD
-            total_sales_base_usd += Decimal(str(net_collected)) / Decimal(str(avg_rate))
+            try:
+                total_sales_base_usd += Decimal(str(net_collected)) / Decimal(str(avg_rate))
+            except Exception:
+                 # Fallback if conversion fails
+                total_sales_base_usd += Decimal(str(net_collected))
     
     # Calculate profit estimation (Sales - Costs)
     # Get all sale details for the period
@@ -662,8 +666,13 @@ def get_product_profitability(product_id: int, db: Session = Depends(get_db)):
     total_profit = 0
     # Update logic to use historical cost
     for detail in sales:
-        cost_price = detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else product.cost_price
-        total_profit += (detail.unit_price - cost_price) * detail.quantity
+        base_cost = product.cost_price if product.cost_price is not None else 0
+        cost_at_sale = detail.cost_at_sale if detail.cost_at_sale is not None else base_cost
+        
+        # Ensure positive cost
+        final_cost = cost_at_sale if cost_at_sale > 0 else base_cost
+        
+        total_profit += (float(detail.unit_price or 0) - float(final_cost or 0)) * float(detail.quantity or 0)
     
     margin = 0
     if product.price > 0:
@@ -704,7 +713,8 @@ def get_sales_profitability(
         total_revenue += float(detail.subtotal)
         
         # HISTORICAL COST LOGIC
-        cost_price = float(detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else detail.product.cost_price)
+        product_cost = detail.product.cost_price if detail.product.cost_price is not None else 0
+        cost_price = float(detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else product_cost)
         total_cost += cost_price * float(detail.quantity)
         
     # --- SUBTRACT RETURNS (Net Financials) ---
@@ -792,8 +802,9 @@ def get_month_profitability(db: Session = Depends(get_db)):
         total_revenue += detail.subtotal
         
         # HISTORICAL COST LOGIC
-        cost_price = detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else detail.product.cost_price
-        total_cost += cost_price * detail.quantity
+        product_cost = detail.product.cost_price if detail.product.cost_price is not None else 0
+        cost_price = detail.cost_at_sale if (detail.cost_at_sale is not None and detail.cost_at_sale > 0) else product_cost
+        total_cost += (cost_price or 0) * detail.quantity
     
     total_profit = total_revenue - total_cost
     avg_margin = 0
