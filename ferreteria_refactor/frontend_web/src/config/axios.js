@@ -1,16 +1,22 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
-// --- CAMBIO PARA SOPORTE HÍBRIDO (LOCAL/SAAS) ---
-// Detect if running in Electron (file:// protocol or no host)
-const isElectron = !window.location.host || window.location.protocol === 'file:';
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+// --- CONFIGURACIÓN AGNÓSTICA AL DOMINIO ---
+// En desarrollo: usa localhost:8001
+// En producción: usa ruta relativa (el navegador usará el dominio actual)
 
-// In Electron, use absolute URL to localhost:8001
-// In web, use relative URL (proxy handles it) or VITE_API_URL if defined
-const envApiUrl = import.meta.env.VITE_API_URL;
-const baseURL = isElectron ? (envApiUrl || 'http://localhost:8001/api/v1') : (envApiUrl || '/api/v1');
+const isDev = import.meta.env.DEV;
 
-console.log('🔧 Axios config:', { isElectron, isDevelopment, baseURL, hostname: window.location.hostname, protocol: window.location.protocol });
+const baseURL = isDev
+    ? 'http://localhost:8001/api/v1'  // Desarrollo: backend en puerto 8001
+    : '/api/v1';                        // Producción: ruta relativa (Traefik maneja el routing)
+
+console.log('🔧 Axios config:', {
+    isDev,
+    baseURL,
+    mode: import.meta.env.MODE,
+    hostname: window.location.hostname
+});
 
 const apiClient = axios.create({
     baseURL,
@@ -20,8 +26,6 @@ const apiClient = axios.create({
         'Accept': 'application/json',
     },
 });
-
-import toast from 'react-hot-toast';
 
 // Request Interceptor (Add Token)
 apiClient.interceptors.request.use(

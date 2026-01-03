@@ -24,30 +24,24 @@ export const WebSocketProvider = ({ children }) => {
             try { ws.current.close(); } catch (e) { }
         }
 
-        // --- LÓGICA DINÁMICA DE WEBSOCKET ---
-        // Detect if running in Electron (file:// protocol or no host)
-        const isElectron = !window.location.host || window.location.protocol === 'file:';
+        // --- CONFIGURACIÓN AGNÓSTICA AL DOMINIO ---
+        // En desarrollo: usa localhost:8001
+        // En producción: usa el dominio actual con protocolo correcto
 
-        let protocol, host;
+        const isDev = import.meta.env.DEV;
+        let wsUrl;
 
-        if (isElectron) {
-            // Electron: Always use localhost:8000
-            protocol = 'ws:';
-            host = 'localhost:8000';
+        if (isDev) {
+            // Desarrollo: backend en localhost:8001
+            wsUrl = 'ws://localhost:8001/api/v1/ws';
         } else {
-            // Web: Use current location
-            protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            host = window.location.host;
-
-            // DEVELOPMENT OVERRIDE: If on localhost:5173, point to backend at 8000
-            if (window.location.hostname === 'localhost' && window.location.port === '5173') {
-                host = '127.0.0.1:8000';
-            }
+            // Producción: construir URL dinámicamente
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host; // Obtiene 'demo3.invensoft.lat' o el dominio actual
+            wsUrl = `${protocol}//${host}/api/v1/ws`;
         }
 
         try {
-            const wsUrl = `${protocol}//${host}/api/v1/ws`;
-
             console.log("🔌 Conectando WS a:", wsUrl);
             console.log(`🔌 WS: Connecting to ${wsUrl} (Attempt ${retryCount.current + 1})`);
 
