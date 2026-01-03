@@ -35,6 +35,9 @@ app = FastAPI(
 
 from .config import settings
 
+
+
+
 @app.on_event("startup")
 async def startup_event_async():
     print("\n" + "="*60)
@@ -175,20 +178,20 @@ def startup_event():
     # FALLBACK: Create tables if they don't exist (for development/first run)
     # This ensures the app works even if migrations fail or DB is in inconsistent state
     # BUT we want Alembic to be the main source of truth
-    try:
-        from .database.db import Base
-        # We only run this if tables are missing, but let's leave it as a safety net
-        # checking only if 'users' table exists to avoid overhead
-        from sqlalchemy import inspect
-        inspector = inspect(engine)
-        if not inspector.has_table("users"):
-            print("[INFO] Tabla 'users' no detectada. Ejecutando create_all() por seguridad...")
-            Base.metadata.create_all(bind=engine)
-            print("[INFO] Tablas base creadas exitosamente via SQLAlchemy")
-        else:
-            print("[INFO] Schema verificado.")
-    except Exception as e:
-        print(f"[WARN] Nota al verificar schema: {e}")
+    # try:
+    #     from .database.db import Base
+    #     # We only run this if tables are missing, but let's leave it as a safety net
+    #     # checking only if 'users' table exists to avoid overhead
+    #     from sqlalchemy import inspect
+    #     inspector = inspect(engine)
+    #     if not inspector.has_table("users"):
+    #         print("[INFO] Tabla 'users' no detectada. Ejecutando create_all() por seguridad...")
+    #         Base.metadata.create_all(bind=engine)
+    #         print("[INFO] Tablas base creadas exitosamente via SQLAlchemy")
+    #     else:
+    #         print("[INFO] Schema verificado.")
+    # except Exception as e:
+    #     print(f"[WARN] Nota al verificar schema: {e}")
 
 
 

@@ -451,7 +451,8 @@ def get_all_sales(
     query = db.query(models.Sale).options(
         joinedload(models.Sale.customer),
         joinedload(models.Sale.payments),
-        joinedload(models.Sale.details).joinedload(models.SaleDetail.product)
+        joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
+        joinedload(models.Sale.returns)
     )
     
     # Apply sorting

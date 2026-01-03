@@ -105,7 +105,6 @@ def upgrade() -> None:
             sa.Column('stock', sa.Numeric(precision=12, scale=3), nullable=True),
             sa.Column('min_stock', sa.Numeric(precision=12, scale=3), nullable=True),
             sa.Column('is_active', sa.Boolean(), nullable=True),
-            sa.Column('is_active', sa.Boolean(), nullable=True),
             sa.Column('is_box', sa.Boolean(), server_default='false', nullable=False),
             sa.Column('location', sa.String(), nullable=True),
             sa.Column('is_combo', sa.Boolean(), server_default='false', nullable=False),
