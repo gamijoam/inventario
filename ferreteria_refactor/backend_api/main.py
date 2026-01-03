@@ -168,12 +168,31 @@ def startup_event():
     os.makedirs(images_dir, exist_ok=True)
     print(f"[INFO] Directorio de imagenes creado: {images_dir}")
     
+    # Run Alembic migrations - this is the PRIMARY way to create/update schema
+    print("[INFO] Iniciando migraciones de Alembic...")
     run_migrations()
+    
+    # FALLBACK: Create tables if they don't exist (for development/first run)
+    # This ensures the app works even if migrations fail or DB is in inconsistent state
+    # BUT we want Alembic to be the main source of truth
     try:
         from .database.db import Base
-        Base.metadata.create_all(bind=engine)
+        # We only run this if tables are missing, but let's leave it as a safety net
+        # checking only if 'users' table exists to avoid overhead
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        if not inspector.has_table("users"):
+            print("[INFO] Tabla 'users' no detectada. Ejecutando create_all() por seguridad...")
+            Base.metadata.create_all(bind=engine)
+            print("[INFO] Tablas base creadas exitosamente via SQLAlchemy")
+        else:
+            print("[INFO] Schema verificado.")
     except Exception as e:
-        print(f"[WARN] Error verificando tablas: {e}")
+        print(f"[WARN] Nota al verificar schema: {e}")
+
+
+
+
 
     # Seed Data
     from .database.db import SessionLocal

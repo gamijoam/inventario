@@ -299,9 +299,13 @@ class SaleDetail(Base):
 
     subtotal = Column(Numeric(12, 2), nullable=False)
     is_box_sale = Column(Boolean, default=False) # Was it sold as a box?
+    
+    # NEW: Unit/Presentation Support
+    unit_id = Column(Integer, ForeignKey("product_units.id"), nullable=True)  # Which presentation was sold
 
     sale = relationship("Sale", back_populates="details")
     product = relationship("Product")
+    unit = relationship("ProductUnit")  # NEW: Link to presentation used
 
     def __repr__(self):
         return f"<SaleDetail(product='{self.product_id}', qty={self.quantity}, tax={self.tax_rate})>"

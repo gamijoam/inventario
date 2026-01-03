@@ -8,6 +8,7 @@ Create Date: 2025-12-28 03:13:00.000000
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision: str = 'b1c2d3e4f5g6'
@@ -16,16 +17,23 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
-    """Add image_url and updated_at columns to products table."""
-    # Add image_url column
-    op.add_column('products', sa.Column('image_url', sa.String(255), nullable=True))
+    """Add image_url and updated_at columns to products table (idempotent)."""
+    conn = op.get_bind()
+    inspector = inspect(conn)
     
-    # Add updated_at column with default value
-    op.add_column('products', sa.Column('updated_at', sa.TIMESTAMP(), server_default=sa.func.now(), nullable=True))
+    # Check products table
+    products_columns = [col['name'] for col in inspector.get_columns('products')]
+    
+    # Add image_url column only if it doesn't exist
+    if 'image_url' not in products_columns:
+        op.add_column('products', sa.Column('image_url', sa.String(255), nullable=True))
+    
+    # Add updated_at column only if it doesn't exist
+    if 'updated_at' not in products_columns:
+        op.add_column('products', sa.Column('updated_at', sa.TIMESTAMP(), server_default=sa.func.now(), nullable=True))
     
     # Create trigger only for Postgres
-    bind = op.get_bind()
-    if bind.engine.name == 'postgresql':
+    if conn.engine.name == 'postgresql':
         op.execute("""
             CREATE OR REPLACE FUNCTION update_updated_at_column()
             RETURNS TRIGGER AS $$

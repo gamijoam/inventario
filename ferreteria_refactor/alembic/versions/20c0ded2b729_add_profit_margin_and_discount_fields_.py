@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -20,15 +21,31 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Add profit margin and discount fields to products and product_units tables."""
-    # Add columns to products table
-    op.add_column('products', sa.Column('profit_margin', sa.Numeric(precision=5, scale=2), nullable=True))
-    op.add_column('products', sa.Column('discount_percentage', sa.Numeric(precision=5, scale=2), server_default='0.00', nullable=False))
-    op.add_column('products', sa.Column('is_discount_active', sa.Boolean(), server_default='false', nullable=False))
+    # Get connection and inspector
+    conn = op.get_bind()
+    inspector = inspect(conn)
     
-    # Add columns to product_units table
-    op.add_column('product_units', sa.Column('profit_margin', sa.Numeric(precision=5, scale=2), nullable=True))
-    op.add_column('product_units', sa.Column('discount_percentage', sa.Numeric(precision=5, scale=2), server_default='0.00', nullable=False))
-    op.add_column('product_units', sa.Column('is_discount_active', sa.Boolean(), server_default='false', nullable=False))
+    # Get existing columns for products table
+    products_columns = [col['name'] for col in inspector.get_columns('products')]
+    
+    # Add columns to products table only if they don't exist
+    if 'profit_margin' not in products_columns:
+        op.add_column('products', sa.Column('profit_margin', sa.Numeric(precision=5, scale=2), nullable=True))
+    if 'discount_percentage' not in products_columns:
+        op.add_column('products', sa.Column('discount_percentage', sa.Numeric(precision=5, scale=2), server_default='0.00', nullable=False))
+    if 'is_discount_active' not in products_columns:
+        op.add_column('products', sa.Column('is_discount_active', sa.Boolean(), server_default='false', nullable=False))
+    
+    # Get existing columns for product_units table
+    units_columns = [col['name'] for col in inspector.get_columns('product_units')]
+    
+    # Add columns to product_units table only if they don't exist
+    if 'profit_margin' not in units_columns:
+        op.add_column('product_units', sa.Column('profit_margin', sa.Numeric(precision=5, scale=2), nullable=True))
+    if 'discount_percentage' not in units_columns:
+        op.add_column('product_units', sa.Column('discount_percentage', sa.Numeric(precision=5, scale=2), server_default='0.00', nullable=False))
+    if 'is_discount_active' not in units_columns:
+        op.add_column('product_units', sa.Column('is_discount_active', sa.Boolean(), server_default='false', nullable=False))
 
 
 def downgrade() -> None:
