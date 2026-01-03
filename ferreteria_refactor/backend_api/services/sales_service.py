@@ -277,7 +277,8 @@ class SalesService:
                     subtotal=subtotal,
                     is_box_sale=False,
                     discount=item.discount,
-                    discount_type=item.discount_type
+                    discount_type=item.discount_type,
+                    unit_id=item.unit_id if hasattr(item, 'unit_id') else None  # NEW: Persist presentation
                 )
                 db.add(detail)
         

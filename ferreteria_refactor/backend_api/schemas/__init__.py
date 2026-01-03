@@ -191,6 +191,7 @@ class SaleDetailCreate(BaseModel):
     unit_price: Decimal  # Renamed from unit_price_usd for consistency
     subtotal: Decimal    # Added: Essential for sync validation
     conversion_factor: Decimal = Decimal("1.0")
+    unit_id: Optional[int] = None  # NEW: Which presentation/unit was sold
     discount: Decimal = Decimal("0.00")
     discount_type: str = "NONE"  # NONE, PERCENT, FIXED
     tax_rate: Decimal = Decimal("0.00")
@@ -254,7 +255,9 @@ class SaleDetailRead(BaseModel):
     discount: Decimal = Decimal("0.00")
     discount_type: str = "NONE"
     tax_rate: Decimal = Decimal("0.00")
+    unit_id: Optional[int] = None  # NEW: Which presentation was sold
     product: Optional['ProductRead'] = None  # Include product info
+    unit: Optional['ProductUnitRead'] = None  # NEW: Include unit/presentation info
     
     class Config:
         from_attributes = True

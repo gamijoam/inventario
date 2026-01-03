@@ -17,7 +17,7 @@ COPY ferreteria_refactor/frontend_web/package-lock.json ./
 RUN npm ci
 
 # Copy source code and build
-# CACHE_BUST: 2026-01-02-fix-network-config-v2
+# CACHE_BUST: 2026-01-03-add-unit-id-migration
 COPY ferreteria_refactor/frontend_web/ ./
 RUN npm run build
 
@@ -43,8 +43,12 @@ COPY ferreteria_refactor/alembic.ini /app/ferreteria_refactor/alembic.ini
 # Copy built frontend from Stage 1 to /app/static
 COPY --from=frontend-build /app/frontend/dist /app/static
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Env vars
 ENV PYTHONPATH=/app
 
-# Run uvicorn
-CMD ["uvicorn", "ferreteria_refactor.backend_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use entrypoint script to run migrations before starting server
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

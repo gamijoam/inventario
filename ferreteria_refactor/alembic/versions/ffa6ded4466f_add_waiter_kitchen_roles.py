@@ -20,9 +20,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    conn = op.get_bind()
+    # Check if userrole type exists
+    result = conn.execute(sa.text("SELECT 1 FROM pg_type WHERE typname = 'userrole'"))
+    type_exists = result.scalar() is not None
+
     with op.get_context().autocommit_block():
-        op.execute("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'WAITER'")
-        op.execute("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'KITCHEN'")
+        if not type_exists:
+            # Create type if it doesn't exist (handles databases where Initial was run as String)
+            op.execute("CREATE TYPE userrole AS ENUM ('ADMIN', 'CASHIER', 'WAREHOUSE', 'WAITER', 'KITCHEN')")
+            # Force conversion of column to use new Enum type
+            op.execute("ALTER TABLE users ALTER COLUMN role TYPE userrole USING role::userrole")
+        else:
+            # If exists, safely add new values
+            op.execute("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'WAITER'")
+            op.execute("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'KITCHEN'")
     # ### end Alembic commands ###
 
 
