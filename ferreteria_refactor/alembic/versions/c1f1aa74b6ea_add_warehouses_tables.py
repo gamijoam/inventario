@@ -53,12 +53,18 @@ def upgrade() -> None:
         with op.batch_alter_table('product_stocks', schema=None) as batch_op:
             batch_op.create_index(batch_op.f('ix_product_stocks_id'), ['id'], unique=False)
 
-    op.drop_table('test_migration_validation')
-    with op.batch_alter_table('customers', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_customers_unique_uuid'), ['unique_uuid'], unique=True)
+    if 'test_migration_validation' in tables:
+        op.drop_table('test_migration_validation')
 
-    with op.batch_alter_table('sales', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_sales_unique_uuid'), ['unique_uuid'], unique=True)
+    customers_indexes = [ix['name'] for ix in inspector.get_indexes('customers')]
+    if 'ix_customers_unique_uuid' not in customers_indexes:
+        with op.batch_alter_table('customers', schema=None) as batch_op:
+            batch_op.create_index(batch_op.f('ix_customers_unique_uuid'), ['unique_uuid'], unique=True)
+
+    sales_indexes = [ix['name'] for ix in inspector.get_indexes('sales')]
+    if 'ix_sales_unique_uuid' not in sales_indexes:
+        with op.batch_alter_table('sales', schema=None) as batch_op:
+            batch_op.create_index(batch_op.f('ix_sales_unique_uuid'), ['unique_uuid'], unique=True)
 
     # ### end Alembic commands ###
 
