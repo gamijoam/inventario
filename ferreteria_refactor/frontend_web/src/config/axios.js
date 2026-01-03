@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 const isDev = import.meta.env.DEV;
 
 const baseURL = isDev
-    ? 'http://localhost:8001/api/v1'  // Desarrollo: backend en puerto 8001
+    ? 'http://localhost:8000/api/v1'  // Desarrollo: backend en puerto 8000
     : '/api/v1';                        // Producción: ruta relativa (Traefik maneja el routing)
 
 console.log('🔧 Axios config:', {
