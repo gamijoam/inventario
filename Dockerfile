@@ -17,6 +17,7 @@ COPY ferreteria_refactor/frontend_web/package-lock.json ./
 RUN npm ci
 
 # Copy source code and build
+# CACHE_BUST: 2026-01-02-fix-network-config-v2
 COPY ferreteria_refactor/frontend_web/ ./
 RUN npm run build
 
