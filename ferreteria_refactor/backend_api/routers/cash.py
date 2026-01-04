@@ -177,7 +177,21 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
         models.CashMovement.currency.in_(target_currencies)
     ).scalar() or Decimal("0.00")
     
-    return initial + cash_sales + movements_in - movements_out
+    # 4. Change Given (Vuelto) - DEDUCT FROM DRAWER
+    # We must check if the change was given in this currency
+    # Note: We assume change is always given in CASH
+    target_change_currencies = target_currencies
+    
+    cash_change = db.query(func.sum(models.Sale.change_amount)).filter(
+        models.Sale.date >= session.start_time,
+        models.Sale.date <= (session.end_time or datetime.now()),
+        models.Sale.change_currency.in_(target_change_currencies),
+        # Ensure we only count change for sales that had a cash payment? 
+        # Actually usually change implies cash interaction, so we deduct it from cash drawer.
+        models.Sale.change_amount > 0
+    ).scalar() or Decimal("0.00")
+
+    return initial + cash_sales - cash_change + movements_in - movements_out
 
 @router.get("/sessions/history")
 def get_sessions_history(
@@ -324,8 +338,22 @@ def get_session_details(
     for curr in ["Bs", "VES", "VEF"]:
         cash_sales_bs += cash_by_currency.get(curr, Decimal("0.00"))
 
-    expected_usd = session.initial_cash + cash_sales_usd + deposits_usd - expenses_usd
-    expected_bs = session.initial_cash_bs + cash_sales_bs + deposits_bs - expenses_bs
+    # Calculate Change (Vuelto) totals
+    
+    total_change_usd = db.query(func.sum(models.Sale.change_amount)).filter(
+        models.Sale.date >= session.start_time,
+        models.Sale.date <= (session.end_time or datetime.now()),
+        models.Sale.change_currency == "USD"
+    ).scalar() or Decimal("0.00")
+
+    total_change_bs = db.query(func.sum(models.Sale.change_amount)).filter(
+        models.Sale.date >= session.start_time,
+        models.Sale.date <= (session.end_time or datetime.now()),
+        models.Sale.change_currency.in_(["Bs", "VES", "VEF"])
+    ).scalar() or Decimal("0.00")
+
+    expected_usd = session.initial_cash + cash_sales_usd + deposits_usd - expenses_usd - total_change_usd
+    expected_bs = session.initial_cash_bs + cash_sales_bs + deposits_bs - expenses_bs - total_change_bs
     
     final_reported_usd = session.final_cash_reported or Decimal("0.00")
     final_reported_bs = session.final_cash_reported_bs or Decimal("0.00")
@@ -428,6 +456,27 @@ async def close_cash_session(
                 cash_sales_by_currency[curr] = Decimal("0.00")
             cash_sales_by_currency[curr] += p.amount
     
+    # Process Change (Vuelto) - Deduct from Cash Sales bucket or separate bucket?
+    # Logic: Expected = Initial + Sales(Tendered) - Change + Deposits - Expenses
+    # So we can just subtract from 'sales' bucket or handle separately.
+    # Let's handle separately for clarity in calculation below.
+    
+    change_by_currency = {}
+    sales_for_change = db.query(models.Sale.change_amount, models.Sale.change_currency).filter(
+        models.Sale.date >= session.start_time,
+        # models.Sale.date <= datetime.now(),
+        models.Sale.change_amount > 0
+    ).all()
+    
+    for s_change in sales_for_change:
+        curr = s_change.change_currency or "USD"
+        if curr.upper() in ["BS", "VES", "VEF"]:
+            curr = "Bs"
+        
+        if curr not in change_by_currency:
+            change_by_currency[curr] = Decimal("0.00")
+        change_by_currency[curr] += s_change.change_amount
+    
     # Process movements
     for m in movements:
         curr = m.currency or "USD"
@@ -460,8 +509,9 @@ async def close_cash_session(
         sales = cash_sales_by_currency.get(symbol, Decimal("0.00"))
         deposits = movements_by_currency.get(symbol, {}).get('deposits', Decimal("0.00"))
         expenses = movements_by_currency.get(symbol, {}).get('expenses', Decimal("0.00"))
+        change = change_by_currency.get(symbol, Decimal("0.00"))
         
-        expected = initial + sales + deposits - expenses
+        expected = initial + sales - change + deposits - expenses
         
         # Get reported from close_data
         # close_data should have currencies array with {currency_symbol, final_reported}
@@ -491,8 +541,11 @@ async def close_cash_session(
     deposits_usd = movements_by_currency.get("USD", {}).get('deposits', Decimal("0.00"))
     deposits_bs = movements_by_currency.get("Bs", {}).get('deposits', Decimal("0.00"))
     
-    expected_usd = session.initial_cash + cash_sales_usd + deposits_usd - expenses_usd
-    expected_bs = session.initial_cash_bs + cash_sales_bs + deposits_bs - expenses_bs
+    change_usd = change_by_currency.get("USD", Decimal("0.00"))
+    change_bs = change_by_currency.get("Bs", Decimal("0.00"))
+    
+    expected_usd = session.initial_cash + cash_sales_usd - change_usd + deposits_usd - expenses_usd
+    expected_bs = session.initial_cash_bs + cash_sales_bs - change_bs + deposits_bs - expenses_bs
     
     # Calculate unpaid credit sales for reporting
     credit_sales = db.query(models.Sale).filter(
