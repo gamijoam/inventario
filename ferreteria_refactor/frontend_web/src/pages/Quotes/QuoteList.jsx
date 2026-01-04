@@ -92,7 +92,13 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
 
             const itemsHtml = items.map(item => `
                 <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 8px;">${item.product?.name || 'Item'}</td>
+                    <td style="padding: 8px; width: 50px; text-align: center;">
+                        ${item.product?.image_url ? `<img src="${apiClient.defaults.baseURL.replace('/api/v1', '')}${item.product.image_url}" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px;">` : '<span style="font-size:10px; color:#ccc;">Sin foto</span>'}
+                    </td>
+                    <td style="padding: 8px; font-family: monospace; font-size: 12px; color: #555;">${item.product?.sku || '-'}</td>
+                    <td style="padding: 8px;">
+                        <div style="font-weight: bold;">${item.product?.name || 'Item'}</div>
+                    </td>
                     <td style="padding: 8px; text-align: center;">${item.quantity}</td>
                     <td style="padding: 8px; text-align: right;">${anchorCurrency.symbol}${Number(item.unit_price).toFixed(2)}</td>
                     <td style="padding: 8px; text-align: right;">${anchorCurrency.symbol}${Number(item.subtotal).toFixed(2)}</td>
@@ -105,35 +111,53 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                 <head>
                     <title>Cotización #${fullQuote.id}</title>
                     <style>
-                        body { font-family: sans-serif; padding: 20px; line-height: 1.4; }
-                        .header {  margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                        body { font-family: sans-serif; padding: 20px; line-height: 1.4; color: #333; }
+                        .header {  margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: start; }
                         .title { font-size: 24px; font-weight: bold; }
-                        .details { margin-bottom: 20px; }
-                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                        th { text-align: left; background: #f5f5f5; padding: 8px; border-bottom: 1px solid #ddd; }
-                        .totals { text-align: right; margin-top: 20px; font-size: 18px; font-weight: bold; }
+                        .meta { text-align: right; color: #666; font-size: 14px; }
+                        .details { margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+                        th { text-align: left; background: #f1f5f9; padding: 8px; border-bottom: 2px solid #ddd; font-weight: bold; color: #475569; }
+                        td { vertical-align: middle; }
+                        .totals { text-align: right; margin-top: 20px; font-size: 20px; font-weight: bold; border-top: 2px solid #333; padding-top: 10px; }
                         @media print { .no-print { display: none; } }
                     </style>
                 </head>
                 <body>
                     <div class="header">
-                        <div class="title">Cotización #${fullQuote.id}</div>
-                        <div style="color: #666;">${new Date(fullQuote.date).toLocaleString()}</div>
+                        <div>
+                            <div class="title">Cotización #${fullQuote.id}</div>
+                            <div style="font-size: 14px; margin-top: 5px;">Documento no fiscal</div>
+                        </div>
+                        <div class="meta">
+                            Fecha: ${new Date(fullQuote.date).toLocaleString()}
+                        </div>
                     </div>
                     
                     <div class="details">
-                        <strong>Cliente:</strong> ${fullQuote.customer?.name || 'Cliente General'}<br>
-                        <strong>C.I./RIF:</strong> ${fullQuote.customer?.id_number || 'N/A'}<br>
-                        <strong>Teléfono:</strong> ${fullQuote.customer?.phone || 'N/A'}
+                        <table style="width: 100%; border: none; margin: 0;">
+                            <tr>
+                                <td style="border: none; padding: 0;">
+                                    <strong>Cliente:</strong> ${fullQuote.customer?.name || 'Cliente General'}<br>
+                                    <strong>C.I./RIF:</strong> ${fullQuote.customer?.id_number || 'N/A'}
+                                </td>
+                                <td style="border: none; padding: 0; text-align: right;">
+                                    <strong>Teléfono:</strong> ${fullQuote.customer?.phone || 'N/A'}<br>
+                                    <strong>Email:</strong> ${fullQuote.customer?.email || 'N/A'}
+                                </td>
+                            </tr>
+                        </table>
                     </div>
 
                     <table>
                         <thead>
                             <tr>
+                                <th style="width: 50px; text-align: center;">Foto</th>
+                                <th style="width: 100px;">Código</th>
                                 <th>Descripción</th>
-                                <th style="text-align: center;">Cant</th>
-                                <th style="text-align: right;">Precio</th>
-                                <th style="text-align: right;">Total</th>
+                                <th style="text-align: center; width: 60px;">Cant</th>
+                                <th style="text-align: right; width: 100px;">Precio</th>
+                                <th style="text-align: right; width: 100px;">Total</th>
                             </tr>
                         </thead>
                         <tbody>
