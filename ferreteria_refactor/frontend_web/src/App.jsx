@@ -61,6 +61,8 @@ import WaiterLogin from './pages/Mobile/WaiterLogin';
 import MobileTableGrid from './pages/Mobile/MobileTableGrid';
 import MobileOrderTaker from './pages/Mobile/MobileOrderTaker';
 import Reception from './pages/Services/Reception'; // NEW: Service Reception
+import ServiceManager from './pages/Services/ServiceManager'; // NEW: Service Manager
+import ServiceList from './pages/Services/ServiceList'; // NEW: Service List
 
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
@@ -271,10 +273,20 @@ function App() {
 
                             <Route path="/help" element={<Help />} />
 
-                            {/* Service Module */}
+                            {/* Service Module Routes */}
+                            <Route path="/services" element={
+                              <ProtectedRoute>
+                                <ServiceList />
+                              </ProtectedRoute>
+                            } />
                             <Route path="/services/reception" element={
                               <ProtectedRoute>
                                 <Reception />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/services/orders/:id" element={
+                              <ProtectedRoute>
+                                <ServiceManager />
                               </ProtectedRoute>
                             } />
                           </Route>

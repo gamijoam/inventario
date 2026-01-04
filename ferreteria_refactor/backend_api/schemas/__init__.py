@@ -868,7 +868,8 @@ class TransferResultSchema(BaseModel):
 # ========================
 
 class ServiceOrderDetailBase(BaseModel):
-    product_id: int
+    product_id: Optional[int] = None
+    description: Optional[str] = None # New for manual items
     quantity: Decimal = Decimal("1.000")
     unit_price: Decimal
     technician_id: Optional[int] = None
@@ -880,6 +881,8 @@ class ServiceOrderDetailRead(ServiceOrderDetailBase):
     id: int
     service_order_id: int
     cost: Decimal
+    is_manual: bool = False
+    
     product: Optional[ProductRead] = None
     technician: Optional[UserRead] = None
 

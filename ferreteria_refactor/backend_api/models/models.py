@@ -798,7 +798,10 @@ class ServiceOrderDetail(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     service_order_id = Column(Integer, ForeignKey("service_orders.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False) # Can be a 'Service' product
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True) # Can be NULL for manual items
+    
+    description = Column(String, nullable=True) # Manual description or Product Name snapshot
+    is_manual = Column(Boolean, default=False)
     
     quantity = Column(Numeric(12, 3), default=1.000)
     unit_price = Column(Numeric(12, 2), nullable=False)

@@ -89,3 +89,81 @@ def get_service_order(order_id: int, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=404, detail="Service Order not found")
     return order
+    return order
+
+# NEW: Add Item to Order
+@router.post("/orders/{order_id}/items", response_model=schemas.ServiceOrderRead)
+def add_service_order_item(
+    order_id: int, 
+    item_data: schemas.ServiceOrderDetailCreate, 
+    db: Session = Depends(get_db)
+):
+    """Add a product/service/spare part to the service order"""
+    order = db.query(models.ServiceOrder).get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Service Order not found")
+        
+    # Logic for Manual vs Product Item
+    if item_data.product_id:
+        # PRODUCT ITEM
+        product = db.query(models.Product).get(item_data.product_id)
+        if not product:
+            raise HTTPException(status_code=400, detail="Product not found")
+            
+        description = product.name
+        cost = product.cost_price
+        is_manual = False
+    else:
+        # MANUAL ITEM
+        if not item_data.description:
+             raise HTTPException(status_code=400, detail="Description is required for manual items")
+             
+        description = item_data.description
+        cost = 0 # Manual services usually have 0 direct cost unless specified otherwise
+        is_manual = True
+        
+    # Create Detail
+    new_detail = models.ServiceOrderDetail(
+        service_order_id=order_id,
+        product_id=item_data.product_id,
+        description=description,
+        is_manual=is_manual,
+        quantity=item_data.quantity,
+        unit_price=item_data.unit_price,
+        cost=cost, 
+        technician_id=item_data.technician_id
+    )
+    
+    db.add(new_detail)
+    db.commit()
+    db.refresh(order)
+    return order
+
+# NEW: Update Status & Notes
+@router.patch("/orders/{order_id}/status", response_model=schemas.ServiceOrderRead)
+def update_service_order_status(
+    order_id: int, 
+    status: str, 
+    notes: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Update order status and diagnosis notes"""
+    order = db.query(models.ServiceOrder).get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Service Order not found")
+        
+    # Validate Status Enum
+    if status not in models.ServiceOrderStatus.__members__:
+         raise HTTPException(status_code=400, detail=f"Invalid status. Options: {list(models.ServiceOrderStatus.__members__.keys())}")
+         
+    order.status = models.ServiceOrderStatus[status]
+    
+    if notes:
+        order.diagnosis_notes = notes
+        
+    # If status is READY, maybe set a completion date? 
+    # For now just update updated_at (handled by DB/ORM usually, but explicit is good)
+    
+    db.commit()
+    db.refresh(order)
+    return order
