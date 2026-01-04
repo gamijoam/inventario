@@ -12,7 +12,7 @@ class ItemCondition(str, Enum):
 class ProductBase(BaseModel):
     name: str = Field(..., description="Nombre comercial del producto", example="Taladro Percutor 500W")
     sku: Optional[str] = Field(None, description="Código único de inventario (SKU)", example="TAL-001")
-    price: Decimal = Field(..., description="Precio de venta al público en USD", gt=0, example="45.99")
+    price: Decimal = Field(..., description="Precio de venta al público en USD", ge=0, example="45.99")
     price_mayor_1: Optional[Decimal] = Field(Decimal("0.00"), description="Precio mayorista nivel 1", example="42.00")
     price_mayor_2: Optional[Decimal] = Field(Decimal("0.00"), description="Precio mayorista nivel 2", example="40.00")
     stock: Optional[Decimal] = Field(Decimal("0.000"), description="Cantidad actual en inventario físico", example="10.000")
@@ -235,6 +235,31 @@ class SaleCreate(BaseModel):
     class Config:
         from_attributes = True
 
+class ServiceCheckoutPayment(BaseModel):
+    """
+    Schema specialized for Service Checkout.
+    Omits 'items' because they are derived from the Service Order itself,
+    avoiding validation errors with mock/string IDs from Frontend.
+    """
+    customer_id: Optional[int] = Field(None, description="ID del cliente override")
+    payment_method: str = Field("Efectivo", description="Método de pago principal")
+    payments: List[SalePaymentCreate] = Field([], description="Lista de pagos")
+    total_amount: Decimal = Field(..., description="Monto total a pagar")
+    total_amount_bs: Decimal = Field(..., description="Monto en Bs")
+    change_amount: Decimal = Decimal("0.00")
+    change_currency: str = "VES"
+    
+    currency: str = "USD"
+    exchange_rate: Decimal = Decimal("1.0")
+    notes: Optional[str] = None
+    is_credit: bool = False
+    
+    warehouse_id: Optional[int] = None 
+    unique_uuid: Optional[str] = None # Support idempotency if needed
+
+    class Config:
+        from_attributes = True
+
 
 class SalePaymentRead(BaseModel):
     id: int
@@ -256,6 +281,7 @@ class SaleDetailRead(BaseModel):
     discount: Decimal = Decimal("0.00")
     discount_type: str = "NONE"
     tax_rate: Decimal = Decimal("0.00")
+    description: Optional[str] = None # NEW: Manual description
     unit_id: Optional[int] = None  # NEW: Which presentation was sold
     product: Optional['ProductRead'] = None  # Include product info
     unit: Optional['ProductUnitRead'] = None  # NEW: Include unit/presentation info

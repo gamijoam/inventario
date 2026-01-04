@@ -432,8 +432,11 @@ class SalesService:
                  raw_total = to_ves(float(item.subtotal))
                  row_currency = "BS"
             
+            # Determine display name (Use manual description if available, else product name)
+            display_name = item.description if item.description else (item.product.name if item.product else "Producto")
+            
             formatted_items.append({
-                "product": {"name": item.product.name if item.product else "Producto"},
+                "product": {"name": display_name},
                 "quantity": float(item.quantity) if item.quantity % 1 != 0 else int(item.quantity),
                 # Raw values (Backward Compatibility)
                 "unit_price": raw_price,

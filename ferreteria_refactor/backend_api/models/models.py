@@ -302,6 +302,9 @@ class SaleDetail(Base):
     subtotal = Column(Numeric(12, 2), nullable=False)
     is_box_sale = Column(Boolean, default=False) # Was it sold as a box?
     
+    # NEW: Manual Description for Service Items
+    description = Column(Text, nullable=True)
+    
     # NEW: Unit/Presentation Support
     unit_id = Column(Integer, ForeignKey("product_units.id"), nullable=True)  # Which presentation was sold
     
@@ -531,6 +534,9 @@ class QuoteDetail(Base):
     unit_price = Column(Numeric(12, 2), nullable=False)
     subtotal = Column(Numeric(12, 2), nullable=False)
     is_box_sale = Column(Boolean, default=False)
+    
+    # NEW: Manual Description for Service Items
+    description = Column(String, nullable=True)
 
     quote = relationship("Quote", back_populates="details")
     product = relationship("Product")
