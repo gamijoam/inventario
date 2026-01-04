@@ -300,7 +300,6 @@ export const CartProvider = ({ children }) => {
             updateQuantity,
             updateCartItem, // NEW
             clearCart,
-            clearCart,
             totalUSD: totals.usd,
             totalBs: totals.bs,
             totalsByCurrency: totals.byCurrency,
