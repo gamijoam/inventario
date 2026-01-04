@@ -166,4 +166,30 @@ def update_service_order_status(
     
     db.commit()
     db.refresh(order)
+    db.refresh(order)
     return order
+
+# CHECKOUT ENDPOINTS
+
+from ..services.service_checkout_service import ServiceCheckoutService
+
+@router.get("/orders/status/ready", response_model=List[schemas.ServiceOrderRead])
+def get_ready_service_orders(db: Session = Depends(get_db)):
+    """Get all service orders ready for checkout/delivery"""
+    return db.query(models.ServiceOrder).filter(models.ServiceOrder.status == models.ServiceOrderStatus.READY).all()
+
+@router.post("/orders/{order_id}/checkout")
+def checkout_service_order(
+    order_id: int, 
+    payment_data: schemas.ServiceCheckoutPayment,
+    db: Session = Depends(get_db)
+):
+    """
+    Convert a Service Order into a Sale (Process Payment).
+    Ignores items in payload; uses items from the Service Order to ensure integrity.
+    """
+    # TODO: Add User ID from auth dependency
+    user_id = 1 
+    
+    sale = ServiceCheckoutService.convert_order_to_sale(db, order_id, payment_data, user_id)
+    return {"status": "success", "sale_id": sale.id, "ticket_number": sale.id}
