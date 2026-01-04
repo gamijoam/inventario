@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, desc
 from typing import Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from ..database.db import get_db
 from ..models import models
@@ -36,8 +36,17 @@ def get_dashboard_financials(
     if not end_date:
         end_date = date.today()
     
+    # TIMEZONE FIX: Simple Local Awareness
     start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
+    
+    # CRITICAL FIX: "End of Day" usually misses the last milliseconds or timezone shifts.
+    # If viewing a single day (Today), extend end time by +1 day 
+    # to account for Local (UTC-4) -> UTC shift (which is +4 hours).
+    # This prevents data form disappearing after 8 PM (00:00 UTC).
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
     
     # Query SalePayment grouped by currency
     # Note: We include ALL sales, even if they have returns. Returns are subtracted separately.
@@ -338,10 +347,61 @@ def get_detailed_sales_report(
     sales = query.order_by(models.Sale.date.desc()).all()
     
     # Filter by product if specified
+    
     if product_id:
         sales = [s for s in sales if any(d.product_id == product_id for d in s.details)]
     
     return sales
+
+@router.get("/sales/by-product")
+def get_sales_by_product(
+    start_date: date,
+    end_date: date,
+    category_id: Optional[int] = None,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """
+    Get aggregated sales by product for a period.
+    Returns list of products with total quantity sold and revenue.
+    """
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+    
+    query = db.query(
+        models.Product.name.label('product_name'),
+        models.Category.name.label('category_name'),
+        func.sum(models.SaleDetail.quantity).label('total_qty'),
+        func.sum(models.SaleDetail.subtotal).label('total_rev')
+    ).join(
+        models.SaleDetail, models.Product.id == models.SaleDetail.product_id
+    ).join(
+        models.Sale, models.SaleDetail.sale_id == models.Sale.id
+    ).outerjoin(
+        models.Category, models.Product.category_id == models.Category.id
+    ).filter(
+        models.Sale.date >= start_dt,
+        models.Sale.date <= end_dt
+    )
+    
+    if category_id:
+        query = query.filter(models.Product.category_id == category_id)
+        
+    results = query.group_by(
+        models.Product.id,
+        models.Product.name,
+        models.Category.name
+    ).order_by(desc('total_rev')).limit(limit).all()
+    
+    return [
+        {
+            "product_name": r.product_name,
+            "category_name": r.category_name or "Sin Categoría",
+            "total_quantity": float(r.total_qty or 0),
+            "total_revenue": float(r.total_rev or 0)
+        }
+        for r in results
+    ]
 
 @router.get("/sales/summary")
 def get_sales_summary(
@@ -1044,6 +1104,25 @@ def export_sales_excel(
     
     # Filename with dates
     filename = f"Ventas_Detalladas_{start_date}_{end_date}.xlsx"
+    
+    return StreamingResponse(
+        excel_file,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@router.get("/export/products", summary="Exportar Ventas por Producto a Excel")
+def export_product_sales_excel(
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db)
+):
+    """
+    Genera un archivo Excel con el reporte de productos vendidos.
+    """
+    excel_file = sales_export_service.generate_product_sales_excel(db, start_date, end_date)
+    
+    filename = f"Productos_Vendidos_{start_date}_{end_date}.xlsx"
     
     return StreamingResponse(
         excel_file,

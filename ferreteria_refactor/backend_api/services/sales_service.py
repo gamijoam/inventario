@@ -85,6 +85,8 @@ class SalesService:
             # CRITICAL FIX: Respect Frontend's VES calculation (preserves anchoring)
             total_bs = sale_data.total_amount_bs
             
+            print(f"[DEBUG] Creating Sale. Method: {sale_data.payment_method}. Payments: {sale_data.payments}")
+
             # Calculate due date for credit sales
             due_date = None
             balance_pending = None
@@ -456,7 +458,9 @@ class SalesService:
                         "currency": p.currency,
                         "method": p.payment_method
                     } for p in sale.payments
-                ]
+                ],
+                "change_amount": float(sale.change_amount) if sale.change_amount else 0.0,
+                "change_currency": sale.change_currency or "Bs"
             }
         }
         
@@ -503,6 +507,14 @@ REF USD: ${{ "%.2f"|format(sale.total_usd) }}
 {% endif %}
 (Tasa: {{ "%.2f"|format(sale.exchange_rate) }})
 </right>
+--------------------------------
+<left>
+PAGOS:
+{% for pay in sale.payments %}
+- {{ pay.method }} ({{ pay.currency }}): {{ "%.2f"|format(pay.amount) }}
+{% endfor %}
+SU CAMBIO: {{ sale.change_currency }} {{ "%.2f"|format(sale.change_amount) }}
+</left>
 --------------------------------
 <center>
 ¡GRACIAS POR SU COMPRA!

@@ -45,7 +45,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     useEffect(() => {
         if (isOpen) {
-            setPayments([{ amount: '', currency: 'Bs', method: 'Efectivo' }]);
+            // FIXED: Default to "Efectivo Bolívares (Bs)" as requested
+            setPayments([{ amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)' }]);
             setIsCreditSale(false);
 
             // Priority: Initial Customer > Null
@@ -126,7 +127,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const isComplete = remainingUSD <= 0.005;
 
     const addPaymentRow = () => {
-        setPayments([...payments, { amount: '', currency: 'USD', method: 'Efectivo' }]);
+        setPayments([...payments, { amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)' }]);
     };
 
     const removePaymentRow = (index) => {
@@ -177,9 +178,16 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 total_amount: totalUSD,
                 // NEW: Frontend Source of Truth for VES Total
                 total_amount_bs: totalBs,
-                // NEW: Register Change/Vuelto
-                change_amount: changeVES,
-                change_currency: "VES",
+                // NEW: Register Change/Vuelto (Dynamic Currency)
+                change_amount: isCreditSale ? 0 : (() => {
+                    // Check dominant currency
+                    const allUSD = payments.every(p => p.currency === '$' || p.currency === 'USD');
+                    return allUSD ? changeUSD : (changeUSD > 0.005 ? (changeUSD * effectiveBsRate) : 0);
+                })(),
+                change_currency: isCreditSale ? "Bs" : (() => {
+                    const allUSD = payments.every(p => p.currency === '$' || p.currency === 'USD');
+                    return allUSD ? "USD" : "Bs";
+                })(),
 
                 currency: saleCurrency, // Dynamic Currency
                 exchange_rate: effectiveBsRate, // Store the effective rate used for this transaction? Or Global?
@@ -187,19 +195,13 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 // recalculations based on total_usd * rate will match total_bs. 
                 // This is cleaner for consistency, though backend now trusts total_amount_bs directly.
 
-                payment_method: isCreditSale ? "Credito" : (payments[0]?.method || "Efectivo"),
+                payment_method: isCreditSale ? "Credito" : (payments[0]?.method || "Efectivo Bolívares (Bs)"),
                 payments: isCreditSale ? [] : payments.map(p => {
-                    // FIX: Split Efectivo into USD/Bs for Reporting
-                    let finalMethod = p.method;
-                    if (p.method === 'Efectivo') {
-                        const isBs = p.currency === 'Bs' || p.currency === 'VES';
-                        finalMethod = isBs ? 'Efectivo Bs' : 'Efectivo USD';
-                    }
-
+                    // FIX: Use explicit method selected by user (matches DB name now)
                     return {
                         amount: parseFloat(p.amount),
                         currency: p.currency === '$' ? 'USD' : p.currency,
-                        method: finalMethod,
+                        payment_method: p.method,
                         exchange_rate: (p.currency === 'Bs' || p.currency === 'VES') ? effectiveBsRate : (getExchangeRate(p.currency) || 1)
                     };
                 }),
