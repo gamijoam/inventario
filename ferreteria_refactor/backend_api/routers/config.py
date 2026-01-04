@@ -23,7 +23,8 @@ def get_public_config():
     """Get public configuration and feature flags"""
     return {
         "modules": {
-            "restaurant": settings.MODULE_RESTAURANT_ENABLED
+            "restaurant": settings.MODULE_RESTAURANT_ENABLED,
+            "services": settings.MODULE_SERVICES_ENABLED
         }
     }
 

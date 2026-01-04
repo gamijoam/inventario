@@ -35,7 +35,8 @@ def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         username=user_data.username,
         password_hash=get_password_hash(user_data.password),
         role=user_data.role,
-        full_name=user_data.full_name
+        full_name=user_data.full_name,
+        commission_percentage=user_data.commission_percentage # NEW
     )
     db.add(user)
     db.commit()
@@ -71,6 +72,8 @@ def update_user(user_id: int, user_data: schemas.UserUpdate, db: Session = Depen
         user.full_name = user_data.full_name
     if user_data.is_active is not None:
         user.is_active = user_data.is_active
+    if user_data.commission_percentage is not None: # NEW
+        user.commission_percentage = user_data.commission_percentage
     
     db.commit()
     db.refresh(user)

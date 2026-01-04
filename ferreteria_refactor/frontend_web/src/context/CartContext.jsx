@@ -205,6 +205,13 @@ export const CartProvider = ({ children }) => {
         setCart(prev => updateItemQuantityInList(prev, itemId, newQuantity));
     };
 
+    // NEW: Update arbitrary item fields (e.g. salesperson_id)
+    const updateCartItem = (itemId, updates) => {
+        setCart(prev => prev.map(item =>
+            item.id === itemId ? { ...item, ...updates } : item
+        ));
+    };
+
     const clearCart = () => setCart([]);
 
     // Helper to purely update the list and recalculate subtotals
@@ -291,6 +298,8 @@ export const CartProvider = ({ children }) => {
             addToCart,
             removeFromCart,
             updateQuantity,
+            updateCartItem, // NEW
+            clearCart,
             clearCart,
             totalUSD: totals.usd,
             totalBs: totals.bs,

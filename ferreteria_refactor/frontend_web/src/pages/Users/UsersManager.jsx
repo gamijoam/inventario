@@ -24,7 +24,9 @@ const UsersManager = () => {
         username: '',
         password: '',
         full_name: '',
-        role: 'CASHIER'
+        full_name: '',
+        role: 'CASHIER',
+        commission_percentage: 0 // NEW
     });
 
     useEffect(() => {
@@ -60,7 +62,9 @@ const UsersManager = () => {
                 username: user.username,
                 password: '',
                 full_name: user.full_name || '',
-                role: user.role
+                full_name: user.full_name || '',
+                role: user.role,
+                commission_percentage: user.commission_percentage || 0 // NEW
             });
         } else if (mode === 'password' && user) {
             setFormData({
@@ -93,14 +97,16 @@ const UsersManager = () => {
                     username: formData.username,
                     password: formData.password,
                     full_name: formData.full_name,
-                    role: formData.role
+                    role: formData.role,
+                    commission_percentage: parseFloat(formData.commission_percentage || 0) // NEW
                 });
                 alert('✅ Usuario creado exitosamente');
             } else if (modalMode === 'edit') {
                 // Update user
                 const updateData = {
                     role: formData.role,
-                    full_name: formData.full_name
+                    full_name: formData.full_name,
+                    commission_percentage: parseFloat(formData.commission_percentage || 0) // NEW
                 };
 
                 // Only include password if it was changed
@@ -384,6 +390,28 @@ const UsersManager = () => {
                                             {modules.restaurant && formData.role === 'KITCHEN' && '✓ Acceso a pantalla de cocina'}
                                         </p>
                                     </div>
+
+                                    {/* NEW: Commission Percentage */}
+                                    {modules.services && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                % Comisión (Servicios)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="100"
+                                                value={formData.commission_percentage}
+                                                onChange={(e) => setFormData({ ...formData, commission_percentage: e.target.value })}
+                                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                                placeholder="0.00"
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                Porcentaje que ganará este usuario sobre servicios vendidos.
+                                            </p>
+                                        </div>
+                                    )}
                                 </>
                             )}
 

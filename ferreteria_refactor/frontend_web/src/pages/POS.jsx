@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin, User } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
@@ -26,9 +26,9 @@ const formatStock = (stock) => {
 };
 
 const POS = () => {
-    const { cart, addToCart, removeFromCart, updateQuantity, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates } = useCart();
+    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates } = useCart();
     const { isSessionOpen, openSession, loading } = useCash();
-    const { getActiveCurrencies, convertPrice, currencies } = useConfig();
+    const { getActiveCurrencies, convertPrice, currencies, modules } = useConfig();
     const { subscribe } = useWebSocket(); // WebSocket Hook
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
@@ -49,6 +49,7 @@ const POS = () => {
     const [categories, setCategories] = useState([]);
     const [warehouses, setWarehouses] = useState([]); // NEW
     const [selectedWarehouseId, setSelectedWarehouseId] = useState(''); // NEW
+    const [salespeople, setSalespeople] = useState([]); // NEW: Technical Services
     const [isLoading, setIsLoading] = useState(true);
 
     // Refs
@@ -235,7 +236,6 @@ const POS = () => {
         ignoreIfFocused: false  // Capturar incluso si hay un input enfocado
     });
 
-    // Fetch Catalog and Categories on Mount
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -256,6 +256,17 @@ const POS = () => {
                 // Set default warehouse (Main or first)
                 // Use 'all' by default to show all stock
                 setSelectedWarehouseId('all');
+
+                // NEW: Load Salespeople if Services Module is enabled
+                if (modules?.services) {
+                    try {
+                        const usersRes = await apiClient.get('/users');
+                        setSalespeople(usersRes.data || []);
+                    } catch (err) {
+                        console.error("Failed to load salespeople", err);
+                    }
+                }
+
             } catch (error) {
                 console.error("Error fetching data:", error);
                 toast.error("Error cargando datos del POS");
@@ -264,7 +275,7 @@ const POS = () => {
             }
         };
         fetchData();
-    }, []);
+    }, [modules]); // Add modules as dependency to reload if config changes
 
     // Load Quote from URL if present
     useEffect(() => {
@@ -835,7 +846,7 @@ const POS = () => {
 
                                 <div className="flex-1 min-w-0">
                                     <div className="flex justify-between items-start mb-1">
-                                        <div className="min-w-0 pr-2">
+                                        <div className="min-w-0 pr-2 w-full">
                                             <div className="font-medium text-slate-700 text-sm line-clamp-2 leading-tight">
                                                 {item.name}
                                             </div>
@@ -854,6 +865,30 @@ const POS = () => {
                                                     </span>
                                                 )}
                                             </div>
+
+                                            {/* NEW: Salesperson Selector (Services Module) */}
+                                            {modules?.services && (
+                                                <div
+                                                    className="mt-2 flex items-center gap-1 bg-indigo-50/50 rounded p-1 w-full max-w-[180px] hover:bg-indigo-50 transition-colors"
+                                                    onClick={(e) => e.stopPropagation()} // Prevent edit modal trigger
+                                                >
+                                                    <User size={12} className="text-indigo-400" />
+                                                    <select
+                                                        className="bg-transparent border-none text-[10px] p-0 w-full text-indigo-700 font-medium focus:ring-0 cursor-pointer"
+                                                        value={item.salesperson_id || ""}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value ? parseInt(e.target.value) : null;
+                                                            updateCartItem(item.id, { salesperson_id: val });
+                                                        }}
+                                                    >
+                                                        <option value="">-- Sin Vendedor --</option>
+                                                        {salespeople.map(u => (
+                                                            <option key={u.id} value={u.id}>{u.full_name || u.username}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
+
                                         </div>
                                         <div className="text-right shrink-0">
                                             <div className="font-bold text-slate-800">${Number(item.subtotal_usd || 0).toFixed(2)}</div>

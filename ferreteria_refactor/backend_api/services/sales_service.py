@@ -280,9 +280,29 @@ class SalesService:
                     is_box_sale=False,
                     discount=item.discount,
                     discount_type=item.discount_type,
-                    unit_id=item.unit_id if hasattr(item, 'unit_id') else None  # NEW: Persist presentation
+                    unit_id=item.unit_id if hasattr(item, 'unit_id') else None,  # NEW: Persist presentation
+                    salesperson_id=item.salesperson_id # NEW: Granular Commission
                 )
                 db.add(detail)
+                db.flush() # Need ID for CommissionLog
+
+                # NEW: COMMISSION CALCULATION LOGIC
+                # Only if Services Module is enabled to avoid overhead in standard retail
+                from ..config import settings
+                if settings.MODULE_SERVICES_ENABLED and item.salesperson_id:
+                     salesperson = db.query(models.User).filter(models.User.id == item.salesperson_id).first()
+                     if salesperson and salesperson.commission_percentage and salesperson.commission_percentage > 0:
+                         commission_amount = subtotal * (salesperson.commission_percentage / 100)
+                         
+                         if commission_amount > 0:
+                             comm_log = models.CommissionLog(
+                                 user_id=salesperson.id,
+                                 sale_detail_id=detail.id,
+                                 amount=commission_amount,
+                                 currency=new_sale.currency, # Inherit sale currency
+                                 percentage_applied=salesperson.commission_percentage
+                             )
+                             db.add(comm_log)
         
             # 3. Process Payments (New Multi-Payment Logic)
             if sale_data.payments:
