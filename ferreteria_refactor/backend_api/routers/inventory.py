@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
@@ -148,3 +148,37 @@ def get_kardex(product_id: Optional[int] = None, limit: int = 100, db: Session =
     if product_id:
         query = query.filter(models.Kardex.product_id == product_id)
     return query.order_by(models.Kardex.date.desc()).limit(limit).all()
+
+# --- INTER-COMPANY TRANSFER ENDPOINTS ---
+from fastapi import UploadFile, File, Body
+from ..services.inventory_service import InventoryService
+from ..schemas import TransferPackageSchema, TransferResultSchema
+from pydantic import BaseModel
+
+class TransferRequest(BaseModel):
+    items: List[Dict[str, Any]]
+    source_company: str
+
+@router.post("/transfer/export", response_model=TransferPackageSchema)
+def export_transfer_package(
+    request: TransferRequest,
+    db: Session = Depends(get_db),
+    # user: models.User = Depends(get_current_active_user) # Optional security
+):
+    """
+    Generate a JSON package for transfer.
+    Deducts stock immediately from this instance.
+    """
+    return InventoryService.generate_transfer_package_v2(db, request.items, request.source_company)
+
+@router.post("/transfer/import", response_model=TransferResultSchema)
+async def import_transfer_package(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Import a JSON transfer package.
+    Adds stock to this instance.
+    """
+    content = await file.read()
+    return InventoryService.process_transfer_package(db, content)

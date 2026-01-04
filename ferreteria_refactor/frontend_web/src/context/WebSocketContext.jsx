@@ -32,8 +32,8 @@ export const WebSocketProvider = ({ children }) => {
         let wsUrl;
 
         if (isDev) {
-            // Desarrollo: backend en localhost:8000
-            wsUrl = 'ws://localhost:8000/api/v1/ws';
+            // Desarrollo: backend en localhost:8000 (Usar 127.0.0.1 evita problemas de resolución IPv4/IPv6 en Windows)
+            wsUrl = 'ws://127.0.0.1:8000/api/v1/ws';
         } else {
             // Producción: construir URL dinámicamente
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

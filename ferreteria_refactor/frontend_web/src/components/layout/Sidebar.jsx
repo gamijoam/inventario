@@ -28,7 +28,9 @@ import {
     PieChart,
     Utensils,
     ChefHat,
-    Smartphone
+    Smartphone,
+    ArrowRight,
+    Download
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -81,7 +83,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 { icon: Tags, label: 'Categorías', path: '/categories' },
                 { icon: Archive, label: 'Movimientos', path: '/inventory' },
                 { icon: Warehouse, label: 'Almacenes', path: '/warehouses' },
-                { icon: ArrowRightLeft, label: 'Traslados', path: '/transfers' },
+                { icon: ArrowRightLeft, label: 'Traslados Internos', path: '/transfers' },
+                { icon: ArrowRight, label: 'Exportar (Salida)', path: '/transfers/external/out' },
+                { icon: Download, label: 'Importar (Entrada)', path: '/transfers/external/in' },
             ]
         },
         {
