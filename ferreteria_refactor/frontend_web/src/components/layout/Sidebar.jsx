@@ -95,7 +95,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
                 { icon: BarChart2, label: 'Antigüedad (Aging)', path: '/credit/aging' },
                 { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
-                { icon: BarChart2, label: 'Reportes', path: '/reports/unified' },
+                { icon: BarChart2, label: 'Reportes Unificados', path: '/reports/unified' },
+                { icon: PieChart, label: 'Reportes Detallados', path: '/reports/detailed' },
             ]
         },
         {

@@ -574,6 +574,43 @@ def get_cash_flow_report(
     
     return movements
 
+@router.get("/sales/by-product")
+def get_sales_by_product(
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db)
+):
+    """
+    Sales aggregated by Product
+    """
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
+        
+    query = db.query(
+        models.Product.name,
+        func.sum(models.SaleDetail.quantity).label('total_quantity'),
+        func.sum(models.SaleDetail.quantity * models.SaleDetail.unit_price).label('total_revenue')
+    ).join(models.SaleDetail.product).join(models.SaleDetail.sale).filter(
+        models.Sale.date >= start_dt,
+        models.Sale.date <= end_dt,
+        # Optional: Exclude voided sales if you have a status, current model assumes sales present are valid
+    ).group_by(models.Product.name).order_by(desc('total_quantity'))
+    
+    print(f"DEBUG: Found {len(results)} products for period {start_dt} - {end_dt}")
+    
+    return [
+        {
+            "product_name": r.name,
+            "quantity": float(r.total_quantity or 0),
+            "revenue": float(r.total_revenue or 0)
+        }
+        for r in results
+    ]
+
+
 @router.get("/top-products")
 def get_top_products(
     start_date: date,
@@ -594,7 +631,7 @@ def get_top_products(
         models.Product.id,
         models.Product.name,
         func.sum(models.SaleDetail.quantity).label('gross_qty'),
-        func.sum(models.SaleDetail.subtotal).label('gross_rev')
+        func.sum(models.SaleDetail.quantity * models.SaleDetail.unit_price).label('gross_rev')
     ).join(models.SaleDetail).join(models.Sale).filter(
         models.Sale.date >= start_dt,
         models.Sale.date <= end_dt
@@ -1220,7 +1257,7 @@ async def export_excel_report(
             models.Product.name.label('product_name'),
             models.Product.cost_price,
             func.sum(models.SaleDetail.quantity).label('total_quantity'),
-            func.sum(models.SaleDetail.subtotal).label('total_revenue')
+            func.sum(models.SaleDetail.quantity * models.SaleDetail.unit_price).label('total_revenue')
         ).join(
             models.Product, models.SaleDetail.product_id == models.Product.id
         ).join(
@@ -1375,6 +1412,14 @@ async def export_excel_report(
                 df_inventory.to_excel(writer, sheet_name='Inventario', index=False)
             else:
                 pd.DataFrame({'Mensaje': ['No hay productos en inventario']}).to_excel(writer, sheet_name='Inventario', index=False)
+
+            # ========== SHEET 5: PRODUCTS SOLD ==========
+            if not df_products.empty:
+                # Sort by quantity desc
+                df_products_sorted = df_products.sort_values(by='Cantidad Vendida', ascending=False)
+                df_products_sorted.to_excel(writer, sheet_name='Productos Vendidos', index=False)
+            else:
+                pd.DataFrame({'Mensaje': ['No hubo ventas de productos en este período']}).to_excel(writer, sheet_name='Productos Vendidos', index=False)
         
         # ============================================
         # 4. APPLY STYLING TO EXCEL
@@ -1406,6 +1451,25 @@ async def export_excel_report(
                 adjusted_width = min(max_length + 2, 50)
                 ws.column_dimensions[column_letter].width = adjusted_width
         
+        # Style Products Sheet
+        if 'Productos Vendidos' in workbook.sheetnames:
+            ws = workbook['Productos Vendidos']
+            for cell in ws[1]:
+                cell.font = Font(bold=True, color="FFFFFF", size=12)
+                cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            
+            for column in ws.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
+
         # Style Cash Audit - Highlight differences
         if 'Auditoría Cajas' in workbook.sheetnames:
             ws = workbook['Auditoría Cajas']
