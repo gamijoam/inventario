@@ -30,7 +30,8 @@ import {
     ChefHat,
     Smartphone,
     ArrowRight,
-    Download
+    Download,
+    Wrench // NEW: Service Module
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -60,6 +61,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 { icon: Smartphone, label: 'Comandera Móvil', path: '/mobile/login' },
                 { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
                 { icon: ClipboardList, label: 'Recetas / Escandallos', path: '/restaurant/recipes' },
+            ]
+        }] : []),
+        // SERVICE MODULE
+        ...(modules?.services ? [{
+            type: 'group',
+            label: 'Servicios Técnicos',
+            icon: Wrench,
+            items: [
+                { icon: FileText, label: 'Nueva Orden', path: '/services/reception' },
             ]
         }] : []),
         {
