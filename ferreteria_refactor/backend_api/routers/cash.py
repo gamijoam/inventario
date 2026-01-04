@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from typing import List, Dict, Optional
 from datetime import datetime, date
 from decimal import Decimal
@@ -157,7 +157,10 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
         filter(
             models.Sale.date >= session.start_time,
             models.Sale.date <= (session.end_time or datetime.now()),
-            models.SalePayment.payment_method.in_(["Efectivo", "CASH", "Cash", "efectivo"]),
+            or_(
+                models.SalePayment.payment_method.ilike("%efectivo%"),
+                models.SalePayment.payment_method.ilike("%cash%")
+            ),
             models.SalePayment.currency.in_(target_currencies)
         ).scalar() or Decimal("0.00")
 
@@ -304,12 +307,12 @@ def get_session_details(
     deposits_bs = sum((m.amount for m in movements if m.type == "DEPOSIT" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
 
     # Calculate Expected Cash (Only Cash payments affect the drawer)
-    # Check for multiple possible cash payment method names
-    cash_methods = ["Efectivo", "CASH", "Cash", "efectivo"]
+    # Check for multiple possible cash payment method names using substring
     cash_by_currency = {}  # Track cash sales by currency
     
-    for method_name in cash_methods:
-        if method_name in sales_by_method:
+    for method_name in sales_by_method:
+        # Flexible check: if "efectivo" or "cash" is in the name (case-insensitive)
+        if "efectivo" in method_name.lower() or "cash" in method_name.lower():
             for curr, amt in sales_by_method[method_name].items():
                 if curr not in cash_by_currency:
                     cash_by_currency[curr] = Decimal("0.00")
@@ -339,7 +342,8 @@ def get_session_details(
     # Build transfers_by_currency (non-cash payments)
     transfers_by_currency = {}
     for method, currencies in sales_by_method.items():
-        if method not in cash_methods:  # Exclude cash
+        is_cash = "efectivo" in method.lower() or "cash" in method.lower()
+        if not is_cash:  # Exclude cash
             for curr, amt in currencies.items():
                 if amt > 0:
                     if curr not in transfers_by_currency:
@@ -406,7 +410,7 @@ async def close_cash_session(
     # CALCULATE EXPECTED BY CURRENCY
     # ============================================
     
-    cash_methods = ["Efectivo", "CASH", "Cash", "efectivo"]
+    # cash_methods removed - using flexible check
     
     # Track sales and movements by currency
     cash_sales_by_currency = {}  # {currency_symbol: amount}
@@ -414,7 +418,7 @@ async def close_cash_session(
     
     # Process payments
     for p in payments:
-        if p.payment_method in cash_methods:
+        if "efectivo" in p.payment_method.lower() or "cash" in p.payment_method.lower():
             curr = p.currency or "USD"
             # Normalize currency symbols
             if curr.upper() in ["BS", "VES", "VEF"]:
