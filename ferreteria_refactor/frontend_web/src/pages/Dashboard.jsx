@@ -192,8 +192,19 @@ const Dashboard = () => {
         else setLoading(true);
 
         try {
-            const today = new Date().toISOString().split('T')[0];
-            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            // FIX: Use LOCAL date, not UTC. toISOString() shifts to tomorrow after 8PM in VET.
+            const d = new Date();
+            // Format YYYY-MM-DD manually to respect local timezone
+            const today = d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+
+            // Week ago logic
+            const d7 = new Date();
+            d7.setDate(d7.getDate() - 7);
+            const weekAgo = d7.getFullYear() + '-' +
+                String(d7.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d7.getDate()).padStart(2, '0');
 
             const [sales, profit, transactions] = await Promise.all([
                 unifiedReportService.getSalesSummary({
