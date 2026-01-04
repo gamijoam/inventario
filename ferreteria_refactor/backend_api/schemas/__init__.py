@@ -862,3 +862,58 @@ class TransferResultSchema(BaseModel):
     success_count: int
     failure_count: int
     errors: List[str]
+
+# ========================
+# SERVICE MODULE SCHEMAS
+# ========================
+
+class ServiceOrderDetailBase(BaseModel):
+    product_id: int
+    quantity: Decimal = Decimal("1.000")
+    unit_price: Decimal
+    technician_id: Optional[int] = None
+
+class ServiceOrderDetailCreate(ServiceOrderDetailBase):
+    pass
+
+class ServiceOrderDetailRead(ServiceOrderDetailBase):
+    id: int
+    service_order_id: int
+    cost: Decimal
+    product: Optional[ProductRead] = None
+    technician: Optional[UserRead] = None
+
+    class Config:
+        from_attributes = True
+
+class ServiceOrderBase(BaseModel):
+    customer_id: int
+    technician_id: Optional[int] = None
+    device_type: str
+    brand: str
+    model: str
+    serial_imei: str
+    passcode_pattern: Optional[str] = None
+    problem_description: str
+    physical_condition: Optional[str] = None
+    
+    # Optional on creation
+    estimated_delivery: Optional[datetime] = None
+    diagnosis_notes: Optional[str] = None
+
+class ServiceOrderCreate(ServiceOrderBase):
+    pass
+
+class ServiceOrderRead(ServiceOrderBase):
+    id: int
+    ticket_number: str
+    status: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    customer: Optional[CustomerRead] = None
+    technician: Optional[UserRead] = None
+    details: List[ServiceOrderDetailRead] = []
+
+    class Config:
+        from_attributes = True

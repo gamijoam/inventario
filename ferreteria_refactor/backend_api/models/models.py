@@ -739,3 +739,78 @@ class TransferDetail(Base):
 # RESTAURANT MODULE
 # ============================================
 from .restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem
+
+# ============================================
+# SERVICE MODULE MODELS
+# ============================================
+
+class ServiceOrderStatus(str, enum.Enum):
+    RECEIVED = "RECEIVED"
+    DIAGNOSING = "DIAGNOSING"
+    APPROVED = "APPROVED"
+    IN_PROGRESS = "IN_PROGRESS"
+    READY = "READY"
+    DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
+
+class ServiceOrder(Base):
+    __tablename__ = "service_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_number = Column(String, unique=True, index=True, nullable=False) # SRV-0001
+    
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    technician_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Assigned Technician
+    
+    status = Column(Enum(ServiceOrderStatus), default=ServiceOrderStatus.RECEIVED)
+    
+    # Device Info
+    device_type = Column(String, nullable=False) # "Smartphone", "Laptop"
+    brand = Column(String, nullable=False)
+    model = Column(String, nullable=False)
+    serial_imei = Column(String, nullable=False, index=True) # Critical for tracking
+    passcode_pattern = Column(Text, nullable=True) # Pattern description or PIN
+    
+    # Diagnosis
+    problem_description = Column(Text, nullable=False)
+    physical_condition = Column(Text, nullable=True) # Scratches, dents?
+    diagnosis_notes = Column(Text, nullable=True)
+    
+    # Dates
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, onupdate=datetime.datetime.now)
+    estimated_delivery = Column(DateTime, nullable=True)
+
+    # Relationships
+    customer = relationship("Customer")
+    technician = relationship("User", foreign_keys=[technician_id])
+    details = relationship("ServiceOrderDetail", back_populates="service_order", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<ServiceOrder(ticket='{self.ticket_number}', status='{self.status}')>"
+
+class ServiceOrderDetail(Base):
+    """
+    Spare parts or labor added to the service order.
+    Basically a 'SaleDetail' but for Services.
+    """
+    __tablename__ = "service_order_details"
+
+    id = Column(Integer, primary_key=True, index=True)
+    service_order_id = Column(Integer, ForeignKey("service_orders.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False) # Can be a 'Service' product
+    
+    quantity = Column(Numeric(12, 3), default=1.000)
+    unit_price = Column(Numeric(12, 2), nullable=False)
+    cost = Column(Numeric(14, 4), default=0.0000)
+    
+    technician_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Who performed this specific task?
+    
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    service_order = relationship("ServiceOrder", back_populates="details")
+    product = relationship("Product")
+    technician = relationship("User", foreign_keys=[technician_id])
+
+    def __repr__(self):
+        return f"<ServiceOrderDetail(order={self.service_order_id}, product={self.product_id})>"

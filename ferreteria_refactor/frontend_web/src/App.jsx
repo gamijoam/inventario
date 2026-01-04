@@ -60,6 +60,7 @@ import MobileWaiterLayout from './layouts/MobileWaiterLayout';
 import WaiterLogin from './pages/Mobile/WaiterLogin';
 import MobileTableGrid from './pages/Mobile/MobileTableGrid';
 import MobileOrderTaker from './pages/Mobile/MobileOrderTaker';
+import Reception from './pages/Services/Reception'; // NEW: Service Reception
 
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
@@ -269,6 +270,13 @@ function App() {
                             } />
 
                             <Route path="/help" element={<Help />} />
+
+                            {/* Service Module */}
+                            <Route path="/services/reception" element={
+                              <ProtectedRoute>
+                                <Reception />
+                              </ProtectedRoute>
+                            } />
                           </Route>
                         </Route>
                       </Routes>

@@ -14,6 +14,7 @@ from .categories import router as categories_router
 from .websocket import router as websocket_router
 from .audit import router as audit_router
 from .system import router as system_router
+from .services import router as services_router
 
 # Export objects for easier import
 products = products_router
@@ -32,3 +33,4 @@ categories = categories_router
 websocket = websocket_router
 audit = audit_router
 system = system_router
+services = services_router
