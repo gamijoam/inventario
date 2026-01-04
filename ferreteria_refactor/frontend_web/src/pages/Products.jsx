@@ -290,7 +290,7 @@ const Products = () => {
                                 const matchesRate = !filterExchangeRate || product.exchange_rate_id === parseInt(filterExchangeRate);
 
                                 // 4. Warehouse Filter
-                                const matchesWarehouse = !filterWarehouse || true;
+                                const matchesWarehouse = !filterWarehouse || (product.stocks && product.stocks.some(s => s.warehouse_id === parseInt(filterWarehouse) && s.quantity > 0));
 
                                 return matchesSearch && matchesCategory && matchesRate && matchesWarehouse;
                             })
@@ -398,7 +398,7 @@ const Products = () => {
                         })();
                         const matchesCategory = !filterCategory || product.category_id === parseInt(filterCategory);
                         const matchesRate = !filterExchangeRate || product.exchange_rate_id === parseInt(filterExchangeRate);
-                        const matchesWarehouse = !filterWarehouse || true;
+                        const matchesWarehouse = !filterWarehouse || (product.stocks && product.stocks.some(s => s.warehouse_id === parseInt(filterWarehouse) && s.quantity > 0));
 
                         return matchesSearch && matchesCategory && matchesRate && matchesWarehouse;
                     })

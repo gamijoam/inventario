@@ -33,10 +33,24 @@ from pydantic import BaseModel
 
 @router.get("/", response_model=List[schemas.ProductRead])
 @router.get("", response_model=List[schemas.ProductRead], include_in_schema=False)
-def read_products(skip: int = 0, limit: int = 5000, search: Optional[str] = None, db: Session = Depends(get_db)):
+def read_products(
+    skip: int = 0, 
+    limit: int = 5000, 
+    search: Optional[str] = None, 
+    warehouse_id: Optional[int] = None,  # NEW PARAM
+    db: Session = Depends(get_db)
+):
     try:
         query = db.query(models.Product).options(joinedload(models.Product.units), joinedload(models.Product.stocks)).filter(models.Product.is_active == True)
         
+        # FILTER: Warehouse
+        if warehouse_id:
+            # Only return products that have POSITIVE stock in the selected warehouse
+            query = query.join(models.ProductStock).filter(
+                models.ProductStock.warehouse_id == warehouse_id,
+                models.ProductStock.quantity > 0
+            )
+
         if search:
             search_term = f"%{search}%"
             query = query.filter(
@@ -47,7 +61,7 @@ def read_products(skip: int = 0, limit: int = 5000, search: Optional[str] = None
             )
             
         products = query.offset(skip).limit(limit).all()
-        print(f"[OK] Loaded {len(products)} products successfully (Search: {search})")
+        print(f"[OK] Loaded {len(products)} products successfully (Search: {search}, Warehouse: {warehouse_id})")
         return products
     except Exception as e:
         print(f"[ERROR] ERROR loading products: {type(e).__name__}: {str(e)}")
