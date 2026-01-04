@@ -91,15 +91,13 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
 
             # 2. Update Global Stock (Cache)
             old_stock = product.stock
+            old_cost_price = product.cost_price # Capture old cost for margin calc
             product.stock += item.quantity
             
-            # Update cost price (weighted average)
-            if item.update_cost:
-                if old_stock == 0:
-                    product.cost_price = item.unit_cost
-                else:
-                    total_value = (product.cost_price * old_stock) + (item.unit_cost * item.quantity)
-                    product.cost_price = total_value / product.stock
+            # Update cost price (Last Cost / Replacement Cost Strategy)
+            # User Preference: Newest purchase price overrides historical average
+            if item.update_cost and item.unit_cost > 0:
+                 product.cost_price = item.unit_cost
             
             # Update Sale Price (PVP) if requested
             if item.update_price:
@@ -109,10 +107,31 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 elif item.update_cost and item.unit_cost > 0:
                      # Intelligent auto-update if only "update price" is checked but no value sent
                      # Use Replacment Cost Strategy (Item Unit Cost) to protect margin
-                     if product.profit_margin:
-                         tax_multiplier = 1 + (product.tax_rate / 100) if product.tax_rate else 1
-                         margin_multiplier = 1 + (product.profit_margin / 100)
+                     tax_multiplier = Decimal(1) + (product.tax_rate / 100) if product.tax_rate else Decimal(1)
+                     
+                     # 1. Try to use stored profit margin
+                     if product.profit_margin and product.profit_margin > 0:
+                         margin_multiplier = Decimal(1) + (product.profit_margin / 100)
                          product.price = item.unit_cost * margin_multiplier * tax_multiplier
+                     
+                     # 2. Fallback: Calculate margin on-the-fly from current price/cost
+                     # BUGFIX: Must use OLD cost to infer margin, not the new one we just set!
+                     elif product.price > 0 and old_cost_price > 0:
+                         # Reverse engineer current margin based on OLD dynamic
+                         # Price = OldCost * (1+Margin) * (1+Tax) -> Margin = (Price / (OldCost * Tax)) - 1
+                         current_base_price = product.price / tax_multiplier
+                         current_margin = ((current_base_price / old_cost_price) - 1) * 100
+                         
+                         # Apply this historical margin to new cost
+                         margin_multiplier = Decimal(1) + (current_margin / 100)
+                         product.price = item.unit_cost * margin_multiplier * tax_multiplier
+                         
+                         # Update stored margin for consistency
+                         product.profit_margin = current_margin
+                     
+                     # 3. Last Resort: Keep existing price (margin shrinks)
+                     else:
+                         pass # Price stays same, margin will be updated below automatically
  
             # Auto-update profit margin (Markup) based on new values
             if product.cost_price > 0 and product.price > 0:

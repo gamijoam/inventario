@@ -165,20 +165,6 @@ const CreatePurchase = () => {
                 ? { ...i, unit_cost: newCost, subtotal: i.quantity * newCost }
                 : i
         ));
-
-        // Show modal if cost changed
-        if (item && newCost !== item.original_cost && newCost > 0) {
-            setShowCostUpdateModal({
-                productId,
-                newCost,
-                originalCost: item.original_cost,
-                productName: item.product_name,
-                profitMargin: item.profit_margin,
-                taxRate: item.tax_rate,
-                updatePrice: false,
-                newSalePrice: null
-            });
-        }
     };
 
     // Remove item
@@ -508,6 +494,21 @@ const CreatePurchase = () => {
                                                                     ? 'bg-amber-50 text-amber-700 border-amber-200'
                                                                     : 'bg-white text-slate-600 border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
                                                             )}
+                                                            onBlur={() => {
+                                                                // Trigger modal only when user finishes typing
+                                                                if (item.unit_cost !== item.original_cost && item.unit_cost > 0) {
+                                                                    setShowCostUpdateModal({
+                                                                        productId: item.product_id,
+                                                                        newCost: item.unit_cost,
+                                                                        originalCost: item.original_cost,
+                                                                        productName: item.product_name,
+                                                                        profitMargin: item.profit_margin,
+                                                                        taxRate: item.tax_rate,
+                                                                        updatePrice: false,
+                                                                        newSalePrice: null
+                                                                    });
+                                                                }
+                                                            }}
                                                         />
                                                     </div>
                                                 </td>
@@ -560,7 +561,7 @@ const CreatePurchase = () => {
                 </div>
 
                 {/* RIGHT SIDEBAR: Actions & Payment */}
-                <div className="w-80 flex flex-col gap-4">
+                <div className="w-80 flex flex-col gap-4 overflow-y-auto pb-2">
                     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <ArrowRight size={14} className="text-indigo-600" /> Condiciones
@@ -658,14 +659,14 @@ const CreatePurchase = () => {
                                     <div className="text-xl font-mono text-slate-400 line-through">${Number(showCostUpdateModal.originalCost).toFixed(2)}</div>
                                 </div>
                                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-                                    <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Nuevo</label>
+                                    <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Nuevo Costo</label>
                                     <div className="text-2xl font-black font-mono text-amber-700">
                                         ${Number(showCostUpdateModal.newCost).toFixed(2)}
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 transition-all duration-300">
                                 <div className="flex items-center justify-between mb-3">
                                     <label htmlFor="updatePriceCheck" className="text-sm font-bold text-indigo-900 cursor-pointer select-none">
                                         Actualizar Precio de Venta
@@ -676,7 +677,29 @@ const CreatePurchase = () => {
                                             id="updatePriceCheck"
                                             className="peer absolute w-full h-full opacity-0 z-10 cursor-pointer"
                                             checked={showCostUpdateModal.updatePrice || false}
-                                            onChange={(e) => setShowCostUpdateModal(prev => ({ ...prev, updatePrice: e.target.checked }))}
+                                            onChange={(e) => {
+                                                const isChecked = e.target.checked;
+                                                let calculatedPrice = null;
+
+                                                // Intelligent Auto-Fill
+                                                if (isChecked) {
+                                                    const cost = Number(showCostUpdateModal.newCost) || 0;
+                                                    const margin = Number(showCostUpdateModal.profitMargin) || 0;
+                                                    const tax = Number(showCostUpdateModal.taxRate) || 0;
+
+                                                    // Formula: Cost + Margin + Tax
+                                                    const priceWithMargin = cost * (1 + margin / 100);
+                                                    const finalPrice = priceWithMargin * (1 + tax / 100);
+
+                                                    calculatedPrice = finalPrice.toFixed(2);
+                                                }
+
+                                                setShowCostUpdateModal(prev => ({
+                                                    ...prev,
+                                                    updatePrice: isChecked,
+                                                    newSalePrice: calculatedPrice // Auto-fill or clear
+                                                }));
+                                            }}
                                         />
                                         <div className={`peer-checked:bg-indigo-600 w-full h-full bg-slate-300 rounded-full shadow-inner transition-colors`}></div>
                                         <div className={`peer-checked:translate-x-6 absolute left-0 top-0 bg-white w-6 h-6 rounded-full shadow transition-transform duration-200`}></div>
@@ -685,20 +708,23 @@ const CreatePurchase = () => {
 
                                 {showCostUpdateModal.updatePrice && (
                                     <div className="animate-in slide-in-from-top-2 duration-200">
-                                        <label className="block text-xs font-bold text-indigo-600 mb-1">Nuevo PVP Sugerido</label>
+                                        <label className="block text-xs font-bold text-indigo-600 mb-1">Nuevo PVP (Sugerido)</label>
                                         <div className="relative">
                                             <span className="absolute left-3 top-2.5 text-indigo-400 font-bold">$</span>
                                             <input
                                                 type="number"
                                                 className="w-full pl-7 p-2.5 border-2 border-indigo-200 rounded-xl font-bold text-indigo-800 focus:border-indigo-500 outline-none bg-white shadow-sm"
-                                                value={showCostUpdateModal.newSalePrice || ''}
-                                                onChange={(e) => setShowCostUpdateModal(prev => ({ ...prev, newSalePrice: parseFloat(e.target.value) }))}
-                                                placeholder={showCostUpdateModal.profitMargin ? `${(showCostUpdateModal.newCost * (1 + showCostUpdateModal.profitMargin / 100) * (1 + showCostUpdateModal.taxRate / 100)).toFixed(2)}` : '0.00'}
+                                                value={showCostUpdateModal.newSalePrice !== null ? showCostUpdateModal.newSalePrice : ''}
+                                                onChange={(e) => setShowCostUpdateModal(prev => ({ ...prev, newSalePrice: e.target.value }))}
+                                                placeholder="0.00"
+                                                autoFocus
                                             />
                                         </div>
                                         <div className="text-xs text-indigo-500 mt-2 flex items-center gap-1 font-medium bg-indigo-100/50 p-2 rounded-lg">
                                             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
-                                            {showCostUpdateModal.profitMargin ? `Margen: ${showCostUpdateModal.profitMargin}% | IVA: ${showCostUpdateModal.taxRate}%` : 'Sin margen configurado'}
+                                            {showCostUpdateModal.profitMargin
+                                                ? `Calculado con Margen: ${showCostUpdateModal.profitMargin}%`
+                                                : 'Sin margen configurado (Ingresa precio manual)'}
                                         </div>
                                     </div>
                                 )}
@@ -735,6 +761,7 @@ const CreatePurchase = () => {
                 </div>
             )}
         </div>
+
     );
 };
 
