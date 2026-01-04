@@ -1,0 +1,24 @@
+# === INSTRUCCIONES DE DESPLIEGUE VPS (v13) ===
+
+# 1. Conéctate a tu VPS
+ssh root@<TU_IP_VPS>
+
+# 2. Ve a la carpeta del proyecto
+cd ferreteria_refactor  # (o ferreteria_saas, según como lo hayas llamado)
+
+# 3. Descarga la nueva imagen que acabas de subir
+docker pull gamijoam/ferreteria-saas:vv13-nueva
+
+# 4. Deten los contenedores actuales
+docker-compose down
+
+# 5. Edita el docker-compose.yml para usar la nueva etiqueta
+# Puedes usar nano o vim. Busca la línea "image: ..." y cámbiala.
+sed -i 's|image: gamijoam/ferreteria-saas:.*|image: gamijoam/ferreteria-saas:vv13-nueva|g' docker-compose.yml
+# (El comando de arriba lo hace automáticamente si la estructura es estándar)
+
+# 6. Levanta todo de nuevo
+docker-compose up -d
+
+# 7. Verifica los logs (opcional)
+docker-compose logs -f api

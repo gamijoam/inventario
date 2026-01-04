@@ -330,8 +330,13 @@ def get_detailed_sales_report(
 ):
     """Detailed sales report with filters"""
     # Convert dates to datetime
+    # TIMEZONE FIX: Simple Local Awareness
     start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
+    
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
     
     query = db.query(models.Sale).filter(
         models.Sale.date >= start_dt,
@@ -366,7 +371,10 @@ def get_sales_by_product(
     Returns list of products with total quantity sold and revenue.
     """
     start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
     
     query = db.query(
         models.Product.name.label('product_name'),
@@ -411,7 +419,10 @@ def get_sales_summary(
 ):
     """Summary statistics for sales period"""
     start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
     
     sales = db.query(models.Sale).filter(
         models.Sale.date >= start_dt,
@@ -518,7 +529,10 @@ def get_cash_flow_report(
 ):
     """All cash movements in period"""
     start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
     
     # Get all cash sessions in period
     sessions = db.query(models.CashSession).filter(
@@ -570,7 +584,10 @@ def get_top_products(
 ):
     """Top products by NET quantity or revenue (Gross - Returns)"""
     start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
     
     # 1. Get Gross Sales
     sales_query = db.query(
@@ -761,7 +778,10 @@ def get_sales_profitability(
         start_dt = datetime.combine(start_date, datetime.min.time())
         query = query.filter(models.Sale.date >= start_dt)
     if end_date:
-        end_dt = datetime.combine(end_date, datetime.max.time())
+        if start_date and start_date == end_date:
+            end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+        else:
+             end_dt = datetime.combine(end_date, datetime.max.time())
         query = query.filter(models.Sale.date <= end_dt)
     
     details = query.all()
