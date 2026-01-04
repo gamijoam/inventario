@@ -24,7 +24,6 @@ const UsersManager = () => {
         username: '',
         password: '',
         full_name: '',
-        full_name: '',
         role: 'CASHIER',
         commission_percentage: 0 // NEW
     });
@@ -61,7 +60,6 @@ const UsersManager = () => {
             setFormData({
                 username: user.username,
                 password: '',
-                full_name: user.full_name || '',
                 full_name: user.full_name || '',
                 role: user.role,
                 commission_percentage: user.commission_percentage || 0 // NEW
