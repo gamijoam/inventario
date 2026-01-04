@@ -4,19 +4,20 @@ MI NEGOCIO
 RIF:
 Tel:
 ================================
-Fecha: 03/01/2026 22:07
-Ticket: #18
+Fecha: 04/01/2026 00:02
+Ticket: #32
 Cliente: CLIENTE CONTADO
 ================================
 CNT DESCRIPCION      TOTAL
 --------------------------------
-1 CEMENTO            14.00
+1 pruebita         2836.00
+1 PALA             1000.00
 ================================
-SUBTOTAL:           14.00
-TOTAL A PAGAR:      14.00
+SUBTOTAL:         3836.00
+TOTAL A PAGAR:    3836.00
 ================================
 PAGOS:
-Efectivo Bolívares ( USD  14.00
+Efectivo Bolívares ( Bs5000.00
 ================================
 Gracias por su compra
 --- END TICKET (POS-58) ---

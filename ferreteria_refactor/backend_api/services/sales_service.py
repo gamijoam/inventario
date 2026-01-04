@@ -388,31 +388,65 @@ class SalesService:
         def to_ves(usd_val):
             return float(usd_val) * print_rate
 
-        # Build Items List
-        print_items = []
-        for item in sale.details:
-            # We use the USD prices and convert
-            unit_price_usd = float(item.unit_price)
-            subtotal_usd = float(item.subtotal)
-            
+        # Helper for formatting
+        def fmt_money(amount, currency):
+            symbol = "$" if currency == "USD" else "Bs"
+            return f"{symbol} {amount:,.2f}"
+
+        # ---------------------------------------------------------
+        # 1. PRE-FORMATTING CONTEXT (Backend Logic)
+        # ---------------------------------------------------------
+        
+        # Items
+        formatted_items = []
+        for item in sale.details: # Changed from sale.items to sale.details
+            # Determine price/total based on sale currency mode
             if is_usd_mode:
-                 # Print in USD
-                 item_price = unit_price_usd
-                 item_total = subtotal_usd
+                 raw_price = float(item.unit_price) # stored in USD
+                 raw_total = float(item.subtotal)   # stored in USD
+                 row_currency = "USD"
             else:
-                 # Print in VES
-                 item_price = to_ves(unit_price_usd)
-                 item_total = to_ves(subtotal_usd)
+                 # VES Mode: Convert explicitly for display if needed, or use stored if available
+                 # Current logic uses to_ves helper
+                 raw_price = to_ves(float(item.unit_price))
+                 raw_total = to_ves(float(item.subtotal))
+                 row_currency = "BS"
             
-            print_items.append({
+            formatted_items.append({
                 "product": {"name": item.product.name if item.product else "Producto"},
                 "quantity": float(item.quantity) if item.quantity % 1 != 0 else int(item.quantity),
-                "unit_price": item_price,
-                "subtotal": item_total,
-                "unit_price_usd": unit_price_usd, # Ref
-                "currency_symbol": currency_symbol,
+                # Raw values (Backward Compatibility)
+                "unit_price": raw_price,
+                "subtotal": raw_total,
+                "unit_price_usd": float(item.unit_price),
+                
+                # New Formatted values
+                "formatted_price": fmt_money(raw_price, row_currency),
+                "formatted_total": fmt_money(raw_total, row_currency),
                 "discount_percentage": float(item.discount) if hasattr(item, 'discount_type') and item.discount_type == 'PERCENT' else 0.0
             })
+
+        # Payments (Dynamic list)
+        formatted_payments = []
+        for p in sale.payments:
+            p_currency = p.currency if p.currency else ("USD" if is_usd_mode else "BS")
+            formatted_payments.append({
+                "method": p.payment_method,
+                "amount": float(p.amount), # Raw value
+                "formatted_amount": fmt_money(float(p.amount), p_currency),
+                "currency": p_currency
+            })
+
+        # Totals
+        total_main = total_usd if is_usd_mode else total_bs
+        currency_main = "USD" if is_usd_mode else "BS"
+        
+        total_ref = total_bs if is_usd_mode else total_usd
+        currency_ref = "BS" if is_usd_mode else "USD"
+
+        # Change
+        change_val = float(sale.change_amount) if sale.change_amount else 0.0
+        change_curr = sale.change_currency or ("Bs" if not is_usd_mode else "USD") # Default logic
 
         # Calculate Due Date for Credit
         due_date_str = ""
@@ -438,12 +472,19 @@ class SalesService:
             "sale": {
                 "id": sale.id,
                 "date": sale.date.strftime("%d/%m/%Y %H:%M") if sale.date else "",
-                "total": total_usd if is_usd_mode else total_bs,         # Main Total (Dynamic)
+                
+                # Raw Totals (Backward Compatibility)
+                "total": total_main,
                 "total_bs": total_bs,
-                "total_usd": total_usd,    # Ref Total
+                "total_usd": total_usd,
+                
+                # Pre-formatted Totals
+                "formatted_total": fmt_money(total_main, currency_main),
+                "formatted_total_ref": fmt_money(total_ref, currency_ref),
+                
                 "is_usd": is_usd_mode,
-                "currency_symbol": currency_symbol,
-                "exchange_rate": print_rate,
+                "currency_symbol": "$" if is_usd_mode else "Bs", # Legacy Support
+                "exchange_rate": f"{print_rate:,.2f}",
                 "discount": 0.0, # Added missing field for legacy templates
                 "is_credit": sale.is_credit,
                 "due_date": due_date_str,
@@ -451,20 +492,15 @@ class SalesService:
                     "name": sale.customer.name[:25] if sale.customer else "CLIENTE CONTADO",
                     "id_number": sale.customer.id_number if sale.customer else ""
                 },
-                "products": print_items,
-                "payments": [
-                    {
-                        "amount": float(p.amount),
-                        "currency": p.currency,
-                        "method": p.payment_method
-                    } for p in sale.payments
-                ],
-                "change_amount": float(sale.change_amount) if sale.change_amount else 0.0,
-                "change_currency": sale.change_currency or "Bs"
+                "products": formatted_items,
+                "payments": formatted_payments,
+                # Raw Change (Legacy)
+                "change_amount": change_val,
+                "change_currency": change_curr,
+                "formatted_change": fmt_money(change_val, change_curr)
             }
         }
         
-
         # Use stored template or fallback to default
         template_config = db.query(models.BusinessConfig).get("ticket_template")
         if template_config and template_config.value:
@@ -473,7 +509,7 @@ class SalesService:
              if "sale.items" in template:
                  template = template.replace("sale.items", "sale.products")
         else:
-            # Fallback Template
+            # Fallback Template (DUMB TEMPLATE - No Logic)
             template = """
 <center>
 <bold>{{ business.name }}</bold>
@@ -494,26 +530,21 @@ DESCRIPCION       CANT     TOTAL
 --------------------------------
 {% for item in sale.products %}
 <bold>{{ item.product.name }}</bold>
-               x{{ item.quantity }}    {{ "%.2f"|format(item.subtotal) }}
+               x{{ item.quantity }}   {{ item.formatted_total }}
 {% endfor %}
 --------------------------------
 <right>
-{% if sale.is_usd %}
-<bold>TOTAL USD: ${{ "%.2f"|format(sale.total) }}</bold>
-REF Bs: {{ "%.2f"|format(sale.total_bs) }}
-{% else %}
-<bold>TOTAL Bs: {{ "%.2f"|format(sale.total) }}</bold>
-REF USD: ${{ "%.2f"|format(sale.total_usd) }}
-{% endif %}
-(Tasa: {{ "%.2f"|format(sale.exchange_rate) }})
+<bold>TOTAL: {{ sale.formatted_total }}</bold>
+REF:   {{ sale.formatted_total_ref }}
+(Tasa: {{ sale.exchange_rate }})
 </right>
 --------------------------------
 <left>
 PAGOS:
 {% for pay in sale.payments %}
-- {{ pay.method }} ({{ pay.currency }}): {{ "%.2f"|format(pay.amount) }}
+- {{ pay.method }}: {{ pay.formatted_amount }}
 {% endfor %}
-SU CAMBIO: {{ sale.change_currency }} {{ "%.2f"|format(sale.change_amount) }}
+SU CAMBIO: {{ sale.formatted_change }}
 </left>
 --------------------------------
 <center>

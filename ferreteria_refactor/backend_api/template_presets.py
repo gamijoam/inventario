@@ -102,7 +102,11 @@ ITEMS
                   TOTAL: {{ currency_symbol }}{{ "%.2f"|format(item.subtotal) }}
 {% endfor %}
 ----------------------------------
-TOTAL ......... {{ currency_symbol }}{{ "%.2f"|format(sale.total) }}
+SUBTOTAL: {{ currency_symbol }}{{ "%.2f"|format(sale.total) }}
+{% if sale.discount > 0 %}
+DESCUENTO: -{{ currency_symbol }}{{ "%.2f"|format(sale.discount) }}
+{% endif %}
+TOTAL:    {{ currency_symbol }}{{ "%.2f"|format(sale.total) }}
 ----------------------------------
 {% for p in sale.payments %}
 PAGO: {{ p.method[:12] }} {{ p.currency }}{{ "%.2f"|format(p.amount) }}
@@ -118,6 +122,7 @@ Saldo: {{ currency_symbol }}{{ "%.2f"|format(sale.balance) }}
 *** PAGADO ***
 {% endif %}
 
+{{ business.warranty_text if business.warranty_text else "" }}
       ¡VUELVA PRONTO!
 """
 
@@ -148,6 +153,10 @@ CNT DESCRIPCION      TOTAL
 {% endif %}
 {% endfor %}
 ================================
+SUBTOTAL: {{ currency_symbol }}{{ "%.2f"|format(sale.total) }}
+{% if sale.discount > 0 %}
+DESCUENTO: -{{ currency_symbol }}{{ "%.2f"|format(sale.discount) }}
+{% endif %}
 TOTAL: {{ currency_symbol }}{{ "%.2f"|format(sale.total) }}
 ================================
 PAGOS DETALLADOS:
@@ -174,6 +183,10 @@ Cli: {{ sale.customer.name[:22] if sale.customer else "Consumidor Final" }}
 {{ "%3.0f"|format(item.quantity) }} {{ item.product.name[:15].ljust(15) }} {{ currency_symbol }}{{ "%7.2f"|format(item.subtotal) }}
 {% endfor %}
 --------------------------------
+{% if sale.discount > 0 %}
+Sub: {{ currency_symbol }}{{ "%.2f"|format(sale.total + sale.discount) }}
+Dsc: -{{ currency_symbol }}{{ "%.2f"|format(sale.discount) }}
+{% endif %}
 TOTAL: {{ currency_symbol }}{{ "%.2f"|format(sale.total) }}
 --------------------------------
 {% for p in sale.payments %}

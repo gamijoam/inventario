@@ -57,14 +57,14 @@ const QuoteEditor = ({ quoteId, onBack }) => {
     const loadQuote = async (id) => {
         try {
             const { data } = await apiClient.get(`/quotes/${id}`);
-            const mappedItems = data.items.map(item => ({
+            const mappedItems = (data.details || data.items || []).map(item => ({
                 id: item.product_id,
                 name: item.product?.name || "Producto Desconocido",
-                quantity: item.quantity,
-                unit_price: item.unit_price,
-                subtotal: item.subtotal,
+                quantity: Number(item.quantity),
+                unit_price: Number(item.unit_price),
+                subtotal: Number(item.subtotal),
                 image_url: item.product?.image_url,
-                price: item.unit_price,
+                price: Number(item.unit_price),
                 sku: item.product?.sku
             }));
             setCart(mappedItems);
@@ -140,8 +140,15 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                 }))
             };
 
-            await apiClient.post('/quotes', payload);
-            toast.success("Cotización Guardada Exitosamente");
+            if (quoteId) {
+                // Update existing
+                await apiClient.put(`/quotes/${quoteId}`, payload);
+                toast.success("Cotización Actualizada Exitosamente");
+            } else {
+                // Create new
+                await apiClient.post('/quotes', payload);
+                toast.success("Cotización Guardada Exitosamente");
+            }
             onBack();
         } catch (error) {
             console.error(error);
