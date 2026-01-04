@@ -214,7 +214,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd)) * item.quantity, // Mandatory for schema validation
                     conversion_factor: item.conversion_factor || 1,
                     discount: item.is_discount_active ? item.discount_percentage : 0,
-                    discount_type: item.is_discount_active ? "PERCENT" : "NONE"
+                    discount_type: item.is_discount_active ? "PERCENT" : "NONE",
+                    salesperson_id: item.salesperson_id || null // NEW: Pass salesperson
                 })),
                 is_credit: isCreditSale,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,

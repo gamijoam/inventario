@@ -304,10 +304,14 @@ class SaleDetail(Base):
     
     # NEW: Unit/Presentation Support
     unit_id = Column(Integer, ForeignKey("product_units.id"), nullable=True)  # Which presentation was sold
+    
+    # NEW: Commission Support
+    salesperson_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Who sold this item
 
     sale = relationship("Sale", back_populates="details")
     product = relationship("Product")
     unit = relationship("ProductUnit")  # NEW: Link to presentation used
+    salesperson = relationship("User", foreign_keys=[salesperson_id]) # NEW
 
     def __repr__(self):
         return f"<SaleDetail(product='{self.product_id}', qty={self.quantity}, tax={self.tax_rate})>"
@@ -387,10 +391,31 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.CASHIER)
     full_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    commission_percentage = Column(Numeric(5, 2), default=0.00) # NEW: Commission %
     created_at = Column(DateTime, default=get_venezuela_now)
 
     def __repr__(self):
         return f"<User(username='{self.username}', role='{self.role}')>"
+
+class CommissionLog(Base):
+    """
+    Tracks commissions earned by users per sale item
+    """
+    __tablename__ = "commission_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    sale_detail_id = Column(Integer, ForeignKey("sale_details.id"), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False) # Commission amount in USD
+    currency = Column(String, default="USD")
+    percentage_applied = Column(Numeric(5, 2), nullable=False) # Snapshot of % used
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    user = relationship("User")
+    sale_detail = relationship("SaleDetail")
+
+    def __repr__(self):
+        return f"<CommissionLog(user={self.user_id}, amount={self.amount})>"
 
 class Return(Base):
     __tablename__ = "returns"

@@ -195,6 +195,7 @@ class SaleDetailCreate(BaseModel):
     discount: Decimal = Decimal("0.00")
     discount_type: str = "NONE"  # NONE, PERCENT, FIXED
     tax_rate: Decimal = Decimal("0.00")
+    salesperson_id: Optional[int] = None # NEW: Granular commission support
 
     class Config:
         from_attributes = True
@@ -495,12 +496,16 @@ class UserCreate(BaseModel):
     password: str
     role: str = "CASHIER"  # ADMIN, CASHIER, MANAGER
     full_name: Optional[str] = None
+    commission_percentage: Optional[Decimal] = Decimal("0.00") # NEW
+
 
 class UserUpdate(BaseModel):
     password: Optional[str] = None
     role: Optional[str] = None
     full_name: Optional[str] = None
     is_active: Optional[bool] = None
+    commission_percentage: Optional[Decimal] = None # NEW
+
 
 class UserRead(BaseModel):
     id: int
@@ -509,6 +514,8 @@ class UserRead(BaseModel):
     full_name: Optional[str]
     is_active: bool
     created_at: datetime
+    commission_percentage: Optional[Decimal] = Decimal("0.00") # NEW
+
 
     class Config:
         from_attributes = True

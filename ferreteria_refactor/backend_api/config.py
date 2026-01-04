@@ -34,6 +34,7 @@ class Settings:
     
     # Modules
     MODULE_RESTAURANT_ENABLED: bool = os.getenv("MODULE_RESTAURANT_ENABLED", "false").lower() == "true"
+    MODULE_SERVICES_ENABLED: bool = os.getenv("MODULE_SERVICES_ENABLED", "false").lower() == "true"
     
     # Timezone
     TIMEZONE: str = os.getenv("TIMEZONE", "America/Caracas")
