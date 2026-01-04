@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowRight, Plus, Calendar, Package, CheckCircle, Search, MapPin, Truck, History, X } from 'lucide-react';
+import { ArrowRight, Plus, Calendar, Package, CheckCircle, Search, MapPin, Truck, History, X, Printer, FileText } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -78,8 +78,94 @@ const InventoryTransfers = () => {
         setItems(items.filter((_, i) => i !== index));
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handlePrint = (transferData) => {
+        const swName = transferData.source_warehouse?.name || warehouses.find(w => w.id == transferData.source_warehouse_id)?.name || 'N/A';
+        const twName = transferData.target_warehouse?.name || warehouses.find(w => w.id == transferData.target_warehouse_id)?.name || 'N/A';
+        const itemsList = transferData.details || transferData.items || [];
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return toast.error("Permite pop-ups para imprimir");
+
+        const itemsHtml = itemsList.map(item => `
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.product?.sku || item.sku || '-'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd;">${item.product?.name || item.name || 'Item'}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${Number(item.quantity).toFixed(2)}</td>
+            </tr>
+        `).join('');
+
+        const html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Traslado #${transferData.id || 'NUEVO'}</title>
+                <style>
+                    body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.4; }
+                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                    .info { display: flex; justify-content: space-between; margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                    th { text-align: left; background: #f1f5f9; padding: 10px; border-bottom: 2px solid #333; }
+                    .signatures { display: flex; justify-content: space-between; margin-top: 60px; }
+                    .sig-line { width: 200px; border-top: 1px solid #333; text-align: center; padding-top: 5px; }
+                    @media print { .no-print { display: none; } }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h2>NOTA DE TRASLADO / ENTREGA</h2>
+                    <div style="color: #666;">#${transferData.id || 'BORRADOR'} &bull; ${new Date().toLocaleDateString()}</div>
+                </div>
+
+                <div class="info">
+                    <div>
+                        <strong>ORIGEN (SALE):</strong><br>
+                        ${swName}
+                    </div>
+                    <div style="text-align: right;">
+                        <strong>DESTINO (ENTRA):</strong><br>
+                        ${twName}
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <strong>Nota:</strong> ${transferData.notes || 'Sin notas adicionales'}
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>SKU</th>
+                            <th>Producto</th>
+                            <th style="text-align: center;">Cantidad</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+
+                <div class="signatures">
+                    <div>
+                        <div class="sig-line">Entregado Por</div>
+                    </div>
+                    <div>
+                        <div class="sig-line">Recibido Por</div>
+                    </div>
+                </div>
+
+                <div class="no-print" style="text-align: center; margin-top: 20px;">
+                    <button onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">Imprimir</button>
+                </div>
+                <script>window.onload = function() { window.print(); }</script>
+            </body>
+            </html>
+        `;
+        printWindow.document.write(html);
+        printWindow.document.close();
+    };
+
+    const handleSubmit = async (e, shouldPrint = false) => {
+        e && e.preventDefault();
         if (!formData.source_warehouse_id || !formData.target_warehouse_id) {
             return toast.error("Seleccione origen y destino");
         }
@@ -98,8 +184,24 @@ const InventoryTransfers = () => {
                     quantity: i.quantity
                 }))
             };
-            await apiClient.post('/transfers', payload);
+            const { data: newTransfer } = await apiClient.post('/transfers', payload);
             toast.success("Traslado realizado con éxito");
+
+            if (shouldPrint) {
+                // Reconstruct full object for print with item names
+                const printData = {
+                    ...newTransfer,
+                    source_warehouse: warehouses.find(w => w.id == formData.source_warehouse_id),
+                    target_warehouse: warehouses.find(w => w.id == formData.target_warehouse_id),
+                    details: items.map(i => ({
+                        sku: i.sku,
+                        name: i.name,
+                        quantity: i.quantity
+                    }))
+                };
+                handlePrint(printData);
+            }
+
             setView('list');
             fetchInitialData();
             // Reset form
@@ -169,9 +271,18 @@ const InventoryTransfers = () => {
                                         </td>
                                         <td className="px-6 py-4 text-sm font-bold text-slate-600">{t.details.length}</td>
                                         <td className="px-6 py-4">
-                                            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
-                                                {t.status}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">
+                                                    {t.status}
+                                                </span>
+                                                <button
+                                                    onClick={() => handlePrint(t)}
+                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors ml-2"
+                                                    title="Imprimir Traslado"
+                                                >
+                                                    <Printer size={16} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -363,18 +474,27 @@ const InventoryTransfers = () => {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={handleSubmit}
-                                disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id}
-                                className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
-                            >
-                                <CheckCircle size={20} /> Confirmar Traslado
-                            </button>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={(e) => handleSubmit(e, true)}
+                                    disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id}
+                                    className="flex-1 bg-white border-2 border-indigo-600 text-indigo-700 py-4 rounded-xl font-bold shadow-sm hover:bg-indigo-50 transition-all active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2"
+                                >
+                                    <Printer size={20} /> Guardar e Imprimir
+                                </button>
+                                <button
+                                    onClick={(e) => handleSubmit(e, false)}
+                                    disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id}
+                                    className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
+                                >
+                                    <CheckCircle size={20} /> Solo Guardar
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 
