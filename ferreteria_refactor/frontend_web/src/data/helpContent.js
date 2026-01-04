@@ -317,6 +317,51 @@ export const helpContent = [
     },
 
     // ========================================
+    // TRANSFERENCIAS INTER-SEDES
+    // ========================================
+    {
+        id: 'transfers',
+        title: 'Transferencias Inter-Sedes',
+        icon: '🚚',
+        color: 'indigo',
+        sections: [
+            {
+                id: 'transfers-export',
+                title: 'Exportar Inventario (Salida)',
+                steps: [
+                    'Vaya a "Inventario" → "Exportar (Salida)"',
+                    'Seleccione el "Almacén de Origen" desde donde saldrá la mercancía',
+                    'Busque los productos que desea transferir',
+                    'Ajuste las cantidades a enviar',
+                    'Haga clic en "Generar y Descargar Paquete"',
+                    'Se descargará un archivo .JSON con los datos'
+                ],
+                tips: [
+                    'El stock se descuenta automáticamente del almacén seleccionado',
+                    'Envíe el archivo descargado por correo o WhatsApp a la otra sede',
+                    'Solo puede transferir productos que tengan Código de Barras (SKU)'
+                ]
+            },
+            {
+                id: 'transfers-import',
+                title: 'Importar Inventario (Entrada)',
+                steps: [
+                    'Vaya a "Inventario" → "Importar (Entrada)"',
+                    'Haga clic en "Seleccionar Archivo JSON"',
+                    'Busque y cargue el archivo que recibió de la otra sede',
+                    'El sistema verificará los productos automáticamente',
+                    'Si todo está correcto, haga clic en "Confirmar Importación"'
+                ],
+                tips: [
+                    'El stock importado se suma al inventario global y se registra en el Kardex',
+                    'Si un producto no existe por SKU, deberá crearlo manualmente primero',
+                    'El proceso registra un movimiento "Entrada Externa"'
+                ]
+            }
+        ]
+    },
+
+    // ========================================
     // CONFIGURACIÓN
     // ========================================
     {

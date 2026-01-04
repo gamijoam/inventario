@@ -105,7 +105,7 @@ const CashHistory = () => {
             return (
                 <span className="px-2.5 py-1 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-rose-100">
                     <TrendingDown size={14} />
-                    Faltan {currencySymbol} {formatCurrency(Math.abs(diff), 'USD').replace('$', '')}
+                    Faltan {currencySymbol} {formatCurrency(Math.abs(diff), currencySymbol.replace('$', 'USD'))}
                 </span>
             );
         }
@@ -113,7 +113,7 @@ const CashHistory = () => {
         return (
             <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-blue-100">
                 <TrendingUp size={14} />
-                Sobran {currencySymbol} {formatCurrency(diff, 'USD').replace('$', '')}
+                Sobran {currencySymbol} {formatCurrency(diff, currencySymbol.replace('$', 'USD'))}
             </span>
         );
     };
@@ -339,7 +339,7 @@ const CashHistory = () => {
                                         {(session.currencies || []).slice(0, 3).map(curr => (
                                             <div key={curr.id} className="flex items-center gap-2 bg-white border border-slate-100 px-3 py-1.5 rounded-lg shadow-sm">
                                                 <span className="text-xs font-bold text-slate-400">{curr.currency_symbol}</span>
-                                                <span className="text-sm font-bold text-slate-700">{formatCurrency(curr.final_reported || 0)}</span>
+                                                <span className="text-sm font-bold text-slate-700">{formatCurrency(curr.final_reported || 0, curr.currency_symbol.replace('$', 'USD'))}</span>
                                                 {isClosed && getDifferenceBadge(curr.difference, '')}
                                             </div>
                                         ))}
@@ -365,23 +365,23 @@ const CashHistory = () => {
                                                         <div className="space-y-2 text-sm">
                                                             <div className="flex justify-between">
                                                                 <span className="text-slate-500 font-medium">Inicial</span>
-                                                                <span className="font-bold text-slate-700">{formatCurrency(curr.initial_amount)}</span>
+                                                                <span className="font-bold text-slate-700">{formatCurrency(curr.initial_amount, curr.currency_symbol.replace('$', 'USD'))}</span>
                                                             </div>
                                                             {isClosed && (
                                                                 <>
                                                                     <div className="flex justify-between">
                                                                         <span className="text-slate-500 font-medium">Esperado</span>
-                                                                        <span className="font-bold text-indigo-600">{formatCurrency(curr.final_expected)}</span>
+                                                                        <span className="font-bold text-indigo-600">{formatCurrency(curr.final_expected, curr.currency_symbol.replace('$', 'USD'))}</span>
                                                                     </div>
                                                                     <div className="flex justify-between border-t border-dashed border-slate-200 pt-2 mt-2">
                                                                         <span className="text-slate-500 font-bold">Reportado</span>
-                                                                        <span className="font-black text-slate-800 text-base">{formatCurrency(curr.final_reported)}</span>
+                                                                        <span className="font-black text-slate-800 text-base">{formatCurrency(curr.final_reported, curr.currency_symbol.replace('$', 'USD'))}</span>
                                                                     </div>
                                                                     {Math.abs(diff) >= 0.01 && (
                                                                         <div className={clsx("flex justify-between bg-slate-50 p-2 rounded-lg mt-2", diff > 0 ? "bg-blue-50" : "bg-rose-50")}>
                                                                             <span className={clsx("font-bold text-xs uppercase", diff > 0 ? "text-blue-600" : "text-rose-600")}>Diferencia</span>
                                                                             <span className={clsx("font-black", diff > 0 ? "text-blue-700" : "text-rose-700")}>
-                                                                                {diff > 0 ? '+' : ''}{formatCurrency(diff)}
+                                                                                {diff > 0 ? '+' : ''}{formatCurrency(diff, curr.currency_symbol.replace('$', 'USD'))}
                                                                             </span>
                                                                         </div>
                                                                     )}

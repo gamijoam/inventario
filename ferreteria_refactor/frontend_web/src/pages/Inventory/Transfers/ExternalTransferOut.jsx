@@ -9,6 +9,27 @@ const ExternalTransferOut = () => {
     const [selectedItems, setSelectedItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [generating, setGenerating] = useState(false);
+    const [warehouses, setWarehouses] = useState([]);
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
+
+    // Load warehouses on mount
+    useEffect(() => {
+        const fetchWarehouses = async () => {
+            try {
+                const response = await apiClient.get('/warehouses');
+                const active = response.data.filter(w => w.is_active);
+                setWarehouses(active);
+                // Default to main or first
+                const main = active.find(w => w.is_main);
+                if (main) setSelectedWarehouseId(main.id);
+                else if (active.length > 0) setSelectedWarehouseId(active[0].id);
+            } catch (error) {
+                console.error("Error loading warehouses:", error);
+                toast.error("No se pudieron cargar los almacenes");
+            }
+        };
+        fetchWarehouses();
+    }, []);
 
     // Initial Search Logic
     useEffect(() => {
@@ -64,6 +85,10 @@ const ExternalTransferOut = () => {
 
     const handleExport = async () => {
         if (selectedItems.length === 0) return;
+        if (!selectedWarehouseId) {
+            toast.error("Seleccione un almacén de origen");
+            return;
+        }
 
         try {
             setGenerating(true);
@@ -72,6 +97,7 @@ const ExternalTransferOut = () => {
             // Call API to generate package (and deduct stock)
             const payload = {
                 source_company: "Ferreteria Principal", // TODO: Make configurable or dynamic
+                warehouse_id: parseInt(selectedWarehouseId),
                 items: selectedItems.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity
@@ -114,6 +140,20 @@ const ExternalTransferOut = () => {
                     Buscar Productos
                 </h2>
 
+                {/* Warehouse Selector */}
+                <div className="mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén de Origen</label>
+                    <select
+                        value={selectedWarehouseId}
+                        onChange={(e) => setSelectedWarehouseId(e.target.value)}
+                        className="w-full border-slate-200 rounded-lg text-sm font-semibold text-slate-700 focus:ring-indigo-500"
+                    >
+                        {warehouses.map(w => (
+                            <option key={w.id} value={w.id}>{w.name} {w.is_main ? '(Principal)' : ''}</option>
+                        ))}
+                    </select>
+                </div>
+
                 <div className="relative mb-6">
                     <input
                         type="text"
@@ -145,7 +185,7 @@ const ExternalTransferOut = () => {
                                             {product.sku || 'SIN SKU'}
                                         </span>
                                         <span className="text-slate-500">
-                                            Stock: <span className="font-bold text-slate-700">{product.stock}</span>
+                                            Stock Global: <span className="font-bold text-slate-700">{product.stock}</span>
                                         </span>
                                     </div>
                                 </div>
@@ -214,13 +254,13 @@ const ExternalTransferOut = () => {
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
                         <AlertTriangle className="flex-shrink-0" size={20} />
                         <p>
-                            Al generar el paquete, el stock se descontará <strong>automáticamente</strong> de este inventario como "Traspaso de Salida".
+                            Al generar el paquete, el stock se descontará <strong>automáticamente</strong> del almacén seleccionado ({warehouses.find(w => w.id == selectedWarehouseId)?.name}) como "Traspaso de Salida".
                         </p>
                     </div>
 
                     <button
                         onClick={handleExport}
-                        disabled={selectedItems.length === 0 || generating}
+                        disabled={selectedItems.length === 0 || generating || !selectedWarehouseId}
                         className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                     >
                         {generating ? (

@@ -154,22 +154,34 @@ from fastapi import UploadFile, File, Body
 from ..services.inventory_service import InventoryService
 from ..schemas import TransferPackageSchema, TransferResultSchema
 from pydantic import BaseModel
+from typing import Optional
 
 class TransferRequest(BaseModel):
     items: List[Dict[str, Any]]
     source_company: str
+    warehouse_id: Optional[int] = None
 
 @router.post("/transfer/export", response_model=TransferPackageSchema)
 def export_transfer_package(
     request: TransferRequest,
     db: Session = Depends(get_db),
-    # user: models.User = Depends(get_current_active_user) # Optional security
+    # user: models.User = Depends(get_current_active_user) # Uncomment when security is ready
 ):
     """
     Generate a JSON package for transfer.
     Deducts stock immediately from this instance.
     """
-    return InventoryService.generate_transfer_package_v2(db, request.items, request.source_company)
+    try:
+        return InventoryService.generate_transfer_package_v2(
+            db, 
+            request.items, 
+            request.source_company,
+            request.warehouse_id
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred during transfer export: {e}")
 
 @router.post("/transfer/import", response_model=TransferResultSchema)
 async def import_transfer_package(

@@ -41,15 +41,16 @@ class InventoryService:
             pass
 
     @staticmethod
-    def generate_transfer_package_v2(db: Session, items_data: List[Dict[str, Any]], source_company: str) -> Dict[str, Any]:
+    def generate_transfer_package_v2(db: Session, items_data: List[Dict[str, Any]], source_company: str, warehouse_id: int = None) -> Dict[str, Any]:
         """
         items_data: List of dicts like {'product_id': 1, 'quantity': 10}
+        warehouse_id: Optional ID of the warehouse to deduct stock from
         """
         transfer_items = []
         
         for item in items_data:
             pid = item['product_id']
-            qty = float(item['quantity'])
+            qty = Decimal(str(item['quantity']))
             
             product = db.query(models.Product).filter(models.Product.id == pid).first()
             if not product:
@@ -59,20 +60,53 @@ class InventoryService:
             if not product.sku:
                  raise HTTPException(status_code=400, detail=f"Product '{product.name}' (ID: {pid}) has no SKU. Transfer denied.")
             
-            # Validate Stock
-            if product.stock < qty:
-                raise HTTPException(status_code=400, detail=f"Insufficient stock for '{product.name}'. Requested: {qty}, Available: {product.stock}")
+            # --- WAREHOUSE SPECIFIC LOGIC ---
+            balance_after = product.stock # Default to global
             
-            # Deduct Stock
-            product.stock -= Decimal(str(qty))
+            if warehouse_id:
+                # Find Warehouse Stock
+                p_stock = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == pid,
+                    models.ProductStock.warehouse_id == warehouse_id
+                ).first()
+                
+                if not p_stock:
+                    # Create if not exists (though for export usually implies it exists, but create 0 for consistency)
+                    p_stock = models.ProductStock(
+                        product_id=pid,
+                        warehouse_id=warehouse_id,
+                        quantity=Decimal("0.000")
+                    )
+                    db.add(p_stock)
+                    db.flush() # Get ID if needed, though we have obj
+                
+                # Check Local Stock
+                if p_stock.quantity < qty:
+                    raise HTTPException(status_code=400, detail=f"Insufficient stock in WAREHOUSE for '{product.name}'. Requested: {qty}, Available: {p_stock.quantity}")
+
+                # Deduct Local Stock
+                p_stock.quantity -= qty
+                
+                # Deduct Global Stock (to keep sync)
+                product.stock -= qty
+                balance_after = p_stock.quantity
+                
+            else:
+                # GLOBAL ONLY FALLBACK (Legacy)
+                if product.stock < qty:
+                    raise HTTPException(status_code=400, detail=f"Insufficient global stock for '{product.name}'. Requested: {qty}, Available: {product.stock}")
+                
+                product.stock -= qty
+                balance_after = product.stock
             
             # Create Kardex
             kardex = models.Kardex(
                 product_id=product.id,
                 movement_type=models.MovementType.EXTERNAL_TRANSFER_OUT,
                 quantity=-qty,
-                balance_after=product.stock,
+                balance_after=balance_after,
                 description=f"Transfer OUT to External (Generated package)",
+                warehouse_id=warehouse_id, # Link to warehouse if applicable
                 date=datetime.now()
             )
             db.add(kardex)
@@ -80,7 +114,7 @@ class InventoryService:
             # Add to transfer list
             transfer_items.append({
                 "sku": product.sku,
-                "quantity": qty,
+                "quantity": float(qty), # Serialize as float for JSON
                 "name": product.name
             })
             
@@ -93,6 +127,7 @@ class InventoryService:
         # Build Package
         package = {
             "source_company": source_company,
+            "source_warehouse_id": warehouse_id, # Include source metadata
             "generated_at": datetime.now().isoformat(),
             "items": transfer_items
         }
