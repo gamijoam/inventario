@@ -839,3 +839,19 @@ class WarehouseInventoryItem(BaseModel):
     
     class Config:
         from_attributes = True
+
+# --- INTER-COMPANY TRANSFER SCHEMAS ---
+class TransferItemSchema(BaseModel):
+    sku: str
+    quantity: float
+    name: str
+
+class TransferPackageSchema(BaseModel):
+    source_company: str
+    generated_at: datetime
+    items: List[TransferItemSchema]
+
+class TransferResultSchema(BaseModel):
+    success_count: int
+    failure_count: int
+    errors: List[str]

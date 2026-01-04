@@ -32,6 +32,12 @@ import CustomerManager from './pages/Customers/CustomerManager';
 import QuotesManager from './pages/Quotes/QuotesManager';
 import WarehouseManager from './pages/Warehouses/WarehouseManager';
 import InventoryTransfers from './pages/Warehouses/InventoryTransfers';
+import ExternalTransferOut from './pages/Inventory/Transfers/ExternalTransferOut';
+import ExternalTransferIn from './pages/Inventory/Transfers/ExternalTransferIn';
+
+// ... existing imports
+
+
 import AccountsReceivable from './pages/Credit/AccountsReceivable';
 import AgingReport from './pages/Credit/AgingReport';
 import ClientLedger from './pages/Credit/ClientLedger';
@@ -134,6 +140,16 @@ function App() {
                             <Route path="/transfers" element={
                               <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                 <InventoryTransfers />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/transfers/external/out" element={
+                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ExternalTransferOut />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/transfers/external/in" element={
+                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ExternalTransferIn />
                               </ProtectedRoute>
                             } />
 
