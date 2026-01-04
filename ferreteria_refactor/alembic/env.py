@@ -23,6 +23,22 @@ from backend_api.models.models import Base
 from backend_api.config import settings
 from backend_api.database.db import DATABASE_URL as REAL_DATABASE_URL
 
+# ⚠️ CRÍTICO: Importar TODOS los modelos para que Alembic los detecte
+# Sin estas importaciones, Alembic NO generará migraciones para Restaurant
+from backend_api.models.restaurant import (
+    RestaurantTable,
+    RestaurantOrder,
+    RestaurantOrderItem,
+    RestaurantRecipe,
+    RestaurantMenuSection,
+    RestaurantMenuItem
+)
+
+# Modelo de prueba para validar actualizaciones incrementales
+from backend_api.models.prueba import PruebaActualizacion
+from backend_api.models.prueba_vps import PruebaVPS
+from backend_api.models.notas import NotasRapidas
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
