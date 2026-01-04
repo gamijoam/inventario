@@ -29,6 +29,7 @@ import {
     Utensils,
     ChefHat,
     Smartphone,
+    Plus, // NEW
     ArrowRight,
     Download,
     Wrench // NEW: Service Module
@@ -69,7 +70,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             label: 'Servicios Técnicos',
             icon: Wrench,
             items: [
-                { icon: FileText, label: 'Nueva Orden', path: '/services/reception' },
+                { icon: FileText, label: 'Bandeja de Entrada', path: '/services' },
+                { icon: Plus, label: 'Nueva Orden', path: '/services/reception' },
             ]
         }] : []),
         {
