@@ -124,15 +124,22 @@ def health_check():
 
 # --- LOGICA DE INICIALIZACION ---
 def run_migrations():
+    """
+    Ejecuta migraciones de Alembic.
+    En Docker/VPS: Falla rápido si las migraciones no se aplican.
+    En desarrollo: Muestra warning pero continúa (para debugging).
+    """
     from alembic import command
     from alembic.config import Config
+    
+    IS_DOCKER = os.getenv('DOCKER_CONTAINER', 'false').lower() == 'true'
+    
     try:
         if getattr(sys, 'frozen', False):
              # FROZEN: alembic.ini is in the root of the bundle (sys._MEIPASS)
              base_dir_frozen = sys._MEIPASS
              alembic_ini_path = os.path.join(base_dir_frozen, "alembic.ini")
              script_location = os.path.join(base_dir_frozen, "alembic")
-             # Override config to confirm script location
              print(f"[MIGRATION] Buscando alembic.ini congelado en: {alembic_ini_path}")
         else:
              # DEV
@@ -143,14 +150,36 @@ def run_migrations():
              if not os.path.exists(alembic_ini_path):
                  alembic_ini_path = "alembic.ini"
 
-        if os.path.exists(alembic_ini_path):
-            alembic_cfg = Config(alembic_ini_path)
-            # FORCE script location to absolute path found above
-            alembic_cfg.set_main_option("script_location", script_location)
-            command.upgrade(alembic_cfg, "head")
-            print("[OK] Migraciones aplicadas correctamente.")
+        if not os.path.exists(alembic_ini_path):
+            error_msg = f"alembic.ini no encontrado en: {alembic_ini_path}"
+            print(f"[ERROR] ❌ {error_msg}")
+            
+            if IS_DOCKER:
+                raise FileNotFoundError(error_msg)
+            else:
+                print("[WARN] Modo desarrollo: continuando sin migraciones")
+                return
+
+        alembic_cfg = Config(alembic_ini_path)
+        # FORCE script location to absolute path found above
+        alembic_cfg.set_main_option("script_location", script_location)
+        
+        print("[MIGRATION] 📦 Ejecutando 'alembic upgrade head'...")
+        command.upgrade(alembic_cfg, "head")
+        print("[MIGRATION] ✅ Migraciones aplicadas correctamente.")
+        
     except Exception as e:
-        print(f"[WARN] Nota sobre migraciones: {e}")
+        print(f"[ERROR] ❌ FALLO CRÍTICO EN MIGRACIONES: {e}")
+        print(f"[ERROR] Tipo de error: {type(e).__name__}")
+        print("[ERROR] La aplicación NO puede iniciar sin migraciones exitosas.")
+        
+        # En Docker/VPS, DETENER la app si las migraciones fallan
+        if IS_DOCKER:
+            print("[ERROR] Modo Docker detectado - abortando inicio")
+            raise RuntimeError("Migraciones fallidas en Docker") from e
+        else:
+            print("[WARN] ⚠️ Modo desarrollo: continuando sin migraciones (RIESGOSO)")
+            print("[WARN] La base de datos puede estar en un estado inconsistente")
 
 @app.on_event("startup")
 def startup_event():

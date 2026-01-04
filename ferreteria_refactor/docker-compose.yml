@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # POSTGRESQL DATABASE
+  # ============================================
+  db:
+    image: postgres:15-alpine
+    container_name: ferreteria_db
+    environment:
+      POSTGRES_USER: ${DB_USER:-ferreteria_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-ferreteria_pass}
+      POSTGRES_DB: ${DB_NAME:-ferreteria_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ferreteria_user}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "5432:5432"
+    networks:
+      - ferreteria_network
+
+  # ============================================
+  # FASTAPI APPLICATION
+  # ============================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ferreteria_api
+    environment:
+      # Database Connection
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-ferreteria_user}
+      DB_PASSWORD: ${DB_PASSWORD:-ferreteria_pass}
+      DB_NAME: ${DB_NAME:-ferreteria_db}
+      DATABASE_URL: postgresql://${DB_USER:-ferreteria_user}:${DB_PASSWORD:-ferreteria_pass}@db:5432/${DB_NAME:-ferreteria_db}
+      
+      # Application Config
+      DOCKER_CONTAINER: "true"
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      
+    depends_on:
+      db:
+        condition: service_healthy  # ⚠️ CRÍTICO: Esperar a que DB esté lista
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data  # Persistencia de imágenes y datos
+    networks:
+      - ferreteria_network
+    restart: unless-stopped
+
+# ============================================
+# VOLUMES
+# ============================================
+volumes:
+  postgres_data:
+    driver: local
+
+# ============================================
+# NETWORKS
+# ============================================
+networks:
+  ferreteria_network:
+    driver: bridge

@@ -12,14 +12,23 @@ from backend_api.security import get_password_hash
 from backend_api.database.db import Base
 
 def seed_data():
-    # CREATE ALL TABLES FIRST
-    print("🔧 Creating database tables...")
-    try:
-        Base.metadata.create_all(bind=engine)
-        print("✅ Tables created successfully!")
-    except Exception as e:
-        print(f"⚠️ Error creating tables: {e}")
-        print("Continuing with seed data...")
+    # ⚠️ MIGRATION FIRST STRATEGY: No crear tablas aquí
+    # Alembic debe ser la ÚNICA fuente de verdad
+    print("🌱 Iniciando seed de datos...")
+    
+    # Verificar que las tablas existan (creadas por Alembic)
+    from sqlalchemy import inspect
+    inspector = inspect(engine)
+    
+    if not inspector.has_table("users"):
+        print("❌ ERROR: Las tablas no existen.")
+        print("📦 Ejecuta 'alembic upgrade head' ANTES de seed_data.py")
+        raise RuntimeError(
+            "Base de datos no inicializada. "
+            "Ejecuta: alembic upgrade head"
+        )
+    
+    print("✅ Tablas detectadas. Procediendo con seed...")
     
     db = SessionLocal()
     try:

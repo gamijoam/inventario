@@ -21,7 +21,7 @@ const KPI_Card = ({ title, value, subvalue, icon: Icon, color }) => (
         <div>
             <p className="text-slate-500 text-sm font-medium mb-1">{title}</p>
             <h3 className="text-2xl font-black text-slate-800">{value}</h3>
-            {subvalue && <p className="text-sm text-slate-400 mt-1">{subvalue}</p>}
+            {subvalue && <div className="text-sm text-slate-400 mt-1">{subvalue}</div>}
         </div>
         <div className={`p-3 rounded-xl ${color}`}>
             <Icon size={24} className="text-white" />
