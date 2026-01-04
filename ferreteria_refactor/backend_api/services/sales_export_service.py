@@ -1,6 +1,6 @@
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, desc
 import pandas as pd
 import io
 from datetime import datetime, date
@@ -377,5 +377,96 @@ def generate_sales_excel(db: Session, start_date: date, end_date: date) -> io.By
                 adjusted_width = min(max_length + 2, 50)
                 worksheet.column_dimensions[column_letter].width = adjusted_width
     
+    output.seek(0)
+    return output
+
+def generate_product_sales_excel(db: Session, start_date: date, end_date: date) -> io.BytesIO:
+    """
+    Generates an Excel file for Product Sales:
+    - Columns: Product Name, Category, Quantity Sold, Total Revenue, Avg Price
+    """
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+    
+    # Query Data
+    query = db.query(
+        models.Product.name.label('product_name'),
+        models.Category.name.label('category_name'),
+        func.sum(models.SaleDetail.quantity).label('total_qty'),
+        func.sum(models.SaleDetail.subtotal).label('total_rev')
+    ).join(
+        models.SaleDetail, models.Product.id == models.SaleDetail.product_id
+    ).join(
+        models.Sale, models.SaleDetail.sale_id == models.Sale.id
+    ).outerjoin(
+        models.Category, models.Product.category_id == models.Category.id
+    ).filter(
+        models.Sale.date >= start_dt,
+        models.Sale.date <= end_dt
+    ).group_by(
+        models.Product.id,
+        models.Product.name,
+        models.Category.name
+    ).order_by(desc('total_rev')).all()
+    
+    # Build Dataframe
+    data = []
+    for row in query:
+        qty = float(row.total_qty or 0)
+        rev = float(row.total_rev or 0)
+        avg = rev / qty if qty > 0 else 0
+        
+        data.append({
+            'Producto': row.product_name,
+            'Categoría': row.category_name or 'Sin Categoría',
+            'Cantidad Vendida': qty,
+            'Total Ventas ($)': rev,
+            'Precio Promedio': avg
+        })
+        
+    df = pd.DataFrame(data)
+    
+    # Create Excel
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        if not df.empty:
+            df.to_excel(writer, sheet_name='Ventas por Producto', index=False)
+            
+            # Formatting
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+            ws = writer.sheets['Ventas por Producto']
+            
+            header_fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            header_font = Font(bold=True, color="FFFFFF", size=11)
+            border_thin = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+            
+            for col in range(1, len(df.columns) + 1):
+                cell = ws.cell(row=1, column=col)
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+                cell.border = border_thin
+                
+            for row in range(2, len(df) + 2):
+                for col in range(1, len(df.columns) + 1):
+                    cell = ws.cell(row=row, column=col)
+                    cell.border = border_thin
+                    if col >= 3: # Numeric columns
+                        cell.alignment = Alignment(horizontal='right')
+                        
+            # Auto-width
+            for column in ws.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
+        else:
+             pd.DataFrame({'Mensaje': ['No hay ventas de productos en este período']}).to_excel(writer, sheet_name='Ventas por Producto', index=False)
+
     output.seek(0)
     return output

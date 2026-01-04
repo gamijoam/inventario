@@ -1,26 +1,22 @@
 --- START TICKET (POS-58) ---
-=== TICKET DE VENTA ===
-EL NEGOCIO NUEVO
-CALLE NUEVA
-RIF: 987654
-Tel: 123456
 ================================
-Fecha: 02/01/2026 13:34
-Factura: #16
-Cliente: Gabriel
-DOC:
-CONDICION: A CREDITO
-Vence: 12/01/2026
+MI NEGOCIO
+RIF:
+Tel:
 ================================
-CANT   PRODUCTO         TOTAL
+Fecha: 03/01/2026 22:07
+Ticket: #18
+Cliente: CLIENTE CONTADO
+================================
+CNT DESCRIPCION      TOTAL
 --------------------------------
-1 x PRODUCTO PARALELO
-10.00
+1 CEMENTO            14.00
 ================================
-SUBTOTAL:       10.00
-TOTAL A PAGAR:  10.00
+SUBTOTAL:           14.00
+TOTAL A PAGAR:      14.00
 ================================
 PAGOS:
+Efectivo Bolívares ( USD  14.00
 ================================
 Gracias por su compra
 --- END TICKET (POS-58) ---
