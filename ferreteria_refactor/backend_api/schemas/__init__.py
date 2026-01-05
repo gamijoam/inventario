@@ -946,3 +946,39 @@ class ServiceOrderRead(ServiceOrderBase):
 
     class Config:
         from_attributes = True
+
+# ========================
+# COMMISSION & CASH SCHEMAS
+# ========================
+
+class CommissionLogRead(BaseModel):
+    id: int
+    user_id: int
+    amount: Decimal
+    currency: str
+    source_type: Optional[str] = "SALE"
+    source_id: Optional[int] = None
+    sale_detail_id: Optional[int] = None
+    source_reference: Optional[str] = None
+    status: Optional[str] = "PENDING"
+    created_at: datetime
+    paid_at: Optional[datetime] = None
+    notes: Optional[str] = None
+    
+    user: Optional[UserRead] = None # Assuming UserRead is available in scope
+
+    class Config:
+        from_attributes = True
+
+class CommissionSummaryRead(BaseModel):
+    user_id: int
+    user_name: str
+    pending_amount: Decimal
+    count: int
+
+class CommissionPayoutRequest(BaseModel):
+    user_id: int
+    log_ids: List[int]
+    payment_method: str = "CASH" # CASH, TRANSFER
+
+

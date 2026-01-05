@@ -63,6 +63,7 @@ import MobileOrderTaker from './pages/Mobile/MobileOrderTaker';
 import Reception from './pages/Services/Reception'; // NEW: Service Reception
 import ServiceManager from './pages/Services/ServiceManager'; // NEW: Service Manager
 import ServiceList from './pages/Services/ServiceList'; // NEW: Service List
+import CommissionPayout from './pages/HumanResources/CommissionPayout'; // NEW: Commission Payout
 
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
@@ -244,6 +245,11 @@ function App() {
                             <Route path="/audit-logs" element={
                               <ProtectedRoute roles={['ADMIN']}>
                                 <AuditLogs />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/hr/commissions" element={
+                              <ProtectedRoute roles={['ADMIN']}>
+                                <CommissionPayout />
                               </ProtectedRoute>
                             } />
 

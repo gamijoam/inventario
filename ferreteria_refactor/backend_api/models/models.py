@@ -400,25 +400,44 @@ class User(Base):
     def __repr__(self):
         return f"<User(username='{self.username}', role='{self.role}')>"
 
+class CommissionStatus(enum.Enum):
+    PENDING = "PENDING"
+    PAID = "PAID"
+    CANCELLED = "CANCELLED"
+    VOIDED = "VOIDED"
+
 class CommissionLog(Base):
     """
-    Tracks commissions earned by users per sale item
+    Tracks commissions earned by users per sale item or service
     """
     __tablename__ = "commission_logs"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    sale_detail_id = Column(Integer, ForeignKey("sale_details.id"), nullable=False)
+    
+    # Legacy/Specific Link
+    sale_detail_id = Column(Integer, ForeignKey("sale_details.id"), nullable=True) # Now Nullable for generic support
+    
+    # Generic Link
+    source_type = Column(String, default="SALE") # SALE, SERVICE
+    source_id = Column(Integer, nullable=True) # ID of the source (SaleDetail ID or ServiceOrder ID)
+    source_reference = Column(String, nullable=True) # Backup Ref (Ticket #)
+
     amount = Column(Numeric(12, 2), nullable=False) # Commission amount in USD
     currency = Column(String, default="USD")
-    percentage_applied = Column(Numeric(5, 2), nullable=False) # Snapshot of % used
+    percentage_applied = Column(Numeric(5, 2), nullable=True) # Snapshot of % used
+
+    # Status
+    status = Column(Enum(CommissionStatus), default=CommissionStatus.PENDING)
     created_at = Column(DateTime, default=get_venezuela_now)
+    paid_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
 
     user = relationship("User")
     sale_detail = relationship("SaleDetail")
 
     def __repr__(self):
-        return f"<CommissionLog(user={self.user_id}, amount={self.amount})>"
+        return f"<CommissionLog(user={self.user_id}, amount={self.amount}, status='{self.status}')>"
 
 class Return(Base):
     __tablename__ = "returns"
@@ -747,8 +766,12 @@ class TransferDetail(Base):
 from .restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem
 
 # ============================================
-# SERVICE MODULE MODELS
+# CASH REGISTER & COMMISSIONS MODULE
 # ============================================
+
+
+
+
 
 class ServiceOrderStatus(str, enum.Enum):
     RECEIVED = "RECEIVED"
