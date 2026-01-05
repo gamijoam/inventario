@@ -73,7 +73,7 @@ def payout_commissions(
     """
     Pay selected commissions and record an expense in the cash register.
     """
-    # 1. Verify user exists
+    # 1. Verify user
     user = db.query(models.User).get(payout_data.user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -86,53 +86,83 @@ def payout_commissions(
     ).all()
 
     if not logs:
-        raise HTTPException(status_code=400, detail="No valid pending commissions found for this selection")
+        raise HTTPException(status_code=400, detail="No valid pending commissions found (or already paid)")
 
-    total_amount = sum(log.amount for log in logs)
+    # Validate Total Amount Security Check
+    db_total = sum(log.amount for log in logs)
+    if abs(db_total - payout_data.amount_usd_total) > 0.05: # 5 cents tolerance
+        raise HTTPException(status_code=400, detail="Amount mismatch. Please refresh.")
+
+    # 3. Determine Final Amount & Currency
+    final_amount = payout_data.amount_usd_total
+    currency = "USD"
     
-    # 3. Update logs to PAID
+    if "VES" in payout_data.payment_method or "PAGO_MOVIL" in payout_data.payment_method:
+        final_amount = payout_data.amount_usd_total * payout_data.exchange_rate
+        currency = "VES"
+    
+    # 4. Handle Source Logic
+    print(f"DEBUG PAYOUT: Source='{payout_data.payment_source}' Method='{payout_data.payment_method}' Amount={final_amount}")
+    
+    session = None
+    if payout_data.payment_source == "DRAWER":
+        # Get active session
+        session = db.query(models.CashSession).filter(
+            models.CashSession.user_id == current_user.id, # Must be current user's drawer
+            models.CashSession.status == "OPEN"
+        ).first()
+
+        if not session:
+            # Fallback for admins paying from a general session
+            if "ADMIN" in current_user.role:
+                 session = db.query(models.CashSession).filter(
+                    models.CashSession.status == "OPEN"
+                ).first()
+        
+        if not session:
+            raise HTTPException(status_code=400, detail="No active cash session found. Open your drawer first.")
+        
+        # VALIDATE FUNDS (Strict Check)
+        # Import here to avoid circular dependencies at module level if any
+        from .cash import get_available_cash
+        
+        # Normalize currency for check
+        check_currency = "Bs" if currency == "VES" else "USD"
+        available = get_available_cash(db, session.id, check_currency)
+        
+        if final_amount > available:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Fondos insuficientes en CAJA ({check_currency}). Disponible: {available:,.2f}, Requerido: {final_amount:,.2f}"
+            )
+        
+        # Creating Expense
+        expense = models.CashMovement(
+            session_id=session.id,
+            type="EXPENSE", 
+            amount=final_amount,
+            currency=currency,
+            exchange_rate=payout_data.exchange_rate if currency == "VES" else 1.0,
+            description=f"Pago Comisiones: {user.username} ({len(logs)} ítems) via {payout_data.payment_method}",
+        )
+        db.add(expense)
+    
+    # 5. Update Logs
     now = datetime.now()
+    payment_note = f"Paid via {payout_data.payment_source} - {payout_data.payment_method}. Ref: {payout_data.reference or 'N/A'}"
+    
     for log in logs:
         log.status = models.CommissionStatus.PAID
         log.paid_at = now
-        log.notes = f"Paid via {payout_data.payment_method} by {current_user.username}"
-
-    # 4. Create Expense (Cash Movement)
-    # Check for active session
-    session = db.query(models.CashSession).filter(
-        models.CashSession.user_id == current_user.id,
-        models.CashSession.status == "OPEN"
-    ).first()
-
-    if not session:
-        # Try to find ANY open session if user is Admin, or raise error?
-        # Better strictly require session.
-        # Fallback: Check if there is a 'system' session or generic open session.
-        session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
-
-    if not session:
-        raise HTTPException(
-            status_code=400, 
-            detail="No active cash session found. Please open a cash register session first to record this payment."
-        )
-    
-    expense = models.CashMovement(
-        session_id=session.id,
-        type="EXPENSE",
-        amount=total_amount,
-        currency="USD",
-        exchange_rate=1.0, # Default to 1:1 for USD
-        description=f"Pago de Comisiones a {user.username} ({len(logs)} ítems) - Processed by {current_user.username}",
-        # category is NOT in the model, removed.
-        # user_id is NOT in the model, removed.
-    )
-    db.add(expense)
+        log.notes = payment_note
 
     db.commit()
 
     return {
         "success": True, 
         "paid_count": len(logs), 
-        "total_amount": total_amount,
-        "message": f"Successfully paid ${total_amount} to {user.username}"
+        "total_amount": float(final_amount),
+        "currency": currency,
+        "source": payout_data.payment_source,
+        "message": f"Paid {len(logs)} commissions. Total: {final_amount:,.2f} {currency}"
     }
