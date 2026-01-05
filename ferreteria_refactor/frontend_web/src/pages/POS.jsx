@@ -211,7 +211,15 @@ const POS = () => {
                 setSelectedWarehouseId('all');
 
                 if (modules?.services) { // Load users if services active
-                    // ...
+                    try {
+                        const usersRes = await apiClient.get('/users');
+                        if (Array.isArray(usersRes.data)) {
+                            // Filter active users
+                            setSalespeople(usersRes.data.filter(u => u.is_active));
+                        }
+                    } catch (err) {
+                        console.error("Failed to load salespeople:", err);
+                    }
                 }
             } catch (e) { console.error(e); }
             setIsLoading(false);

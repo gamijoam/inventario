@@ -13,7 +13,7 @@ class ServiceCheckoutService:
         """
         Ensures a generic service product exists to satisfy FK constraints for manual items.
         """
-        SERVICE_SKU = "SRV-GENERIC"
+        SERVICE_SKU = "GENERIC-SERVICE"
         product = db.query(models.Product).filter(models.Product.sku == SERVICE_SKU).first()
         
         if not product:
@@ -128,6 +128,25 @@ class ServiceCheckoutService:
                     salesperson_id=item.technician_id
                 )
                 db.add(detail)
+                db.flush() # Need ID for CommissionLog
+
+                # COMMISSION LOGIC
+                # RESTRICTION: Only pay commission for MANUAL Service Items (User Requirement)
+                if item.technician_id and item.is_manual:
+                    technician = db.query(models.User).get(item.technician_id)
+                    if technician and technician.commission_percentage and technician.commission_percentage > 0:
+                        commission_amount = subtotal * (technician.commission_percentage / 100)
+                        
+                        if commission_amount > 0:
+                            comm_log = models.CommissionLog(
+                                user_id=technician.id,
+                                sale_detail_id=detail.id,
+                                amount=commission_amount,
+                                currency=new_sale.currency,
+                                percentage_applied=technician.commission_percentage
+                            )
+                            db.add(comm_log)
+                            print(f"[DEBUG] Commission logged for Technician {technician.username}: {commission_amount}")
                 
                 # Stock Logic
                 if deduct_stock:

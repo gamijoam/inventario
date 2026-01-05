@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     Wrench, Save, CheckCircle, Clock, AlertTriangle,
-    Search, Plus, User, FileText, ArrowLeft, Package
+    Search, Plus, User, FileText, ArrowLeft, Package, Trash2
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -36,6 +36,7 @@ const ServiceManager = () => {
     // New Item Form
     const [newItem, setNewItem] = useState({
         product: null,
+        description: '', // Fix React Warning: Controlled input must be defined
         quantity: 1,
         price: 0,
         technician_id: ''
@@ -100,8 +101,10 @@ const ServiceManager = () => {
     };
 
     const handleAddItem = async () => {
-        // Validation: Must have tech, and either product OR description
-        const isValid = newItem.technician_id && (newItem.product || newItem.description);
+        // Validation:
+        // - Manual Item: Needs Description + Technician (Labor)
+        // - Stock Item: Needs Product (Technician optional/not used)
+        const isValid = newItem.product ? true : (newItem.description && newItem.technician_id);
 
         if (!isValid) {
             toast.error("Complete los campos requeridos (Producto/Descripción y Técnico)");
@@ -109,19 +112,33 @@ const ServiceManager = () => {
         }
 
         try {
-            await apiClient.post(`/services/orders/${id}/items`, {
+            // Sanitize payload: Empty string technician_id -> null (Fixes 422)
+            const payload = {
                 product_id: newItem.product?.id, // Optional
                 description: newItem.description, // Optional
-                quantity: newItem.quantity,
-                unit_price: newItem.price,
-                technician_id: newItem.technician_id
-            });
+                quantity: newItem.quantity || 1, // Fallback to 1
+                unit_price: isNaN(newItem.price) ? 0 : newItem.price, // Fallback to 0 if NaN
+                technician_id: newItem.technician_id ? parseInt(newItem.technician_id) : null
+            };
+
+            await apiClient.post(`/services/orders/${id}/items`, payload);
             toast.success("Ítem agregado");
-            setNewItem({ product: null, quantity: 1, price: 0, technician_id: '' });
+            setNewItem({ product: null, description: '', quantity: 1, price: 0, technician_id: '' });
             setShowProductSearch(false);
             fetchOrder();
         } catch (error) {
             toast.error("Error al agregar ítem");
+        }
+    };
+
+    const handleDeleteItem = async (itemId) => {
+        if (!confirm("¿Eliminar este ítem?")) return;
+        try {
+            await apiClient.delete(`/services/orders/${id}/items/${itemId}`);
+            toast.success("Ítem eliminado");
+            fetchOrder();
+        } catch (error) {
+            toast.error("Error al eliminar ítem");
         }
     };
 
@@ -272,12 +289,12 @@ const ServiceManager = () => {
                                                         {products.map(p => (
                                                             <div
                                                                 key={p.id}
-                                                                onClick={() => setNewItem({ ...newItem, product: p, price: p.price_usd })}
+                                                                onClick={() => setNewItem({ ...newItem, product: p, price: p.price })}
                                                                 className="p-2 hover:bg-blue-50 cursor-pointer text-sm"
                                                             >
                                                                 <div className="font-medium">{p.name}</div>
                                                                 <div className="text-xs text-gray-500 justify-between flex">
-                                                                    <span>Price: ${p.price_usd}</span>
+                                                                    <span>Price: ${p.price}</span>
                                                                     <span>Stock: {p.stock}</span>
                                                                 </div>
                                                             </div>
@@ -321,23 +338,31 @@ const ServiceManager = () => {
                                             <label className="text-xs text-gray-500">Precio ($)</label>
                                             <input
                                                 type="number"
-                                                className="w-full p-2 border rounded-lg text-sm"
+                                                className={`w-full p-2 border rounded-lg text-sm ${newItem.product ? 'bg-gray-100 text-gray-500' : ''}`}
                                                 value={newItem.price}
                                                 onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) })}
+                                                readOnly={!!newItem.product} // Lock price for stock items
                                             />
                                         </div>
                                         <div className="flex-1">
                                             <label className="text-xs text-gray-500">Técnico (Comisión)</label>
-                                            <select
-                                                className="w-full p-2 border rounded-lg text-sm"
-                                                value={newItem.technician_id}
-                                                onChange={e => setNewItem({ ...newItem, technician_id: e.target.value })}
-                                            >
-                                                <option value="">Seleccionar...</option>
-                                                {technicians.map(t => (
-                                                    <option key={t.id} value={t.id}>{t.username}</option>
-                                                ))}
-                                            </select>
+                                            {/* Hide Technician selector for stock items (no commission) */}
+                                            {!newItem.product ? (
+                                                <select
+                                                    className="w-full p-2 border rounded-lg text-sm"
+                                                    value={newItem.technician_id}
+                                                    onChange={e => setNewItem({ ...newItem, technician_id: e.target.value })}
+                                                >
+                                                    <option value="">Seleccionar...</option>
+                                                    {technicians.map(t => (
+                                                        <option key={t.id} value={t.id}>{t.username}</option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <div className="w-full p-2 border rounded-lg text-sm bg-gray-100 text-gray-400 italic">
+                                                    No aplica (Repuesto)
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -360,6 +385,7 @@ const ServiceManager = () => {
                                         <th className="text-right p-2">Cant</th>
                                         <th className="text-right p-2">Precio</th>
                                         <th className="text-right p-2">Total</th>
+                                        <th className="w-8"></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
@@ -376,14 +402,22 @@ const ServiceManager = () => {
                                                     Tech: {technicians.find(t => t.id === detail.technician?.id)?.username || detail.technician?.username || '-'}
                                                 </div>
                                             </td>
-                                            <td className="text-right p-2">{detail.quantity}</td>
+                                            <td className="text-right p-2">{Number(detail.quantity)}</td>
                                             <td className="text-right p-2">{formatCurrency(detail.unit_price)}</td>
-                                            <td className="text-right p-2 font-medium">{formatCurrency(detail.quantity * detail.unit_price)}</td>
+                                            <td className="text-right p-2 font-medium">{formatCurrency(Number(detail.quantity) * Number(detail.unit_price))}</td>
+                                            <td className="text-right p-2">
+                                                <button
+                                                    onClick={() => handleDeleteItem(detail.id)}
+                                                    className="text-gray-400 hover:text-red-500 p-1"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                     {order.details.length === 0 && (
                                         <tr>
-                                            <td colSpan="4" className="text-center p-4 text-gray-400 italic">No hay repuestos o servicios cargados.</td>
+                                            <td colSpan="5" className="text-center p-4 text-gray-400 italic">No hay repuestos o servicios cargados.</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -420,7 +454,7 @@ const ServiceManager = () => {
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-gray-500 text-sm">Total Estimado</span>
                             <span className="font-bold text-xl text-green-700">
-                                {formatCurrency(order.details.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0))}
+                                {formatCurrency(order.details.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unit_price)), 0))}
                             </span>
                         </div>
                     </div>

@@ -287,22 +287,27 @@ class SalesService:
                 db.flush() # Need ID for CommissionLog
 
                 # NEW: COMMISSION CALCULATION LOGIC
-                # Only if Services Module is enabled to avoid overhead in standard retail
+                # NEW: COMMISSION CALCULATION LOGIC
+                # POS Sales: Allow commission for ALL products (Standard Retail Logic)
                 from ..config import settings
-                if settings.MODULE_SERVICES_ENABLED and item.salesperson_id:
-                     salesperson = db.query(models.User).filter(models.User.id == item.salesperson_id).first()
-                     if salesperson and salesperson.commission_percentage and salesperson.commission_percentage > 0:
-                         commission_amount = subtotal * (salesperson.commission_percentage / 100)
-                         
-                         if commission_amount > 0:
-                             comm_log = models.CommissionLog(
-                                 user_id=salesperson.id,
-                                 sale_detail_id=detail.id,
-                                 amount=commission_amount,
-                                 currency=new_sale.currency, # Inherit sale currency
-                                 percentage_applied=salesperson.commission_percentage
-                             )
-                             db.add(comm_log)
+                if settings.MODULE_SERVICES_ENABLED:
+                     # Fallback logic: Use item specific salesperson or the cashier (user_id)
+                     effective_salesperson_id = item.salesperson_id if item.salesperson_id else user_id
+                     
+                     if effective_salesperson_id:
+                         salesperson = db.query(models.User).filter(models.User.id == effective_salesperson_id).first()
+                         if salesperson and salesperson.commission_percentage and salesperson.commission_percentage > 0:
+                             commission_amount = subtotal * (salesperson.commission_percentage / 100)
+                             
+                             if commission_amount > 0:
+                                 comm_log = models.CommissionLog(
+                                     user_id=salesperson.id,
+                                     sale_detail_id=detail.id,
+                                     amount=commission_amount,
+                                     currency=new_sale.currency, # Inherit sale currency
+                                     percentage_applied=salesperson.commission_percentage
+                                 )
+                                 db.add(comm_log)
         
             # 3. Process Payments (New Multi-Payment Logic)
             if sale_data.payments:
