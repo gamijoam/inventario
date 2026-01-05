@@ -317,6 +317,113 @@ export const helpContent = [
     },
 
     // ========================================
+    // SERVICIOS TÉCNICOS
+    // ========================================
+    {
+        id: 'services',
+        title: 'Servicios Técnicos',
+        icon: '🔧',
+        color: 'purple',
+        sections: [
+            {
+                id: 'new-order',
+                title: 'Recepción de Equipos (Nueva Orden)',
+                steps: [
+                    'Vaya a "Servicios Técnicos" > "Nueva Orden" en el menú lateral.',
+                    'Busque o seleccione el Cliente existente (o cree uno nuevo).',
+                    'Seleccione el Técnico asignado (opcional en esta etapa).',
+                    'Complete los datos del equipo: Tipo, Marca, Modelo, Serial/IMEI, Patrón/PIN.',
+                    'Describa la falla reportada por el cliente y el estado físico del equipo (rayones, golpes).',
+                    'Indique una fecha estimada de entrega.',
+                    'Haga clic en "Crear Orden de Servicio". Se imprimirá un ticket de recepción.'
+                ],
+                tips: [
+                    'Sea detallado en el estado físico para evitar reclamos futuros.',
+                    'El ticket de recepción incluye un código QR y los términos del servicio.'
+                ]
+            },
+            {
+                id: 'service-management',
+                title: 'Gestión y Diagnóstico (El Técnico)',
+                steps: [
+                    'Vaya a "Servicios Técnicos" > "Bandeja de Entrada".',
+                    'Busque la orden por número de ticket, cliente o serial. Haga clic en "Gestionar".',
+                    'En la pantalla de gestión, actualice el estado a "Diagnosticando" o "En Progreso".',
+                    'En "Diagnóstico Técnico", escriba los hallazgos.',
+                    'Para agregar repuestos o mano de obra, use el botón "+ Agregar".',
+                    'Para REPUESTOS: Seleccione "Inventario", busque el producto. El precio se carga automáticamente.',
+                    'Para MANO DE OBRA: Seleccione "Servicio Manual", escriba la descripción y asigne el TÉCNICO que ganará la comisión.',
+                    'Haga clic en "Guardar Notas" o cambie el estado a "Listo" cuando termine.'
+                ],
+                tips: [
+                    'Solo los "Servicios Manuales" permiten asignar un técnico para comisión.',
+                    'Los repuestos descuentan stock del inventario automáticamente al facturar.'
+                ]
+            },
+            {
+                id: 'service-checkout',
+                title: 'Facturación y Entrega (Caja)',
+                steps: [
+                    'Cuando el cliente venga a retirar, vaya a POS (Punto de Venta).',
+                    'Haga clic en el botón "Cargar Servicio" (ícono de llave inglesa) en la parte superior.',
+                    'Busque la orden lista o selecciónela de la lista "Listas para Entregar".',
+                    'Los ítems de la orden se cargarán al carrito de compras automáticamente.',
+                    'Si el cliente lleva otros productos, agréguelos normalmente al carrito.',
+                    'Proceda al pago (Efectivo, Tarjeta, etc.) y finalice la venta.',
+                    'La orden de servicio cambiará automáticamente a estado "Entregado".'
+                ]
+            }
+        ]
+    },
+
+    // ========================================
+    // COMISIONES Y PERSONAL
+    // ========================================
+    {
+        id: 'commissions',
+        title: 'Comisiones y Personal',
+        icon: '👥',
+        color: 'indigo',
+        sections: [
+            {
+                id: 'users-setup',
+                title: 'Creación de Usuarios (Técnicos y Vendedores)',
+                steps: [
+                    'Vaya a "Sistema" > "Usuarios".',
+                    'Haga clic en "Nuevo Usuario".',
+                    'Para VENDEDORES: Asigne un Rol de "Vendedor" o "Cajero". Estos aparecerán en el POS.',
+                    'Para TÉCNICOS: Asigne un Rol de "Técnico" (o el que corresponda). Estos aparecerán para asignar en Servicios.',
+                    'Asegúrese de que el usuario esté "Activo".'
+                ],
+                tips: [
+                    'Cada empleado debe tener su propio usuario para rastrear sus comisiones correctamente.'
+                ]
+            },
+            {
+                id: 'pos-commission',
+                title: 'Venta con Comisión (POS)',
+                steps: [
+                    'En la pantalla de POS, agregue productos al carrito.',
+                    'En la lista de productos del carrito, verá un selector de "Vendedor".',
+                    'Por defecto, se asigna al usuario que inició sesión.',
+                    'Si la venta es de otro vendedor, cambie el nombre en el selector CADA ÍTEM o en el selector global si estuviera disponible.',
+                    'Al finalizar la venta, el sistema registrará la comisión para ese vendedor.'
+                ]
+            },
+            {
+                id: 'service-commission',
+                title: 'Comisión por Servicio Técnico',
+                steps: [
+                    'Las comisiones de servicio se asignan ITEM por ITEM.',
+                    'Al agregar una "Mano de Obra" o "Servicio Manual" en la gestión de la orden, debe seleccionar el Técnico.',
+                    'Los repuestos NO generan comisión para el técnico (generalmente).',
+                    'Al facturar en caja, estas comisiones se registran a nombre del técnico seleccionado.'
+                ]
+            }
+        ]
+    },
+
+    // ========================================
     // TRANSFERENCIAS INTER-SEDES
     // ========================================
     {
