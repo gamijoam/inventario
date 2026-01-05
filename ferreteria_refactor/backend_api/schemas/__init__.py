@@ -979,6 +979,10 @@ class CommissionSummaryRead(BaseModel):
 class CommissionPayoutRequest(BaseModel):
     user_id: int
     log_ids: List[int]
-    payment_method: str = "CASH" # CASH, TRANSFER
+    payment_source: str # DRAWER, EXTERNAL
+    payment_method: str # CASH_USD, CASH_VES, ZELLE, TRANSFER
+    amount_usd_total: Decimal
+    exchange_rate: Decimal = Decimal("1.00")
+    reference: Optional[str] = None
 
 
