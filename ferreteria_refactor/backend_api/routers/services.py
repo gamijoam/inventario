@@ -139,6 +139,30 @@ def add_service_order_item(
     db.refresh(order)
     return order
 
+@router.delete("/orders/{order_id}/items/{item_id}", response_model=schemas.ServiceOrderRead)
+def delete_service_order_item(
+    order_id: int,
+    item_id: int,
+    db: Session = Depends(get_db)
+):
+    """Remove an item from the service order"""
+    order = db.query(models.ServiceOrder).get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Service Order not found")
+        
+    item = db.query(models.ServiceOrderDetail).filter(
+        models.ServiceOrderDetail.id == item_id,
+        models.ServiceOrderDetail.service_order_id == order_id
+    ).first()
+    
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found in this order")
+        
+    db.delete(item)
+    db.commit()
+    db.refresh(order)
+    return order
+
 # NEW: Update Status & Notes
 @router.patch("/orders/{order_id}/status", response_model=schemas.ServiceOrderRead)
 def update_service_order_status(
