@@ -445,90 +445,92 @@ const Settings = () => {
 
                                             {/* Rates Table */}
                                             {selectedRates.length > 0 ? (
-                                                <div className="bg-white border rounded-2xl overflow-hidden shadow-sm border-slate-200">
-                                                    <table className="w-full">
-                                                        <thead className="bg-slate-50 border-b border-slate-200">
-                                                            <tr>
-                                                                <th className="text-left p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Nombre del Perfil</th>
-                                                                <th className="text-left p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Valor (1 USD =)</th>
-                                                                <th className="text-center p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Predeterminada</th>
-                                                                <th className="text-center p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Estado</th>
-                                                                <th className="text-center p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider">Acciones</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-slate-100">
-                                                            {selectedRates.map((rate, idx) => (
-                                                                <tr key={rate.id} className={clsx("hover:bg-slate-50/50 transition-colors group", idx % 2 === 0 ? "bg-white" : "bg-slate-50/20")}>
-                                                                    <td className="p-4">
-                                                                        <div className="font-bold text-slate-700 text-sm">{rate.name}</div>
-                                                                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {rate.id}</div>
-                                                                    </td>
-                                                                    <td className="p-4">
-                                                                        <div className="relative max-w-[180px]">
-                                                                            <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-bold">$1 =</span>
-                                                                            <input
-                                                                                type="number"
-                                                                                step="0.01"
-                                                                                defaultValue={rate.rate}
-                                                                                onBlur={(e) => {
-                                                                                    const val = parseFloat(e.target.value);
-                                                                                    if (val !== rate.rate && val > 0) {
-                                                                                        handleUpdateRate(rate.id, 'rate', val);
-                                                                                    }
-                                                                                }}
-                                                                                className="pl-10 pr-9 border-slate-200 bg-white rounded-xl px-3 py-2 w-full font-mono font-bold text-slate-700 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all shadow-sm"
-                                                                            />
-                                                                            <span className="absolute right-3 top-2.5 text-slate-400 text-xs font-bold">{rate.currency_symbol}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="p-4 text-center">
-                                                                        <button
-                                                                            onClick={() => !rate.is_default && handleUpdateRate(rate.id, 'is_default', true)}
-                                                                            disabled={rate.is_default}
-                                                                            className={clsx(
-                                                                                "p-2 rounded-lg transition-all",
-                                                                                rate.is_default
-                                                                                    ? "bg-amber-100 text-amber-600 shadow-sm cursor-default"
-                                                                                    : "text-slate-300 hover:text-amber-500 hover:bg-amber-50"
-                                                                            )}
-                                                                            title={rate.is_default ? "Tasa Predeterminada" : "Marcar como predeterminada"}
-                                                                        >
-                                                                            <Star size={18} fill={rate.is_default ? 'currentColor' : 'none'} />
-                                                                        </button>
-                                                                    </td>
-                                                                    <td className="p-4 text-center">
-                                                                        <button
-                                                                            onClick={() => handleUpdateRate(rate.id, 'is_active', !rate.is_active)}
-                                                                            className={clsx(
-                                                                                "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20",
-                                                                                rate.is_active ? 'bg-emerald-500' : 'bg-slate-200'
-                                                                            )}
-                                                                        >
-                                                                            <span className={clsx(
-                                                                                "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200",
-                                                                                rate.is_active ? 'translate-x-4.5' : 'translate-x-1'
-                                                                            )} />
-                                                                        </button>
-                                                                    </td>
-                                                                    <td className="p-4 text-center">
-                                                                        {!rate.is_default ? (
-                                                                            <button
-                                                                                onClick={() => handleDeleteRate(rate.id)}
-                                                                                className="p-2 text-rose-300 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                                                                title="Eliminar"
-                                                                            >
-                                                                                <Trash2 size={18} />
-                                                                            </button>
-                                                                        ) : (
-                                                                            <div className="w-8 h-8 flex items-center justify-center mx-auto text-emerald-500 bg-emerald-50 rounded-lg opacity-50">
-                                                                                <Check size={16} />
-                                                                            </div>
-                                                                        )}
-                                                                    </td>
+                                                <div className="bg-white border rounded-2xl overflow-hidden shadow-sm border-slate-200 flex flex-col h-full max-h-[600px]">
+                                                    <div className="overflow-auto custom-scrollbar flex-1">
+                                                        <table className="w-full min-w-[700px]">
+                                                            <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-20 shadow-sm">
+                                                                <tr>
+                                                                    <th className="text-left p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider w-[30%]">Nombre del Perfil</th>
+                                                                    <th className="text-left p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider w-[30%]">Valor (1 USD =)</th>
+                                                                    <th className="text-center p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider w-[15%]">Predeterminada</th>
+                                                                    <th className="text-center p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider w-[10%]">Estado</th>
+                                                                    <th className="text-center p-4 font-bold text-slate-400 uppercase text-[10px] tracking-wider w-[15%]">Acciones</th>
                                                                 </tr>
-                                                            ))}
-                                                        </tbody>
-                                                    </table>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-slate-100">
+                                                                {selectedRates.map((rate, idx) => (
+                                                                    <tr key={rate.id} className={clsx("hover:bg-slate-50/50 transition-colors group", idx % 2 === 0 ? "bg-white" : "bg-slate-50/20")}>
+                                                                        <td className="p-4">
+                                                                            <div className="font-bold text-slate-700 text-sm">{rate.name}</div>
+                                                                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {rate.id}</div>
+                                                                        </td>
+                                                                        <td className="p-4">
+                                                                            <div className="relative w-full min-w-[160px]">
+                                                                                <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-bold">$1 =</span>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    step="0.01"
+                                                                                    defaultValue={rate.rate}
+                                                                                    onBlur={(e) => {
+                                                                                        const val = parseFloat(e.target.value);
+                                                                                        if (val !== rate.rate && val > 0) {
+                                                                                            handleUpdateRate(rate.id, 'rate', val);
+                                                                                        }
+                                                                                    }}
+                                                                                    className="pl-10 pr-9 border-slate-200 bg-white rounded-xl px-3 py-2 w-full font-mono font-bold text-slate-700 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all shadow-sm"
+                                                                                />
+                                                                                <span className="absolute right-3 top-2.5 text-slate-400 text-xs font-bold">{rate.currency_symbol}</span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-4 text-center">
+                                                                            <button
+                                                                                onClick={() => !rate.is_default && handleUpdateRate(rate.id, 'is_default', true)}
+                                                                                disabled={rate.is_default}
+                                                                                className={clsx(
+                                                                                    "p-2 rounded-lg transition-all",
+                                                                                    rate.is_default
+                                                                                        ? "bg-amber-100 text-amber-600 shadow-sm cursor-default"
+                                                                                        : "text-slate-300 hover:text-amber-500 hover:bg-amber-50"
+                                                                                )}
+                                                                                title={rate.is_default ? "Tasa Predeterminada" : "Marcar como predeterminada"}
+                                                                            >
+                                                                                <Star size={18} fill={rate.is_default ? 'currentColor' : 'none'} />
+                                                                            </button>
+                                                                        </td>
+                                                                        <td className="p-4 text-center">
+                                                                            <button
+                                                                                onClick={() => handleUpdateRate(rate.id, 'is_active', !rate.is_active)}
+                                                                                className={clsx(
+                                                                                    "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20",
+                                                                                    rate.is_active ? 'bg-emerald-500' : 'bg-slate-200'
+                                                                                )}
+                                                                            >
+                                                                                <span className={clsx(
+                                                                                    "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200",
+                                                                                    rate.is_active ? 'translate-x-4.5' : 'translate-x-1'
+                                                                                )} />
+                                                                            </button>
+                                                                        </td>
+                                                                        <td className="p-4 text-center">
+                                                                            {!rate.is_default ? (
+                                                                                <button
+                                                                                    onClick={() => handleDeleteRate(rate.id)}
+                                                                                    className="p-2 text-rose-300 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                                                    title="Eliminar"
+                                                                                >
+                                                                                    <Trash2 size={18} />
+                                                                                </button>
+                                                                            ) : (
+                                                                                <div className="w-8 h-8 flex items-center justify-center mx-auto text-emerald-500 bg-emerald-50 rounded-lg opacity-50">
+                                                                                    <Check size={16} />
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-col items-center justify-center py-16 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 text-center px-4">

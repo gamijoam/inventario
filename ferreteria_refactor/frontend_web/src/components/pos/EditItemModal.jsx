@@ -155,7 +155,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
                             {item.unit_name}
                         </span>
                         <span className="text-sm text-gray-500">
-                            ${item.unit_price_usd.toFixed(4)}/{item.unit_name}
+                            ${parseFloat(item.unit_price_usd || 0).toFixed(4)}/{item.unit_name}
                         </span>
                     </div>
                 </div>

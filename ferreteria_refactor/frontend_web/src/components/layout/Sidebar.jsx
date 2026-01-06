@@ -124,7 +124,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 { icon: Users, label: 'Usuarios', path: '/users' },
                 { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
                 { icon: Settings, label: 'Configuración', path: '/settings' },
-                { icon: BookOpen, label: 'Ayuda', path: '/help' },
+                // Help moved to footer
             ]
         }
     ];
@@ -337,6 +337,18 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             </nav>
 
             <div className="p-4 border-t border-slate-100 bg-slate-50/30">
+                <Link
+                    to="/help"
+                    className={cn(
+                        "flex items-center px-3 py-2.5 mb-3 w-full rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all duration-300",
+                        isCollapsed && "justify-center px-0 bg-none bg-indigo-600"
+                    )}
+                    title={isCollapsed ? "Centro de Ayuda" : ""}
+                >
+                    <BookOpen size={20} className="text-white/90" />
+                    {!isCollapsed && <span className="ml-3">Centro de Ayuda</span>}
+                </Link>
+
                 <button
                     onClick={handleLogout}
                     className={cn(

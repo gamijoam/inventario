@@ -44,8 +44,9 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
             const margin = parseFloat(newUnit.profit_margin);
             if (cost > 0 && margin >= 0) {
                 const price = cost * (1 + margin / 100);
-                setCalculatedPrice(price.toFixed(2));
-                setNewUnit(prev => ({ ...prev, price_usd: price.toFixed(2) }));
+                // Use 4 decimals for precision
+                setCalculatedPrice(price.toFixed(4));
+                setNewUnit(prev => ({ ...prev, price_usd: price.toFixed(4) }));
             }
         } else {
             setCalculatedPrice(null);
@@ -75,7 +76,7 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
             const discount = parseFloat(newUnit.discount_percentage);
             if (price > 0 && discount > 0) {
                 const final = price * (1 - discount / 100);
-                setFinalPriceWithDiscount(final.toFixed(2));
+                setFinalPriceWithDiscount(final.toFixed(4));
             } else {
                 setFinalPriceWithDiscount(null);
             }
@@ -297,11 +298,20 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                             {/* Cost & Price Preview */}
                             {newUnit.user_input > 0 && basePrice && (
                                 <div className="p-5 border border-indigo-100 rounded-2xl bg-indigo-50/30 space-y-3">
+                                    <div className="flex justify-between items-center border-b border-indigo-200/50 pb-2">
+                                        <span className="text-xs font-bold text-indigo-600/70">📉 Costo Base Unitario</span>
+                                        <span className="text-lg font-bold text-indigo-800">
+                                            ${newUnit.type === 'packing'
+                                                ? (parseFloat(baseCost) * parseFloat(newUnit.user_input)).toFixed(4)
+                                                : (parseFloat(baseCost) / parseFloat(newUnit.user_input)).toFixed(4)
+                                            }
+                                        </span>
+                                    </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-sm font-bold text-indigo-700">💰 Precio Calculado (Ref)</span>
+                                        <span className="text-sm font-bold text-indigo-700">💰 Precio Sugerido (Ref)</span>
                                         <span className="text-2xl font-black text-indigo-900">
                                             ${newUnit.type === 'packing'
-                                                ? (parseFloat(basePrice) * parseFloat(newUnit.user_input)).toFixed(2)
+                                                ? (parseFloat(basePrice) * parseFloat(newUnit.user_input)).toFixed(4)
                                                 : (parseFloat(basePrice) / parseFloat(newUnit.user_input)).toFixed(4)
                                             }
                                         </span>
@@ -337,7 +347,7 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                             <span className="absolute left-3 top-2.5 text-emerald-600 font-bold text-sm">$</span>
                                             <input
                                                 type="number"
-                                                step="0.01"
+                                                step="0.0001"
                                                 value={newUnit.price_usd}
                                                 onChange={(e) => setNewUnit({ ...newUnit, price_usd: e.target.value })}
                                                 className="w-full pl-8 border border-emerald-200 rounded-xl focus:border-emerald-500 focus:ring-emerald-500/20 py-2.5 font-bold text-emerald-700 text-sm"
@@ -475,7 +485,9 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                 {unit.price_usd > 0 && (
                                     <div className="flex justify-between items-center">
                                         <span className="text-slate-500 font-medium">Precio</span>
-                                        <span className="font-black text-emerald-600 text-lg">${Number(unit.price_usd).toFixed(2)}</span>
+                                        <span className="font-black text-emerald-600 text-lg">
+                                            ${Math.abs(Number(unit.price_usd)) < 1 ? Number(unit.price_usd).toFixed(4) : Number(unit.price_usd).toFixed(2)}
+                                        </span>
                                     </div>
                                 )}
                             </div>

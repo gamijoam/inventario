@@ -154,15 +154,25 @@ async def delete_exchange_rate(
             detail="Cannot delete default rate. Set another rate as default first."
         )
     
-    rate.is_active = False
-    db.commit()
+    try:
+        db.delete(rate)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        # Check standard SQLAlchemy integrity error string or type (simplified here to generic catch with check)
+        if "foreign key constraint" in str(e).lower() or "integrity" in str(e).lower():
+            raise HTTPException(
+                status_code=400, 
+                detail="No se puede eliminar esta tasa porque está asignada a uno o más Productos. Desasígnela primero o simplemente desactívela."
+            )
+        raise HTTPException(status_code=500, detail=str(e))
     
     # Broadcast event
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_DELETED, {
         "id": rate.id
     })
     
-    return {"message": "Exchange rate deactivated successfully"}
+    return {"message": "Exchange rate deleted successfully"}
 
 # ========================================
 # BUSINESS CONFIGURATION (GENERIC)
