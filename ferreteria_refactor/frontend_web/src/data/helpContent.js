@@ -150,6 +150,23 @@ export const helpContent = [
                 ]
             },
             {
+                id: 'products-combos',
+                title: 'Crear y Gestionar Combos',
+                steps: [
+                    'Cree o edite un producto',
+                    'Vaya a la pestaña "Combos" (o marque "Este producto es un Combo" en General)',
+                    'Haga clic en "Convertir en Combo" si aún no lo es',
+                    'Use el buscador para agregar productos componentes',
+                    'Defina la cantidad de cada componente (ej: 2 Refrescos + 1 Snack)',
+                    'El costo se calcula automáticamente, pero usted define el precio de venta'
+                ],
+                tips: [
+                    'DIFERENCIA CLAVE: Use "Combos" para agrupar PRODUCTOS DIFERENTES. Use "Presentaciones" para el MISMO producto en diferentes cantidades (Cajas/Bultos).',
+                    'El stock del combo es "Virtual": El sistema calcula cuántos puede armar basándose en el stock de los componentes.',
+                    'Al vender un combo, se descuentan los componentes del inventario automáticamente.'
+                ]
+            },
+            {
                 id: 'products-discounts',
                 title: 'Configurar Descuentos',
                 steps: [

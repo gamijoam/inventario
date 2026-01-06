@@ -120,8 +120,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
             if (cost > 0) {
                 const priceBeforeTax = cost * (1 + margin / 100);
                 const finalPrice = priceBeforeTax * (1 + tax / 100);
-                setCalculatedPrice(finalPrice.toFixed(2));
-                setFormData(prev => ({ ...prev, price: finalPrice.toFixed(2) }));
+                // Use 4 decimals for precision, especially for low cost items (grams)
+                setCalculatedPrice(finalPrice.toFixed(4));
+                setFormData(prev => ({ ...prev, price: finalPrice.toFixed(4) }));
             }
         } else {
             setCalculatedPrice(null);
@@ -134,7 +135,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
             const price = parseFloat(formData.price);
             if (cost > 0) {
                 const margin = ((price - cost) / cost) * 100;
-                setCalculatedMargin(margin.toFixed(2));
+                setCalculatedMargin(margin.toFixed(2)); // Margin % is fine with 2 decimals
             } else {
                 setCalculatedMargin(null);
             }
@@ -445,6 +446,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                                 name="cost"
                                                 value={formData.cost}
                                                 onChange={handleInputChange}
+                                                step="0.0001"
                                                 className="w-full pl-8 border-slate-200 rounded-xl shadow-sm focus:border-emerald-500 focus:ring-emerald-500/20 py-2.5 font-bold text-slate-700 transition-all text-sm"
                                                 placeholder="0.00"
                                             />
@@ -487,6 +489,17 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                         </div>
                                     </div>
 
+                                    {/* Profit Amount Display (New) */}
+                                    <div className="md:col-span-12 flex justify-center -mt-2 mb-2">
+                                        {formData.cost > 0 && formData.profit_margin > 0 && (
+                                            <div className="bg-slate-100 text-slate-500 text-xs px-3 py-1 rounded-full font-mono">
+                                                Ganancia: <span className="font-bold text-emerald-600">
+                                                    ${(parseFloat(formData.cost) * (parseFloat(formData.profit_margin) / 100)).toFixed(4)}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     {/* Visual Flow = */}
                                     <div className="hidden md:flex md:col-span-1 justify-center text-slate-300">
                                         <ArrowRight size={18} />
@@ -502,6 +515,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                                 name="price"
                                                 value={formData.price}
                                                 onChange={handleInputChange}
+                                                step="0.0001"
                                                 className="w-full pl-6 text-3xl font-black text-emerald-700 bg-transparent border-none focus:ring-0 p-0 placeholder-emerald-300/50"
                                                 placeholder="0.00"
                                             />
@@ -739,7 +753,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

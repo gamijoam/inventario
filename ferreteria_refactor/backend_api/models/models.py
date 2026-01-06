@@ -90,10 +90,10 @@ class Product(Base):
     name = Column(String, index=True, nullable=False)
     sku = Column(String, unique=True, index=True, nullable=True) # Barcode
     description = Column(Text, nullable=True)
-    price = Column(Numeric(12, 2), nullable=False, default=0.00)
-    price_mayor_1 = Column(Numeric(12, 2), default=0.00) # Wholesale Price 1
-    price_mayor_2 = Column(Numeric(12, 2), default=0.00) # Wholesale Price 2
-    cost_price = Column(Numeric(14, 4), default=0.0000)  # Cost for profit margin calculation
+    price = Column(Numeric(18, 4), nullable=False, default=0.0000)
+    price_mayor_1 = Column(Numeric(18, 4), default=0.0000) # Wholesale Price 1
+    price_mayor_2 = Column(Numeric(18, 4), default=0.0000) # Wholesale Price 2
+    cost_price = Column(Numeric(18, 4), default=0.0000)  # Cost for profit margin calculation
     
     # Pricing System Fields
     profit_margin = Column(Numeric(5, 2), nullable=True)  # Profit margin percentage (e.g., 30.00 = 30%)
@@ -158,8 +158,8 @@ class ProductUnit(Base):
     unit_name = Column(String, nullable=False)  # Ej: "Saco", "Caja", "Gramo"
     conversion_factor = Column(Numeric(14, 4), nullable=False) # Ej: 50.0 (Saco), 0.001 (Gramo)
     barcode = Column(String, nullable=True) # Código específico de la presentación
-    cost_price = Column(Numeric(14, 4), nullable=True)  # Cost calculated: base_cost * factor
-    price_usd = Column(Numeric(12, 2), nullable=True) # Precio específico (opcional)
+    cost_price = Column(Numeric(18, 4), nullable=True)  # Cost calculated: base_cost * factor
+    price_usd = Column(Numeric(18, 4), nullable=True) # Precio específico (opcional)
     
     # Pricing System Fields
     profit_margin = Column(Numeric(5, 2), nullable=True)  # Unit-specific profit margin
@@ -287,7 +287,7 @@ class SaleDetail(Base):
     sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Numeric(12, 3), nullable=False) # Units sold
-    unit_price = Column(Numeric(12, 2), nullable=False) # Price at moment of sale
+    unit_price = Column(Numeric(18, 4), nullable=False) # Price at moment of sale
     
     # Discount Support
     discount = Column(Numeric(12, 2), default=0.00)  # Discount amount or percentage
@@ -297,9 +297,9 @@ class SaleDetail(Base):
     tax_rate = Column(Numeric(5, 2), default=0.00)  # Tax rate applied at moment of sale (e.g. 16.00)
     
     # Financial Integrity
-    cost_at_sale = Column(Numeric(14, 4), default=0.0000)  # Historical cost at moment of sale
+    cost_at_sale = Column(Numeric(18, 4), default=0.0000)  # Historical cost at moment of sale
 
-    subtotal = Column(Numeric(12, 2), nullable=False)
+    subtotal = Column(Numeric(18, 4), nullable=False)
     is_box_sale = Column(Boolean, default=False) # Was it sold as a box?
     
     # NEW: Manual Description for Service Items

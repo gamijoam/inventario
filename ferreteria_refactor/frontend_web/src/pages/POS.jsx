@@ -26,6 +26,15 @@ const formatStock = (stock) => {
     return num % 1 === 0 ? num.toFixed(0) : num.toFixed(3).replace(/\.?0+$/, '');
 };
 
+// Helper format currency: 4 decimals for < 1, 2 decimals otherwise
+const formatCurrency = (amount) => {
+    const num = Number(amount);
+    if (Math.abs(num) < 1 && num !== 0) {
+        return num.toFixed(4);
+    }
+    return num.toFixed(2);
+};
+
 const POS = () => {
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates } = useCart();
     const { isSessionOpen, openSession, loading } = useCash();
@@ -546,7 +555,7 @@ const POS = () => {
                                         <div className="mt-auto flex justify-between items-end pt-2 border-t border-slate-50">
                                             <div className="flex flex-col">
                                                 <span className="text-lg font-bold text-slate-900 leading-none">
-                                                    ${Number(product.price).toFixed(2)}
+                                                    ${formatCurrency(product.price)}
                                                 </span>
                                                 <span className={`text-[10px] font-medium mt-1 ${currentStock <= 0 ? 'text-rose-500' : 'text-slate-400'}`}>
                                                     Stock: {Number(currentStock).toFixed(0)}
@@ -657,7 +666,7 @@ const POS = () => {
 
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <div className="font-bold text-slate-800">${Number(item.subtotal_usd || 0).toFixed(2)}</div>
+                                            <div className="font-bold text-slate-800">${formatCurrency(item.subtotal_usd || 0)}</div>
                                             <span className="text-[10px] text-slate-400 font-mono">
                                                 Bs {Number(item.subtotal_bs || 0).toLocaleString('es-VE', { maximumFractionDigits: 2 })}
                                             </span>
@@ -700,7 +709,7 @@ const POS = () => {
                         <div className="flex justify-between items-end mb-1">
                             <span className="text-slate-500 font-medium text-xs">Total a Pagar</span>
                             <span className="text-2xl font-black text-slate-800 tracking-tight">
-                                {anchorCurrency.symbol}{Number(totalUSD).toFixed(2)}
+                                {anchorCurrency.symbol}{formatCurrency(totalUSD)}
                             </span>
                         </div>
                         {/* Total in Bs */}
@@ -765,7 +774,7 @@ const POS = () => {
                                 <span className="font-medium">Ver / Pagar</span>
                             </div>
                             <span className="text-xl font-bold">
-                                ${Number(totalUSD).toFixed(2)}
+                                ${formatCurrency(totalUSD)}
                             </span>
                         </button>
                     </div>

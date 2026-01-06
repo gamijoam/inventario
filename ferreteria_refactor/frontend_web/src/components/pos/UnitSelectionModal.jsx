@@ -7,8 +7,11 @@ const UnitSelectionModal = ({ isOpen, onClose, product, onSelect }) => {
     if (!isOpen || !product) return null;
 
     // Helper to format currency
+    // Helper to format currency
     const formatPrice = (amount, symbol) => {
-        return `${symbol} ${amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const num = Number(amount);
+        const decimals = Math.abs(num) < 1 && num !== 0 ? 4 : 2;
+        return `${symbol} ${num.toLocaleString('es-VE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
     };
 
     const activeCurrencies = getActiveCurrencies();
@@ -17,6 +20,7 @@ const UnitSelectionModal = ({ isOpen, onClose, product, onSelect }) => {
     const baseOption = {
         name: product.unit || 'Unidad', // Original unit type
         price: product.price,
+        price_usd: product.price, // FIX: Ensure price_usd is present for base unit
         factor: 1,
         id: null, // Null ID for base unit
         is_base: true
@@ -90,7 +94,7 @@ const UnitSelectionModal = ({ isOpen, onClose, product, onSelect }) => {
 
                             {/* Price Primary */}
                             <div className="mt-2 text-2xl font-bold text-slate-900">
-                                ${Number(opt.price).toFixed(2)}
+                                {formatPrice(opt.price, '$')}
                             </div>
 
                             {/* Secondary Currencies */}
