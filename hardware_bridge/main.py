@@ -8,6 +8,7 @@ import websockets
 import json
 import os
 import sys
+import psutil
 import configparser
 from pathlib import Path
 
@@ -511,8 +512,46 @@ async def connect_to_server(base_url, server_name):
 # MAIN
 # ========================================
 
+
+def kill_existing_instances():
+    """Matar otras instancias de este ejecutable"""
+    try:
+        current_pid = os.getpid()
+        
+        # Determinar el nombre del ejecutable
+        if getattr(sys, 'frozen', False):
+            # Si corre como EXE
+            current_exe = sys.executable
+            exe_name = os.path.basename(current_exe)
+        else:
+            # Si corre como script (para pruebas)
+            current_exe = sys.argv[0]
+            exe_name = "main.py" # Ojo con esto en dev
+            return # No matar en modo desarrollo/script por seguridad
+
+        print(f"🧹 Verificando instancias previas de: {exe_name}")
+        
+        for proc in psutil.process_iter(['pid', 'name', 'exe']):
+            try:
+                # Comprobar si es el mismo ejecutable
+                if proc.info['pid'] == current_pid:
+                    continue
+                
+                # Coincidencia por nombre (más seguro para Windows EXE)
+                if proc.info['name'].lower() == exe_name.lower():
+                    print(f"⚠️  Matando instancia previa (PID: {proc.info['pid']})...")
+                    proc.kill()
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+                
+    except Exception as e:
+        print(f"❌ Error al limpiar instancias: {e}")
+
 if __name__ == "__main__":
     try:
+        # 1. Asegurar instancia única (Kill&Restart logic)
+        kill_existing_instances()
+
         # List available printers
         if PRINTER_MODE == "WINDOWS":
             printers = get_windows_printers()
