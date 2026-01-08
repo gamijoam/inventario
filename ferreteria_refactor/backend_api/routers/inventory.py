@@ -205,3 +205,10 @@ def bulk_entry(
     Optimized for performance ("Metralleta").
     """
     return InventoryService.process_bulk_entry(db, entry_data)
+
+@router.get("/validate-imei")
+def validate_imei(product_id: int, imei: str, db: Session = Depends(get_db)):
+    """
+    Check if an IMEI is valid and available for a given product.
+    """
+    return InventoryService.validate_imei_availability(db, product_id, imei)

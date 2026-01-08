@@ -29,6 +29,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         unit_type: 'UNID',
         exchange_rate_id: null,
         is_combo: false,
+        has_imei: false, // NEW: Serialized
         profit_margin: null,
         discount_percentage: 0,
         is_discount_active: false,
@@ -88,6 +89,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                         : 0,
                     exchange_rate_id: initialData.exchange_rate_id || null,
                     is_combo: initialData.is_combo || false,
+                    has_imei: initialData.has_imei || false, // NEW
                     profit_margin: initialData.profit_margin || null,
                     discount_percentage: initialData.discount_percentage || 0,
                     is_discount_active: initialData.is_discount_active || false,
@@ -247,6 +249,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
             location: formData.location,
             exchange_rate_id: formData.exchange_rate_id ? parseInt(formData.exchange_rate_id) : null,
             is_combo: formData.is_combo,
+            has_imei: formData.has_imei, // NEW
             profit_margin: formData.profit_margin ? parseFloat(formData.profit_margin) : null,
             discount_percentage: parseFloat(formData.discount_percentage) || 0,
             is_discount_active: formData.is_discount_active,
@@ -419,6 +422,26 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                         <p className="text-xs text-slate-500 mt-2 ml-8 font-medium">
                                             Los combos son productos virtuales compuestos por otros productos.
                                             El stock se descuenta de los componentes.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Serialized Checkbox */}
+                                <div className="col-span-2 mt-2">
+                                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                        <label className="flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.has_imei}
+                                                onChange={(e) => setFormData({ ...formData, has_imei: e.target.checked })}
+                                                className="w-5 h-5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                                            />
+                                            <span className="ml-3 text-sm font-bold text-slate-800">
+                                                🔢 Requiere Seriales (IMEI)
+                                            </span>
+                                        </label>
+                                        <p className="text-xs text-slate-500 mt-2 ml-8 font-medium">
+                                            Habilita el control de inventario serializado. Se exigirá escanear el IMEI en recepción y venta.
                                         </p>
                                     </div>
                                 </div>

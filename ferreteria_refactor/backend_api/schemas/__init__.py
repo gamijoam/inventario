@@ -183,6 +183,8 @@ class ProductRead(ProductBase):
     units: List[ProductUnitRead] = []
     combo_items: List[ComboItemRead] = []  # NEW: Include combo items
     stocks: List[ProductStockRead] = [] # NEW: Include warehouse stocks
+    has_imei: Optional[bool] = False # NEW: Include serialized status exposed to frontend
+    
     
     class Config:
         from_attributes = True

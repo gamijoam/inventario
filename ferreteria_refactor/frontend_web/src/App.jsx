@@ -33,7 +33,9 @@ import QuotesManager from './pages/Quotes/QuotesManager';
 import WarehouseManager from './pages/Warehouses/WarehouseManager';
 import InventoryTransfers from './pages/Warehouses/InventoryTransfers';
 import ExternalTransferOut from './pages/Inventory/Transfers/ExternalTransferOut';
+
 import ExternalTransferIn from './pages/Inventory/Transfers/ExternalTransferIn';
+import SerializedReception from './pages/Inventory/SerializedReception';
 
 // ... existing imports
 
@@ -139,6 +141,11 @@ function App() {
                             <Route path="/warehouses" element={
                               <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                 <WarehouseManager />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/inventory/serialized-reception" element={
+                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <SerializedReception />
                               </ProtectedRoute>
                             } />
                             <Route path="/transfers" element={

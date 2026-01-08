@@ -215,7 +215,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     conversion_factor: item.conversion_factor || 1,
                     discount: item.is_discount_active ? item.discount_percentage : 0,
                     discount_type: item.is_discount_active ? "PERCENT" : "NONE",
-                    salesperson_id: item.salesperson_id || null // NEW: Pass salesperson
+                    salesperson_id: item.salesperson_id || null, // NEW: Pass salesperson
+                    serial_numbers: item.serial_numbers || [] // NEW: Serialized Inventory Support
                 })),
                 is_credit: isCreditSale,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,

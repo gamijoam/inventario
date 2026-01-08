@@ -293,3 +293,21 @@ class InventoryService:
             "added_count": int(qty_added),
             "new_stock_level": float(product.stock)
         }
+
+    @staticmethod
+    def validate_imei_availability(db: Session, product_id: int, imei: str) -> Dict[str, Any]:
+        """
+        Validates if an IMEI exists and is available for sale.
+        """
+        instance = db.query(models.ProductInstance).filter(
+            models.ProductInstance.product_id == product_id,
+            models.ProductInstance.serial_number == imei
+        ).first()
+
+        if not instance:
+            return {"valid": False, "message": "Serial no encontrado en inventario."}
+        
+        if instance.status != models.ProductInstanceStatus.AVAILABLE:
+            return {"valid": False, "message": f"Serial no disponible (Estado: {instance.status})"}
+            
+        return {"valid": True, "message": "Serial válido", "instance_id": instance.id}

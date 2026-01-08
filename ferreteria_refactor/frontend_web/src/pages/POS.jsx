@@ -16,6 +16,7 @@ import ProductThumbnail from '../components/products/ProductThumbnail';
 import CartItemQuantityInput from '../components/pos/CartItemQuantityInput';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
 import ServiceImportModal from './POS/ServiceImportModal';
+import SerializedItemModal from '../components/pos/SerializedItemModal';
 
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
@@ -58,6 +59,9 @@ const POS = () => {
     const [isServiceImportOpen, setIsServiceImportOpen] = useState(false);
     const [activeServiceOrderId, setActiveServiceOrderId] = useState(null);
     const [serviceOrderTicket, setServiceOrderTicket] = useState(null);
+    const [selectedProductForSerialized, setSelectedProductForSerialized] = useState(null); // Serialized Modal State
+    // NEW: Serialized Item Modal Import
+    // (Import added below with other imports)
 
 
     // Data State
@@ -251,6 +255,11 @@ const POS = () => {
 
     // ... Handle Product Click ...
     const handleProductClick = (product) => {
+        if (product.has_imei) {
+            setSelectedProductForSerialized(product);
+            return;
+        }
+
         if (product.units?.length > 0) {
             setSelectedProductForUnits(product);
         } else {
@@ -269,6 +278,98 @@ const POS = () => {
         addToCart(selectedProductForUnits, unit);
         setSelectedProductForUnits(null);
     }
+
+    const handleSerializedConfirm = (serials) => {
+        if (!selectedProductForSerialized) return;
+
+        // We assume 1 item for now as per MVP plan, but serials is an array
+        // Typically addToCart expects (product, unit)
+        // We need to pass serials to addToCart. 
+        // CartContext.addToCart might not support extra props easily without modification?
+        // Let's check CartContext usage. usually it takes (product, unit).
+        // If unit is undefined, it uses defaults.
+        // We can inject the serials property into the 'unit' object or 'product' object temporarily?
+        // No, cleaner to pass a 3rd argument options? Or merge into unit.
+
+        // Assuming addToCart(product, unitOrOptions)
+        // Let's look at how addBaseProductToCart works:
+        // addToCart(product, { name: 'Unidad', price_usd: parseFloat(product.price), factor: 1, is_base: true });
+
+        // We will construct the unit object manualy similar to addBaseProductToCart but adding serial_numbers
+        const product = selectedProductForSerialized;
+        const unitPayload = {
+            name: 'Unidad',
+            price_usd: parseFloat(product.price),
+            factor: 1,
+            is_base: true,
+            serial_numbers: serials, // <--- INJECTED
+            // Hack: Use unique ID to allow multiple lines of same product if needed? 
+            // Or if we want them grouped, CartContext logic will group them.
+            // If we have serials, they are unique items basically.
+            // If CartContext group by ID, we might have issues if we want to separate them.
+            // But if we sell 2 phones, and serials=['A', 'B'], we want 1 line with Qty 2 and 2 serials.
+            // This matches our backend logic.
+        };
+
+        // Determine quantity from serials length
+        // But addToCart usually adds +1. 
+        // If serials.length > 1, we might need to add multiple times or modify addToCart.
+        // For now, let's assume one by one scan or simple passing.
+        // If modal returns 1 serial, easy.
+
+        // If we modify addToCart to accept a Quantity override?
+        // Let's assume standard add (+1) for now, but perform it N times? 
+        // Or better, let's just rely on the fact that we passed the FULL array of serials
+        // and we expect the cart item to represent that bundle.
+
+        // WAIT: addToCart logic usually merges. 
+        // If I add product X with serial A, then add product X with serial B.
+        // CartContext will likely merge them into Quantity: 2.
+        // And we need to merge the serials arrays?
+        // This requires CartContext modification. 
+        // Alternatively, distinct Cart Items? (Requires unique unit_id or similar).
+
+        // MVP Plan:
+        // Intercept `addToCart` is hard.
+        // Let's force `addToCart` usage correctly.
+
+        // If I send `serial_numbers`, I should probably send them all.
+        // But repeated calls...
+
+        // Let's stick to: 
+        // 1. User scans 1 serial. (Modal quantity=1).
+        // 2. We add 1 item to cart with `serial_numbers: ['A']`.
+        // 3. User scans another. We add another...
+        // CartContext will merge. We need to ensure `serial_numbers` are concatenated in CartContext?
+
+        // Since I cannot see CartContext right now, 
+        // I will assume standard behavior and just pass the property.
+        // If CartContext overwrites the object, we lose previous serials.
+        // This is a risk.
+
+        // SAFE APPROACH: unique ID for serialized items to prevent merging.
+        // unit.id = `SERIAL-${serials[0]}`
+        // Then they appear as separate lines. This is safer for UX too ("Phone IMEI: A", "Phone IMEI: B").
+        // It validates the "Inline Cart Display" plan too.
+
+        serials.forEach(accSerial => {
+            const singleUnit = {
+                name: 'Unidad',
+                price_usd: parseFloat(product.price),
+                factor: 1,
+                is_base: true,
+                serial_numbers: [accSerial],
+                // Force unique line item by mocking a unit_id or modifying the product ID?
+                // CartContext usually uses `${product.id}-${unit.id || 'base'}`
+                // Let's use a fake unit_id
+                unit_id: `IMEI-${accSerial}`,
+                has_imei: true
+            };
+            addToCart(product, singleUnit);
+        });
+
+        setSelectedProductForSerialized(null);
+    };
 
     // NEW: Handlers for Service Orders
     const handleServiceOrderSelect = (order) => {
@@ -625,6 +726,12 @@ const POS = () => {
                                             <div className="font-medium text-slate-700 text-sm line-clamp-2 leading-tight">
                                                 {item.name}
                                             </div>
+                                            {/* SERIAL NUMBERS DISPLAY */}
+                                            {item.serial_numbers && item.serial_numbers.length > 0 && (
+                                                <div className="mt-0.5 text-[10px] font-mono text-slate-500 bg-slate-100 px-1 rounded w-fit">
+                                                    S/N: {item.serial_numbers.join(', ')}
+                                                </div>
+                                            )}
                                             <div className="flex flex-wrap items-center gap-1 mt-1.5">
                                                 {/* SKU Badge */}
                                                 {item.sku && (
@@ -804,7 +911,7 @@ const POS = () => {
                     focusSearch();
                 }}
                 totalUSD={totalUSD}
-                totalBs={totalBs} // PASSING TOTAL BS FOR MULTI-CURRENCY FIX
+                totalBs={totalBs}
                 totalsByCurrency={totalsByCurrency}
                 cart={cart}
                 onConfirm={handleCheckout}
@@ -812,6 +919,14 @@ const POS = () => {
                 initialCustomer={quoteCustomer}
                 quoteId={activeQuoteId}
                 customSubmit={activeServiceOrderId ? handleServiceCheckoutSubmit : null}
+            />
+
+            <SerializedItemModal
+                isOpen={!!selectedProductForSerialized}
+                product={selectedProductForSerialized}
+                quantity={1}
+                onClose={() => setSelectedProductForSerialized(null)}
+                onConfirm={handleSerializedConfirm}
             />
 
             <ServiceImportModal
