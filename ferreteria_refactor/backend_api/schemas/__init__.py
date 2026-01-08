@@ -34,6 +34,7 @@ class ProductBase(BaseModel):
     location: Optional[str] = Field(None, description="Ubicación física en almacén", example="Pasillo 4, Estante B")
     exchange_rate_id: Optional[int] = Field(None, description="ID de tasa de cambio específica (opcional)", example=2)
     is_combo: bool = Field(False, description="Indica si el producto es un combo/bundle")
+    has_imei: bool = Field(False, description="Indica si el producto maneja seriales/IMEIs") # NEW
     is_active: bool = Field(True, description="Indica si el producto está disponible para la venta")
     
     # Image Support
@@ -147,6 +148,7 @@ class ProductUpdate(BaseModel):
     unit_type: Optional[str] = None
     exchange_rate_id: Optional[int] = None  # NEW: Allow updating exchange rate
     is_combo: Optional[bool] = None  # NEW: Allow updating combo status
+    has_imei: Optional[bool] = None # NEW: Allow updating serialized status
     is_active: Optional[bool] = None
     # Pricing System Fields - Added for updates
     profit_margin: Optional[Decimal] = None
@@ -196,6 +198,7 @@ class SaleDetailCreate(BaseModel):
     discount_type: str = "NONE"  # NONE, PERCENT, FIXED
     tax_rate: Decimal = Decimal("0.00")
     salesperson_id: Optional[int] = None # NEW: Granular commission support
+    serial_numbers: Optional[List[str]] = Field(None, description="Lista de seriales para productos serializados") # NEW
 
     class Config:
         from_attributes = True
@@ -565,6 +568,12 @@ class BulkImportResult(BaseModel):
     success_count: int
     failed_count: int
     errors: List[str]
+
+class SerializedEntry(BaseModel):
+    product_id: int
+    warehouse_id: int
+    imeis: List[str]
+    cost: Optional[Decimal] = Decimal("0.0000")
 
 # Currency Schemas
 class CurrencyBase(BaseModel):

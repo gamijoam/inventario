@@ -1,0 +1,29 @@
+
+--- REQUEST 2026-01-07 20:30:04.268102 ---
+DEBUG: Creating Product data keys: ['name', 'sku', 'price', 'price_mayor_1', 'price_mayor_2', 'stock', 'description', 'cost_price', 'profit_margin', 'discount_percentage', 'is_discount_active', 'tax_rate', 'min_stock', 'unit_type', 'is_box', 'conversion_factor', 'category_id', 'supplier_id', 'location', 'exchange_rate_id', 'is_combo', 'is_serialized', 'is_active', 'image_url', 'updated_at']
+DEBUG: is_serialized: True
+DEBUG: DB_URL: postgresql://postgres:password@localhost:5432/pruebita2_db
+DEBUG: Committing...
+
+--- REQUEST 2026-01-07 20:32:40.493022 ---
+DEBUG: Creating Product data keys: ['name', 'sku', 'price', 'price_mayor_1', 'price_mayor_2', 'stock', 'description', 'cost_price', 'profit_margin', 'discount_percentage', 'is_discount_active', 'tax_rate', 'min_stock', 'unit_type', 'is_box', 'conversion_factor', 'category_id', 'supplier_id', 'location', 'exchange_rate_id', 'is_combo', 'is_serialized', 'is_active', 'image_url', 'updated_at']
+DEBUG: is_serialized: True
+DEBUG: DB_URL: postgresql://postgres:password@localhost:5432/pruebita2_db
+DEBUG: Committing...
+
+--- REQUEST 2026-01-07 20:33:57.540841 ---
+DEBUG: Creating Product data keys: ['name', 'sku', 'price', 'price_mayor_1', 'price_mayor_2', 'stock', 'description', 'cost_price', 'profit_margin', 'discount_percentage', 'is_discount_active', 'tax_rate', 'min_stock', 'unit_type', 'is_box', 'conversion_factor', 'category_id', 'supplier_id', 'location', 'exchange_rate_id', 'is_combo', 'is_serialized', 'is_active', 'image_url', 'updated_at']
+DEBUG: is_serialized: True
+DEBUG: DB_URL: postgresql://postgres:password@localhost:5432/pruebita2_db
+DEBUG: Committing...
+
+--- REQUEST 2026-01-07 20:34:54.014296 ---
+DEBUG: Creating Product data keys: ['name', 'sku', 'price', 'price_mayor_1', 'price_mayor_2', 'stock', 'description', 'cost_price', 'profit_margin', 'discount_percentage', 'is_discount_active', 'tax_rate', 'min_stock', 'unit_type', 'is_box', 'conversion_factor', 'category_id', 'supplier_id', 'location', 'exchange_rate_id', 'is_combo', 'is_serialized', 'is_active', 'image_url', 'updated_at']
+DEBUG: [OK] SELECT is_serialized check SUCCEEDED inside endpoint.
+DEBUG: Committing...
+
+--- REQUEST 2026-01-07 20:35:51.833095 ---
+DEBUG: Creating Product data keys: ['name', 'sku', 'price', 'price_mayor_1', 'price_mayor_2', 'stock', 'description', 'cost_price', 'profit_margin', 'discount_percentage', 'is_discount_active', 'tax_rate', 'min_stock', 'unit_type', 'is_box', 'conversion_factor', 'category_id', 'supplier_id', 'location', 'exchange_rate_id', 'is_combo', 'is_serialized', 'is_active', 'image_url', 'updated_at']
+DEBUG: [OK] SELECT is_serialized check SUCCEEDED inside endpoint.
+DEBUG: REMOVED is_serialized from payload.
+DEBUG: Committing...

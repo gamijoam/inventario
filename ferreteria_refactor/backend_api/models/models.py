@@ -15,6 +15,13 @@ class MovementType(enum.Enum):
     EXTERNAL_TRANSFER_IN = "EXTERNAL_TRANSFER_IN"
     EXTERNAL_TRANSFER_OUT = "EXTERNAL_TRANSFER_OUT"
 
+class ProductInstanceStatus(enum.Enum):
+    AVAILABLE = "AVAILABLE"
+    SOLD = "SOLD"
+    RMA = "RMA"
+    TRANSIT = "TRANSIT"
+    DAMAGED = "DAMAGED"
+
 class PaymentStatus(enum.Enum):
     PENDING = "PENDING"
     PARTIAL = "PARTIAL"
@@ -114,6 +121,10 @@ class Product(Base):
     # NEW: Combo/Bundle Support
     is_combo = Column(Boolean, default=False)  # True if this product is a combo/bundle
     
+    # NEW: Serialized Inventory Support
+    has_imei = Column(Boolean, default=False)
+
+    
     # Image Support
     image_url = Column(String(255), nullable=True)  # Relative path to product image
     updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)  # Auto-updated timestamp
@@ -146,6 +157,9 @@ class Product(Base):
     
     # NEW: Multi-Warehouse Stocks
     stocks = relationship("ProductStock", back_populates="product", cascade="all, delete-orphan")
+    
+    # NEW: Serialized Inventory
+    instances = relationship("ProductInstance", back_populates="product", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Product(name='{self.name}', is_box={self.is_box}, is_combo={self.is_combo}, factor={self.conversion_factor})>"
@@ -315,6 +329,7 @@ class SaleDetail(Base):
     product = relationship("Product")
     unit = relationship("ProductUnit")  # NEW: Link to presentation used
     salesperson = relationship("User", foreign_keys=[salesperson_id]) # NEW
+    instances = relationship("SaleDetailInstance", back_populates="sale_detail", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<SaleDetail(product='{self.product_id}', qty={self.quantity}, tax={self.tax_rate})>"
@@ -706,6 +721,38 @@ class ProductStock(Base):
 
     def __repr__(self):
         return f"<ProductStock(product={self.product_id}, warehouse={self.warehouse_id}, qty={self.quantity})>"
+
+class ProductInstance(Base):
+    __tablename__ = "product_instances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    serial_number = Column(String, unique=True, index=True, nullable=False)
+    status = Column(Enum(ProductInstanceStatus), default=ProductInstanceStatus.AVAILABLE)
+    cost = Column(Numeric(18, 4), default=0.0000)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, onupdate=datetime.datetime.now)
+
+    product = relationship("Product", back_populates="instances")
+    warehouse = relationship("Warehouse")
+
+    def __repr__(self):
+        return f"<ProductInstance(sn='{self.serial_number}', status='{self.status}')>"
+
+class SaleDetailInstance(Base):
+    __tablename__ = "sale_detail_instances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sale_detail_id = Column(Integer, ForeignKey("sale_details.id"), nullable=False)
+    product_instance_id = Column(Integer, ForeignKey("product_instances.id"), nullable=False)
+    warranty_end_date = Column(DateTime, nullable=True)
+
+    sale_detail = relationship("SaleDetail", back_populates="instances")
+    product_instance = relationship("ProductInstance")
+
+    def __repr__(self):
+        return f"<SaleDetailInstance(detail={self.sale_detail_id}, instance={self.product_instance_id})>"
 
 
 
