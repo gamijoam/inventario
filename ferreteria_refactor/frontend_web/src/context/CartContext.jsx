@@ -183,7 +183,10 @@ export const CartProvider = ({ children }) => {
                     stock: product.stock || 0,
                     // Image fields for thumbnails
                     image_url: product.image_url || null,
-                    updated_at: product.updated_at || null
+                    updated_at: product.updated_at || null,
+                    // NEW: Serialized Inventory Support
+                    serial_numbers: unit.serial_numbers || [],
+                    has_imei: unit.has_imei || false
                 };
 
                 console.log('   newItem created:', newItem);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Archive, ArrowDownCircle, ArrowUpCircle, Filter, Search, Calendar, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Archive, ArrowDownCircle, ArrowUpCircle, Filter, Search, Calendar, ChevronRight, Barcode } from 'lucide-react';
 import AdjustmentModal from '../components/inventory/AdjustmentModal';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
@@ -56,12 +57,21 @@ const Inventory = () => {
                     </h1>
                     <p className="text-slate-500 text-sm mt-1">Historial completo de entradas y salidas (Kardex)</p>
                 </div>
-                <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all font-bold text-sm"
-                >
-                    Nuevo Ajuste Manual
-                </button>
+                <div className="flex gap-3">
+                    <Link
+                        to="/inventory/serialized-reception"
+                        className="bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all font-bold text-sm flex items-center gap-2"
+                    >
+                        <Barcode size={18} />
+                        Recepción Serializada
+                    </Link>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all font-bold text-sm"
+                    >
+                        Nuevo Ajuste Manual
+                    </button>
+                </div>
             </div>
 
             {/* Filters Bar */}
