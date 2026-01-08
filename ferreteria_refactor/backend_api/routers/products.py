@@ -73,6 +73,7 @@ def read_products(
 @router.post("", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))], include_in_schema=False)
 def create_product(product: schemas.ProductCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     # 1. Operaciones DB (Síncronas en Threadpool)
+    # 1. Operaciones DB (Síncronas en Threadpool)
     product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks"})
     db_product = models.Product(**product_data)
     db.add(db_product)

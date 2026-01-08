@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from ..models import models
 from ..schemas import TransferPackageSchema, TransferItemSchema, TransferResultSchema
+from .. import schemas
 
 class InventoryService:
     
@@ -195,4 +196,100 @@ class InventoryService:
             "success_count": success_count,
             "failure_count": failure_count,
             "errors": errors
+        }
+
+    @staticmethod
+    def process_bulk_entry(db: Session, entry_data: schemas.SerializedEntry) -> Dict[str, Any]:
+        """
+        Efficiently processes mass entry of serialized items (IMEIs).
+        Uses bulk_save_objects for performance.
+        Agregates Kardex and Stock Updates.
+        """
+        # 1. Fetch Product
+        product = db.query(models.Product).filter(models.Product.id == entry_data.product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        if not product.has_imei:
+            raise HTTPException(status_code=400, detail=f"Product '{product.name}' is not serialized (has_imei=False). Cannot add IMEIs.")
+
+        # 2. Check for Duplicates (Fast Pre-check)
+        existing_imeis = db.query(models.ProductInstance.serial_number).filter(
+            models.ProductInstance.serial_number.in_(entry_data.imeis)
+        ).all()
+        
+        if existing_imeis:
+            existing_list = [e[0] for e in existing_imeis]
+            raise HTTPException(status_code=400, detail=f"Duplicate IMEIs found in database: {existing_list[:5]}...")
+
+        # 3. Preparation for Bulk Insert
+        instances_to_create = []
+        now = datetime.now()
+        
+        for imei in entry_data.imeis:
+            instance = models.ProductInstance(
+                product_id=product.id,
+                warehouse_id=entry_data.warehouse_id,
+                serial_number=imei,
+                status=models.ProductInstanceStatus.AVAILABLE,
+                cost=entry_data.cost or product.cost_price,
+                created_at=now
+            )
+            instances_to_create.append(instance)
+            
+        # 4. Perform Bulk Insert
+        try:
+            db.bulk_save_objects(instances_to_create)
+        except Exception as e:
+             db.rollback()
+             raise HTTPException(status_code=500, detail=f"Bulk Insert Error: {str(e)}")
+
+        # 5. Update Numeric Stock (Hybrid Sync)
+        qty_added = Decimal(len(instances_to_create))
+        
+        # 5a. Update Global Stock
+        product.stock += qty_added
+        
+        # 5b. Update Warehouse Stock
+        p_stock = db.query(models.ProductStock).filter(
+            models.ProductStock.product_id == product.id,
+            models.ProductStock.warehouse_id == entry_data.warehouse_id
+        ).first()
+        
+        balance_after_wh = Decimal("0.00")
+        
+        if p_stock:
+            p_stock.quantity += qty_added
+            balance_after_wh = p_stock.quantity
+        else:
+            p_stock = models.ProductStock(
+                product_id=product.id,
+                warehouse_id=entry_data.warehouse_id,
+                quantity=qty_added
+            )
+            db.add(p_stock)
+            balance_after_wh = qty_added
+
+        # 6. Create AGGREGATED Kardex Entry (1 for 100 items)
+        kardex = models.Kardex(
+            product_id=product.id,
+            warehouse_id=entry_data.warehouse_id,
+            movement_type=models.MovementType.PURCHASE, # Or ADJUSTMENT_IN
+            quantity=qty_added,
+            balance_after=product.stock, # Global balance usually tracked here
+            description=f"Bulk Import ({int(qty_added)} Units). Ref: IMEIs {entry_data.imeis[0]}...{entry_data.imeis[-1]}",
+            date=now
+        )
+        db.add(kardex)
+        
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Commit Error: {str(e)}")
+            
+        return {
+            "status": "success", 
+            "added_count": int(qty_added),
+            "new_stock_level": float(product.stock)
         }

@@ -194,3 +194,14 @@ async def import_transfer_package(
     """
     content = await file.read()
     return InventoryService.process_transfer_package(db, content)
+
+@router.post("/bulk-entry", dependencies=[Depends(warehouse_or_admin)])
+def bulk_entry(
+    entry_data: schemas.SerializedEntry, 
+    db: Session = Depends(get_db)
+):
+    """
+    Mass entry of serialized items (IMEIs).
+    Optimized for performance ("Metralleta").
+    """
+    return InventoryService.process_bulk_entry(db, entry_data)

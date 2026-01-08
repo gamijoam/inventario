@@ -223,6 +223,37 @@ class SalesService:
                         })
                 else:
                     # NORMAL PRODUCT: Check and deduct stock from WAREHOUSE
+                    
+                    # NEW: SERIALIZED INVENTORY LOGIC
+                    sold_instances = []
+                    if product.has_imei:
+                        if not item.serial_numbers:
+                            raise HTTPException(status_code=400, detail=f"Product '{product.name}' is serialized (has_imei=True) but no serial numbers provided.")
+                        
+                        # Verify quantity match
+                        # Serialized items usually behave as Units (factor 1). 
+                        if len(item.serial_numbers) != units_to_deduct:
+                             raise HTTPException(status_code=400, detail=f"Quantity mismatch for serialized product '{product.name}'. Expected {int(units_to_deduct)} serials, got {len(item.serial_numbers)}.")
+
+                        # Fetch and Lock Instances
+                        sold_instances = db.query(models.ProductInstance).filter(
+                            models.ProductInstance.product_id == product.id,
+                            models.ProductInstance.warehouse_id == warehouse_id,
+                            models.ProductInstance.serial_number.in_(item.serial_numbers),
+                            models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                        ).with_for_update().all()
+                        
+                        # Validate Existence
+                        if len(sold_instances) != len(item.serial_numbers):
+                            found_sns = {i.serial_number for i in sold_instances}
+                            missing = set(item.serial_numbers) - found_sns
+                            raise HTTPException(status_code=400, detail=f"Serial numbers not found or unavailable in this warehouse: {list(missing)}")
+                            
+                        # Update Status to SOLD
+                        for instance in sold_instances:
+                            instance.status = models.ProductInstanceStatus.SOLD
+                            # instance.updated_at = datetime.now() # Auto
+
                     product_stock = db.query(models.ProductStock).filter(
                         models.ProductStock.product_id == product.id,
                         models.ProductStock.warehouse_id == warehouse_id
@@ -285,6 +316,16 @@ class SalesService:
                 )
                 db.add(detail)
                 db.flush() # Need ID for CommissionLog
+
+                # NEW: Link Instances to SaleDetail
+                if sold_instances:
+                    for instance in sold_instances:
+                        sdi = models.SaleDetailInstance(
+                            sale_detail_id=detail.id,
+                            product_instance_id=instance.id,
+                            warranty_end_date=datetime.now() + timedelta(days=90) # Default 3 months warranty? Configurable?
+                        )
+                        db.add(sdi)
 
                 # NEW: COMMISSION CALCULATION LOGIC
                 # NEW: COMMISSION CALCULATION LOGIC
