@@ -664,6 +664,28 @@ SU CAMBIO: {{ sale.formatted_change }}
         for config in configs:
             business_config[config.key] = config.value
 
+        from ..utils.financials import get_session_payment_breakdown
+        
+        # Calculate Detailed Breakdown
+        # Structure: {"Efectivo": {"USD": 100}, ...}
+        breakdown_raw = get_session_payment_breakdown(db, session)
+        
+        # Flatten for Template usage
+        # list of {method, usd_amount, bs_amount} ? Or just list of lines
+        payments_detail = []
+        for method, currencies in breakdown_raw.items():
+             usd_amt = float(currencies.get("USD", 0))
+             bs_amt = float(currencies.get("Bs", currencies.get("VES", 0)))
+             
+             if usd_amt > 0 or bs_amt > 0:
+                 payments_detail.append({
+                     "method": method,
+                     "usd": usd_amt,
+                     "bs": bs_amt,
+                     "has_usd": usd_amt > 0,
+                     "has_bs": bs_amt > 0
+                 })
+
         # Build Context
         context = {
             "business": {
@@ -685,7 +707,7 @@ SU CAMBIO: {{ sale.formatted_change }}
                 "total_reported_bs": float(session.final_cash_reported_bs or 0),
                 "diff_usd": float(session.difference or 0),
                 "diff_bs": float(session.difference_bs or 0),
-                
+                "payments_detail": payments_detail # NEW FIELD
             }
         }
         
@@ -702,17 +724,20 @@ Cajero: {{ session.user }}
 Apertura: {{ session.start_time }}
 Cierre:   {{ session.end_time }}
 ================================
+<bold>RESUMEN DE PAGOS</bold>
+================================
+{% for pay in session.payments_detail %}
+{{ pay.method }}
+{% if pay.has_usd %}   USD: ${{ "%.2f"|format(pay.usd) }}{% endif %}
+{% if pay.has_bs %}   Bs:  {{ "%.2f"|format(pay.bs) }}{% endif %}
+{% endfor %}
+================================
 <bold>FONDOS INICIALES</bold>
 ================================
 USD:  ${{ "%.2f"|format(session.initial_usd) }}
 Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
 ================================
-<bold>VENTAS DEL TURNO</bold>
-================================
-USD:  ${{ "%.2f"|format(session.sales_usd) }}
-Bs:   Bs {{ "%.2f"|format(session.sales_bs) }}
-================================
-<bold>ARQUEO DE CAJA</bold>
+<bold>ARQUEO DE CAJA (TOTALES)</bold>
 ================================
 <bold>DOLARES ($)</bold>
   Esperado:  ${{ "%.2f"|format(session.total_expected_usd) }}

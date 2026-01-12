@@ -165,6 +165,19 @@ const ZReportPDF = ({ session, business }) => {
                     </View>
                 </View>
 
+                {/* NEW: Payment Breakdown */}
+                {session.payment_breakdown && session.payment_breakdown.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Detalle de Métodos de Pago</Text>
+                        {session.payment_breakdown.map((item, index) => (
+                            <View key={index} style={styles.row}>
+                                <Text style={styles.label}>{item.method} ({item.currency}):</Text>
+                                <Text style={styles.value}>{formatCurrency(item.amount, item.currency === 'USD' ? '$' : 'Bs')}</Text>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
                 {/* Currency Breakdown */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Detalle por Moneda</Text>

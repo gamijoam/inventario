@@ -225,7 +225,26 @@ def get_sessions_history(
     
     # Format response with calculated fields
     result = []
+    
+    # Pre-fetch for performance? 
+    # For now, we do it in loop (30 queries max usually). Optimize later if needed.
+    from ..utils.financials import get_session_payment_breakdown
+    
     for session in sessions:
+        # Calculate Breakdown
+        breakdown_raw = get_session_payment_breakdown(db, session)
+        
+        # Format breakdown for JSON (Decimal -> float)
+        breakdown_formatted = []
+        for method, currencies in breakdown_raw.items():
+            for curr, amt in currencies.items():
+                if amt > 0:
+                    breakdown_formatted.append({
+                        "method": method,
+                        "currency": curr,
+                        "amount": float(amt)
+                    })
+
         session_dict = {
             "id": session.id,
             "user_id": session.user_id,
@@ -257,7 +276,10 @@ def get_sessions_history(
                     "difference": float(curr.difference) if curr.difference else 0.0
                 }
                 for curr in session.currencies
-            ] if session.currencies else []
+            ] if session.currencies else [],
+            
+            # THE NEW FIELD
+            "payment_breakdown": breakdown_formatted
         }
         result.append(session_dict)
     
