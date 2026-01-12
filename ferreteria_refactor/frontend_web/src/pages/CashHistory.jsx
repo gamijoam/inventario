@@ -408,7 +408,7 @@ const CashHistory = () => {
                                                             <div className="flex items-end justify-between mt-1">
                                                                 <span className="text-xs font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{item.currency}</span>
                                                                 <span className="font-bold text-slate-700">
-                                                                    {formatCurrency(item.amount, item.currency === 'USD' ? 'USD' : 'VES')}
+                                                                    {item.currency === 'USD' ? '$' : 'Bs'} {parseFloat(item.amount || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -452,13 +452,14 @@ const CashHistory = () => {
                                             </div>
                                         )}
                                     </div>
-                                )}
+                                )
+                                }
                             </div>
                         );
                     })
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

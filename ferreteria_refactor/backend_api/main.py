@@ -240,6 +240,7 @@ def startup_event():
 
         # Initialize Payment Methods
         # Initialize Payment Methods with Better Names
+        print("[DEBUG] Verificando metodos de pago...", flush=True)
         if db.query(models.PaymentMethod).count() == 0:
             print("[INFO] Inicializando metodos de pago por defecto...")
             defaults = [
