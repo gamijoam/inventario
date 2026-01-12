@@ -312,7 +312,39 @@ def get_session_details(
         else:
             sales_total_usd += amt
 
-    # Calculate Movements
+    # 1.5 Get Debt Payments (Abonos) linked to this session
+    debt_payments = db.query(models.Payment).filter(models.Payment.session_id == session.id).all()
+    debt_payments_total_usd = Decimal("0.00")
+    debt_payments_total_bs = Decimal("0.00")
+    
+    # Add Debt Payments to Sales By Method (or separate bucket?)
+    # For Cash Consistency, we must add them to the relevant "Method" bucket so they count towards expected.
+    for dp in debt_payments:
+        curr = dp.currency
+        method = dp.payment_method # "Efectivo", "Zelle", etc.
+        amt = dp.amount
+        
+        # Normalize method name for consistency
+        method_key = f"{method} (Abono)"
+        
+        if method_key not in sales_by_method:
+            sales_by_method[method_key] = {}
+            
+        if curr not in sales_by_method[method_key]:
+            sales_by_method[method_key][curr] = Decimal("0.00")
+            
+        sales_by_method[method_key][curr] += amt
+        
+        # For legacy totals, we might want to separate or merge?
+        # Merging ensures "Total IN" is correct.
+        if curr and curr.upper() in ["BS", "VES", "VEF"]:
+            debt_payments_total_bs += amt
+            sales_total_bs += amt # Add to global total for simplicity
+        else:
+            debt_payments_total_usd += amt
+            sales_total_usd += amt
+
+
     # Calculate Movements
     expenses_usd = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and m.currency == "USD"), Decimal("0.00"))
     expenses_bs = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
@@ -455,6 +487,18 @@ async def close_cash_session(
             if curr not in cash_sales_by_currency:
                 cash_sales_by_currency[curr] = Decimal("0.00")
             cash_sales_by_currency[curr] += p.amount
+    
+    # 1.5 Process Debt Payments (Abonos)
+    debt_payments = db.query(models.Payment).filter(models.Payment.session_id == session.id).all()
+    for dp in debt_payments:
+        if "efectivo" in dp.payment_method.lower() or "cash" in dp.payment_method.lower():
+            curr = dp.currency or "USD"
+            if curr.upper() in ["BS", "VES", "VEF"]:
+                curr = "Bs"
+            
+            if curr not in cash_sales_by_currency:
+                cash_sales_by_currency[curr] = Decimal("0.00")
+            cash_sales_by_currency[curr] += dp.amount
     
     # Process Change (Vuelto) - Deduct from Cash Sales bucket or separate bucket?
     # Logic: Expected = Initial + Sales(Tendered) - Change + Deposits - Expenses
