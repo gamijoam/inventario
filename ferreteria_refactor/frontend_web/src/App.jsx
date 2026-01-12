@@ -27,6 +27,7 @@ import UnifiedReports from './pages/Reports/UnifiedReports';
 // ... existing imports ...
 import Suppliers from './pages/Suppliers';
 import ReturnsManager from './pages/Returns/ReturnsManager';
+import WarrantyManager from './pages/Returns/WarrantyManager';
 import SalesHistory from './pages/SalesHistory';
 import CustomerManager from './pages/Customers/CustomerManager';
 import QuotesManager from './pages/Quotes/QuotesManager';
@@ -235,6 +236,11 @@ function App() {
                             <Route path="/returns" element={
                               <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                 <ReturnsManager />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/rma/warranty" element={
+                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <WarrantyManager />
                               </ProtectedRoute>
                             } />
 
