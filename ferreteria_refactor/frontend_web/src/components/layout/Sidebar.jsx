@@ -32,7 +32,8 @@ import {
     Plus, // NEW
     ArrowRight,
     Download,
-    Wrench // NEW: Service Module
+    Wrench,
+    ShieldCheck // NEW: RMA
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -83,6 +84,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 { icon: FileText, label: 'Historial', path: '/sales-history' },
                 { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
                 { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
+                { icon: ShieldCheck, label: 'Garantías (RMA)', path: '/rma/warranty' },
                 { icon: Users, label: 'Clientes', path: '/customers' },
             ]
         },
