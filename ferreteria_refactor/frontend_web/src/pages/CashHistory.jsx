@@ -392,6 +392,30 @@ const CashHistory = () => {
                                                 );
                                             })}
                                         </div>
+
+                                        {/* NEW: Payment Breakdown Section */}
+                                        {session.payment_breakdown && session.payment_breakdown.length > 0 && (
+                                            <div className="mt-4 mb-4">
+                                                <h4 className="text-sm font-bold text-slate-700 mb-3 border-b border-slate-200 pb-2">
+                                                    Detalle de Métodos de Pago
+                                                </h4>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                                    {session.payment_breakdown.map((item, idx) => (
+                                                        <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col">
+                                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate" title={item.method}>
+                                                                {item.method}
+                                                            </span>
+                                                            <div className="flex items-end justify-between mt-1">
+                                                                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{item.currency}</span>
+                                                                <span className="font-bold text-slate-700">
+                                                                    {formatCurrency(item.amount, item.currency === 'USD' ? 'USD' : 'VES')}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                         {session.notes && (
                                             <div className="mt-4 p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-sm font-medium flex items-start gap-3">
                                                 <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
