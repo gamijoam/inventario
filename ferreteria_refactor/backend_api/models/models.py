@@ -22,6 +22,11 @@ class ProductInstanceStatus(enum.Enum):
     TRANSIT = "TRANSIT"
     DAMAGED = "DAMAGED"
 
+class WarrantyUnit(str, enum.Enum):
+    DAYS = "DAYS"
+    MONTHS = "MONTHS"
+    YEARS = "YEARS"
+
 class PaymentStatus(enum.Enum):
     PENDING = "PENDING"
     PARTIAL = "PARTIAL"
@@ -111,6 +116,13 @@ class Product(Base):
     stock = Column(Numeric(12, 3), default=0.000) # Base units
     min_stock = Column(Numeric(12, 3), default=5.000) # Low stock alert threshold
     is_active = Column(Boolean, default=True) # Logical delete
+
+    is_active = Column(Boolean, default=True) # Logical delete
+
+    # Warranty Configuration
+    warranty_duration = Column(Integer, default=0)
+    warranty_unit = Column(Enum(WarrantyUnit), default=WarrantyUnit.DAYS)
+    warranty_notes = Column(String, nullable=True)
 
     # Core Logic for Hardware Store
     is_box = Column(Boolean, default=False)
@@ -324,6 +336,9 @@ class SaleDetail(Base):
     
     # NEW: Commission Support
     salesperson_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Who sold this item
+    
+    # Warranty Snapshot
+    warranty_expiration_date = Column(DateTime, nullable=True)
 
     sale = relationship("Sale", back_populates="details")
     product = relationship("Product")
@@ -746,7 +761,8 @@ class SaleDetailInstance(Base):
     id = Column(Integer, primary_key=True, index=True)
     sale_detail_id = Column(Integer, ForeignKey("sale_details.id"), nullable=False)
     product_instance_id = Column(Integer, ForeignKey("product_instances.id"), nullable=False)
-    warranty_end_date = Column(DateTime, nullable=True)
+    warranty_end_date = Column(DateTime, nullable=True) # Legacy / Backup
+    warranty_expiration_date = Column(DateTime, nullable=True) # Standardized Field
 
     sale_detail = relationship("SaleDetail", back_populates="instances")
     product_instance = relationship("ProductInstance")

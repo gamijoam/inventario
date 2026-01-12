@@ -22,6 +22,18 @@ def run_broadcast(event: str, data: dict):
 
 class SalesService:
     @staticmethod
+    def calculate_expiration_date(duration: int, unit: str) -> datetime:
+        if not duration or duration <= 0:
+            return None
+        
+        if unit == "MONTHS":
+            return datetime.now() + timedelta(days=duration * 30)
+        elif unit == "YEARS":
+            return datetime.now() + timedelta(days=duration * 365)
+        else: # DAYS
+            return datetime.now() + timedelta(days=duration)
+
+    @staticmethod
     def create_sale(db: Session, sale_data: schemas.SaleCreate, user_id: int, background_tasks: BackgroundTasks = None):
         try:
             updated_products_info = []
@@ -300,6 +312,9 @@ class SalesService:
                     elif item.discount_type == "FIXED":
                         subtotal = subtotal - item.discount
                 
+                # Calculate Warranty Expiration
+                warranty_expiration = SalesService.calculate_expiration_date(product.warranty_duration, product.warranty_unit)
+
                 # Create Sale Detail - SAME FOR BOTH
                 detail = models.SaleDetail(
                     sale_id=new_sale.id,
@@ -312,7 +327,8 @@ class SalesService:
                     discount=item.discount,
                     discount_type=item.discount_type,
                     unit_id=item.unit_id if hasattr(item, 'unit_id') else None,  # NEW: Persist presentation
-                    salesperson_id=item.salesperson_id # NEW: Granular Commission
+                    salesperson_id=item.salesperson_id, # NEW: Granular Commission
+                    warranty_expiration_date=warranty_expiration # NEW: Warranty Date
                 )
                 db.add(detail)
                 db.flush() # Need ID for CommissionLog
@@ -323,7 +339,8 @@ class SalesService:
                         sdi = models.SaleDetailInstance(
                             sale_detail_id=detail.id,
                             product_instance_id=instance.id,
-                            warranty_end_date=datetime.now() + timedelta(days=90) # Default 3 months warranty? Configurable?
+                            warranty_end_date=warranty_expiration, # Legacy field updated
+                            warranty_expiration_date=warranty_expiration # New Standardized Field
                         )
                         db.add(sdi)
 
