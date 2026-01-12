@@ -42,8 +42,8 @@ class ProductBase(BaseModel):
     updated_at: Optional[datetime] = Field(None, description="Fecha de última actualización (auto-gestionada)")
 
     # Warranty Configuration
-    warranty_duration: int = Field(0, description="Duración de la garantía", example=30)
-    warranty_unit: str = Field("DAYS", description="Unidad de tiempo (DAYS/MONTHS/YEARS)", example="DAYS")
+    warranty_duration: Optional[int] = Field(0, description="Duración de la garantía", example=30)
+    warranty_unit: Optional[str] = Field("DAYS", description="Unidad de tiempo (DAYS/MONTHS/YEARS)", example="DAYS")
     warranty_notes: Optional[str] = Field(None, description="Notas de garantía", example="Solo defectos de fábrica")
 
 # Exchange Rate Schemas

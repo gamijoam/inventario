@@ -513,6 +513,7 @@ def get_sales_summary(
     return {
         "total_revenue": float(total_revenue),
         "total_revenue_bs": float(total_revenue_bs),
+        "total_ves": float(total_revenue_bs), # Requested strict alias
         "total_transactions": total_transactions,
         "cash_sales": float(cash_sales),
         "credit_sales": float(credit_sales),
@@ -1799,6 +1800,7 @@ def get_sales_by_payment_method(
     results = db.query(
         models.Sale.payment_method,
         func.sum(models.Sale.total_amount).label('total_amount'),
+        func.sum(models.Sale.total_amount_bs).label('total_amount_bs'), # NEW
         func.count(models.Sale.id).label('count')
     ).filter(
         models.Sale.date >= start_dt,
@@ -1818,6 +1820,7 @@ def get_sales_by_payment_method(
         {
             "method": r.payment_method or "Desconocido",
             "total_amount": float(r.total_amount or 0),
+            "total_amount_bs": float(r.total_amount_bs or 0), # NEW
             "count": r.count
         }
         for r in results
@@ -1839,6 +1842,7 @@ def get_sales_by_customer(
     results = db.query(
         models.Customer.name,
         func.sum(models.Sale.total_amount).label('total_purchased'),
+        func.sum(models.Sale.total_amount_bs).label('total_purchased_bs'), # NEW
         func.count(models.Sale.id).label('transaction_count')
     ).join(models.Sale).filter(
         models.Sale.date >= start_dt,
@@ -1851,6 +1855,7 @@ def get_sales_by_customer(
         {
             "customer_name": r.name,
             "total_purchased": float(r.total_purchased or 0),
+            "total_purchased_bs": float(r.total_purchased_bs or 0), # NEW
             "transaction_count": r.transaction_count
         }
         for r in results

@@ -17,6 +17,7 @@ import CartItemQuantityInput from '../components/pos/CartItemQuantityInput';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
 import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
+import ProductCard from '../components/pos/ProductCard'; // NEW: Import ProductCard
 
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
@@ -39,7 +40,7 @@ const formatCurrency = (amount) => {
 const POS = () => {
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates } = useCart();
     const { isSessionOpen, openSession, loading } = useCash();
-    const { getActiveCurrencies, convertPrice, currencies, modules } = useConfig();
+    const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules } = useConfig();
     const { subscribe } = useWebSocket(); // WebSocket Hook
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
@@ -598,13 +599,11 @@ const POS = () => {
                         {filteredCatalog.map((product, index) => {
                             // Calculate stock based on selection
                             let currentStock = 0;
-                            let stockDetails = [];
 
                             if (product.stocks && product.stocks.length > 0) {
                                 if (selectedWarehouseId === 'all') {
                                     // Sum all warehouses
                                     currentStock = product.stocks.reduce((sum, s) => sum + Number(s.quantity), 0);
-                                    stockDetails = product.stocks.filter(s => s.quantity > 0);
                                 } else {
                                     const stockEntry = product.stocks.find(s => s.warehouse_id === selectedWarehouseId);
                                     currentStock = stockEntry ? stockEntry.quantity : 0;
@@ -615,62 +614,15 @@ const POS = () => {
                             }
 
                             return (
-                                <div
+                                <ProductCard
                                     key={product.id}
-                                    onClick={() => handleProductClick(product)}
-                                    className={`
-                                    group relative flex flex-col justify-between bg-white rounded-xl cursor-pointer transition-all duration-300
-                                    border h-full min-h-[180px]
-                                    ${index === selectedProductIndex
-                                            ? 'ring-2 ring-indigo-500 shadow-lg border-transparent'
-                                            : 'border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-100'
-                                        }
-                                `}
-                                >
-                                    {/* Product Image */}
-                                    <div className="p-3 border-b border-slate-50">
-                                        <ProductThumbnail
-                                            imageUrl={product.image_url}
-                                            productName={product.name}
-                                            updatedAt={product.updated_at}
-                                            size="lg"
-                                        />
-                                    </div>
-
-                                    <div className="p-3 flex-1 flex flex-col">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="text-[10px] font-mono text-slate-400 bg-slate-50 px-1.5 rounded tracking-tighter">
-                                                {product.sku || '---'}
-                                            </span>
-                                            {currentStock <= (product.min_stock || 5) && (
-                                                <span className="flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 rounded-full">
-                                                    <AlertTriangle size={10} /> Stock
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <h3 className="font-semibold text-slate-700 text-sm leading-snug line-clamp-2 mb-3 group-hover:text-indigo-600 transition-colors">
-                                            {product.name}
-                                        </h3>
-
-                                        <div className="mt-auto flex justify-between items-end pt-2 border-t border-slate-50">
-                                            <div className="flex flex-col">
-                                                <span className="text-lg font-bold text-slate-900 leading-none">
-                                                    ${formatCurrency(product.price)}
-                                                </span>
-                                                <span className={`text-[10px] font-medium mt-1 ${currentStock <= 0 ? 'text-rose-500' : 'text-slate-400'}`}>
-                                                    Stock: {Number(currentStock).toFixed(0)}
-                                                </span>
-                                            </div>
-                                            {/* Presentations Indicator */}
-                                            {product.units?.length > 0 && (
-                                                <div className="flex items-center justify-center w-6 h-6 bg-orange-50 rounded-lg text-orange-500" title="Varias presentaciones">
-                                                    <Layers size={14} />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                                    product={product}
+                                    onClick={handleProductClick}
+                                    currentStock={currentStock}
+                                    currencySymbol={anchorCurrency.symbol}
+                                    convertProductPrice={convertProductPrice}
+                                    isSelected={index === selectedProductIndex}
+                                />
                             );
                         })}
                     </div>

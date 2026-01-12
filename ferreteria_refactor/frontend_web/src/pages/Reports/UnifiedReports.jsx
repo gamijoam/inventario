@@ -126,6 +126,12 @@ const UnifiedReports = () => {
                     color="bg-indigo-500"
                 />
                 <KPI_Card
+                    title="Ventas Totales (Bs)"
+                    value={formatCurrency(salesSummary?.total_ves || salesSummary?.total_revenue_bs, 'VES')}
+                    icon={DollarSign}
+                    color="bg-blue-600"
+                />
+                <KPI_Card
                     title="Ticket Promedio"
                     value={formatCurrency(salesSummary?.average_ticket)}
                     icon={TrendingUp}

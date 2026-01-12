@@ -146,7 +146,8 @@ const DetailedReports = () => {
                                                 <tr>
                                                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Método</th>
                                                     <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Transacciones</th>
-                                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Ventas</th>
+                                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Ventas ($)</th>
+                                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Ventas (Bs)</th>
                                                     <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">% del Total</th>
                                                 </tr>
                                             </thead>
@@ -165,6 +166,9 @@ const DetailedReports = () => {
                                                             </td>
                                                             <td className="px-6 py-4 whitespace-nowrap text-right font-black text-slate-800">
                                                                 {formatCurrency(item.total_amount)}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-right font-medium text-blue-600">
+                                                                {formatCurrency(item.total_amount_bs, 'VES')}
                                                             </td>
                                                             <td className="px-6 py-4 whitespace-nowrap text-right">
                                                                 <div className="flex items-center justify-end w-48 ml-auto">
@@ -187,6 +191,9 @@ const DetailedReports = () => {
                                                     </td>
                                                     <td className="px-6 py-4 text-right text-indigo-600 text-lg">
                                                         {formatCurrency(data.reduce((acc, curr) => acc + curr.total_amount, 0))}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right text-blue-600 text-lg">
+                                                        {formatCurrency(data.reduce((acc, curr) => acc + (curr.total_amount_bs || 0), 0), 'VES')}
                                                     </td>
                                                     <td></td>
                                                 </tr>
@@ -225,7 +232,8 @@ const DetailedReports = () => {
                                                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-12">#</th>
                                                     <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
                                                     <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Compras</th>
-                                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Comprado</th>
+                                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total ($)</th>
+                                                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total (Bs)</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-slate-100">
@@ -242,6 +250,9 @@ const DetailedReports = () => {
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-right font-black text-slate-800">
                                                             {formatCurrency(item.total_purchased)}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-right font-medium text-blue-600">
+                                                            {formatCurrency(item.total_purchased_bs || 0, 'VES')}
                                                         </td>
                                                     </tr>
                                                 ))}
