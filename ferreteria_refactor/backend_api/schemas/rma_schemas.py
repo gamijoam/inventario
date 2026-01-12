@@ -1,7 +1,13 @@
+from pydantic import BaseModel
+from typing import Optional, List, Any
+from datetime import datetime, date
+from enum import Enum
+from decimal import Decimal
 
-# ==========================================
-# RMA / WARRANTY SCHEMAS
-# ==========================================
+# Helper Enum
+class ItemCondition(str, Enum):
+    GOOD = "GOOD"
+    DAMAGED = "DAMAGED"
 
 class RMAAction(str, Enum):
     REFUND = "REFUND"
