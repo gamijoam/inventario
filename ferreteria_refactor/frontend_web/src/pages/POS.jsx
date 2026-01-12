@@ -479,19 +479,19 @@ const POS = () => {
     const [mobileTab, setMobileTab] = useState('catalog'); // 'catalog' | 'ticket'
 
     return (
-        <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] overflow-hidden bg-slate-50 relative p-4 gap-4">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-100 relative p-4 gap-4">
 
             {/* =====================================================================================
                 LEFT COLUMN: CATALOG & TOOLS (65% Width)
                ===================================================================================== */}
             <div className={`
-                flex-col min-w-0 transition-all z-0 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden
+                flex-col min-w-0 transition-all z-0 bg-white/60 backdrop-blur-md rounded-3xl shadow-xl border border-white/40 overflow-hidden
                 ${mobileTab === 'catalog' ? 'flex w-full' : 'hidden md:flex flex-1'}
             `}>
                 {/* Header Bar */}
-                <div className="bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center">
+                <div className="bg-white/40 border-b border-white/50 px-6 py-4 flex justify-between items-center backdrop-blur-sm">
                     <div className="flex items-center gap-4">
-                        <Link to="/" className="flex items-center gap-2 p-2 -ml-2 hover:bg-slate-50 rounded-lg text-slate-500 hover:text-indigo-600 transition-colors group" title="Volver al Menú">
+                        <Link to="/" className="flex items-center gap-2 p-2 -ml-2 hover:bg-white/60 rounded-xl text-slate-500 hover:text-indigo-600 transition-colors group glass-panel" title="Volver al Menú">
                             <ArrowLeft className="group-hover:-translate-x-1 transition-transform" size={20} />
                             <span className="font-semibold text-sm hidden sm:block">Salir</span>
                         </Link>
@@ -502,7 +502,7 @@ const POS = () => {
                                 onClick={() => setIsServiceImportOpen(true)}
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${activeServiceOrderId
                                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-md transform scale-105'
-                                    : 'bg-white text-indigo-600 border-indigo-100 hover:bg-indigo-50'
+                                    : 'bg-white/80 text-indigo-600 border-indigo-100 hover:bg-indigo-50'
                                     }`}
                                 title="Cargar Orden de Servicio Lista"
                             >
@@ -515,15 +515,15 @@ const POS = () => {
                     {/* Search Bar - Centered & Elegant */}
                     <div className="flex-1 max-w-xl mx-4 relative group">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <span className="text-[10px] font-bold text-slate-300 border border-slate-200 rounded px-1">F3</span>
+                            <span className="text-[10px] font-bold text-slate-300 border border-slate-200 rounded px-1 bg-white/50">F3</span>
                         </div>
                         <input
                             ref={searchInputRef}
                             type="text"
                             className="
                                 w-full pl-10 pr-4 py-2.5
-                                bg-slate-50 border border-slate-200 rounded-xl text-base text-slate-700 placeholder-slate-400
-                                focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all focus:bg-white
+                                bg-white/70 border border-white/60 rounded-xl text-base text-slate-700 placeholder-slate-400
+                                focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all focus:bg-white shadow-inner
                             "
                             placeholder="Buscar productos..."
                             value={searchTerm}
@@ -537,7 +537,7 @@ const POS = () => {
 
 
                     {/* Warehouse Selector */}
-                    <div className="flex items-center gap-2 mx-2 bg-indigo-50 rounded-xl px-3 py-1.5 border border-indigo-100 hover:border-indigo-300 transition-all group/wh cursor-pointer">
+                    <div className="flex items-center gap-2 mx-2 bg-indigo-50/80 rounded-xl px-3 py-1.5 border border-indigo-100 hover:border-indigo-300 transition-all group/wh cursor-pointer">
                         <MapPin size={16} className="text-indigo-600 group-hover/wh:text-indigo-700 transition-colors" />
                         <div className="flex flex-col">
                             <span className="text-[9px] uppercase font-bold text-indigo-400 leading-none mb-0.5">Bodega</span>
@@ -563,14 +563,14 @@ const POS = () => {
                 </div>
 
                 {/* Categories Bar */}
-                <div className="px-6 py-3 flex items-center gap-2 overflow-x-auto scrollbar-hide border-b border-slate-50">
+                <div className="px-6 py-3 flex items-center gap-2 overflow-x-auto scrollbar-hide border-b border-white/30">
                     <button
                         onClick={() => setSelectedCategory(null)}
                         className={`
-                            px-4 py-1.5 rounded-lg text-sm font-medium transition-all
+                            px-4 py-1.5 rounded-lg text-sm font-medium transition-all backdrop-blur-sm
                             ${!selectedCategory
-                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-600 ring-offset-1'
+                                : 'bg-white/50 text-slate-600 hover:bg-white border border-white/60'
                             }
                         `}
                     >
@@ -581,10 +581,10 @@ const POS = () => {
                             key={category.id}
                             onClick={() => setSelectedCategory(category.id)}
                             className={`
-                                px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all border
+                                px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all border backdrop-blur-sm
                                 ${selectedCategory === category.id
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200'
-                                    : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/30'
+                                    : 'bg-white/50 text-slate-600 hover:bg-white border-white/60'
                                 }
                             `}
                         >
@@ -594,7 +594,7 @@ const POS = () => {
                 </div>
 
                 {/* Catalog Grid */}
-                <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4 bg-slate-50/50">
+                <div className="flex-1 overflow-y-auto px-6 pb-6 pt-4 pr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300/50 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-indigo-400/50">
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                         {filteredCatalog.map((product, index) => {
                             // Calculate stock based on selection
@@ -633,11 +633,11 @@ const POS = () => {
                 RIGHT COLUMN: TICKET (35% Width)
                ===================================================================================== */}
             <div className={`
-                bg-white flex-col rounded-2xl shadow-sm border border-slate-200 overflow-hidden
+                bg-white/80 backdrop-blur-xl flex-col rounded-3xl shadow-2xl border border-white/60 overflow-hidden
                 ${mobileTab === 'ticket' ? 'flex w-full absolute inset-0 z-50' : 'hidden md:flex w-[35%] lg:w-[30%]'}
             `}>
                 {/* Ticket Header */}
-                <div className="bg-white p-5 border-b border-slate-100 flex justify-between items-center">
+                <div className="bg-gradient-to-r from-slate-50 to-white p-5 border-b border-white flex justify-between items-center">
                     <div>
                         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                             Ticket de Venta
@@ -656,7 +656,7 @@ const POS = () => {
                 </div>
 
                 {/* Cart Items List */}
-                <div className="flex-1 overflow-y-auto bg-white p-2 space-y-2">
+                <div className="flex-1 overflow-y-auto bg-transparent p-2 space-y-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300/50 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-indigo-400/50">
                     {cart.map((item, idx) => (
                         <div
                             key={`${item.id}-${item.unit_id}-${idx}`}
