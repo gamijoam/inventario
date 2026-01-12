@@ -197,6 +197,15 @@ def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCr
         # For simple storage, we store what was paid.
         amount_bs = payment.amount if payment.currency in ["Bs", "VES"] else (payment.amount * payment.exchange_rate)
     )
+    
+    # 1.5 Link to Active Cash Session (Fix for Cash Close)
+    active_session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
+    if active_session:
+        new_payment.session_id = active_session.id
+        print(f"[INFO] Pago de deuda vinculado a Sesión #{active_session.id}")
+    else:
+        print("[WARN] Pago de deuda registrado SIN sesión de caja activa")
+
     db.add(new_payment)
     
     # 2. FIFO Debt Reduction Logic (CRITICAL FIX)

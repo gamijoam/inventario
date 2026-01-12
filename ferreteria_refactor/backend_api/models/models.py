@@ -537,6 +537,9 @@ class Payment(Base):
     exchange_rate_used = Column(Numeric(14, 4), default=1.0000) # Rate at time of payment
     amount_bs = Column(Numeric(12, 2), nullable=True) # Amount in Bs if applicable
     payment_method = Column(String, default="Efectivo") # Efectivo, Transferencia, Tarjeta
+    
+    # Financial Integrity
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=True) # Linked Cash Session
 
     customer = relationship("Customer", back_populates="payments")
 
