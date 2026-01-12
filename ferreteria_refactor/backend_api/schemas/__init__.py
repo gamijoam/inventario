@@ -41,6 +41,11 @@ class ProductBase(BaseModel):
     image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", example="/images/products/123.webp")
     updated_at: Optional[datetime] = Field(None, description="Fecha de última actualización (auto-gestionada)")
 
+    # Warranty Configuration
+    warranty_duration: int = Field(0, description="Duración de la garantía", example=30)
+    warranty_unit: str = Field("DAYS", description="Unidad de tiempo (DAYS/MONTHS/YEARS)", example="DAYS")
+    warranty_notes: Optional[str] = Field(None, description="Notas de garantía", example="Solo defectos de fábrica")
+
 # Exchange Rate Schemas
 class ExchangeRateBase(BaseModel):
     name: str
@@ -159,6 +164,11 @@ class ProductUpdate(BaseModel):
     units: Optional[List[ProductUnitCreate]] = None
     combo_items: Optional[List[ComboItemCreate]] = None  # NEW: Allow updating combo items
     warehouse_stocks: Optional[List[ProductStockCreate]] = None  # NEW: Allow updating stocks per warehouse
+    
+    # Warranty Updates
+    warranty_duration: Optional[int] = None
+    warranty_unit: Optional[str] = None
+    warranty_notes: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -290,6 +300,9 @@ class SaleDetailRead(BaseModel):
     unit_id: Optional[int] = None  # NEW: Which presentation was sold
     product: Optional['ProductRead'] = None  # Include product info
     unit: Optional['ProductUnitRead'] = None  # NEW: Include unit/presentation info
+    
+    # Warranty Snapshot
+    warranty_expiration_date: Optional[datetime] = None
     
     class Config:
         from_attributes = True

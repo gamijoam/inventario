@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, AlertCircle, Coins, Receipt, ArrowRight, Calculator, SlidersHorizontal, Check } from 'lucide-react';
+import { X, Plus, Trash2, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, AlertCircle, Coins, Receipt, ArrowRight, Calculator, SlidersHorizontal, Check, ShieldCheck } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductUnitManager from './ProductUnitManager';
@@ -30,6 +30,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         exchange_rate_id: null,
         is_combo: false,
         has_imei: false, // NEW: Serialized
+        warranty_duration: 0, // NEW
+        warranty_unit: 'DAYS', // NEW
+        warranty_notes: '', // NEW
         profit_margin: null,
         discount_percentage: 0,
         is_discount_active: false,
@@ -90,6 +93,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                     exchange_rate_id: initialData.exchange_rate_id || null,
                     is_combo: initialData.is_combo || false,
                     has_imei: initialData.has_imei || false, // NEW
+                    warranty_duration: initialData.warranty_duration || 0,
+                    warranty_unit: initialData.warranty_unit || 'DAYS',
+                    warranty_notes: initialData.warranty_notes || '',
                     profit_margin: initialData.profit_margin || null,
                     discount_percentage: initialData.discount_percentage || 0,
                     is_discount_active: initialData.is_discount_active || false,
@@ -165,7 +171,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
         const { name, value } = e.target;
         let newValue = value;
 
-        if (['cost', 'price', 'stock', 'min_stock'].includes(name)) {
+        if (['cost', 'price', 'stock', 'min_stock', 'warranty_duration'].includes(name)) {
             newValue = value === '' ? '' : parseFloat(value) || 0;
         }
 
@@ -250,6 +256,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
             exchange_rate_id: formData.exchange_rate_id ? parseInt(formData.exchange_rate_id) : null,
             is_combo: formData.is_combo,
             has_imei: formData.has_imei, // NEW
+            warranty_duration: parseInt(formData.warranty_duration) || 0,
+            warranty_unit: formData.warranty_unit,
+            warranty_notes: formData.warranty_notes,
             profit_margin: formData.profit_margin ? parseFloat(formData.profit_margin) : null,
             discount_percentage: parseFloat(formData.discount_percentage) || 0,
             is_discount_active: formData.is_discount_active,
@@ -443,6 +452,51 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                         <p className="text-xs text-slate-500 mt-2 ml-8 font-medium">
                                             Habilita el control de inventario serializado. Se exigirá escanear el IMEI en recepción y venta.
                                         </p>
+                                    </div>
+                                </div>
+
+                                {/* Warranty Configuration */}
+                                <div className="col-span-2 mt-2 bg-slate-50 border border-slate-200 rounded-xl p-5">
+                                    <h5 className="font-bold text-slate-700 flex items-center mb-4 text-xs uppercase tracking-wider">
+                                        <ShieldCheck className="mr-2 text-indigo-500" size={16} /> Configuración de Garantía
+                                    </h5>
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Duración</label>
+                                            <input
+                                                type="number"
+                                                name="warranty_duration"
+                                                value={formData.warranty_duration}
+                                                onChange={handleInputChange}
+                                                min="0"
+                                                className="w-full border-slate-200 rounded-xl shadow-sm focus:border-indigo-500 py-2 font-bold text-slate-700 text-sm"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Unidad</label>
+                                            <select
+                                                name="warranty_unit"
+                                                value={formData.warranty_unit}
+                                                onChange={handleInputChange}
+                                                className="w-full border-slate-200 rounded-xl shadow-sm focus:border-indigo-500 py-2 font-medium text-slate-700 bg-white text-sm"
+                                            >
+                                                <option value="DAYS">Días</option>
+                                                <option value="MONTHS">Meses</option>
+                                                <option value="YEARS">Años</option>
+                                            </select>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Notas de Garantía</label>
+                                            <input
+                                                type="text"
+                                                name="warranty_notes"
+                                                value={formData.warranty_notes || ''}
+                                                onChange={handleInputChange}
+                                                className="w-full border-slate-200 rounded-xl shadow-sm focus:border-indigo-500 py-2 text-sm font-medium text-slate-700"
+                                                placeholder="Ej: Defectos de fábrica (No pantallas)"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
