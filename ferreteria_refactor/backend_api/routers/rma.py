@@ -5,13 +5,13 @@ from datetime import datetime, timedelta
 from ..database.db import get_db
 from ..models import models
 from ..schemas import rma_schemas
-from ..auth.auth_bearer import JWTBearer
+from ..dependencies import get_current_user
 from ..services.inventory_service import InventoryService # Reuse if needed
 
 router = APIRouter(
     prefix="/rma",
     tags=["RMA / Warranty"],
-    dependencies=[Depends(JWTBearer())],
+    dependencies=[Depends(get_current_user)],
     responses={404: {"description": "Not found"}},
 )
 
