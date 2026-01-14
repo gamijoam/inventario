@@ -14,39 +14,47 @@ export const CartProvider = ({ children }) => {
 
         setCart(prevCart => {
             return prevCart.map(item => {
-                // Find current rate for this item
-                // If it was using a specific rate ID, find that rate's new value
-                if (item.exchange_rate_source === 'pre-resolved' || item.is_special_rate) {
-                    // Try to find the rate by ID used originally (we don't store ID explicitly in cart item root, 
-                    // but we might infer it or we should have stored it. 
-                    // Let's assume we match by currency code if we can't find ID, 
-                    // BUT better logic: In addToCart we found the rate. 
+                let newRate = item.exchange_rate;
+                let rateFound = false;
 
-                    // Actually, item has 'exchange_rate_name'. Ideally we should have stored exchange_rate_id in item.
-                    // Let's check addToCart logic...
-                    // It doesn't store rate_id in the item root, only in local scope.
-                    // But we likely can match by name or context.
-
-                    // For robust implementations, let's use the currency logic.
-                    // If the item has a 'exchange_rate_name', we can try to find it in new rates.
-
-                    const updatedRateObj = exchangeRates.find(r => r.name === item.exchange_rate_name);
-                    if (updatedRateObj) {
-                        const newRate = updatedRateObj.rate;
-                        if (newRate !== item.exchange_rate) {
-                            const subtotalUsd = item.subtotal_usd;
-                            return {
-                                ...item,
-                                exchange_rate: newRate,
-                                subtotal_bs: subtotalUsd * newRate
-                            };
-                        }
+                // 1. Try to match by Specific Rate ID (Most Robust)
+                if (item.exchange_rate_id) {
+                    const matchedRate = exchangeRates.find(r => r.id === item.exchange_rate_id);
+                    if (matchedRate && matchedRate.is_active) {
+                        newRate = matchedRate.rate;
+                        rateFound = true;
                     }
                 }
 
-                // If it was using default rate (source='default' or similar)
-                // We might need to re-evaluate getEffectiveExchangeRate logic here, 
-                // but simpler is to just update if we can identify the rate used.
+                // 2. Fallback: Match by Name (Legacy/Special)
+                if (!rateFound && item.exchange_rate_name) {
+                    const matchedRate = exchangeRates.find(r => r.name === item.exchange_rate_name);
+                    if (matchedRate && matchedRate.is_active) {
+                        newRate = matchedRate.rate;
+                        rateFound = true;
+                    }
+                }
+
+                // 3. Fallback: If it was using Default Rate (and no specific constraints)
+                // If it wasn't a special rate, it implies it should follow the Default Rate for VES
+                if (!rateFound && !item.is_special_rate) {
+                    const defaultRate = exchangeRates.find(r => r.is_default && r.currency_code === 'VES' && r.is_active);
+                    if (defaultRate) {
+                        newRate = defaultRate.rate;
+                        rateFound = true;
+                    }
+                }
+
+                // Only update if rate changed
+                if (rateFound && newRate !== item.exchange_rate) {
+                    console.log(`🔄 Auto-updating rate for ${item.name}: ${item.exchange_rate} -> ${newRate}`);
+                    const subtotalUsd = item.subtotal_usd;
+                    return {
+                        ...item,
+                        exchange_rate: newRate,
+                        subtotal_bs: subtotalUsd * newRate
+                    };
+                }
 
                 return item;
             });
