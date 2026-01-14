@@ -23,23 +23,22 @@ export const ConfigProvider = ({ children }) => {
         const unsubUpdate = subscribe('exchange_rate:updated', (updatedRate) => {
             console.log('📡 Real-time Rate Update:', updatedRate);
             setCurrencies(prev => {
-                // If it's default, we need to update others too (set them to false)
-                // But simplified: just update the one or potentially reload all if complex
-                // For now, let's just update the matching one
+                // Determine if we need to handle default switching
+                // Broadly, just map through and apply logic based on ID and Currency Code
+                return prev.map(c => {
+                    // 1. If this is the rate being updated
+                    if (c.id === updatedRate.id) {
+                        return { ...c, ...updatedRate, rate: parseFloat(updatedRate.rate) };
+                    }
 
-                // If updatedRate became default, others must be unset
-                if (updatedRate.is_default) {
-                    return prev.map(c => ({
-                        ...c,
-                        // Update the rate and default status
-                        rate: c.id === updatedRate.id ? updatedRate.rate : c.rate,
-                        is_default: c.id === updatedRate.id
-                    }));
-                }
+                    // 2. If the updated rate is the new default for this currency, unset others of same currency
+                    if (updatedRate.is_default && c.currency_code === updatedRate.currency_code) {
+                        return { ...c, is_default: false };
+                    }
 
-                return prev.map(c =>
-                    c.id === updatedRate.id ? { ...c, ...updatedRate } : c
-                );
+                    // 3. Otherwise leave unchanged
+                    return c;
+                });
             });
         });
 
@@ -232,7 +231,7 @@ export const ConfigProvider = ({ children }) => {
         try {
             const numericAmount = Number(amount);
             const absAmount = Math.abs(numericAmount);
-            
+
             // Smart Logic: If value is small (< 1) and not zero, show 4 decimals
             const isSmallValue = absAmount > 0 && absAmount < 1;
             const fractionDigits = isSmallValue ? 4 : 2;

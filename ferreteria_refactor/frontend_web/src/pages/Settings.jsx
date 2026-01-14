@@ -143,6 +143,7 @@ const Settings = () => {
             setNewRate({ name: '', rate: '' });
             setShowAddRateModal(false);
             fetchExchangeRates();
+            refreshConfig(); // Force global update
             toast.success('Tasa agregada exitosamente');
         } catch (error) {
             console.error('Error adding rate:', error);
@@ -156,6 +157,7 @@ const Settings = () => {
                 [field]: value
             });
             fetchExchangeRates();
+            refreshConfig(); // Force global update
             if (field === 'is_default' && value === true) {
                 toast.success('Tasa marcada como predeterminada');
             } else if (field === 'is_active') {
@@ -175,6 +177,7 @@ const Settings = () => {
         try {
             await apiClient.delete(`/config/exchange-rates/${rateId}`);
             fetchExchangeRates();
+            refreshConfig(); // Force global update
             toast.success('Tasa eliminada');
         } catch (error) {
             console.error('Error deleting rate:', error);
