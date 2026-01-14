@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User } from 'lucide-react';
+import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2 } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import { useWebSocket } from '../../context/WebSocketContext';
 import apiClient from '../../config/axios';
@@ -82,14 +82,18 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     if (!isOpen) return null;
 
-    // Calculate Totals
-    // Calculate Totals with Effective Rate
-    // FIXED: Calculate the effective average rate of the cart (TotalBs / TotalUSD)
-    // This allows payments in Bs to be credited at the same "value" they were debited.
-    const effectiveBsRate = (totalBs > 0 && totalUSD > 0)
-        ? (totalBs / totalUSD)
-        : (getExchangeRate('Bs') || 1);
+    // ... (imports remain)
 
+    // Helper: Smart rounding
+    const round2 = (num) => Math.round((num + Number.EPSILON) * 100) / 100;
+
+    // Calculate Totals using CURRENT DEFAULT RATE as requested
+    const defaultBsRate = getExchangeRate('Bs') || getExchangeRate('VES') || 1;
+
+    // Use the Default Rate for the Bs Total Display
+    const displayTotalBs = totalUSD * defaultBsRate;
+
+    // Payment Logic using Default Rate for consistency with display
     const totalPaidUSD = payments.reduce((acc, p) => {
         const amount = parseFloat(p.amount) || 0;
         let rate = 1;
@@ -97,23 +101,19 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         if (p.currency === 'USD' || p.currency === '$') {
             rate = 1;
         } else if (p.currency === 'Bs' || p.currency === 'VES') {
-            // Use EFFECTIVE rate for Bs payments to match debt valuation
-            rate = effectiveBsRate;
+            // UPDATED: Use Default Rate as requested by user ("tasa que este por defecto")
+            // This ensures the "Total in Bs" display matches the payment calculation
+            rate = defaultBsRate;
         } else {
-            // Other currencies use their global rate
             rate = getExchangeRate(p.currency) || 1;
         }
 
         return acc + (amount / rate);
     }, 0);
 
-    // FIX: Floating point precision adjustment
     const remainingUSD = Number((totalUSD - totalPaidUSD).toFixed(4));
     const changeUSD = Number((totalPaidUSD - totalUSD).toFixed(4));
-
-    // Strict validation: Must effectively be zero or overpaid.
-    // Floating point tolerance lowered to 0.005 (half a cent) to fix "missing 2 Bs" issue.
-    const isComplete = remainingUSD <= 0.005;
+    const isComplete = remainingUSD <= 0.001;
 
     const addPaymentRow = () => {
         setPayments([...payments, { amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)' }]);
@@ -147,88 +147,75 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
         try {
             // Determine dominant currency
-            // If single payment, use that currency. If multiple, default to USD (Base).
             let saleCurrency = "USD";
             if (!isCreditSale && payments.length === 1) {
-                // Map symbol to code if necessary, or just use symbol if that's what backend expects
-                // Backend seems to use "USD" or "Bs" / "VES"
                 saleCurrency = payments[0].currency === "$" ? "USD" : payments[0].currency;
             }
 
             // Calculate Change in VES
-            // FIXED: Use correct effective rate for change calculation
-            const effectiveBsRate = (totalBs > 0 && totalUSD > 0)
-                ? (totalBs / totalUSD)
-                : (getExchangeRate('Bs') || 1);
-
-            const changeVES = changeUSD > 0.005 ? (changeUSD * effectiveBsRate) : 0;
+            // Use DEFAULT rate for consistency with the new UI logic
+            const changeVES = changeUSD > 0.005 ? (changeUSD * defaultBsRate) : 0;
 
             const saleData = {
                 total_amount: totalUSD,
-                // NEW: Frontend Source of Truth for VES Total
+                // Pass the cart's BS total as the "Product Price Total in Bs", even if payment used a different rate
                 total_amount_bs: totalBs,
+
                 // NEW: Register Change/Vuelto (Dynamic Currency)
                 change_amount: isCreditSale ? 0 : (() => {
-                    // Check dominant currency
                     const allUSD = payments.every(p => p.currency === '$' || p.currency === 'USD');
-                    return allUSD ? changeUSD : (changeUSD > 0.005 ? (changeUSD * effectiveBsRate) : 0);
+                    return allUSD ? changeUSD : (changeUSD > 0.005 ? (changeUSD * defaultBsRate) : 0);
                 })(),
                 change_currency: isCreditSale ? "Bs" : (() => {
                     const allUSD = payments.every(p => p.currency === '$' || p.currency === 'USD');
                     return allUSD ? "USD" : "Bs";
                 })(),
 
-                currency: saleCurrency, // Dynamic Currency
-                exchange_rate: effectiveBsRate, // Store the effective rate used for this transaction? Or Global?
-                // Actually, backend stores "exchange_rate_used". If we send effective rate, 
-                // recalculations based on total_usd * rate will match total_bs. 
-                // This is cleaner for consistency, though backend now trusts total_amount_bs directly.
+                currency: saleCurrency,
+                exchange_rate: defaultBsRate, // Signal that we transacted at the Default Rate
 
                 payment_method: isCreditSale ? "Credito" : (payments[0]?.method || "Efectivo Bolívares (Bs)"),
                 payments: isCreditSale ? [] : payments.map(p => {
-                    // FIX: Use explicit method selected by user (matches DB name now)
                     return {
                         amount: parseFloat(p.amount),
                         currency: p.currency === '$' ? 'USD' : p.currency,
                         payment_method: p.method,
-                        exchange_rate: (p.currency === 'Bs' || p.currency === 'VES') ? effectiveBsRate : (getExchangeRate(p.currency) || 1)
+                        // Force Default Rate for Bs payments to match valid USD calculation
+                        exchange_rate: (p.currency === 'Bs' || p.currency === 'VES')
+                            ? defaultBsRate
+                            : (getExchangeRate(p.currency) || 1)
                     };
                 }),
                 items: cart.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity,
-                    // Fix: Send original price if discount active, otherwise normal price
-                    // Backend calculates subtotal using unit_price * quantity * (1 - discount/100)
                     unit_price: item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd),
-                    subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd)) * item.quantity, // Mandatory for schema validation
+                    subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd)) * item.quantity,
                     conversion_factor: item.conversion_factor || 1,
                     discount: item.is_discount_active ? item.discount_percentage : 0,
                     discount_type: item.is_discount_active ? "PERCENT" : "NONE",
-                    salesperson_id: item.salesperson_id || null, // NEW: Pass salesperson
-                    serial_numbers: item.serial_numbers || [] // NEW: Serialized Inventory Support
+                    salesperson_id: item.salesperson_id || null,
+                    serial_numbers: item.serial_numbers || []
                 })),
                 is_credit: isCreditSale,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,
                 warehouse_id: (!warehouseId || warehouseId === 'all') ? null : warehouseId,
-                quote_id: quoteId || null, // Pass quote ID if present (we'll attach it to customer obj in POS.jsx for convenience or pass as separate prop)
+                quote_id: quoteId || null,
                 notes: ""
             };
 
             let response;
 
             if (customSubmit) {
-                // If custom handler provided, use it (Restaurant Flow)
                 response = await customSubmit({
                     ...saleData,
-                    payments: saleData.payments, // Ensure payments are explicit
+                    payments: saleData.payments,
                     client_id: saleData.customer_id
                 });
             } else {
-                // Standard POS Flow
                 response = await apiClient.post('/products/sales/', saleData);
             }
 
-            // Handle different response structures if necessary
             const saleId = response.data?.sale_id || response.sale_id;
 
             onConfirm({
@@ -251,7 +238,6 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 if (typeof detail === 'string') {
                     errorMessage = detail;
                 } else if (Array.isArray(detail)) {
-                    // Pydantic validation error list
                     errorMessage = detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join(', ');
                 } else if (typeof detail === 'object') {
                     errorMessage = JSON.stringify(detail);
@@ -266,323 +252,292 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row h-[600px] animate-in fade-in zoom-in-95 duration-200">
-                {/* Left: Totals Summary */}
-                <div className="bg-slate-900 text-white p-8 md:w-1/3 flex flex-col relative">
-                    <h3 className="text-slate-400 uppercase text-xs font-bold tracking-widest mb-6 border-b border-slate-800 pb-2">Resumen de Pago</h3>
+        <div className="fixed inset-0 bg-[#0f172a]/70 flex items-center justify-center z-50 backdrop-blur-md p-4 transition-all duration-300">
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row min-h-[650px] max-h-[90vh] animate-in fade-in zoom-in-95 duration-300 ring-1 ring-white/20">
 
-                    <div className="mb-6">
-                        <div className="text-sm text-slate-400 font-medium mb-1">Total a Pagar</div>
-                        <div className="text-4xl font-black text-white tracking-tight">
-                            {formatCurrency(totalUSD, 'USD')}
+                {/* LEFT COLUMN: Premium Summary */}
+                <div className="bg-[#1e293b] text-white p-8 md:w-5/12 flex flex-col relative overflow-hidden group">
+                    {/* Background Accents */}
+                    <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
+                        <DollarSign size={300} strokeWidth={0.5} />
+                    </div>
+                    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <h3 className="text-indigo-400 uppercase text-xs font-black tracking-[0.2em] mb-8 z-10 flex items-center gap-2">
+                        <Receipt size={14} /> Resumen de Transacción
+                    </h3>
+
+                    <div className="mb-8 z-10 relative">
+                        <div className="text-sm text-slate-400 font-medium mb-2">Total a Pagar (Divisa)</div>
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-2xl text-slate-500 font-light">$</span>
+                            <span className="text-6xl font-black text-white tracking-tighter shadow-indigo-500/10 drop-shadow-lg">
+                                {formatCurrency(totalUSD, 'USD').replace('$', '')}
+                            </span>
                         </div>
-                        {/* NEW: Total in Bs Display */}
-                        {totalBs > 0 && (
-                            <div className="mt-2 flex items-center gap-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
-                                <div className="text-xl font-bold text-emerald-400">
-                                    {formatCurrency(totalBs, 'VES')}
+                    </div>
+
+                    {/* Total in Bs Display - UPDATED to use Default Rate */}
+                    <div className="z-10 relative bg-slate-800/50 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 mb-auto hover:bg-slate-800/80 transition-colors group/card">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total en Bolívares</div>
+                            <span className="text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/20 font-mono">
+                                Tasa: {formatCurrency(defaultBsRate, 'VES')}
+                            </span>
+                        </div>
+                        <div className="text-3xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
+                            {formatCurrency(displayTotalBs, 'VES')}
+                        </div>
+                        <div className="mt-2 text-[10px] text-slate-500">
+                            * Calculado a la tasa de cambio actual.
+                        </div>
+                    </div>
+
+                    {/* Pending / Change Status */}
+                    <div className="z-10 mt-8">
+                        {!isCreditSale && (
+                            <div className={`
+                                relative overflow-hidden rounded-2xl p-6 transition-all duration-500 border
+                                ${isComplete
+                                    ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/50 shadow-lg shadow-emerald-900/20'
+                                    : 'bg-slate-800/80 border-slate-700'
+                                }
+                            `}>
+                                {isComplete ? (
+                                    <div className="text-center relative z-10">
+                                        <div className="flex items-center justify-center mb-2">
+                                            <div className="bg-white/20 p-2 rounded-full backdrop-blur-md">
+                                                <CheckCircle className="text-white" size={24} strokeWidth={3} />
+                                            </div>
+                                        </div>
+                                        <div className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1">Pago Completado</div>
+
+                                        {changeUSD > 0.01 ? (
+                                            <div className="flex flex-col items-center">
+                                                <div className="text-xl font-bold text-emerald-200">
+                                                    Su Vuelto: <span className="text-white text-2xl">${formatCurrency(changeUSD, 'USD').replace('$', '')}</span>
+                                                </div>
+                                                <div className="text-sm font-bold text-emerald-400 font-mono mt-1 bg-emerald-900/40 px-3 py-1 rounded-full border border-emerald-500/30">
+                                                    Bs {formatCurrency(changeUSD * defaultBsRate, 'VES').replace('Bs', '')}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="text-xl font-bold text-white">Cuenta Saldada Exactamente</div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-between items-end">
+                                        <div>
+                                            <div className="text-xs font-bold text-rose-400 uppercase tracking-widest mb-1">Restante</div>
+                                            <div className="text-3xl font-bold text-rose-300 font-mono">
+                                                ${formatCurrency(Math.abs(remainingUSD), 'USD').replace('$', '')}
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-[10px] text-slate-500 uppercase font-bold">En Bolívares</div>
+                                            <div className="text-xl font-bold text-slate-400 font-mono">
+                                                Bs {formatCurrency(Math.abs(remainingUSD) * defaultBsRate, 'VES').replace('Bs', '')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Credit Sale Indicator */}
+                        {isCreditSale && (
+                            <div className="mt-4 bg-indigo-600/20 border border-indigo-500/30 rounded-xl p-4 flex items-center gap-3">
+                                <CreditCard className="text-indigo-400" size={24} />
+                                <div>
+                                    <div className="text-indigo-300 font-bold text-sm">Venta a Crédito</div>
+                                    <div className="text-indigo-400/70 text-xs">Pago diferido</div>
                                 </div>
-                                <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-mono">
-                                    Tasa: {formatCurrency(effectiveBsRate, 'VES')}
-                                </span>
                             </div>
                         )}
                     </div>
+                </div>
 
-                    <div className="space-y-4 mb-8 flex-1 overflow-y-auto pr-2 custom-scrollbar-dark">
-                        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-800">
-                            <h4 className="text-[10px] text-slate-500 font-bold uppercase mb-3">Pendiente por Pagar</h4>
-                            <div className="space-y-3">
-                                {currencies.map(curr => {
-                                    // Calculate REMAINING amount in this currency
-                                    let amount = 0;
-                                    // FIXED: Use TotalBS from Frontend (Cart) for true multi-rate accuracy
-                                    const isLocalCurrency = curr.symbol === 'Bs' || curr.symbol === 'VES' || !curr.is_anchor;
-
-                                    if (isLocalCurrency && totalBs > 0 && totalUSD > 0) {
-                                        // Proportional Calculation to maintain source of truth total
-                                        amount = totalBs * (Math.max(0, remainingUSD) / totalUSD);
-                                    } else {
-                                        amount = Math.max(0, remainingUSD) * (curr.rate || 1);
-                                    }
-
-                                    return (
-                                        <div key={curr.symbol} className="flex justify-between items-end border-b border-slate-700/50 pb-2 last:border-0 last:pb-0">
-                                            <span className="text-slate-400 text-sm font-medium">{curr.name}</span>
-                                            <div className="flex flex-col items-end">
-                                                <span className={`text-base font-bold font-mono ${amount > 0.005 ? 'text-white' : 'text-emerald-400'}`}>
-                                                    {amount > 0.005
-                                                        ? `${formatCurrency(amount, curr.symbol)}`
-                                                        : 'COMPLETO'
-                                                    }
-                                                </span>
-                                                {curr.symbol !== 'USD' && amount > 0.005 && (
-                                                    <span className="text-[10px] text-slate-600">
-                                                        {isLocalCurrency && totalBs ? 'Tasa Promedio' : `Tasa: ${formatCurrency(curr.rate, 'VE')}`}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                {/* RIGHT COLUMN: Actions & Inputs */}
+                <div className="p-8 md:w-7/12 bg-slate-50 flex flex-col h-full overflow-hidden">
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-8 shrink-0">
+                        <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2 tracking-tight">
+                            <span className="w-2 h-8 bg-indigo-600 rounded-full inline-block"></span>
+                            Procesar Pago
+                        </h2>
+                        <button
+                            onClick={onClose}
+                            className="group p-2 hover:bg-rose-50 rounded-xl transition-all duration-300 border border-transparent hover:border-rose-100"
+                        >
+                            <X size={24} className="text-slate-400 group-hover:text-rose-500 transition-colors" />
+                        </button>
                     </div>
 
-                    {!isCreditSale && (
-                        <div className={`mt-auto p-4 rounded-xl border-2 ${isComplete
-                            ? 'bg-emerald-500/10 border-emerald-500/20'
-                            : 'bg-rose-500/10 border-rose-500/20'
-                            }`}>
-                            {isComplete ? (
-                                <div className="text-center">
-                                    <div className="text-xs font-bold text-emerald-400 uppercase tracking-wide mb-1">Su Cambio / Vuelto</div>
-                                    <div className="text-3xl font-black text-emerald-300 tracking-tight">${formatCurrency(changeUSD, 'USD')}</div>
-                                    {currencies.find(c => !c.is_anchor) && (
-                                        <div className="text-sm font-bold text-emerald-400/60 mt-1 font-mono">
-                                            {(() => {
-                                                const local = currencies.find(c => !c.is_anchor);
-                                                const isLocalCurrency = local.symbol === 'Bs' || local.symbol === 'VES';
+                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 pb-4">
 
-                                                let amount = 0;
-                                                if (isLocalCurrency && totalBs > 0 && totalUSD > 0) {
-                                                    // Use Effective Rate for Change too (Consistency)
-                                                    amount = totalBs * (changeUSD / totalUSD);
-                                                } else {
-                                                    amount = changeUSD * (local.rate || 1);
-                                                }
+                        {/* Customer Section */}
+                        <div className={`group transition-all duration-300 border rounded-2xl p-1 ${isCreditSale && !selectedCustomer ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-white border-slate-200 shadow-sm hover:border-indigo-200'}`}>
+                            <div className="p-4">
+                                <div className="flex justify-between items-center mb-4">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                        <User size={14} /> Cliente
+                                        {isCreditSale && <span className="bg-rose-100 text-rose-600 text-[9px] px-2 py-0.5 rounded-full">Requerido</span>}
+                                    </label>
+                                    <button
+                                        onClick={() => setIsQuickCustomerOpen(true)}
+                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
+                                    >
+                                        <UserPlus size={14} /> Nuevo
+                                    </button>
+                                </div>
 
-                                                const displayAmount = Math.max(0, amount);
-                                                return `${local.symbol} ${formatCurrency(displayAmount, local.symbol)}`;
-                                            })()}
+                                <CustomerSearch
+                                    customers={customers}
+                                    selectedCustomer={selectedCustomer}
+                                    onSelect={setSelectedCustomer}
+                                    className="scale-100" // Ensure internal styling works
+                                />
+
+                                {isCreditSale && selectedCustomer && (
+                                    <div className="mt-4 flex gap-4 p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                                        <div className="flex-1">
+                                            <span className="text-[10px] text-indigo-400 font-bold uppercase">Límite Crédito</span>
+                                            <div className="text-sm font-black text-indigo-900 font-mono">
+                                                ${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="text-center">
-                                    <div className="text-xs font-bold text-rose-400 uppercase tracking-wide mb-1">Falta por Pagar</div>
-                                    <div className="text-3xl font-black text-rose-300 tracking-tight">${formatCurrency(Math.abs(remainingUSD), 'USD')}</div>
-                                    {currencies.find(c => !c.is_anchor) && (
-                                        <div className="text-sm font-bold text-rose-400/60 mt-1 font-mono">
-                                            {(() => {
-                                                const local = currencies.find(c => !c.is_anchor);
-                                                const amount = Math.abs(remainingUSD) * (local.rate || 1);
-                                                return `${local.symbol} ${formatCurrency(amount, local.symbol)}`;
-                                            })()}
+                                        <div className="w-px bg-indigo-100"></div>
+                                        <div className="flex-1">
+                                            <span className="text-[10px] text-indigo-400 font-bold uppercase">Saldo Actual</span>
+                                            <div className="text-sm font-black text-slate-700 font-mono">
+                                                $0.00 {/* Placeholder for customer balance */}
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {selectedCustomer && (
-                        <div className={`mt-3 px-4 py-3 rounded-xl border ${isCreditSale
-                            ? 'bg-indigo-500/10 border-indigo-500/30'
-                            : 'bg-slate-800 border-slate-700'
-                            }`}>
-                            <div className="flex justify-between items-center">
-                                <div className="flex flex-col text-left">
-                                    <span className={`text-[10px] uppercase font-bold ${isCreditSale ? 'text-indigo-300' : 'text-slate-500'}`}>
-                                        Cliente
-                                    </span>
-                                    <span className={`text-sm font-bold truncate max-w-[150px] ${isCreditSale ? 'text-indigo-200' : 'text-slate-300'}`}>
-                                        {selectedCustomer.name}
-                                    </span>
-                                </div>
-                                {isCreditSale && (
-                                    <div className="text-right">
-                                        <span className="block text-[10px] text-indigo-300 font-bold uppercase">Límite</span>
-                                        <span className="text-sm font-mono font-bold text-indigo-400">
-                                            ${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}
-                                        </span>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    )}
-                </div>
 
-                {/* Right: Payment Input */}
-                <div className="p-8 md:w-2/3 bg-white flex flex-col">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-slate-800 font-bold text-xl flex items-center gap-2">
-                            <Banknote className="text-slate-400" size={24} />
-                            Método de Pago
-                        </h3>
-                        <button onClick={onClose} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
-                            <X size={24} />
-                        </button>
-                    </div>
-
-                    {/* Customer Selection (Generic for ALL sales) */}
-                    <div className={`mb-6 p-4 rounded-xl border-2 transition-all duration-300 ${isCreditSale && !selectedCustomer
-                        ? 'bg-rose-50 border-rose-200 shadow-inner'
-                        : 'bg-slate-50 border-slate-100'
-                        }`}>
-                        <div className="flex justify-between items-center mb-3">
-                            <label className="text-sm font-bold text-slate-700 flex items-center gap-1">
-                                Cliente
-                                {isCreditSale && <span className="text-rose-500 font-bold text-xs bg-rose-100 px-1.5 py-0.5 rounded-full ml-1">Requerido</span>}
-                            </label>
-                            <button
-                                onClick={() => setIsQuickCustomerOpen(true)}
-                                className="text-[10px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition flex items-center gap-1 font-bold shadow-sm"
-                            >
-                                <UserPlus size={12} /> Nuevo Cliente
-                            </button>
-                        </div>
-
-                        <CustomerSearch
-                            customers={customers}
-                            selectedCustomer={selectedCustomer}
-                            onSelect={setSelectedCustomer}
-                        />
-
-                        {isCreditSale && !selectedCustomer && (
-                            <div className="mt-2 text-xs text-rose-600 font-medium flex items-center gap-1 animate-pulse">
-                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
-                                Debe seleccionar un cliente para proceder con la venta a crédito.
+                        {/* Credit Toggle */}
+                        <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${isCreditSale ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
+                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-slate-100'}`}>
+                                {isCreditSale && <CheckCircle size={14} className="text-white" strokeWidth={4} />}
                             </div>
-                        )}
-
-                        {isCreditSale && selectedCustomer && (
-                            <div className="mt-3 flex gap-4 text-sm bg-white p-3 rounded-lg border border-indigo-100 shadow-sm">
-                                <div className="flex-1">
-                                    <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Límite de Crédito</span>
-                                    <span className="font-bold text-indigo-600 font-mono text-base">${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}</span>
-                                </div>
-                                <div className="flex-1 border-l border-slate-100 pl-4">
-                                    <span className="block text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-0.5">Plazo de Pago</span>
-                                    <span className="font-bold text-slate-700">{selectedCustomer.payment_term_days || 15} días</span>
-                                </div>
+                            <input type="checkbox" checked={isCreditSale} onChange={e => setIsCreditSale(e.target.checked)} className="hidden" />
+                            <div className="flex-1">
+                                <div className={`font-bold text-sm ${isCreditSale ? 'text-indigo-700' : 'text-slate-600'}`}>Venta a Crédito</div>
+                                <div className="text-xs text-slate-400">La cuenta por cobrar se asignará al cliente</div>
                             </div>
-                        )}
-                    </div>
-
-                    {/* Credit Sale Toggle */}
-                    <div className={`mb-6 p-4 rounded-xl border-2 transition-all cursor-pointer hover:shadow-md ${isCreditSale
-                        ? 'bg-indigo-50 border-indigo-200'
-                        : 'bg-white border-slate-200 hover:border-indigo-200'
-                        }`}>
-                        <label className="flex items-center cursor-pointer w-full select-none">
-                            <div className="relative flex items-center">
-                                <input
-                                    type="checkbox"
-                                    checked={isCreditSale}
-                                    onChange={(e) => setIsCreditSale(e.target.checked)}
-                                    className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border border-slate-300 bg-white checked:border-indigo-500 checked:bg-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
-                                />
-                                <CheckCircle className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100" size={14} strokeWidth={3} />
-                            </div>
-                            <span className="ml-3 flex-1">
-                                <span className={`block font-bold transition-colors ${isCreditSale ? 'text-indigo-800' : 'text-slate-700'}`}>
-                                    Venta a Crédito
-                                </span>
-                                <span className={`block text-xs transition-colors ${isCreditSale ? 'text-indigo-600' : 'text-slate-400'}`}>
-                                    El pago se registrará como pendiente
-                                </span>
-                            </span>
-                            <Users className={`ml-2 transition-colors ${isCreditSale ? 'text-indigo-500' : 'text-slate-300'}`} size={24} />
                         </label>
+
+                        {/* Payments Section */}
+                        {!isCreditSale && (
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-end">
+                                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                        <Layers size={16} className="text-slate-400" />
+                                        Métodos de Pago
+                                    </h3>
+                                    <button
+                                        onClick={addPaymentRow}
+                                        className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+                                    >
+                                        + Agregar Otro
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {payments.map((payment, index) => (
+                                        <div key={index} className="flex gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
+
+                                            {/* Method & Currency */}
+                                            <div className="flex flex-col gap-2 w-5/12">
+                                                <select
+                                                    className="w-full bg-slate-50 border-none text-xs font-bold text-slate-700 rounded-lg py-2 focus:ring-0"
+                                                    value={payment.method}
+                                                    onChange={(e) => updatePayment(index, 'method', e.target.value)}
+                                                >
+                                                    {paymentMethods.filter(m => m.is_active).map(m => (
+                                                        <option key={m.id} value={m.name}>{m.name}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="flex gap-2">
+                                                    {currencies.slice(0, 3).map(c => (
+                                                        <button
+                                                            key={c.symbol}
+                                                            onClick={() => updatePayment(index, 'currency', c.symbol)}
+                                                            className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors border ${payment.currency === c.symbol ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                                                        >
+                                                            {c.symbol}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Amount Input */}
+                                            <div className="flex-1 relative">
+                                                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                                    <span className="text-slate-400 font-bold text-lg">
+                                                        {payment.currency === 'USD' ? '$' : payment.currency}
+                                                    </span>
+                                                </div>
+                                                <CurrencyInput
+                                                    className="w-full h-full bg-transparent text-right font-mono text-2xl font-bold text-slate-800 placeholder-slate-200 border-none focus:ring-0 p-0 pr-2"
+                                                    placeholder="0.00"
+                                                    value={payment.amount}
+                                                    onChange={(val) => updatePayment(index, 'amount', val)}
+                                                />
+                                            </div>
+
+                                            {/* Remove Button */}
+                                            {payments.length > 1 && (
+                                                <button
+                                                    onClick={() => removePaymentRow(index)}
+                                                    className="flex items-center justify-center w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Payment Rows (only for cash sales) */}
-                    {!isCreditSale && (
-                        <>
-                            <div className="flex justify-between items-center mb-3">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Desglose de Pago</span>
-                                <button
-                                    onClick={addPaymentRow}
-                                    className="text-xs bg-slate-50 text-indigo-600 border border-indigo-100 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-50 hover:border-indigo-200 transition"
-                                >
-                                    + Agregar Método
-                                </button>
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto space-y-3 mb-6 pr-2 custom-scrollbar">
-                                {payments.map((payment, index) => (
-                                    <div key={index} className="flex gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all">
-                                        <select
-                                            className="bg-slate-50 border-0 text-slate-700 text-sm font-semibold rounded-lg focus:ring-0 block p-2.5 min-w-[120px]"
-                                            value={payment.method}
-                                            onChange={(e) => updatePayment(index, 'method', e.target.value)}
-                                        >
-                                            {paymentMethods.filter(m => m.is_active).map(method => (
-                                                <option key={method.id} value={method.name}>{method.name}</option>
-                                            ))}
-                                        </select>
-
-                                        <select
-                                            className="bg-slate-50 border-0 text-slate-700 text-sm font-bold rounded-lg focus:ring-0 block p-2.5 w-20 text-center"
-                                            value={payment.currency}
-                                            onChange={(e) => updatePayment(index, 'currency', e.target.value)}
-                                        >
-                                            {currencies.map(curr => (
-                                                <option key={curr.symbol} value={curr.symbol}>{curr.symbol}</option>
-                                            ))}
-                                        </select>
-
-                                        <div className="h-6 w-px bg-slate-200 mx-1"></div>
-
-                                        <CurrencyInput
-                                            currencySymbol={payment.currency === 'USD' ? '$' : payment.currency}
-                                            placeholder="0.00"
-                                            className="flex-1 bg-transparent border-none text-slate-900 text-lg font-bold placeholder-slate-300 focus:ring-0 block p-2 text-right"
-                                            value={payment.amount}
-                                            onChange={(val) => updatePayment(index, 'amount', val)}
-                                        />
-
-                                        {payments.length > 1 && (
-                                            <button
-                                                onClick={() => removePaymentRow(index)}
-                                                className="text-slate-300 hover:text-rose-500 p-2 hover:bg-rose-50 rounded-lg transition-colors"
-                                            >
-                                                <X size={18} />
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
-
-                    {/* Actions */}
-                    <div className="mt-auto flex gap-4 pt-4 border-t border-slate-100">
+                    {/* Footer Actions */}
+                    <div className="mt-auto pt-6 border-t border-slate-100 flex gap-4 shrink-0">
                         <button
                             onClick={onClose}
-                            className="flex-1 px-6 py-4 border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-slate-800 transition-all"
+                            className="px-6 py-4 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
                         >
                             Cancelar
                         </button>
                         <button
                             onClick={handleConfirm}
                             disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)}
-                            className={`flex-[2] px-6 py-4 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)
-                                ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none'
-                                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
-                                }`}
+                            className={`
+                                flex-1 rounded-xl font-black text-lg tracking-wide shadow-xl transition-all flex items-center justify-center gap-3
+                                ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)
+                                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:-translate-y-1 shadow-indigo-500/30'
+                                }
+                            `}
                         >
                             {processing ? (
-                                'Procesando...'
-                            ) : isCreditSale ? (
-                                <>
-                                    <CreditCard size={20} />
-                                    Registrar Crédito
-                                </>
+                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>
-                                    <CheckCircle size={20} />
-                                    Confirmar Pago
+                                    {isCreditSale ? 'REGISTRAR CRÉDITO' : 'CONFIRMAR PAGO'}
+                                    <CheckCircle size={20} strokeWidth={3} />
                                 </>
                             )}
                         </button>
                     </div>
+
                 </div>
             </div>
 
-            {/* Quick Customer Modal Layer */}
             <QuickCustomerModal
                 isOpen={isQuickCustomerOpen}
                 onClose={() => setIsQuickCustomerOpen(false)}
