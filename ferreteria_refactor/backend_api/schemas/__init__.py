@@ -413,6 +413,12 @@ class CashMovementCreate(BaseModel):
     currency: str = "USD"
     description: str
     session_id: Optional[int] = None
+    
+    # Dual Transaction Fields (Optional)
+    incoming_amount: Optional[Decimal] = None
+    incoming_currency: Optional[str] = None
+    incoming_method: Optional[str] = None
+    incoming_reference: Optional[str] = None
 
     @validator('description')
     def validate_description_content(cls, v, values):

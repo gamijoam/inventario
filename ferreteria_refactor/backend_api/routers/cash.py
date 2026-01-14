@@ -106,6 +106,11 @@ def register_movement(
         amount=movement.amount,
         currency=movement.currency,
         description=movement.description,
+        # Dual Transaction Fields
+        incoming_amount=movement.incoming_amount,
+        incoming_currency=movement.incoming_currency,
+        incoming_method=movement.incoming_method,
+        incoming_reference=movement.incoming_reference,
         date=datetime.now()
     )
     db.add(new_movement)
@@ -167,7 +172,7 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
     # 3. Movements (Deposits - Withdrawals/Expenses)
     movements_in = db.query(func.sum(models.CashMovement.amount)).filter(
         models.CashMovement.session_id == session.id,
-        models.CashMovement.type == "DEPOSIT",
+        models.CashMovement.type.in_(["DEPOSIT", "IN"]), # Fixed: Allow 'IN' from frontend
         models.CashMovement.currency.in_(target_currencies)
     ).scalar() or Decimal("0.00")
     
@@ -376,8 +381,8 @@ def get_session_details(
     cash_advances_usd = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and m.currency == "USD"), Decimal("0.00"))
     cash_advances_bs = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
     
-    deposits_usd = sum((m.amount for m in movements if m.type == "DEPOSIT" and m.currency == "USD"), Decimal("0.00"))
-    deposits_bs = sum((m.amount for m in movements if m.type == "DEPOSIT" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
+    deposits_usd = sum((m.amount for m in movements if m.type in ["DEPOSIT", "IN"] and m.currency == "USD"), Decimal("0.00"))
+    deposits_bs = sum((m.amount for m in movements if m.type in ["DEPOSIT", "IN"] and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
 
     # Calculate Expected Cash (Only Cash payments affect the drawer)
     # Check for multiple possible cash payment method names using substring
@@ -427,8 +432,10 @@ def get_session_details(
     # Build cash_by_currency (only cash payments) - convert to float for JSON
     cash_by_currency_response = {curr: float(amt) for curr, amt in cash_by_currency.items()}
     
-    # Build transfers_by_currency (non-cash payments)
+    # Build transfers_by_currency (non-cash payments) and CONSOLIDATE with Cash Advance Incomings
     transfers_by_currency = {}
+    
+    # 1. Sales Transfers
     for method, currencies in sales_by_method.items():
         is_cash = "efectivo" in method.lower() or "cash" in method.lower()
         if not is_cash:  # Exclude cash
@@ -437,6 +444,23 @@ def get_session_details(
                     if curr not in transfers_by_currency:
                         transfers_by_currency[curr] = {}
                     transfers_by_currency[curr][method] = float(amt)
+                    
+    # 2. Cash Advance Incomings (Dual Transaction Consolidation)
+    advance_movements = [m for m in movements if m.type == "CASH_ADVANCE" and m.incoming_amount and m.incoming_amount > 0]
+    
+    for adv in advance_movements:
+        if not adv.incoming_method: continue
+        
+        inc_curr = adv.incoming_currency or "USD"
+        inc_amt = float(adv.incoming_amount)
+        inc_method = adv.incoming_method
+        
+        if inc_curr not in transfers_by_currency:
+            transfers_by_currency[inc_curr] = {}
+            
+        # Consolidate: Add to existing sales total or create new entry
+        current_val = transfers_by_currency[inc_curr].get(inc_method, 0.0)
+        transfers_by_currency[inc_curr][inc_method] = current_val + inc_amt
     
     # Calculate credit sales (only unpaid ones)
     credit_sales = db.query(models.Sale).filter(
@@ -456,6 +480,7 @@ def get_session_details(
             "initial_bs": session.initial_cash_bs,
             "sales_total": sales_total_usd,
             "sales_by_method": {k: {curr: float(amt) for curr, amt in v.items()} for k, v in sales_by_method.items()},
+            "transfers_by_currency": transfers_by_currency, # NEW: Consolidated transfers (Sales + Cash Advances)
             "expenses_usd": expenses_usd,
             "expenses_bs": expenses_bs,
             "cash_advances_usd": cash_advances_usd,
@@ -561,7 +586,7 @@ async def close_cash_session(
         if curr not in movements_by_currency:
             movements_by_currency[curr] = {'deposits': Decimal("0.00"), 'expenses': Decimal("0.00")}
         
-        if m.type == "DEPOSIT":
+        if m.type in ["DEPOSIT", "IN"]:
             movements_by_currency[curr]['deposits'] += m.amount
         elif m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "CASH_ADVANCE"]:
             movements_by_currency[curr]['expenses'] += m.amount

@@ -51,4 +51,24 @@ def get_session_payment_breakdown(db: Session, session: models.CashSession):
             
         breakdown[method][curr] += amt
         
+    # 3. Fetch Cash Advance Dual Transactions (Digital Inflows)
+    advances = db.query(models.CashMovement).filter(
+        models.CashMovement.session_id == session.id,
+        models.CashMovement.type == 'CASH_ADVANCE',
+        models.CashMovement.incoming_amount > 0
+    ).all()
+    
+    for adv in advances:
+        if adv.incoming_method:
+            method = adv.incoming_method
+            curr = adv.incoming_currency or "USD"
+            amt = adv.incoming_amount
+            
+            if method not in breakdown:
+                breakdown[method] = {}
+            if curr not in breakdown[method]:
+                breakdown[method][curr] = Decimal("0.00")
+            
+            breakdown[method][curr] += amt
+        
     return breakdown

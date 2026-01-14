@@ -400,6 +400,13 @@ class CashMovement(Base):
     currency = Column(String, default="USD") # USD or BS
     exchange_rate = Column(Numeric(14, 4), default=1.0000)
     description = Column(Text, nullable=True)
+    
+    # Dual Transaction Support (Digital Inflow)
+    incoming_amount = Column(Numeric(12, 2), nullable=True) # Total Customer Paid (e.g. 110.00)
+    incoming_currency = Column(String, nullable=True)       # e.g. USD, BS
+    incoming_method = Column(String, nullable=True)         # e.g. Zelle, Biopago
+    incoming_reference = Column(String, nullable=True)      # e.g. Ref 123456
+    
     date = Column(DateTime, default=get_venezuela_now)
 
     session = relationship("CashSession", back_populates="movements")

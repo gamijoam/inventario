@@ -670,6 +670,11 @@ SU CAMBIO: {{ sale.formatted_change }}
         # Structure: {"Efectivo": {"USD": 100}, ...}
         breakdown_raw = get_session_payment_breakdown(db, session)
         
+        # --- DUAL TRANSACTION SUPPORT: Merge Cash Advance Inflows ---
+        # Note: Logic moved to utils/financials.py 'get_session_payment_breakdown'
+        # to ensure consistency across History and Z-Report.
+        # ------------------------------------------------------------
+        
         # Flatten for Template usage
         # list of {method, usd_amount, bs_amount} ? Or just list of lines
         payments_detail = []
