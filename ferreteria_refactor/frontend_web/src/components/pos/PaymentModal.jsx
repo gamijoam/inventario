@@ -312,7 +312,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         </div>
                                         <div className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1">Pago Completado</div>
 
-                                        {changeUSD > 0.01 ? (
+                                        {changeUSD > 0.0001 ? (
                                             <div className="flex flex-col items-center">
                                                 <div className="text-xl font-bold text-emerald-200">
                                                     Su Vuelto: <span className="text-white text-2xl">${formatCurrency(changeUSD, 'USD').replace('$', '')}</span>
