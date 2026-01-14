@@ -92,7 +92,7 @@ def register_movement(
         raise HTTPException(status_code=400, detail="No hay sesión de caja abierta")
 
     # VALIDATE FUNDS FOR OUTBOUND MOVEMENTS
-    if movement.type in ["WITHDRAWAL", "EXPENSE", "OUT"]:
+    if movement.type in ["WITHDRAWAL", "EXPENSE", "OUT", "CASH_ADVANCE"]:
         available = get_available_cash(db, session.id, movement.currency)
         if movement.amount > available:
             raise HTTPException(
@@ -173,7 +173,7 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
     
     movements_out = db.query(func.sum(models.CashMovement.amount)).filter(
         models.CashMovement.session_id == session.id,
-        models.CashMovement.type.in_(["EXPENSE", "WITHDRAWAL", "OUT"]),
+        models.CashMovement.type.in_(["EXPENSE", "WITHDRAWAL", "OUT", "CASH_ADVANCE"]),
         models.CashMovement.currency.in_(target_currencies)
     ).scalar() or Decimal("0.00")
     
@@ -368,8 +368,13 @@ def get_session_details(
 
 
     # Calculate Movements
+    # Calculate Movements
+    # Separate Expenses from Cash Advances
     expenses_usd = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and m.currency == "USD"), Decimal("0.00"))
     expenses_bs = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
+    
+    cash_advances_usd = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and m.currency == "USD"), Decimal("0.00"))
+    cash_advances_bs = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
     
     deposits_usd = sum((m.amount for m in movements if m.type == "DEPOSIT" and m.currency == "USD"), Decimal("0.00"))
     deposits_bs = sum((m.amount for m in movements if m.type == "DEPOSIT" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
@@ -406,8 +411,9 @@ def get_session_details(
         models.Sale.change_currency.in_(["Bs", "VES", "VEF"])
     ).scalar() or Decimal("0.00")
 
-    expected_usd = session.initial_cash + cash_sales_usd + deposits_usd - expenses_usd - total_change_usd
-    expected_bs = session.initial_cash_bs + cash_sales_bs + deposits_bs - expenses_bs - total_change_bs
+    # Expenses AND Cash Advances reduce expected cash
+    expected_usd = session.initial_cash + cash_sales_usd + deposits_usd - expenses_usd - cash_advances_usd - total_change_usd
+    expected_bs = session.initial_cash_bs + cash_sales_bs + deposits_bs - expenses_bs - cash_advances_bs - total_change_bs
     
     final_reported_usd = session.final_cash_reported or Decimal("0.00")
     final_reported_bs = session.final_cash_reported_bs or Decimal("0.00")
@@ -452,6 +458,8 @@ def get_session_details(
             "sales_by_method": {k: {curr: float(amt) for curr, amt in v.items()} for k, v in sales_by_method.items()},
             "expenses_usd": expenses_usd,
             "expenses_bs": expenses_bs,
+            "cash_advances_usd": cash_advances_usd,
+            "cash_advances_bs": cash_advances_bs,
             "deposits_usd": deposits_usd,
             "deposits_bs": deposits_bs,
             "cash_by_currency": cash_by_currency_response,
@@ -555,7 +563,7 @@ async def close_cash_session(
         
         if m.type == "DEPOSIT":
             movements_by_currency[curr]['deposits'] += m.amount
-        elif m.type in ["EXPENSE", "WITHDRAWAL", "OUT"]:
+        elif m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "CASH_ADVANCE"]:
             movements_by_currency[curr]['expenses'] += m.amount
     
     # ============================================

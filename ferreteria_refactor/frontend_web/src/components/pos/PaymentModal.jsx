@@ -8,21 +8,10 @@ import QuickCustomerModal from './QuickCustomerModal';
 import CustomerSearch from './CustomerSearch';
 import CurrencyInput from '../common/CurrencyInput';
 
-// Helper to format currency consistently
-const formatCurrency = (amount, currencySymbol) => {
-    // Determine locale based on currency
-    // USD -> en-US (1,234.56)
-    // Others (Bs, etc) -> es-VE (1.234,56)
-    const locale = currencySymbol === '$' || currencySymbol === 'USD' ? 'en-US' : 'es-VE';
-
-    return amount.toLocaleString(locale, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-};
+// Local formatCurrency removed to use ConfigContext one globaly
 
 const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null }) => {
-    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods } = useConfig();
+    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
     const allCurrencies = [{ id: 'base', symbol: 'USD', name: 'Dólar', rate: 1, is_anchor: true }, ...getActiveCurrencies()];
 
@@ -283,11 +272,22 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 <div className="bg-slate-900 text-white p-8 md:w-1/3 flex flex-col relative">
                     <h3 className="text-slate-400 uppercase text-xs font-bold tracking-widest mb-6 border-b border-slate-800 pb-2">Resumen de Pago</h3>
 
-                    <div className="mb-8">
-                        <div className="text-sm text-slate-400 font-medium">Total a Pagar</div>
+                    <div className="mb-6">
+                        <div className="text-sm text-slate-400 font-medium mb-1">Total a Pagar</div>
                         <div className="text-4xl font-black text-white tracking-tight">
-                            ${formatCurrency(totalUSD, 'USD')}
+                            {formatCurrency(totalUSD, 'USD')}
                         </div>
+                        {/* NEW: Total in Bs Display */}
+                        {totalBs > 0 && (
+                            <div className="mt-2 flex items-center gap-2 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50">
+                                <div className="text-xl font-bold text-emerald-400">
+                                    {formatCurrency(totalBs, 'VES')}
+                                </div>
+                                <span className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded font-mono">
+                                    Tasa: {formatCurrency(effectiveBsRate, 'VES')}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-4 mb-8 flex-1 overflow-y-auto pr-2 custom-scrollbar-dark">

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, condecimal
+from pydantic import BaseModel, Field, condecimal, validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -409,10 +409,17 @@ class QuoteReadWithDetails(QuoteRead):
 
 class CashMovementCreate(BaseModel):
     amount: Decimal
-    type: str # IN, OUT
+    type: str # IN, OUT, CASH_ADVANCE
     currency: str = "USD"
     description: str
     session_id: Optional[int] = None
+
+    @validator('description')
+    def validate_description_content(cls, v, values):
+        if values.get('type') == 'CASH_ADVANCE':
+            if not v or len(v.strip()) < 5:
+                raise ValueError('Para Avances de Efectivo, la descripción debe detallar la referencia o destino (min 5 chars)')
+        return v
 
 class CashMovementRead(CashMovementCreate):
     id: int
@@ -477,6 +484,8 @@ class CashCloseDetails(BaseModel):
     expenses_bs: Decimal
     deposits_usd: Decimal
     deposits_bs: Decimal
+    cash_advances_usd: Optional[Decimal] = Decimal("0.00") # NEW
+    cash_advances_bs: Optional[Decimal] = Decimal("0.00") # NEW
     # New: per-currency breakdown
     cash_by_currency: Optional[Dict[str, Decimal]] = {}
     transfers_by_currency: Optional[Dict[str, Dict[str, Decimal]]] = {}  # {currency: {method: amount}}
