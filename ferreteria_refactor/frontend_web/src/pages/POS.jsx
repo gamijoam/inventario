@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin, User, Wrench } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin, User, Wrench, DollarSign } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
@@ -11,6 +11,7 @@ import EditItemModal from '../components/pos/EditItemModal';
 import PaymentModal from '../components/pos/PaymentModal';
 import CashOpeningModal from '../components/cash/CashOpeningModal';
 import CashMovementModal from '../components/cash/CashMovementModal';
+import CashAdvanceModal from '../components/cash/CashAdvanceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
 import ProductThumbnail from '../components/products/ProductThumbnail';
 import CartItemQuantityInput from '../components/pos/CartItemQuantityInput';
@@ -28,19 +29,13 @@ const formatStock = (stock) => {
     return num % 1 === 0 ? num.toFixed(0) : num.toFixed(3).replace(/\.?0+$/, '');
 };
 
-// Helper format currency: 4 decimals for < 1, 2 decimals otherwise
-const formatCurrency = (amount) => {
-    const num = Number(amount);
-    if (Math.abs(num) < 1 && num !== 0) {
-        return num.toFixed(4);
-    }
-    return num.toFixed(2);
-};
+// Local formatCurrency removed to use global context one
+// const formatCurrency = ...
 
 const POS = () => {
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates } = useCart();
     const { isSessionOpen, openSession, loading } = useCash();
-    const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules } = useConfig();
+    const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket(); // WebSocket Hook
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
@@ -51,6 +46,7 @@ const POS = () => {
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
     const [isMovementOpen, setIsMovementOpen] = useState(false);
+    const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
     const [lastSaleData, setLastSaleData] = useState(null); // { cart, totalUSD, paymentData }
     const [selectedProductIndex, setSelectedProductIndex] = useState(-1); // For keyboard navigation
     const [quoteCustomer, setQuoteCustomer] = useState(null); // Customer loaded from quote
@@ -108,6 +104,8 @@ const POS = () => {
             setIsPaymentOpen(false);
         } else if (isMovementOpen) {
             setIsMovementOpen(false);
+        } else if (isAdvanceOpen) {
+            setIsAdvanceOpen(false);
         } else if (isServiceImportOpen) { // New
             setIsServiceImportOpen(false);
         } else if (selectedProductForUnits) {
@@ -793,54 +791,63 @@ const POS = () => {
                         >
                             <Receipt size={14} /> Cierre
                         </Link>
-                    </div>
 
-                    <button
-                        onClick={() => setIsPaymentOpen(true)}
-                        disabled={cart.length === 0}
-                        className="
+                        <button
+                            onClick={() => setIsAdvanceOpen(true)}
+                            className="flex items-center justify-center gap-2 py-2.5 bg-rose-50 border border-rose-200 rounded-lg shadow-sm hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all col-span-2"
+                        >
+                            <DollarSign size={14} /> Avance Efectivo
+                        </button>
+
+                        <button
+                            onClick={() => setIsPaymentOpen(true)}
+                            disabled={cart.length === 0}
+                            className="
                             w-full bg-indigo-600 hover:bg-indigo-700 text-white
                             disabled:bg-slate-100 disabled:text-slate-300 disabled:cursor-not-allowed
                             py-3.5 rounded-xl font-bold text-base shadow-lg hover:shadow-indigo-200 hover:-translate-y-0.5
                             transition-all flex items-center justify-center gap-3
                         "
-                    >
-                        COBRAR
-                    </button>
-
-                    {/* Botón para volver al catálogo en móvil (solo visible si estamos en modo ticket) */}
-                    < button
-                        onClick={() => setMobileTab('catalog')}
-                        className="md:hidden w-full text-slate-500 font-medium py-2 text-sm"
-                    >
-                        ← Seguir Comprando
-                    </button>
-                </div>
-            </div>
-
-            {/* MOBILE FLOATING ACTION BUTTON (Summary) - Only visible when in Catalog mode and cart has items */}
-            {
-                mobileTab === 'catalog' && cart.length > 0 && (
-                    <div className="md:hidden fixed bottom-6 left-4 right-4 z-30">
-                        <button
-                            onClick={() => setMobileTab('ticket')}
-                            className="w-full bg-slate-800 text-white p-4 rounded-xl shadow-2xl flex justify-between items-center animate-bounce-slight"
                         >
-                            <div className="flex items-center gap-3">
-                                <div className="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
-                                    {cart.length}
-                                </div>
-                                <span className="font-medium">Ver / Pagar</span>
-                            </div>
-                            <span className="text-xl font-bold">
-                                ${formatCurrency(totalUSD)}
-                            </span>
+                            COBRAR
+                        </button>
+
+                        {/* Botón para volver al catálogo en móvil (solo visible si estamos en modo ticket) */}
+                        < button
+                            onClick={() => setMobileTab('catalog')}
+                            className="md:hidden w-full text-slate-500 font-medium py-2 text-sm"
+                        >
+                            ← Seguir Comprando
                         </button>
                     </div>
-                )
-            }
+                </div>
 
-            {/* Modals Logic Remains Same */}
+                {/* MOBILE FLOATING ACTION BUTTON (Summary) - Only visible when in Catalog mode and cart has items */}
+                {
+                    mobileTab === 'catalog' && cart.length > 0 && (
+                        <div className="md:hidden fixed bottom-6 left-4 right-4 z-30">
+                            <button
+                                onClick={() => setMobileTab('ticket')}
+                                className="w-full bg-slate-800 text-white p-4 rounded-xl shadow-2xl flex justify-between items-center animate-bounce-slight"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-indigo-500 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
+                                        {cart.length}
+                                    </div>
+                                    <span className="font-medium">Ver / Pagar</span>
+                                </div>
+                                <span className="text-xl font-bold">
+                                    ${formatCurrency(totalUSD)}
+                                </span>
+                            </button>
+                        </div>
+                    )
+                }
+
+                {/* Modals Logic Remains Same */}
+
+            </div>
+            {/* Modals moved to root for correct overlay positioning */}
             <UnitSelectionModal
                 isOpen={!!selectedProductForUnits}
                 product={selectedProductForUnits}
@@ -855,7 +862,7 @@ const POS = () => {
                 onUpdate={updateQuantity}
                 onDelete={removeFromCart}
             />
-            {/* Payment Modal */}
+
             <PaymentModal
                 isOpen={isPaymentOpen}
                 onClose={() => {
@@ -895,19 +902,24 @@ const POS = () => {
                 }}
             />
 
+            <CashAdvanceModal
+                isOpen={isAdvanceOpen}
+                onClose={() => setIsAdvanceOpen(false)}
+            />
+
             <SaleSuccessModal
                 isOpen={!!lastSaleData}
                 saleData={lastSaleData}
                 onClose={handleSuccessClose}
             />
 
-            {/* Cash Opening Modal - only show after loading and if session is closed */}
+            {/* Cash Opening Modal */}
             {
                 !loading && !isSessionOpen && (
                     <CashOpeningModal onOpen={openSession} />
                 )
             }
-        </div >
+        </div>
     );
 };
 

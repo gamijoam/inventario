@@ -61,13 +61,18 @@ const ProductCard = ({
                         <Package className="text-slate-300 w-12 h-12" strokeWidth={1.5} />
                     )}
                 </div>
-
                 {/* Float Badges */}
                 <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
                     {/* Serialized Badge */}
                     {product.has_imei && (
-                        <span className="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-                            SERIAL
+                        <span className="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> SERIAL
+                        </span>
+                    )}
+                    {/* Multi-Unit Badge */}
+                    {product.units && product.units.length > 0 && (
+                        <span className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1">
+                            <Package size={8} /> PRESENTACIONES
                         </span>
                     )}
                     {/* Combo Badge */}
@@ -131,6 +136,7 @@ const ProductCard = ({
                     </div>
                 </div>
             </div>
+
         </div>
     );
 };

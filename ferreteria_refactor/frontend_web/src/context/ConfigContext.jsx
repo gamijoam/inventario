@@ -230,14 +230,21 @@ export const ConfigProvider = ({ children }) => {
 
     const formatCurrency = (amount, currency = 'USD') => {
         try {
+            const numericAmount = Number(amount);
+            const absAmount = Math.abs(numericAmount);
+            
+            // Smart Logic: If value is small (< 1) and not zero, show 4 decimals
+            const isSmallValue = absAmount > 0 && absAmount < 1;
+            const fractionDigits = isSmallValue ? 4 : 2;
+
             return new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: currency,
-                minimumFractionDigits: 2
-            }).format(amount);
+                minimumFractionDigits: fractionDigits,
+                maximumFractionDigits: fractionDigits
+            }).format(numericAmount);
         } catch (error) {
-            // Fallback for invalid currency codes (e.g. symbols like '$' passed by mistake)
-            // Just format as number
+            // Fallback
             return new Intl.NumberFormat('en-US', {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2

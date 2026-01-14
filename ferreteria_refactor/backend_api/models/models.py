@@ -395,7 +395,7 @@ class CashMovement(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=False)
-    type = Column(String, nullable=False) # EXPENSE, WITHDRAWAL, DEPOSIT
+    type = Column(String, nullable=False) # EXPENSE, WITHDRAWAL, DEPOSIT, CASH_ADVANCE
     amount = Column(Numeric(12, 2), nullable=False)
     currency = Column(String, default="USD") # USD or BS
     exchange_rate = Column(Numeric(14, 4), default=1.0000)
@@ -528,7 +528,7 @@ class Payment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
-    amount = Column(Numeric(12, 2), nullable=False)
+    amount = Column(Numeric(18, 4), nullable=False)
     date = Column(DateTime, default=get_venezuela_now)
     description = Column(Text, nullable=True)
     
@@ -583,8 +583,8 @@ class QuoteDetail(Base):
     quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Numeric(12, 3), nullable=False)
-    unit_price = Column(Numeric(12, 2), nullable=False)
-    subtotal = Column(Numeric(12, 2), nullable=False)
+    unit_price = Column(Numeric(18, 4), nullable=False)
+    subtotal = Column(Numeric(18, 4), nullable=False)
     is_box_sale = Column(Boolean, default=False)
     
     # NEW: Manual Description for Service Items

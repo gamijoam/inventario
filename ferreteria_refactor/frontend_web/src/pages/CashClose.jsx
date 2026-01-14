@@ -62,7 +62,14 @@ const CashClose = () => {
     }
 
     const { expected_by_currency = {}, details = {} } = sessionData;
-    const { cash_by_currency = {}, transfers_by_currency = {} } = details;
+    const {
+        cash_by_currency = {},
+        transfers_by_currency = {},
+        expenses_usd = 0,
+        expenses_bs = 0,
+        cash_advances_usd = 0,
+        cash_advances_bs = 0
+    } = details;
 
     const handleClose = async () => {
         // Validate all currencies have been counted
@@ -179,6 +186,47 @@ const CashClose = () => {
                                 </div>
                             );
                         })}
+                    </div>
+                </div>
+
+                {/* MOVIMIENTOS - Expenses and Advances Breakdown */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <div className="flex items-center mb-4 border-b pb-2">
+                        <TrendingUp className="mr-2 text-rose-600" />
+                        <h3 className="text-lg font-bold text-gray-700">MOVIMIENTOS (Salidas)</h3>
+                    </div>
+
+                    <div className="space-y-4">
+                        {/* Cash Advances Section */}
+                        <div className="border border-rose-100 bg-rose-50/50 rounded-lg p-3">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="font-bold text-rose-800 text-sm uppercase">Avances de Efectivo</span>
+                                <span className="text-xs bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full font-bold">Separado</span>
+                            </div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-600">USD</span>
+                                <span className="font-bold text-gray-800">${Number(cash_advances_usd).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Bolívares</span>
+                                <span className="font-bold text-gray-800">Bs {Number(cash_advances_bs).toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        {/* Operational Expenses Section */}
+                        <div className="border border-gray-200 bg-gray-50 rounded-lg p-3">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="font-bold text-gray-700 text-sm uppercase">Gastos Operativos</span>
+                            </div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-600">USD</span>
+                                <span className="font-bold text-gray-800">${Number(expenses_usd).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Bolívares</span>
+                                <span className="font-bold text-gray-800">Bs {Number(expenses_bs).toFixed(2)}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
