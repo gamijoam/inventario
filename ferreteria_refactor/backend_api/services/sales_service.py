@@ -474,7 +474,10 @@ class SalesService:
         # Helper for formatting
         def fmt_money(amount, currency):
             symbol = "$" if currency == "USD" else "Bs"
-            return f"{symbol} {amount:,.2f}"
+            val = float(amount)
+            if 0 < abs(val) < 1:
+                return f"{symbol} {val:,.4f}"
+            return f"{symbol} {val:,.2f}"
 
         # ---------------------------------------------------------
         # 1. PRE-FORMATTING CONTEXT (Backend Logic)

@@ -276,6 +276,7 @@ const POS = () => {
         // ... existing implementation ...
         addToCart(selectedProductForUnits, unit);
         setSelectedProductForUnits(null);
+        focusSearch();
     }
 
     const handleSerializedConfirm = (serials) => {
@@ -368,6 +369,7 @@ const POS = () => {
         });
 
         setSelectedProductForSerialized(null);
+        focusSearch();
     };
 
     // NEW: Handlers for Service Orders

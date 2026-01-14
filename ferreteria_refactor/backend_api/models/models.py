@@ -252,16 +252,16 @@ class Sale(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     date = Column(DateTime, default=get_venezuela_now, index=True)
-    total_amount = Column(Numeric(12, 2), nullable=False)
+    total_amount = Column(Numeric(18, 4), nullable=False)
     payment_method = Column(String, default="Efectivo") # Efectivo, Tarjeta, Credito
     
     # Dual Currency Support
     currency = Column(String, default="USD") # USD or BS
     exchange_rate_used = Column(Numeric(14, 4), default=1.0000) # Rate at time of sale
-    total_amount_bs = Column(Numeric(12, 2), nullable=True) # Amount in Bs if applicable
+    total_amount_bs = Column(Numeric(18, 4), nullable=True) # Amount in Bs if applicable
     
     # Change / Vuelto Logic
-    change_amount = Column(Numeric(12, 2), default=0.00) # Amount returned to customer
+    change_amount = Column(Numeric(18, 4), default=0.0000) # Amount returned to customer
     change_currency = Column(String(3), default='VES') # Currency of the change (usually VES)
     
     # Credit Sales
@@ -269,7 +269,9 @@ class Sale(Base):
     is_credit = Column(Boolean, default=False)
     paid = Column(Boolean, default=True) # False for credit sales
     due_date = Column(DateTime, nullable=True)  # Payment deadline for credit sales
-    balance_pending = Column(Numeric(12, 2), nullable=True)  # Remaining balance for partial payments
+    balance_pending = Column(Numeric(18, 4), nullable=True)  # Remaining balance for partial payments
+
+
     
     # Sale Notes
     notes = Column(Text, nullable=True)  # Special observations or instructions
@@ -299,7 +301,7 @@ class SalePayment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
-    amount = Column(Numeric(12, 2), nullable=False)
+    amount = Column(Numeric(18, 4), nullable=False)
     currency = Column(String, default="USD") # USD or Bs
     payment_method = Column(String, default="Efectivo") # Efectivo, Tarjeta, etc.
     exchange_rate = Column(Numeric(14, 4), default=1.0000) # Rate used for this specific payment
@@ -356,14 +358,14 @@ class CashSession(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     start_time = Column(DateTime, default=get_venezuela_now)
     end_time = Column(DateTime, nullable=True)
-    initial_cash = Column(Numeric(12, 2), default=0.00)
-    initial_cash_bs = Column(Numeric(12, 2), default=0.00) # Initial amount in Bs
-    final_cash_reported = Column(Numeric(12, 2), nullable=True) # What user counted (USD)
-    final_cash_reported_bs = Column(Numeric(12, 2), nullable=True) # What user counted (Bs)
-    final_cash_expected = Column(Numeric(12, 2), nullable=True) # Calculated (USD)
-    final_cash_expected_bs = Column(Numeric(12, 2), nullable=True) # Calculated (Bs)
-    difference = Column(Numeric(12, 2), nullable=True) # USD difference
-    difference_bs = Column(Numeric(12, 2), nullable=True) # Bs difference
+    initial_cash = Column(Numeric(18, 4), default=0.0000)
+    initial_cash_bs = Column(Numeric(18, 4), default=0.0000) # Initial amount in Bs
+    final_cash_reported = Column(Numeric(18, 4), nullable=True) # What user counted (USD)
+    final_cash_reported_bs = Column(Numeric(18, 4), nullable=True) # What user counted (Bs)
+    final_cash_expected = Column(Numeric(18, 4), nullable=True) # Calculated (USD)
+    final_cash_expected_bs = Column(Numeric(18, 4), nullable=True) # Calculated (Bs)
+    difference = Column(Numeric(18, 4), nullable=True) # USD difference
+    difference_bs = Column(Numeric(18, 4), nullable=True) # Bs difference
     status = Column(String, default="OPEN") # OPEN, CLOSED
 
     movements = relationship("CashMovement", back_populates="session")
@@ -396,13 +398,13 @@ class CashMovement(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=False)
     type = Column(String, nullable=False) # EXPENSE, WITHDRAWAL, DEPOSIT, CASH_ADVANCE
-    amount = Column(Numeric(12, 2), nullable=False)
+    amount = Column(Numeric(18, 4), nullable=False)
     currency = Column(String, default="USD") # USD or BS
     exchange_rate = Column(Numeric(14, 4), default=1.0000)
     description = Column(Text, nullable=True)
     
     # Dual Transaction Support (Digital Inflow)
-    incoming_amount = Column(Numeric(12, 2), nullable=True) # Total Customer Paid (e.g. 110.00)
+    incoming_amount = Column(Numeric(18, 4), nullable=True) # Total Customer Paid (e.g. 110.00)
     incoming_currency = Column(String, nullable=True)       # e.g. USD, BS
     incoming_method = Column(String, nullable=True)         # e.g. Zelle, Biopago
     incoming_reference = Column(String, nullable=True)      # e.g. Ref 123456
@@ -573,7 +575,7 @@ class Quote(Base):
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
     date = Column(DateTime, default=get_venezuela_now)
-    total_amount = Column(Numeric(12, 2), nullable=False)
+    total_amount = Column(Numeric(18, 4), nullable=False)
     status = Column(String, default="PENDING")  # PENDING, CONVERTED, EXPIRED
     notes = Column(Text, nullable=True)
 
