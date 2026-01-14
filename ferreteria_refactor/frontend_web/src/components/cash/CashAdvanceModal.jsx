@@ -11,6 +11,9 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
     const [amount, setAmount] = useState('');
     const [currency, setCurrency] = useState('USD');
     const [commissionPercent, setCommissionPercent] = useState(10); // Default 10%
+    // Dual Transaction State
+    const [incomingMethod, setIncomingMethod] = useState('Zelle');
+    const [incomingReference, setIncomingReference] = useState('');
     const [description, setDescription] = useState('');
 
     // State
@@ -27,14 +30,18 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
     useEffect(() => {
         if (isOpen) {
             // Setup Currencies
-            const activeCurr = [{ symbol: 'USD', name: 'Dólar' }, ...getActiveCurrencies()];
-            setCurrencies(activeCurr);
+            const activeCurr = getActiveCurrencies();
+            // Ensure USD is first and prevent duplicates if getActiveCurrencies returns USD
+            const finalCurrencies = [{ symbol: 'USD', name: 'Dólar' }, ...activeCurr.filter(c => c.symbol !== 'USD')];
+            setCurrencies(finalCurrencies);
 
             // Reset Fields
             setAmount('');
             setCurrency('USD');
             setDescription('');
             setCommissionPercent(10);
+            setIncomingMethod('Zelle');
+            setIncomingReference('');
 
             // Check Balance
             fetchAvailableBalance('USD');
@@ -65,8 +72,8 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
             return;
         }
 
-        if (description.length < 5) {
-            toast.error("La descripción es obligatoria (min 5 chars)");
+        if (incomingReference.length < 4) {
+            toast.error("La referencia bancaria es obligatoria");
             return;
         }
 
@@ -77,16 +84,18 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
                 type: 'CASH_ADVANCE',
                 amount: numAmount,
                 currency: currency,
-                description: `Avance Efectivo - ${description} (Comisión ${commissionPercent}%)`
+                description: `Avance Efec. (${incomingMethod} Ref:${incomingReference})`,
+
+                // Dual Transaction Fields
+                incoming_amount: totalToTransfer, // Amount received in bank
+                incoming_currency: currency, // Assuming same currency for now
+                incoming_method: incomingMethod,
+                incoming_reference: incomingReference
             };
 
             await apiClient.post('/cash/movements', movementData);
 
-            // NOTE: Ideally we should also register the Commission Income here 
-            // but for now we focus on the Cash Movement as requested.
-            // Future requirement: Register Service Sale for the commission?
-
-            toast.success("Avance registrado exitosamente");
+            toast.success("Avance y Entrada Bancaria registrados");
             onSuccess && onSuccess();
             onClose();
         } catch (err) {
@@ -111,7 +120,7 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
                     <div className="flex justify-between items-center relative z-10">
                         <div>
                             <h3 className="font-black text-2xl tracking-tight">Avance de Efectivo</h3>
-                            <p className="text-slate-400 text-sm font-medium mt-1">Retiro de caja con comisión</p>
+                            <p className="text-slate-400 text-sm font-medium mt-1">Retiro (+ Ingreso Bancario)</p>
                         </div>
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-all">
                             <X size={24} />
@@ -137,7 +146,7 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
                         </div>
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-                                Monto que el Cliente RECIBE (Efectivo)
+                                Monto Efectivo (Salida)
                             </label>
                             <div className="relative">
                                 <span className="absolute left-3 top-3.5 text-slate-400 font-bold">{currency === 'USD' ? '$' : currency}</span>
@@ -181,46 +190,63 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
                         {/* Calculation Preview */}
                         <div className="space-y-2 pt-2 border-t border-dashed border-slate-200">
                             <div className="flex justify-between text-sm">
-                                <span className="text-slate-500 font-medium">Monto Efectivo (Cliente recibe):</span>
+                                <span className="text-slate-500 font-medium">Salida Caja (Cliente recibe):</span>
                                 <span className="font-bold text-slate-700">{formatCurrency(numAmount, currency)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-slate-500 font-medium">Comisión Negocio ({commissionPercent}%):</span>
+                                <span className="text-slate-500 font-medium">Ingreso Comisión ({commissionPercent}%):</span>
                                 <span className="font-bold text-emerald-600">+{formatCurrency(commissionAmount, currency)}</span>
                             </div>
                             <div className="flex justify-between items-center pt-2">
-                                <span className="text-slate-800 font-bold">Total a Cobrar/Transferir:</span>
+                                <span className="text-indigo-800 font-bold">Total a Entrar en Banco:</span>
                                 <span className="font-black text-xl text-indigo-600">{formatCurrency(totalToTransfer, currency)}</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Description */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Referencia / Banco</label>
-                        <textarea
-                            className="w-full p-4 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-medium resize-none transition-all placeholder:text-slate-300"
-                            rows="2"
-                            placeholder="Ej: Pago Móvil Banesco - Ref 123456"
-                            value={description}
-                            onChange={e => setDescription(e.target.value)}
-                        ></textarea>
-                        <p className="text-[10px] text-slate-400 text-right">* Mínimo 5 caracteres</p>
+                    {/* Incoming Payment Details */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Método Entrada</label>
+                            <select
+                                value={incomingMethod}
+                                onChange={e => setIncomingMethod(e.target.value)}
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 block p-3.5"
+                            >
+                                <option value="Zelle">Zelle</option>
+                                <option value="Pago Móvil">Pago Móvil</option>
+                                <option value="Transferencia">Transferencia</option>
+                                <option value="Punto de Venta">Punto de Venta</option>
+                                <option value="Efectivo USD">Efectivo USD (Entrada)</option>
+                                <option value="Biopago">Biopago</option>
+                            </select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Ref. Bancaria</label>
+                            <input
+                                type="text"
+                                className="w-full p-3.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-medium transition-all placeholder:text-slate-300"
+                                placeholder="Ej: 456123"
+                                value={incomingReference}
+                                onChange={e => setIncomingReference(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
 
                     {/* Action Button */}
                     <button
                         type="submit"
-                        disabled={loading || numAmount <= 0 || numAmount > availableBalance}
-                        className={`w-full py-4 rounded-xl font-bold text-lg shadow-xl shadow-indigo-100 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2 ${loading || numAmount <= 0 || numAmount > availableBalance
-                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                        disabled={loading || numAmount <= 0 || (currency !== 'Bs' && numAmount > availableBalance) || incomingReference.length < 4}
+                        className={`w-full py-4 rounded-xl font-bold text-lg shadow-xl shadow-indigo-100 transition-all transform hover:-translate-y-1 flex items-center justify-center gap-2 ${loading || numAmount <= 0 || (currency !== 'Bs' && numAmount > availableBalance) || incomingReference.length < 4
+                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700'
                             }`}
                     >
                         {loading ? 'Procesando...' : (
                             <>
                                 <RefreshCw size={20} />
-                                Registrar Transacción
+                                Registrar Transacción Dual
                             </>
                         )}
                     </button>
