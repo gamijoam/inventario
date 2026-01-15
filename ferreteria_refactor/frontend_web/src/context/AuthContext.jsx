@@ -184,6 +184,38 @@ export const AuthProvider = ({ children }) => {
     // Helper function to check if user is admin
     const isAdmin = () => hasRole('ADMIN');
 
+    // NEW: Update User Preferences (Theme, etc.)
+    const updateUserPreferences = async (newPreferences) => {
+        if (!user) return;
+
+        const previousUser = { ...user };
+
+        // 1. Optimistic Update
+        const updatedUser = {
+            ...user,
+            preferences: {
+                ...(user.preferences || {}),
+                ...newPreferences
+            }
+        };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser)); // Persist locally
+
+        try {
+            // 2. API Call
+            await apiClient.put(`/users/${user.id}`, {
+                preferences: newPreferences // Backend will merge this dict
+            });
+            console.log("Preferences saved successfully");
+        } catch (error) {
+            console.error("Failed to save preferences:", error);
+            // 3. Revert on failure
+            setUser(previousUser);
+            localStorage.setItem('user', JSON.stringify(previousUser));
+            throw error;
+        }
+    };
+
     return (
         <AuthContext.Provider value={{
             user,
@@ -192,7 +224,8 @@ export const AuthProvider = ({ children }) => {
             logout,
             loading,
             hasRole,
-            isAdmin
+            isAdmin,
+            updateUserPreferences // NEW
         }}>
             {!loading && children}
         </AuthContext.Provider>

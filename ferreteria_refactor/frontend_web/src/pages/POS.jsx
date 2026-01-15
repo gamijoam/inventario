@@ -1,6 +1,7 @@
+import { useAuth } from '../context/AuthContext'; // NEW
 import { useState, useRef, useEffect } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin, User, Wrench, DollarSign } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin, User, Wrench, DollarSign, Settings } from 'lucide-react'; // Added Settings
 import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
@@ -18,7 +19,9 @@ import CartItemQuantityInput from '../components/pos/CartItemQuantityInput';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
 import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
-import ProductCard from '../components/pos/ProductCard'; // NEW: Import ProductCard
+import ProductCard from '../components/pos/ProductCard';
+import POSSettingsModal from '../components/pos/POSSettingsModal'; // NEW
+import { DEFAULT_THEME } from '../constants/posThemes'; // NEW
 
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
@@ -29,37 +32,40 @@ const formatStock = (stock) => {
     return num % 1 === 0 ? num.toFixed(0) : num.toFixed(3).replace(/\.?0+$/, '');
 };
 
-// Local formatCurrency removed to use global context one
-// const formatCurrency = ...
-
 const POS = () => {
+    const { user } = useAuth(); // NEW
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates } = useCart();
     const { isSessionOpen, openSession, loading } = useCash();
     const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
-    const { subscribe } = useWebSocket(); // WebSocket Hook
+    const { subscribe } = useWebSocket();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
+
+    // Theme State
+    const currentTheme = user?.preferences?.pos_theme || DEFAULT_THEME;
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    useEffect(() => {
+        console.log("STATE CHANGE: isSettingsOpen =", isSettingsOpen);
+    }, [isSettingsOpen]);
 
     // UI State
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState(null);
-    const [selectedProductForUnits, setSelectedProductForUnits] = useState(null); // For Modal
+    const [selectedProductForUnits, setSelectedProductForUnits] = useState(null);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
     const [isMovementOpen, setIsMovementOpen] = useState(false);
     const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
-    const [lastSaleData, setLastSaleData] = useState(null); // { cart, totalUSD, paymentData }
-    const [selectedProductIndex, setSelectedProductIndex] = useState(-1); // For keyboard navigation
-    const [quoteCustomer, setQuoteCustomer] = useState(null); // Customer loaded from quote
-    const [activeQuoteId, setActiveQuoteId] = useState(null); // ID of the quote currently loaded
+    const [lastSaleData, setLastSaleData] = useState(null);
+    const [selectedProductIndex, setSelectedProductIndex] = useState(-1);
+    const [quoteCustomer, setQuoteCustomer] = useState(null);
+    const [activeQuoteId, setActiveQuoteId] = useState(null);
 
     // NEW: Service Order Integration
     const [isServiceImportOpen, setIsServiceImportOpen] = useState(false);
     const [activeServiceOrderId, setActiveServiceOrderId] = useState(null);
     const [serviceOrderTicket, setServiceOrderTicket] = useState(null);
-    const [selectedProductForSerialized, setSelectedProductForSerialized] = useState(null); // Serialized Modal State
-    // NEW: Serialized Item Modal Import
-    // (Import added below with other imports)
-
+    const [selectedProductForSerialized, setSelectedProductForSerialized] = useState(null);
 
     // Data State
     const [catalog, setCatalog] = useState([]);
@@ -479,22 +485,32 @@ const POS = () => {
     const [mobileTab, setMobileTab] = useState('catalog'); // 'catalog' | 'ticket'
 
     return (
-        <div className="flex flex-col md:flex-row h-[calc(100vh-64px)] overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-slate-100 relative p-4 gap-4">
+        <div className={`flex flex-col md:flex-row h-[calc(100vh-64px)] overflow-hidden relative p-4 gap-4 transition-colors duration-500 ${currentTheme.app_bg || 'bg-slate-100'}`}>
 
             {/* =====================================================================================
                 LEFT COLUMN: CATALOG & TOOLS (65% Width)
                ===================================================================================== */}
             <div className={`
-                flex-col min-w-0 transition-all z-0 bg-white/60 backdrop-blur-md rounded-3xl shadow-xl border border-white/40 overflow-hidden
+                flex-col min-w-0 transition-all z-0 rounded-3xl shadow-xl border overflow-hidden
+                ${currentTheme.left_bg} ${currentTheme.border_color}
                 ${mobileTab === 'catalog' ? 'flex w-full' : 'hidden md:flex flex-1'}
             `}>
                 {/* Header Bar */}
-                <div className="bg-white/40 border-b border-white/50 px-6 py-4 flex justify-between items-center backdrop-blur-sm">
+                <div className={`border-b px-6 py-4 flex justify-between items-center backdrop-blur-sm ${currentTheme.border_color} bg-white/20`}>
                     <div className="flex items-center gap-4">
                         <Link to="/" className="flex items-center gap-2 p-2 -ml-2 hover:bg-white/60 rounded-xl text-slate-500 hover:text-indigo-600 transition-colors group glass-panel" title="Volver al Menú">
                             <ArrowLeft className="group-hover:-translate-x-1 transition-transform" size={20} />
                             <span className="font-semibold text-sm hidden sm:block">Salir</span>
                         </Link>
+
+                        {/* THEME SETTINGS BUTTON */}
+                        <button
+                            onClick={() => setIsSettingsOpen(true)}
+                            className="p-2 lg:p-2.5 rounded-xl bg-white/40 border border-white/60 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-slate-500 transition-all shadow-sm"
+                            title="Personalizar Tema"
+                        >
+                            <Settings size={20} />
+                        </button>
 
                         {/* SERVICE ORDER BUTTON */}
                         {modules?.services && (
@@ -633,7 +649,8 @@ const POS = () => {
                 RIGHT COLUMN: TICKET (35% Width)
                ===================================================================================== */}
             <div className={`
-                bg-white/80 backdrop-blur-xl flex-col rounded-3xl shadow-2xl border border-white/60 overflow-hidden
+                backdrop-blur-xl flex-col rounded-3xl shadow-2xl border border-white/60 overflow-hidden
+                ${currentTheme.right_bg}
                 ${mobileTab === 'ticket' ? 'flex w-full absolute inset-0 z-50' : 'hidden md:flex w-[35%] lg:w-[30%]'}
             `}>
                 {/* Ticket Header */}
@@ -850,6 +867,11 @@ const POS = () => {
 
             </div>
             {/* Modals moved to root for correct overlay positioning */}
+            <POSSettingsModal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+            />
+
             <UnitSelectionModal
                 isOpen={!!selectedProductForUnits}
                 product={selectedProductForUnits}
