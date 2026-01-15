@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric, Text, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric, Text, DateTime, Enum, JSON
 from sqlalchemy.orm import relationship
 from ..database.db import Base
 import datetime
@@ -434,6 +434,10 @@ class User(Base):
     full_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     commission_percentage = Column(Numeric(5, 2), default=0.00) # NEW: Commission %
+    
+    # User Preferences (Theme, shortcuts, etc.)
+    preferences = Column(JSON, default={}, nullable=True) # NEW: JSON Configuration
+
     created_at = Column(DateTime, default=get_venezuela_now)
 
     def __repr__(self):

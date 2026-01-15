@@ -556,6 +556,7 @@ class UserCreate(BaseModel):
     role: str = "CASHIER"  # ADMIN, CASHIER, MANAGER
     full_name: Optional[str] = None
     commission_percentage: Optional[Decimal] = Decimal("0.00") # NEW
+    preferences: Optional[Dict[str, Any]] = {} # NEW
 
 
 class UserUpdate(BaseModel):
@@ -564,6 +565,7 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     is_active: Optional[bool] = None
     commission_percentage: Optional[Decimal] = None # NEW
+    preferences: Optional[Dict[str, Any]] = None # NEW
 
 
 class UserRead(BaseModel):
@@ -574,6 +576,7 @@ class UserRead(BaseModel):
     is_active: bool
     created_at: datetime
     commission_percentage: Optional[Decimal] = Decimal("0.00") # NEW
+    preferences: Optional[Dict[str, Any]] = {} # NEW
 
 
     class Config:
