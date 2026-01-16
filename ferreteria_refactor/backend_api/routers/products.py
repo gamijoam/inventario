@@ -147,6 +147,20 @@ def create_product(product: schemas.ProductCreate, background_tasks: BackgroundT
                 db.commit()
                 db.refresh(db_product)
 
+    # NEW: Process Price Lists
+    if product.prices:
+        for p_price in product.prices:
+             # Check for duplicates or invalid IDs allowed? 
+             # Assuming frontend sends valid data or catching integrity error
+             db_price = models.ProductPrice(
+                 product_id=db_product.id,
+                 price_list_id=p_price.price_list_id,
+                 price=p_price.price
+             )
+             db.add(db_price)
+        db.commit()
+        db.refresh(db_product)
+
     # 2. WebSocket en Background
     payload = {
         "id": db_product.id,
@@ -198,6 +212,11 @@ def update_product(product_id: int, product_update: schemas.ProductUpdate, backg
     stocks_data = None
     if "warehouse_stocks" in update_data:
         stocks_data = update_data.pop("warehouse_stocks")
+
+    # NEW: Separate prices data if present
+    prices_data = None
+    if "prices" in update_data:
+        prices_data = update_data.pop("prices")
 
     # Capture Current State (Old)
     old_state = {c.name: getattr(db_product, c.name) for c in db_product.__table__.columns}

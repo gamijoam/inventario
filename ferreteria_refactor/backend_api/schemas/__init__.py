@@ -130,10 +130,65 @@ class ProductStockCreate(BaseModel):
     quantity: Decimal
     location: Optional[str] = None
 
+# Combo/Bundle Schemas
+# Combo/Bundle Schemas
+
+
+# Combo/Bundle Schemas
+
+class PriceRuleCreate(BaseModel):
+    product_id: int
+    min_quantity: Decimal
+    price: Decimal
+
+class PriceRuleRead(BaseModel):
+    id: int
+    product_id: int
+    min_quantity: Decimal
+    price: Decimal
+
+    class Config:
+        from_attributes = True
+
+class PriceListBase(BaseModel):
+    name: str = Field(..., description="Nombre de la lista (ej: Detal)", example="Detal")
+    requires_auth: bool = Field(False, description="Requiere PIN de supervisor")
+    is_active: bool = True
+
+class PriceListCreate(PriceListBase):
+    pass
+
+class PriceListRead(PriceListBase):
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class ProductPriceBase(BaseModel):
+    price_list_id: int
+    price: Decimal = Field(..., description="Precio en la lista", ge=0, example="10.5000")
+
+class ProductPriceInput(ProductPriceBase):
+    """Schema for input when creating/updating product (nested)"""
+    pass
+
+class ProductPriceCreate(ProductPriceBase):
+    product_id: int
+
+class ProductPriceRead(ProductPriceBase):
+    id: int
+    product_id: int
+    price_list: Optional[PriceListRead] = None  # Include list details if needed
+
+    class Config:
+        from_attributes = True
+
 class ProductCreate(ProductBase):
     units: List[ProductUnitCreate] = Field([], description="Lista de unidades alternativas (cajas, bultos)")
     combo_items: List[ComboItemCreate] = Field([], description="Lista de componentes si es un combo")
     warehouse_stocks: List[ProductStockCreate] = Field([], description="Distribución de stock por almacén")
+    prices: List[ProductPriceInput] = Field([], description="Precios por lista (Mayorista, VIP, etc)") # NEW
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -164,25 +219,12 @@ class ProductUpdate(BaseModel):
     units: Optional[List[ProductUnitCreate]] = None
     combo_items: Optional[List[ComboItemCreate]] = None  # NEW: Allow updating combo items
     warehouse_stocks: Optional[List[ProductStockCreate]] = None  # NEW: Allow updating stocks per warehouse
+    prices: Optional[List[ProductPriceInput]] = None # NEW
     
     # Warranty Updates
     warranty_duration: Optional[int] = None
     warranty_unit: Optional[str] = None
     warranty_notes: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
-class PriceRuleCreate(BaseModel):
-    product_id: int
-    min_quantity: Decimal
-    price: Decimal
-
-class PriceRuleRead(BaseModel):
-    id: int
-    product_id: int
-    min_quantity: Decimal
-    price: Decimal
 
     class Config:
         from_attributes = True
@@ -194,7 +236,7 @@ class ProductRead(ProductBase):
     combo_items: List[ComboItemRead] = []  # NEW: Include combo items
     stocks: List[ProductStockRead] = [] # NEW: Include warehouse stocks
     has_imei: Optional[bool] = False # NEW: Include serialized status exposed to frontend
-    
+    prices: List[ProductPriceRead] = [] # NEW: Multi-Price List
     
     class Config:
         from_attributes = True
@@ -211,6 +253,8 @@ class SaleDetailCreate(BaseModel):
     tax_rate: Decimal = Decimal("0.00")
     salesperson_id: Optional[int] = None # NEW: Granular commission support
     serial_numbers: Optional[List[str]] = Field(None, description="Lista de seriales para productos serializados") # NEW
+    price_list_id: Optional[int] = None # NEW: Price List Validation
+    auth_user_id: Optional[int] = None # NEW: Supervisor Auth for Price List
 
     class Config:
         from_attributes = True

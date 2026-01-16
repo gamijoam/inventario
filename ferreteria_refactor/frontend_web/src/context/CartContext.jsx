@@ -216,11 +216,21 @@ export const CartProvider = ({ children }) => {
         setCart(prev => updateItemQuantityInList(prev, itemId, newQuantity));
     };
 
-    // NEW: Update arbitrary item fields (e.g. salesperson_id)
+    // NEW: Update arbitrary item fields (e.g. salesperson_id, price)
     const updateCartItem = (itemId, updates) => {
-        setCart(prev => prev.map(item =>
-            item.id === itemId ? { ...item, ...updates } : item
-        ));
+        setCart(prev => prev.map(item => {
+            if (item.id === itemId) {
+                const newItem = { ...item, ...updates };
+
+                // Recalculate Subtotals if price or rate changed
+                if ('unit_price_usd' in updates || 'exchange_rate' in updates) {
+                    newItem.subtotal_usd = newItem.unit_price_usd * newItem.quantity;
+                    newItem.subtotal_bs = newItem.subtotal_usd * newItem.exchange_rate;
+                }
+                return newItem;
+            }
+            return item;
+        }));
     };
 
     const clearCart = () => setCart([]);

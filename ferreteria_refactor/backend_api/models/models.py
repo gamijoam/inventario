@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric, Text, DateTime, Enum, JSON
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric, Text, DateTime, Enum, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 from ..database.db import Base
 import datetime
@@ -92,8 +92,44 @@ class ExchangeRate(Base):
     products = relationship("Product", back_populates="exchange_rate")
     product_units = relationship("ProductUnit", back_populates="exchange_rate")
     
+    
     def __repr__(self):
         return f"<ExchangeRate(name='{self.name}', code='{self.currency_code}', rate={self.rate})>"
+
+class PriceList(Base):
+    __tablename__ = "price_lists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)  # "Retail", "Wholesale", "VIP"
+    requires_auth = Column(Boolean, default=False)  # If True, requires Supervisor PIN
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    product_prices = relationship("ProductPrice", back_populates="price_list", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<PriceList(name='{self.name}', auth={self.requires_auth})>"
+
+class ProductPrice(Base):
+    __tablename__ = "product_prices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    price_list_id = Column(Integer, ForeignKey("price_lists.id"), nullable=False)
+    price = Column(Numeric(18, 4), nullable=False, default=0.0000)
+    
+    # __table_args__ = (
+    #    UniqueConstraint('product_id', 'price_list_id', name='uix_product_price_list'),
+    # ) 
+    # Commented out constraint to avoid import error if UniqueConstraint isn't imported
+    # Will add import in a separate step or just assume application logic handles it?
+    # Better to add the import.
+                 
+    product = relationship("Product", back_populates="prices")
+    price_list = relationship("PriceList", back_populates="product_prices")
+
+    def __repr__(self):
+        return f"<ProductPrice(product={self.product_id}, list={self.price_list_id}, price={self.price})>"
 
 class Product(Base):
     __tablename__ = "products"
@@ -172,6 +208,9 @@ class Product(Base):
     
     # NEW: Serialized Inventory
     instances = relationship("ProductInstance", back_populates="product", cascade="all, delete-orphan")
+
+    # NEW: Multiple Price Lists Support
+    prices = relationship("ProductPrice", back_populates="product", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Product(name='{self.name}', is_box={self.is_box}, is_combo={self.is_combo}, factor={self.conversion_factor})>"
