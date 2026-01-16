@@ -1,7 +1,7 @@
-import { useAuth } from '../context/AuthContext'; // NEW
+import { useAuth } from '../context/AuthContext';
 import { useState, useRef, useEffect } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin, User, Wrench, DollarSign, Settings } from 'lucide-react'; // Added Settings
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin, User, Wrench, DollarSign, Settings, Lock, Unlock, ChevronDown } from 'lucide-react'; // Added Lock, Unlock, ChevronDown
 import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
@@ -20,8 +20,9 @@ import useBarcodeScanner from '../hooks/useBarcodeScanner';
 import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
 import ProductCard from '../components/pos/ProductCard';
-import POSSettingsModal from '../components/pos/POSSettingsModal'; // NEW
-import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes'; // NEW
+import POSSettingsModal from '../components/pos/POSSettingsModal';
+import PinAuthModal from '../components/common/PinAuthModal'; // NEW
+import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes';
 
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
@@ -33,7 +34,7 @@ const formatStock = (stock) => {
 };
 
 const POS = () => {
-    const { user } = useAuth(); // NEW
+    const { user } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates } = useCart();
     const { isSessionOpen, openSession, loading } = useCash();
     const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
@@ -62,6 +63,12 @@ const POS = () => {
     const [quoteCustomer, setQuoteCustomer] = useState(null);
     const [activeQuoteId, setActiveQuoteId] = useState(null);
 
+    // NEW: Price Lists & Security State
+    const [priceLists, setPriceLists] = useState([]);
+    const [pinModalOpen, setPinModalOpen] = useState(false);
+    const [pendingPriceUpdate, setPendingPriceUpdate] = useState(null); // { itemId, price, listId }
+    const [activePricePopover, setActivePricePopover] = useState(null); // itemId
+
     // NEW: Service Order Integration
     const [isServiceImportOpen, setIsServiceImportOpen] = useState(false);
     const [activeServiceOrderId, setActiveServiceOrderId] = useState(null);
@@ -71,9 +78,9 @@ const POS = () => {
     // Data State
     const [catalog, setCatalog] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [warehouses, setWarehouses] = useState([]); // NEW
-    const [selectedWarehouseId, setSelectedWarehouseId] = useState(''); // NEW
-    const [salespeople, setSalespeople] = useState([]); // NEW: Technical Services
+    const [warehouses, setWarehouses] = useState([]);
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
+    const [salespeople, setSalespeople] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Refs
@@ -217,19 +224,27 @@ const POS = () => {
     useEffect(() => {
         // ... (Existing Fetch Data) ...
         const fetchData = async () => {
-            // ... existing fetch logic ...
+            // Check session status first
+            // ... (keep implies simple update, but replacing block)
+            // Assuming session check is handled by context/other logic or implicit here
+
             try {
-                const [productsRes, categoriesRes, warehousesRes] = await Promise.all([
+                const [productsRes, categoriesRes, warehousesRes, priceListsRes] = await Promise.all([
                     apiClient.get('/products/'),
                     apiClient.get('/categories'),
-                    apiClient.get('/warehouses')
+                    apiClient.get('/warehouses'),
+                    apiClient.get('/price-lists/') // NEW
                 ]);
                 setCatalog(Array.isArray(productsRes.data) ? productsRes.data : []);
                 setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
                 setWarehouses(Array.isArray(warehousesRes.data) ? warehousesRes.data : []);
+
+                if (priceListsRes && Array.isArray(priceListsRes.data)) {
+                    setPriceLists(priceListsRes.data.filter(pl => pl.is_active));
+                }
                 setSelectedWarehouseId('all');
 
-                if (modules?.services) { // Load users if services active
+                if (modules?.services) {
                     try {
                         const usersRes = await apiClient.get('/users');
                         if (Array.isArray(usersRes.data)) {
@@ -481,6 +496,59 @@ const POS = () => {
         setActiveServiceOrderId(null); // Clear service state
         setServiceOrderTicket(null);
         setQuoteCustomer(null);
+    };
+
+    // NEW: Price List Logic
+    const handlePriceListSelect = (list, item) => {
+        const itemProduct = catalog.find(p => p.id === item.product_id);
+
+        // Find specific price for this list
+        let newPrice = null;
+
+        if (itemProduct && itemProduct.prices) {
+            const priceEntry = itemProduct.prices.find(p => p.price_list_id === list.id);
+            if (priceEntry) newPrice = parseFloat(priceEntry.price);
+        }
+
+        // If not found, maybe fallback or block?
+        // Logic: if list is "Base", revert to base price. 
+        // Note: The "Default" list might not be in `prices` array if it's the main price field.
+        // We should add a "Precio Base" option too? 
+        // Ideally backend provides all lists. Or we treat the main price as the "Default" list if valid.
+
+        if (newPrice === null) {
+            toast.error("Este producto no tiene precio asignado en esta lista");
+            return;
+        }
+
+        if (list.requires_auth) {
+            setPendingPriceUpdate({
+                itemId: item.id,
+                price: newPrice,
+                listId: list.id
+            });
+            setPinModalOpen(true);
+        } else {
+            updateCartItem(item.id, {
+                unit_price_usd: newPrice,
+                price_list_id: list.id,
+                auth_user_id: null // Clear auth
+            });
+            setActivePricePopover(null);
+            toast.success(`Precio actualizado a lista: ${list.name}`);
+        }
+    };
+
+    const handlePinSuccess = (userId) => {
+        if (pendingPriceUpdate) {
+            updateCartItem(pendingPriceUpdate.itemId, {
+                unit_price_usd: pendingPriceUpdate.price,
+                price_list_id: pendingPriceUpdate.listId,
+                auth_user_id: userId
+            });
+            setPendingPriceUpdate(null);
+            setActivePricePopover(null);
+        }
     };
 
     // Mobile View State
@@ -743,7 +811,73 @@ const POS = () => {
                                             )}
 
                                         </div>
-                                        <div className="text-right shrink-0">
+                                        <div className="text-right shrink-0 relative">
+                                            {/* UNIT PRICE SELECTOR */}
+                                            <div
+                                                className={`text-[10px] font-medium mb-0.5 cursor-pointer hover:text-indigo-600 transition-colors flex items-center justify-end gap-1 ${activePricePopover === item.id ? 'text-indigo-600' : 'text-slate-400'}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActivePricePopover(activePricePopover === item.id ? null : item.id);
+                                                }}
+                                            >
+                                                {item.price_list_id ? (
+                                                    // Find list name
+                                                    <span>{priceLists.find(pl => pl.id === item.price_list_id)?.name || 'Especial'}</span>
+                                                ) : 'Precio Base'}
+                                                <span className="font-bold">${formatCurrency(item.unit_price_usd)}</span>
+                                                <ChevronDown size={10} />
+                                            </div>
+
+                                            {/* POPOVER */}
+                                            {activePricePopover === item.id && (
+                                                <div
+                                                    className="absolute right-0 top-6 z-50 w-48 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <div className="p-2 space-y-1">
+                                                        <div className="text-[9px] font-bold text-slate-400 uppercase px-2 py-1">Seleccionar Tarifa</div>
+                                                        {/* Base Price Option */}
+                                                        {(() => {
+                                                            const prod = catalog.find(p => p.id === item.product_id);
+                                                            if (!prod) return null;
+                                                            return (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        updateCartItem(item.id, { unit_price_usd: parseFloat(prod.price), price_list_id: null, auth_user_id: null });
+                                                                        setActivePricePopover(null);
+                                                                    }}
+                                                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 flex justify-between items-center group"
+                                                                >
+                                                                    <span className="text-xs font-medium text-slate-600 group-hover:text-indigo-600">Base</span>
+                                                                    <span className="text-xs font-bold text-slate-800">${formatCurrency(prod.price)}</span>
+                                                                </button>
+                                                            );
+                                                        })()}
+
+                                                        {/* Other Lists */}
+                                                        {priceLists.map(list => {
+                                                            const prod = catalog.find(p => p.id === item.product_id);
+                                                            const priceEntry = prod?.prices?.find(p => p.price_list_id === list.id);
+                                                            if (!priceEntry) return null;
+
+                                                            return (
+                                                                <button
+                                                                    key={list.id}
+                                                                    onClick={() => handlePriceListSelect(list, item)}
+                                                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 flex justify-between items-center group"
+                                                                >
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {list.requires_auth ? <Lock size={10} className="text-rose-400" /> : <Unlock size={10} className="text-emerald-400" />}
+                                                                        <span className="text-xs font-medium text-slate-600 group-hover:text-indigo-600">{list.name}</span>
+                                                                    </div>
+                                                                    <span className="text-xs font-bold text-slate-800">${formatCurrency(priceEntry.price)}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div className="font-bold text-slate-800">${formatCurrency(item.subtotal_usd || 0)}</div>
                                             <span className="text-[10px] text-slate-400 font-mono">
                                                 Bs {Number(item.subtotal_bs || 0).toLocaleString('es-VE', { maximumFractionDigits: 2 })}
@@ -872,6 +1006,14 @@ const POS = () => {
             <POSSettingsModal
                 isOpen={isSettingsOpen}
                 onClose={() => setIsSettingsOpen(false)}
+            />
+
+            <PinAuthModal
+                isOpen={pinModalOpen}
+                onClose={() => setPinModalOpen(false)}
+                onSuccess={handlePinSuccess}
+                title="Autorización de Precio"
+                message="Se requiere PIN para aplicar este precio"
             />
 
             <UnitSelectionModal

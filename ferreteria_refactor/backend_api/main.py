@@ -20,7 +20,7 @@ from .routers import (
     auth, products, users, reports, customers, suppliers, 
     purchases, cash, config, quotes, warehouses, transfers, 
     inventory, returns, categories, websocket, audit, system, 
-    payment_methods, sync, sync_local, cloud, credits, services, commissions, rma
+    payment_methods, sync, sync_local, cloud, credits, services, commissions, rma, price_lists
 )
 from .audit_utils import log_action
 from .models.models import UserRole
@@ -95,6 +95,7 @@ app.include_router(transfers.router, prefix="/api/v1", tags=["Traslados"]) # New
 app.include_router(services, prefix="/api/v1", tags=["Servicios Técnicos"]) # NEW: Service Order Router
 app.include_router(commissions.router, prefix="/api/v1", tags=["Comisiones"]) # NEW: Commissions
 app.include_router(rma.router, prefix="/api/v1", tags=["Garantías RMA"]) # NEW: RMA
+app.include_router(price_lists.router, prefix="/api/v1", tags=["Listas de Precios"]) # NEW: Price Lists
 app.include_router(cloud.router, prefix="/api/v1", tags=["Cloud Configuration"]) # Cloud testing
 
 from .routers.modules.restaurant import tables as restaurant_tables
