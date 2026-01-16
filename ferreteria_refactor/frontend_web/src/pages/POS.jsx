@@ -21,7 +21,7 @@ import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
 import ProductCard from '../components/pos/ProductCard';
 import POSSettingsModal from '../components/pos/POSSettingsModal'; // NEW
-import { DEFAULT_THEME } from '../constants/posThemes'; // NEW
+import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes'; // NEW
 
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
@@ -40,8 +40,9 @@ const POS = () => {
     const { subscribe } = useWebSocket();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
-    // Theme State
-    const currentTheme = user?.preferences?.pos_theme || DEFAULT_THEME;
+    // Theme State - Resolve by ID to ensure latest styles
+    const themeId = user?.preferences?.pos_theme?.id || 'default';
+    const currentTheme = POS_THEMES.find(t => t.id === themeId) || DEFAULT_THEME;
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     useEffect(() => {
@@ -260,6 +261,7 @@ const POS = () => {
 
     // ... Handle Product Click ...
     const handleProductClick = (product) => {
+        setSearchTerm(''); // Clear search on selection
         if (product.has_imei) {
             setSelectedProductForSerialized(product);
             return;
@@ -485,7 +487,7 @@ const POS = () => {
     const [mobileTab, setMobileTab] = useState('catalog'); // 'catalog' | 'ticket'
 
     return (
-        <div className={`flex flex-col md:flex-row h-[calc(100vh-64px)] overflow-hidden relative p-4 gap-4 transition-colors duration-500 ${currentTheme.app_bg || 'bg-slate-100'}`}>
+        <div className={`flex flex-col md:flex-row h-screen overflow-hidden relative p-4 gap-4 transition-colors duration-500 ${currentTheme.app_bg || 'bg-slate-100'}`}>
 
             {/* =====================================================================================
                 LEFT COLUMN: CATALOG & TOOLS (65% Width)
@@ -780,18 +782,18 @@ const POS = () => {
                 </div>
 
                 {/* Footer Actions */}
-                < div className="bg-white border-t border-slate-100 p-4 space-y-3 z-20" >
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <div className="bg-transparent border-t border-white/20 p-4 space-y-3 z-20">
+                    <div className="bg-white/40 backdrop-blur-md rounded-xl p-4 border border-white/30 shadow-sm">
                         <div className="flex justify-between items-end mb-1">
-                            <span className="text-slate-500 font-medium text-xs">Total a Pagar</span>
+                            <span className="text-slate-600 font-medium text-xs">Total a Pagar</span>
                             <span className="text-2xl font-black text-slate-800 tracking-tight">
                                 {anchorCurrency.symbol}{formatCurrency(totalUSD)}
                             </span>
                         </div>
                         {/* Total in Bs */}
                         <div className="flex justify-between items-end">
-                            <span className="text-slate-400 font-medium text-[10px]">Bolívares</span>
-                            <span className="text-sm font-bold text-slate-500 font-mono">
+                            <span className="text-slate-500 font-medium text-[10px]">Bolívares</span>
+                            <span className="text-sm font-bold text-slate-600 font-mono">
                                 Bs {cart.reduce((sum, item) => sum + (Number(item.subtotal_bs) || 0), 0).toLocaleString('es-VE', { maximumFractionDigits: 2 })}
                             </span>
                         </div>
@@ -800,20 +802,20 @@ const POS = () => {
                     <div className="grid grid-cols-2 gap-3">
                         <button
                             onClick={() => setIsMovementOpen(true)}
-                            className="flex items-center justify-center gap-2 py-2.5 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 text-slate-600 text-xs font-bold transition-all"
+                            className="flex items-center justify-center gap-2 py-2.5 bg-white/60 hover:bg-white border border-white/40 rounded-lg shadow-sm text-slate-700 text-xs font-bold transition-all"
                         >
                             <CreditCard size={14} /> Caja / Avance
                         </button>
                         <Link
                             to="/cash-close"
-                            className="flex items-center justify-center gap-2 py-2.5 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 text-slate-600 text-xs font-bold transition-all"
+                            className="flex items-center justify-center gap-2 py-2.5 bg-white/60 hover:bg-white border border-white/40 rounded-lg shadow-sm text-slate-700 text-xs font-bold transition-all"
                         >
                             <Receipt size={14} /> Cierre
                         </Link>
 
                         <button
                             onClick={() => setIsAdvanceOpen(true)}
-                            className="flex items-center justify-center gap-2 py-2.5 bg-rose-50 border border-rose-200 rounded-lg shadow-sm hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all col-span-2"
+                            className="flex items-center justify-center gap-2 py-2.5 bg-rose-50/80 border border-rose-200/60 hover:bg-rose-100 rounded-lg shadow-sm text-rose-700 text-xs font-bold transition-all col-span-2"
                         >
                             <DollarSign size={14} /> Avance Efectivo
                         </button>

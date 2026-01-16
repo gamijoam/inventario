@@ -57,7 +57,8 @@ export const AuthProvider = ({ children }) => {
                     username: currentUser.username,
                     role: currentUser.role,
                     full_name: currentUser.full_name,
-                    is_active: currentUser.is_active
+                    is_active: currentUser.is_active,
+                    preferences: currentUser.preferences || {} // Ensure it persists
                 };
 
                 setUser(userData);

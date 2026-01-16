@@ -75,14 +75,23 @@ def update_user(user_id: int, user_data: schemas.UserUpdate, db: Session = Depen
     if user_data.commission_percentage is not None: # NEW
         user.commission_percentage = user_data.commission_percentage
     if user_data.preferences is not None: # NEW
+        print(f"[DEBUG] Updating preferences for user {user_id}", flush=True)
+        print(f"[DEBUG] Incoming payload: {user_data.preferences}", flush=True)
+        
         # Helper to ensure we don't wipe existing keys if sending partial updates
         # For now, simplistic approach: Frontend sends full object or we merge shallowly
-        current_prefs = user.preferences or {}
+        current_prefs = dict(user.preferences) if user.preferences else {}
+        print(f"[DEBUG] Current DB prefs: {current_prefs}", flush=True)
+
         if isinstance(user_data.preferences, dict):
             current_prefs.update(user_data.preferences)
-            user.preferences = current_prefs
-            # Force flag modified for SQLAlchemy to detect JSON change if using mutable (but here we assign new dict ref effectively)
-            user.preferences = dict(current_prefs) 
+            # FORCE RE-ASSIGNMENT with new ID to ensure SQLA detects change
+            user.preferences = current_prefs.copy() 
+            print(f"[DEBUG] Final prefs to save: {user.preferences}", flush=True)
+            
+            # Explicitly flag modified just in case
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(user, "preferences") 
 
     db.commit()
     db.refresh(user)
