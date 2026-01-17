@@ -82,7 +82,11 @@ def check_warranty_status(imei: str, db: Session = Depends(get_db)):
 
 
 @router.post("/process", response_model=rma_schemas.RMAProcessResponse)
-def process_rma_return(payload: rma_schemas.RMAProcessRequest, db: Session = Depends(get_db)):
+def process_rma_return(
+    payload: rma_schemas.RMAProcessRequest, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     """
     Process the return of a serialized item.
     - Updates Inventory (Available vs RMA)
@@ -194,14 +198,24 @@ def process_rma_return(payload: rma_schemas.RMAProcessRequest, db: Session = Dep
     
     # If Action is REFUND, Move Cash
     if payload.action == "REFUND":
-        # Check active session? For simplicity, we assume we need an open session, 
-        # but if we are strict, we might block if no session.
-        # Let's try to find an open session for the current user (if passed via auth)
-        # For now, just logging the movement generically linked to the sale's warehouse implicitly?
-        # Ideally we need the CURRENT cashier's session.
-        # We'll skip session link if complex, but better to be correct.
-        pass 
-        # (Enhancement: Link to Request.User.active_session. For now we assume Manager handles cash)
+        # Check active session
+        active_session = db.query(models.CashSession).filter(
+            models.CashSession.user_id == current_user.id, 
+            models.CashSession.status == "OPEN"
+        ).first()
+
+        if not active_session:
+             raise HTTPException(status_code=400, detail="Debe tener una caja abierta para procesar el reembolso.")
+        
+        # Create Cash Movement (Outflow)
+        movement = models.CashMovement(
+            session_id=active_session.id,
+            type="EXPENSE", # Treated as Expense/Return
+            amount=refund_amount,
+            currency="USD", # Defaulting to base currency for now
+            description=f"Reembolso por Garantía RMA: {payload.reason} (IMEI: {payload.imei})"
+        )
+        db.add(movement)
 
     db.commit()
 

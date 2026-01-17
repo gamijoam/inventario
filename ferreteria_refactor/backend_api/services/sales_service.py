@@ -192,12 +192,14 @@ class SalesService:
                          raise HTTPException(status_code=400, detail=f"Product '{product.name}' not found in Price List '{price_list.name}'")
                      
                      # 4. OVERRIDE: Trust NO ONE. Use DB Price.
-                     print(f"[SECURITY] Overriding price for {product.name}. Frontend: {item.unit_price} -> DB: {db_price_record.price}")
-                     effective_price = db_price_record.price
+                     # CRITICAL FIX: Pricing is per Base Unit. Must multiply by factor for Boxes/Packs.
+                     base_price = db_price_record.price
+                     factor = Decimal(str(item.conversion_factor)) if item.conversion_factor else Decimal("1.0")
+                     effective_price = base_price * factor
+                     
+                     print(f"[SECURITY] Overriding price for {product.name}. Frontend: {item.unit_price} -> DB: {base_price} x {factor} = {effective_price}")
                      
                      # Update item object for subtotal calc below
-                     # Warning: Pydantic models are immutable-ish? No, usually distinct. 
-                     # But better use local var 'effective_price' for calcs.
                      item.unit_price = effective_price # Update for storage in SaleDetail
                      
                 
