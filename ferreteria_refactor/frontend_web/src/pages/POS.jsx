@@ -218,7 +218,7 @@ const POS = () => {
         if (foundProduct) handleProductClick(foundProduct);
     };
 
-    useBarcodeScanner(handleGlobalScan, { minLength: 3, maxTimeBetweenKeys: 50 });
+    useBarcodeScanner(handleGlobalScan, { minLength: 3, maxTimeBetweenKeys: 50, enabled: !pinModalOpen });
 
 
     useEffect(() => {
@@ -500,6 +500,7 @@ const POS = () => {
 
     // NEW: Price List Logic
     const handlePriceListSelect = (list, item) => {
+        console.log("DEBUG: handlePriceListSelect", list);
         const itemProduct = catalog.find(p => p.id === item.product_id);
 
         // Find specific price for this list
@@ -1008,13 +1009,7 @@ const POS = () => {
                 onClose={() => setIsSettingsOpen(false)}
             />
 
-            <PinAuthModal
-                isOpen={pinModalOpen}
-                onClose={() => setPinModalOpen(false)}
-                onSuccess={handlePinSuccess}
-                title="Autorización de Precio"
-                message="Se requiere PIN para aplicar este precio"
-            />
+
 
             <UnitSelectionModal
                 isOpen={!!selectedProductForUnits}
@@ -1046,6 +1041,19 @@ const POS = () => {
                 initialCustomer={quoteCustomer}
                 quoteId={activeQuoteId}
                 customSubmit={activeServiceOrderId ? handleServiceCheckoutSubmit : null}
+            />
+
+            {/* PIN Auth Modal */}
+            <PinAuthModal
+                isOpen={pinModalOpen}
+                onClose={() => {
+                    setPinModalOpen(false);
+                    setPendingPriceUpdate(null);
+                    setActivePricePopover(null);
+                }}
+                onSuccess={handlePinSuccess}
+                title="Autorización Requerida"
+                message="Ingrese PIN de supervisor para aplicar este precio."
             />
 
             <SerializedItemModal

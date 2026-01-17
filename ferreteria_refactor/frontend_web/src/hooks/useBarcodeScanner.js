@@ -15,7 +15,8 @@ const useBarcodeScanner = (onScan, options = {}) => {
         minLength = 3,
         maxTimeBetweenKeys = 50,
         timeoutAfterEnter = 100,
-        ignoreIfFocused = false
+        ignoreIfFocused = false,
+        enabled = true // New option
     } = options;
 
     const bufferRef = useRef('');
@@ -24,6 +25,8 @@ const useBarcodeScanner = (onScan, options = {}) => {
 
     useEffect(() => {
         const handleKeyDown = (event) => {
+            if (!enabled) return; // Skip if disabled
+
             const currentTime = Date.now();
             const timeSinceLastKey = currentTime - lastKeyTimeRef.current;
 
@@ -103,7 +106,7 @@ const useBarcodeScanner = (onScan, options = {}) => {
                 clearTimeout(timeoutRef.current);
             }
         };
-    }, [onScan, minLength, maxTimeBetweenKeys, timeoutAfterEnter, ignoreIfFocused]);
+    }, [onScan, minLength, maxTimeBetweenKeys, timeoutAfterEnter, ignoreIfFocused, enabled]);
 };
 
 export default useBarcodeScanner;

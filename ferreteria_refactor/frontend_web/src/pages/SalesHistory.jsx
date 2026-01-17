@@ -213,7 +213,7 @@ const SalesHistory = () => {
             return (
                 <div className="flex flex-col items-end">
                     <div className="font-bold text-slate-800 text-sm">
-                        {symbol} {payment.amount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {symbol} {Number(payment.amount).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div className="text-[10px] text-slate-400 font-bold tracking-wide flex items-center gap-1">
                         {payment.currency}

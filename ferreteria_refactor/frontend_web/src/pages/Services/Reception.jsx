@@ -240,14 +240,13 @@ const Reception = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Serial / IMEI *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Serial / IMEI (Opcional)</label>
                                 <input
                                     name="serial_imei"
                                     value={formData.serial_imei}
                                     onChange={handleInputChange}
                                     className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm"
-                                    placeholder="Obligatorio para tracking"
-                                    required
+                                    placeholder="Ingrese Serial (Opcional)"
                                 />
                             </div>
                         </div>

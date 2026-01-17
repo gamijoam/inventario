@@ -41,7 +41,7 @@ def read_products(
     db: Session = Depends(get_db)
 ):
     try:
-        query = db.query(models.Product).options(joinedload(models.Product.units), joinedload(models.Product.stocks)).filter(models.Product.is_active == True)
+        query = db.query(models.Product).options(joinedload(models.Product.units), joinedload(models.Product.stocks), joinedload(models.Product.prices)).filter(models.Product.is_active == True)
         
         # FILTER: Warehouse
         if warehouse_id:
@@ -71,10 +71,10 @@ def read_products(
 
 @router.post("/", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
 @router.post("", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))], include_in_schema=False)
-def create_product(product: schemas.ProductCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def create_product(product: schemas.ProductCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     # 1. Operaciones DB (Síncronas en Threadpool)
     # 1. Operaciones DB (Síncronas en Threadpool)
-    product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks"})
+    product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks", "prices"})
     db_product = models.Product(**product_data)
     db.add(db_product)
     try:
@@ -84,7 +84,7 @@ def create_product(product: schemas.ProductCreate, background_tasks: BackgroundT
         db.rollback()
         if "unique" in str(e).lower() or "duplicate" in str(e).lower():
             raise HTTPException(status_code=400, detail="Product with this SKU or Name already exists")
-        raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Database Error (Base): {str(e)}")
 
     # Process Units
     if product.units:
@@ -149,17 +149,32 @@ def create_product(product: schemas.ProductCreate, background_tasks: BackgroundT
 
     # NEW: Process Price Lists
     if product.prices:
-        for p_price in product.prices:
-             # Check for duplicates or invalid IDs allowed? 
-             # Assuming frontend sends valid data or catching integrity error
-             db_price = models.ProductPrice(
-                 product_id=db_product.id,
-                 price_list_id=p_price.price_list_id,
-                 price=p_price.price
-             )
-             db.add(db_price)
-        db.commit()
-        db.refresh(db_product)
+        try:
+            import os
+            for p_price in product.prices:
+                 # Handle Pydantic model vs dict
+                 p_list_id = p_price.price_list_id if hasattr(p_price, 'price_list_id') else p_price['price_list_id']
+                 p_val = p_price.price if hasattr(p_price, 'price') else p_price['price']
+                 
+                 db_price = models.ProductPrice(
+                     product_id=db_product.id,
+                     price_list_id=p_list_id,
+                     price=p_val
+                 )
+                 db.add(db_price)
+            db.commit()
+            db.refresh(db_product)
+        except Exception as e:
+            db.rollback()
+            import traceback
+            err_msg = f"Error saving prices: {str(e)}\n{traceback.format_exc()}"
+            print(f"[ERROR] {err_msg}")
+            try:
+                with open(os.path.join(os.getcwd(), "debug_error.log"), "w") as f:
+                    f.write(err_msg)
+            except:
+                pass
+            raise HTTPException(status_code=400, detail=f"DEBUG ERROR: {str(e)}")
 
     # 2. WebSocket en Background
     payload = {
@@ -186,12 +201,12 @@ def create_product(product: schemas.ProductCreate, background_tasks: BackgroundT
             } for c in db_product.combo_items
         ] if db_product.combo_items else []
     }
-    background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
+    background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
         
     return db_product
 
 @router.put("/{product_id}", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
-def update_product(product_id: int, product_update: schemas.ProductUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def update_product(product_id: int, product_update: schemas.ProductUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -276,6 +291,28 @@ def update_product(product_id: int, product_update: schemas.ProductUpdate, backg
         # Sync total
         db_product.stock = total_stock
 
+    # NEW: Handle Prices Update (Snapshot Strategy)
+    if prices_data is not None:
+        try:
+            # Delete existing prices
+            db.query(models.ProductPrice).filter(models.ProductPrice.product_id == product_id).delete()
+            
+            # Add new prices
+            for p_price in prices_data:
+                # Handle compatibility (dict vs object)
+                p_list_id = p_price["price_list_id"] if isinstance(p_price, dict) else p_price.price_list_id
+                p_val = p_price["price"] if isinstance(p_price, dict) else p_price.price
+                
+                db_price = models.ProductPrice(
+                    product_id=product_id,
+                    price_list_id=p_list_id,
+                    price=p_val
+                )
+                db.add(db_price)
+        except Exception as e:
+            print(f"[ERROR] Failed to update prices: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to update prices: {str(e)}")
+
     db.commit()
     db.refresh(db_product)
     
@@ -316,8 +353,8 @@ def update_product(product_id: int, product_update: schemas.ProductUpdate, backg
             } for c in db_product.combo_items
         ] if db_product.combo_items else []
     }
-    background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_UPDATED, payload)
-    
+    background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_UPDATED, payload)
+        
     return db_product
 
 # ========================================
@@ -604,6 +641,8 @@ def create_price_rule(product_id: int, rule: schemas.PriceRuleCreate, db: Sessio
     db.commit()
     db.refresh(db_rule)
     return db_rule
+
+
 
 @router.delete("/rules/{rule_id}")
 def delete_price_rule(rule_id: int, db: Session = Depends(get_db)):

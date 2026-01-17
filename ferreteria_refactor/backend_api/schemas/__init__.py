@@ -9,6 +9,11 @@ class ItemCondition(str, Enum):
     GOOD = "GOOD"
     DAMAGED = "DAMAGED"
 
+class WarrantyUnit(str, Enum):
+    DAYS = "DAYS"
+    MONTHS = "MONTHS"
+    YEARS = "YEARS"
+
 class ProductBase(BaseModel):
     name: str = Field(..., description="Nombre comercial del producto", example="Taladro Percutor 500W")
     sku: Optional[str] = Field(None, description="Código único de inventario (SKU)", example="TAL-001")
@@ -43,7 +48,7 @@ class ProductBase(BaseModel):
 
     # Warranty Configuration
     warranty_duration: Optional[int] = Field(0, description="Duración de la garantía", example=30)
-    warranty_unit: Optional[str] = Field("DAYS", description="Unidad de tiempo (DAYS/MONTHS/YEARS)", example="DAYS")
+    warranty_unit: Optional[WarrantyUnit] = Field(WarrantyUnit.DAYS, description="Unidad de tiempo (DAYS/MONTHS/YEARS)", example="DAYS")
     warranty_notes: Optional[str] = Field(None, description="Notas de garantía", example="Solo defectos de fábrica")
 
 # Exchange Rate Schemas
