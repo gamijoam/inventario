@@ -1,54 +1,84 @@
-# Sistema de Gestión de Ferretería
+# Sistema de Gestión de Ferretería (Refactor)
 
-Este es un sistema completo de punto de venta (POS) y gestión de inventario diseñado para ferreterías, desarrollado en Python utilizando PySide6 y QML para una interfaz moderna y fluida.
-
-## 🚀 Características Principales
-
-- **Punto de Venta (POS):** Interfaz optimizada para ventas rápidas, manejo de múltiples monedas (USD/Bs) y cálculo automático de vueltos.
-- **Gestión de Inventario:** Control de stock, productos pesados (granel), ubicaciones y categorías.
-- **Facturación:** Generación de recibos térmicos y control de impresoras.
-- **Clientes:** Base de datos de clientes con historial de compras.
-- **Reportes:** Exportación de datos y reportes de ventas (Excel/PDF).
-
-## 🛠️ Tecnologías
-
-- **Lenguaje:** Python 3.x
-- **GUI:** PySide6 (Qt) + QML
-- **Base de Datos:** SQLite (Local)
-- **ORM:** SQLAlchemy
-- **Reportes:** ReportLab, Pandas, OpenPyXL
+Este repositorio contiene el código fuente del sistema de gestión para ferreterías, refactorizado para separar el Backend (Python/FastAPI) y el Frontend (React/Vite).
 
 ## 📋 Requisitos Previos
 
-Necesitas tener Python instalado. Se recomienda usar un entorno virtual.
+Para ejecutar este proyecto necesitas tener instalado:
+
+*   **Python 3.10+**: Para el backend.
+*   **Node.js 18+ y npm**: Para el frontend.
+*   **Git**: Para el control de versiones.
+
+## 🚀 Instalación y Configuración
+
+Sigue estos pasos para configurar el entorno de desarrollo desde cero.
+
+### 1. Backend (API Python)
+
+El backend maneja la lógica de negocio y la base de datos.
+
+1.  Abre una terminal en la carpeta raíz del proyecto (`ferreteria/`).
+2.  (Opcional pero recomendado) Crea y activa un entorno virtual:
+    ```bash
+    python -m venv venv
+    # En Windows:
+    .\venv\Scripts\activate
+    # En macOS/Linux:
+    source venv/bin/activate
+    ```
+3.  Instala las dependencias:
+    ```bash
+    pip install -r requirements.txt
+    ```
+4.  El backend está listo para ejecutarse.
+
+### 2. Frontend (Interfaz Web)
+
+El frontend es una aplicación React ubicada en `ferreteria_refactor/frontend_web`.
+
+1.  Navega a la carpeta del frontend:
+    ```bash
+    cd ferreteria_refactor/frontend_web
+    ```
+2.  Instala las dependencias de Node.js:
+    ```bash
+    npm install
+    ```
+
+## ▶️ Ejecución del Proyecto
+
+Necesitarás dos terminales abiertas para correr el sistema completo (una para backend y otra para frontend).
+
+### Terminal 1: Iniciar Backend
+
+Desde la carpeta raíz del proyecto:
 
 ```bash
-# Crear entorno virtual
-python -m venv venv
-
-# Activar entorno (Windows)
-.\venv\Scripts\activate
-
-# Instalar dependencias
-pip install -r requirements.txt
+# Asegúrate de tener el entorno virtual activado si creaste uno
+python run_backend.py
 ```
 
-## ▶️ Ejecución
+El servidor API iniciará generalmente en `http://localhost:8000` (o `0.0.0.0:8000`).
 
-Para iniciar la aplicación principal:
+### Terminal 2: Iniciar Frontend
+
+Desde la carpeta `ferreteria_refactor/frontend_web`:
 
 ```bash
-python run.py
+npm run dev
 ```
 
-## 📂 Estructura del Proyecto
+La aplicación web estará disponible en la URL que indique Vite (usualmente `http://localhost:5173`).
 
-- `src/`: Código fuente principal (Controladores, Modelos, Vistas).
-- `src/qml/`: Archivos de interfaz de usuario QML.
-- `landing_page/`: Página web de presentación.
-- `deployment/`: Scripts y configuraciones para compilar el ejecutable.
-- `documentos/`: Guías y documentación adicional.
+## 📦 Estructura de Carpetas
 
-## ⚠️ Notas Importantes (Base de Datos)
+*   `ferreteria_refactor/backend_api`: Código fuente de la API (FastAPI).
+*   `ferreteria_refactor/frontend_web`: Código fuente del Frontend (React).
+*   `run_backend.py`: Script de entrada para iniciar el servidor backend.
+*   `requirements.txt`: Lista de dependencias de Python.
 
-El archivo de base de datos `ferreteria.db` **NO** se incluye en el repositorio por seguridad y para evitar conflictos. Al ejecutar la aplicación por primera vez, el sistema debería generar una nueva base de datos o deberás configurar una localmente.
+## ⚠️ Notas Adicionales
+
+*   **Base de Datos**: El sistema utiliza SQLite por defecto. El archivo de base de datos se creará/buscará automáticamente según la configuración en `backend_api`.
+*   **Variables de Entorno**: Revisa si existen archivos `.env.example` para configurar variables de entorno necesarias.
