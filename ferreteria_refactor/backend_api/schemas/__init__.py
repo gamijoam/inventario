@@ -1006,23 +1006,66 @@ class ServiceOrderDetailRead(ServiceOrderDetailBase):
     class Config:
         from_attributes = True
 
+class ServiceType(str, Enum):
+    REPAIR = "REPAIR"
+    LAUNDRY = "LAUNDRY"
+
+class ServicePriority(str, Enum):
+    NORMAL = "NORMAL"
+    HIGH = "HIGH"
+    URGENT = "URGENT"
+
 class ServiceOrderBase(BaseModel):
     customer_id: int
     technician_id: Optional[int] = None
-    device_type: str
-    brand: str
-    model: str
-    serial_imei: str
+    
+    service_type: ServiceType = ServiceType.REPAIR
+    priority: ServicePriority = ServicePriority.NORMAL
+    
+    # Device Info (Optional now)
+    device_type: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    serial_imei: Optional[str] = None
     passcode_pattern: Optional[str] = None
-    problem_description: str
+    
+    # Diagnosis / Details
+    problem_description: Optional[str] = None
     physical_condition: Optional[str] = None
+    diagnosis_notes: Optional[str] = None
+    
+    # Flexible Data
+    order_metadata: Optional[Dict[str, Any]] = None
     
     # Optional on creation
     estimated_delivery: Optional[datetime] = None
+
+class ServiceOrderUpdate(BaseModel):
+    status: Optional[str] = None
     diagnosis_notes: Optional[str] = None
+    order_metadata: Optional[Dict[str, Any]] = None
+    technician_id: Optional[int] = None
+    priority: Optional[ServicePriority] = None
 
 class ServiceOrderCreate(ServiceOrderBase):
-    pass
+    @validator('problem_description')
+    def validate_tech_fields(cls, v, values):
+        service_type = values.get('service_type', ServiceType.REPAIR)
+        if service_type == ServiceType.REPAIR:
+            # If REPAIR, we might want to warn or ensure some fields are present
+            # But we made them generic. Let's ensure 'problem_description' is present for Repairs?
+            if not v:
+                 raise ValueError('La descripción del problema es obligatoria para reparaciones.')
+        return v
+        
+    @validator('serial_imei')
+    def validate_imei(cls, v, values):
+        service_type = values.get('service_type', ServiceType.REPAIR)
+        if service_type == ServiceType.REPAIR:
+             if not v:
+                 # Strictly required for REPAIR by business rule
+                 raise ValueError('El Serial/IMEI es obligatorio para reparaciones técnicas.')
+        return v
 
 class ServiceOrderRead(ServiceOrderBase):
     id: int

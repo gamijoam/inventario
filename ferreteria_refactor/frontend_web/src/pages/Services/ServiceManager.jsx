@@ -7,6 +7,8 @@ import {
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '../../utils/currency';
+import ServiceDeliveryModal from './components/ServiceDeliveryModal';
+import PaymentModal from '../../components/pos/PaymentModal';
 
 const STATUS_COLORS = {
     RECEIVED: 'bg-gray-100 text-gray-800',
@@ -32,6 +34,11 @@ const ServiceManager = () => {
     const [productSearchTerm, setProductSearchTerm] = useState('');
     const [products, setProducts] = useState([]); // Catalog subset
     const [technicians, setTechnicians] = useState([]);
+
+    // Modal State
+    const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [paymentData, setPaymentData] = useState(null);
 
     // New Item Form
     const [newItem, setNewItem] = useState({
@@ -90,8 +97,9 @@ const ServiceManager = () => {
     // Actions
     const handleUpdateStatus = async (newStatus) => {
         try {
-            await apiClient.patch(`/services/orders/${id}/status`, null, {
-                params: { status: newStatus, notes: diagnosisNotes }
+            await apiClient.patch(`/services/orders/${id}/status`, {
+                status: newStatus,
+                diagnosis_notes: diagnosisNotes
             });
             toast.success(`Estado actualizado a ${newStatus}`);
             fetchOrder();
@@ -144,14 +152,55 @@ const ServiceManager = () => {
 
     const handleSaveNotes = async () => {
         try {
-            await apiClient.patch(`/services/orders/${id}/status`, null, {
-                params: { status: order.status, notes: diagnosisNotes } // Preserve status
+            await apiClient.patch(`/services/orders/${id}/status`, {
+                status: order.status,
+                diagnosis_notes: diagnosisNotes
             });
             toast.success("Notas guardadas");
         } catch (error) {
             toast.error("Error al guardar notas");
         }
     }
+
+    // Payment & Delivery Handlers
+    const handlePaymentRequest = (data) => {
+        setPaymentData(data); // { product_id, price, etc }
+        setShowDeliveryModal(false);
+        setShowPaymentModal(true);
+    };
+
+    const handlePaymentSuccess = async (result) => {
+        // Result contains { saleId, ... } from PaymentModal
+        try {
+            // Update Order Metadata to link payment
+            const currentMeta = order.order_metadata || {};
+            await apiClient.patch(`/services/orders/${id}/status`, {
+                order_metadata: {
+                    ...currentMeta,
+                    sale_id: result.saleId,
+                    payment_status: 'PAID',
+                    payment_date: new Date().toISOString()
+                }
+            });
+
+            toast.success("Pago registrado y vinculado exitosamente");
+            setShowPaymentModal(false);
+            fetchOrder();
+        } catch (error) {
+            console.error(error);
+            toast.error("Pago registrado pero falló la vinculación con la orden");
+        }
+    };
+
+    const interceptStatusChange = (newStatus) => {
+        if (newStatus === 'DELIVERED') {
+            // Check if already paid? Ideally yes, but for now just open Delivery Modal
+            // which calculates total. Agent Note: The modal handles the "Pay vs Deliver" logic.
+            setShowDeliveryModal(true);
+        } else {
+            handleUpdateStatus(newStatus);
+        }
+    };
 
     if (loading) return <div>Cargando...</div>;
     if (!order) return <div>Orden no encontrada</div>;
@@ -170,6 +219,11 @@ const ServiceManager = () => {
                             <span className={`text-xs px-2 py-1 rounded-full ${STATUS_COLORS[order.status]}`}>
                                 {order.status}
                             </span>
+                            {order.order_metadata?.payment_status === 'PAID' && (
+                                <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold flex items-center gap-1">
+                                    <CheckCircle size={12} /> PAGADO
+                                </span>
+                            )}
                         </h1>
                         <p className="text-gray-500 text-sm">Created: {new Date(order.created_at).toLocaleDateString()}</p>
                     </div>
@@ -191,34 +245,63 @@ const ServiceManager = () => {
                     <div className="space-y-2 text-sm mb-6">
                         <p className="font-medium">{order.customer?.name}</p>
                         <p className="text-gray-500">{order.customer?.phone}</p>
-                        <p className="text-gray-500">{order.customer?.email}</p>
                     </div>
 
-                    <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <Wrench size={18} /> Equipo
-                    </h2>
-                    <div className="space-y-3 text-sm">
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                            <span className="block text-xs text-gray-500">Modelo</span>
-                            {order.brand} {order.model}
-                        </div>
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                            <span className="block text-xs text-gray-500">Serial / IMEI</span>
-                            <span className="font-mono">{order.serial_imei}</span>
-                        </div>
-                        <div className="bg-orange-50 p-3 rounded-lg border border-orange-100">
-                            <span className="block text-xs text-orange-500 font-bold flex items-center gap-1">
-                                <AlertTriangle size={10} /> Falla Reportada
-                            </span>
-                            {order.problem_description}
-                        </div>
-                        {order.passcode_pattern && (
-                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                                <span className="block text-xs text-blue-500 font-bold">Patrón / PIN</span>
-                                {order.passcode_pattern}
+                    {order.service_type === 'LAUNDRY' ? (
+                        <>
+                            <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                <Package size={18} /> Detalles de Lavado
+                            </h2>
+                            <div className="space-y-3 text-sm">
+                                <div className="bg-teal-50 p-3 rounded-lg border border-teal-100">
+                                    <span className="block text-xs text-teal-600 font-bold uppercase mb-1">Color Bolsa / ID</span>
+                                    <span className="text-lg font-bold">{order.order_metadata?.bag_color || 'N/A'}</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-gray-50 p-2 rounded-lg text-center">
+                                        <span className="block text-xs text-gray-500">Peso Total</span>
+                                        <span className="font-bold text-lg">{order.order_metadata?.weight_kg || 0} kg</span>
+                                    </div>
+                                    <div className="bg-gray-50 p-2 rounded-lg text-center">
+                                        <span className="block text-xs text-gray-500">Piezas</span>
+                                        <span className="font-bold text-lg">{order.order_metadata?.pieces || 0}</span>
+                                    </div>
+                                </div>
+                                <div className="bg-orange-50 p-3 rounded-lg border border-orange-100">
+                                    <span className="block text-xs text-orange-500 font-bold mb-1">Tipo de Lavado / Observaciones</span>
+                                    <p className="whitespace-pre-wrap">{order.problem_description || 'Sin observaciones'}</p>
+                                </div>
                             </div>
-                        )}
-                    </div>
+                        </>
+                    ) : (
+                        <>
+                            <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                                <Wrench size={18} /> Equipo de Cliente
+                            </h2>
+                            <div className="space-y-3 text-sm">
+                                <div className="bg-gray-50 p-3 rounded-lg">
+                                    <span className="block text-xs text-gray-500">Modelo</span>
+                                    <span className="font-medium text-gray-900">{order.brand} {order.model}</span>
+                                </div>
+                                <div className="bg-gray-50 p-3 rounded-lg">
+                                    <span className="block text-xs text-gray-500">Serial / IMEI</span>
+                                    <span className="font-mono text-gray-900">{order.serial_imei || 'N/A'}</span>
+                                </div>
+                                <div className="bg-orange-50 p-3 rounded-lg border border-orange-100">
+                                    <span className="block text-xs text-orange-500 font-bold flex items-center gap-1">
+                                        <AlertTriangle size={10} /> Falla Reportada
+                                    </span>
+                                    <p className="mt-1">{order.problem_description}</p>
+                                </div>
+                                {order.passcode_pattern && (
+                                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                                        <span className="block text-xs text-blue-500 font-bold">Patrón / PIN</span>
+                                        <span className="font-mono">{order.passcode_pattern}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* CENTER COLUMN: WORKSPACE */}
@@ -226,7 +309,9 @@ const ServiceManager = () => {
 
                     {/* Diagnosis Section */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Diagnóstico Técnico & Notas</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {order.service_type === 'LAUNDRY' ? 'Notas del Proceso / Entrega' : 'Diagnóstico Técnico & Notas'}
+                        </label>
                         <textarea
                             className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono bg-yellow-50"
                             rows={6}
@@ -433,35 +518,70 @@ const ServiceManager = () => {
                         <h3 className="font-semibold text-gray-800 mb-4">Estado del Servicio</h3>
 
                         <div className="space-y-2">
-                            {['DIAGNOSING', 'IN_PROGRESS', 'READY', 'DELIVERED'].map(statusStep => (
-                                <button
-                                    key={statusStep}
-                                    onClick={() => handleUpdateStatus(statusStep)}
-                                    className={`w-full py-3 px-4 rounded-lg text-left text-sm font-medium transition-all flex justify-between items-center
+                            <div className="space-y-2">
+                                {['DIAGNOSING', 'IN_PROGRESS', 'READY', 'DELIVERED'].map(statusStep => (
+                                    <button
+                                        key={statusStep}
+                                        onClick={() => interceptStatusChange(statusStep)}
+                                        className={`w-full py-3 px-4 rounded-lg text-left text-sm font-medium transition-all flex justify-between items-center
                                 ${order.status === statusStep
-                                            ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                                        }`}
-                                >
-                                    {statusStep.replace('_', ' ')}
-                                    {order.status === statusStep && <CheckCircle size={16} />}
-                                </button>
-                            ))}
+                                                ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                                                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                            }`}
+                                    >
+                                        {statusStep.replace('_', ' ')}
+                                        {order.status === statusStep && <CheckCircle size={16} />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        {/* Modals */}
+                        {showDeliveryModal && (
+                            <ServiceDeliveryModal
+                                order={order}
+                                onClose={() => setShowDeliveryModal(false)}
+                                onDeliver={() => {
+                                    setShowDeliveryModal(false);
+                                    handleUpdateStatus('DELIVERED');
+                                }}
+                                onPaymentRequest={handlePaymentRequest}
+                            />
+                        )}
+                        {showPaymentModal && (
+                            <PaymentModal
+                                isOpen={showPaymentModal}
+                                onClose={() => setShowPaymentModal(false)}
+                                totalUSD={paymentData?.quantity * paymentData?.unit_price}
+                                cart={[{
+                                    product_id: paymentData?.product_id,
+                                    quantity: paymentData?.quantity,
+                                    unit_price: paymentData?.unit_price,
+                                    description: paymentData?.description,
+                                    is_manual: paymentData?.is_manual,
+                                    // Add required fields for cart item to avoid crashes
+                                    unit_price_usd: paymentData?.unit_price,
+                                    price_usd: paymentData?.unit_price,
+                                    original_price_usd: paymentData?.unit_price,
+                                    conversion_factor: 1
+                                }]}
+                                onConfirm={handlePaymentSuccess}
+                                initialCustomer={order.customer}
+                            />
+                        )}
+
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className="text-gray-500 text-sm">Total Estimado</span>
+                                <span className="font-bold text-xl text-green-700">
+                                    {formatCurrency(order.details.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unit_price)), 0))}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="text-gray-500 text-sm">Total Estimado</span>
-                            <span className="font-bold text-xl text-green-700">
-                                {formatCurrency(order.details.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unit_price)), 0))}
-                            </span>
-                        </div>
-                    </div>
                 </div>
-
             </div>
-        </div>
+        </div >
     );
 };
 

@@ -8,7 +8,7 @@ import ProductImageUploader from './ProductImageUploader';
 import clsx from 'clsx';
 
 const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
-    const { getActiveCurrencies, currencies } = useConfig();
+    const { getActiveCurrencies, currencies, modules } = useConfig();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
     const [activeTab, setActiveTab] = useState('main'); // Consolidated 'general' and 'pricing'
@@ -486,7 +486,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                 </div>
 
                                 {/* Additional Price Lists */}
-                                {priceLists.length > 0 && (
+                                {modules?.retail && priceLists.length > 0 && (
                                     <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
                                         <h4 className="text-sm font-bold text-slate-600 mb-4 flex items-center">
                                             <Tag className="mr-2 text-blue-500" size={16} /> Precios Especiales
@@ -563,127 +563,158 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null }) => {
                                         <Package className="mr-2 text-purple-500" size={16} /> Control de Stock
                                     </h4>
 
-                                    {/* Toggles */}
                                     <div className="space-y-3 mb-6">
-                                        <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
-                                            <span className="text-xs font-bold text-slate-600">¿Maneja Seriales / IMEI?</span>
-                                            <input
-                                                type="checkbox"
-                                                checked={!!formData.has_imei}
-                                                onChange={(e) => setFormData({ ...formData, has_imei: e.target.checked })}
-                                                className="text-purple-600 focus:ring-purple-500 rounded"
-                                            />
-                                        </label>
-                                        <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
-                                            <span className="text-xs font-bold text-slate-600">¿Es un Combo?</span>
-                                            <input
-                                                type="checkbox"
-                                                checked={!!formData.is_combo}
-                                                onChange={(e) => setFormData({ ...formData, is_combo: e.target.checked })}
-                                                className="text-indigo-600 focus:ring-indigo-500 rounded"
-                                            />
-                                        </label>
-                                    </div>
-
-                                    {/* Warehouse Stock List */}
-                                    <div className="flex-1">
-                                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Stock por Almacén</label>
-                                        <div className="border border-slate-100 rounded-lg overflow-hidden">
-                                            {warehouses.map(wh => {
-                                                const stockEntry = formData.warehouse_stocks.find(s => s.warehouse_id === wh.id);
-                                                const qty = stockEntry ? stockEntry.quantity : 0;
-                                                return (
-                                                    <div key={wh.id} className="flex items-center justify-between p-2.5 border-b border-slate-50 hover:bg-slate-50 transition-colors bg-white">
-                                                        <div>
-                                                            <div className="text-xs font-bold text-slate-700">{wh.name}</div>
-                                                            <div className="text-[9px] text-slate-400">{wh.is_main ? 'Principal' : 'Sucursal'}</div>
-                                                        </div>
-                                                        <input
-                                                            type="number"
-                                                            className="w-20 text-right border-slate-200 rounded py-1 px-2 text-xs font-bold"
-                                                            value={qty}
-                                                            onChange={(e) => {
-                                                                const val = parseFloat(e.target.value) || 0;
-                                                                const newStocks = [...formData.warehouse_stocks];
-                                                                const idx = newStocks.findIndex(s => s.warehouse_id === wh.id);
-                                                                if (idx >= 0) newStocks[idx].quantity = val;
-                                                                else newStocks.push({ warehouse_id: wh.id, quantity: val });
-
-                                                                const total = newStocks.reduce((sum, s) => sum + s.quantity, 0);
-                                                                setFormData(prev => ({ ...prev, warehouse_stocks: newStocks, stock: total }));
-                                                            }}
-                                                        />
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-4 pt-4 border-t border-slate-100">
-                                        <div className="flex justify-between items-center bg-slate-100 p-3 rounded-lg">
-                                            <span className="text-xs font-bold text-slate-500">TOTAL STOCK</span>
-                                            <span className="text-lg font-black text-slate-800">{formData.stock}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-4">
-                                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Alerta Stock Min.</label>
-                                        <div className="relative">
-                                            <AlertTriangle className="absolute left-3 top-2 text-amber-500" size={14} />
-                                            <input
-                                                type="number"
-                                                name="min_stock"
-                                                value={formData.min_stock}
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo de Unidad</label>
+                                            <select
+                                                name="unit_type"
+                                                value={formData.unit_type}
                                                 onChange={handleInputChange}
-                                                className="w-full pl-8 border-slate-200 rounded-lg py-1.5 text-sm"
-                                            />
+                                                className="w-full border-slate-200 rounded-lg py-2 text-sm font-bold text-slate-700"
+                                            >
+                                                <option value="UNID">Unidad (Físico)</option>
+                                                <option value="KILO">Kilo (Peso)</option>
+                                                <option value="METRO">Metro (Longitud)</option>
+                                                <option value="LITRO">Litro (Volumen)</option>
+
+                                                {/* Laundry Specific Units */}
+                                                {modules?.laundry && (
+                                                    <>
+                                                        <option value="SERVICE_UNIT">Servicio (Por Pieza)</option>
+                                                        <option value="SERVICE_KG">Servicio (Por Peso)</option>
+                                                    </>
+                                                )}
+                                            </select>
                                         </div>
+
+                                        {modules?.services && (
+                                            <label className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
+                                                <span className="text-xs font-bold text-slate-600">¿Maneja Seriales / IMEI?</span>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!formData.has_imei}
+                                                    onChange={(e) => setFormData({ ...formData, has_imei: e.target.checked })}
+                                                    className="text-purple-600 focus:ring-purple-500 rounded"
+                                                    disabled={formData.unit_type === 'SERVICE'}
+                                                />
+                                            </label>
+                                        )}
+                                        {/* ... other toggles ... */}
                                     </div>
+
+                                    {/* Warehouse Stock List - Only if NOT Service */}
+                                    {!['SERVICE', 'SERVICE_UNIT', 'SERVICE_KG'].includes(formData.unit_type) ? (
+                                        <div className="flex-1">
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Stock por Almacén</label>
+                                            <div className="border border-slate-100 rounded-lg overflow-hidden">
+                                                {warehouses.map(wh => {
+                                                    const stockEntry = formData.warehouse_stocks.find(s => s.warehouse_id === wh.id);
+                                                    const qty = stockEntry ? stockEntry.quantity : 0;
+                                                    return (
+                                                        <div key={wh.id} className="flex items-center justify-between p-2.5 border-b border-slate-50 hover:bg-slate-50 transition-colors bg-white">
+                                                            <div>
+                                                                <div className="text-xs font-bold text-slate-700">{wh.name}</div>
+                                                                <div className="text-[9px] text-slate-400">{wh.is_main ? 'Principal' : 'Sucursal'}</div>
+                                                            </div>
+                                                            <input
+                                                                type="number"
+                                                                className="w-20 text-right border-slate-200 rounded py-1 px-2 text-xs font-bold"
+                                                                value={qty}
+                                                                onChange={(e) => {
+                                                                    const val = parseFloat(e.target.value) || 0;
+                                                                    const newStocks = [...formData.warehouse_stocks];
+                                                                    const idx = newStocks.findIndex(s => s.warehouse_id === wh.id);
+                                                                    if (idx >= 0) newStocks[idx].quantity = val;
+                                                                    else newStocks.push({ warehouse_id: wh.id, quantity: val });
+
+                                                                    const total = newStocks.reduce((sum, s) => sum + s.quantity, 0);
+                                                                    setFormData(prev => ({ ...prev, warehouse_stocks: newStocks, stock: total }));
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-center py-10">
+                                            <Package className="mx-auto text-blue-400 mb-2" size={32} />
+                                            <p className="text-sm font-bold text-blue-800">Producto de Servicio</p>
+                                            <p className="text-xs text-blue-600 mt-1">No requiere control de inventario físico.</p>
+                                        </div>
+                                    )}
+
+                                    {!['SERVICE', 'SERVICE_UNIT', 'SERVICE_KG'].includes(formData.unit_type) && (
+                                        <>
+                                            <div className="mt-4 pt-4 border-t border-slate-100">
+                                                <div className="flex justify-between items-center bg-slate-100 p-3 rounded-lg">
+                                                    <span className="text-xs font-bold text-slate-500">TOTAL STOCK</span>
+                                                    <span className="text-lg font-black text-slate-800">{formData.stock}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4">
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Alerta Stock Min.</label>
+                                                <div className="relative">
+                                                    <AlertTriangle className="absolute left-3 top-2 text-amber-500" size={14} />
+                                                    <input
+                                                        type="number"
+                                                        name="min_stock"
+                                                        value={formData.min_stock}
+                                                        onChange={handleInputChange}
+                                                        className="w-full pl-8 border-slate-200 rounded-lg py-1.5 text-sm"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
                             {/* SECTION 4: FOOTER EXTRAS (Full Width) */}
                             <div className="md:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Warranty */}
-                                <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
-                                    <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center">
-                                        <ShieldCheck className="mr-2 text-slate-400" size={16} /> Garantía
-                                    </h4>
-                                    <div className="flex gap-4">
-                                        <div className="w-1/3">
-                                            <input
-                                                type="number"
-                                                name="warranty_duration"
-                                                value={formData.warranty_duration}
-                                                onChange={handleInputChange}
-                                                className="w-full border-slate-200 rounded-lg text-sm"
-                                                placeholder="Duración"
-                                            />
-                                        </div>
-                                        <div className="w-1/3">
-                                            <select
-                                                name="warranty_unit"
-                                                value={formData.warranty_unit}
-                                                onChange={handleInputChange}
-                                                className="w-full border-slate-200 rounded-lg text-sm bg-white"
-                                            >
-                                                <option value="DAYS">Días</option>
-                                                <option value="MONTHS">Meses</option>
-                                                <option value="YEARS">Años</option>
-                                            </select>
-                                        </div>
-                                        <div className="w-full">
-                                            <input
-                                                type="text"
-                                                name="warranty_notes"
-                                                value={formData.warranty_notes}
-                                                onChange={handleInputChange}
-                                                className="w-full border-slate-200 rounded-lg text-sm"
-                                                placeholder="Notas (ej: Defectos fábrica)"
-                                            />
+                                {modules?.services && (
+                                    <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">
+                                        <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center">
+                                            <ShieldCheck className="mr-2 text-slate-400" size={16} /> Garantía
+                                        </h4>
+                                        <div className="flex gap-4">
+                                            <div className="w-1/3">
+                                                <input
+                                                    type="number"
+                                                    name="warranty_duration"
+                                                    value={formData.warranty_duration}
+                                                    onChange={handleInputChange}
+                                                    className="w-full border-slate-200 rounded-lg text-sm"
+                                                    placeholder="Duración"
+                                                />
+                                            </div>
+                                            <div className="w-1/3">
+                                                <select
+                                                    name="warranty_unit"
+                                                    value={formData.warranty_unit}
+                                                    onChange={handleInputChange}
+                                                    className="w-full border-slate-200 rounded-lg text-sm bg-white"
+                                                >
+                                                    <option value="DAYS">Días</option>
+                                                    <option value="MONTHS">Meses</option>
+                                                    <option value="YEARS">Años</option>
+                                                </select>
+                                            </div>
+                                            <div className="w-full">
+                                                <input
+                                                    type="text"
+                                                    name="warranty_notes"
+                                                    value={formData.warranty_notes}
+                                                    onChange={handleInputChange}
+                                                    className="w-full border-slate-200 rounded-lg text-sm"
+                                                    placeholder="Notas (ej: Defectos fábrica)"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Images */}
                                 <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100">

@@ -272,11 +272,21 @@ const POS = () => {
     const rootCategories = categories.filter(cat => !cat.parent_id);
 
     // ... Helper functions ...
-    const focusSearch = () => { setTimeout(() => searchInputRef.current?.focus(), 50); };
+    const focusAndSelectSearch = () => {
+        setTimeout(() => {
+            if (searchInputRef.current) {
+                searchInputRef.current.focus();
+                searchInputRef.current.select();
+            }
+        }, 50);
+    };
+
+    // Kept for compatibility if used elsewhere, but redirecting logic
+    const focusSearch = focusAndSelectSearch;
 
     // ... Handle Product Click ...
     const handleProductClick = (product) => {
-        setSearchTerm(''); // Clear search on selection
+        // setSearchTerm(''); // REMOVED: Keep search term
         if (product.has_imei) {
             setSelectedProductForSerialized(product);
             return;
@@ -286,7 +296,7 @@ const POS = () => {
             setSelectedProductForUnits(product);
         } else {
             addBaseProductToCart(product);
-            focusSearch();
+            focusAndSelectSearch(); // Select text instead of clearing
         }
     };
 
@@ -299,7 +309,7 @@ const POS = () => {
         // ... existing implementation ...
         addToCart(selectedProductForUnits, unit);
         setSelectedProductForUnits(null);
-        focusSearch();
+        focusAndSelectSearch();
     }
 
     const handleSerializedConfirm = (serials) => {
@@ -392,7 +402,7 @@ const POS = () => {
         });
 
         setSelectedProductForSerialized(null);
-        focusSearch();
+        focusAndSelectSearch();
     };
 
     // NEW: Handlers for Service Orders

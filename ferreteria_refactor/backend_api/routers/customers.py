@@ -118,46 +118,59 @@ def get_customer_financial_status(customer_id: int, db: Session = Depends(get_db
     - Overdue invoices count and amount
     - Block status
     """
-    from sqlalchemy import func
-    from datetime import datetime
-    
-    customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    
-    # Calculate total debt from balance_pending of unpaid credit sales
-    total_debt = db.query(func.sum(models.Sale.balance_pending)).filter(
-        models.Sale.customer_id == customer_id,
-        models.Sale.is_credit == True,
-        models.Sale.paid == False
-    ).scalar() or 0.0
-    
-    # Count and sum overdue invoices
-    now = datetime.now()
-    overdue_invoices = db.query(models.Sale).filter(
-        models.Sale.customer_id == customer_id,
-        models.Sale.is_credit == True,
-        models.Sale.paid == False,
-        models.Sale.due_date < now
-    ).all()
-    
-    overdue_count = len(overdue_invoices)
-    overdue_amount = sum(sale.balance_pending or 0 for sale in overdue_invoices)
-    
-    # Calculate available credit
-    available_credit = max(0, customer.credit_limit - total_debt)
-    
-    return {
-        "customer_id": customer.id,
-        "customer_name": customer.name,
-        "total_debt": round(total_debt, 2),
-        "credit_limit": round(customer.credit_limit, 2),
-        "available_credit": round(available_credit, 2),
-        "overdue_invoices": overdue_count,
-        "overdue_amount": round(overdue_amount, 2),
-        "is_blocked": customer.is_blocked,
-        "payment_term_days": customer.payment_term_days
-    }
+    try:
+        from sqlalchemy import func
+        from datetime import datetime
+        
+        customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+        if not customer:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        
+        # Calculate total debt from balance_pending of unpaid credit sales
+        # Use coalesce to handle None
+        total_debt = db.query(func.sum(models.Sale.balance_pending)).filter(
+            models.Sale.customer_id == customer_id,
+            models.Sale.is_credit == True,
+            models.Sale.paid == False
+        ).scalar() or 0.0
+        
+        # Ensure float for calculation
+        total_debt = float(total_debt)
+        credit_limit = float(customer.credit_limit or 0)
+
+        # Count and sum overdue invoices
+        now = datetime.now()
+        overdue_invoices = db.query(models.Sale).filter(
+            models.Sale.customer_id == customer_id,
+            models.Sale.is_credit == True,
+            models.Sale.paid == False,
+            models.Sale.due_date < now
+        ).all()
+        
+        overdue_count = len(overdue_invoices)
+        overdue_amount = sum(float(sale.balance_pending or 0) for sale in overdue_invoices)
+        
+        # Calculate available credit
+        available_credit = max(0.0, credit_limit - total_debt)
+        
+        return {
+            "customer_id": customer.id,
+            "customer_name": customer.name,
+            "total_debt": round(total_debt, 2),
+            "credit_limit": round(customer.credit_limit, 2),
+            "available_credit": round(available_credit, 2),
+            "overdue_invoices": overdue_count,
+            "overdue_amount": round(overdue_amount, 2),
+            "is_blocked": customer.is_blocked,
+            "payment_term_days": customer.payment_term_days
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[ERROR] Financial Status Failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{customer_id}")
 def delete_customer(customer_id: int, db: Session = Depends(get_db)):
@@ -198,13 +211,13 @@ def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCr
         amount_bs = payment.amount if payment.currency in ["Bs", "VES"] else (payment.amount * payment.exchange_rate)
     )
     
-    # 1.5 Link to Active Cash Session (Fix for Cash Close)
+    # 1.5 Link to Active Cash Session (Enforce Open Session)
     active_session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
-    if active_session:
-        new_payment.session_id = active_session.id
-        print(f"[INFO] Pago de deuda vinculado a Sesión #{active_session.id}")
-    else:
-        print("[WARN] Pago de deuda registrado SIN sesión de caja activa")
+    if not active_session:
+        raise HTTPException(status_code=400, detail="No hay una caja abierta. Debe abrir caja para recibir pagos.")
+    
+    new_payment.session_id = active_session.id
+    print(f"[INFO] Pago de deuda vinculado a Sesión #{active_session.id}")
 
     db.add(new_payment)
     

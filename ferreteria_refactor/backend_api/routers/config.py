@@ -24,7 +24,8 @@ def get_public_config():
     return {
         "modules": {
             "restaurant": settings.MODULE_RESTAURANT_ENABLED,
-            "services": settings.MODULE_SERVICES_ENABLED
+            "services": settings.MODULE_SERVICES_ENABLED,
+            "laundry": settings.MODULE_LAUNDRY_ENABLED
         }
     }
 

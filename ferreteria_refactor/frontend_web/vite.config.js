@@ -10,16 +10,16 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000', // Backend Local (Offline Mode)
+        target: 'http://127.0.0.1:8000', // Backend Local (Offline Mode)
         changeOrigin: true,
         secure: false,
       },
       '/assets': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
       '/images': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     }

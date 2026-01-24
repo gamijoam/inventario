@@ -45,6 +45,8 @@ COPY --from=frontend-build /app/frontend/dist /app/static
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+# Fix Windows line endings (CRLF) -> Linux (LF)
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
 # Env vars

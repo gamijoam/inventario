@@ -192,8 +192,8 @@ class ServiceCheckoutService:
                  db.add(pay)
 
             # 6. Update Order Status
-            print("[DEBUG] Updating Order Status to DELIVERED")
-            order.status = models.ServiceOrderStatus.DELIVERED
+            # DECOUPLED: Payment does NOT imply Delivery.
+            # order.status = models.ServiceOrderStatus.DELIVERED 
             order.updated_at = datetime.now()
             
             db.commit()

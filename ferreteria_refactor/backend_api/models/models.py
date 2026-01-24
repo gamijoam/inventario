@@ -900,6 +900,15 @@ class ServiceOrderStatus(str, enum.Enum):
     DELIVERED = "DELIVERED"
     CANCELLED = "CANCELLED"
 
+class ServiceType(str, enum.Enum):
+    REPAIR = "REPAIR"
+    LAUNDRY = "LAUNDRY"
+
+class ServicePriority(str, enum.Enum):
+    NORMAL = "NORMAL"
+    HIGH = "HIGH"
+    URGENT = "URGENT"
+
 class ServiceOrder(Base):
     __tablename__ = "service_orders"
 
@@ -910,18 +919,23 @@ class ServiceOrder(Base):
     technician_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Assigned Technician
     
     status = Column(Enum(ServiceOrderStatus), default=ServiceOrderStatus.RECEIVED)
+    service_type = Column(Enum(ServiceType), default=ServiceType.REPAIR)
+    priority = Column(Enum(ServicePriority), default=ServicePriority.NORMAL)
     
-    # Device Info
-    device_type = Column(String, nullable=False) # "Smartphone", "Laptop"
-    brand = Column(String, nullable=False)
-    model = Column(String, nullable=False)
-    serial_imei = Column(String, nullable=False, index=True) # Critical for tracking
-    passcode_pattern = Column(Text, nullable=True) # Pattern description or PIN
+    # Device Info (Made Nullable for Laundry)
+    device_type = Column(String, nullable=True) # "Smartphone", "Laptop", "Ropa"
+    brand = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    serial_imei = Column(String, nullable=True, index=True) 
+    passcode_pattern = Column(Text, nullable=True)
     
-    # Diagnosis
-    problem_description = Column(Text, nullable=False)
-    physical_condition = Column(Text, nullable=True) # Scratches, dents?
+    # Diagnosis / Details
+    problem_description = Column(Text, nullable=True) # Optional for Laundry (implied by items)
+    physical_condition = Column(Text, nullable=True) 
     diagnosis_notes = Column(Text, nullable=True)
+    
+    # Flexible Data
+    order_metadata = Column(JSON, nullable=True) # Bag color, weight, etc.
     
     # Dates
     created_at = Column(DateTime, default=get_venezuela_now)
@@ -934,7 +948,7 @@ class ServiceOrder(Base):
     details = relationship("ServiceOrderDetail", back_populates="service_order", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<ServiceOrder(ticket='{self.ticket_number}', status='{self.status}')>"
+        return f"<ServiceOrder(ticket='{self.ticket_number}', type='{self.service_type}', status='{self.status}')>"
 
 class ServiceOrderDetail(Base):
     """
