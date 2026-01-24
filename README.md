@@ -82,3 +82,43 @@ La aplicación web estará disponible en la URL que indique Vite (usualmente `ht
 
 *   **Base de Datos**: El sistema utiliza SQLite por defecto. El archivo de base de datos se creará/buscará automáticamente según la configuración en `backend_api`.
 *   **Variables de Entorno**: Revisa si existen archivos `.env.example` para configurar variables de entorno necesarias.
+
+## 🧺 Módulo de Lavandería (Nuevo)
+
+El sistema ahora cuenta con un módulo de lavandería inteligente:
+*   **Gestión de Unidades**: Soporte para servicios por *Pieza* (ej. Planchado) y por *Peso* (ej. Lavado).
+*   **Cobro Automático**: El sistema detecta el tipo de servicio y calcula el total basándose en el peso de la orden o la cantidad de piezas, según corresponda.
+*   **Configuración**: Desde el inventario puedes marcar productos como `Servicio (Por Pieza)` o `Servicio (Por Peso)`.
+
+## 🛠️ Módulo de Taller y Reparaciones (Celulares)
+
+Diseñado para servicios técnicos y reparación de equipos:
+*   **Recepción Detallada**: Registro de IMEI/Serial, Marca, Modelo y estado físico.
+*   **Seguridad**: Campo para registrar el **Patrón de Desbloqueo** o PIN del dispositivo.
+*   **Flujo de Estado**: Seguimiento desde Recepción -> Diagnóstico -> Reparación -> Entrega.
+*   **Diagnóstico**: Espacio para notas técnicas y presupuesto.
+
+## 🍽️ Módulo de Restaurante (Beta)
+
+*En desarrollo activo.* Este módulo ofrece:
+*   **Mapa de Mesas**: Visualización gráfica del estado de las mesas (Libre, Ocupada, Pagando).
+*   **Comandera Móvil**: Interfaz ligera para que los meseros tomen pedidos desde el celular.
+*   **Pantalla de Cocina**: Vista en tiempo real para que los cocineros reciban las órdenes.
+
+## 🐳 Despliegue con Docker
+
+Para desplegar usando la imagen oficial `gamijoam/ferreteria-saas`, utiliza las variables de entorno para activar/desactivar módulos. No es necesario reconstruir la imagen.
+
+**Ejemplo de configuración (docker-compose.yml):**
+
+```yaml
+services:
+  app:
+    image: gamijoam/ferreteria-saas:latest
+    environment:
+      # Feature Flags (Controlan qué módulos ve el usuario)
+      - MODULE_LAUNDRY_ENABLED=true
+      - MODULE_RESTAURANT_ENABLED=false
+      - MODULE_SERVICES_ENABLED=true
+      # ... base de datos y secretos ...
+```
