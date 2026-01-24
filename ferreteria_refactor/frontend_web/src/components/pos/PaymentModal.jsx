@@ -158,8 +158,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
             const saleData = {
                 total_amount: totalUSD,
-                // Pass the cart's BS total as the "Product Price Total in Bs", even if payment used a different rate
-                total_amount_bs: totalBs,
+                // Pass the cart's BS total. Fallback to calculated displayTotalBs if prop is missing (Fixes 422 error)
+                total_amount_bs: totalBs || displayTotalBs,
 
                 // NEW: Register Change/Vuelto (Dynamic Currency)
                 change_amount: isCreditSale ? 0 : (() => {

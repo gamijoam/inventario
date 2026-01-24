@@ -30,7 +30,7 @@ const ServiceList = () => {
     const fetchOrders = async () => {
         setLoading(true);
         try {
-            const params = {};
+            const params = { service_type: 'REPAIR' };
             if (filterStatus) params.status = filterStatus;
 
             const res = await apiClient.get('/services/orders', { params });
@@ -51,9 +51,9 @@ const ServiceList = () => {
                 <div>
                     <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                         <Wrench className="text-blue-600" />
-                        Servicios Técnicos
+                        Taller de Reparaciones
                     </h1>
-                    <p className="text-gray-500">Gestión de órdenes de reparación</p>
+                    <p className="text-gray-500">Gestión de celulares y equipos</p>
                 </div>
 
                 <div className="flex gap-2 w-full md:w-auto">
@@ -101,49 +101,80 @@ const ServiceList = () => {
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {orders.map(order => (
-                            <div
-                                key={order.id}
-                                onClick={() => navigate(`/services/orders/${order.id}`)}
-                                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors group"
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div className="flex gap-4">
-                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${STATUS_COLORS[order.status].split(' ')[0]}`}>
-                                            <span className="font-bold text-xs">{order.ticket_number.split('-')[1]}</span>
-                                        </div>
+                        {orders.map(order => {
+                            const isLaundry = order.service_type === 'LAUNDRY';
+                            const meta = order.order_metadata || {};
 
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-bold text-gray-900">{order.ticket_number}</span>
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${STATUS_COLORS[order.status]}`}>
-                                                    {order.status}
-                                                </span>
+                            return (
+                                <div
+                                    key={order.id}
+                                    onClick={() => navigate(`/services/orders/${order.id}`)}
+                                    className="p-4 hover:bg-gray-50 cursor-pointer transition-colors group"
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex gap-4">
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${STATUS_COLORS[order.status].split(' ')[0]}`}>
+                                                {isLaundry
+                                                    ? <Shirt size={20} className={STATUS_COLORS[order.status].split(' ')[1]} />
+                                                    : <span className="font-bold text-xs">{order.ticket_number.split('-')[1]}</span>
+                                                }
                                             </div>
 
-                                            <h4 className="font-semibold text-gray-800 mb-1">{order.device_type} {order.brand} {order.model}</h4>
-                                            <p className="text-sm text-gray-500 flex items-center gap-1">
-                                                <span className="font-medium text-gray-700">{order.customer?.name}</span>
-                                                • {new Date(order.created_at).toLocaleDateString()}
-                                            </p>
-                                        </div>
-                                    </div>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-bold text-gray-900">{order.ticket_number}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${STATUS_COLORS[order.status]}`}>
+                                                        {order.status}
+                                                    </span>
+                                                    {isLaundry && (
+                                                        <span className="bg-teal-100 text-teal-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                                            LAVANDERÍA
+                                                        </span>
+                                                    )}
+                                                </div>
 
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-right hidden sm:block">
-                                            <div className="text-xs text-gray-400 mb-1">Total Estimado</div>
-                                            <div className="font-bold text-gray-800">
-                                                {order.details ? (
-                                                    // Simple client-side calc if needed, or backend aggregation
-                                                    "$" + order.details.reduce((acc, item) => acc + (parseFloat(item.quantity) * parseFloat(item.unit_price)), 0).toFixed(2)
-                                                ) : '$0.00'}
+                                                {isLaundry ? (
+                                                    // LAUNDRY DISPLAY (Optimized)
+                                                    <div className="mb-1">
+                                                        <h4 className="font-bold text-gray-800 text-lg">
+                                                            {parseFloat(meta.weight || 0).toFixed(2)} Kg
+                                                        </h4>
+                                                        <div className="text-sm text-gray-500 mt-1 flex flex-col gap-1">
+                                                            <span className="flex items-center gap-1">
+                                                                <span className="font-semibold text-gray-600">Bolsa:</span>
+                                                                <span className="px-2 py-0.5 bg-gray-100 rounded text-gray-800 font-mono">{meta.bag_color || 'N/A'}</span>
+                                                            </span>
+                                                            <span className="text-xs text-gray-400">
+                                                                {meta.washing_type || 'Lavado General'} • {meta.pieces || 0} pzas
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    // TECH DISPLAY
+                                                    <>
+                                                        <h4 className="font-semibold text-gray-800 mb-1">{order.device_type} {order.brand} {order.model}</h4>
+                                                        <p className="text-sm text-gray-500 flex items-center gap-1">
+                                                            <span className="font-medium text-gray-700">{order.customer?.name}</span>
+                                                            • {new Date(order.created_at).toLocaleDateString()}
+                                                        </p>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
-                                        <ChevronRight className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right hidden sm:block">
+                                                <div className="text-xs text-gray-400 mb-1">Estado</div>
+                                                <div className="font-medium text-gray-600">
+                                                    {order.priority === 'URGENT' && <span className="text-red-500 font-bold">URGENTE</span>}
+                                                </div>
+                                            </div>
+                                            <ChevronRight className="text-gray-300 group-hover:text-blue-500 transition-colors" />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
             </div>

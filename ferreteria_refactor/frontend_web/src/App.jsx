@@ -64,9 +64,14 @@ import WaiterLogin from './pages/Mobile/WaiterLogin';
 import MobileTableGrid from './pages/Mobile/MobileTableGrid';
 import MobileOrderTaker from './pages/Mobile/MobileOrderTaker';
 import Reception from './pages/Services/Reception'; // NEW: Service Reception
+import ServicesDashboard from './pages/Services/ServicesDashboard'; // NEW: Dashboard
 import ServiceManager from './pages/Services/ServiceManager'; // NEW: Service Manager
 import ServiceList from './pages/Services/ServiceList'; // NEW: Service List
 import CommissionPayout from './pages/HumanResources/CommissionPayout'; // NEW: Commission Payout
+
+// Laundry Module
+import LaundryDashboard from './pages/Laundry/LaundryDashboard';
+import LaundryForm from './pages/Laundry/LaundryForm';
 
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
@@ -295,6 +300,11 @@ function App() {
                             {/* Service Module Routes */}
                             <Route path="/services" element={
                               <ProtectedRoute>
+                                <ServicesDashboard />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/services/list" element={
+                              <ProtectedRoute>
                                 <ServiceList />
                               </ProtectedRoute>
                             } />
@@ -306,6 +316,18 @@ function App() {
                             <Route path="/services/orders/:id" element={
                               <ProtectedRoute>
                                 <ServiceManager />
+                              </ProtectedRoute>
+                            } />
+
+                            {/* Laundry Routes - Decoupled */}
+                            <Route path="/laundry" element={
+                              <ProtectedRoute>
+                                <LaundryDashboard />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/laundry/new" element={
+                              <ProtectedRoute>
+                                <LaundryForm />
                               </ProtectedRoute>
                             } />
                           </Route>

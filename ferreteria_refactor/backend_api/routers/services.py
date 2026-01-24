@@ -38,6 +38,7 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
             customer_id=order_data.customer_id,
             technician_id=order_data.technician_id,
             status=models.ServiceOrderStatus.RECEIVED,
+            service_type=order_data.service_type, # Ensure type is saved
             
             device_type=order_data.device_type,
             brand=order_data.brand,
@@ -48,7 +49,8 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
             problem_description=order_data.problem_description,
             physical_condition=order_data.physical_condition,
             diagnosis_notes=order_data.diagnosis_notes,
-            estimated_delivery=order_data.estimated_delivery
+            estimated_delivery=order_data.estimated_delivery,
+            order_metadata=order_data.order_metadata # FIX: Save Metadata
         )
         
         db.add(new_order)
@@ -66,6 +68,7 @@ def get_service_orders(
     limit: int = 100, 
     status: Optional[str] = None,
     customer_id: Optional[int] = None,
+    service_type: Optional[str] = None, # NEW PARAM
     db: Session = Depends(get_db)
 ):
     """List service orders with filters"""
@@ -73,6 +76,9 @@ def get_service_orders(
     
     if status:
         query = query.filter(models.ServiceOrder.status == status)
+    
+    if service_type:
+        query = query.filter(models.ServiceOrder.service_type == service_type)
     
     if customer_id:
         query = query.filter(models.ServiceOrder.customer_id == customer_id)
@@ -167,29 +173,42 @@ def delete_service_order_item(
 @router.patch("/orders/{order_id}/status", response_model=schemas.ServiceOrderRead)
 def update_service_order_status(
     order_id: int, 
-    status: str, 
-    notes: Optional[str] = None,
+    update_data: schemas.ServiceOrderUpdate,
     db: Session = Depends(get_db)
 ):
-    """Update order status and diagnosis notes"""
+    """Update order status, diagnosis notes, and metadata"""
     order = db.query(models.ServiceOrder).get(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Service Order not found")
         
-    # Validate Status Enum
-    if status not in models.ServiceOrderStatus.__members__:
-         raise HTTPException(status_code=400, detail=f"Invalid status. Options: {list(models.ServiceOrderStatus.__members__.keys())}")
-         
-    order.status = models.ServiceOrderStatus[status]
+    # Validate Status Enum if provided
+    if update_data.status:
+        if update_data.status not in models.ServiceOrderStatus.__members__:
+             raise HTTPException(status_code=400, detail=f"Invalid status. Options: {list(models.ServiceOrderStatus.__members__.keys())}")
+        order.status = models.ServiceOrderStatus[update_data.status]
     
-    if notes:
-        order.diagnosis_notes = notes
+    if update_data.diagnosis_notes:
+        order.diagnosis_notes = update_data.diagnosis_notes
         
-    # If status is READY, maybe set a completion date? 
-    # For now just update updated_at (handled by DB/ORM usually, but explicit is good)
-    
+    if update_data.order_metadata:
+        # Merge or Replace? Using Replace for simplicity as frontend sends full object usually
+        # But safer to merge if needed. For now, replace as per Pydantic model.
+        # Ensure we don't lose existing metadata if we only send partial? 
+        # Frontend should send the merged dict.
+        # But wait, SQLAlchemy JSON type:
+        if order.order_metadata:
+             # Merge logic: {**old, **new}
+             order.order_metadata = {**order.order_metadata, **update_data.order_metadata}
+        else:
+             order.order_metadata = update_data.order_metadata
+             
+    if update_data.technician_id:
+        order.technician_id = update_data.technician_id
+        
+    if update_data.priority:
+        order.priority = update_data.priority
+        
     db.commit()
-    db.refresh(order)
     db.refresh(order)
     return order
 

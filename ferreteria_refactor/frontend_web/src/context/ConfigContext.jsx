@@ -9,11 +9,32 @@ export const ConfigProvider = ({ children }) => {
     const [business, setBusiness] = useState(null);
     const [currencies, setCurrencies] = useState([]);
     const [loading, setLoading] = useState(true);
+    // Helper for boolean env vars
+    const parseBool = (val) => {
+        if (typeof val === 'boolean') return val;
+        if (!val) return false;
+        return ['true', '1', 'yes', 'on'].includes(String(val).toLowerCase().trim());
+    };
+
     // Module Feature Flags
     const [modules, setModules] = useState({
-        restaurant: false, // Default hidden
-        retail: true
+        restaurant: parseBool(import.meta.env.VITE_MODULE_RESTAURANT_ENABLED),
+        retail: import.meta.env.VITE_MODULE_RETAIL_ENABLED === undefined
+            ? true
+            : parseBool(import.meta.env.VITE_MODULE_RETAIL_ENABLED),
+        laundry: parseBool(import.meta.env.VITE_MODULE_LAUNDRY_ENABLED),
+        services: import.meta.env.VITE_MODULE_SERVICES_ENABLED === undefined
+            ? true
+            : parseBool(import.meta.env.VITE_MODULE_SERVICES_ENABLED)
     });
+
+    useEffect(() => {
+        console.log('🔧 [ConfigContext] Feature Flags:', modules);
+        console.log('📄 [ConfigContext] Raw Env:', {
+            laundry: import.meta.env.VITE_MODULE_LAUNDRY_ENABLED,
+            services: import.meta.env.VITE_MODULE_SERVICES_ENABLED
+        });
+    }, []);
 
     const { subscribe } = useWebSocket();
 

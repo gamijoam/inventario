@@ -78,6 +78,11 @@ class SalesService:
                         detail=f"Excede límite de crédito. Deuda actual: ${current_debt:.2f}, Límite: ${customer.credit_limit:.2f}, Disponible: ${(customer.credit_limit - current_debt):.2f}"
                     )
             
+            # 0. Check for Open Cash Session (Enforce Business Logic)
+            open_session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
+            if not open_session:
+                 raise HTTPException(status_code=400, detail="No hay una caja abierta. Debe abrir caja para realizar ventas.")
+
             # 0.5. Determine Source Warehouse
             warehouse_id = sale_data.warehouse_id
             if not warehouse_id:
@@ -86,12 +91,22 @@ class SalesService:
                 if main_wh:
                     warehouse_id = main_wh.id
                 else:
-                    # Fallback to first warehouse or error
+                    # Fallback to first warehouse
                     first_wh = db.query(models.Warehouse).filter(models.Warehouse.is_active == True).first()
                     if first_wh:
                         warehouse_id = first_wh.id
-                    else:
-                        raise HTTPException(status_code=500, detail="No active warehouse found to deduct stock")
+                    
+            # Validar si es una venta puramente de servicios (intangibles)
+            # Para permitir que warehouse_id sea None si no hay warehouses físicos
+            is_service_only = True
+            for item in sale_data.items:
+                 prod = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+                 if prod and not (prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']):
+                     is_service_only = False
+                     break
+            
+            if not warehouse_id and not is_service_only:
+                 raise HTTPException(status_code=500, detail="No active warehouse found to deduct stock")
 
             # 1. Create Sale Header
             # CRITICAL FIX: Respect Frontend's VES calculation (preserves anchoring)
@@ -144,6 +159,8 @@ class SalesService:
                     db.add(quote) # Ensure update is tracked       
             # 2. Process Items
             for item in sale_data.items:
+                sold_instances = [] # Initialize here to avoid UnboundLocalError
+                
                 # Fetch Product with Pessimistic Lock
                 product = db.query(models.Product).filter(models.Product.id == item.product_id).with_for_update().first()
                 if not product:
@@ -203,6 +220,9 @@ class SalesService:
                      item.unit_price = effective_price # Update for storage in SaleDetail
                      
                 
+                # New: Determine if Product is a Service (Skip Stock Check)
+                is_service = product.unit_type and product.unit_type.upper() in ['SERVICIO', 'SERVICE']
+
                 # NEW: COMBO LOGIC - Check if product is a combo
                 if product.is_combo:
                      # COMBO: Deduct stock from child components in specific warehouse
@@ -284,11 +304,13 @@ class SalesService:
                             "stock": float(child_product.stock),
                             "exchange_rate_id": child_product.exchange_rate_id
                         })
+                elif is_service:
+                     # SERVICE: Skip Stock Check / Deduction
+                     pass
                 else:
                     # NORMAL PRODUCT: Check and deduct stock from WAREHOUSE
                     
                     # NEW: SERIALIZED INVENTORY LOGIC
-                    sold_instances = []
                     if product.has_imei:
                         if not item.serial_numbers:
                             raise HTTPException(status_code=400, detail=f"Product '{product.name}' is serialized (has_imei=True) but no serial numbers provided.")
