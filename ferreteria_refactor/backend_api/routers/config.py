@@ -32,38 +32,67 @@ def get_public_config(db: Session = Depends(get_db)):
     current_schema = get_tenant_schema()
     tenant_name = "Ferretería Demo (Public)"
     
-    # Flags Defaults
-    tenant_config = {"restaurant": True, "laundry": True, "services": True}
+    # Logic:
+    # 1. Server Capabilities (Env) - What the code CAN do.
+    # 2. Public Default - What we show to unknown users (Clean slate).
+    # 3. Tenant Entitlements (DB) - What the customer paid for.
 
-    # 1. Server Global Settings (Hard Limits)
-    server_has_restaurant = settings.MODULE_RESTAURANT_ENABLED
-    server_has_services = settings.MODULE_SERVICES_ENABLED
-    server_has_laundry = settings.MODULE_LAUNDRY_ENABLED
+    if current_schema == "public":
+        # Force Clean Slate for Public/Localhost
+        modules = {
+            "restaurant": False,
+            "laundry": False,
+            "services": False,
+            "ferreteria": True 
+        }
+    else:
+        # For a Real Tenant, start with Server Capabilities
+        modules = {
+            "restaurant": settings.MODULE_RESTAURANT_ENABLED,
+            "laundry": settings.MODULE_LAUNDRY_ENABLED,
+            "services": settings.MODULE_SERVICES_ENABLED,
+            "ferreteria": True
+        }
     
-    # 2. Tenant Entitlements (DB)
+    # 3. DB Entitlements (Override for Tenants)
+    tenant_found = False
+    
     if current_schema != "public":
-        # Need to query public.tenants
-        # Since Tenant model is explicit schema='public', it should work regardless of search_path
         try:
+            # Query tenant in public schema table
+            # Validating search path doesn't matter for public table, but ensures safety
             tenant_obj = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
+            
             if tenant_obj:
+                tenant_found = True
                 tenant_name = tenant_obj.name
                 if tenant_obj.config:
-                    # Merge config from DB
-                    # Expected DB config: {"restaurant": false, "modules": {...}}
-                    # Let's assume structure is flat or under modules key
-                    db_modules = tenant_obj.config if "restaurant" in tenant_obj.config else tenant_obj.config.get("modules", {})
-                    tenant_config.update(db_modules)
+                    # Check for "modules" key in DB config
+                    db_modules = tenant_obj.config.get("modules", {})
+                    
+                    # Logic: Server Capability AND Tenant Entitlement
+                    for mod, enabled in db_modules.items():
+                        if mod in modules:
+                            server_enabled = modules[mod] # From env
+                            modules[mod] = server_enabled and enabled
+            else:
+                print(f"⚠️ Warning: Schema '{current_schema}' detected but not found in DB. Falling back to public defaults.")
+                
         except Exception as e:
             print(f"⚠️ Error fetching tenant config: {e}")
 
+    # SAFETY NET: If we are not public, but tenant not found, DO NOT expose all modules.
+    if current_schema != "public" and not tenant_found:
+         # Force Clean Slate (Safety Fallback)
+        modules = {
+            "restaurant": False,
+            "laundry": False,
+            "services": False,
+            "ferreteria": True 
+        }
+
     return {
-        "modules": {
-            "restaurant": server_has_restaurant and tenant_config.get("restaurant", False),
-            "services": server_has_services and tenant_config.get("services", False),
-            "laundry": server_has_laundry and tenant_config.get("laundry", False),
-            "ferreteria": True # Always enabled core
-        },
+        "modules": modules,
         "tenant_name": tenant_name,
         "tenant": current_schema 
     }
@@ -617,26 +646,29 @@ def init_exchange_rates(db: Session):
     print(f"[OK] Seeded {len(default_rates)} default exchange rates")
 
 def init_currencies(db: Session):
-    """Seed default currencies if table is empty"""
-    if db.query(models.Currency).first():
-        return
+    """Seed default currencies if they don't exist"""
+    print("[SEED] Verificando monedas (Currencies)...")
     
-    currencies = [
+    currencies_data = [
         {"name": "Dólar Americano", "symbol": "USD", "rate": 1.00, "is_anchor": True, "is_active": True},
         {"name": "Bolívar Venezolano", "symbol": "VES", "rate": 60.00, "is_anchor": False, "is_active": True},
         {"name": "Peso Colombiano", "symbol": "COP", "rate": 4200.00, "is_anchor": False, "is_active": True},
-        {"name": "Euro", "symbol": "EUR", "rate": 1.10, "is_anchor": False, "is_active": False},
-        {"name": "Peso Argentino", "symbol": "ARS", "rate": 1000.00, "is_anchor": False, "is_active": False},
-        {"name": "Peso Mexicano", "symbol": "MXN", "rate": 17.00, "is_anchor": False, "is_active": False},
-        {"name": "Sol Peruano", "symbol": "PEN", "rate": 3.70, "is_anchor": False, "is_active": False},
     ]
     
-    for curr in currencies:
-        db_curr = models.Currency(**curr)
-        db.add(db_curr)
+    seeded_count = 0
+    for curr_data in currencies_data:
+        exists = db.query(models.Currency).filter(models.Currency.symbol == curr_data["symbol"]).first()
+        if not exists:
+            db_curr = models.Currency(**curr_data)
+            db.add(db_curr)
+            seeded_count += 1
+            print(f"[SEED] Creando moneda faltante: {curr_data['symbol']}")
     
-    db.commit()
-    print("[OK] Currencies seeded successfully")
+    if seeded_count > 0:
+        db.commit()
+        print(f"[OK] Se han creado {seeded_count} monedas faltantes.")
+    else:
+        print("[OK] Todas las monedas base existen.")
 
 @router.get("/debug/seed")
 def debug_seed_currencies(db: Session = Depends(get_db)):

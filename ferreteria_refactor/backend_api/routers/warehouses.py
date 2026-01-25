@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List
 from ..database.db import get_db
 from ..models import models
@@ -30,9 +31,15 @@ def create_warehouse(warehouse: schemas.WarehouseCreate, db: Session = Depends(g
         db.commit()
         db.refresh(db_warehouse)
         return db_warehouse
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409, 
+            detail=f"Ya existe un almacén con el nombre '{warehouse.name}'. Por favor elija otro nombre."
+        )
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{warehouse_id}", response_model=schemas.WarehouseRead, dependencies=[Depends(has_role([UserRole.ADMIN]))])
 def update_warehouse(warehouse_id: int, warehouse: schemas.WarehouseUpdate, db: Session = Depends(get_db)):
@@ -103,3 +110,25 @@ def get_warehouse_inventory(warehouse_id: int, skip: int = 0, limit: int = 100, 
         })
         
     return result
+
+def init_warehouses(db: Session):
+    """Ensure at least one main warehouse exists"""
+    count = db.query(models.Warehouse).count()
+    if count == 0:
+        print("[INIT] No warehouses found. Creating default 'Almacen1'...")
+        default_wh = models.Warehouse(
+            name="Almacen1",
+            address="Dirección Principal",
+            is_active=True,
+            is_main=True
+        )
+        db.add(default_wh)
+        db.commit()
+        print("[INIT] 'Almacen1' created successfully.")
+    else:
+        # Check if Almacen1 specifically exists (optional, mostly for consistency)
+        almacen1 = db.query(models.Warehouse).filter(models.Warehouse.name == "Almacen1").first()
+        if not almacen1:
+             print("[INFO] Warehouses exist but 'Almacen1' not found. Skipping creation to avoid duplicates.")
+        else:
+             print("[INFO] 'Almacen1' confirmed exists.")

@@ -33,7 +33,8 @@ import {
     ArrowRight,
     Download,
     Wrench,
-    ShieldCheck // NEW: RMA
+    ShieldCheck, // NEW: RMA
+    Shirt // Added for Laundry module
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -65,23 +66,27 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 { icon: ClipboardList, label: 'Recetas / Escandallos', path: '/restaurant/recipes' },
             ]
         }] : []),
-        // SERVICE & LAUNDRY MODULES
-        ...((modules?.services || modules?.laundry) ? [{
-            type: 'group',
-            label: modules?.services ? 'Servicios Técnicos' : 'Gestión de Lavandería', // Dynamic Label
-            icon: modules?.services ? Wrench : Smartphone, // Dynamic Icon
-            items: [
-                // Repair Shop Items (Only if Services enabled)
-                ...(modules?.services ? [
-                    { icon: FileText, label: 'Taller / Reparaciones', path: '/services/list' },
-                    { icon: Plus, label: 'Nueva Recepción', path: '/services/reception' }
-                ] : []),
 
-                // Laundry Items (Only if Laundry enabled)
-                ...(modules?.laundry ? [
-                    { icon: Smartphone, label: 'Tablero Lavandería', path: '/laundry' },
-                    { icon: Plus, label: 'Nueva Orden', path: '/laundry/new' }
-                ] : []),
+
+        // SERVICE MODULE (Repairs)
+        ...(modules?.services ? [{
+            type: 'group',
+            label: 'Servicios Técnicos',
+            icon: Wrench,
+            items: [
+                { icon: FileText, label: 'Taller / Reparaciones', path: '/services/list' },
+                { icon: Plus, label: 'Nueva Recepción', path: '/services/reception' }
+            ]
+        }] : []),
+
+        // LAUNDRY MODULE
+        ...(modules?.laundry ? [{
+            type: 'group',
+            label: 'Gestión de Lavandería',
+            icon: Shirt, // Changed from Smartphone to Shirt
+            items: [
+                { icon: Smartphone, label: 'Tablero Lavandería', path: '/laundry' }, // Main Board can stay Smartphone or change too
+                { icon: Plus, label: 'Nueva Orden', path: '/laundry/new' }
             ]
         }] : []),
         {

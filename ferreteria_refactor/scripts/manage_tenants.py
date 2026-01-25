@@ -1,129 +1,55 @@
 import sys
 import os
 import argparse
-import subprocess
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
 
 # Add project root to sys.path
-# .../ferreteria_refactor/scripts -> .../ferreteria_refactor
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root)
 
-from backend_api.config import settings
-from backend_api.models.tenant import Tenant
-from backend_api.models.models import User, UserRole
-from backend_api.security import get_password_hash
-
-# Database Connection (Public)
-engine = create_engine(settings.DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
-
-def seed_tenant_admin(schema_name):
-    """Seed initial admin user for the tenant"""
-    print(f"🌱 Seeding Admin User for: {schema_name}")
-    db = SessionLocal()
-    try:
-        # Set Schema for Postgres
-        if "sqlite" not in str(settings.DATABASE_URL):
-            db.execute(text(f"SET search_path TO {schema_name}, public"))
-            
-        # Check if admin exists
-        existing_admin = db.query(User).filter(User.username == "admin").first()
-        if existing_admin:
-             print(f"⚠️  Admin user already exists in {schema_name}.")
-             return
-
-        # Create Admin
-        admin_user = User(
-            username="admin",
-            password_hash=get_password_hash("admin123"), # Column is password_hash
-            role=UserRole.ADMIN,
-            is_active=True,
-            full_name="Admin System"
-            # Removed fields not in model: email, first_name, last_name, identification
-        )
-        db.add(admin_user)
-        db.commit()
-        print(f"✅ Admin user created: admin / admin123")
-        
-    except Exception as e:
-        print(f"❌ Error seeding admin: {e}")
-        db.rollback()
-    finally:
-        db.close()
-
-def run_alembic(schema_name):
-    """Run alembic upgrade head for a specific schema"""
-    print(f"🔄 [ALEMBIC] Migrating schema: {schema_name}...")
-    cmd = [
-        "alembic",
-        "-x", f"tenant={schema_name}",
-        "upgrade", "head"
-    ]
-    # Execute from project root where alembic.ini usually is
-    result = subprocess.run(cmd, cwd=project_root)
-    if result.returncode != 0:
-        print(f"❌ Migration FAILED for {schema_name}")
-        return False
-    print(f"✅ Migration OK for {schema_name}")
-    return True
+from backend_api.services.tenant_service import TenantService
 
 def create_tenant(name, schema_name, domain=None):
-    print(f"🏗️  Creating Tenant: {name} ({schema_name})")
-    db = SessionLocal()
+    print(f"🏗️  CLI: Requesting creation for: {name} ({schema_name})")
     try:
-        # 1. Check if exists
-        existing = db.query(Tenant).filter(Tenant.schema_name == schema_name).first()
-        if existing:
-            print(f"⚠️  Tenant with schema '{schema_name}' already exists.")
-        else:
-            # 2. Register in public.tenants
-            new_tenant = Tenant(name=name, schema_name=schema_name, domain=domain)
-            db.add(new_tenant)
-            db.commit()
-            print(f"✅ Tenant registered in DB.")
-        
-        # 3. Create Schema in Postgres
-        # (Compatible with Postgres only)
-        if "sqlite" in str(settings.DATABASE_URL):
-             print(f"⚠️  [SQLite] Skipping CREATE SCHEMA (Not supported). Simulating tenant '{schema_name}'.")
-        else:
-            with engine.connect() as conn:
-                conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
-                conn.commit()
-                print(f"✅ Schema '{schema_name}' created.")
-            
-        # 4. Run Migrations
-        if "sqlite" in str(settings.DATABASE_URL):
-             print(f"⚠️  [SQLite] Skipping Alembic Schema Migration (Not supported on SQLite single-file).")
-             # Validate simple user creation on sqlite (single tenant fallback)
-             seed_tenant_admin(schema_name)
-        else:
-            if run_alembic(schema_name):
-                # 5. Seed Admin
-                seed_tenant_admin(schema_name)
-        
+        # Default admin/pass for CLI
+        res = TenantService.create_tenant(
+            name=name, 
+            schema_name=schema_name, 
+            admin_email="admin@example.com", 
+            admin_password="admin123",
+            plan_type="FERRETERIA" # Default CLI
+        )
+        print(f"✅ Success: {res}")
     except Exception as e:
-        print(f"❌ Error creating tenant: {e}")
-        db.rollback()
-    finally:
-        db.close()
+        print(f"❌ Failed: {e}")
 
 def migrate_tenant(schema_name):
-    print(f"🚀 Migrating Single Tenant: {schema_name}")
-    run_alembic(schema_name)
+    print(f"🚀 CLI: Migrating Single Tenant: {schema_name}")
+    try:
+        TenantService.run_alembic(schema_name)
+    except Exception as e:
+        print(f"❌ Failed: {e}")
 
 def migrate_all():
-    print(f"🚀 Migrating ALL Tenants...")
+    print(f"🚀 CLI: Migrating ALL Tenants... (TODO: Re-implement list fetching if needed)")
+    # For now simplicity, we can just leave this or re-implement using DB query
+    # Since we moved logic, we'd need to fetch tenants here again.
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from backend_api.config import settings
+    from backend_api.models.tenant import Tenant
+
+    engine = create_engine(settings.DATABASE_URL)
+    SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
     try:
         tenants = db.query(Tenant).filter(Tenant.is_active == True).all()
         print(f"📋 Found {len(tenants)} active tenants.")
-        
         for t in tenants:
-            run_alembic(t.schema_name)
-            
+            try:
+                TenantService.run_alembic(t.schema_name)
+            except:
+                print(f"❌ Failed for {t.schema_name}")
     finally:
         db.close()
 

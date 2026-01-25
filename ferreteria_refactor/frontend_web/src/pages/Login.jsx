@@ -78,31 +78,51 @@ const Login = () => {
                             </div>
                         )}
 
-                        {/* Dev Tenant Selector (Only if not on subdomain) */}
-                        {!window.location.hostname.includes('.') && window.location.hostname !== 'localhost' ? null : (
-                            <div className="mb-6 bg-slate-100 p-3 rounded-xl border border-slate-200">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
-                                    🏢 Desarrollo: ID de Empresa (Schema)
-                                </label>
-                                <input
-                                    type="text"
-                                    className="w-full text-sm p-2 rounded border border-slate-300"
-                                    placeholder="ej: tenant_demo2"
-                                    defaultValue={localStorage.getItem('selected_tenant') || ''}
-                                    onChange={(e) => {
-                                        const val = e.target.value.trim();
-                                        if (val) localStorage.setItem('selected_tenant', val);
-                                        else localStorage.removeItem('selected_tenant');
+                        {/* Dev Tenant Selector (Hidden on Subdomains) */}
+                        {(() => {
+                            const hostname = window.location.hostname;
+                            // Check if subdomain: e.g. "tenant.app.com" (3 parts) vs "app.com" (2 parts) or "localhost"
+                            // IP addresses (4 parts) are technically "subdomains" by this logic but usually we recognize them as dev
+                            const isIp = /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/.test(hostname);
+                            const isSubdomain = hostname.split('.').length > 2 && !hostname.includes('localhost') && !isIp;
 
-                                        // Optional: Reload to apply axios interceptor immediately if needed
-                                        // window.location.reload(); 
-                                    }}
-                                />
-                                <p className="text-[10px] text-slate-400 mt-1">
-                                    Deja vacío para usar esquema public.
-                                </p>
-                            </div>
-                        )}
+                            // If isSubdomain, we SHOULD automagically set the tenant if not set? 
+                            // Usually backend handles extraction from Host header, but we can sync here if needed.
+
+                            if (isSubdomain) {
+                                // Extract tenant from subdomain (first part)
+                                const tenantFromUrl = hostname.split('.')[0];
+                                // Ensure consistency
+                                if (localStorage.getItem('selected_tenant') !== ('tenant_' + tenantFromUrl) && !localStorage.getItem('selected_tenant')?.includes(tenantFromUrl)) {
+                                    // Optional: Force local storage sync in case logic depends on it
+                                    // console.log("Auto-setting derived tenant", tenantFromUrl);
+                                }
+                                return null; // HIDE INPUT
+                            }
+
+                            // Show input if Localhost, IP, or Main Domain
+                            return (
+                                <div className="mb-6 bg-slate-100 p-3 rounded-xl border border-slate-200">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                        🏢 Desarrollo: ID de Empresa (Schema)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="w-full text-sm p-2 rounded border border-slate-300"
+                                        placeholder="ej: tenant_demo2"
+                                        defaultValue={localStorage.getItem('selected_tenant') || ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value.trim();
+                                            if (val) localStorage.setItem('selected_tenant', val);
+                                            else localStorage.removeItem('selected_tenant');
+                                        }}
+                                    />
+                                    <p className="text-[10px] text-slate-400 mt-1">
+                                        Deja vacío para usar esquema public.
+                                    </p>
+                                </div>
+                            );
+                        })()}
 
                         {/* Login Form */}
                         <form onSubmit={handleSubmit} className="space-y-5">

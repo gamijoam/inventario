@@ -21,6 +21,9 @@ async def open_cash_session(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
+    print(f"💰 [CASH] Attempting to open session. User: {current_user.username}")
+    print(f"   - Payload: {initial_cash}")
+    
     # Check if there's ANY open session (global, not per-user)
     active_session = db.query(models.CashSession).filter(
         models.CashSession.status == "OPEN"
@@ -29,37 +32,88 @@ async def open_cash_session(
     if active_session:
         raise HTTPException(status_code=400, detail="Ya hay una caja abierta en el sistema")
 
-    new_session = models.CashSession(
-        user_id=current_user.id,
-        start_time=datetime.now(),
-        initial_cash=initial_cash.initial_cash,
-        initial_cash_bs=initial_cash.initial_cash_bs,
-        status="OPEN"
-    )
-    db.add(new_session)
-    db.commit()
-    db.refresh(new_session)
-    
-    # Initialize currencies
-    for req_curr in initial_cash.currencies:
-        db_curr = models.CashSessionCurrency(
-            session_id=new_session.id,
-            currency_symbol=req_curr.currency_symbol,
-            initial_amount=req_curr.initial_amount
+    try:
+        new_session = models.CashSession(
+            user_id=current_user.id,
+            start_time=datetime.now(),
+            initial_cash=initial_cash.initial_cash,
+            initial_cash_bs=initial_cash.initial_cash_bs,
+            status="OPEN"
         )
-        db.add(db_curr)
+        db.add(new_session)
+        # FLUSH ONLY: This triggers ID generation but keeps the transaction OPEN
+        # This keeps us within the same atomic block and search_path context.
+        db.flush()
+        
+        new_session_id = new_session.id
+        print(f"💰 Session Created with ID: {new_session_id}")
+        
+        # Initialize currencies
+        for req_curr in initial_cash.currencies:
+            if not req_curr.currency_symbol: continue 
+            
+            db_curr = models.CashSessionCurrency(
+                session_id=new_session_id, # Use variable
+                currency_symbol=req_curr.currency_symbol,
+                initial_amount=req_curr.initial_amount
+            )
+            db.add(db_curr)
+        
+        # Final Commit (All changes at once)
+        db.commit()
+        
+        # EXPLICIT RE-QUERY (Robust against "Could not refresh instance"):
+        # We use the integer ID stored in variable, NOT new_session.id (which triggers reload)
+        from sqlalchemy.orm import joinedload
+        final_session = db.query(models.CashSession).options(
+            joinedload(models.CashSession.currencies)
+        ).filter(models.CashSession.id == new_session_id).first()
+        
+        if not final_session:
+             # Should practically never happen if commit worked
+             logger.error("🔥 CRITICAL: Created session not found after commit!")
+             raise HTTPException(status_code=500, detail="Error crítico de consistencia en base de datos.")
+
+        # Broadcast cash session opened event to all connected clients
+        await manager.broadcast("cash_session:opened", {
+            "session_id": final_session.id,
+            "initial_cash": float(final_session.initial_cash or 0),
+            "initial_cash_bs": float(final_session.initial_cash_bs or 0),
+            "start_time": final_session.start_time.isoformat()
+        })
+        
+        return final_session
     
-    db.commit()
-    db.refresh(new_session)
-    
-    # Broadcast cash session opened event to all connected clients
-    await manager.broadcast("cash_session:opened", {
-        "session_id": new_session.id,
-        "initial_cash": float(new_session.initial_cash),
-        "initial_cash_bs": float(new_session.initial_cash_bs),
-        "start_time": new_session.start_time.isoformat()
-    })
-    
+    except Exception as e:
+        import traceback
+        print(f"🔥 CRASH OPENING SESSION: {e}")
+        traceback.print_exc()
+        db.rollback()
+        # Clean up the session we just created to avoid zombie OPEN sessions
+        try:
+            if new_session and new_session.id:
+                 # Check if session is still attached to session
+                 # If rollback happened, new_session might be transient or detached.
+                 # Re-query to be safe? Or just ignore if it fails.
+                 pass
+        except:
+             pass
+             
+        raise HTTPException(status_code=500, detail=f"Error interno abriendo caja: {str(e)}")
+
+    # Broadcast (Safe Mode)
+    try:
+        if manager:
+            await manager.broadcast("cash_session:opened", {
+                "session_id": new_session.id,
+                "initial_cash": float(new_session.initial_cash or 0),
+                "initial_cash_bs": float(new_session.initial_cash_bs or 0),
+                "start_time": new_session.start_time.isoformat()
+            })
+    except Exception as broadcast_err:
+        print(f"⚠️ Warning: Failed to broadcast open event: {broadcast_err}")
+        # Do not fail the request just because websocket failed
+
     return new_session
 
 @router.get("/sessions/current", response_model=schemas.CashSessionRead)

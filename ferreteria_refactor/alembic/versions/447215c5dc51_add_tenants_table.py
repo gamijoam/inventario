@@ -41,7 +41,7 @@ def upgrade() -> None:
             batch_op.create_index(batch_op.f('ix_public_tenants_id'), ['id'], unique=False)
             batch_op.create_index(batch_op.f('ix_public_tenants_schema_name'), ['schema_name'], unique=True)
     else:
-        print("⏭️  Skipping creation of public.tenants (already exists)")
+        print("[INFO] Skipping creation of public.tenants (already exists)")
 
     # op.drop_table('alembic_version') # REMOVED DANGEROUS LINE
     # ### end Alembic commands ###

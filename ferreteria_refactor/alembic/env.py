@@ -110,7 +110,7 @@ def run_migrations_online() -> None:
         
         target_schema = "public" # Default
         if tenant_schema:
-            print(f"🚀 [ALEMBIC] Running migrations for TENANT schema: {tenant_schema}")
+            print(f"[ALEMBIC] Running migrations for TENANT schema: {tenant_schema}")
             # Set search path to tenant schema (and public for shared types if any)
             # IMPORTANT: We want alembic_version to be in the TENANT schema.
             connection.execute(text(f'SET search_path TO {tenant_schema}, public'))

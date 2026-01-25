@@ -48,6 +48,39 @@ async def startup_event_async():
     print("[INFO] FERRETERIA API INICIADA (Modo Docker SaaS v2)")
     print("="*60 + "\n")
 
+# --- MIDDLEWARE DE LOGGING Y SEGURIDAD ---
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+import time
+import traceback
+
+class LoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        print(f"👉 [REQ] {request.method} {request.url.path}")
+        try:
+            response = await call_next(request)
+            process_time = time.time() - start_time
+            print(f"👈 [RES] {response.status_code} ({process_time:.4f}s)")
+            return response
+        except Exception as e:
+            process_time = time.time() - start_time
+            print(f"🔥 [CRASH] Request failed after {process_time:.4f}s: {e}")
+            traceback.print_exc()
+            raise e
+
+app.add_middleware(LoggingMiddleware)
+
+# --- GLOBAL EXCEPTION HANDLER ---
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    print(f"🔥 [GLOBAL HANDLER] Error in {request.url.path}: {exc}")
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}", "type": type(exc).__name__},
+    )
+
 # --- SEGURIDAD HÍBRIDA (License Guard) ---
 # TEMPORARILY DISABLED FOR DEBUGGING
 # if not os.getenv("DOCKER_CONTAINER"):
@@ -63,9 +96,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",  # Vite dev server
-        "http://127.0.0.1:5173",  # Alternative localhost
-        "https://demo.invensoft.lat",  # Production domain
-        "https://invensoft.lat",  # Production domain (www)
+        "http://127.0.0.1:5173",
+        "http://localhost:5500",  # Live Server (Default)
+        "http://127.0.0.1:5500",
+        "http://localhost:3000",
+        "https://demo.invensoft.lat",
+        "https://invensoft.lat",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -100,7 +136,13 @@ app.include_router(services, prefix="/api/v1", tags=["Servicios Técnicos"]) # N
 app.include_router(commissions.router, prefix="/api/v1", tags=["Comisiones"]) # NEW: Commissions
 app.include_router(rma.router, prefix="/api/v1", tags=["Garantías RMA"]) # NEW: RMA
 app.include_router(price_lists.router, prefix="/api/v1", tags=["Listas de Precios"]) # NEW: Price Lists
+app.include_router(rma.router, prefix="/api/v1", tags=["Garantías RMA"]) # NEW: RMA
+app.include_router(price_lists.router, prefix="/api/v1", tags=["Listas de Precios"]) # NEW: Price Lists
 app.include_router(cloud.router, prefix="/api/v1", tags=["Cloud Configuration"]) # Cloud testing
+
+# NEW: Public Auth (Tenant Registration)
+from .routers import public_auth
+app.include_router(public_auth.router, prefix="/api/v1", tags=["Public Auth"])
 
 from .routers.modules.restaurant import tables as restaurant_tables
 from .routers.modules.restaurant import orders as restaurant_orders
@@ -237,11 +279,14 @@ def startup_event():
     # Seed Data
     from .database.db import SessionLocal
     from .routers.auth import init_admin_user
-    from .routers.config import init_exchange_rates
+    from .routers.config import init_exchange_rates, init_currencies
+    from .routers.warehouses import init_warehouses # Import initialization
     db = SessionLocal()
     try:
         init_admin_user(db)
         init_exchange_rates(db)
+        init_currencies(db) # Seed default currencies (USD, BS, etc.)
+        init_warehouses(db) # Safe idempotent initialization
 
         # Initialize Payment Methods
         # Initialize Payment Methods with Better Names
