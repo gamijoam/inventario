@@ -19,14 +19,53 @@ router = APIRouter(
 )
 
 @router.get("/public")
-def get_public_config():
-    """Get public configuration and feature flags"""
+def get_public_config(db: Session = Depends(get_db)):
+    """
+    Get public configuration and feature flags.
+    Response is the INTERSECTION of:
+    1. Server Capabilities (Env Vars)
+    2. Tenant Entitlements (DB Config)
+    """
+    from ..tenant_context import get_tenant_schema
+    from ..models.tenant import Tenant
+    
+    current_schema = get_tenant_schema()
+    tenant_name = "Ferretería Demo (Public)"
+    
+    # Flags Defaults
+    tenant_config = {"restaurant": True, "laundry": True, "services": True}
+
+    # 1. Server Global Settings (Hard Limits)
+    server_has_restaurant = settings.MODULE_RESTAURANT_ENABLED
+    server_has_services = settings.MODULE_SERVICES_ENABLED
+    server_has_laundry = settings.MODULE_LAUNDRY_ENABLED
+    
+    # 2. Tenant Entitlements (DB)
+    if current_schema != "public":
+        # Need to query public.tenants
+        # Since Tenant model is explicit schema='public', it should work regardless of search_path
+        try:
+            tenant_obj = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
+            if tenant_obj:
+                tenant_name = tenant_obj.name
+                if tenant_obj.config:
+                    # Merge config from DB
+                    # Expected DB config: {"restaurant": false, "modules": {...}}
+                    # Let's assume structure is flat or under modules key
+                    db_modules = tenant_obj.config if "restaurant" in tenant_obj.config else tenant_obj.config.get("modules", {})
+                    tenant_config.update(db_modules)
+        except Exception as e:
+            print(f"⚠️ Error fetching tenant config: {e}")
+
     return {
         "modules": {
-            "restaurant": settings.MODULE_RESTAURANT_ENABLED,
-            "services": settings.MODULE_SERVICES_ENABLED,
-            "laundry": settings.MODULE_LAUNDRY_ENABLED
-        }
+            "restaurant": server_has_restaurant and tenant_config.get("restaurant", False),
+            "services": server_has_services and tenant_config.get("services", False),
+            "laundry": server_has_laundry and tenant_config.get("laundry", False),
+            "ferreteria": True # Always enabled core
+        },
+        "tenant_name": tenant_name,
+        "tenant": current_schema 
     }
 
 # ========================================

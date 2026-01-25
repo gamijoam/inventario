@@ -78,6 +78,32 @@ const Login = () => {
                             </div>
                         )}
 
+                        {/* Dev Tenant Selector (Only if not on subdomain) */}
+                        {!window.location.hostname.includes('.') && window.location.hostname !== 'localhost' ? null : (
+                            <div className="mb-6 bg-slate-100 p-3 rounded-xl border border-slate-200">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                                    🏢 Desarrollo: ID de Empresa (Schema)
+                                </label>
+                                <input
+                                    type="text"
+                                    className="w-full text-sm p-2 rounded border border-slate-300"
+                                    placeholder="ej: tenant_demo2"
+                                    defaultValue={localStorage.getItem('selected_tenant') || ''}
+                                    onChange={(e) => {
+                                        const val = e.target.value.trim();
+                                        if (val) localStorage.setItem('selected_tenant', val);
+                                        else localStorage.removeItem('selected_tenant');
+
+                                        // Optional: Reload to apply axios interceptor immediately if needed
+                                        // window.location.reload(); 
+                                    }}
+                                />
+                                <p className="text-[10px] text-slate-400 mt-1">
+                                    Deja vacío para usar esquema public.
+                                </p>
+                            </div>
+                        )}
+
                         {/* Login Form */}
                         <form onSubmit={handleSubmit} className="space-y-5">
                             {/* Username Field */}

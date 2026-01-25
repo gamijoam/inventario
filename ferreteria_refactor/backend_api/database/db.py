@@ -73,9 +73,27 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
+from sqlalchemy import text
+from ..tenant_context import get_tenant_schema
+
 def get_db():
     db = SessionLocal()
     try:
+        # Multi-Tenant Logic (Only for Postgres/Production)
+        if DB_TYPE == "postgres" or "postgres" in str(DATABASE_URL):
+            schema = get_tenant_schema()
+            if schema and schema != "public":
+                # Inject Schema Search Path
+                # "schema, public" means: try schema first, falback to public (for shared tables if any)
+                try:
+                    db.execute(text(f"SET search_path TO {schema}, public"))
+                except Exception as e:
+                    print(f"❌ Error setting schema '{schema}': {e}")
+                    # If schema is invalid, we might want to fail hard or fallback.
+                    # For now, let's allow fallback but log it, or maybe rollback
+                    db.rollback()
+                    # In strict SaaS, we should probably raise an error here.
+        
         yield db
     finally:
         db.close()

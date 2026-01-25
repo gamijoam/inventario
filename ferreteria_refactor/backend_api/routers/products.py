@@ -73,85 +73,62 @@ def read_products(
 @router.post("", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))], include_in_schema=False)
 async def create_product(product: schemas.ProductCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     # 1. Operaciones DB (Síncronas en Threadpool)
-    # 1. Operaciones DB (Síncronas en Threadpool)
-    product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks", "prices"})
-    db_product = models.Product(**product_data)
-    db.add(db_product)
+    # 1. Operaciones DB (Transaction Wrapper)
     try:
-        db.commit()
-        db.refresh(db_product)
-    except Exception as e:
-        db.rollback()
-        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
-            raise HTTPException(status_code=400, detail="Product with this SKU or Name already exists")
-        raise HTTPException(status_code=400, detail=f"Database Error (Base): {str(e)}")
+        # A. Create Base Product
+        product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks", "prices"})
+        db_product = models.Product(**product_data)
+        db.add(db_product)
+        db.flush() # Generate ID without closing transaction/search_path context
 
-    # Process Units
-    if product.units:
-        for unit in product.units:
-            db_unit = models.ProductUnit(**unit.dict(), product_id=db_product.id)
-            db.add(db_unit)
-    
-    try:
-        db.commit()
-        db.refresh(db_product)
-    except Exception as e:
-        db.rollback()
-        error_msg = str(e).lower()
-        if "unique" in error_msg or "duplicate" in error_msg:
-             raise HTTPException(status_code=400, detail=f"Error: SKU or Name already exists. ({str(e)})")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-    
-    # NEW: Process Combo Items
-    if product.combo_items:
-        for combo_item in product.combo_items:
-            db_combo_item = models.ComboItem(
-                parent_product_id=db_product.id,
-                child_product_id=combo_item.child_product_id,
-                quantity=combo_item.quantity,
-                unit_id=combo_item.unit_id  # NEW: Include unit_id
-            )
-            db.add(db_combo_item)
-        db.commit()
-        db.refresh(db_product)
+        # B. Process Units
+        if product.units:
+            for unit in product.units:
+                db_unit = models.ProductUnit(**unit.dict(), product_id=db_product.id)
+                db.add(db_unit)
         
-    # NEW: Process Warehouse Stocks
-    total_stock = 0
-    if product.warehouse_stocks:
-        for stock in product.warehouse_stocks:
-            db_stock = models.ProductStock(
-                product_id=db_product.id,
-                warehouse_id=stock.warehouse_id,
-                quantity=stock.quantity,
-                location=stock.location
-            )
-            db.add(db_stock)
-            total_stock += stock.quantity
-        
-        # Sync total stock
-        db_product.stock = total_stock
-        db.commit()
-        db.refresh(db_product)
-    else:
-        # If no stocks provided but total stock is > 0, assign to MAIN warehouse (ID 1 default)
-        if product.stock > 0:
-            main_wh = db.query(models.Warehouse).filter(models.Warehouse.is_main == True).first()
-            if main_wh:
+        # C. Process Combo Items
+        if product.combo_items:
+            for combo_item in product.combo_items:
+                db_combo_item = models.ComboItem(
+                    parent_product_id=db_product.id,
+                    child_product_id=combo_item.child_product_id,
+                    quantity=combo_item.quantity,
+                    unit_id=combo_item.unit_id
+                )
+                db.add(db_combo_item)
+            
+        # D. Process Warehouse Stocks
+        total_stock = 0
+        if product.warehouse_stocks:
+            for stock in product.warehouse_stocks:
                 db_stock = models.ProductStock(
                     product_id=db_product.id,
-                    warehouse_id=main_wh.id,
-                    quantity=product.stock,
-                    location=product.location
+                    warehouse_id=stock.warehouse_id,
+                    quantity=stock.quantity,
+                    location=stock.location
                 )
                 db.add(db_stock)
-                db.commit()
-                db.refresh(db_product)
-
-    # NEW: Process Price Lists
-    if product.prices:
-        try:
-            import os
-            for p_price in product.prices:
+                total_stock += stock.quantity
+            
+            # Sync total stock
+            db_product.stock = total_stock
+        else:
+            # If no stocks provided but total stock is > 0, assign to MAIN warehouse (ID 1 default)
+            if product.stock > 0:
+                main_wh = db.query(models.Warehouse).filter(models.Warehouse.is_main == True).first()
+                if main_wh:
+                    db_stock = models.ProductStock(
+                        product_id=db_product.id,
+                        warehouse_id=main_wh.id,
+                        quantity=product.stock,
+                        location=product.location
+                    )
+                    db.add(db_stock)
+    
+        # E. Process Price Lists
+        if product.prices:
+             for p_price in product.prices:
                  # Handle Pydantic model vs dict
                  p_list_id = p_price.price_list_id if hasattr(p_price, 'price_list_id') else p_price['price_list_id']
                  p_val = p_price.price if hasattr(p_price, 'price') else p_price['price']
@@ -162,19 +139,18 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                      price=p_val
                  )
                  db.add(db_price)
-            db.commit()
-            db.refresh(db_product)
-        except Exception as e:
-            db.rollback()
-            import traceback
-            err_msg = f"Error saving prices: {str(e)}\n{traceback.format_exc()}"
-            print(f"[ERROR] {err_msg}")
-            try:
-                with open(os.path.join(os.getcwd(), "debug_error.log"), "w") as f:
-                    f.write(err_msg)
-            except:
-                pass
-            raise HTTPException(status_code=400, detail=f"DEBUG ERROR: {str(e)}")
+
+        # F. FINAL COMMIT (Atomic)
+        db.commit()
+        db.refresh(db_product)
+
+    except Exception as e:
+        db.rollback()
+        error_msg = str(e).lower()
+        if "unique" in error_msg or "duplicate" in error_msg:
+             raise HTTPException(status_code=400, detail=f"Error: SKU or Name already exists.")
+        print(f"[ERROR] Product Creation Failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Database error: {str(e)}")
 
     # 2. WebSocket en Background
     payload = {

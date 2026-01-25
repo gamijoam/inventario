@@ -38,6 +38,8 @@ from backend_api.models.restaurant import (
 from backend_api.models.prueba import PruebaActualizacion
 from backend_api.models.prueba_vps import PruebaVPS
 from backend_api.models.notas import NotasRapidas
+from backend_api.models.tenant import Tenant # Register Tenant model
+from sqlalchemy import text # For SET search_path
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -101,10 +103,26 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # --- MULTI-TENANT LOGIC ---
+        # Read -x tenant=schema_name argument
+        x_args = context.get_x_argument(as_dictionary=True)
+        tenant_schema = x_args.get("tenant")
+        
+        target_schema = "public" # Default
+        if tenant_schema:
+            print(f"🚀 [ALEMBIC] Running migrations for TENANT schema: {tenant_schema}")
+            # Set search path to tenant schema (and public for shared types if any)
+            # IMPORTANT: We want alembic_version to be in the TENANT schema.
+            connection.execute(text(f'SET search_path TO {tenant_schema}, public'))
+            target_schema = tenant_schema
+        else:
+            print("🌍 [ALEMBIC] Running migrations for PUBLIC schema")
+
         context.configure(
             connection=connection, 
             target_metadata=target_metadata,
-            render_as_batch=True
+            render_as_batch=True,
+            version_table_schema=target_schema # Stores alembic_version in the correct schema
         )
 
         with context.begin_transaction():

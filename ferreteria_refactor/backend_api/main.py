@@ -33,6 +33,10 @@ app = FastAPI(
     version="2.2.0",
 )
 
+# --- SAAS MULTI-TENANT MIDDLEWARE ---
+from .middleware.tenant_middleware import TenantMiddleware
+app.add_middleware(TenantMiddleware)
+
 from .config import settings
 
 

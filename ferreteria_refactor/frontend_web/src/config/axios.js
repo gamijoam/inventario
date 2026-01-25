@@ -34,6 +34,15 @@ apiClient.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // --- MULTI-TENANT LOCAL SUPPORT ---
+        // Permite probar diferentes empresas en localhost sin subdominios
+        const selectedTenant = localStorage.getItem('selected_tenant');
+        if (selectedTenant && selectedTenant !== 'public') {
+            config.headers['X-Tenant-ID'] = selectedTenant;
+            console.log(`🔌 [Axios] Injecting Tenant ID: ${selectedTenant}`);
+        }
+
         return config;
     },
     (error) => Promise.reject(error)
