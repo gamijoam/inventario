@@ -17,12 +17,22 @@ router = APIRouter(
 def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = Depends(get_db)):
     """Create a new service order with auto-generated Ticket Number"""
     try:
-        # 1. Generate Ticket Number
-        last_order = db.query(models.ServiceOrder).order_by(desc(models.ServiceOrder.id)).first()
+        # 1. Determine Prefix based on Service Type
+        prefix = "SRV"
+        if order_data.service_type == models.ServiceType.LAUNDRY:
+            prefix = "LAV"
+
+        # 2. Generate Ticket Number
+        # Find last ticket with this prefix to ensure continuity per type if desired, 
+        # OR just global continuity. User requested specific identifier for Laundry.
+        # Let's simple filter by ticket_number like "PREFIX-%"
+        last_order = db.query(models.ServiceOrder)\
+            .filter(models.ServiceOrder.ticket_number.like(f"{prefix}-%"))\
+            .order_by(desc(models.ServiceOrder.id)).first()
         
         if last_order and last_order.ticket_number:
             try:
-                # Extract number from "SRV-0001"
+                # Extract number from "XXX-0001"
                 last_num = int(last_order.ticket_number.split("-")[1])
                 new_num = last_num + 1
             except:
@@ -30,15 +40,15 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
         else:
             new_num = 1
             
-        ticket_number = f"SRV-{new_num:05d}"
+        ticket_number = f"{prefix}-{new_num:05d}"
         
-        # 2. Create Order
+        # 3. Create Order
         new_order = models.ServiceOrder(
             ticket_number=ticket_number,
             customer_id=order_data.customer_id,
             technician_id=order_data.technician_id,
             status=models.ServiceOrderStatus.RECEIVED,
-            service_type=order_data.service_type, # Ensure type is saved
+            service_type=order_data.service_type,
             
             device_type=order_data.device_type,
             brand=order_data.brand,
@@ -50,17 +60,67 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
             physical_condition=order_data.physical_condition,
             diagnosis_notes=order_data.diagnosis_notes,
             estimated_delivery=order_data.estimated_delivery,
-            order_metadata=order_data.order_metadata # FIX: Save Metadata
+            order_metadata=order_data.order_metadata,
+            priority=order_data.priority # Added Priority Field
         )
         
         db.add(new_order)
+        db.flush() # Get ID
+
+        # 4. Process Items (Cart)
+        if order_data.items:
+            for item in order_data.items:
+                # Logic for Manual vs Product Item
+                if item.product_id:
+                    # PRODUCT ITEM
+                    product = db.query(models.Product).get(item.product_id)
+                    if not product:
+                        continue # Skip invalid products? Or raise generic error?
+                        
+                    description = product.name
+                    cost = product.cost_price
+                    is_manual = False
+                else:
+                    # MANUAL ITEM
+                    description = item.description or "Servicio Manual"
+                    cost = 0 
+                    is_manual = True
+                    
+                new_detail = models.ServiceOrderDetail(
+                    service_order_id=new_order.id,
+                    product_id=item.product_id,
+                    description=description,
+                    is_manual=is_manual,
+                    quantity=item.quantity,
+                    unit_price=item.unit_price,
+                    cost=cost, 
+                    technician_id=item.technician_id or new_order.technician_id 
+                )
+                db.add(new_detail)
+
         db.commit()
         db.refresh(new_order)
         return new_order
+        
     except Exception as e:
         print(f"[ERROR] Create Service Order Failed: {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
+
+@router.delete("/orders/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_service_order(order_id: int, db: Session = Depends(get_db)):
+    """Delete a service order if it's not processed/paid"""
+    order = db.query(models.ServiceOrder).get(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+        
+    # Validation: strict check?
+    # If order is PAID (converted to Sale), maybe block?
+    # For now, allow deletion of active orders.
+    
+    db.delete(order)
+    db.commit()
+    return None
 
 @router.get("/orders", response_model=List[schemas.ServiceOrderRead])
 def get_service_orders(

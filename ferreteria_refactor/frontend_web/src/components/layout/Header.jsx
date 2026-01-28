@@ -1,7 +1,17 @@
-import { Search, Bell, ShoppingCart, PackageSearch, DollarSign } from 'lucide-react';
+import { Search, Bell, ShoppingCart, PackageSearch, DollarSign, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useConfig } from '../../context/ConfigContext';
+import { useState } from 'react';
+import ExchangeRateUpdateModal from '../common/ExchangeRateUpdateModal';
 
 export default function Header() {
+    const { currencies } = useConfig();
+    const [showRateModal, setShowRateModal] = useState(false);
+
+    // Find the non-anchor default currency (usually Local Currency)
+    const displayCurrency = currencies.find(c => c.is_default && !c.is_anchor) || currencies.find(c => !c.is_anchor);
+    const rate = displayCurrency ? parseFloat(displayCurrency.rate) : 0;
+
     return (
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-10">
             <div className="flex items-center gap-4 flex-1">
@@ -17,6 +27,26 @@ export default function Header() {
             </div>
 
             <div className="flex items-center gap-2 md:gap-4">
+                {/* Exchange Rate Display */}
+                {displayCurrency && (
+                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg mr-2">
+                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600">
+                            <DollarSign size={14} strokeWidth={3} />
+                        </div>
+                        <div className="flex flex-col leading-none">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase">Tasa {displayCurrency.symbol}</span>
+                            <span className="text-sm font-black text-slate-700">{rate.toFixed(2)}</span>
+                        </div>
+                        <button
+                            onClick={() => setShowRateModal(true)}
+                            className="ml-1 p-1 hover:bg-slate-200 rounded-full text-slate-400 transition-colors"
+                            title="Actualizar Tasa"
+                        >
+                            <RefreshCw size={12} />
+                        </button>
+                    </div>
+                )}
+
                 {/* Shortcuts */}
                 <div className="flex items-center gap-1 mr-2 border-r border-slate-200 pr-4">
                     <Link to="/products" className="p-2 rounded-lg hover:bg-slate-50 text-slate-500 hover:text-indigo-600 transition-colors flex flex-col items-center group" title="Inventario">
@@ -40,6 +70,11 @@ export default function Header() {
                     <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
                 </button>
             </div>
+
+            <ExchangeRateUpdateModal
+                isOpen={showRateModal}
+                onClose={() => setShowRateModal(false)}
+            />
         </header>
     );
 }

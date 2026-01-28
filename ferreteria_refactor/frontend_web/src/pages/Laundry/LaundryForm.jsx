@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
     Users, Shirt, Save,
-    Search, Plus, CheckCircle
+    Search, Plus, CheckCircle, Trash2, ShoppingBag, Package
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { useConfig } from '../../context/ConfigContext';
 
 const LaundryForm = () => {
+    const { convertPrice, formatCurrency } = useConfig();
     const [loading, setLoading] = useState(false);
     const [ticketNumber, setTicketNumber] = useState(null);
 
@@ -16,33 +18,42 @@ const LaundryForm = () => {
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [showResults, setShowResults] = useState(false);
 
-    // Laundry Form Data
-    const [formData, setFormData] = useState({
-        weight_kg: '',
-        pieces: '',
-        bag_color: '',
-        wash_type: 'General', // Default valid value
-        observations: ''
+    // Product Search (Services)
+    const [products, setProducts] = useState([]);
+    const [productSearch, setProductSearch] = useState('');
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showProductResults, setShowProductResults] = useState(false);
+
+    // Cart State
+    const [cart, setCart] = useState([]);
+
+    // Current Item Form
+    const [currentItem, setCurrentItem] = useState({
+        quantity: 1, // Default generic quantity
+        weight_kg: '', // For KG items
+        pieces: '',    // For Piece items
+        observations: '',
+        is_manual_price: false,
+        manual_price: ''
     });
 
-    // Service Configuration (Smart Logic)
-    const SERVICE_TYPES = {
-        'General': { unit: 'KG', label: 'Lavado General' },
-        'Lavado y Planchado': { unit: 'KG', label: 'Lavado + Planchado' },
-        'Solo Planchado': { unit: 'PIECES', label: 'Solo Planchado' },
-        'Solo Secado': { unit: 'KG', label: 'Solo Secado' },
-        'Edredones': { unit: 'PIECES', label: 'Edredones' },
-        'Delicado': { unit: 'KG', label: 'Delicado' },
-        'Desmanchado': { unit: 'PIECES', label: 'Desmanchado' },
-        'Teñido': { unit: 'PIECES', label: 'Teñido' }
-    };
+    // Metadata for the whole order
+    const [orderMetadata, setOrderMetadata] = useState({
+        bag_color: '',
+        priority: 'NORMAL'
+    });
 
-    const currentServiceConfig = SERVICE_TYPES[formData.wash_type] || SERVICE_TYPES['General'];
+    // Quick Customer Create
+    const [showQuickCreate, setShowQuickCreate] = useState(false);
+    const [quickCustomer, setQuickCustomer] = useState({ name: '', id_number: '', phone: '' });
 
-    // Search Customers
+    // Unit Mode (Added Fix)
+    const [unitMode, setUnitMode] = useState('PIECES'); // 'KG' or 'PIECES'
+
+    // --- CUSTOMER SEARCH ---
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
-            if (searchTerm.length > 2) {
+            if (searchTerm.length > 2 && (!selectedCustomer || searchTerm !== `${selectedCustomer.name} (${selectedCustomer.id_number || 'N/A'})`)) {
                 try {
                     const res = await apiClient.get(`/customers/?search=${searchTerm}`);
                     setCustomers(res.data);
@@ -55,103 +66,66 @@ const LaundryForm = () => {
                 setShowResults(false);
             }
         }, 500);
-
         return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm]);
+    }, [searchTerm, selectedCustomer]);
 
     const handleCustomerSelect = (customer) => {
         setSelectedCustomer(customer);
         setSearchTerm(`${customer.name} (${customer.id_number || 'N/A'})`);
         setShowResults(false);
+        setCustomers([]);
     };
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+    // --- PRODUCT SEARCH ---
+    useEffect(() => {
+        const delayDebounceFn = setTimeout(async () => {
+            // Only search if term length > 1 AND it's not the currently selected product name
+            if (productSearch.length > 1 && (!selectedProduct || productSearch !== selectedProduct.name)) {
+                try {
+                    const res = await apiClient.get(`/products?search=${productSearch}`);
+                    setProducts(res.data);
+                    setShowProductResults(true);
+                } catch (error) {
+                    console.error("Error searching products:", error);
+                }
+            } else {
+                setProducts([]);
+                setShowProductResults(false);
+            }
+        }, 400);
+        return () => clearTimeout(delayDebounceFn);
+    }, [productSearch, selectedProduct]);
+
+    const handleProductSelect = (product) => {
+        setSelectedProduct(product);
+        setProductSearch(product.name);
+        setShowProductResults(false);
+        setProducts([]);
+
+        // Auto-detect unit logic BUT allow override
+        const isKg = product.unit_type?.toLowerCase().includes('kilo') || product.name.toLowerCase().includes('kg');
+        setUnitMode(isKg ? 'KG' : 'PIECES'); // Set mode based on product default
+
+        setCurrentItem({
+            ...currentItem,
+            weight_kg: '',
+            pieces: isKg ? '' : '1',
+            quantity: 1,
+            manual_price: product.price || 0,
+            is_manual_price: false
+        });
     };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!selectedCustomer) {
-            toast.error('Debe seleccionar un cliente.');
-            return;
-        }
-        if (!formData.bag_color || !formData.pieces) {
-            toast.error('Complete los campos obligatorios (*).');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // Construct Payload mapped to Backend ServiceOrder
-            const payload = {
-                customer_id: selectedCustomer.id,
-                service_type: 'LAUNDRY',
-                priority: 'NORMAL',
-
-                // Mapped Fields
-                device_type: 'ROPA',
-                brand: 'GENERICA', // Dummy to satisfy constraint if any, or cleaner if model updated
-                model: 'LAVANDERIA',
-
-                // Flexible Metadata
-                order_metadata: {
-                    weight_kg: formData.weight_kg,
-                    pieces: formData.pieces,
-                    bag_color: formData.bag_color,
-                    wash_type: formData.wash_type
-                },
-
-                // Notes
-                problem_description: `Servicio: ${formData.wash_type}. Color Bolsa: ${formData.bag_color}. ${formData.observations || ''}`,
-                physical_condition: `Piezas: ${formData.pieces}, Peso: ${formData.weight_kg}kg`
-            };
-
-            const res = await apiClient.post('/services/orders', payload);
-            setTicketNumber(res.data.ticket_number);
-            toast.success(`Orden de Lavandería ${res.data.ticket_number} creada!`);
-
-            // Reset form
-            setFormData({
-                weight_kg: '',
-                pieces: '',
-                bag_color: '',
-                wash_type: 'General',
-                observations: ''
-            });
-            setSelectedCustomer(null);
-            setSearchTerm('');
-
-        } catch (error) {
-            console.error("Error creating order:", error);
-            // Show specific backend error if available
-            const msg = error.response?.data?.detail || 'Error al crear la orden.';
-            toast.error(msg);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Quick Create State
-    const [showQuickCreate, setShowQuickCreate] = useState(false);
-    const [quickCustomer, setQuickCustomer] = useState({
-        name: '',
-        id_number: '',
-        phone: ''
-    });
 
     const handleQuickCreate = async () => {
-        if (!quickCustomer.name) {
-            toast.error("Nombre es requerido");
-            return;
-        }
+        if (!quickCustomer.name) { toast.error("Nombre es requerido"); return; }
+        if (!quickCustomer.phone) { toast.error("Teléfono es requerido"); return; }
         try {
             const payload = {
                 ...quickCustomer,
-                id_number: quickCustomer.id_number || null, // Allow null if empty
-                credit_limit: 100, // Default requested by user
+                id_number: quickCustomer.id_number || null,
+                credit_limit: 100,
                 address: 'Dirección Pendiente',
-                email: `temp_${Date.now()}@system.local`, // Dummy email to satisfy constraints if any
+                email: `temp_${Date.now()}@system.local`,
                 type: 'INDIVIDUAL'
             };
             const res = await apiClient.post('/customers/', payload);
@@ -165,229 +139,450 @@ const LaundryForm = () => {
         }
     };
 
+    const handleItemChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setCurrentItem(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
+
+    const addToCart = () => {
+        if (!selectedProduct) {
+            toast.error("Seleccione un servicio/producto");
+            return;
+        }
+
+        const isKgMode = unitMode === 'KG';
+
+        // Validation
+        if (isKgMode && !currentItem.weight_kg) {
+            toast.error("Ingrese el peso (Kg)");
+            return;
+        }
+        if (!isKgMode && !currentItem.pieces) {
+            toast.error("Ingrese la cantidad (Piezas/Unidades)");
+            return;
+        }
+
+        let finalQty = isKgMode ? parseFloat(currentItem.weight_kg) : parseFloat(currentItem.pieces);
+        let finalPrice = currentItem.is_manual_price
+            ? parseFloat(currentItem.manual_price)
+            : parseFloat(selectedProduct.price || 0);
+
+        if (finalPrice <= 0) {
+            // Warn if needed
+        }
+
+        const newItem = {
+            id: Date.now(),
+            product_id: selectedProduct.id,
+            description: `${selectedProduct.name} ${currentItem.observations ? `(${currentItem.observations})` : ''}`,
+            quantity: finalQty,
+            unit_price: finalPrice,
+
+            // Helpful metadata
+            weight_kg: isKgMode ? finalQty : 0,
+            pieces: isKgMode ? (parseInt(currentItem.pieces) || 0) : finalQty,
+            service_type: 'LAUNDRY',
+            unit_mode: unitMode
+        };
+
+        setCart([...cart, newItem]);
+
+        // Reset Item Section (Keep ID/Bag metadata)
+        setSelectedProduct(null);
+        setProductSearch('');
+        setCurrentItem({
+            quantity: 1,
+            weight_kg: '',
+            pieces: '',
+            observations: '',
+            is_manual_price: false,
+            manual_price: ''
+        });
+        toast.success("Servicio agregado");
+    };
+
+    const removeFromCart = (id) => {
+        setCart(cart.filter(item => item.id !== id));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!selectedCustomer) {
+            toast.error('Debe seleccionar un cliente.');
+            return;
+        }
+        if (cart.length === 0) {
+            toast.error('Agregue al menos un servicio a la orden.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const payload = {
+                customer_id: selectedCustomer.id,
+                service_type: 'LAUNDRY',
+                priority: orderMetadata.priority,
+
+                // Header Metadata
+                order_metadata: {
+                    bag_color: orderMetadata.bag_color || `LAV-${Date.now().toString().slice(-4)}`,
+                    total_items: cart.length,
+                    pieces: cart.reduce((acc, i) => acc + (i.pieces || 0), 0) // Sum pieces for tracking
+                },
+
+                // Mapped Items
+                items: cart.map(item => ({
+                    product_id: item.product_id, // Now linking to Product
+                    description: item.description,
+                    quantity: item.quantity,
+                    unit_price: item.unit_price,
+                })),
+
+                problem_description: `Orden de Lavandería (${cart.length} servicios).`,
+                device_type: 'ROPA'
+            };
+
+            const res = await apiClient.post('/services/orders', payload);
+            setTicketNumber(res.data.ticket_number);
+            toast.success(`Orden ${res.data.ticket_number} creada!`);
+
+            // Reset All
+            setCart([]);
+            setSelectedCustomer(null);
+            setSearchTerm('');
+            resetOrderMetadata();
+
+        } catch (error) {
+            console.error("Error creating order:", error);
+            const msg = error.response?.data?.detail || 'Error al crear la orden.';
+            toast.error(msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const resetOrderMetadata = () => {
+        setOrderMetadata({ bag_color: '', priority: 'NORMAL' });
+    };
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Recepción de Lavandería</h1>
-                    <p className="text-gray-500">Nueva Orden de Lavado</p>
+                    <h1 className="text-2xl font-bold text-gray-800">Nueva Orden de Lavandería</h1>
+                    <p className="text-gray-500">Agrega múltiples servicios a una sola orden</p>
                 </div>
                 {ticketNumber && (
-                    <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-mono font-bold flex items-center gap-2">
+                    <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-mono font-bold flex items-center gap-2 animate-bounce">
                         <CheckCircle size={20} />
                         Ticket: {ticketNumber}
                     </div>
                 )}
             </div>
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                {/* COLUMNA 1: CLIENTE */}
+                {/* COLUMNA 1: CLIENTE Y METADATA */}
                 <div className="lg:col-span-1 space-y-6">
+                    {/* Cliente */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 justify-between">
-                            <span className="flex items-center gap-2"><Users className="text-teal-600" size={20} /> Datos del Cliente</span>
-                            <button
-                                type="button"
-                                onClick={() => setShowQuickCreate(!showQuickCreate)}
-                                className="text-xs text-teal-600 font-bold hover:underline flex items-center gap-1"
-                            >
-                                <Plus size={14} /> Nuevo Rápido
+                            <span className="flex items-center gap-2"><Users className="text-teal-600" size={20} /> Cliente</span>
+                            <button type="button" onClick={() => setShowQuickCreate(!showQuickCreate)} className="text-xs text-teal-600 font-bold hover:underline flex items-center gap-1">
+                                <Plus size={14} /> Nuevo
                             </button>
                         </h2>
 
                         {showQuickCreate ? (
-                            <div className="bg-teal-50 p-4 rounded-xl border border-teal-100 space-y-3 animate-in fade-in slide-in-from-top-2">
-                                <h3 className="text-xs font-bold text-teal-800 uppercase mb-2">Registro Rápido</h3>
-                                <input
-                                    placeholder="Nombre Completo *"
-                                    className="w-full p-2 text-sm border rounded"
-                                    value={quickCustomer.name}
-                                    onChange={e => setQuickCustomer({ ...quickCustomer, name: e.target.value })}
-                                />
-                                <input
-                                    placeholder="Cédula / RIF *"
-                                    className="w-full p-2 text-sm border rounded"
-                                    value={quickCustomer.id_number}
-                                    onChange={e => setQuickCustomer({ ...quickCustomer, id_number: e.target.value })}
-                                />
-                                <input
-                                    placeholder="Teléfono"
-                                    className="w-full p-2 text-sm border rounded"
-                                    value={quickCustomer.phone}
-                                    onChange={e => setQuickCustomer({ ...quickCustomer, phone: e.target.value })}
-                                />
-                                <div className="flex justify-end gap-2 pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowQuickCreate(false)}
-                                        className="text-xs text-gray-500 hover:text-gray-700 font-medium"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleQuickCreate}
-                                        className="bg-teal-600 text-white text-xs px-3 py-1.5 rounded font-bold hover:bg-teal-700"
-                                    >
-                                        Crear y Usar
-                                    </button>
+                            <div className="bg-teal-50 p-4 rounded-xl border border-teal-100 space-y-3">
+                                <div className="space-y-2">
+                                    <input placeholder="Nombre Completo *" className="w-full p-2 text-sm border rounded" value={quickCustomer.name} onChange={e => setQuickCustomer({ ...quickCustomer, name: e.target.value })} />
+                                    <input placeholder="Cédula" className="w-full p-2 text-sm border rounded" value={quickCustomer.id_number} onChange={e => setQuickCustomer({ ...quickCustomer, id_number: e.target.value })} />
+                                    <input placeholder="Teléfono *" className="w-full p-2 text-sm border rounded" value={quickCustomer.phone} onChange={e => setQuickCustomer({ ...quickCustomer, phone: e.target.value })} />
+                                </div>
+                                <div className="flex justify-end gap-2 text-xs pt-2">
+                                    <button onClick={() => setShowQuickCreate(false)}>Cancelar</button>
+                                    <button onClick={handleQuickCreate} className="font-bold text-teal-700">Guardar</button>
                                 </div>
                             </div>
                         ) : (
                             <div className="relative">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Buscar Cliente *</label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                                    <input
-                                        type="text"
-                                        placeholder="Nombre o Cédula..."
-                                        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none transition-all"
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
-                                </div>
-
+                                <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                                <input
+                                    placeholder="Buscar Cliente..."
+                                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
                                 {showResults && (
                                     <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                                         {customers.map(c => (
-                                            <div
-                                                key={c.id}
-                                                onClick={() => handleCustomerSelect(c)}
-                                                className="p-3 hover:bg-teal-50 cursor-pointer border-b last:border-0"
-                                            >
-                                                <div className="font-medium text-gray-800">{c.name}</div>
-                                                <div className="text-xs text-gray-500">ID: {c.id_number}</div>
+                                            <div key={c.id} onClick={() => handleCustomerSelect(c)} className="p-3 hover:bg-teal-50 cursor-pointer border-b">
+                                                <div className="font-medium">{c.name}</div>
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </div>
                         )}
-
                         {selectedCustomer && !showQuickCreate && (
-                            <div className="mt-4 p-3 bg-teal-50 rounded-lg text-sm text-teal-800 border border-teal-100 flex justify-between items-center group">
-                                <div>
-                                    <p><strong>Cliente Seleccionado:</strong></p>
-                                    <p>{selectedCustomer.name}</p>
-                                </div>
-                                <button type="button" onClick={() => setSelectedCustomer(null)} className="text-teal-400 hover:text-teal-600">
-                                    <Users size={16} />
-                                </button>
+                            <div className="mt-4 p-3 bg-teal-50 rounded-lg text-sm text-teal-800 border border-teal-100 flex justify-between items-center">
+                                <span className="font-bold">{selectedCustomer.name}</span>
+                                <button onClick={() => setSelectedCustomer(null)} className="text-teal-500"><Users size={16} /></button>
                             </div>
                         )}
                     </div>
-                </div>
 
-                {/* COLUMNA 2: DETALLES DE LA ORDEN */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-full">
-                        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <Shirt className="text-teal-600" size={20} />
-                            Detalles del Servicio
-                        </h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                            {/* Color Bolsa / ID */}
+                    {/* Metadata Global */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h2 className="text-lg font-semibold mb-4 text-gray-700">Datos Generales</h2>
+                        <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Color de Bolsa / Identificador *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Identificador / Bolsa (Opcional)
+                                </label>
                                 <input
-                                    name="bag_color"
-                                    value={formData.bag_color}
-                                    onChange={handleInputChange}
+                                    value={orderMetadata.bag_color}
+                                    onChange={e => setOrderMetadata({ ...orderMetadata, bag_color: e.target.value })}
                                     className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                                    placeholder="Ej: Azul #12"
-                                    required
+                                    placeholder="Ej: Bolsa Azul"
                                 />
+                                <p className="text-[10px] text-gray-400 mt-1">Si se deja vacío, se generará LAV-xxxx.</p>
                             </div>
-
-                            {/* Tipo Servicio */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Servicio *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
                                 <select
-                                    name="wash_type"
-                                    value={formData.wash_type}
-                                    onChange={handleInputChange}
-                                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                                    className="w-full p-2 border rounded-lg bg-gray-50"
+                                    value={orderMetadata.priority}
+                                    onChange={e => setOrderMetadata({ ...orderMetadata, priority: e.target.value })}
                                 >
-                                    <option value="General">Lavado General</option>
-                                    <option value="Lavado y Planchado">Lavado + Planchado</option>
-                                    <option value="Solo Planchado">Solo Planchado</option>
-                                    <option value="Solo Secado">Solo Secado</option>
-                                    <option value="Edredones">Edredones</option>
-                                    <option value="Delicado">Delicado</option>
-                                    <option value="Desmanchado">Desmanchado</option>
-                                    <option value="Teñido">Teñido</option>
+                                    <option value="NORMAL">Normal</option>
+                                    <option value="HIGH">Alta</option>
+                                    <option value="URGENT">Urgente</option>
                                 </select>
                             </div>
+                        </div>
+                    </div>
+                </div>
 
-                            {/* Peso (Conditional Highlight) */}
-                            <div className={`transition-all duration-300 ${currentServiceConfig.unit === 'KG' ? 'opacity-100' : 'opacity-60'}`}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Peso (Kg) {currentServiceConfig.unit === 'KG' && <span className="text-teal-600 font-bold">*</span>}
-                                </label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    name="weight_kg"
-                                    value={formData.weight_kg}
-                                    onChange={handleInputChange}
-                                    className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none font-mono ${currentServiceConfig.unit === 'KG' ? 'bg-white border-teal-200' : 'bg-gray-50'}`}
-                                    placeholder="0.00"
-                                    required={currentServiceConfig.unit === 'KG'}
-                                />
+                {/* COLUMNA 2: CONSTRUCTOR DE SERVICIOS */}
+                <div className="lg:col-span-2 space-y-6">
+                    {/* Add Item Form */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <Package className="text-indigo-600" size={20} />
+                            Agregar Servicio (Producto)
+                        </h2>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Product Search */}
+                            <div className="md:col-span-2 relative">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Buscar Servicio / Producto</label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                                    <input
+                                        placeholder="Ej: Lavado de Edredón, Planchado..."
+                                        className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
+                                        value={productSearch}
+                                        onChange={e => setProductSearch(e.target.value)}
+                                    />
+                                </div>
+                                {showProductResults && (
+                                    <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                                        {products.map(p => (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => handleProductSelect(p)}
+                                                className="p-3 hover:bg-indigo-50 cursor-pointer border-b flex justify-between items-center group"
+                                            >
+                                                <div>
+                                                    <div className="font-bold text-gray-700">{p.name}</div>
+                                                    <div className="text-xs text-gray-400">SKU: {p.sku || 'N/A'} • {p.unit_type}</div>
+                                                </div>
+                                                <div className="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded group-hover:bg-white transition-colors">
+                                                    ${p.price}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {products.length === 0 && (
+                                            <div className="p-3 text-gray-400 text-sm italic text-center">No se encontraron servicios</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Piezas (Conditional Highlight) */}
-                            <div className={`transition-all duration-300 ${currentServiceConfig.unit === 'PIECES' ? 'opacity-100' : 'opacity-80'}`}>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Cantidad de Piezas {currentServiceConfig.unit === 'PIECES' && <span className="text-teal-600 font-bold">*</span>}
-                                </label>
-                                <input
-                                    type="number"
-                                    name="pieces"
-                                    value={formData.pieces}
-                                    onChange={handleInputChange}
-                                    className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none font-mono ${currentServiceConfig.unit === 'PIECES' ? 'bg-white border-teal-200 ring-2 ring-teal-50' : 'bg-white'}`}
-                                    placeholder="0"
-                                    required
-                                />
-                            </div>
+                            {selectedProduct && (
+                                <>
+                                    <div className="md:col-span-2 bg-indigo-50 p-3 rounded-lg border border-indigo-100 flex flex-col gap-3 animate-in fade-in">
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-2">
+                                                <Shirt size={18} className="text-indigo-600" />
+                                                <span className="font-bold text-indigo-900">{selectedProduct.name}</span>
+                                            </div>
+                                            <button onClick={() => setSelectedProduct(null)} className="text-xs text-indigo-500 underline hover:text-indigo-700">Cambiar</button>
+                                        </div>
 
-                            {/* Observaciones (Full Width) */}
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones / Manchas / Daños</label>
-                                <textarea
-                                    name="observations"
-                                    value={formData.observations}
-                                    onChange={handleInputChange}
-                                    rows={3}
-                                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none resize-none"
-                                    placeholder="Ej: Mancha en camisa blanca, cuidado con botones..."
-                                />
-                            </div>
+                                        {/* Unit Type Toggle */}
+                                        <div className="flex p-1 bg-white rounded-lg border border-indigo-200">
+                                            <button
+                                                onClick={() => setUnitMode('PIECES')}
+                                                className={`flex-1 py-1 text-xs font-bold rounded ${unitMode === 'PIECES' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                            >
+                                                Por Pieza (Unidades)
+                                            </button>
+                                            <button
+                                                onClick={() => setUnitMode('KG')}
+                                                className={`flex-1 py-1 text-xs font-bold rounded ${unitMode === 'KG' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                            >
+                                                Por Peso (Kilos)
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Dynamic Inputs based on UNIT MODE */}
+                                    {unitMode === 'KG' ? (
+                                        <div className="flex gap-4">
+                                            <div className="flex-1">
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Peso (Kg) *</label>
+                                                <input
+                                                    type="number" step="0.01"
+                                                    name="weight_kg"
+                                                    value={currentItem.weight_kg}
+                                                    onChange={handleItemChange}
+                                                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800"
+                                                    autoFocus
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                            <div className="w-1/3">
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Pzas (Opc.)</label>
+                                                <input
+                                                    type="number"
+                                                    name="pieces"
+                                                    value={currentItem.pieces}
+                                                    onChange={handleItemChange}
+                                                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-gray-600"
+                                                    placeholder="#"
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad (Pzas) *</label>
+                                            <input
+                                                type="number"
+                                                name="pieces"
+                                                value={currentItem.pieces}
+                                                onChange={handleItemChange}
+                                                className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-gray-800"
+                                                placeholder="1"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Price Override */}
+                                    <div>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <label className="block text-sm font-medium text-gray-700">Precio Unit. ($)</label>
+                                            <label className="flex items-center gap-1 text-[10px] text-gray-400 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    name="is_manual_price"
+                                                    checked={currentItem.is_manual_price}
+                                                    onChange={handleItemChange}
+                                                />
+                                                Editar
+                                            </label>
+                                        </div>
+                                        <input
+                                            type="number" step="0.01"
+                                            name="manual_price"
+                                            value={currentItem.is_manual_price ? currentItem.manual_price : selectedProduct.price}
+                                            onChange={handleItemChange}
+                                            disabled={!currentItem.is_manual_price}
+                                            className={`w-full p-2 border rounded-lg outline-none font-mono ${currentItem.is_manual_price ? 'bg-white border-yellow-300 focus:ring-2 focus:ring-yellow-400' : 'bg-gray-50 text-gray-500'}`}
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                                        <input
+                                            name="observations"
+                                            value={currentItem.observations}
+                                            onChange={handleItemChange}
+                                            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            placeholder="Detalles sobre la prenda..."
+                                        />
+                                    </div>
+
+                                    <div className="md:col-span-2 flex justify-end pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={addToCart}
+                                            className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all active:scale-95"
+                                        >
+                                            <Plus size={18} /> Agregar al Carrito
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Cart List */}
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 min-h-[300px] flex flex-col">
+                        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-700">
+                            <ShoppingBag className="text-teal-600" size={20} />
+                            Servicios en la Orden
+                        </h2>
+
+                        <div className="flex-1 space-y-3">
+                            {cart.length === 0 ? (
+                                <div className="text-center text-gray-400 py-10">Ningún servicio agregado aún</div>
+                            ) : cart.map((item, idx) => (
+                                <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center animate-in slide-in-from-bottom-2">
+                                    <div>
+                                        <div className="font-bold text-gray-800">{item.description}</div>
+                                        <div className="text-xs text-gray-500 flex gap-2">
+                                            {item.weight_kg > 0 && <span>Peso: {item.weight_kg}kg</span>}
+                                            {item.pieces > 0 && <span>Cant: {item.pieces}</span>}
+                                            <span className="text-green-600 font-bold ml-2">${item.unit_price} / ud</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="font-bold text-gray-800 text-lg">
+                                            ${(item.quantity * item.unit_price).toFixed(2)}
+                                        </span>
+                                        <button onClick={() => removeFromCart(item.id)} className="text-rose-500 hover:bg-rose-50 p-2 rounded-full transition-colors">
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
 
-                        <div className="border-t pt-6 mt-6 flex justify-end">
+                        <div className="pt-6 border-t mt-4 flex justify-between items-center">
+                            <div className="text-right">
+                                <span className="text-gray-500 text-sm">Total Estimado</span>
+                                <div className="text-2xl font-black text-gray-800">
+                                    ${cart.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0).toFixed(2)}
+                                </div>
+                            </div>
                             <button
-                                type="submit"
-                                disabled={loading}
-                                className="bg-teal-600 hover:bg-teal-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg shadow-teal-200 flex items-center gap-2 disabled:opacity-50 transition-all"
+                                onClick={handleSubmit}
+                                disabled={loading || cart.length === 0}
+                                className="bg-gray-900 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:scale-105 active:scale-95"
                             >
-                                {loading ? 'Procesando...' : (
-                                    <>
-                                        <Save size={20} />
-                                        Crear Orden de Lavado
-                                    </>
-                                )}
+                                {loading ? 'Guardando...' : <><Save size={20} /> Crear Orden Completa</>}
                             </button>
                         </div>
                     </div>
                 </div>
-
-            </form>
+            </div>
         </div>
     );
 };

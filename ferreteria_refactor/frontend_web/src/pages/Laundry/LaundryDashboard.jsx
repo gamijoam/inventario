@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     Plus, Search, RefreshCw, Filter,
     Shirt, Clock, CheckCircle, Package,
-    LayoutGrid, List as ListIcon
+    LayoutGrid, List as ListIcon, Trash2
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -91,6 +91,20 @@ const LaundryDashboard = () => {
         return list.filter(o => o.status === statusId);
     };
 
+    const handleDeleteOrder = async (e, orderId) => {
+        e.stopPropagation();
+        if (!window.confirm("¿Seguro de eliminar esta orden? Esta acción no se puede deshacer.")) return;
+
+        try {
+            await apiClient.delete(`/services/orders/${orderId}`);
+            toast.success("Orden eliminada");
+            fetchOrders();
+        } catch (error) {
+            console.error(error);
+            toast.error("Error al eliminar");
+        }
+    };
+
     return (
         <div className="p-6 h-[calc(100vh-theme(spacing.16))] flex flex-col">
             {/* Header */}
@@ -119,7 +133,7 @@ const LaundryDashboard = () => {
                         <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                         <input
                             type="text"
-                            placeholder="Buscar por Ticket, Cliente..."
+                            placeholder="Buscar por Ticket, Cliente, Bolsa..."
                             className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -179,7 +193,7 @@ const LaundryDashboard = () => {
                 {loading ? (
                     <div className="text-center py-20 text-gray-400">Cargando...</div>
                 ) : viewMode === 'list' ? (
-                    <LaundryList orders={filteredOrders} onSelectOrder={setSelectedOrder} />
+                    <LaundryList orders={filteredOrders} onSelectOrder={setSelectedOrder} onDeleteOrder={handleDeleteOrder} />
                 ) : (
                     // KANBAN VIEW
                     <div className="flex gap-4 h-full min-w-[1000px] overflow-x-auto pb-4">
@@ -198,29 +212,40 @@ const LaundryDashboard = () => {
                                             <div
                                                 key={order.id}
                                                 onClick={() => setSelectedOrder(order)}
-                                                className={`bg-white p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-all active:scale-95 group ${late ? 'border-l-4 border-l-rose-500 border-y-gray-100 border-r-gray-100' : 'border-gray-100'}`}
+                                                className={`bg-white p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-all active:scale-95 group relative ${late ? 'border-l-4 border-l-rose-500 border-y-gray-100 border-r-gray-100' : 'border-gray-100'}`}
                                             >
+                                                {/* Delete Button (Hover) */}
+                                                <button
+                                                    onClick={(e) => handleDeleteOrder(e, order.id)}
+                                                    className="absolute top-2 right-2 text-gray-300 hover:text-rose-500 hover:bg-rose-50 p-1 rounded hidden group-hover:block"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+
                                                 {late && (
                                                     <div className="flex items-center gap-1 text-[10px] font-bold text-rose-500 mb-1">
                                                         <Clock size={10} /> REVISAR (ATRASADO)
                                                     </div>
                                                 )}
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="font-bold text-gray-800">{order.ticket_number}</span>
+                                                <div className="flex justify-between items-start mb-2 pr-6">
+                                                    <span className="font-bold text-gray-800 font-mono tracking-tight">{order.ticket_number}</span>
                                                     <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">
                                                         {new Date(order.created_at).toLocaleDateString()}
                                                     </span>
                                                 </div>
 
                                                 <div className="flex flex-wrap items-center gap-2 mb-2">
+                                                    {/* Items Count Badge */}
                                                     <div className="bg-teal-50 text-teal-700 px-2 py-1 rounded text-xs font-bold border border-teal-100 flex items-center gap-1">
-                                                        <Package size={12} />
-                                                        {order.order_metadata?.weight_kg || '?'} Kg
+                                                        <Shirt size={12} />
+                                                        {order.order_metadata?.total_items || 1} Serv.
                                                     </div>
-                                                    <div className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs font-bold border border-purple-100">
-                                                        {order.order_metadata?.wash_type || 'General'}
-                                                    </div>
-
+                                                    {/* ID/Bag Badge if exists */}
+                                                    {order.order_metadata?.bag_color && (
+                                                        <div className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs font-bold border border-purple-100 truncate max-w-[150px]">
+                                                            {order.order_metadata.bag_color}
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="text-xs text-gray-600 truncate">
@@ -228,7 +253,7 @@ const LaundryDashboard = () => {
                                                 </div>
                                                 {order.problem_description && (
                                                     <div className="mt-2 text-[10px] text-gray-400 truncate border-t pt-1">
-                                                        Note: {order.problem_description}
+                                                        {order.problem_description}
                                                     </div>
                                                 )}
                                             </div>

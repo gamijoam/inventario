@@ -101,7 +101,17 @@ class SalesService:
             is_service_only = True
             for item in sale_data.items:
                  prod = db.query(models.Product).filter(models.Product.id == item.product_id).first()
-                 if prod and not (prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']):
+                 
+                 is_service = False
+                 if prod:
+                     # Check Unit Type
+                     if prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']:
+                         is_service = True
+                     # Check Category Name (Robust fallback)
+                     elif prod.category and ('SERVICIO' in prod.category.name.upper() or 'LAVANDERIA' in prod.category.name.upper() or 'LAUNDRY' in prod.category.name.upper()):
+                         is_service = True
+                         
+                 if not is_service:
                      is_service_only = False
                      break
             
@@ -221,7 +231,14 @@ class SalesService:
                      
                 
                 # New: Determine if Product is a Service (Skip Stock Check)
-                is_service = product.unit_type and product.unit_type.upper() in ['SERVICIO', 'SERVICE']
+                is_service = False
+                if product.unit_type:
+                     ut_upper = product.unit_type.upper()
+                     if 'SERVICIO' in ut_upper or 'SERVICE' in ut_upper:
+                         is_service = True
+                
+                if not is_service and product.category and ('SERVICIO' in product.category.name.upper() or 'LAVANDERIA' in product.category.name.upper() or 'LAUNDRY' in product.category.name.upper()):
+                     is_service = True
 
                 # NEW: COMBO LOGIC - Check if product is a combo
                 if product.is_combo:

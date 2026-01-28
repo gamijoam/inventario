@@ -344,6 +344,10 @@ class SalePayment(Base):
     currency = Column(String, default="USD") # USD or Bs
     payment_method = Column(String, default="Efectivo") # Efectivo, Tarjeta, etc.
     exchange_rate = Column(Numeric(14, 4), default=1.0000) # Rate used for this specific payment
+    
+    # New Fields for Laundry/Mobile Payments
+    reference = Column(String, nullable=True) # Transfer Reference / Detail
+    payment_date = Column(DateTime, nullable=True) # Actual date of payment (for reconciliation)
 
     sale = relationship("Sale", back_populates="payments")
 
