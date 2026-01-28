@@ -864,6 +864,38 @@ Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
         )
         db.add(payment)
         
+        # FIX: Link to Cash Session if Sale is from a Previous Session
+        # Logic: If Sale.date < Session.start_time, then 'financials.py' ignores this SalePayment.
+        # So we MUST create a 'models.Payment' (Debt Payment) to show it in the Session Report.
+        # If Sale is from THIS session, 'financials.py' already picks up the SalePayment.
+        
+        active_session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
+        if active_session:
+            # Check if Sale is older than session start
+            # Use buffer of 1 minute to avoid race conditions
+            if sale.date < active_session.start_time:
+                print(f"[INFO] Registering Debt Payment for OLD Sale #{sale.id} in Session #{active_session.id}")
+                
+                # Calculate Bs Amount if needed
+                amount_bs = None
+                if payment_data.currency in ["Bs", "VES"]:
+                    amount_bs = payment_data.amount
+                elif payment_data.currency == "USD" and payment_data.exchange_rate:
+                    amount_bs = payment_data.amount * payment_data.exchange_rate
+
+                debt_payment = models.Payment(
+                    customer_id=sale.customer_id,
+                    amount=payment_data.amount,
+                    currency=payment_data.currency,
+                    payment_method=payment_data.payment_method,
+                    exchange_rate_used=payment_data.exchange_rate,
+                    amount_bs=amount_bs,
+                    session_id=active_session.id,
+                    description=f"Abono Factura #{sale.id}",
+                    date=datetime.now() # Payment Date is NOW
+                )
+                db.add(debt_payment)
+        
         # 3. Calculate Amount in Sales Currency (USD/Anchor)
         # Assuming sale.balance_pending is in USD (Anchor)
         amount_usd = 0.0
