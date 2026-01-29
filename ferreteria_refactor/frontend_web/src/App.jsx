@@ -72,6 +72,7 @@ import CommissionPayout from './pages/HumanResources/CommissionPayout'; // NEW: 
 // Laundry Module
 import LaundryDashboard from './pages/Laundry/LaundryDashboard';
 import LaundryForm from './pages/Laundry/LaundryForm';
+import LaundryTicket from './pages/Laundry/components/LaundryTicket';
 
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
@@ -328,6 +329,11 @@ function App() {
                             <Route path="/laundry/new" element={
                               <ProtectedRoute>
                                 <LaundryForm />
+                              </ProtectedRoute>
+                            } />
+                            <Route path="/laundry/ticket/:orderId" element={
+                              <ProtectedRoute>
+                                <LaundryTicket />
                               </ProtectedRoute>
                             } />
                           </Route>

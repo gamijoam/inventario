@@ -80,7 +80,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                 // Laundry Items (Only if Laundry enabled)
                 ...(modules?.laundry ? [
                     { icon: Smartphone, label: 'Tablero Lavandería', path: '/laundry' },
-                    { icon: Plus, label: 'Nueva Orden', path: '/laundry/new' }
+                    // { icon: Plus, label: 'Nueva Orden', path: '/laundry/new' } // Hidden as per feedback
                 ] : []),
             ]
         }] : []),

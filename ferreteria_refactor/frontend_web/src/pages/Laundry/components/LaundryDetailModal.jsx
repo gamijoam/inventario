@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
     X, Package, User, Clock, CheckCircle,
-    ArrowRight, DollarSign, AlertTriangle, Activity,
-    Printer, Plus, Trash2, ArrowLeft, Search, Shirt
+    ArrowRight, DollarSign, AlertTriangle,
+    Printer, Plus, Trash2, ArrowLeft, Search, Shirt, Pencil
 } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -22,8 +22,9 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
     // Payment State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-    // Add Item State
+    // Add/Edit Item State
     const [isAddingItem, setIsAddingItem] = useState(false);
+    const [editingItemId, setEditingItemId] = useState(null);
 
     // Product Search for Add Item
     const [productSearch, setProductSearch] = useState('');
@@ -102,22 +103,46 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
         }
     };
 
+    const handleEditItem = (item) => {
+        setEditingItemId(item.id);
+        setNewItem({
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            product_id: item.product_id
+        });
+        setIsAddingItem(false); // Hide standard add, show edit (controlled by OR in render)
+    };
+
+    const cancelEdit = () => {
+        setEditingItemId(null);
+        setNewItem({ description: '', quantity: 1, unit_price: 0, product_id: null });
+    };
+
     const handleAddItem = async () => {
         if (!newItem.description || newItem.quantity <= 0) {
             toast.error("Datos inválidos");
             return;
         }
         try {
+            if (editingItemId) {
+                // EDIT MODE: Delete Old -> Add New
+                await apiClient.delete(`/services/orders/${orderId}/items/${editingItemId}`);
+            }
+
+            // Create New
             await apiClient.post(`/services/orders/${orderId}/items`, newItem);
-            toast.success("Ítem agregado");
+
+            toast.success(editingItemId ? "Ítem actualizado" : "Ítem agregado");
             setIsAddingItem(false);
+            setEditingItemId(null);
             setNewItem({ description: '', quantity: 1, unit_price: 0, product_id: null });
             setSelectedProduct(null);
             setProductSearch('');
             fetchOrder();
         } catch (error) {
             console.error(error);
-            toast.error("Error agregando ítem");
+            toast.error("Error guardando ítem");
         }
     };
 
@@ -178,7 +203,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
     };
 
     const handlePrintTicket = () => {
-        toast.success("Enviando a impresora...");
+        window.open(`#/laundry/ticket/${orderId}`, '_blank', 'width=400,height=600');
     };
 
     if (loading || !order) return null;
@@ -187,8 +212,8 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
     const isPaid = order.order_metadata?.payment_status === 'PAID';
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex overflow-hidden animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[9999] p-4 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-auto max-h-[85vh] flex overflow-hidden animate-in fade-in zoom-in-95">
 
                 {/* LEFT: STATUS & DETAILS */}
                 <div className="w-8/12 p-8 bg-slate-50 flex flex-col overflow-y-auto custom-scrollbar">
@@ -262,9 +287,13 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                             )}
                         </div>
 
-                        {/* Internal Add Form */}
-                        {isAddingItem && (
+                        {/* Internal Add/Edit Form */}
+                        {(isAddingItem || editingItemId) && (
                             <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex flex-col gap-3 animate-in fade-in">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-xs font-bold text-indigo-700">{editingItemId ? 'Editar Ítem' : 'Nuevo Ítem'}</span>
+                                    {editingItemId && <button onClick={cancelEdit} className="text-[10px] text-slate-400 underline">Cancelar Edición</button>}
+                                </div>
                                 <div className="flex gap-2 items-end">
                                     <div className="flex-1 relative">
                                         <label className="text-[10px] font-bold text-indigo-800 uppercase">Buscar Producto / Servicio</label>
@@ -279,11 +308,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                                             {showProductResults && (
                                                 <div className="absolute z-20 w-full mt-1 bg-white border rounded shadow-lg max-h-40 overflow-y-auto">
                                                     {products.map(p => (
-                                                        <div
-                                                            key={p.id}
-                                                            onClick={() => handleProductSelect(p)}
-                                                            className="p-2 hover:bg-indigo-50 cursor-pointer text-xs border-b flex justify-between"
-                                                        >
+                                                        <div key={p.id} onClick={() => handleProductSelect(p)} className="p-2 hover:bg-indigo-50 cursor-pointer text-xs border-b flex justify-between">
                                                             <span>{p.name}</span>
                                                             <span className="font-bold text-indigo-600">${p.price}</span>
                                                         </div>
@@ -324,7 +349,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                                         />
                                     </div>
                                     <button onClick={handleAddItem} className="bg-indigo-600 text-white p-2 rounded hover:bg-indigo-700 mb-[1px]">
-                                        <Plus size={18} /> Agregar
+                                        {editingItemId ? 'Guardar Cambios' : <><Plus size={18} /> Agregar</>}
                                     </button>
                                 </div>
                             </div>
@@ -338,23 +363,37 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                                         <th className="text-center py-2 px-3">Cant.</th>
                                         <th className="text-right py-2 px-3">Precio</th>
                                         <th className="text-right py-2 px-3">Total</th>
-                                        <th className="w-10"></th>
+                                        <th className="w-16"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {order.details?.map((item) => (
-                                        <tr key={item.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                                    {order.details?.map(item => (
+                                        <tr key={item.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 group">
                                             <td className="py-3 px-3">
                                                 <div className="font-bold text-slate-700">{item.description}</div>
+                                                {item.is_manual && <span className="text-[10px] bg-amber-50 text-amber-600 px-1 rounded">Manual</span>}
                                             </td>
-                                            <td className="py-3 px-3 text-center">{item.quantity}</td>
+                                            <td className="py-3 px-3 text-center text-slate-600">{item.quantity}</td>
                                             <td className="py-3 px-3 text-right text-slate-500">${Number(item.unit_price).toFixed(2)}</td>
                                             <td className="py-3 px-3 text-right font-bold text-slate-700">${(Number(item.quantity) * Number(item.unit_price)).toFixed(2)}</td>
                                             <td className="py-3 px-3 text-right">
                                                 {!isPaid && (
-                                                    <button onClick={() => handleDeleteItem(item.id)} className="text-slate-300 hover:text-rose-500 p-1">
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                                    <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            onClick={() => handleEditItem(item)}
+                                                            className="text-indigo-400 hover:text-indigo-600 p-1 hover:bg-indigo-50 rounded"
+                                                            title="Editar"
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteItem(item.id)}
+                                                            className="text-slate-300 hover:text-rose-500 p-1 hover:bg-rose-50 rounded"
+                                                            title="Eliminar"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </td>
                                         </tr>

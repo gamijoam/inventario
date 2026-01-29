@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, CheckCircle, Clock, AlertTriangle, User, Trash2 } from 'lucide-react';
+import { Package, CheckCircle, Clock, AlertTriangle, User, Trash2, Activity } from 'lucide-react';
 
 const LaundryList = ({ orders, onSelectOrder, onDeleteOrder }) => {
 

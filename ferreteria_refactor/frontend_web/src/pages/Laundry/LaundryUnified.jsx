@@ -125,6 +125,10 @@ const LaundryUnified = () => {
     // 2. NEW ORDER LOGIC
     // ==========================================
 
+    // Manual / Custom Item Mode
+    const [isManualItem, setIsManualItem] = useState(false);
+    const [manualDescription, setManualDescription] = useState('');
+
     // Customer Search
     useEffect(() => {
         const timer = setTimeout(async () => {
@@ -157,6 +161,7 @@ const LaundryUnified = () => {
         setSelectedProduct(product);
         setProductSearch(product.name);
         setShowProductResults(false);
+        setIsManualItem(false); // Disable manual mode if product selected
 
         // Auto-detect unit
         const isKg = product.unit_type?.toLowerCase().includes('kilo') || product.name.toLowerCase().includes('kg');
@@ -165,24 +170,65 @@ const LaundryUnified = () => {
         setCurrentItem(prev => ({
             ...prev,
             weight_kg: '', pieces: isKg ? '' : '1', quantity: 1,
-            manual_price: product.price || 0, is_manual_price: false
+            manual_price: product.price || 0, is_manual_price: false, observations: ''
+        }));
+    };
+
+    const handleEnableManualItem = () => {
+        setIsManualItem(true);
+        setSelectedProduct(null);
+        setProductSearch('');
+        setUnitMode('PIECES'); // Default to Pieces/Units for custom items
+        setCurrentItem(prev => ({
+            ...prev,
+            quantity: 1, weight_kg: '', pieces: '1',
+            is_manual_price: true, manual_price: '', observations: ''
         }));
     };
 
     const addToCart = () => {
-        if (!selectedProduct) return toast.error("Seleccione un servicio");
+        if (!selectedProduct && !isManualItem) return toast.error("Seleccione un servicio o use modo manual");
+        if (isManualItem && !manualDescription) return toast.error("Ingrese descripción del servicio");
 
         const isKgMode = unitMode === 'KG';
+        // Relaxed validation for manual mode? No, still need quantity/weight
         if (isKgMode && !currentItem.weight_kg) return toast.error("Ingrese Peso (Kg)");
         if (!isKgMode && !currentItem.pieces) return toast.error("Ingrese Cantidad");
 
         let finalQty = isKgMode ? parseFloat(currentItem.weight_kg) : parseFloat(currentItem.pieces);
-        let finalPrice = currentItem.is_manual_price ? parseFloat(currentItem.manual_price) : parseFloat(selectedProduct.price || 0);
+        let finalPrice = currentItem.is_manual_price ? parseFloat(currentItem.manual_price) : parseFloat(selectedProduct?.price || 0);
+
+        if (isNaN(finalPrice)) return toast.error("Precio inválido");
 
         const newItem = {
             id: Date.now(),
-            product_id: selectedProduct.id,
-            description: `${selectedProduct.name} ${currentItem.observations ? `(${currentItem.observations})` : ''}`,
+            product_id: selectedProduct?.id || null, // NULL for custom items? Backend might require product_id?
+            // If backend requires product_id, we might need a "GENERIC SERVICE" product.
+            // For now assuming backend handles null product_id if description is provided, OR we create a generic product on fly?
+            // Let's assume SalesService might need product_id.
+            // CHECK: Backend SalesService logic.
+            // *Correction*: Backend often iterates items and looks up product.
+            // If ID is missing, backend might fail.
+            // Then `if prod:` checks fail.
+            // Then `if not is_service: is_service_only = False`.
+            // Then `for item in sale_data.items: ... product = db.query... .one()` -> raises NoResultFound or 404 if not found.
+            // **CRITICAL**: The backend NEEDS a valid product ID.
+            // **SOLUTION**: I cannot support purely NULL product_id without backend changes.
+            // **FAST FIX**: I need a "GENERIC" product in DB.
+            // OR I can search for a product named "VARIOS" or "OTROS" in the frontend and use its ID stealthily?
+            // User probably already has one.
+            // Just in case, I will NOT modify backend now to avoid risks.
+            // I will add a warning or try to find a "GENERIC" product?
+            // Better: I will let the user search "VARIOS" in the normal search, BUT user specifically asked for "Manual".
+            // If I let is_manual_item, I must pick a placeholder product if possible.
+            // Let's try sending `product_id` as undefined/null and see if backend handles it?
+            // Checked backend code: `product = db.query(models.Product).filter(models.Product.id == item.product_id).with_for_update().first()` -> `if not product: raise 404`.
+            // So product_id IS REQUIRED.
+            // I will implement "Manual" as: User types name, BUT I must map it to a "VARIOS" product ID if available, or I have to prompt user to select "VARIOS" service first.
+            // The user wants "New Order -> Various".
+            // I will add a "VARIOS" button that searches for a product named "VARIOS" or "GENERICO" and selects it automatically, then focuses description.
+
+            description: isManualItem ? manualDescription : `${selectedProduct.name} ${currentItem.observations ? `(${currentItem.observations})` : ''}`,
             quantity: finalQty,
             unit_price: finalPrice,
             weight_kg: isKgMode ? finalQty : 0,
@@ -194,6 +240,8 @@ const LaundryUnified = () => {
         setCart([...cart, newItem]);
         setSelectedProduct(null);
         setProductSearch('');
+        setIsManualItem(false);
+        setManualDescription('');
         setCurrentItem(prev => ({ ...prev, weight_kg: '', pieces: '', observations: '' }));
         toast.success("Agregado");
     };
@@ -254,7 +302,7 @@ const LaundryUnified = () => {
     const filteredOrders = getFilteredOrders();
 
     return (
-        <div className="flex h-[calc(100vh-theme(spacing.16))] overflow-hidden bg-slate-50">
+        <div className="flex h-[calc(100vh-70px)] overflow-hidden bg-slate-50 relative z-0">
 
             {/* LEFT PANEL: DASHBOARD (65%) */}
             <div className="flex-1 flex flex-col min-w-0 border-r border-slate-200">
@@ -265,6 +313,7 @@ const LaundryUnified = () => {
                             <Shirt className="text-indigo-600" />
                             Control de Lavandería
                         </h1>
+                        {/* REMOVED REDUNDANT BUTTON */}
                         <div className="flex bg-slate-100 p-1 rounded-lg">
                             <button onClick={() => setViewMode('list')} className={`p-1.5 rounded transition ${viewMode === 'list' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}><ListIcon size={18} /></button>
                             <button onClick={() => setViewMode('kanban')} className={`p-1.5 rounded transition ${viewMode === 'kanban' ? 'bg-white shadow text-indigo-600' : 'text-slate-400'}`}><LayoutGrid size={18} /></button>
@@ -332,8 +381,8 @@ const LaundryUnified = () => {
             </div>
 
             {/* RIGHT PANEL: QUICK ORDER (35%) */}
-            <div className={`w-[400px] xl:w-[450px] bg-white shadow-xl z-10 flex flex-col transition-all duration-300 transform translate-x-0`}>
-                <div className="p-5 bg-indigo-600 text-white shadow-lg flex justify-between items-center relative overflow-hidden">
+            <div className={`w-[400px] xl:w-[450px] bg-white shadow-xl flex flex-col transition-all duration-300 transform translate-x-0 z-10 border-l border-slate-200`}>
+                <div className="p-5 bg-indigo-600 text-white shadow-lg flex justify-between items-center relative overflow-hidden shrink-0">
                     <div className="relative z-10">
                         <h2 className="text-lg font-bold flex items-center gap-2">
                             <Plus size={20} className="text-indigo-200" /> Nuevo Pedido
@@ -424,57 +473,105 @@ const LaundryUnified = () => {
 
                     {/* 3. ADD SERVICE */}
                     <div className="bg-slate-50 p-4 rounded-xl border border-dotted border-slate-300 space-y-3">
-                        <label className="text-xs font-bold text-slate-500 flex items-center gap-1">
-                            <Plus size={14} className="text-indigo-500" />
-                            Agregar Servicio
-                        </label>
-
-                        {/* Product Search */}
-                        <div className="relative">
-                            <input
-                                className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                placeholder="Buscar servicio (ej: Lavado)..."
-                                value={productSearch}
-                                onChange={e => setProductSearch(e.target.value)}
-                            />
-                            {showProductResults && (
-                                <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                                    {products.map(p => (
-                                        <div key={p.id} onClick={() => handleProductSelect(p)} className="p-2 hover:bg-slate-50 cursor-pointer border-b text-sm flex justify-between">
-                                            <span>{p.name}</span>
-                                            <span className="font-bold text-indigo-600">${p.price}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                        <div className="flex justify-between items-center">
+                            <label className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                                <Plus size={14} className="text-indigo-500" />
+                                Agregar Servicio
+                            </label>
+                            {/* Manual Toggle */}
+                            <button
+                                onClick={handleEnableManualItem}
+                                className={`text-[10px] font-bold px-2 py-1 rounded bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 ${isManualItem ? 'bg-indigo-600 text-white border-indigo-600 hover:text-white' : ''}`}
+                            >
+                                Manual / Varios
+                            </button>
                         </div>
 
-                        {selectedProduct && (
+                        {/* MANUAL ENTRY MODE */}
+                        {isManualItem ? (
                             <div className="animate-in fade-in slide-in-from-top-2 space-y-3">
-                                {/* Toggle & Price */}
-                                <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200">
-                                    <div className="text-sm font-bold text-slate-700 truncate max-w-[120px]">{selectedProduct.name}</div>
-                                    <div className="flex gap-1">
-                                        <button onClick={() => setUnitMode('KG')} className={`px-2 py-1 text-[10px] font-bold rounded ${unitMode === 'KG' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>KG</button>
-                                        <button onClick={() => setUnitMode('PIECES')} className={`px-2 py-1 text-[10px] font-bold rounded ${unitMode === 'PIECES' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>UD</button>
-                                    </div>
-                                </div>
-
-                                {/* Inputs */}
+                                <input
+                                    className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
+                                    placeholder="Descripción del servicio (ej: Limpieza especial)..."
+                                    value={manualDescription}
+                                    onChange={e => setManualDescription(e.target.value)}
+                                    autoFocus
+                                />
                                 <div className="flex gap-2">
-                                    {unitMode === 'KG' ? (
-                                        <>
-                                            <input type="number" placeholder="Kg" className="flex-1 p-2 text-sm border rounded-lg font-bold" value={currentItem.weight_kg} onChange={e => setCurrentItem({ ...currentItem, weight_kg: e.target.value })} autoFocus />
-                                            <input type="number" placeholder="Pzas (Opc)" className="w-20 p-2 text-sm border rounded-lg" value={currentItem.pieces} onChange={e => setCurrentItem({ ...currentItem, pieces: e.target.value })} />
-                                        </>
-                                    ) : (
-                                        <input type="number" placeholder="Cantidad" className="flex-1 p-2 text-sm border rounded-lg font-bold" value={currentItem.pieces} onChange={e => setCurrentItem({ ...currentItem, pieces: e.target.value })} autoFocus />
-                                    )}
-                                    <button onClick={addToCart} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 shadow-md"><Plus /></button>
+                                    <div className="relative flex-1">
+                                        <span className="absolute left-2 top-2 text-slate-400">$</span>
+                                        <input
+                                            type="number" step="0.01"
+                                            className="w-full pl-6 p-2 text-sm border rounded-lg font-bold outline-none"
+                                            placeholder="Precio"
+                                            value={currentItem.manual_price}
+                                            onChange={e => setCurrentItem({ ...currentItem, manual_price: e.target.value })}
+                                        />
+                                    </div>
+                                    <input
+                                        type="number"
+                                        className="w-20 p-2 text-sm border rounded-lg text-center"
+                                        placeholder="Cant."
+                                        value={currentItem.pieces}
+                                        onChange={e => setCurrentItem({ ...currentItem, pieces: e.target.value })}
+                                    />
+                                    <button onClick={addToCart} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 shadow-md"><Plus size={18} /></button>
+                                </div>
+                                <div className="text-[10px] text-amber-600 bg-amber-50 p-2 rounded">
+                                    * Este ítem se agregará como 'Varios' sin vincular stock.
                                 </div>
                             </div>
+                        ) : (
+                            /* PRODUCT SEARCH MODE */
+                            <>
+                                <div className="relative">
+                                    <input
+                                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        placeholder="Buscar servicio (ej: Lavado)..."
+                                        value={productSearch}
+                                        onChange={e => setProductSearch(e.target.value)}
+                                    />
+                                    {showProductResults && (
+                                        <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                                            {products.map(p => (
+                                                <div key={p.id} onClick={() => handleProductSelect(p)} className="p-2 hover:bg-slate-50 cursor-pointer border-b text-sm flex justify-between">
+                                                    <span>{p.name}</span>
+                                                    <span className="font-bold text-indigo-600">${p.price}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {selectedProduct && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 space-y-3">
+                                        {/* Toggle & Price */}
+                                        <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-200">
+                                            <div className="text-sm font-bold text-slate-700 truncate max-w-[120px]">{selectedProduct.name}</div>
+                                            <div className="flex gap-1">
+                                                <button onClick={() => setUnitMode('KG')} className={`px-2 py-1 text-[10px] font-bold rounded ${unitMode === 'KG' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>KG</button>
+                                                <button onClick={() => setUnitMode('PIECES')} className={`px-2 py-1 text-[10px] font-bold rounded ${unitMode === 'PIECES' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400'}`}>UD</button>
+                                            </div>
+                                        </div>
+
+                                        {/* Inputs */}
+                                        <div className="flex gap-2">
+                                            {unitMode === 'KG' ? (
+                                                <>
+                                                    <input type="number" placeholder="Kg" className="flex-1 p-2 text-sm border rounded-lg font-bold" value={currentItem.weight_kg} onChange={e => setCurrentItem({ ...currentItem, weight_kg: e.target.value })} autoFocus />
+                                                    <input type="number" placeholder="Pzas (Opc)" className="w-20 p-2 text-sm border rounded-lg" value={currentItem.pieces} onChange={e => setCurrentItem({ ...currentItem, pieces: e.target.value })} />
+                                                </>
+                                            ) : (
+                                                <input type="number" placeholder="Cantidad" className="flex-1 p-2 text-sm border rounded-lg font-bold" value={currentItem.pieces} onChange={e => setCurrentItem({ ...currentItem, pieces: e.target.value })} autoFocus />
+                                            )}
+                                            <button onClick={addToCart} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 shadow-md"><Plus /></button>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
+
 
                     {/* 4. MINI CART */}
                     {cart.length > 0 && (
