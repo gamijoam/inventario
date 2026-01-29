@@ -465,7 +465,8 @@ class SalesService:
                         amount=p.amount,
                         currency=p.currency,
                         payment_method=p.payment_method,
-                        exchange_rate=p.exchange_rate
+                        exchange_rate=p.exchange_rate,
+                        reference=p.reference # New: Mapped from frontend
                     )
                     db.add(new_payment)
             else:
@@ -613,7 +614,8 @@ class SalesService:
                 "method": p.payment_method,
                 "amount": float(p.amount), # Raw value
                 "formatted_amount": fmt_money(float(p.amount), p_currency),
-                "currency": p_currency
+                "currency": p_currency,
+                "reference": p.reference if p.reference else None
             })
 
         # Totals
@@ -722,6 +724,9 @@ REF:   {{ sale.formatted_total_ref }}
 PAGOS:
 {% for pay in sale.payments %}
 - {{ pay.method }}: {{ pay.formatted_amount }}
+{% if pay.reference %}  (Ref: {{ pay.reference }})
+{% endif %}
+{% endfor %}
 {% endfor %}
 SU CAMBIO: {{ sale.formatted_change }}
 </left>
@@ -872,12 +877,18 @@ Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
             raise HTTPException(status_code=404, detail="Sale not found")
         
         # 2. Record Payment
+        # Determine payment date (allow backdating)
+        actual_date = payment_data.payment_date if payment_data.payment_date else datetime.now()
+
+        # 2. Record Payment
         payment = models.SalePayment(
             sale_id=payment_data.sale_id,
             amount=payment_data.amount,
             currency=payment_data.currency,
             payment_method=payment_data.payment_method,
-            exchange_rate=payment_data.exchange_rate
+            exchange_rate=payment_data.exchange_rate,
+            reference=payment_data.reference,
+            payment_date=actual_date
         )
         db.add(payment)
         
@@ -909,7 +920,7 @@ Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
                     amount_bs=amount_bs,
                     session_id=active_session.id,
                     description=f"Abono Factura #{sale.id}",
-                    date=datetime.now() # Payment Date is NOW
+                    date=actual_date # Use Backdated Date
                 )
                 db.add(debt_payment)
         

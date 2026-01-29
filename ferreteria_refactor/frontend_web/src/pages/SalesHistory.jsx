@@ -220,6 +220,9 @@ const SalesHistory = () => {
                         {payment.currency !== 'USD' && (
                             <span className="text-slate-300">| ${Number(sale.total_amount).toFixed(2)}</span>
                         )}
+                        {payment.reference && (
+                            <span className="block w-full text-right text-[9px] text-indigo-400 italic">Ref: {payment.reference}</span>
+                        )}
                     </div>
                 </div>
             );
@@ -237,9 +240,12 @@ const SalesHistory = () => {
                 <div className="hidden group-hover:block absolute z-50 right-0 top-full mt-2 w-48 bg-slate-800 text-white text-xs rounded-xl p-3 shadow-2xl animate-in fade-in zoom-in duration-200">
                     <div className="font-bold mb-2 text-slate-300 border-b border-slate-700 pb-1">Desglose</div>
                     {sale.payments.map((payment, idx) => (
-                        <div key={idx} className="flex justify-between py-1 border-b border-slate-700/50 last:border-0 text-slate-200">
+                        <div key={idx} className="flex justify-between py-1 border-b border-slate-700/50 last:border-0 text-slate-200 flex-wrap">
                             <span className="font-medium">{payment.currency}</span>
                             <span className="font-mono">{getCurrencySymbol(payment.currency)} {Number(payment.amount).toFixed(2)}</span>
+                            {payment.reference && (
+                                <span className="w-full text-[10px] text-slate-400 text-right italic">Ref: {payment.reference}</span>
+                            )}
                         </div>
                     ))}
                     <div className="mt-2 pt-2 border-t border-slate-600 font-bold text-white flex justify-between">
@@ -557,6 +563,53 @@ const SalesHistory = () => {
                                     </tfoot>
                                 </table>
                             </div>
+
+                            {/* Payment History Section */}
+                            {selectedSale.payments && selectedSale.payments.length > 0 && (
+                                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6">
+                                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                        <h4 className="font-bold text-slate-700 text-sm">Historial de Pagos</h4>
+                                        <span className="text-xs text-slate-400">{selectedSale.payments.length} transacciones</span>
+                                    </div>
+                                    <div className="divide-y divide-slate-100">
+                                        {selectedSale.payments.map((p, i) => (
+                                            <div key={i} className="p-3 px-4 flex justify-between items-center text-sm hover:bg-slate-50/50 transition-colors">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-slate-700">{p.payment_method}</span>
+                                                        {p.reference && (
+                                                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                                                                Ref: {p.reference}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        {p.payment_date && (
+                                                            <span className="text-xs text-slate-500 font-medium">
+                                                                {new Date(p.payment_date).toLocaleDateString()}
+                                                            </span>
+                                                        )}
+                                                        {p.currency !== 'USD' && (
+                                                            <span className="text-[10px] text-slate-400 bg-slate-100 px-1 rounded">
+                                                                Tasa: {p.exchange_rate}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="font-bold text-slate-700">{p.currency} {Number(p.amount).toFixed(2)}</div>
+                                                    {p.currency !== 'USD' && (
+                                                        <div className="text-xs text-slate-400 mt-0.5">
+                                                            ${(Number(p.amount) / (p.exchange_rate || 1)).toFixed(2)}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
 
                         <div className="p-5 border-t border-slate-100 bg-slate-50 flex gap-3">

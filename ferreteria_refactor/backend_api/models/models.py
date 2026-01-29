@@ -671,6 +671,7 @@ class PaymentMethod(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
+    requires_reference = Column(Boolean, default=False) # New: Require reference for this method (e.g. Zelle, Transfer)
     is_system = Column(Boolean, default=False) # Prevent deletion of core methods
 
     def __repr__(self):

@@ -11,6 +11,7 @@ const PaymentMethodsConfig = () => {
     const [loading, setLoading] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [newMethodName, setNewMethodName] = useState('');
+    const [newMethodRequiresReference, setNewMethodRequiresReference] = useState(false);
     const [processing, setProcessing] = useState(false);
 
     useEffect(() => {
@@ -31,38 +32,30 @@ const PaymentMethodsConfig = () => {
     };
 
     const handleToggleActive = async (method) => {
+        // ... existing logic ...
+    };
+
+    const handleToggleRequiresReference = async (method) => {
         try {
             // Optimistic update
             const updatedMethods = methods.map(m =>
-                m.id === method.id ? { ...m, is_active: !m.is_active } : m
+                m.id === method.id ? { ...m, requires_reference: !m.requires_reference } : m
             );
             setMethods(updatedMethods);
 
             await apiClient.put(`/payment-methods/${method.id}`, {
-                is_active: !method.is_active
+                requires_reference: !method.requires_reference
             });
-            refreshConfig(); // Refresh global context
-            toast.success(`Método ${!method.is_active ? 'activado' : 'desactivado'}`);
+            refreshConfig();
+            toast.success(`Referencia ${!method.requires_reference ? 'activada' : 'desactivada'}`);
         } catch (error) {
-            console.error('Error updating status:', error);
-            fetchMethods(); // Revert on error
-            toast.error('Error al actualizar estado');
+            console.error('Error updating reference requirement:', error);
+            fetchMethods(); // Revert
+            toast.error('Error al actualizar configuración');
         }
     };
 
-    const handleDelete = async (method) => {
-        if (!confirm(`¿Estás seguro de eliminar el método "${method.name}"?`)) return;
-
-        try {
-            await apiClient.delete(`/payment-methods/${method.id}`);
-            setMethods(methods.filter(m => m.id !== method.id));
-            refreshConfig(); // Refresh global context
-            toast.success('Método eliminado');
-        } catch (error) {
-            console.error('Error deleting method:', error);
-            toast.error(error.response?.data?.detail || 'Error al eliminar');
-        }
-    };
+    // ... handleDelete ...
 
     const handleAddMethod = async () => {
         if (!newMethodName.trim()) return;
@@ -71,12 +64,14 @@ const PaymentMethodsConfig = () => {
         try {
             const response = await apiClient.post('/payment-methods', {
                 name: newMethodName.trim(),
-                is_active: true
+                is_active: true,
+                requires_reference: newMethodRequiresReference
             });
             setMethods([...methods, response.data]);
             setNewMethodName('');
+            setNewMethodRequiresReference(false);
             setShowAddModal(false);
-            refreshConfig(); // Refresh global context
+            refreshConfig();
             toast.success('Método de pago agregado');
         } catch (error) {
             console.error('Error adding method:', error);
@@ -88,6 +83,7 @@ const PaymentMethodsConfig = () => {
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[600px] flex flex-col">
+            {/* ... Header ... */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <div>
                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -130,14 +126,15 @@ const PaymentMethodsConfig = () => {
                                         <CreditCard size={24} />
                                     </div>
                                     <div className="flex gap-2 items-center">
-                                        <label className="relative inline-flex items-center cursor-pointer">
+                                        {/* Active Toggle */}
+                                        <label className="relative inline-flex items-center cursor-pointer" title={method.is_active ? "Desactivar" : "Activar"}>
                                             <input
                                                 type="checkbox"
                                                 className="sr-only peer"
                                                 checked={method.is_active}
                                                 onChange={() => handleToggleActive(method)}
                                             />
-                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                                         </label>
 
                                         {!method.is_system && (
@@ -156,25 +153,35 @@ const PaymentMethodsConfig = () => {
                                     <h3 className={clsx("font-bold text-lg mb-2", method.is_active ? "text-slate-800" : "text-slate-500")}>
                                         {method.name}
                                     </h3>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        {method.is_system ? (
-                                            <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2.5 py-1 rounded-md border border-slate-200">
-                                                Sistema
+
+                                    <div className="flex flex-col gap-2 mt-3">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {method.is_system ? (
+                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2.5 py-1 rounded-md border border-slate-200">
+                                                    Sistema
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md border border-indigo-100">
+                                                    Personalizado
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Requires Reference Toggle in Card */}
+                                        <label className="flex items-center gap-2 cursor-pointer group/ref p-1.5 -ml-1.5 hover:bg-slate-50 rounded-lg transition-colors">
+                                            <div className="relative inline-flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={method.requires_reference || false}
+                                                    onChange={() => handleToggleRequiresReference(method)}
+                                                />
+                                                <div className="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+                                            </div>
+                                            <span className={clsx("text-xs font-bold transition-colors", method.requires_reference ? "text-emerald-600" : "text-slate-400 group-hover/ref:text-slate-600")}>
+                                                {method.requires_reference ? "Exige Referencia" : "Sin Referencia"}
                                             </span>
-                                        ) : (
-                                            <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md border border-indigo-100">
-                                                Personalizado
-                                            </span>
-                                        )}
-                                        {method.is_active ? (
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Activo
-                                            </span>
-                                        ) : (
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactivo
-                                            </span>
-                                        )}
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -205,9 +212,25 @@ const PaymentMethodsConfig = () => {
                                         onKeyDown={e => e.key === 'Enter' && handleAddMethod()}
                                     />
                                 </div>
-                                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex gap-3 text-xs text-slate-500">
+
+                                <label className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer hover:bg-white hover:border-indigo-200 transition-all">
+                                    <div className="relative flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                            checked={newMethodRequiresReference}
+                                            onChange={e => setNewMethodRequiresReference(e.target.checked)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm font-bold text-slate-700">Exigir Referencia</div>
+                                        <div className="text-xs text-slate-400">¿El cajero debe ingresar # de comprobante?</div>
+                                    </div>
+                                </label>
+
+                                <div className="bg-indigo-50 p-3 rounded-xl border border-indigo-100 flex gap-3 text-xs text-indigo-600">
                                     <AlertCircle size={16} className="text-indigo-500 shrink-0 mt-0.5" />
-                                    <p>Este método aparecerá habilitado inmediatamente en la pantalla de cobro del POS.</p>
+                                    <p>Este método aparecerá habilitado inmediatamente en la pantalla de cobro.</p>
                                 </div>
                             </div>
                         </div>

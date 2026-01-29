@@ -13,6 +13,7 @@ router = APIRouter(
 class PaymentMethodBase(BaseModel):
     name: str
     is_active: bool = True
+    requires_reference: bool = False
 
 class PaymentMethodCreate(PaymentMethodBase):
     pass
@@ -20,10 +21,12 @@ class PaymentMethodCreate(PaymentMethodBase):
 class PaymentMethodUpdate(BaseModel):
     name: Optional[str] = None
     is_active: Optional[bool] = None
+    requires_reference: Optional[bool] = None
 
 class PaymentMethodResponse(PaymentMethodBase):
     id: int
     is_system: bool
+    requires_reference: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -45,6 +48,7 @@ def create_payment_method(method: PaymentMethodCreate, db: Session = Depends(get
     new_method = models.PaymentMethod(
         name=method.name,
         is_active=method.is_active,
+        requires_reference=method.requires_reference,
         is_system=False
     )
     db.add(new_method)
@@ -69,6 +73,9 @@ def update_payment_method(method_id: int, method: PaymentMethodUpdate, db: Sessi
         
     if method.is_active is not None:
         db_method.is_active = method.is_active
+
+    if method.requires_reference is not None:
+        db_method.requires_reference = method.requires_reference
         
     db.commit()
     db.refresh(db_method)

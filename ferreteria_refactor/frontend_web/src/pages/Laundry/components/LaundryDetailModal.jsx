@@ -183,7 +183,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
         try {
             const currentMeta = order.order_metadata || {};
             await apiClient.patch(`/services/orders/${orderId}/status`, {
-                status: 'DELIVERED',
+                // status: 'DELIVERED', // REMOVED: Payment does not equal Delivery
                 order_metadata: {
                     ...currentMeta,
                     sale_id: result.saleId || result.id,

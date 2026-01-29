@@ -143,6 +143,17 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             return;
         }
 
+        // Validate References
+        if (!isCreditSale) {
+            for (const p of payments) {
+                const method = paymentMethods.find(m => m.name === p.method);
+                if (method?.requires_reference && !p.reference?.trim()) {
+                    alert(`Debe ingresar la referencia para el método: ${p.method}`);
+                    return;
+                }
+            }
+        }
+
         setProcessing(true);
 
         try {
@@ -180,6 +191,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         amount: parseFloat(p.amount),
                         currency: p.currency === '$' ? 'USD' : p.currency,
                         payment_method: p.method,
+                        reference: p.reference, // Pass reference to backend
                         // Force Default Rate for Bs payments to match valid USD calculation
                         exchange_rate: (p.currency === 'Bs' || p.currency === 'VES')
                             ? defaultBsRate
@@ -447,59 +459,79 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 </div>
 
                                 <div className="space-y-3">
-                                    {payments.map((payment, index) => (
-                                        <div key={index} className="flex gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
+                                    {payments.map((payment, index) => {
+                                        const selectedMethod = paymentMethods.find(m => m.name === payment.method);
+                                        const needsReference = selectedMethod?.requires_reference;
 
-                                            {/* Method & Currency */}
-                                            <div className="flex flex-col gap-2 w-5/12">
-                                                <select
-                                                    className="w-full bg-slate-50 border-none text-xs font-bold text-slate-700 rounded-lg py-2 focus:ring-0"
-                                                    value={payment.method}
-                                                    onChange={(e) => updatePayment(index, 'method', e.target.value)}
-                                                >
-                                                    {paymentMethods.filter(m => m.is_active).map(m => (
-                                                        <option key={m.id} value={m.name}>{m.name}</option>
-                                                    ))}
-                                                </select>
-                                                <div className="flex gap-2">
-                                                    {currencies.slice(0, 3).map(c => (
-                                                        <button
-                                                            key={c.symbol}
-                                                            onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                            className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors border ${payment.currency === c.symbol ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                                        return (
+                                            <div key={index} className="flex flex-col gap-2 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
+
+                                                <div className="flex gap-3">
+                                                    {/* Method & Currency */}
+                                                    <div className="flex flex-col gap-2 w-5/12">
+                                                        <select
+                                                            className="w-full bg-slate-50 border-none text-xs font-bold text-slate-700 rounded-lg py-2 focus:ring-0"
+                                                            value={payment.method}
+                                                            onChange={(e) => updatePayment(index, 'method', e.target.value)}
                                                         >
-                                                            {c.symbol}
+                                                            {paymentMethods.filter(m => m.is_active).map(m => (
+                                                                <option key={m.id} value={m.name}>{m.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <div className="flex gap-2">
+                                                            {currencies.slice(0, 3).map(c => (
+                                                                <button
+                                                                    key={c.symbol}
+                                                                    onClick={() => updatePayment(index, 'currency', c.symbol)}
+                                                                    className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors border ${payment.currency === c.symbol ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                                                                >
+                                                                    {c.symbol}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Amount Input */}
+                                                    <div className="flex-1 relative">
+                                                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                                            <span className="text-slate-400 font-bold text-lg">
+                                                                {payment.currency === 'USD' ? '$' : payment.currency}
+                                                            </span>
+                                                        </div>
+                                                        <CurrencyInput
+                                                            className="w-full h-full bg-transparent text-right font-mono text-2xl font-bold text-slate-800 placeholder-slate-200 border-none focus:ring-0 p-0 pr-2"
+                                                            placeholder="0.00"
+                                                            value={payment.amount}
+                                                            onChange={(val) => updatePayment(index, 'amount', val)}
+                                                        />
+                                                    </div>
+
+                                                    {/* Remove Button */}
+                                                    {payments.length > 1 && (
+                                                        <button
+                                                            onClick={() => removePaymentRow(index)}
+                                                            className="flex items-center justify-center w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                                                        >
+                                                            <Trash2 size={16} />
                                                         </button>
-                                                    ))}
+                                                    )}
                                                 </div>
-                                            </div>
 
-                                            {/* Amount Input */}
-                                            <div className="flex-1 relative">
-                                                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                                    <span className="text-slate-400 font-bold text-lg">
-                                                        {payment.currency === 'USD' ? '$' : payment.currency}
-                                                    </span>
-                                                </div>
-                                                <CurrencyInput
-                                                    className="w-full h-full bg-transparent text-right font-mono text-2xl font-bold text-slate-800 placeholder-slate-200 border-none focus:ring-0 p-0 pr-2"
-                                                    placeholder="0.00"
-                                                    value={payment.amount}
-                                                    onChange={(val) => updatePayment(index, 'amount', val)}
-                                                />
+                                                {/* Reference Input */}
+                                                {needsReference && (
+                                                    <div className="animate-in fade-in slide-in-from-top-2">
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Referencia / # Transferencia"
+                                                            className="w-full bg-indigo-50/50 border-indigo-100 text-xs text-indigo-800 placeholder-indigo-300 rounded-lg px-3 py-2 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                                                            value={payment.reference || ''}
+                                                            onChange={(e) => updatePayment(index, 'reference', e.target.value)}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
-
-                                            {/* Remove Button */}
-                                            {payments.length > 1 && (
-                                                <button
-                                                    onClick={() => removePaymentRow(index)}
-                                                    className="flex items-center justify-center w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             </div>
                         )}
