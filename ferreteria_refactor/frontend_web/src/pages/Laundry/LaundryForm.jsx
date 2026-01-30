@@ -177,7 +177,8 @@ const LaundryForm = () => {
         const newItem = {
             id: Date.now(),
             product_id: selectedProduct.id,
-            description: `${selectedProduct.name} ${currentItem.observations ? `(${currentItem.observations})` : ''}`,
+            description: selectedProduct.name,
+            observations: currentItem.observations || '', // Save observations separately
             quantity: finalQty,
             unit_price: finalPrice,
 
@@ -291,21 +292,78 @@ const LaundryForm = () => {
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 justify-between">
                             <span className="flex items-center gap-2"><Users className="text-teal-600" size={20} /> Cliente</span>
-                            <button type="button" onClick={() => setShowQuickCreate(!showQuickCreate)} className="text-xs text-teal-600 font-bold hover:underline flex items-center gap-1">
-                                <Plus size={14} /> Nuevo
+                            <button
+                                type="button"
+                                onClick={() => setShowQuickCreate(!showQuickCreate)}
+                                className="px-3 py-1.5 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all hover:-translate-y-0.5 active:scale-95"
+                            >
+                                <Plus size={16} strokeWidth={2.5} /> Nuevo Cliente
                             </button>
                         </h2>
 
                         {showQuickCreate ? (
-                            <div className="bg-teal-50 p-4 rounded-xl border border-teal-100 space-y-3">
-                                <div className="space-y-2">
-                                    <input placeholder="Nombre Completo *" className="w-full p-2 text-sm border rounded" value={quickCustomer.name} onChange={e => setQuickCustomer({ ...quickCustomer, name: e.target.value })} />
-                                    <input placeholder="Cédula" className="w-full p-2 text-sm border rounded" value={quickCustomer.id_number} onChange={e => setQuickCustomer({ ...quickCustomer, id_number: e.target.value })} />
-                                    <input placeholder="Teléfono *" className="w-full p-2 text-sm border rounded" value={quickCustomer.phone} onChange={e => setQuickCustomer({ ...quickCustomer, phone: e.target.value })} />
+                            <div className="bg-gradient-to-br from-teal-50 via-cyan-50 to-blue-50 p-5 rounded-xl border-2 border-teal-200 space-y-4 shadow-sm">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="bg-teal-500 p-1.5 rounded-lg">
+                                        <Users size={16} className="text-white" />
+                                    </div>
+                                    <h3 className="font-black text-teal-800 text-sm">Crear Cliente Rápido</h3>
                                 </div>
-                                <div className="flex justify-end gap-2 text-xs pt-2">
-                                    <button onClick={() => setShowQuickCreate(false)}>Cancelar</button>
-                                    <button onClick={handleQuickCreate} className="font-bold text-teal-700">Guardar</button>
+
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-teal-700 uppercase tracking-wider mb-1.5">
+                                            Nombre Completo <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            placeholder="Ej: Juan Pérez"
+                                            className="w-full px-3 py-2.5 text-sm border-2 border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all bg-white font-medium text-gray-800 placeholder:text-gray-400"
+                                            value={quickCustomer.name}
+                                            onChange={e => setQuickCustomer({ ...quickCustomer, name: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-teal-700 uppercase tracking-wider mb-1.5">
+                                            Cédula <span className="text-gray-400 text-[10px] normal-case">(Opcional)</span>
+                                        </label>
+                                        <input
+                                            placeholder="Ej: V-12345678"
+                                            className="w-full px-3 py-2.5 text-sm border-2 border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all bg-white font-medium text-gray-800 placeholder:text-gray-400"
+                                            value={quickCustomer.id_number}
+                                            onChange={e => setQuickCustomer({ ...quickCustomer, id_number: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-teal-700 uppercase tracking-wider mb-1.5">
+                                            Teléfono <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            placeholder="Ej: 0414-1234567"
+                                            className="w-full px-3 py-2.5 text-sm border-2 border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all bg-white font-medium text-gray-800 placeholder:text-gray-400"
+                                            value={quickCustomer.phone}
+                                            onChange={e => setQuickCustomer({ ...quickCustomer, phone: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2 pt-3 border-t border-teal-200">
+                                    <button
+                                        onClick={() => {
+                                            setShowQuickCreate(false);
+                                            setQuickCustomer({ name: '', id_number: '', phone: '' });
+                                        }}
+                                        className="flex-1 px-4 py-2.5 bg-white hover:bg-gray-50 text-gray-700 rounded-lg font-bold text-sm border-2 border-gray-200 transition-all active:scale-95"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleQuickCreate}
+                                        className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-lg font-black text-sm shadow-lg shadow-teal-200 transition-all hover:-translate-y-0.5 active:scale-95"
+                                    >
+                                        Crear Cliente
+                                    </button>
                                 </div>
                             </div>
                         ) : (
@@ -341,18 +399,6 @@ const LaundryForm = () => {
                         <h2 className="text-lg font-semibold mb-4 text-gray-700">Datos Generales</h2>
                         <div className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Identificador / Bolsa (Opcional)
-                                </label>
-                                <input
-                                    value={orderMetadata.bag_color}
-                                    onChange={e => setOrderMetadata({ ...orderMetadata, bag_color: e.target.value })}
-                                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                                    placeholder="Ej: Bolsa Azul"
-                                />
-                                <p className="text-[10px] text-gray-400 mt-1">Si se deja vacío, se generará LAV-xxxx.</p>
-                            </div>
-                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Prioridad</label>
                                 <select
                                     className="w-full p-2 border rounded-lg bg-gray-50"
@@ -363,6 +409,7 @@ const LaundryForm = () => {
                                     <option value="HIGH">Alta</option>
                                     <option value="URGENT">Urgente</option>
                                 </select>
+                                <p className="text-[10px] text-gray-400 mt-1">El identificador se generará automáticamente (LAV-xxxx)</p>
                             </div>
                         </div>
                     </div>
@@ -545,13 +592,18 @@ const LaundryForm = () => {
                                 <div className="text-center text-gray-400 py-10">Ningún servicio agregado aún</div>
                             ) : cart.map((item, idx) => (
                                 <div key={item.id} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center animate-in slide-in-from-bottom-2">
-                                    <div>
+                                    <div className="flex-1">
                                         <div className="font-bold text-gray-800">{item.description}</div>
                                         <div className="text-xs text-gray-500 flex gap-2">
                                             {item.weight_kg > 0 && <span>Peso: {item.weight_kg}kg</span>}
                                             {item.pieces > 0 && <span>Cant: {item.pieces}</span>}
                                             <span className="text-green-600 font-bold ml-2">${item.unit_price} / ud</span>
                                         </div>
+                                        {item.observations && (
+                                            <div className="mt-1.5 text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-block">
+                                                <span className="font-bold text-amber-700">Nota:</span> {item.observations}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <span className="font-bold text-gray-800 text-lg">

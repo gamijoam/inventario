@@ -29,22 +29,31 @@ export default function Header() {
             <div className="flex items-center gap-2 md:gap-4">
                 {/* Exchange Rate Display */}
                 {displayCurrency && (
-                    <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg mr-2">
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600">
+                    <Link
+                        to="/settings"
+                        state={{ activeTab: 'currencies' }}
+                        className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg mr-2 hover:bg-slate-100 hover:border-slate-300 transition-all cursor-pointer group"
+                        title="Ir a Configuración de Monedas"
+                    >
+                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 group-hover:bg-emerald-200 transition-colors">
                             <DollarSign size={14} strokeWidth={3} />
                         </div>
                         <div className="flex flex-col leading-none">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase">Tasa {displayCurrency.symbol}</span>
-                            <span className="text-sm font-black text-slate-700">{rate.toFixed(2)}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase group-hover:text-slate-500 transition-colors">Tasa {displayCurrency.symbol}</span>
+                            <span className="text-sm font-black text-slate-700 group-hover:text-emerald-600 transition-colors">{rate.toFixed(2)}</span>
                         </div>
                         <button
-                            onClick={() => setShowRateModal(true)}
-                            className="ml-1 p-1 hover:bg-slate-200 rounded-full text-slate-400 transition-colors"
-                            title="Actualizar Tasa"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowRateModal(true);
+                            }}
+                            className="ml-1 p-1 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                            title="Actualizar Tasa Rápida"
                         >
                             <RefreshCw size={12} />
                         </button>
-                    </div>
+                    </Link>
                 )}
 
                 {/* Shortcuts */}

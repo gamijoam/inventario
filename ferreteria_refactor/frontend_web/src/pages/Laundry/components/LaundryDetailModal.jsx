@@ -34,6 +34,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
 
     const [newItem, setNewItem] = useState({
         description: '',
+        observations: '',
         quantity: 1,
         unit_price: 0,
         product_id: null
@@ -107,6 +108,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
         setEditingItemId(item.id);
         setNewItem({
             description: item.description,
+            observations: item.observations || '',
             quantity: item.quantity,
             unit_price: item.unit_price,
             product_id: item.product_id
@@ -116,7 +118,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
 
     const cancelEdit = () => {
         setEditingItemId(null);
-        setNewItem({ description: '', quantity: 1, unit_price: 0, product_id: null });
+        setNewItem({ description: '', observations: '', quantity: 1, unit_price: 0, product_id: null });
     };
 
     const handleAddItem = async () => {
@@ -136,7 +138,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
             toast.success(editingItemId ? "Ítem actualizado" : "Ítem agregado");
             setIsAddingItem(false);
             setEditingItemId(null);
-            setNewItem({ description: '', quantity: 1, unit_price: 0, product_id: null });
+            setNewItem({ description: '', observations: '', quantity: 1, unit_price: 0, product_id: null });
             setSelectedProduct(null);
             setProductSearch('');
             fetchOrder();
@@ -329,6 +331,19 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                                     </div>
                                 </div>
 
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex-1">
+                                        <label className="text-[10px] font-bold text-indigo-800 uppercase">Observaciones</label>
+                                        <textarea
+                                            className="w-full p-2 rounded border border-indigo-200 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                                            placeholder="Notas especiales sobre este servicio..."
+                                            rows="2"
+                                            value={newItem.observations}
+                                            onChange={e => setNewItem({ ...newItem, observations: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
                                 <div className="flex gap-2 items-end justify-end">
                                     <div className="w-20">
                                         <label className="text-[10px] font-bold text-indigo-800 uppercase">Cant.</label>
@@ -372,6 +387,11 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                                             <td className="py-3 px-3">
                                                 <div className="font-bold text-slate-700">{item.description}</div>
                                                 {item.is_manual && <span className="text-[10px] bg-amber-50 text-amber-600 px-1 rounded">Manual</span>}
+                                                {item.observations && (
+                                                    <div className="mt-1 text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-block">
+                                                        <span className="font-bold text-amber-700">Nota:</span> {item.observations}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="py-3 px-3 text-center text-slate-600">{item.quantity}</td>
                                             <td className="py-3 px-3 text-right text-slate-500">${Number(item.unit_price).toFixed(2)}</td>

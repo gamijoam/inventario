@@ -48,6 +48,10 @@ const LaundryUnified = () => {
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [showCustomerResults, setShowCustomerResults] = useState(false);
 
+    // Quick Customer Create
+    const [showQuickCreate, setShowQuickCreate] = useState(false);
+    const [quickCustomer, setQuickCustomer] = useState({ name: '', id_number: '', phone: '' });
+
     // Product
     const [products, setProducts] = useState([]);
     const [productSearch, setProductSearch] = useState('');
@@ -62,6 +66,10 @@ const LaundryUnified = () => {
         is_manual_price: false, manual_price: ''
     });
     const [orderMetadata, setOrderMetadata] = useState({ bag_color: '', priority: 'NORMAL' });
+
+    // Manual Item State
+    const [isManualItem, setIsManualItem] = useState(false);
+    const [manualDescription, setManualDescription] = useState('');
 
     // ==========================================
     // 1. DASHBOARD LOGIC
@@ -125,10 +133,6 @@ const LaundryUnified = () => {
     // 2. NEW ORDER LOGIC
     // ==========================================
 
-    // Manual / Custom Item Mode
-    const [isManualItem, setIsManualItem] = useState(false);
-    const [manualDescription, setManualDescription] = useState('');
-
     // Customer Search
     useEffect(() => {
         const timer = setTimeout(async () => {
@@ -186,6 +190,26 @@ const LaundryUnified = () => {
         }));
     };
 
+    const handleQuickCreateCustomer = async () => {
+        if (!quickCustomer.name || !quickCustomer.phone) {
+            return toast.error("Nombre y teléfono son obligatorios");
+        }
+        try {
+            const res = await apiClient.post('/customers', {
+                ...quickCustomer,
+                credit_limit: 100 // Default credit limit for quick customers
+            });
+            setSelectedCustomer(res.data);
+            setCustomerSearch(res.data.name);
+            setShowQuickCreate(false);
+            setQuickCustomer({ name: '', id_number: '', phone: '' });
+            toast.success("Cliente creado exitosamente");
+        } catch (error) {
+            console.error(error);
+            toast.error("Error al crear cliente");
+        }
+    };
+
     const addToCart = () => {
         if (!selectedProduct && !isManualItem) return toast.error("Seleccione un servicio o use modo manual");
         if (isManualItem && !manualDescription) return toast.error("Ingrese descripción del servicio");
@@ -228,7 +252,8 @@ const LaundryUnified = () => {
             // The user wants "New Order -> Various".
             // I will add a "VARIOS" button that searches for a product named "VARIOS" or "GENERICO" and selects it automatically, then focuses description.
 
-            description: isManualItem ? manualDescription : `${selectedProduct.name} ${currentItem.observations ? `(${currentItem.observations})` : ''}`,
+            description: isManualItem ? manualDescription : selectedProduct.name,
+            observations: currentItem.observations || '',
             quantity: finalQty,
             unit_price: finalPrice,
             weight_kg: isKgMode ? finalQty : 0,
@@ -264,6 +289,7 @@ const LaundryUnified = () => {
                 items: cart.map(item => ({
                     product_id: item.product_id,
                     description: item.description,
+                    observations: item.observations,
                     quantity: item.quantity,
                     unit_price: item.unit_price,
                 })),
@@ -409,8 +435,72 @@ const LaundryUnified = () => {
 
                     {/* 1. CUSTOMER */}
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cliente</label>
-                        {!selectedCustomer ? (
+                        <div className="flex justify-between items-center">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cliente</label>
+                            {!selectedCustomer && !showQuickCreate && (
+                                <button
+                                    onClick={() => setShowQuickCreate(true)}
+                                    className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700 shadow-sm transition-all active:scale-95"
+                                >
+                                    + Nuevo Cliente
+                                </button>
+                            )}
+                        </div>
+
+                        {showQuickCreate ? (
+                            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-xl border border-emerald-200 space-y-3 animate-in fade-in slide-in-from-top-2">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h3 className="text-sm font-bold text-emerald-800">Crear Cliente Rápido</h3>
+                                    <button onClick={() => setShowQuickCreate(false)} className="text-emerald-400 hover:text-emerald-700">
+                                        <X size={16} />
+                                    </button>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-emerald-700 uppercase">Nombre *</label>
+                                    <input
+                                        className="w-full p-2 border border-emerald-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                                        placeholder="Nombre completo"
+                                        value={quickCustomer.name}
+                                        onChange={e => setQuickCustomer({ ...quickCustomer, name: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-emerald-700 uppercase">Cédula (Opcional)</label>
+                                    <input
+                                        className="w-full p-2 border border-emerald-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                                        placeholder="V-12345678"
+                                        value={quickCustomer.id_number}
+                                        onChange={e => setQuickCustomer({ ...quickCustomer, id_number: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-emerald-700 uppercase">Teléfono *</label>
+                                    <input
+                                        className="w-full p-2 border border-emerald-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                                        placeholder="0412-1234567"
+                                        value={quickCustomer.phone}
+                                        onChange={e => setQuickCustomer({ ...quickCustomer, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setShowQuickCreate(false);
+                                            setQuickCustomer({ name: '', id_number: '', phone: '' });
+                                        }}
+                                        className="flex-1 px-4 py-2 bg-white border border-emerald-200 text-emerald-700 rounded-lg hover:bg-emerald-50 font-medium text-sm transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        onClick={handleQuickCreateCustomer}
+                                        className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-lg hover:from-emerald-700 hover:to-teal-800 font-bold text-sm shadow-md transition-all active:scale-95"
+                                    >
+                                        Crear Cliente
+                                    </button>
+                                </div>
+                            </div>
+                        ) : !selectedCustomer ? (
                             <div className="relative">
                                 <Search className="absolute left-3 top-2.5 text-indigo-300" size={16} />
                                 <input
@@ -447,16 +537,7 @@ const LaundryUnified = () => {
                     </div>
 
                     {/* 2. ORDER DETAILS */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase">Identificador (Bolsa)</label>
-                            <input
-                                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-400"
-                                placeholder="Ej: Bolsa Roja"
-                                value={orderMetadata.bag_color}
-                                onChange={e => setOrderMetadata({ ...orderMetadata, bag_color: e.target.value })}
-                            />
-                        </div>
+                    <div className="space-y-3">
                         <div>
                             <label className="text-[10px] font-bold text-slate-400 uppercase">Prioridad</label>
                             <select
@@ -468,6 +549,7 @@ const LaundryUnified = () => {
                                 <option value="HIGH">Alta</option>
                                 <option value="URGENT">Urgente</option>
                             </select>
+                            <p className="text-[10px] text-slate-400 mt-1">El identificador se generará automáticamente (LAV-xxxx)</p>
                         </div>
                     </div>
 
@@ -554,6 +636,18 @@ const LaundryUnified = () => {
                                             </div>
                                         </div>
 
+                                        {/* Observations */}
+                                        <div>
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase">Observaciones</label>
+                                            <textarea
+                                                className="w-full p-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                                                placeholder="Notas especiales (ej: Mancha en el cuello)..."
+                                                rows="2"
+                                                value={currentItem.observations}
+                                                onChange={e => setCurrentItem({ ...currentItem, observations: e.target.value })}
+                                            />
+                                        </div>
+
                                         {/* Inputs */}
                                         <div className="flex gap-2">
                                             {unitMode === 'KG' ? (
@@ -580,11 +674,16 @@ const LaundryUnified = () => {
                             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                                 {cart.map((item, idx) => (
                                     <div key={item.id} className="p-3 border-b border-slate-50 last:border-0 flex justify-between items-center">
-                                        <div>
+                                        <div className="flex-1">
                                             <div className="text-sm font-bold text-slate-700">{item.description}</div>
                                             <div className="text-[10px] text-slate-400">
                                                 {item.weight_kg > 0 ? `${item.weight_kg} kg` : `${item.quantity} ud`} x ${item.unit_price}
                                             </div>
+                                            {item.observations && (
+                                                <div className="mt-1 text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-block">
+                                                    <span className="font-bold text-amber-700">Nota:</span> {item.observations}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <span className="text-sm font-bold text-slate-800">${(item.quantity * item.unit_price).toFixed(2)}</span>

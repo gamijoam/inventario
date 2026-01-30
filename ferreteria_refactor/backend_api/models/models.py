@@ -968,6 +968,7 @@ class ServiceOrderDetail(Base):
     
     description = Column(String, nullable=True) # Manual description or Product Name snapshot
     is_manual = Column(Boolean, default=False)
+    observations = Column(String, nullable=True) # Special notes/instructions for this item
     
     quantity = Column(Numeric(12, 3), default=1.000)
     unit_price = Column(Numeric(12, 2), nullable=False)
