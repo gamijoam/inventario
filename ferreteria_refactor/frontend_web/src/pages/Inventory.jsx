@@ -1,22 +1,35 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Archive, ArrowDownCircle, ArrowUpCircle, Filter, Search, Calendar, ChevronRight, Barcode } from 'lucide-react';
-import AdjustmentModal from '../components/inventory/AdjustmentModal';
+import InventoryMovementSheet from '../components/inventory/InventoryMovementSheet';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 const Inventory = () => {
     const [kardex, setKardex] = useState([]);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    const [startDate, setStartDate] = useState(() => {
+        const date = new Date();
+        return new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+    });
+    const [endDate, setEndDate] = useState(() => {
+        const date = new Date();
+        return new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
+    });
 
     // Fetch Kardex
     const fetchKardex = async () => {
         setIsLoading(true);
         try {
-            const response = await apiClient.get('/inventory/kardex');
+            const params = {
+                start_date: startDate,
+                end_date: endDate
+            };
+            const response = await apiClient.get('/inventory/kardex', { params });
             setKardex(response.data);
         } catch (error) {
             console.error("Error fetching kardex:", error);
@@ -27,7 +40,7 @@ const Inventory = () => {
 
     useEffect(() => {
         fetchKardex();
-    }, []);
+    }, [startDate, endDate]); // Refetch when dates change
 
     const getMovementStyle = (type) => {
         if (['SALE', 'ADJUSTMENT_OUT', 'DAMAGED', 'INTERNAL_USE', 'OUT'].includes(type)) {
@@ -50,50 +63,64 @@ const Inventory = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center">
-                        <Archive className="mr-2 text-indigo-600" /> Movimientos de Inventario
-                    </h1>
-                    <p className="text-slate-500 text-sm mt-1">Historial completo de entradas y salidas (Kardex)</p>
+            {/* Header & Actions */}
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-3">
+                    <div>
+                        <h1 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center">
+                            <Archive className="mr-2 text-indigo-600 size-6 md:size-8" />
+                            <span className="hidden md:inline">Movimientos de Inventario</span>
+                            <span className="md:hidden">Inventario</span>
+                        </h1>
+                        <p className="hidden md:block text-slate-500 text-sm mt-1">Historial completo de entradas y salidas (Kardex)</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <Link
+                            to="/inventory/serialized-reception"
+                            className="hidden md:flex bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all font-bold text-sm items-center gap-2"
+                        >
+                            <Barcode size={18} />
+                            Recepción
+                        </Link>
+                        <button
+                            onClick={() => setIsSheetOpen(true)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all font-bold text-sm flex items-center gap-2"
+                        >
+                            <span className="md:hidden">+ Ajuste</span>
+                            <span className="hidden md:inline">Nuevo Ajuste Manual</span>
+                        </button>
+                    </div>
                 </div>
-                <div className="flex gap-3">
-                    <Link
-                        to="/inventory/serialized-reception"
-                        className="bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all font-bold text-sm flex items-center gap-2"
-                    >
-                        <Barcode size={18} />
-                        Recepción Serializada
-                    </Link>
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all font-bold text-sm"
-                    >
-                        Nuevo Ajuste Manual
-                    </button>
-                </div>
-            </div>
 
-            {/* Filters Bar */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
-                <div className="relative flex-1 w-full">
-                    <Search className="absolute left-3 top-2.5 text-slate-400" size={20} />
-                    <input
-                        type="text"
-                        placeholder="Buscar por producto..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-700"
-                    />
-                </div>
-                <div className="flex flex-col md:flex-row gap-2 md:gap-3 w-full md:w-auto items-center">
-                    <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200 w-full md:w-auto">
-                        <div className="relative flex-1">
-                            <input type="date" className="w-full pl-2 pr-1 py-1.5 bg-transparent text-sm font-medium text-slate-600 outline-none" />
-                        </div>
-                        <span className="text-slate-400 font-bold px-1"><ChevronRight size={14} /></span>
-                        <div className="relative flex-1">
-                            <input type="date" className="w-full pl-1 pr-2 py-1.5 bg-transparent text-sm font-medium text-slate-600 outline-none" />
+                {/* Search & Filters */}
+                <div className="bg-white p-3 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-3 items-center sticky top-0 z-10">
+                    <div className="relative flex-1 w-full">
+                        <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Buscar producto..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-700 text-sm"
+                        />
+                    </div>
+
+                    {/* Date Filters */}
+                    <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+                        <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-200 shrink-0">
+                            <input
+                                type="date"
+                                className="bg-transparent text-xs md:text-sm font-medium text-slate-600 outline-none px-2 py-1.5"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                            />
+                            <span className="text-slate-400 font-bold px-1"><ChevronRight size={14} /></span>
+                            <input
+                                type="date"
+                                className="bg-transparent text-xs md:text-sm font-medium text-slate-600 outline-none px-2 py-1.5"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                            />
                         </div>
                     </div>
                 </div>
@@ -221,9 +248,9 @@ const Inventory = () => {
                 )}
             </div>
 
-            <AdjustmentModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+            <InventoryMovementSheet
+                isOpen={isSheetOpen}
+                onClose={() => setIsSheetOpen(false)}
                 onSuccess={() => {
                     fetchKardex();
                 }}

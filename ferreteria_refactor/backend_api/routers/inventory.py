@@ -58,27 +58,35 @@ async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Dep
     )
     
     db.add(kardex_entry)
+
+    # Capture state BEFORE commit to avoid ObjectDeletedError/SessionExpire
+    product_id = product.id
+    product_name = product.name
+    product_price = float(product.price)
+    product_stock = float(product.stock)
+    product_er_id = product.exchange_rate_id
+
     db.commit()
-    db.refresh(product)
+    # db.refresh(product) <- REMOVED
     
     # AUDIT LOG
     from ..audit_utils import log_action
-    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product.id, changes=f"Stock Adjustment (IN) [Wh:{adjustment.warehouse_id}]: +{adjustment.quantity}. Reason: {adjustment.reason}")
+    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product_id, changes=f"Stock Adjustment (IN) [Wh:{adjustment.warehouse_id}]: +{adjustment.quantity}. Reason: {adjustment.reason}")
 
     await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, {
-        "id": product.id,
-        "name": product.name,
-        "price": product.price,
-        "stock": product.stock,
-        "exchange_rate_id": product.exchange_rate_id
+        "id": product_id,
+        "name": product_name,
+        "price": product_price,
+        "stock": product_stock,
+        "exchange_rate_id": product_er_id
     })
     
     await manager.broadcast(WebSocketEvents.PRODUCT_STOCK_UPDATED, {
-        "id": product.id,
-        "stock": product.stock
+        "id": product_id,
+        "stock": product_stock
     })
     
-    return {"status": "success", "new_stock": product.stock, "product_id": product.id}
+    return {"status": "success", "new_stock": product_stock, "product_id": product_id}
 
 @router.post("/remove", dependencies=[Depends(warehouse_or_admin)])
 async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Depends(get_db)):
@@ -106,47 +114,85 @@ async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = 
     product.stock -= adjustment.quantity
     
     # Create Kardex
+    
+    # Map Frontend Types to DB Enum
+    db_movement_type = adjustment.type
+    final_description = adjustment.reason
+    
+    if adjustment.type == "DAMAGED":
+        db_movement_type = "ADJUSTMENT_OUT" # Or "ADJUSTMENT" based on models.py comment, but OUT is safer for logic
+        final_description = f"[DAMAGED] {adjustment.reason}"
+    elif adjustment.type == "INTERNAL_USE":
+        db_movement_type = "ADJUSTMENT_OUT"
+        final_description = f"[INTERNAL USE] {adjustment.reason}"
+        
     kardex_entry = models.Kardex(
         product_id=product.id,
         warehouse_id=adjustment.warehouse_id, # NEW
-        movement_type=adjustment.type,
+        movement_type=db_movement_type,
         quantity=-adjustment.quantity,  # Negative for outgoing
         balance_after=product.stock,
-        description=adjustment.reason,
+        description=final_description,
         date=datetime.now()
     )
     
     db.add(kardex_entry)
+
+    # Capture state BEFORE commit
+    product_id = product.id
+    product_name = product.name
+    product_price = float(product.price)
+    product_stock = float(product.stock)
+    product_er_id = product.exchange_rate_id
+
     db.commit()
-    db.refresh(product)
+    # db.refresh(product) <- REMOVED
     
     # AUDIT LOG
     from ..audit_utils import log_action
-    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product.id, changes=f"Stock Adjustment (OUT) [Wh:{adjustment.warehouse_id}]: -{adjustment.quantity}. Reason: {adjustment.reason}")
+    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product_id, changes=f"Stock Adjustment (OUT) [Wh:{adjustment.warehouse_id}]: -{adjustment.quantity}. Reason: {adjustment.reason}")
 
     await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, {
-        "id": product.id,
-        "name": product.name,
-        "price": product.price,
-        "stock": product.stock,
-        "exchange_rate_id": product.exchange_rate_id
+        "id": product_id,
+        "name": product_name,
+        "price": product_price,
+        "stock": product_stock,
+        "exchange_rate_id": product_er_id
     })
     
     await manager.broadcast(WebSocketEvents.PRODUCT_STOCK_UPDATED, {
-        "id": product.id,
-        "stock": product.stock
+        "id": product_id,
+        "stock": product_stock
     })
     
-    return {"status": "success", "new_stock": product.stock, "product_id": product.id}
+    return {"status": "success", "new_stock": product_stock, "product_id": product_id}
 
 from ..dependencies import any_authenticated
 
 @router.get("/kardex", response_model=List[schemas.KardexRead], dependencies=[any_authenticated])
-def get_kardex(product_id: Optional[int] = None, limit: int = 100, db: Session = Depends(get_db)):
+def get_kardex(
+    product_id: Optional[int] = None, 
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    limit: int = 100, 
+    db: Session = Depends(get_db)
+):
     from sqlalchemy.orm import joinedload
     query = db.query(models.Kardex).options(joinedload(models.Kardex.product))
+    
     if product_id:
         query = query.filter(models.Kardex.product_id == product_id)
+        
+    if start_date:
+        query = query.filter(models.Kardex.date >= start_date)
+        
+    if end_date:
+        # Include the whole end day by adding time or next day logic if needed. 
+        # Assuming format YYYY-MM-DD, strict comparison might miss same-day events if not handled.
+        # Simple string compare works if client sends 'YYYY-MM-DD' and DB has 'YYYY-MM-DD HH:MM:SS'
+        # To be inclusive of the end date, we generally want <= end_date + " 23:59:59" or < next_day
+        query = query.filter(models.Kardex.date <= f"{end_date} 23:59:59")
+        
     return query.order_by(models.Kardex.date.desc()).limit(limit).all()
 
 # --- INTER-COMPANY TRANSFER ENDPOINTS ---
