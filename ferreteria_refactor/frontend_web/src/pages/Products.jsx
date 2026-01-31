@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Package, Filter, X, Trash2, Pencil } from 'lucide-react';
+import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw } from 'lucide-react';
 import ProductForm from '../components/products/ProductForm';
 import BulkProductActions from '../components/products/BulkProductActions';
 import InventoryValuationCard from '../components/products/InventoryValuationCard';
@@ -8,7 +8,8 @@ import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 // Helper to format stock: show as integer if whole number, otherwise show decimals
 const formatStock = (stock) => {
@@ -35,6 +36,7 @@ const Products = () => {
     const [filterWarehouse, setFilterWarehouse] = useState('');
 
     const fetchProducts = async () => {
+        setIsLoading(true);
         try {
             const response = await apiClient.get('/products/');
             setProducts(response.data);
@@ -104,10 +106,10 @@ const Products = () => {
             const stockEntry = product.stocks?.find(s => s.warehouse_id === parseInt(filterWarehouse));
             const quantity = stockEntry ? stockEntry.quantity : 0;
             return (
-                <span className={`px-2.5 py-0.5 inline-flex text-xs font-bold rounded-full border ${quantity > 10
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-rose-50 text-rose-700 border-rose-200'
-                    }`}>
+                <span className={clsx(
+                    "px-2.5 py-0.5 inline-flex text-xs font-bold rounded-full border",
+                    quantity > 10 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                )}>
                     {formatStock(quantity)}
                 </span>
             );
@@ -118,10 +120,10 @@ const Products = () => {
 
             return (
                 <div className="flex flex-col items-start gap-1">
-                    <span className={`px-2.5 py-0.5 inline-flex text-xs font-bold rounded-full border ${totalStock > 10
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-rose-50 text-rose-700 border-rose-200'
-                        }`}>
+                    <span className={clsx(
+                        "px-2.5 py-0.5 inline-flex text-xs font-bold rounded-full border",
+                        totalStock > 10 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
+                    )}>
                         Total: {formatStock(totalStock)}
                     </span>
                     {hasStocks ? (
@@ -144,26 +146,37 @@ const Products = () => {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-6 max-w-[1600px] mx-auto min-h-screen space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800 flex items-center">
-                        <Package className="mr-2 text-indigo-600" /> Catalogo de Productos
+                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                        <Package className="text-indigo-600" size={32} />
+                        Catálogo de Productos
                     </h1>
-                    <p className="text-slate-500 text-sm mt-1">Gestiona precios, existencias y códigos.</p>
+                    <p className="text-slate-500 font-medium">Gestiona precios, existencias y códigos de barra.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={fetchProducts}
+                        className="text-slate-400 hover:text-indigo-600"
+                        title="Recargar"
+                    >
+                        <RefreshCw size={20} />
+                    </Button>
+
                     {/* Bulk Import/Export Actions */}
                     <BulkProductActions onImportComplete={fetchProducts} />
 
                     {/* Nuevo Producto Button */}
-                    <button
+                    <Button
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl flex items-center shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all font-bold text-sm"
+                        className="shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all"
                     >
                         <Plus size={20} className="mr-2" />
                         Nuevo Producto
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -174,22 +187,25 @@ const Products = () => {
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center">
                 <div className="relative flex-1 w-full">
                     <Search className="absolute left-3 top-2.5 text-slate-400" size={20} />
-                    <input
+                    <Input
                         type="text"
                         placeholder="Buscar por nombre, SKU, Código..."
-                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-700"
+                        className="pl-10"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
 
-                <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
                     {/* Warehouse Filter */}
                     <div className="relative min-w-[160px] flex-1 md:flex-none">
                         <select
                             value={filterWarehouse}
                             onChange={(e) => setFilterWarehouse(e.target.value)}
-                            className={`w-full appearance-none pl-3 pr-8 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm font-bold transition-all ${filterWarehouse ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                            className={clsx(
+                                "flex h-10 w-full rounded-md border bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50 appearance-none pl-3 pr-8 font-bold transition-all",
+                                filterWarehouse ? 'border-indigo-200 bg-indigo-50 text-indigo-700' : 'border-slate-200 text-slate-600'
+                            )}
                         >
                             <option value="">Todas las Bodegas</option>
                             {warehouses.map(wh => (
@@ -205,7 +221,7 @@ const Products = () => {
                         <select
                             value={filterCategory}
                             onChange={(e) => setFilterCategory(e.target.value)}
-                            className="w-full appearance-none pl-3 pr-8 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium text-slate-600 hover:border-slate-300 transition-colors"
+                            className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50 appearance-none pl-3 pr-8 font-medium text-slate-600"
                         >
                             <option value="">Todas las Categorías</option>
                             {categories.filter(cat => !cat.parent_id).map(parent => (
@@ -229,7 +245,7 @@ const Products = () => {
                         <select
                             value={filterExchangeRate}
                             onChange={(e) => setFilterExchangeRate(e.target.value)}
-                            className="w-full appearance-none pl-3 pr-8 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-medium text-slate-600 hover:border-slate-300 transition-colors"
+                            className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50 appearance-none pl-3 pr-8 font-medium text-slate-600"
                         >
                             <option value="">Todas las Tasas</option>
                             {exchangeRates.map(rate => (
@@ -242,17 +258,19 @@ const Products = () => {
                     </div>
 
                     {(filterCategory || filterExchangeRate || filterWarehouse) && (
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => {
                                 setFilterCategory('');
                                 setFilterExchangeRate('');
                                 setFilterWarehouse('');
                             }}
-                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors border border-transparent hover:border-rose-100"
+                            className="text-rose-500 hover:text-rose-600 hover:bg-rose-50"
                             title="Limpiar Filtros"
                         >
                             <X size={20} />
-                        </button>
+                        </Button>
                     )}
                 </div>
             </div>
@@ -344,24 +362,28 @@ const Products = () => {
                                             {renderStockCell(product)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     onClick={() => {
                                                         setSelectedProduct(product);
                                                         setIsModalOpen(true);
                                                     }}
-                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                    className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                                                     title="Editar"
                                                 >
                                                     <Pencil size={18} />
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     onClick={() => handleDelete(product)}
-                                                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                                    className="text-rose-500 hover:text-rose-600 hover:bg-rose-50"
                                                     title="Eliminar"
                                                 >
                                                     <Trash2 size={18} />
-                                                </button>
+                                                </Button>
                                             </div>
                                         </td>
                                     </tr>
@@ -377,7 +399,10 @@ const Products = () => {
                         {isLoading && (
                             <tr>
                                 <td colSpan="5" className="text-center py-12 text-slate-400">
-                                    Cargando inventario...
+                                    <div className="flex flex-col items-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div>
+                                        <span>Cargando inventario...</span>
+                                    </div>
                                 </td>
                             </tr>
                         )}
@@ -433,22 +458,25 @@ const Products = () => {
                                         <div className="text-xs text-slate-400 font-medium">Precio Base</div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
                                             onClick={() => {
                                                 setSelectedProduct(product);
                                                 setIsModalOpen(true);
                                             }}
-                                            className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                                            className="text-indigo-700 bg-indigo-50 hover:bg-indigo-100 h-9"
                                         >
-                                            <Pencil size={14} /> Editar
-                                        </button>
-                                        <button
+                                            <Pencil size={14} className="mr-1" /> Editar
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
                                             onClick={() => handleDelete(product)}
-                                            className="bg-rose-50 hover:bg-rose-100 text-rose-600 p-2 rounded-lg transition-colors"
-                                            title="Eliminar"
+                                            className="text-rose-500 hover:bg-rose-50 h-9 w-9"
                                         >
                                             <Trash2 size={18} />
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
