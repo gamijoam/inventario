@@ -73,44 +73,74 @@ const RecentSalesTable = ({ sales = [] }) => {
 
     return (
         <div className="overflow-hidden">
-            <table className="min-w-full text-left text-sm whitespace-nowrap">
-                <thead className="uppercase tracking-wider border-b border-slate-200 bg-slate-50/50">
-                    <tr>
-                        <th scope="col" className="px-6 py-4 font-semibold text-slate-500">ID</th>
-                        <th scope="col" className="px-6 py-4 font-semibold text-slate-500">Cliente</th>
-                        <th scope="col" className="px-6 py-4 font-semibold text-slate-500">Fecha</th>
-                        <th scope="col" className="px-6 py-4 font-semibold text-slate-500">Método</th>
-                        <th scope="col" className="px-6 py-4 font-semibold text-slate-500 text-right">Monto</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                    {sales.slice(0, 10).map((sale) => (
-                        <tr key={sale.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="px-6 py-4 font-medium text-slate-900">#{sale.id}</td>
-                            <td className="px-6 py-4 text-slate-600">
-                                {sale.customer?.name || 'Cliente General'}
-                            </td>
-                            <td className="px-6 py-4 text-slate-500">
-                                {sale.date ? new Date(sale.date).toLocaleDateString('es-VE', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                }) : 'N/A'}
-                            </td>
-                            <td className="px-6 py-4">
-                                <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-blue-50 text-blue-700 ring-blue-600/20">
-                                    {sale.payment_method || 'Efectivo'}
-                                </span>
-                            </td>
-                            <td className="px-6 py-4 text-slate-900 font-medium text-right">
+            {/* Mobile Card View */}
+            <div className="block md:hidden divide-y divide-slate-100">
+                {sales.slice(0, 10).map((sale) => (
+                    <div key={sale.id} className="p-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <span className="text-xs font-bold text-slate-500 block mb-1">#{sale.id}</span>
+                                <h4 className="font-bold text-slate-800 text-sm">{sale.customer?.name || 'Cliente General'}</h4>
+                            </div>
+                            <span className="font-bold text-slate-900 text-lg">
                                 ${Number(sale.total_amount || 0).toFixed(2)}
-                            </td>
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-500">
+                                {sale.date ? new Date(sale.date).toLocaleDateString('es-VE', {
+                                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                                }) : 'N/A'}
+                            </span>
+                            <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-blue-50 text-blue-700 ring-blue-600/20">
+                                {sale.payment_method || 'Efectivo'}
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full text-left text-sm whitespace-nowrap">
+                    <thead className="uppercase tracking-wider border-b border-slate-200 bg-slate-50/50">
+                        <tr>
+                            <th scope="col" className="px-6 py-4 font-semibold text-slate-500">ID</th>
+                            <th scope="col" className="px-6 py-4 font-semibold text-slate-500">Cliente</th>
+                            <th scope="col" className="px-6 py-4 font-semibold text-slate-500">Fecha</th>
+                            <th scope="col" className="px-6 py-4 font-semibold text-slate-500">Método</th>
+                            <th scope="col" className="px-6 py-4 font-semibold text-slate-500 text-right">Monto</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {sales.slice(0, 10).map((sale) => (
+                            <tr key={sale.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-6 py-4 font-medium text-slate-900">#{sale.id}</td>
+                                <td className="px-6 py-4 text-slate-600">
+                                    {sale.customer?.name || 'Cliente General'}
+                                </td>
+                                <td className="px-6 py-4 text-slate-500">
+                                    {sale.date ? new Date(sale.date).toLocaleDateString('es-VE', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    }) : 'N/A'}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset bg-blue-50 text-blue-700 ring-blue-600/20">
+                                        {sale.payment_method || 'Efectivo'}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-slate-900 font-medium text-right">
+                                    ${Number(sale.total_amount || 0).toFixed(2)}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 };
@@ -291,27 +321,28 @@ const Dashboard = () => {
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header Section */}
+            {/* Header Section */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Dashboard General</h1>
-                    <p className="text-slate-500 mt-1">
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">Dashboard General</h1>
+                    <p className="text-slate-500 mt-1 text-sm md:text-base">
                         Bienvenido de nuevo, aquí tienes lo que está pasando hoy.
                     </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 w-full md:w-auto">
                     <button
                         onClick={() => fetchDashboardData(true)}
                         disabled={refreshing}
-                        className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2"
+                        className="flex-1 md:flex-none justify-center px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-xl shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2"
                     >
-                        <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-                        Actualizar
+                        <RefreshCw size={18} className={refreshing ? 'animate-spin text-indigo-600' : 'text-slate-500'} />
+                        <span>Actualizar</span>
                     </button>
                 </div>
             </div>
 
             {/* KPI Bento Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <KPICard
                     title="Ingresos del Día"
                     value={<MultiCurrencyDisplay amountUSD={salesSummary?.total_revenue || 0} />}
@@ -343,14 +374,14 @@ const Dashboard = () => {
             </div>
 
             {/* Charts & Widgets Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 {/* Main Chart */}
-                <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                <div className="xl:col-span-2 bg-white p-4 md:p-6 rounded-2xl border border-slate-100 shadow-sm">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-bold text-slate-800">Rendimiento de Ventas</h3>
                         <span className="text-sm text-slate-500">Últimos 7 días</span>
                     </div>
-                    <div className="h-[350px] w-full">
+                    <div className="h-[250px] md:h-[350px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData}>
                                 <defs>
@@ -372,6 +403,7 @@ const Dashboard = () => {
                                     tickLine={false}
                                     tick={{ fill: '#64748b', fontSize: 12 }}
                                     tickFormatter={(value) => `$${value}`}
+                                    width={40}
                                 />
                                 <Tooltip
                                     contentStyle={{
