@@ -134,20 +134,33 @@ async def create_exchange_rate(
     
     new_rate = models.ExchangeRate(**rate_data.dict())
     db.add(new_rate)
-    db.commit()
-    db.refresh(new_rate)
+    db.flush()
     
-    # Broadcast event
-    await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_CREATED, {
+    # Capture data
+    response_data = {
         "id": new_rate.id,
         "name": new_rate.name,
         "rate": new_rate.rate,
         "currency_code": new_rate.currency_code,
+        "currency_symbol": new_rate.currency_symbol,
         "is_default": new_rate.is_default,
         "is_active": new_rate.is_active
+    }
+    
+    db.commit()
+    # db.refresh(new_rate)
+    
+    # Broadcast event
+    await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_CREATED, {
+        "id": response_data["id"],
+        "name": response_data["name"],
+        "rate": response_data["rate"],
+        "currency_code": response_data["currency_code"],
+        "is_default": response_data["is_default"],
+        "is_active": response_data["is_active"]
     })
     
-    return new_rate
+    return response_data
 
 
 @router.get("/exchange-rates/{id}", response_model=schemas.ExchangeRateRead)
@@ -183,8 +196,19 @@ async def update_exchange_rate(
     for key, value in rate_data.dict(exclude_unset=True).items():
         setattr(rate, key, value)
     
+    # Capture data
+    response_data = {
+        "id": rate.id,
+        "name": rate.name,
+        "rate": rate.rate,
+        "currency_code": rate.currency_code,
+        "currency_symbol": rate.currency_symbol,
+        "is_default": rate.is_default,
+        "is_active": rate.is_active
+    }
+
     db.commit()
-    db.refresh(rate)
+    # db.refresh(rate)
     
     # AUDIT LOG
     from ..audit_utils import log_action
@@ -195,15 +219,15 @@ async def update_exchange_rate(
 
     # Broadcast event
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_UPDATED, {
-        "id": rate.id,
-        "name": rate.name,
-        "rate": rate.rate, # Float
-        "currency_code": rate.currency_code,
-        "is_default": rate.is_default,
-        "is_active": rate.is_active
+        "id": response_data["id"],
+        "name": response_data["name"],
+        "rate": response_data["rate"], # Float
+        "currency_code": response_data["currency_code"],
+        "is_default": response_data["is_default"],
+        "is_active": response_data["is_active"]
     })
     
-    return rate
+    return response_data
 
 
 @router.delete("/exchange-rates/{id}")
@@ -468,9 +492,20 @@ def create_currency(currency: schemas.CurrencyCreate, db: Session = Depends(get_
     
     db_currency = models.Currency(**currency.dict())
     db.add(db_currency)
+    db.flush()
+    
+    response_data = {
+        "id": db_currency.id,
+        "name": db_currency.name,
+        "symbol": db_currency.symbol,
+        "rate": db_currency.rate,
+        "is_anchor": db_currency.is_anchor,
+        "is_active": db_currency.is_active
+    }
+    
     db.commit()
-    db.refresh(db_currency)
-    return db_currency
+    # db.refresh(db_currency)
+    return response_data
 
 @router.put("/currencies/{currency_id}", response_model=schemas.CurrencyRead)
 def update_currency(currency_id: int, currency: schemas.CurrencyUpdate, db: Session = Depends(get_db)):
@@ -488,9 +523,18 @@ def update_currency(currency_id: int, currency: schemas.CurrencyUpdate, db: Sess
     for key, value in update_data.items():
         setattr(db_currency, key, value)
         
+    response_data = {
+        "id": db_currency.id,
+        "name": db_currency.name,
+        "symbol": db_currency.symbol,
+        "rate": db_currency.rate,
+        "is_anchor": db_currency.is_anchor,
+        "is_active": db_currency.is_active
+    }
+
     db.commit()
-    db.refresh(db_currency)
-    return db_currency
+    # db.refresh(db_currency)
+    return response_data
 
 @router.delete("/currencies/{currency_id}")
 def delete_currency(currency_id: int, db: Session = Depends(get_db)):
@@ -528,9 +572,14 @@ def set_config(
     else:
         config.value = config_data.value
     
+    response_data = {
+        "key": config.key,
+        "value": config.value
+    }
+
     db.commit()
-    db.refresh(config)
-    return config
+    # db.refresh(config)
+    return response_data
 
 @router.post("/batch")
 def set_configs_batch(

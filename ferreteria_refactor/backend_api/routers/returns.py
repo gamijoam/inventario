@@ -237,7 +237,13 @@ def process_return(return_data: schemas.ReturnCreate, db: Session = Depends(get_
         db.add(cash_movement)
     
     db.commit()
-    db.refresh(new_return)
+    db.commit()
+    # db.refresh(new_return)
+
+    # Safe re-query
+    return db.query(models.Return).options(
+        joinedload(models.Return.details).joinedload(models.ReturnDetail.product)
+    ).filter(models.Return.id == new_return.id).first()
 
     # AUDIT LOG
     from ..audit_utils import log_action

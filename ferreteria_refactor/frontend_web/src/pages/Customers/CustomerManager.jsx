@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin } from 'lucide-react';
+import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+    SheetFooter,
+} from '../../components/ui/sheet';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
 
 const CustomerManager = () => {
     const [customers, setCustomers] = useState([]);
@@ -12,39 +24,15 @@ const CustomerManager = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Edit states
+    // Edit states for Profile View (Quick Edits)
     const [editingCredit, setEditingCredit] = useState(false);
     const [editingTerms, setEditingTerms] = useState(false);
     const [tempCreditLimit, setTempCreditLimit] = useState(0);
     const [tempPaymentTerms, setTempPaymentTerms] = useState(15);
 
-    // CRUD Modals
-    const [showCreateModal, setShowCreateModal] = useState(false);
-    const [showEditModal, setShowEditModal] = useState(false);
-    const [customerForm, setCustomerForm] = useState({
-        name: '',
-        id_number: '',
-        phone: '',
-        email: '',
-        address: '',
-        credit_limit: '',
-        payment_term_days: '',
-        is_blocked: false
-    });
-
-    // Helper to reset form
-    const resetForm = () => {
-        setCustomerForm({
-            name: '',
-            id_number: '',
-            phone: '',
-            email: '',
-            address: '',
-            credit_limit: '',
-            payment_term_days: '',
-            is_blocked: false
-        });
-    };
+    // Sheet (Create/Edit) State
+    const [showSheet, setShowSheet] = useState(false);
+    const [editingCustomer, setEditingCustomer] = useState(null); // Full customer object for editing
 
     useEffect(() => {
         fetchCustomers();
@@ -97,39 +85,31 @@ const CustomerManager = () => {
         }
     };
 
-    const handleCreateCustomer = async () => {
-        try {
-            await apiClient.post('/customers', customerForm);
-            toast.success('Cliente creado exitosamente');
-            setShowCreateModal(false);
-            setCustomerForm({
-                name: '',
-                id_number: '',
-                phone: '',
-                email: '',
-                address: '',
-                credit_limit: 0,
-                payment_term_days: 15,
-                is_blocked: false
-            });
-            fetchCustomers();
-        } catch (error) {
-            toast.error('Error al crear cliente: ' + (error.response?.data?.detail || error.message));
-        }
+    // Sheet Handlers
+    const handleCreateClick = () => {
+        setEditingCustomer(null);
+        setShowSheet(true);
     };
 
-    const handleEditCustomer = async () => {
-        try {
-            await apiClient.put(`/customers/${selectedCustomer.id}`, customerForm);
-            toast.success('Cliente actualizado');
-            setShowEditModal(false);
-            setSelectedCustomer({ ...selectedCustomer, ...customerForm });
-            fetchCustomers();
-            fetchFinancialStatus();
-        } catch (error) {
-            toast.error('Error al actualizado cliente');
-        }
+    const handleEditClick = (customer) => {
+        setEditingCustomer(customer);
+        setShowSheet(true);
     };
+
+    const handleSheetClose = () => {
+        setShowSheet(false);
+        setEditingCustomer(null);
+    };
+
+    const handleFormSuccess = () => {
+        fetchCustomers();
+        // If we were editing the selected customer, update the selection
+        if (editingCustomer && selectedCustomer && editingCustomer.id === selectedCustomer.id) {
+            fetchFinancialStatus(); // Refresh financial status just in case
+        }
+        setShowSheet(false);
+    };
+
 
     const handleDeleteCustomer = async (customerId) => {
         if (!confirm('¿Estás seguro de eliminar este cliente?')) return;
@@ -215,16 +195,10 @@ const CustomerManager = () => {
                     </h1>
                     <p className="text-slate-500 font-medium">Administra clientes, límites de crédito y estados de cuenta</p>
                 </div>
-                <button
-                    onClick={() => {
-                        resetForm();  // Reset form before opening
-                        setShowCreateModal(true);
-                    }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5"
-                >
-                    <Plus size={20} />
+                <Button onClick={handleCreateClick} className="shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all">
+                    <Plus size={20} className="mr-2" />
                     Nuevo Cliente
-                </button>
+                </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 h-[calc(100vh-140px)]">
@@ -232,16 +206,16 @@ const CustomerManager = () => {
                 <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col md:col-span-1 overflow-hidden h-full ${selectedCustomer ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 border-b border-slate-100">
                         <div className="relative group">
-                            <Search className="absolute left-3 top-3 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
-                            <input
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                            <Input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);
-                                    fetchCustomers();
+                                    fetchCustomers(); // Debounce recommended for prod
                                 }}
                                 placeholder="Buscar cliente..."
-                                className="w-full pl-10 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-slate-50 focus:bg-white transition-all"
+                                className="pl-10"
                             />
                         </div>
                     </div>
@@ -278,25 +252,28 @@ const CustomerManager = () => {
 
                                     {selectedCustomer?.id === customer.id && (
                                         <div className="flex gap-1 animate-in fade-in slide-in-from-right-2 duration-200">
-                                            <button
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setCustomerForm(customer);
-                                                    setShowEditModal(true);
+                                                    handleEditClick(customer);
                                                 }}
-                                                className="p-1.5 text-indigo-600 hover:bg-indigo-200 rounded-lg transition-colors"
+                                                className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-200"
                                             >
                                                 <Edit2 size={16} />
-                                            </button>
-                                            <button
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleDeleteCustomer(customer.id);
                                                 }}
-                                                className="p-1.5 text-rose-500 hover:bg-rose-100 rounded-lg transition-colors"
+                                                className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-100"
                                             >
                                                 <Trash2 size={16} />
-                                            </button>
+                                            </Button>
                                         </div>
                                     )}
                                 </div>
@@ -318,12 +295,13 @@ const CustomerManager = () => {
                     ) : (
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
                             {/* Mobile Back Button */}
-                            <button
+                            <Button
+                                variant="ghost"
                                 onClick={() => setSelectedCustomer(null)}
-                                className="md:hidden flex items-center text-slate-500 font-bold mb-2 hover:bg-slate-100 p-2 rounded-lg self-start"
+                                className="md:hidden self-start mb-2"
                             >
                                 <Users className="mr-2" size={20} /> Volver a lista
-                            </button>
+                            </Button>
 
                             {/* Header Card */}
                             <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl shadow-lg p-6 relative overflow-hidden">
@@ -395,11 +373,11 @@ const CustomerManager = () => {
                                             )}
                                         </div>
                                         {editingCredit ? (
-                                            <input
+                                            <Input
                                                 type="number"
                                                 value={tempCreditLimit}
                                                 onChange={(e) => setTempCreditLimit(parseFloat(e.target.value))}
-                                                className="w-full text-xl font-bold text-slate-800 border-b-2 border-indigo-500 focus:outline-none bg-transparent"
+                                                className="text-xl font-bold h-10"
                                                 autoFocus
                                             />
                                         ) : (
@@ -446,15 +424,13 @@ const CustomerManager = () => {
                                             )}
                                         </div>
                                         {editingTerms ? (
-                                            <div className="flex items-center gap-1">
-                                                <input
-                                                    type="number"
-                                                    value={tempPaymentTerms}
-                                                    onChange={(e) => setTempPaymentTerms(parseInt(e.target.value))}
-                                                    className="w-full text-xl font-bold text-indigo-600 border-b-2 border-indigo-500 focus:outline-none bg-transparent"
-                                                    autoFocus
-                                                />
-                                            </div>
+                                            <Input
+                                                type="number"
+                                                value={tempPaymentTerms}
+                                                onChange={(e) => setTempPaymentTerms(parseInt(e.target.value))}
+                                                className="text-xl font-bold h-10"
+                                                autoFocus
+                                            />
                                         ) : (
                                             <p className="text-2xl font-black text-indigo-600 tracking-tight">
                                                 {financialStatus.payment_term_days} <span className="text-sm font-bold text-indigo-300 uppercase">días</span>
@@ -541,131 +517,208 @@ const CustomerManager = () => {
                 </div>
             </div>
 
-            {/* Create/Edit Modal */}
-            {(showCreateModal || showEditModal) && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform scale-100 transition-all">
-                        <div className="p-5 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                {showCreateModal ? <Plus className="text-indigo-600" size={24} /> : <Edit2 className="text-indigo-600" size={24} />}
-                                {showCreateModal ? 'Nuevo Cliente' : 'Editar Cliente'}
-                            </h3>
-                            <button onClick={() => { setShowCreateModal(false); setShowEditModal(false); }} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
+            {/* Sheet for Create/Edit */}
+            <Sheet open={showSheet} onOpenChange={setShowSheet}>
+                <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
+                    <SheetHeader>
+                        <SheetTitle className="flex items-center gap-2">
+                            <Users className="text-indigo-600" size={24} />
+                            {editingCustomer ? 'Editar Cliente' : 'Nuevo Cliente'}
+                        </SheetTitle>
+                        <SheetDescription>
+                            {editingCustomer ? 'Modifica los datos del cliente' : 'Registra un nuevo cliente para ventas y crédito'}
+                        </SheetDescription>
+                    </SheetHeader>
 
-                        <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nombre Completo *</label>
-                                <input
-                                    type="text"
-                                    value={customerForm.name}
-                                    onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
-                                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
-                                    placeholder="Ej: Juan Pérez"
+                    {showSheet && (
+                        <CustomerForm
+                            customer={editingCustomer}
+                            onClose={handleSheetClose}
+                            onSuccess={handleFormSuccess}
+                        />
+                    )}
+                </SheetContent>
+            </Sheet>
+        </div>
+    );
+};
+
+// Extracted Form Component
+const CustomerForm = ({ customer, onClose, onSuccess }) => {
+    const [formData, setFormData] = useState({
+        name: customer?.name || '',
+        id_number: customer?.id_number || '',
+        phone: customer?.phone || '',
+        email: customer?.email || '',
+        address: customer?.address || '',
+        credit_limit: customer?.credit_limit || 0,
+        payment_term_days: customer?.payment_term_days || 15,
+        is_blocked: customer?.is_blocked || false
+    });
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+            const payload = {
+                ...formData,
+                credit_limit: parseFloat(formData.credit_limit) || 0,
+                payment_term_days: parseInt(formData.payment_term_days) || 15
+            };
+
+            if (customer) {
+                await apiClient.put(`/customers/${customer.id}`, payload);
+            } else {
+                await apiClient.post('/customers', payload);
+            }
+
+            toast.success(customer ? 'Cliente actualizado' : 'Cliente creado exitosamente');
+            onSuccess();
+        } catch (error) {
+            console.error('Error saving customer:', error);
+            toast.error(error.response?.data?.detail || 'Error al guardar cliente');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+
+                {/* Personal Info */}
+                <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-2 border-b border-slate-100">
+                        Información Personal
+                    </h4>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="c-name">Nombre Completo <span className="text-rose-500">*</span></Label>
+                        <Input
+                            id="c-name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            placeholder="Ej: Juan Pérez"
+                            required
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="c-id">RIF / Cédula</Label>
+                            <div className="relative">
+                                <CreditCard className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                                <Input
+                                    id="c-id"
+                                    value={formData.id_number}
+                                    onChange={(e) => setFormData({ ...formData, id_number: e.target.value })}
+                                    placeholder="V-123..."
+                                    className="pl-10"
                                 />
                             </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">RIF / Cédula</label>
-                                    <div className="relative">
-                                        <CreditCard className="absolute left-3 top-3 text-slate-400" size={18} />
-                                        <input
-                                            type="text"
-                                            value={customerForm.id_number}
-                                            onChange={(e) => setCustomerForm({ ...customerForm, id_number: e.target.value })}
-                                            className="w-full pl-10 pr-4 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
-                                            placeholder="V-12345678"
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Teléfono</label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
-                                        <input
-                                            type="text"
-                                            value={customerForm.phone}
-                                            onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
-                                            className="w-full pl-10 pr-4 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
-                                            placeholder="0414-1234567"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
-                                    <input
-                                        type="email"
-                                        value={customerForm.email}
-                                        onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
-                                        className="w-full pl-10 pr-4 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
-                                        placeholder="cliente@email.com"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Dirección</label>
-                                <div className="relative">
-                                    <MapPin className="absolute left-3 top-3 text-slate-400" size={18} />
-                                    <textarea
-                                        value={customerForm.address}
-                                        onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
-                                        className="w-full pl-10 pr-4 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 resize-none placeholder:text-slate-300"
-                                        rows="2"
-                                        placeholder="Dirección fiscal..."
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-slate-100 grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Límite Crédito ($)</label>
-                                    <input
-                                        type="number"
-                                        value={customerForm.credit_limit}
-                                        onChange={(e) => setCustomerForm({ ...customerForm, credit_limit: e.target.value === '' ? '' : parseFloat(e.target.value) })}
-                                        className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700"
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Plazo (Días)</label>
-                                    <input
-                                        type="number"
-                                        value={customerForm.payment_term_days}
-                                        onChange={(e) => setCustomerForm({ ...customerForm, payment_term_days: e.target.value === '' ? '' : parseInt(e.target.value) })}
-                                        className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700"
-                                        placeholder="15"
-                                    />
-                                </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="c-phone">Teléfono</Label>
+                            <div className="relative">
+                                <Phone className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                                <Input
+                                    id="c-phone"
+                                    value={formData.phone}
+                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    placeholder="0414..."
+                                    className="pl-10"
+                                />
                             </div>
                         </div>
+                    </div>
 
-                        <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex gap-3">
-                            <button
-                                onClick={() => { setShowCreateModal(false); setShowEditModal(false); }}
-                                className="flex-1 py-2.5 font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-xl transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={showCreateModal ? handleCreateCustomer : handleEditCustomer}
-                                className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95"
-                            >
-                                {showCreateModal ? 'Crear Cliente' : 'Guardar Cambios'}
-                            </button>
+                    <div className="space-y-2">
+                        <Label htmlFor="c-email">Email</Label>
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                            <Input
+                                id="c-email"
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                placeholder="cliente@email.com"
+                                className="pl-10"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="c-address">Dirección Fiscal</Label>
+                        <div className="relative">
+                            <MapPin className="absolute left-3 top-3 text-slate-400" size={18} />
+                            <Textarea
+                                id="c-address"
+                                value={formData.address}
+                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                placeholder="Dirección completa..."
+                                className="pl-10 min-h-[80px]"
+                            />
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+
+                {/* Credit Info */}
+                <div className="space-y-4 pt-2">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
+                        <Building2 size={14} /> Información de Crédito
+                    </h4>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="c-limit">Límite ($)</Label>
+                            <Input
+                                id="c-limit"
+                                type="number"
+                                step="0.01"
+                                value={formData.credit_limit}
+                                onChange={(e) => setFormData({ ...formData, credit_limit: e.target.value })}
+                                placeholder="0.00"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="c-terms">Plazo (Días)</Label>
+                            <Input
+                                id="c-terms"
+                                type="number"
+                                value={formData.payment_term_days}
+                                onChange={(e) => setFormData({ ...formData, payment_term_days: e.target.value })}
+                                placeholder="15"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <SheetFooter className="gap-3 border-t border-slate-100 p-6 bg-slate-50/50">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onClose}
+                    className="flex-1"
+                >
+                    Cancelar
+                </Button>
+                <Button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1"
+                >
+                    {loading ? 'Guardando...' : (
+                        <>
+                            <Check size={18} className="mr-2" />
+                            Guardar
+                        </>
+                    )}
+                </Button>
+            </SheetFooter>
+        </form>
     );
 };
 

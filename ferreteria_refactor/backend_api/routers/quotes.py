@@ -35,10 +35,20 @@ def create_quote(quote_data: schemas.QuoteCreate, db: Session = Depends(get_db))
         db.add(detail)
     
     db.commit()
-    db.refresh(new_quote)
-    # Return limited data compliant with schema
-    # Pydantic will handle date conversion if models.date is datetime
-    return new_quote
+    # db.refresh(new_quote)
+    
+    # Manually construct response
+    response_data = {
+        "id": new_quote.id,
+        "customer_id": new_quote.customer_id,
+        "total_amount": new_quote.total_amount,
+        "notes": new_quote.notes,
+        "date": new_quote.date,
+        "status": new_quote.status
+        # Note: QuoteRead usually just Header info. If details are needed, they are usually separate.
+    }
+    
+    return response_data
 
 @router.get("", response_model=List[schemas.QuoteRead])
 def read_quotes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -106,9 +116,19 @@ def update_quote(quote_id: int, quote_data: schemas.QuoteCreate, db: Session = D
         )
         db.add(detail)
     
+    # Capture data
+    response_data = {
+        "id": db_quote.id,
+        "customer_id": db_quote.customer_id,
+        "total_amount": db_quote.total_amount,
+        "notes": db_quote.notes,
+        "date": db_quote.date,
+        "status": db_quote.status
+    }
+
     db.commit()
-    db.refresh(db_quote)
-    return db_quote
+    # db.refresh(db_quote)
+    return response_data
 
 
 @router.delete("/{quote_id}")

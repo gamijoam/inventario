@@ -39,9 +39,23 @@ def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         commission_percentage=user_data.commission_percentage # NEW
     )
     db.add(user)
+    db.flush()
+    
+    # Capture data
+    response_data = {
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "full_name": user.full_name,
+        "commission_percentage": user.commission_percentage,
+        "is_active": user.is_active,
+        "pin": user.pin,
+        "preferences": user.preferences
+    }
+    
     db.commit()
-    db.refresh(user)
-    return user
+    # db.refresh(user)
+    return response_data
 
 @router.get("/", response_model=List[schemas.UserRead])
 @router.get("", response_model=List[schemas.UserRead], include_in_schema=False)
@@ -93,9 +107,21 @@ def update_user(user_id: int, user_data: schemas.UserUpdate, db: Session = Depen
             from sqlalchemy.orm.attributes import flag_modified
             flag_modified(user, "preferences") 
 
+    # Capture data
+    response_data = {
+        "id": user.id,
+        "username": user.username,
+        "role": user.role,
+        "full_name": user.full_name,
+        "commission_percentage": user.commission_percentage,
+        "is_active": user.is_active,
+        "pin": user.pin,
+        "preferences": user.preferences
+    }
+
     db.commit()
-    db.refresh(user)
-    return user
+    # db.refresh(user)
+    return response_data
 
 @router.delete("/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db)):

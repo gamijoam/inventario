@@ -40,18 +40,33 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
             
     db_customer = models.Customer(**customer.model_dump())
     db.add(db_customer)
-    db.commit()
-    db.refresh(db_customer)
+    db.flush() # ID generation
     
-    # Broadcast customer created
-    await manager.broadcast(WebSocketEvents.CUSTOMER_CREATED, {
+    # Capture data before commit
+    response_data = {
         "id": db_customer.id,
         "name": db_customer.name,
         "id_number": db_customer.id_number,
-        "credit_limit": float(db_customer.credit_limit) if db_customer.credit_limit else 0.0
+        "phone": db_customer.phone,
+        "email": db_customer.email,
+        "address": db_customer.address,
+        "credit_limit": db_customer.credit_limit,
+        "payment_term_days": db_customer.payment_term_days,
+        "is_blocked": db_customer.is_blocked
+    }
+    
+    db.commit()
+    # db.refresh(db_customer) # REMOVED
+    
+    # Broadcast customer created
+    await manager.broadcast(WebSocketEvents.CUSTOMER_CREATED, {
+        "id": response_data["id"],
+        "name": response_data["name"],
+        "id_number": response_data["id_number"],
+        "credit_limit": float(response_data["credit_limit"]) if response_data["credit_limit"] else 0.0
     })
     
-    return db_customer
+    return response_data
 
 @router.put("/{customer_id}", response_model=schemas.CustomerRead)
 async def update_customer(customer_id: int, customer_data: schemas.CustomerCreate, db: Session = Depends(get_db)):
@@ -62,18 +77,31 @@ async def update_customer(customer_id: int, customer_data: schemas.CustomerCreat
     for key, value in customer_data.model_dump(exclude_unset=True).items():
         setattr(db_customer, key, value)
         
-    db.commit()
-    db.refresh(db_customer)
-    
-    # Broadcast customer updated
-    await manager.broadcast(WebSocketEvents.CUSTOMER_UPDATED, {
+    # Capture data before commit
+    response_data = {
         "id": db_customer.id,
         "name": db_customer.name,
         "id_number": db_customer.id_number,
-        "credit_limit": float(db_customer.credit_limit) if db_customer.credit_limit else 0.0
+        "phone": db_customer.phone,
+        "email": db_customer.email,
+        "address": db_customer.address,
+        "credit_limit": db_customer.credit_limit,
+        "payment_term_days": db_customer.payment_term_days,
+        "is_blocked": db_customer.is_blocked
+    }
+        
+    db.commit()
+    # db.refresh(db_customer) # REMOVED
+    
+    # Broadcast customer updated
+    await manager.broadcast(WebSocketEvents.CUSTOMER_UPDATED, {
+        "id": response_data["id"],
+        "name": response_data["name"],
+        "id_number": response_data["id_number"],
+        "credit_limit": float(response_data["credit_limit"]) if response_data["credit_limit"] else 0.0
     })
     
-    return db_customer
+    return response_data
 
 @router.get("/{customer_id}/debt")
 def get_customer_debt(customer_id: int, db: Session = Depends(get_db)):

@@ -97,7 +97,7 @@ def create_transfer(transfer_data: schemas.InventoryTransferCreate, db: Session 
 
     try:
         db.commit()
-        db.refresh(new_transfer)
+        # db.refresh(new_transfer) -- REMOVED (Unsafe)
         # Eager load for response
         return db.query(models.InventoryTransfer).options(
             joinedload(models.InventoryTransfer.source_warehouse),

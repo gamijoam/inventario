@@ -1,9 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Building2, Phone, Mail, Search, Truck, MapPin, FileText, CheckCircle, X, CreditCard } from 'lucide-react';
+import { Plus, Edit2, Trash2, Building2, Phone, Mail, Search, Truck, MapPin, FileText, Check, X, CreditCard, ChevronRight } from 'lucide-react';
 import { useWebSocket } from '../context/WebSocketContext';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+    SheetFooter,
+} from '../components/ui/sheet';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 
 const Suppliers = () => {
     const { subscribe } = useWebSocket();
@@ -44,6 +56,11 @@ const Suppliers = () => {
         }
     };
 
+    const handleCreate = () => {
+        setEditingSupplier(null);
+        setShowModal(true);
+    };
+
     const handleEdit = (supplier) => {
         setEditingSupplier(supplier);
         setShowModal(true);
@@ -77,27 +94,24 @@ const Suppliers = () => {
     );
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto min-h-screen flex flex-col">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div className="p-6 max-w-[1600px] mx-auto min-h-screen flex flex-col space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
                         <Truck className="text-indigo-600" size={32} /> Proveedores
                     </h1>
-                    <p className="text-slate-500 font-medium">Gestión de proveedores, contactos y términos de crédito</p>
+                    <p className="text-slate-500 font-medium mt-1">Gestión de proveedores, contactos y términos de crédito</p>
                 </div>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all"
-                >
-                    <Plus size={20} />
+                <Button onClick={handleCreate}>
+                    <Plus size={20} className="mr-2" />
                     Nuevo Proveedor
-                </button>
+                </Button>
             </div>
 
             {/* Search Bar */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6 flex items-center gap-4">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center gap-4">
                 <div className="relative flex-1 group">
-                    <Search className="absolute left-3 top-3 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
                     <input
                         type="text"
                         placeholder="Buscar proveedor por nombre o contacto..."
@@ -115,7 +129,7 @@ const Suppliers = () => {
             {/* Suppliers Table (Desktop) */}
             <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
+                    <thead className="bg-slate-50/50 border-b border-slate-200">
                         <tr>
                             <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Proveedor</th>
                             <th className="text-left py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Contacto Principal</th>
@@ -142,7 +156,7 @@ const Suppliers = () => {
                             </tr>
                         ) : (
                             filteredSuppliers.map((supplier, idx) => (
-                                <tr key={supplier.id} className={clsx("hover:bg-slate-50/80 transition-colors", idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
+                                <tr key={supplier.id} className={clsx("hover:bg-indigo-50/30 transition-colors", idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30')}>
                                     <td className="py-4 px-6">
                                         <div className="font-bold text-slate-800">{supplier.name}</div>
                                         {supplier.email && (
@@ -182,20 +196,22 @@ const Suppliers = () => {
                                     </td>
                                     <td className="py-4 px-6">
                                         <div className="flex justify-end gap-2">
-                                            <button
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 onClick={() => handleEdit(supplier)}
-                                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                title="Editar"
+                                                className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                                             >
                                                 <Edit2 size={16} />
-                                            </button>
-                                            <button
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
                                                 onClick={() => handleDelete(supplier.id, supplier.name)}
-                                                className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                                title="Eliminar"
+                                                className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
                                             >
                                                 <Trash2 size={16} />
-                                            </button>
+                                            </Button>
                                         </div>
                                     </td>
                                 </tr>
@@ -253,38 +269,57 @@ const Suppliers = () => {
                             </div>
 
                             <div className="flex justify-end gap-3 pt-2">
-                                <button
+                                <Button
+                                    variant="outline"
                                     onClick={() => handleEdit(supplier)}
-                                    className="flex-1 flex items-center justify-center text-indigo-700 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 py-2.5 rounded-xl font-bold text-sm transition-colors"
+                                    className="flex-1 text-indigo-600 border-indigo-100 hover:bg-indigo-50"
                                 >
                                     <Edit2 size={16} className="mr-2" /> Editar
-                                </button>
-                                <button
+                                </Button>
+                                <Button
+                                    variant="outline"
                                     onClick={() => handleDelete(supplier.id, supplier.name)}
-                                    className="flex-1 flex items-center justify-center text-rose-700 bg-rose-50 border border-rose-100 hover:bg-rose-100 py-2.5 rounded-xl font-bold text-sm transition-colors"
+                                    className="flex-1 text-rose-600 border-rose-100 hover:bg-rose-50"
                                 >
                                     <Trash2 size={16} className="mr-2" /> Eliminar
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ))
                 )}
             </div>
 
-            {/* Modal */}
-            {showModal && (
-                <SupplierModal
-                    supplier={editingSupplier}
-                    onClose={handleModalClose}
-                    onSuccess={handleSuccess}
-                />
-            )}
+            {/* Sheet for Create/Edit */}
+            <Sheet open={showModal} onOpenChange={setShowModal}>
+                <SheetContent
+                    side="right"
+                    className="w-full sm:max-w-md flex flex-col"
+                >
+                    <SheetHeader>
+                        <SheetTitle className="flex items-center gap-2">
+                            <Truck className="text-indigo-600" size={24} />
+                            {editingSupplier ? 'Editar Proveedor' : 'Nuevo Proveedor'}
+                        </SheetTitle>
+                        <SheetDescription>
+                            {editingSupplier ? 'Modifica los datos del proveedor' : 'Registra un nuevo proveedor en el sistema'}
+                        </SheetDescription>
+                    </SheetHeader>
+
+                    {showModal && (
+                        <SupplierForm
+                            supplier={editingSupplier}
+                            onClose={handleModalClose}
+                            onSuccess={handleSuccess}
+                        />
+                    )}
+                </SheetContent>
+            </Sheet>
         </div>
     );
 };
 
-// Supplier Modal Component
-const SupplierModal = ({ supplier, onClose, onSuccess }) => {
+// Extracted Form Component for cleanliness
+const SupplierForm = ({ supplier, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
         name: supplier?.name || '',
         contact_person: supplier?.contact_person || '',
@@ -325,184 +360,155 @@ const SupplierModal = ({ supplier, onClose, onSuccess }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden transform transition-all scale-100">
-                <div className="p-5 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                        <Truck className="text-indigo-600" size={24} />
-                        {supplier ? 'Editar Proveedor' : 'Nuevo Proveedor'}
-                    </h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-xl transition-colors">
-                        <X size={20} />
-                    </button>
-                </div>
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
-                    {/* Basic Info */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="md:col-span-2">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 pb-1 border-b border-slate-100">Información General</h4>
-                        </div>
+                {/* Basic Info */}
+                <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-2 border-b border-slate-100">
+                        Información General
+                    </h4>
 
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                Nombre del Proveedor *
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
-                                placeholder="Ej: Distribuidora Ferretera C.A."
-                                required
+                    <div className="space-y-2">
+                        <Label htmlFor="s-name">Nombre del Proveedor <span className="text-rose-500">*</span></Label>
+                        <Input
+                            id="s-name"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            placeholder="Ej: Distribuidora Ferretera C.A."
+                            required
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="s-contact">Persona de Contacto</Label>
+                        <div className="relative">
+                            <Input
+                                id="s-contact"
+                                value={formData.contact_person}
+                                onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                                placeholder="Nombre del Vendedor"
+                                className="pl-10"
                             />
+                            <Building2 className="absolute left-3 top-2.5 text-slate-400" size={18} />
                         </div>
+                    </div>
 
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 ">
-                                Persona de Contacto
-                            </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="s-phone">Teléfono</Label>
                             <div className="relative">
-                                <Building2 className="absolute left-3 top-3 text-slate-400" size={18} />
-                                <input
-                                    type="text"
-                                    value={formData.contact_person}
-                                    onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
-                                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
-                                    placeholder="Nombre del Vendedor"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                Teléfono
-                            </label>
-                            <div className="relative">
-                                <Phone className="absolute left-3 top-3 text-slate-400" size={18} />
-                                <input
+                                <Input
+                                    id="s-phone"
                                     type="tel"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
                                     placeholder="+58 ..."
+                                    className="pl-10"
                                 />
+                                <Phone className="absolute left-3 top-2.5 text-slate-400" size={18} />
                             </div>
                         </div>
 
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                Email
-                            </label>
+                        <div className="space-y-2">
+                            <Label htmlFor="s-email">Email</Label>
                             <div className="relative">
-                                <Mail className="absolute left-3 top-3 text-slate-400" size={18} />
-                                <input
+                                <Input
+                                    id="s-email"
                                     type="email"
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
-                                    placeholder="contacto@proveedor.com"
+                                    placeholder="contacto@..."
+                                    className="pl-10"
                                 />
-                            </div>
-                        </div>
-
-                        <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                Dirección Fiscal
-                            </label>
-                            <div className="relative">
-                                <MapPin className="absolute left-3 top-3 text-slate-400" size={18} />
-                                <textarea
-                                    value={formData.address}
-                                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none font-medium text-slate-700"
-                                    rows="2"
-                                    placeholder="Dirección completa..."
-                                />
+                                <Mail className="absolute left-3 top-2.5 text-slate-400" size={18} />
                             </div>
                         </div>
                     </div>
 
-                    {/* Financial Info */}
-                    <div className="border-t border-slate-100 pt-6">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 pb-1 flex items-center gap-2">
-                            <CreditCard size={16} />
-                            Información Financiera
-                        </h4>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                    Términos de Pago
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="number"
-                                        value={formData.payment_terms}
-                                        onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
-                                        className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700"
-                                        min="0"
-                                    />
-                                    <span className="absolute right-4 top-3 text-slate-400 text-sm font-medium">días</span>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                    Límite de Crédito
-                                </label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
-                                    <input
-                                        type="number"
-                                        value={formData.credit_limit}
-                                        onChange={(e) => setFormData({ ...formData, credit_limit: e.target.value })}
-                                        className="w-full pl-8 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700"
-                                        min="0"
-                                        step="0.01"
-                                        placeholder="0.00"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Notes */}
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                            Notas Adicionales
-                        </label>
+                    <div className="space-y-2">
+                        <Label htmlFor="s-address">Dirección Fiscal</Label>
                         <div className="relative">
-                            <FileText className="absolute left-3 top-3 text-slate-400" size={18} />
-                            <textarea
-                                value={formData.notes}
-                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none text-sm text-slate-700"
-                                rows="3"
-                                placeholder="Observaciones, horarios de entrega, etc..."
+                            <Textarea
+                                id="s-address"
+                                value={formData.address}
+                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                placeholder="Dirección completa..."
+                                className="pl-10 min-h-[80px]"
+                            />
+                            <MapPin className="absolute left-3 top-3 text-slate-400" size={18} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Financial Info */}
+                <div className="space-y-4 pt-2">
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider pb-2 border-b border-slate-100 flex items-center gap-2">
+                        <CreditCard size={14} /> Información Financiera
+                    </h4>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="s-terms">Términos (Días)</Label>
+                            <Input
+                                id="s-terms"
+                                type="number"
+                                value={formData.payment_terms}
+                                onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
+                                min="0"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="s-credit">Límite ($)</Label>
+                            <Input
+                                id="s-credit"
+                                type="number"
+                                step="0.01"
+                                value={formData.credit_limit}
+                                onChange={(e) => setFormData({ ...formData, credit_limit: e.target.value })}
+                                placeholder="0.00"
                             />
                         </div>
                     </div>
-                </form>
+                </div>
 
-                <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3 rounded-b-2xl sticky bottom-0 z-10">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-5 py-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 font-bold rounded-xl transition-colors"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
-                    >
-                        <CheckCircle size={18} />
-                        {loading ? 'Guardando...' : 'Guardar Proveedor'}
-                    </button>
+                {/* Notes */}
+                <div className="space-y-2">
+                    <Label htmlFor="s-notes">Notas Adicionales</Label>
+                    <Textarea
+                        id="s-notes"
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        placeholder="Observaciones, horarios de entrega, etc..."
+                        rows={3}
+                    />
                 </div>
             </div>
-        </div>
+
+            <SheetFooter className="gap-3 border-t border-slate-100 p-6 bg-slate-50/50">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onClose}
+                    className="flex-1"
+                >
+                    Cancelar
+                </Button>
+                <Button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1"
+                >
+                    {loading ? 'Guardando...' : (
+                        <>
+                            <Check size={18} className="mr-2" />
+                            Guardar
+                        </>
+                    )}
+                </Button>
+            </SheetFooter>
+        </form>
     );
 };
 

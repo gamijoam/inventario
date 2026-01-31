@@ -169,7 +169,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             purchase.payment_status = models.PaymentStatus.PAID
         
         db.commit()
-        db.refresh(purchase)
+        # db.refresh(purchase)
         
         # Emission of events
         for p_info in updated_products_info:
@@ -179,7 +179,12 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 "stock": p_info["stock"]
             })
 
-        return purchase
+        # SAFE RE-QUERY PATTERN
+        # Instead of db.refresh() which fails, we re-fetch the object with all relations
+        return db.query(models.PurchaseOrder).options(
+            joinedload(models.PurchaseOrder.supplier),
+            joinedload(models.PurchaseOrder.items).joinedload(models.PurchaseItem.product)
+        ).filter(models.PurchaseOrder.id == purchase.id).first()
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -291,8 +296,10 @@ def register_payment(
             )
         
         db.commit()
-        db.refresh(payment)
-        return payment
+        # db.refresh(payment)
+        
+        # Safe re-query
+        return db.query(models.PurchasePayment).filter(models.PurchasePayment.id == payment.id).first()
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

@@ -100,8 +100,10 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
                 db.add(new_detail)
 
         db.commit()
-        db.refresh(new_order)
-        return new_order
+        # db.refresh(new_order)
+        
+        # Safe re-query
+        return db.query(models.ServiceOrder).filter(models.ServiceOrder.id == new_order.id).first()
         
     except Exception as e:
         print(f"[ERROR] Create Service Order Failed: {e}")
@@ -204,8 +206,10 @@ def add_service_order_item(
     
     db.add(new_detail)
     db.commit()
-    db.refresh(order)
-    return order
+    # db.refresh(order)
+    
+    # Safe re-query
+    return db.query(models.ServiceOrder).get(order_id)
 
 @router.delete("/orders/{order_id}/items/{item_id}", response_model=schemas.ServiceOrderRead)
 def delete_service_order_item(
@@ -271,8 +275,10 @@ def update_service_order_status(
         order.priority = update_data.priority
         
     db.commit()
-    db.refresh(order)
-    return order
+    # db.refresh(order)
+    
+    # Safe re-query
+    return db.query(models.ServiceOrder).get(order_id)
 
 # CHECKOUT ENDPOINTS
 

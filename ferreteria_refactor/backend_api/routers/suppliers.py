@@ -47,17 +47,35 @@ async def create_supplier(supplier: schemas.SupplierCreate, db: Session = Depend
         
     db_supplier = models.Supplier(**supplier.model_dump())
     db.add(db_supplier)
-    db.commit()
-    db.refresh(db_supplier)
+    db.flush() # Generate ID
     
-    # Broadcast supplier created
-    await manager.broadcast(WebSocketEvents.SUPPLIER_CREATED, {
+    # Capture data before commit to avoid "ObjectDeletedError"
+    # due to session handling/schema context loss on commit
+    response_data = {
         "id": db_supplier.id,
         "name": db_supplier.name,
-        "credit_limit": float(db_supplier.credit_limit) if db_supplier.credit_limit else 0.0
+        "email": db_supplier.email,
+        "phone": db_supplier.phone,
+        "address": db_supplier.address,
+        "contact_person": db_supplier.contact_person,
+        "payment_terms": db_supplier.payment_terms,
+        "credit_limit": db_supplier.credit_limit,
+        "current_balance": db_supplier.current_balance or 0.0,
+        "notes": db_supplier.notes,
+        "is_active": db_supplier.is_active
+    }
+
+    db.commit()
+    # Removed db.refresh() to avoid session issues
+    
+    # Broadcast supplier created use the captured data
+    await manager.broadcast(WebSocketEvents.SUPPLIER_CREATED, {
+        "id": response_data["id"],
+        "name": response_data["name"],
+        "credit_limit": float(response_data["credit_limit"]) if response_data["credit_limit"] else 0.0
     })
     
-    return db_supplier
+    return response_data
 
 @router.get("/{supplier_id}", response_model=schemas.SupplierRead)
 def read_supplier(supplier_id: int, db: Session = Depends(get_db)):
@@ -75,17 +93,32 @@ async def update_supplier(supplier_id: int, supplier_update: schemas.SupplierCre
     for key, value in supplier_update.model_dump(exclude_unset=True).items():
         setattr(db_supplier, key, value)
         
+    # Capture data before commit
+    response_data = {
+        "id": db_supplier.id,
+        "name": db_supplier.name,
+        "email": db_supplier.email,
+        "phone": db_supplier.phone,
+        "address": db_supplier.address,
+        "contact_person": db_supplier.contact_person,
+        "payment_terms": db_supplier.payment_terms,
+        "credit_limit": db_supplier.credit_limit,
+        "current_balance": db_supplier.current_balance or 0.0,
+        "notes": db_supplier.notes,
+        "is_active": db_supplier.is_active
+    }
+    
     db.commit()
-    db.refresh(db_supplier)
+    # Removed db.refresh(db_supplier)
     
     # Broadcast supplier updated
     await manager.broadcast(WebSocketEvents.SUPPLIER_UPDATED, {
-        "id": db_supplier.id,
-        "name": db_supplier.name,
-        "credit_limit": float(db_supplier.credit_limit) if db_supplier.credit_limit else 0.0
+        "id": response_data["id"],
+        "name": response_data["name"],
+        "credit_limit": float(response_data["credit_limit"]) if response_data["credit_limit"] else 0.0
     })
     
-    return db_supplier
+    return response_data
 
 # Accounts Payable Endpoints
 

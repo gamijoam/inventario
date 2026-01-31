@@ -171,9 +171,25 @@ def register_movement(
         date=datetime.now()
     )
     db.add(new_movement)
+    db.flush()
+    
+    response_data = {
+        "id": new_movement.id,
+        "session_id": new_movement.session_id,
+        "type": new_movement.type,
+        "amount": new_movement.amount,
+        "currency": new_movement.currency,
+        "description": new_movement.description,
+        "incoming_amount": new_movement.incoming_amount,
+        "incoming_currency": new_movement.incoming_currency,
+        "incoming_method": new_movement.incoming_method,
+        "incoming_reference": new_movement.incoming_reference,
+        "date": new_movement.date
+    }
+    
     db.commit()
-    db.refresh(new_movement)
-    return new_movement
+    # db.refresh(new_movement)
+    return response_data
 
 @router.get("/balance")
 def get_current_balance(

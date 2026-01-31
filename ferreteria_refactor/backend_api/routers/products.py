@@ -289,11 +289,83 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
             print(f"[ERROR] Failed to update prices: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to update prices: {str(e)}")
 
+    # Capture State for Return (Before Commit)
+    response_data = {
+            "id": db_product.id,
+            "name": db_product.name,
+            "sku": db_product.sku,
+            "description": db_product.description,
+            "category_id": db_product.category_id,
+            "supplier_id": db_product.supplier_id,
+            "price": float(db_product.price),
+            "cost": float(db_product.cost),
+            "stock": float(db_product.stock),
+            "alert_threshold": db_product.alert_threshold,
+            "image_url": db_product.image_url,
+            "is_active": db_product.is_active,
+            "has_tax": db_product.has_tax,
+            "tax_rate": float(db_product.tax_rate) if db_product.tax_rate else 0.0,
+            "is_combo": db_product.is_combo,
+            "barcode": db_product.barcode,
+            "brand": db_product.brand,
+            "model": db_product.model,
+            "warranty_days": db_product.warranty_days,
+            "location": db_product.location,
+            "notes": db_product.notes,
+            "exchange_rate_id": db_product.exchange_rate_id,
+            
+            # Relationships - Must reload them? 
+            # Since we modified them above (adds/deletes), the relationships on db_product might be stale or not updated if we didn't flush?
+            # We did add() new items. To see them in db_product.units, we might need a flush at least.
+    }
+    
+    # We need a flush to make sure the relationship collections are updated with the new objects we added
+    db.flush()
+    
+    # Now manually populate relationships from the fresh state in memory/session
+    response_data["units"] = [
+        {
+            "id": u.id,
+            "unit_name": u.unit_name,
+            "conversion_factor": float(u.conversion_factor),
+            "price_usd": float(u.price_usd) if u.price_usd else None,
+            "barcode": u.barcode,
+            "is_default": u.is_default,
+            "product_id": u.product_id
+        } for u in db_product.units
+    ] if db_product.units else []
+    
+    response_data["combo_items"] = [
+        {
+            "id": c.id,
+            "child_product_id": c.child_product_id,
+            "quantity": float(c.quantity),
+            "unit_id": c.unit_id
+        } for c in db_product.combo_items
+    ] if db_product.combo_items else []
+    
+    response_data["warehouse_stocks"] = [
+        {
+            "warehouse_id": s.warehouse_id,
+            "quantity": float(s.quantity),
+            "location": s.location
+        } for s in db_product.stocks
+    ] if db_product.stocks else []
+    
+    response_data["prices"] = [
+        {
+            "id": p.id,
+            "price_list_id": p.price_list_id,
+            "price": float(p.price)
+        } for p in db_product.prices
+    ] if db_product.prices else []
+
+
     db.commit()
-    db.refresh(db_product)
+    # db.refresh(db_product)
     
     # Logic Refactor: Audit (Simplified)
-    user_id = 1 # TODO: Get from current_user
+    user_id = 1 
     new_state = {c.name: getattr(db_product, c.name) for c in db_product.__table__.columns}
     
     changes = {}
@@ -306,32 +378,18 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
 
     # Broadcast
     payload = {
-        "id": db_product.id,
-        "name": db_product.name,
-        "price": float(db_product.price),
-        "stock": float(db_product.stock),
-        "is_combo": db_product.is_combo,
-        "exchange_rate_id": db_product.exchange_rate_id,
-        "units": [
-            {
-                "id": u.id,
-                "unit_name": u.unit_name,
-                "conversion_factor": float(u.conversion_factor),
-                "price_usd": float(u.price_usd) if u.price_usd else None,
-                "barcode": u.barcode
-            } for u in db_product.units
-        ] if db_product.units else [],
-        "combo_items": [
-            {
-                "id": c.id,
-                "child_product_id": c.child_product_id,
-                "quantity": float(c.quantity)
-            } for c in db_product.combo_items
-        ] if db_product.combo_items else []
+        "id": response_data["id"],
+        "name": response_data["name"],
+        "price": response_data["price"],
+        "stock": response_data["stock"],
+        "is_combo": response_data["is_combo"],
+        "exchange_rate_id": response_data["exchange_rate_id"],
+        "units": response_data["units"],
+        "combo_items": response_data["combo_items"]
     }
     background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_UPDATED, payload)
         
-    return db_product
+    return response_data
 
 # ========================================
 # BULK IMPORT/EXPORT ENDPOINTS
@@ -614,9 +672,19 @@ def create_price_rule(product_id: int, rule: schemas.PriceRuleCreate, db: Sessio
     db_rule = models.PriceRule(**rule.dict())
     db_rule.product_id = product_id # Override with path param
     db.add(db_rule)
+    db.flush()
+    
+    response_data = {
+        "id": db_rule.id,
+        "product_id": db_rule.product_id,
+        "min_quantity": db_rule.min_quantity,
+        "price": db_rule.price,
+        "price_list_id": db_rule.price_list_id
+    }
+    
     db.commit()
-    db.refresh(db_rule)
-    return db_rule
+    # db.refresh(db_rule)
+    return response_data
 
 
 
@@ -786,12 +854,19 @@ def update_sale(
     if paid is not None:
         sale.paid = paid
     
+    # Capture data
+    response_data = {
+        "id": sale.id,
+        "balance_pending": sale.balance_pending,
+        "paid": sale.paid
+    }
+
     db.commit()
-    db.refresh(sale)
+    # db.refresh(sale)
     
-    print(f"   After: paid={sale.paid}, balance={sale.balance_pending}")
+    print(f"   After: paid={response_data['paid']}, balance={response_data['balance_pending']}")
     
-    return {"status": "success", "sale": sale}
+    return {"status": "success", "sale": response_data}
 
 @router.post("/bulk", response_model=schemas.BulkImportResult)
 def bulk_create_products(products: List[schemas.ProductCreate], db: Session = Depends(get_db)):
