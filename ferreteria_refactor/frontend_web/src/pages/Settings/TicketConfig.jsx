@@ -124,18 +124,18 @@ TOTAL:       {{ sale.total }}
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 max-w-7xl mx-auto h-[800px] flex flex-col">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-6 max-w-7xl mx-auto min-h-[600px] flex flex-col">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
                 <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                     <Printer className="text-indigo-600" size={24} /> Configuración de Tickets
                 </h2>
 
                 {/* TABS */}
-                <div className="flex p-1 bg-slate-100 rounded-xl">
+                <div className="flex p-1 bg-slate-100 rounded-xl w-full md:w-auto">
                     <button
                         onClick={() => setActiveTab('gallery')}
                         className={clsx(
-                            "px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2",
+                            "flex-1 md:flex-none justify-center px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2",
                             activeTab === 'gallery'
                                 ? 'bg-white text-indigo-600 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
@@ -146,19 +146,19 @@ TOTAL:       {{ sale.total }}
                     <button
                         onClick={() => setActiveTab('editor')}
                         className={clsx(
-                            "px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2",
+                            "flex-1 md:flex-none justify-center px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2",
                             activeTab === 'editor'
                                 ? 'bg-white text-indigo-600 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700'
                         )}
                     >
-                        <Code size={16} /> Editor (Jinja2)
+                        <Code size={16} /> Editor
                     </button>
                 </div>
             </div>
 
             {loading ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
                     <p>Cargando configuración...</p>
                 </div>

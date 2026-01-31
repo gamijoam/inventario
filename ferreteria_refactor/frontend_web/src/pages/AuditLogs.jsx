@@ -106,10 +106,51 @@ const AuditLogs = () => {
                 </select>
             </div>
 
-            {/* Table */}
+            {/* Content: Mobile Timeline / Desktop Table */}
             <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                <div className="overflow-y-auto flex-1">
-                    <table className="w-full text-left border-collapse">
+                <div className="overflow-y-auto flex-1 custom-scrollbar">
+                    {/* Mobile View: Timeline */}
+                    <div className="block md:hidden p-4 space-y-4">
+                        {loading ? (
+                            <div className="flex justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
+                        ) : logs.length === 0 ? (
+                            <div className="text-center p-8 text-slate-400">No hay registros recientes</div>
+                        ) : (
+                            logs.map(log => (
+                                <div key={log.id} className="border-l-2 border-indigo-100 pl-4 py-1 relative">
+                                    <div className="absolute -left-[5px] top-2 w-2.5 h-2.5 rounded-full bg-indigo-500 ring-4 ring-white"></div>
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className={clsx(
+                                            "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                            log.action === 'CREATE' ? "bg-emerald-100 text-emerald-700" :
+                                                log.action === 'UPDATE' ? "bg-blue-100 text-blue-700" :
+                                                    log.action === 'DELETE' ? "bg-rose-100 text-rose-700" :
+                                                        "bg-slate-100 text-slate-700"
+                                        )}>
+                                            {log.action}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-medium">
+                                            {new Date(log.timestamp).toLocaleString('es-VE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <div className="mb-2">
+                                        <div className="text-sm font-bold text-slate-700">
+                                            {log.table_name} <span className="text-slate-400 font-normal">#{log.record_id}</span>
+                                        </div>
+                                        <div className="text-xs text-slate-500">
+                                            Por: <span className="font-medium text-slate-700">{log.user ? log.user.username : `User #${log.user_id}`}</span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-50 rounded-lg border border-slate-100 p-2 text-xs">
+                                        {formatChanges(log.changes)}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Desktop View: Table */}
+                    <table className="w-full text-left border-collapse hidden md:table">
                         <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
                             <tr>
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha/Hora</th>

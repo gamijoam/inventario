@@ -240,26 +240,24 @@ const Settings = () => {
             </div>
 
             <div className="flex flex-col lg:flex-row gap-8">
-                {/* Sidebar Navigation */}
+                {/* Responsive Navigation: Sidebar (Desktop) / TabBar (Mobile) */}
                 <div className="lg:w-64 flex-shrink-0">
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden sticky top-6">
-                        <div className="p-2 space-y-1">
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 sticky top-6 overflow-hidden">
+                        <div className="flex lg:flex-col overflow-x-auto lg:overflow-visible p-2 gap-2 lg:gap-1 custom-scrollbar">
                             {TABS.map(tab => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
                                     className={clsx(
-                                        "w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all font-bold text-sm",
+                                        "flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm whitespace-nowrap",
                                         activeTab === tab.id
                                             ? "bg-indigo-50 text-indigo-700 shadow-sm"
                                             : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                                     )}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <tab.icon size={18} className={activeTab === tab.id ? "text-indigo-600" : "text-slate-400"} />
-                                        {tab.label}
-                                    </div>
-                                    {activeTab === tab.id && <ChevronRight size={16} className="text-indigo-400" />}
+                                    <tab.icon size={18} className={activeTab === tab.id ? "text-indigo-600" : "text-slate-400"} />
+                                    <span>{tab.label}</span>
+                                    {activeTab === tab.id && <ChevronRight size={16} className="text-indigo-400 ml-auto hidden lg:block" />}
                                 </button>
                             ))}
                         </div>
@@ -381,10 +379,10 @@ const Settings = () => {
                                 </div>
                             </div>
 
-                            <div className="flex flex-col md:flex-row h-full flex-1 min-h-[500px]">
+                            <div className="flex flex-col md:flex-row h-full flex-1">
                                 {/* LEFT: Currency List */}
-                                <div className="md:w-72 bg-gradient-to-b from-slate-50 to-slate-100/50 border-r border-slate-200 flex flex-col">
-                                    <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white/50 backdrop-blur-sm">
+                                <div className="md:w-72 bg-gradient-to-b from-slate-50 to-slate-100/50 border-b md:border-b-0 md:border-r border-slate-200 flex flex-col max-h-[300px] md:max-h-none">
+                                    <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white/50 backdrop-blur-sm sticky top-0 z-10">
                                         <h3 className="text-xs font-black text-slate-600 uppercase tracking-wider">Monedas Activas</h3>
                                         <button
                                             onClick={() => setShowAddCurrencyModal(true)}

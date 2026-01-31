@@ -82,7 +82,7 @@ const PaymentMethodsConfig = () => {
     };
 
     return (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[600px] flex flex-col">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
             {/* ... Header ... */}
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <div>

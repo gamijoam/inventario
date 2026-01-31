@@ -41,7 +41,7 @@ def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.flush()
     
-    # Capture data
+    # Capture data safely before commit/refresh issues
     response_data = {
         "id": user.id,
         "username": user.username,
@@ -50,11 +50,13 @@ def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
         "commission_percentage": user.commission_percentage,
         "is_active": user.is_active,
         "pin": user.pin,
-        "preferences": user.preferences
+        "preferences": user.preferences,
+        "created_at": user.created_at # Ensure this is captured
     }
     
     db.commit()
-    # db.refresh(user)
+    # db.refresh(user) # Avoid refreshing to prevent session errors
+    
     return response_data
 
 @router.get("/", response_model=List[schemas.UserRead])
@@ -107,7 +109,7 @@ def update_user(user_id: int, user_data: schemas.UserUpdate, db: Session = Depen
             from sqlalchemy.orm.attributes import flag_modified
             flag_modified(user, "preferences") 
 
-    # Capture data
+    # Capture data safely before commit
     response_data = {
         "id": user.id,
         "username": user.username,
@@ -116,7 +118,8 @@ def update_user(user_id: int, user_data: schemas.UserUpdate, db: Session = Depen
         "commission_percentage": user.commission_percentage,
         "is_active": user.is_active,
         "pin": user.pin,
-        "preferences": user.preferences
+        "preferences": user.preferences,
+        "created_at": user.created_at
     }
 
     db.commit()

@@ -204,9 +204,76 @@ const UsersManager = () => {
                 </button>
             </div>
 
-            {/* Users Table */}
+            {/* Users List: Mobile Cards / Desktop Table */}
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <table className="w-full">
+                {/* Mobile View: Cards */}
+                <div className="block md:hidden p-4 space-y-4">
+                    {loading ? (
+                        <div className="text-center p-8 text-gray-500">Cargando usuarios...</div>
+                    ) : users.length === 0 ? (
+                        <div className="text-center p-8 text-gray-500">No hay usuarios registrados</div>
+                    ) : (
+                        users.map(user => (
+                            <div key={user.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm relative">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-blue-100 rounded-full p-2.5">
+                                            <Users size={20} className="text-blue-600" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-gray-800 text-lg leading-tight">{user.username}</h3>
+                                            <p className="text-gray-500 text-sm">{user.full_name || 'Sin nombre'}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        {getRoleBadge(user.role)}
+                                        {user.is_active ? (
+                                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Activo</span>
+                                        ) : (
+                                            <span className="flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">Inactivo</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-gray-50">
+                                    <button
+                                        onClick={() => handleOpenModal('edit', user)}
+                                        className="flex flex-col items-center gap-1 p-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                                    >
+                                        <Edit size={18} />
+                                        <span className="text-[10px] font-bold">Editar</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleOpenPinModal(user)}
+                                        className="flex flex-col items-center gap-1 p-2 rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors"
+                                    >
+                                        <Lock size={18} />
+                                        <span className="text-[10px] font-bold">PIN</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleOpenModal('password', user)}
+                                        className="flex flex-col items-center gap-1 p-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                    >
+                                        <Key size={18} />
+                                        <span className="text-[10px] font-bold">Clave</span>
+                                    </button>
+                                    {user.id !== currentUser?.id && (
+                                        <button
+                                            onClick={() => handleDeactivate(user.id)}
+                                            className="flex flex-col items-center gap-1 p-2 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors"
+                                        >
+                                            <Trash2 size={18} />
+                                            <span className="text-[10px] font-bold">Borrar</span>
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                {/* Desktop View: Table */}
+                <table className="w-full hidden md:table">
                     <thead className="bg-gray-50 border-b">
                         <tr>
                             <th className="text-left p-4 font-semibold text-gray-700">Usuario</th>
