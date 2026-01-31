@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, FolderTree, Folder, Tags, Check } from 'lucide-react';
+import { Plus, Edit2, Trash2, FolderTree, Folder, Tags, X, Check } from 'lucide-react';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -83,10 +83,13 @@ const Categories = () => {
                     </h1>
                     <p className="text-slate-500 text-sm mt-1">Organiza tu inventario en categorías y subcategorías.</p>
                 </div>
-                <Button onClick={openCreateModal}>
+                <button
+                    onClick={openCreateModal}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all font-bold text-sm flex items-center justify-center gap-2"
+                >
                     <Plus size={18} />
                     Nueva Categoría
-                </Button>
+                </button>
             </div>
 
             {/* Desktop Table (Zebra Bento) */}
@@ -218,7 +221,7 @@ const CategoryRow = ({ category, level, getChildren, onEdit, onDelete, isEven })
                     getChildren={getChildren}
                     onEdit={onEdit}
                     onDelete={onDelete}
-                    isEven={isEven}
+                    isEven={isEven} // Keep background consistent for children block or alternate? Let's keep consistent for tree clarity or just inherit.
                 />
             ))}
         </>
@@ -228,6 +231,7 @@ const CategoryRow = ({ category, level, getChildren, onEdit, onDelete, isEven })
 // Recursive component for Mobile List
 const MobileCategoryItem = ({ category, level, getChildren, onEdit, onDelete }) => {
     const children = getChildren(category.id);
+    const indent = level * 12;
 
     return (
         <div className="flex flex-col gap-2">
@@ -236,6 +240,7 @@ const MobileCategoryItem = ({ category, level, getChildren, onEdit, onDelete }) 
                     "bg-white p-4 rounded-xl shadow-sm border border-slate-200",
                     level > 0 && "ml-4 border-l-4 border-l-slate-200"
                 )}
+            // style={{ marginLeft: `${indent}px` }} // Use tailwind margin for cleaner nesting
             >
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center">
@@ -261,22 +266,18 @@ const MobileCategoryItem = ({ category, level, getChildren, onEdit, onDelete }) 
                 )}
 
                 <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 mt-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
+                    <button
                         onClick={() => onEdit(category)}
-                        className="text-indigo-600"
+                        className="flex items-center text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-2 rounded-lg font-bold text-xs transition-colors"
                     >
                         <Edit2 size={14} className="mr-1.5" /> Editar
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
+                    </button>
+                    <button
                         onClick={() => onDelete(category.id, category.name)}
-                        className="text-rose-600"
+                        className="flex items-center text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-lg font-bold text-xs transition-colors"
                     >
                         <Trash2 size={14} className="mr-1.5" /> Eliminar
-                    </Button>
+                    </button>
                 </div>
             </div>
             {children.map(child => (
@@ -293,7 +294,7 @@ const MobileCategoryItem = ({ category, level, getChildren, onEdit, onDelete }) 
     );
 };
 
-// Modal for Create/Edit - Using New Sheet Component
+// Modal for Create/Edit
 const CategoryModal = ({ category, categories, onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
         name: category?.name || '',
@@ -334,99 +335,96 @@ const CategoryModal = ({ category, categories, onClose, onSuccess }) => {
     return (
         <Sheet open={true} onOpenChange={(open) => !open && onClose()}>
             <SheetContent
-                side="right"
-                className="w-full sm:max-w-md flex flex-col"
+                side="bottom"
+                className="h-[85vh] md:h-full md:max-w-md flex flex-col"
             >
-                <SheetHeader>
-                    <SheetTitle className="flex items-center gap-2">
+                <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                         {category ? <Edit2 size={20} className="text-indigo-600" /> : <Plus size={20} className="text-indigo-600" />}
                         {category ? 'Editar Categoría' : 'Nueva Categoría'}
-                    </SheetTitle>
-                    <SheetDescription>
-                        {category ? 'Modifica los datos de la categoría' : 'Crea una nueva categoría para organizar tus productos'}
-                    </SheetDescription>
-                </SheetHeader>
+                    </h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
 
-                <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="category-name">
-                                Nombre <span className="text-rose-500">*</span>
-                            </Label>
-                            <Input
-                                id="category-name"
-                                type="text"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="Ej. Herramientas Manuales"
-                                required
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="category-description">Descripción</Label>
-                            <Textarea
-                                id="category-description"
-                                value={formData.description}
-                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="Breve descripción de la categoría..."
-                                rows={3}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="category-parent">Categoría Padre (Opcional)</Label>
-                            <div className="relative">
-                                <select
-                                    id="category-parent"
-                                    value={formData.parent_id || ''}
-                                    onChange={(e) => setFormData({ ...formData, parent_id: e.target.value ? parseInt(e.target.value) : null })}
-                                    className="w-full h-11 px-4 py-2 rounded-xl border-2 border-slate-200 bg-white text-base transition-all focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none appearance-none"
-                                >
-                                    <option value="">-- Categoría Principal --</option>
-                                    {availableParents.filter(cat => !cat.parent_id).map(cat => (
-                                        <option key={cat.id} value={cat.id}>
-                                            {cat.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                    <FolderTree size={16} />
-                                </div>
-                            </div>
-                            <p className="text-xs text-slate-500 mt-1">
-                                Selecciona una categoría padre para crear una subcategoría.
-                            </p>
-                        </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                            Nombre <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
+                            placeholder="Ej. Herramientas Manuales"
+                            required
+                        />
                     </div>
 
-                    <SheetFooter className="gap-3">
-                        <Button
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                            Descripción
+                        </label>
+                        <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300 resize-none"
+                            rows="3"
+                            placeholder="Breve descripción de la categoría..."
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">
+                            Categoría Padre (Opcional)
+                        </label>
+                        <div className="relative">
+                            <select
+                                value={formData.parent_id || ''}
+                                onChange={(e) => setFormData({ ...formData, parent_id: e.target.value ? parseInt(e.target.value) : null })}
+                                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 bg-white appearance-none"
+                            >
+                                <option value="">-- Categoría Principal --</option>
+                                {availableParents.filter(cat => !cat.parent_id).map(cat => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                <FolderTree size={16} />
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1.5 font-medium ml-1">
+                            Selecciona una categoría padre para crear una subcategoría.
+                        </p>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <button
                             type="button"
-                            variant="outline"
                             onClick={onClose}
-                            className="flex-1"
+                            className="flex-1 px-4 py-3 border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition-colors"
                         >
                             Cancelar
-                        </Button>
-                        <Button
+                        </button>
+                        <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1"
+                            className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all disabled:opacity-50 disabled:shadow-none flex items-center justify-center gap-2"
                         >
-                            {loading ? (
-                                'Guardando...'
-                            ) : (
+                            {loading ? 'Guardando...' : (
                                 <>
-                                    <Check size={18} />
-                                    Guardar
+                                    <Check size={18} /> Guardar
                                 </>
                             )}
-                        </Button>
-                    </SheetFooter>
+                        </button>
+                    </div>
                 </form>
-            </SheetContent>
-        </Sheet>
+            </div>
+        </div>
     );
 };
 

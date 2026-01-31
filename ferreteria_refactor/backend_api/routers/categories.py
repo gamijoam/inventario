@@ -57,10 +57,23 @@ def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_
         parent_id=category.parent_id
     )
     
+    
     db.add(new_category)
+    db.flush() # Generator ID
+    
+    # Capture data before commit to avoid "ObjectDeletedError"
+    # due to session handling/schema context loss on commit
+    response_data = {
+        "id": new_category.id,
+        "name": new_category.name,
+        "description": new_category.description,
+        "parent_id": new_category.parent_id
+    }
+    
     db.commit()
-    db.refresh(new_category)
-    return new_category
+    
+    # Return independent data, NOT the ORM object
+    return response_data
 
 @router.put("/{category_id}", response_model=schemas.CategoryResponse)
 def update_category(category_id: int, category: schemas.CategoryUpdate, db: Session = Depends(get_db)):
@@ -126,3 +139,4 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     db.delete(category)
     db.commit()
     return {"message": "Category deleted successfully"}
+
