@@ -41,7 +41,13 @@ def read_products(
     db: Session = Depends(get_db)
 ):
     try:
-        query = db.query(models.Product).options(joinedload(models.Product.units), joinedload(models.Product.stocks), joinedload(models.Product.prices)).filter(models.Product.is_active == True)
+        query = db.query(models.Product).options(
+            joinedload(models.Product.units), 
+            joinedload(models.Product.stocks), 
+            joinedload(models.Product.prices),
+            joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
+            joinedload(models.Product.price_rules)
+        ).filter(models.Product.is_active == True)
         
         # FILTER: Warehouse
         if warehouse_id:
@@ -79,13 +85,20 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
         product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks", "prices"})
         db_product = models.Product(**product_data)
         db.add(db_product)
-        db.flush() # Generate ID without closing transaction/search_path context
+        db.flush() # Generate ID
+
+        # Prepare lists to capture ORM objects for response construction
+        new_units = []
+        new_combo_items = []
+        new_stocks = []
+        new_prices = []
 
         # B. Process Units
         if product.units:
             for unit in product.units:
                 db_unit = models.ProductUnit(**unit.dict(), product_id=db_product.id)
                 db.add(db_unit)
+                new_units.append(db_unit)
         
         # C. Process Combo Items
         if product.combo_items:
@@ -97,6 +110,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                     unit_id=combo_item.unit_id
                 )
                 db.add(db_combo_item)
+                new_combo_items.append(db_combo_item)
             
         # D. Process Warehouse Stocks
         total_stock = 0
@@ -109,6 +123,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                     location=stock.location
                 )
                 db.add(db_stock)
+                new_stocks.append(db_stock)
                 total_stock += stock.quantity
             
             # Sync total stock
@@ -125,6 +140,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                         location=product.location
                     )
                     db.add(db_stock)
+                    new_stocks.append(db_stock)
     
         # E. Process Price Lists
         if product.prices:
@@ -139,10 +155,88 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
                      price=p_val
                  )
                  db.add(db_price)
+                 new_prices.append(db_price)
 
-        # F. FINAL COMMIT (Atomic)
+        # FLUSH to generate IDs for all children
+        db.flush()
+
+        # Capture Data for Response (MANUAL CONSTRUCTION)
+        # This bypasses the need to re-fetch/refresh the object, avoiding "Instance deleted" or "NoneType" errors.
+        response_data = {
+            "id": db_product.id,
+            "name": db_product.name,
+            "sku": db_product.sku,
+            "description": db_product.description,
+            "category_id": db_product.category_id,
+            "supplier_id": db_product.supplier_id,
+            "price": float(db_product.price),
+            "cost_price": float(db_product.cost_price),
+            "stock": float(db_product.stock),
+            "is_active": db_product.is_active,
+            "image_url": db_product.image_url,
+            "is_combo": db_product.is_combo,
+            "barcode": db_product.sku,
+            "exchange_rate_id": db_product.exchange_rate_id,
+            "tax_rate": float(db_product.tax_rate) if db_product.tax_rate else 0.0,
+            
+            # Lists from captured objects (now with IDs thanks to flush)
+            "units": [
+                {
+                    "id": u.id,
+                    "unit_name": u.unit_name,
+                    "conversion_factor": float(u.conversion_factor),
+                    "barcode": u.barcode,
+                    "price_usd": float(u.price_usd) if u.price_usd else None,
+                    "product_id": u.product_id,
+                    "is_default": u.is_default
+                } for u in new_units
+            ],
+            "combo_items": [
+                {
+                    "id": c.id,
+                    "child_product_id": c.child_product_id,
+                    "quantity": float(c.quantity),
+                    "parent_product_id": c.parent_product_id,
+                    "unit_id": c.unit_id
+                } for c in new_combo_items
+            ],
+            "stocks": [
+                {
+                   "id": s.id,
+                   "warehouse_id": s.warehouse_id,
+                   "quantity": float(s.quantity),
+                   "location": s.location,
+                   "product_id": s.product_id
+                } for s in new_stocks
+            ],
+            "prices": [
+                {
+                    "id": p.id,
+                    "price_list_id": p.price_list_id,
+                    "price": float(p.price),
+                    "product_id": p.product_id
+                } for p in new_prices
+            ],
+            "price_rules": []
+        }
+
+        # FINAL COMMIT
         db.commit()
-        db.refresh(db_product)
+    
+        # 2. WebSocket en Background (Moved inside success path)
+        payload = {
+            "id": response_data["id"],
+            "name": response_data["name"],
+            "price": response_data["price"],
+            "stock": response_data["stock"],
+            "is_combo": response_data["is_combo"],
+            "exchange_rate_id": response_data["exchange_rate_id"],
+            "units": response_data["units"],
+            "combo_items": response_data["combo_items"]
+        }
+        background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
+        
+        return response_data
 
     except Exception as e:
         db.rollback()
@@ -183,71 +277,88 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
 
 @router.put("/{product_id}", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
 async def update_product(product_id: int, product_update: schemas.ProductUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    # 1. Eager Load Initial State (Robustness)
+    db_product = db.query(models.Product).options(
+        joinedload(models.Product.units), 
+        joinedload(models.Product.stocks), 
+        joinedload(models.Product.prices),
+        joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
+        joinedload(models.Product.price_rules)
+    ).filter(models.Product.id == product_id).first()
+    
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
     
     update_data = product_update.dict(exclude_unset=True)
     
-    # Separate units data if present
+    # Separate list data if present
     units_data = None
     if "units" in update_data:
         units_data = update_data.pop("units")
     
-    # NEW: Separate combo_items data if present
     combo_items_data = None
     if "combo_items" in update_data:
         combo_items_data = update_data.pop("combo_items")
 
-    # NEW: Separate warehouse_stocks data if present
     stocks_data = None
     if "warehouse_stocks" in update_data:
         stocks_data = update_data.pop("warehouse_stocks")
 
-    # NEW: Separate prices data if present
     prices_data = None
     if "prices" in update_data:
         prices_data = update_data.pop("prices")
 
-    # Capture Current State (Old)
+    # Capture Current State (Old) for Audit
     old_state = {c.name: getattr(db_product, c.name) for c in db_product.__table__.columns}
 
-    # Apply Updates
+    # Apply Scalar Updates
     for key, value in update_data.items():
         setattr(db_product, key, value)
     
-    # Handle Units Update (Snapshot Strategy: Delete all old, create new)
+    # --- HANDLING RELATIONSHIP UPDATES ---
+    # Strategy: 
+    # 1. If data provided (NOT None) -> Delete Old, Add New, Use New List
+    # 2. If data NOT provided (None) -> Keep Old (Use db_product.X logic, but be careful with Session)
+    #    Since we are in the same active request, db_product.X should remain valid unless we deleted it.
+
+    # Pre-fetch existing lists if we are NOT updating them, 
+    # because if we flush/commit later, lazy loading might fail or be weird depending on session state.
+    # Since we eager loaded, these are in memory.
+    
+    final_units = db_product.units
+    final_combo = db_product.combo_items
+    final_stocks = db_product.stocks
+    final_prices = db_product.prices
+    
+    # Handle Units Update
     if units_data is not None:
-        # Delete existing units
         db.query(models.ProductUnit).filter(models.ProductUnit.product_id == product_id).delete()
-        
-        # Add new units
+        new_units = []
         for unit in units_data:
             db_unit = models.ProductUnit(**unit, product_id=product_id)
             db.add(db_unit)
+            new_units.append(db_unit)
+        final_units = new_units # Use the new list for response
     
-    # NEW: Handle Combo Items Update (Snapshot Strategy)
+    # Handle Combo Items Update
     if combo_items_data is not None:
-        # Delete existing combo items
-        db.query(models.ComboItem).filter(
-            models.ComboItem.parent_product_id == product_id
-        ).delete()
-        
-        # Add new combo items
+        db.query(models.ComboItem).filter(models.ComboItem.parent_product_id == product_id).delete()
+        new_combo = []
         for combo_item in combo_items_data:
             db_combo_item = models.ComboItem(
                 parent_product_id=product_id,
                 child_product_id=combo_item["child_product_id"],
                 quantity=combo_item["quantity"],
-                unit_id=combo_item.get("unit_id")  # NEW: Include unit_id
+                unit_id=combo_item.get("unit_id")
             )
             db.add(db_combo_item)
+            new_combo.append(db_combo_item)
+        final_combo = new_combo
             
-    # NEW: Handle Stocks Update (Snapshot Strategy)
+    # Handle Stocks Update
     if stocks_data is not None:
-        # Delete existing stocks
         db.query(models.ProductStock).filter(models.ProductStock.product_id == product_id).delete()
-        
+        new_stocks = []
         total_stock = 0
         for stock in stocks_data:
             # Pydantic model vs dict check
@@ -262,20 +373,18 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
                 location=loc
             )
             db.add(db_stock)
+            new_stocks.append(db_stock)
             total_stock += qty
         
-        # Sync total
         db_product.stock = total_stock
+        final_stocks = new_stocks
 
-    # NEW: Handle Prices Update (Snapshot Strategy)
+    # Handle Prices Update
     if prices_data is not None:
         try:
-            # Delete existing prices
             db.query(models.ProductPrice).filter(models.ProductPrice.product_id == product_id).delete()
-            
-            # Add new prices
+            new_prices = []
             for p_price in prices_data:
-                # Handle compatibility (dict vs object)
                 p_list_id = p_price["price_list_id"] if isinstance(p_price, dict) else p_price.price_list_id
                 p_val = p_price["price"] if isinstance(p_price, dict) else p_price.price
                 
@@ -285,86 +394,82 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
                     price=p_val
                 )
                 db.add(db_price)
+                new_prices.append(db_price)
+            final_prices = new_prices
         except Exception as e:
             print(f"[ERROR] Failed to update prices: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to update prices: {str(e)}")
 
-    # Capture State for Return (Before Commit)
-    response_data = {
-            "id": db_product.id,
-            "name": db_product.name,
-            "sku": db_product.sku,
-            "description": db_product.description,
-            "category_id": db_product.category_id,
-            "supplier_id": db_product.supplier_id,
-            "price": float(db_product.price),
-            "cost": float(db_product.cost),
-            "stock": float(db_product.stock),
-            "alert_threshold": db_product.alert_threshold,
-            "image_url": db_product.image_url,
-            "is_active": db_product.is_active,
-            "has_tax": db_product.has_tax,
-            "tax_rate": float(db_product.tax_rate) if db_product.tax_rate else 0.0,
-            "is_combo": db_product.is_combo,
-            "barcode": db_product.barcode,
-            "brand": db_product.brand,
-            "model": db_product.model,
-            "warranty_days": db_product.warranty_days,
-            "location": db_product.location,
-            "notes": db_product.notes,
-            "exchange_rate_id": db_product.exchange_rate_id,
-            
-            # Relationships - Must reload them? 
-            # Since we modified them above (adds/deletes), the relationships on db_product might be stale or not updated if we didn't flush?
-            # We did add() new items. To see them in db_product.units, we might need a flush at least.
-    }
-    
-    # We need a flush to make sure the relationship collections are updated with the new objects we added
+    # FLUSH to ensure new items have IDs and updates are applied in transaction
     db.flush()
-    
-    # Now manually populate relationships from the fresh state in memory/session
-    response_data["units"] = [
-        {
-            "id": u.id,
-            "unit_name": u.unit_name,
-            "conversion_factor": float(u.conversion_factor),
-            "price_usd": float(u.price_usd) if u.price_usd else None,
-            "barcode": u.barcode,
-            "is_default": u.is_default,
-            "product_id": u.product_id
-        } for u in db_product.units
-    ] if db_product.units else []
-    
-    response_data["combo_items"] = [
-        {
-            "id": c.id,
-            "child_product_id": c.child_product_id,
-            "quantity": float(c.quantity),
-            "unit_id": c.unit_id
-        } for c in db_product.combo_items
-    ] if db_product.combo_items else []
-    
-    response_data["warehouse_stocks"] = [
-        {
-            "warehouse_id": s.warehouse_id,
-            "quantity": float(s.quantity),
-            "location": s.location
-        } for s in db_product.stocks
-    ] if db_product.stocks else []
-    
-    response_data["prices"] = [
-        {
-            "id": p.id,
-            "price_list_id": p.price_list_id,
-            "price": float(p.price)
-        } for p in db_product.prices
-    ] if db_product.prices else []
 
-
-    db.commit()
-    # db.refresh(db_product)
+    # MANUAL RESPONSE CONSTRUCTION
+    # Use 'final_X' lists which contain either ORM objects from initial load or newly added ORM objects.
+    # Note: If we didn't update a list, 'final_X' refers to 'db_product.X'. Since we didn't delete them, strict usage is safe.
     
-    # Logic Refactor: Audit (Simplified)
+    response_data = {
+        "id": db_product.id,
+        "name": db_product.name,
+        "sku": db_product.sku,
+        "description": db_product.description,
+        "category_id": db_product.category_id,
+        "supplier_id": db_product.supplier_id,
+        "price": float(db_product.price),
+        "cost_price": float(db_product.cost_price),
+        "stock": float(db_product.stock),
+        "is_active": db_product.is_active,
+        "image_url": db_product.image_url,
+        "is_combo": db_product.is_combo,
+        "barcode": db_product.sku,
+        "exchange_rate_id": db_product.exchange_rate_id,
+        "tax_rate": float(db_product.tax_rate) if db_product.tax_rate else 0.0,
+        
+        # Manually serialize lists
+        "units": [
+            {
+                "id": u.id,
+                "unit_name": u.unit_name,
+                "conversion_factor": float(u.conversion_factor),
+                "barcode": u.barcode,
+                "price_usd": float(u.price_usd) if u.price_usd else None,
+                "product_id": u.product_id,
+                "is_default": u.is_default,
+                # Include exchange_rate if needed/present, but ProductUnitRead usually doesn't strictly require full object
+                # Update: ProductUnitRead has exchange_rate: Optional[ExchangeRateRead] = None
+                # If u is new, u.exchange_rate might be None unless we fetched it. Defaults to None is safe.
+            } for u in final_units
+        ],
+        "combo_items": [
+            {
+                "id": c.id,
+                "child_product_id": c.child_product_id,
+                "quantity": float(c.quantity),
+                "parent_product_id": c.parent_product_id,
+                "unit_id": c.unit_id
+            } for c in final_combo
+        ],
+        "stocks": [
+            {
+               "id": s.id,
+               "warehouse_id": s.warehouse_id,
+               "quantity": float(s.quantity),
+               "location": s.location,
+               "product_id": s.product_id
+            } for s in final_stocks
+        ],
+        "prices": [
+            {
+                "id": p.id,
+                "price_list_id": p.price_list_id,
+                "price": float(p.price),
+                "product_id": p.product_id
+            } for p in final_prices
+        ],
+        "price_rules": [] # Not handling updates to rules here? Assuming standard
+    }
+
+    # Logic Refactor: Audit (Using the fresh object state in memory)
+    # We can rely on db_product because we just flushed updates to it.
     user_id = 1 
     new_state = {c.name: getattr(db_product, c.name) for c in db_product.__table__.columns}
     
@@ -375,6 +480,9 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
             
     if changes:
         log_action(db, user_id=user_id, action="UPDATE", table_name="products", record_id=db_product.id, changes=json.dumps(changes, default=str))
+
+    # FINAL COMMIT
+    db.commit()
 
     # Broadcast
     payload = {
@@ -584,7 +692,13 @@ def get_all_sales(
 
 @router.get("/{product_id}", response_model=schemas.ProductRead)
 def read_product(product_id: int, db: Session = Depends(get_db)):
-    product = db.query(models.Product).options(joinedload(models.Product.units), joinedload(models.Product.stocks)).filter(models.Product.id == product_id).first()
+    product = db.query(models.Product).options(
+        joinedload(models.Product.units), 
+        joinedload(models.Product.stocks),
+        joinedload(models.Product.prices),
+        joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product),
+        joinedload(models.Product.price_rules)
+    ).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
@@ -595,14 +709,18 @@ def delete_product(product_id: int, background_tasks: BackgroundTasks, db: Sessi
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
+    # Capture data for broadcast BEFORE deletion (and commit)
+    product_id_val = product.id
+    product_name_val = product.name
+
     # Soft delete (set inactive)
     product.is_active = False
     db.commit()
     
     # Broadcast product deleted/deactivated
     payload = {
-        "id": product.id,
-        "name": product.name
+        "id": product_id_val,
+        "name": product_name_val
     }
     background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_DELETED, payload)
     

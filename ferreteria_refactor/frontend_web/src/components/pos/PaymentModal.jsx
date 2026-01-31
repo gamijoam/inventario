@@ -4,6 +4,9 @@ import { useConfig } from '../../context/ConfigContext';
 import { useWebSocket } from '../../context/WebSocketContext';
 import apiClient from '../../config/axios';
 import toast from 'react-hot-toast';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
 import QuickCustomerModal from './QuickCustomerModal';
 import CustomerSearch from './CustomerSearch';
 import CurrencyInput from '../common/CurrencyInput';
@@ -377,12 +380,14 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             <span className="w-2 h-8 bg-indigo-600 rounded-full inline-block"></span>
                             Procesar Pago
                         </h2>
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={onClose}
-                            className="group p-2 hover:bg-rose-50 rounded-xl transition-all duration-300 border border-transparent hover:border-rose-100"
+                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl h-10 w-10"
                         >
-                            <X size={24} className="text-slate-400 group-hover:text-rose-500 transition-colors" />
-                        </button>
+                            <X size={24} />
+                        </Button>
                     </div>
 
                     <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 pb-4">
@@ -395,12 +400,14 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         <User size={14} /> Cliente
                                         {isCreditSale && <span className="bg-rose-100 text-rose-600 text-[9px] px-2 py-0.5 rounded-full">Requerido</span>}
                                     </label>
-                                    <button
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={() => setIsQuickCustomerOpen(true)}
-                                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1"
+                                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-8 text-xs font-bold"
                                     >
-                                        <UserPlus size={14} /> Nuevo
-                                    </button>
+                                        <UserPlus size={14} className="mr-1" /> Nuevo
+                                    </Button>
                                 </div>
 
                                 <CustomerSearch
@@ -450,12 +457,14 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         <Layers size={16} className="text-slate-400" />
                                         Métodos de Pago
                                     </h3>
-                                    <button
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
                                         onClick={addPaymentRow}
-                                        className="text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors"
+                                        className="text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100 h-8 text-xs font-bold"
                                     >
                                         + Agregar Otro
-                                    </button>
+                                    </Button>
                                 </div>
 
                                 <div className="space-y-3">
@@ -480,13 +489,15 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                         </select>
                                                         <div className="flex gap-2">
                                                             {currencies.slice(0, 3).map(c => (
-                                                                <button
+                                                                <Button
                                                                     key={c.symbol}
+                                                                    size="sm"
+                                                                    variant={payment.currency === c.symbol ? "default" : "outline"}
                                                                     onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                                    className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-colors border ${payment.currency === c.symbol ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                                                                    className={`flex-1 h-7 text-[10px] font-bold px-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
                                                                 >
                                                                     {c.symbol}
-                                                                </button>
+                                                                </Button>
                                                             ))}
                                                         </div>
                                                     </div>
@@ -520,10 +531,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                 {/* Reference Input */}
                                                 {needsReference && (
                                                     <div className="animate-in fade-in slide-in-from-top-2">
-                                                        <input
+                                                        <Input
                                                             type="text"
                                                             placeholder="Referencia / # Transferencia"
-                                                            className="w-full bg-indigo-50/50 border-indigo-100 text-xs text-indigo-800 placeholder-indigo-300 rounded-lg px-3 py-2 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                                                            className="bg-indigo-50/50 border-indigo-100 text-xs text-indigo-800 placeholder:text-indigo-300 h-9"
                                                             value={payment.reference || ''}
                                                             onChange={(e) => updatePayment(index, 'reference', e.target.value)}
                                                         />
@@ -539,19 +550,21 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
                     {/* Footer Actions */}
                     <div className="mt-auto pt-6 border-t border-slate-100 flex gap-4 shrink-0">
-                        <button
+                        <Button
+                            variant="ghost"
+                            size="lg"
                             onClick={onClose}
-                            className="px-6 py-4 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                            className="font-bold text-slate-500 hover:bg-slate-100 h-14 px-6 rounded-xl"
                         >
                             Cancelar
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             onClick={handleConfirm}
                             disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)}
                             className={`
-                                flex-1 rounded-xl font-black text-lg tracking-wide shadow-xl transition-all flex items-center justify-center gap-3
+                                flex-1 rounded-xl font-black text-lg tracking-wide shadow-xl transition-all h-14
                                 ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)
-                                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                                    ? 'bg-slate-100 text-slate-300'
                                     : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:-translate-y-1 shadow-indigo-500/30'
                                 }
                             `}
@@ -561,10 +574,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             ) : (
                                 <>
                                     {isCreditSale ? 'REGISTRAR CRÉDITO' : 'CONFIRMAR PAGO'}
-                                    <CheckCircle size={20} strokeWidth={3} />
+                                    <CheckCircle size={20} strokeWidth={3} className="ml-3" />
                                 </>
                             )}
-                        </button>
+                        </Button>
                     </div>
 
                 </div>

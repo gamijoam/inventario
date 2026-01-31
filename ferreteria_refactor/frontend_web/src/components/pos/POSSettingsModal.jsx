@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { POS_THEMES, DEFAULT_THEME } from '../../constants/posThemes';
 import { X, Check, Palette } from 'lucide-react';
+import { Button } from '../ui/button';
 
 const POSSettingsModal = ({ isOpen, onClose }) => {
     const { user, updateUserPreferences } = useAuth();
@@ -40,9 +41,9 @@ const POSSettingsModal = ({ isOpen, onClose }) => {
                         </div>
                         <h2 className="font-bold text-slate-800 text-lg">Personalizar Diseño POS</h2>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
+                    <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-400 hover:text-slate-600 rounded-full h-8 w-8">
                         <X size={20} />
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Body */}
@@ -80,18 +81,19 @@ const POSSettingsModal = ({ isOpen, onClose }) => {
 
                 {/* Footer */}
                 <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-                    <button
+                    <Button
+                        variant="ghost"
                         onClick={onClose}
-                        className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg transition-colors"
+                        className="text-slate-600 hover:bg-slate-200"
                     >
                         Cancelar
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={handleSave}
-                        className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all"
+                        className="bg-indigo-600 text-white font-bold shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all"
                     >
                         Guardar Cambios
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

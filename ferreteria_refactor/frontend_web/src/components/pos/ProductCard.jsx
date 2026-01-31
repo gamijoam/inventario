@@ -1,6 +1,7 @@
 import React from 'react';
 import { Package, AlertTriangle, Layers, RotateCcw, User } from 'lucide-react';
-import ProductThumbnail from '../products/ProductThumbnail'; // Assuming relative path adjustment
+import { Badge } from '../ui/badge';
+import ProductThumbnail from '../products/ProductThumbnail';
 
 const formatCurrency = (amount, currency = 'USD') => {
     try {
@@ -22,34 +23,27 @@ const ProductCard = ({
     onClick,
     currentStock = 0,
     currencySymbol = '$',
-    convertProductPrice, // Function from context to get VES price
+    convertProductPrice,
     isSelected = false
 }) => {
-
-    // Calculate Dual Price
-    // We expect convertProductPrice to return the raw number in VES
     const priceBS = convertProductPrice ? convertProductPrice(product, 'VES') : 0;
-
-    // Determine Stock Status Color
     const isLowStock = currentStock <= (product.min_stock || 5);
-    const hasStock = currentStock > 0;
 
     return (
         <div
             onClick={() => onClick(product)}
             className={`
                 group relative flex flex-col justify-between bg-white rounded-xl cursor-pointer transition-all duration-300
-                border h-full min-h-[220px] overflow-hidden
+                border h-full min-h-[240px] overflow-hidden
                 ${isSelected
-                    ? 'ring-2 ring-indigo-500 shadow-xl border-transparent -translate-y-1'
-                    : 'border-slate-100 shadow-md hover:shadow-xl hover:-translate-y-1 hover:border-indigo-100'
+                    ? 'ring-2 ring-indigo-600 shadow-xl border-transparent -translate-y-1'
+                    : 'border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-indigo-200'
                 }
             `}
         >
             {/* Image Section */}
-            <div className="relative h-32 bg-slate-50 border-b border-slate-50 overflow-hidden">
+            <div className="relative h-36 bg-slate-50 border-b border-slate-50 overflow-hidden p-4">
                 <div className="absolute inset-0 flex items-center justify-center p-4">
-                    {/* We can use the existing ProductThumbnail but larger, or render img directly for object-cover */}
                     {product.image_url ? (
                         <img
                             src={product.image_url}
@@ -61,52 +55,44 @@ const ProductCard = ({
                         <Package className="text-slate-300 w-12 h-12" strokeWidth={1.5} />
                     )}
                 </div>
+
                 {/* Float Badges */}
                 <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-                    {/* Serialized Badge */}
                     {product.has_imei && (
-                        <span className="bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1">
+                        <Badge variant="secondary" className="bg-blue-600 text-white hover:bg-blue-700 text-[9px] px-1.5 h-5 gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> SERIAL
-                        </span>
+                        </Badge>
                     )}
-                    {/* Multi-Unit Badge */}
                     {product.units && product.units.length > 0 && (
-                        <span className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1">
-                            <Package size={8} /> PRESENTACIONES
-                        </span>
+                        <Badge variant="secondary" className="bg-emerald-600 text-white hover:bg-emerald-700 text-[9px] px-1.5 h-5 gap-1">
+                            <Package size={8} /> CAJAS
+                        </Badge>
                     )}
-                    {/* Combo Badge */}
                     {product.is_combo && (
-                        <span className="bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1">
+                        <Badge variant="secondary" className="bg-purple-600 text-white hover:bg-purple-700 text-[9px] px-1.5 h-5 gap-1">
                             <Layers size={8} /> COMBO
-                        </span>
+                        </Badge>
                     )}
                 </div>
 
-                {/* Stock Badge */}
+                {/* Stock Tag */}
                 <div className="absolute bottom-2 right-2">
                     {isLowStock && (
-                        <span className={`
-                            flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm backdrop-blur-sm
-                            ${currentStock <= 0
-                                ? 'bg-rose-500/90 text-white'
-                                : 'bg-amber-400/90 text-amber-900'
-                            }
-                        `}>
+                        <Badge variant={currentStock <= 0 ? "destructive" : "warning"} className="text-[10px] h-5 shadow-sm backdrop-blur-sm px-2">
                             {currentStock <= 0 ? 'AGOTADO' : 'POCO STOCK'}
-                        </span>
+                        </Badge>
                     )}
                 </div>
             </div>
 
             {/* Content Section */}
             <div className="p-3 flex-1 flex flex-col">
-                <div className="flex justify-between items-start mb-1">
-                    <span className="text-[10px] font-mono text-slate-400 bg-slate-50 px-1.5 rounded tracking-tighter line-clamp-1 max-w-[80px]">
+                <div className="flex justify-between items-start mb-1 gap-2">
+                    <span className="text-[10px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded tracking-tighter truncate max-w-[80px] border border-slate-100">
                         {product.sku || '---'}
                     </span>
                     {!isLowStock && (
-                        <span className="text-[10px] font-medium text-slate-400">
+                        <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
                             Stock: {Number(currentStock).toFixed(0)}
                         </span>
                     )}
@@ -136,7 +122,6 @@ const ProductCard = ({
                     </div>
                 </div>
             </div>
-
         </div>
     );
 };

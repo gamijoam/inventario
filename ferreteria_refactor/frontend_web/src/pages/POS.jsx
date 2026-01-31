@@ -1,7 +1,10 @@
 import { useAuth } from '../context/AuthContext';
 import { useState, useRef, useEffect } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin, User, Wrench, DollarSign, Settings, Lock, Unlock, ChevronDown } from 'lucide-react'; // Added Lock, Unlock, ChevronDown
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, RotateCcw, Package, Receipt, AlertTriangle, Layers, ArrowLeft, MapPin, User, Wrench, DollarSign, Settings, Lock, Unlock, ChevronDown, ListFilter, X } from 'lucide-react'; // Added Lock, Unlock, ChevronDown
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Badge } from '../components/ui/badge';
 import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
@@ -579,51 +582,58 @@ const POS = () => {
             `}>
                 {/* Header Bar */}
                 <div className={`border-b px-6 py-4 flex justify-between items-center backdrop-blur-sm ${currentTheme.border_color} bg-white/20`}>
-                    <div className="flex items-center gap-4">
-                        <Link to="/" className="flex items-center gap-2 p-2 -ml-2 hover:bg-white/60 rounded-xl text-slate-500 hover:text-indigo-600 transition-colors group glass-panel" title="Volver al Menú">
-                            <ArrowLeft className="group-hover:-translate-x-1 transition-transform" size={20} />
-                            <span className="font-semibold text-sm hidden sm:block">Salir</span>
+                    <div className="flex items-center gap-3">
+                        <Link to="/">
+                            <Button variant="ghost" className="h-10 w-10 p-0 text-slate-500 hover:text-indigo-600 bg-white/40 border border-white/60 hover:bg-white/80" title="Volver al Menú">
+                                <ArrowLeft size={20} />
+                            </Button>
                         </Link>
 
                         {/* THEME SETTINGS BUTTON */}
-                        <button
+                        <Button
+                            variant="ghost"
                             onClick={() => setIsSettingsOpen(true)}
-                            className="p-2 lg:p-2.5 rounded-xl bg-white/40 border border-white/60 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-slate-500 transition-all shadow-sm"
+                            className="h-10 w-10 p-0 text-slate-500 hover:text-indigo-600 bg-white/40 border border-white/60 hover:bg-white/80"
                             title="Personalizar Tema"
                         >
                             <Settings size={20} />
-                        </button>
+                        </Button>
 
                         {/* SERVICE ORDER BUTTON */}
                         {modules?.services && (
-                            <button
+                            <Button
                                 onClick={() => setIsServiceImportOpen(true)}
-                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${activeServiceOrderId
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md transform scale-105'
-                                    : 'bg-white/80 text-indigo-600 border-indigo-100 hover:bg-indigo-50'
-                                    }`}
-                                title="Cargar Orden de Servicio Lista"
+                                variant={activeServiceOrderId ? "default" : "outline"}
+                                className={`
+                                    h-10 px-3 text-xs font-bold transition-all border
+                                    ${activeServiceOrderId
+                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md transform scale-105 hover:bg-indigo-700'
+                                        : 'bg-white/80 text-indigo-600 border-indigo-100 hover:bg-indigo-50'
+                                    }
+                                `}
+                                title="Cargar Orden de Servicio"
                             >
-                                <Wrench size={14} />
+                                <Wrench size={14} className="mr-2" />
                                 {activeServiceOrderId ? `Orden: ${serviceOrderTicket}` : 'Cargar Servicio'}
-                            </button>
+                            </Button>
                         )}
-
                     </div>
+
                     {/* Search Bar - Centered & Elegant */}
                     <div className="flex-1 max-w-xl mx-4 relative group">
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <span className="text-[10px] font-bold text-slate-300 border border-slate-200 rounded px-1 bg-white/50">F3</span>
+                        <div className="absolute top-0 left-0 h-full pl-3 flex items-center pointer-events-none z-10">
+                            <Search className="text-slate-400" size={18} />
                         </div>
-                        <input
+                        <Input
                             ref={searchInputRef}
                             type="text"
                             className="
-                                w-full pl-10 pr-4 py-2.5
-                                bg-white/70 border border-white/60 rounded-xl text-base text-slate-700 placeholder-slate-400
-                                focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all focus:bg-white shadow-inner
+                                w-full pl-10 pr-12
+                                bg-white/80 border-slate-200/60
+                                focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10
+                                text-base h-11 rounded-xl shadow-sm placeholder:text-slate-400 font-medium
                             "
-                            placeholder="Buscar productos..."
+                            placeholder="Buscar productos (F3)..."
                             value={searchTerm}
                             onChange={(e) => {
                                 setSearchTerm(e.target.value);
@@ -631,63 +641,88 @@ const POS = () => {
                             }}
                             autoFocus
                         />
+                        {searchTerm && (
+                            <button
+                                onClick={() => {
+                                    setSearchTerm('');
+                                    if (searchInputRef.current) searchInputRef.current.focus();
+                                }}
+                                className="absolute right-3 top-0 h-full flex items-center text-slate-400 hover:text-rose-500 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        )}
+                        <div className="absolute right-12 top-0 h-full flex items-center gap-1 pr-2 pointer-events-none">
+                            <kbd className="hidden md:inline-flex h-6 items-center gap-1 rounded border bg-slate-50 px-1.5 font-mono text-[10px] font-medium text-slate-500">
+                                <span className="text-xs">F3</span>
+                            </kbd>
+                        </div>
                     </div>
 
 
                     {/* Warehouse Selector */}
-                    <div className="flex items-center gap-2 mx-2 bg-indigo-50/80 rounded-xl px-3 py-1.5 border border-indigo-100 hover:border-indigo-300 transition-all group/wh cursor-pointer">
-                        <MapPin size={16} className="text-indigo-600 group-hover/wh:text-indigo-700 transition-colors" />
-                        <div className="flex flex-col">
+                    <div className="flex items-center gap-2 mx-2 bg-indigo-50/80 rounded-xl px-3 py-1 border border-indigo-100/50 hover:border-indigo-200 transition-all cursor-pointer h-10 min-w-[140px]">
+                        <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600">
+                            <MapPin size={16} />
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0">
                             <span className="text-[9px] uppercase font-bold text-indigo-400 leading-none mb-0.5">Bodega</span>
-                            <select
-                                value={selectedWarehouseId}
-                                onChange={(e) => {
-                                    const val = e.target.value;
-                                    setSelectedWarehouseId(val === 'all' ? 'all' : Number(val));
-                                }}
-                                className="bg-transparent border-none text-xs font-bold text-indigo-900 focus:ring-0 p-0 pr-4 cursor-pointer w-full max-w-[100px] truncate leading-none"
-                                title="Seleccionar Bodega de Salida"
-                                disabled={!Array.isArray(warehouses) || warehouses.length === 0}
-                            >
-                                <option value="all">Todas</option>
-                                {(Array.isArray(warehouses) ? warehouses : []).map(w => (
-                                    <option key={w.id} value={w.id}>
-                                        {w.name}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={selectedWarehouseId}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setSelectedWarehouseId(val === 'all' ? 'all' : Number(val));
+                                    }}
+                                    className="appearance-none bg-transparent border-none text-xs font-bold text-indigo-900 focus:ring-0 p-0 pr-4 cursor-pointer w-full leading-none"
+                                    disabled={!Array.isArray(warehouses) || warehouses.length === 0}
+                                >
+                                    <option value="all">Todas</option>
+                                    {(Array.isArray(warehouses) ? warehouses : []).map(w => (
+                                        <option key={w.id} value={w.id}>
+                                            {w.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <ChevronDown size={14} className="absolute right-0 top-0 pointer-events-none text-indigo-400" />
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Categories Bar */}
-                <div className="px-6 py-3 flex items-center gap-2 overflow-x-auto scrollbar-hide border-b border-white/30">
-                    <button
+                <div className="px-6 py-3 flex items-center gap-2 overflow-x-auto scrollbar-hide border-b border-white/30 mask-gradient-right">
+                    <Button
+                        variant={!selectedCategory ? "default" : "outline"}
+                        size="sm"
                         onClick={() => setSelectedCategory(null)}
                         className={`
-                            px-4 py-1.5 rounded-lg text-sm font-medium transition-all backdrop-blur-sm
+                            rounded-full px-4 h-8
                             ${!selectedCategory
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-600 ring-offset-1'
-                                : 'bg-white/50 text-slate-600 hover:bg-white border border-white/60'
+                                ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent shadow-md shadow-indigo-500/20'
+                                : 'bg-white/50 hover:bg-white text-slate-600 border-white/60 hover:border-indigo-200'
                             }
                         `}
                     >
+                        <ListFilter size={14} className="mr-2" />
                         Todos
-                    </button>
+                    </Button>
                     {rootCategories.map(category => (
-                        <button
+                        <Button
                             key={category.id}
+                            variant={selectedCategory === category.id ? "default" : "outline"}
+                            size="sm"
                             onClick={() => setSelectedCategory(category.id)}
                             className={`
-                                px-4 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all border backdrop-blur-sm
+                                rounded-full px-4 h-8 whitespace-nowrap
                                 ${selectedCategory === category.id
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-500/30'
-                                    : 'bg-white/50 text-slate-600 hover:bg-white border-white/60'
+                                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent shadow-md shadow-indigo-500/20'
+                                    : 'bg-white/50 hover:bg-white text-slate-600 border-white/60 hover:border-indigo-200'
                                 }
                             `}
                         >
                             {category.name}
-                        </button>
+                        </Button>
                     ))}
                 </div>
 
@@ -745,13 +780,15 @@ const POS = () => {
                             {cart.length} {cart.length === 1 ? 'producto' : 'productos'} agregados
                         </p>
                     </div>
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={clearCart}
-                        className="bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-600 p-2 rounded-lg transition-all border border-slate-200 hover:border-rose-200"
+                        className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
                         title="Limpiar (F2)"
                     >
                         <Trash2 size={16} />
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Cart Items List */}
@@ -928,7 +965,7 @@ const POS = () => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="bg-transparent border-t border-white/20 p-4 space-y-3 z-20">
+                <div className="bg-transparent border-t border-white/20 p-4 pb-24 md:pb-4 space-y-3 z-20">
                     <div className="bg-white/40 backdrop-blur-md rounded-xl p-4 border border-white/30 shadow-sm">
                         <div className="flex justify-between items-end mb-1">
                             <span className="text-slate-600 font-medium text-xs">Total a Pagar</span>
@@ -1112,39 +1149,41 @@ const POS = () => {
                ===================================================================================== */}
             <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex gap-3 z-50 shadow-2xl">
                 {/* Catalog Tab */}
-                <button
+                <Button
                     onClick={() => setActiveTab('CATALOG')}
+                    variant={activeTab === 'CATALOG' ? 'default' : 'secondary'}
                     className={`
-                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2
+                        flex-1 h-12 rounded-xl font-bold text-sm transition-all shadow-md
                         ${activeTab === 'CATALOG'
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 shadow-sm border border-slate-200'
                         }
                     `}
                 >
-                    <Package size={20} />
-                    <span>Catálogo</span>
-                </button>
+                    <Package size={20} className="mr-2" />
+                    Catálogo
+                </Button>
 
                 {/* Cart Tab with Badge */}
-                <button
+                <Button
                     onClick={() => setActiveTab('CART')}
+                    variant={activeTab === 'CART' ? 'default' : 'secondary'}
                     className={`
-                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 relative
+                        flex-1 h-12 rounded-xl font-bold text-sm transition-all shadow-md relative
                         ${activeTab === 'CART'
-                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 shadow-sm border border-slate-200'
                         }
                     `}
                 >
-                    <Receipt size={20} />
-                    <span>Ticket</span>
+                    <Receipt size={20} className="mr-2" />
+                    Ticket
                     {cart.length > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-md">
+                        <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-md animate-bounce">
                             {cart.length}
                         </span>
                     )}
-                </button>
+                </Button>
             </div>
         </div>
     );

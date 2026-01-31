@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Trash2, Save, X, DollarSign, Hash } from 'lucide-react';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 import { useConfig } from '../../context/ConfigContext';
 
 const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
@@ -141,10 +143,10 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in-up">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-gray-800">Editar Item</h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <h3 className="text-xl font-bold text-slate-800">Editar Item</h3>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-400 hover:text-slate-600">
                         <X size={24} />
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Product Info */}
@@ -163,27 +165,29 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
                 {/* Mode Toggle (Only for fractions) */}
                 {isFraction && (
                     <div className="mb-6">
-                        <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-lg">
-                            <button
+                        <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+                            <Button
+                                variant={saleMode === 'quantity' ? 'default' : 'ghost'}
                                 onClick={() => setSaleMode('quantity')}
-                                className={`py-2 px-4 rounded-md font-semibold transition-all flex items-center justify-center gap-2 ${saleMode === 'quantity'
-                                    ? 'bg-white text-blue-600 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-800'
+                                className={`h-9 font-bold transition-all ${saleMode === 'quantity'
+                                    ? 'bg-white text-indigo-600 shadow-sm hover:bg-white hover:text-indigo-700'
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                                     }`}
                             >
-                                <Hash size={18} />
+                                <Hash size={16} className="mr-2" />
                                 Por Cantidad
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                variant={saleMode === 'amount' ? 'default' : 'ghost'}
                                 onClick={() => setSaleMode('amount')}
-                                className={`py-2 px-4 rounded-md font-semibold transition-all flex items-center justify-center gap-2 ${saleMode === 'amount'
-                                    ? 'bg-white text-green-600 shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-800'
+                                className={`h-9 font-bold transition-all ${saleMode === 'amount'
+                                    ? 'bg-white text-emerald-600 shadow-sm hover:bg-white hover:text-emerald-700'
+                                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                                     }`}
                             >
-                                <DollarSign size={18} />
+                                <DollarSign size={16} className="mr-2" />
                                 Por Monto
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 )}
@@ -199,7 +203,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
                             <input
                                 type="text"
                                 inputMode="decimal"
-                                className="text-center text-5xl font-bold border-b-4 border-blue-500 w-full focus:outline-none focus:border-blue-600 py-2"
+                                className="text-center text-5xl font-bold bg-transparent border-b-4 border-indigo-500 w-full focus:outline-none focus:border-indigo-600 py-2 text-slate-800 placeholder-slate-300"
                                 value={quantityInput}
                                 onChange={(e) => handleQuantityInputChange(e.target.value)}
                                 onFocus={(e) => e.target.select()}
@@ -220,16 +224,18 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
                             {activeCurrencies.length > 1 && (
                                 <div className="flex justify-center gap-2 mb-3">
                                     {activeCurrencies.map(curr => (
-                                        <button
+                                        <Button
                                             key={curr.currency_code}
+                                            size="sm"
+                                            variant={selectedCurrency === curr.currency_code ? "default" : "outline"}
                                             onClick={() => handleCurrencyChange(curr.currency_code)}
-                                            className={`px-3 py-1 rounded-full text-sm font-bold transition-all ${selectedCurrency === curr.currency_code
-                                                ? 'bg-green-600 text-white'
-                                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                            className={`rounded-full h-7 text-xs font-bold px-3 ${selectedCurrency === curr.currency_code
+                                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-transparent'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'
                                                 }`}
                                         >
                                             {curr.symbol} {curr.currency_code}
-                                        </button>
+                                        </Button>
                                     ))}
                                 </div>
                             )}
@@ -268,19 +274,21 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
                 )}
 
                 {/* Actions */}
+                {/* Actions */}
                 <div className="flex gap-3">
-                    <button
+                    <Button
+                        variant="destructive"
                         onClick={() => { onDelete(item.id); onClose(); }}
-                        className="flex-1 bg-red-100 text-red-600 py-3 rounded-xl font-bold hover:bg-red-200 transition-all flex justify-center items-center"
+                        className="flex-1 h-12 rounded-xl font-bold hover:bg-rose-600/90 text-white shadow-md hover:shadow-lg"
                     >
                         <Trash2 size={20} className="mr-2" /> Eliminar
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={() => { onUpdate(item.id, quantity); onClose(); }}
-                        className="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all flex justify-center items-center shadow-lg"
+                        className="flex-[2] h-12 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-1 transition-all"
                     >
                         <Save size={20} className="mr-2" /> Actualizar
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>
