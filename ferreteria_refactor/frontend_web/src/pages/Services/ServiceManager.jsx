@@ -39,6 +39,7 @@ const ServiceManager = () => {
     const [showDeliveryModal, setShowDeliveryModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentData, setPaymentData] = useState(null);
+    const [activeTab, setActiveTab] = useState('WORK'); // 'INFO' | 'WORK' | 'ACTIONS'
 
     // New Item Form
     const [newItem, setNewItem] = useState({
@@ -206,7 +207,7 @@ const ServiceManager = () => {
     if (!order) return <div>Orden no encontrada</div>;
 
     return (
-        <div className="h-[calc(100vh-theme(spacing.32))] flex flex-col">
+        <div className="h-[calc(100vh-theme(spacing.32))] flex flex-col pb-20 md:pb-0">
             {/* HEADER */}
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-4">
@@ -235,10 +236,10 @@ const ServiceManager = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-6 h-full overflow-hidden">
+            <div className="grid grid-cols-12 gap-6 h-full overflow-hidden md:grid-cols-12 grid-cols-1">
 
                 {/* LEFT COLUMN: INFO (Read Only) */}
-                <div className="col-span-3 bg-white p-4 rounded-xl shadow-sm border border-gray-200 overflow-y-auto">
+                <div className={`bg-white p-4 rounded-xl shadow-sm border border-gray-200 overflow-y-auto md:col-span-3 col-span-12 ${activeTab === 'INFO' ? 'block' : 'hidden md:block'}`}>
                     <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <User size={18} /> Cliente
                     </h2>
@@ -305,7 +306,7 @@ const ServiceManager = () => {
                 </div>
 
                 {/* CENTER COLUMN: WORKSPACE */}
-                <div className="col-span-6 flex flex-col gap-6 overflow-hidden">
+                <div className={`flex flex-col gap-6 overflow-hidden md:col-span-6 col-span-12 ${activeTab === 'WORK' ? 'flex' : 'hidden md:flex'}`}>
 
                     {/* Diagnosis Section */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
@@ -511,8 +512,7 @@ const ServiceManager = () => {
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN: ACTIONS */}
-                <div className="col-span-3 space-y-4">
+                <div className={`space-y-4 md:col-span-3 col-span-12 ${activeTab === 'ACTIONS' ? 'block' : 'hidden md:block'}`}>
                     {/* Status Card */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                         <h3 className="font-semibold text-gray-800 mb-4">Estado del Servicio</h3>
@@ -580,6 +580,56 @@ const ServiceManager = () => {
                     </div>
 
                 </div>
+            </div>
+
+            {/* =====================================================================================
+                MOBILE TAB SWITCHER - Bottom Navigation
+               ===================================================================================== */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex gap-2 z-50 shadow-2xl">
+                {/* Info Tab */}
+                <button
+                    onClick={() => setActiveTab('INFO')}
+                    className={`
+                        flex-1 py-3 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5
+                        ${activeTab === 'INFO'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <User size={18} />
+                    <span>Info</span>
+                </button>
+
+                {/* Work Tab */}
+                <button
+                    onClick={() => setActiveTab('WORK')}
+                    className={`
+                        flex-1 py-3 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5
+                        ${activeTab === 'WORK'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <Wrench size={18} />
+                    <span>Trabajo</span>
+                </button>
+
+                {/* Actions Tab */}
+                <button
+                    onClick={() => setActiveTab('ACTIONS')}
+                    className={`
+                        flex-1 py-3 px-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5
+                        ${activeTab === 'ACTIONS'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <CheckCircle size={18} />
+                    <span>Estado</span>
+                </button>
             </div>
         </div >
     );

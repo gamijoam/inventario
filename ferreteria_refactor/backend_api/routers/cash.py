@@ -4,11 +4,14 @@ from sqlalchemy import func, or_
 from typing import List, Dict, Optional
 from datetime import datetime, date
 from decimal import Decimal
+import logging
 from ..database.db import get_db
 from ..dependencies import get_current_active_user
 from ..models import models
 from ..websocket.manager import manager
 from .. import schemas
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/cash",

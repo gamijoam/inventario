@@ -33,7 +33,8 @@ import {
     ArrowRight,
     Download,
     Wrench,
-    ShieldCheck // NEW: RMA
+    ShieldCheck, // NEW: RMA
+    X // NEW: Mobile close button
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -41,7 +42,7 @@ import { useConfig } from '../../context/ConfigContext';
 
 // Moved inside component to use context
 
-export default function Sidebar({ isCollapsed, toggleSidebar }) {
+export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const location = useLocation();
     const navigate = useNavigate();
     const { logout, user } = useAuth();
@@ -186,10 +187,29 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
     return (
         <aside
             className={cn(
-                "bg-white border-r border-slate-200 fixed h-full flex flex-col z-50 transition-all duration-300 ease-in-out shadow-sm",
-                isCollapsed ? "w-20" : "w-64"
+                "bg-white border-r border-slate-200 fixed h-full transition-all duration-300 ease-in-out shadow-sm inset-y-0 left-0",
+                // DESKTOP: Always visible as flex, width based on collapse state
+                "md:flex flex-col",
+                isCollapsed ? "md:w-20" : "md:w-64",
+                "md:z-10",
+                // MOBILE: Conditional visibility - only apply on mobile screens
+                isMobileMenuOpen ? "flex max-md:flex" : "hidden max-md:hidden",
+                "max-md:w-64 max-md:z-50",
+                // Mobile slide animation - only on mobile
+                isMobileMenuOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full"
             )}
         >
+            {/* Mobile Close Button - Only visible on mobile */}
+            {isMobileMenuOpen && (
+                <button
+                    onClick={closeMobileMenu}
+                    className="md:hidden absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors z-10"
+                    aria-label="Cerrar menú"
+                >
+                    <X size={20} />
+                </button>
+            )}
+
             <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 relative bg-slate-50/50">
                 {!isCollapsed && (
                     <div className="flex items-center gap-2 font-bold text-xl text-slate-800 transition-opacity duration-300">
@@ -207,9 +227,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                     </div>
                 )}
 
+                {/* Desktop collapse button - Hidden on mobile */}
                 <button
                     onClick={toggleSidebar}
-                    className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 shadow-sm transition-colors z-30 transform hover:scale-110"
+                    className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 shadow-sm transition-colors z-30 transform hover:scale-110"
                 >
                     {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
                 </button>
@@ -224,6 +245,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                             <Link
                                 key={group.item.path}
                                 to={group.item.path}
+                                onClick={closeMobileMenu} // Close mobile menu on navigation
                                 className={cn(
                                     "flex items-center px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative my-1",
                                     isActive
@@ -333,6 +355,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
                                         <Link
                                             key={subItem.path}
                                             to={subItem.path}
+                                            onClick={closeMobileMenu} // Close mobile menu on navigation
                                             className={cn(
                                                 "flex items-center px-3 py-2 rounded-lg text-xs font-medium transition-all relative",
                                                 isSubActive

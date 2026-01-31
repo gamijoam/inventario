@@ -563,7 +563,8 @@ const POS = () => {
     };
 
     // Mobile View State
-    const [mobileTab, setMobileTab] = useState('catalog'); // 'catalog' | 'ticket'
+    const [activeTab, setActiveTab] = useState('CATALOG'); // 'CATALOG' | 'CART'
+
 
     return (
         <div className={`flex flex-col md:flex-row h-screen overflow-hidden relative p-4 gap-4 transition-colors duration-500 ${currentTheme.app_bg || 'bg-slate-100'}`}>
@@ -574,7 +575,7 @@ const POS = () => {
             <div className={`
                 flex-col min-w-0 transition-all z-0 rounded-3xl shadow-xl border overflow-hidden
                 ${currentTheme.left_bg} ${currentTheme.border_color}
-                ${mobileTab === 'catalog' ? 'flex w-full' : 'hidden md:flex flex-1'}
+                ${activeTab === 'CATALOG' ? 'flex w-full' : 'hidden md:flex flex-1'}
             `}>
                 {/* Header Bar */}
                 <div className={`border-b px-6 py-4 flex justify-between items-center backdrop-blur-sm ${currentTheme.border_color} bg-white/20`}>
@@ -732,7 +733,7 @@ const POS = () => {
             <div className={`
                 backdrop-blur-xl flex-col rounded-3xl shadow-2xl border border-white/60 overflow-hidden
                 ${currentTheme.right_bg}
-                ${mobileTab === 'ticket' ? 'flex w-full absolute inset-0 z-50' : 'hidden md:flex w-[35%] lg:w-[30%]'}
+                ${activeTab === 'CART' ? 'flex w-full absolute inset-0 z-50' : 'hidden md:flex w-[35%] lg:w-[30%]'}
             `}>
                 {/* Ticket Header */}
                 <div className="bg-gradient-to-r from-slate-50 to-white p-5 border-b border-white flex justify-between items-center">
@@ -990,10 +991,10 @@ const POS = () => {
 
                 {/* MOBILE FLOATING ACTION BUTTON (Summary) - Only visible when in Catalog mode and cart has items */}
                 {
-                    mobileTab === 'catalog' && cart.length > 0 && (
+                    activeTab === 'CATALOG' && cart.length > 0 && (
                         <div className="md:hidden fixed bottom-6 left-4 right-4 z-30">
                             <button
-                                onClick={() => setMobileTab('ticket')}
+                                onClick={() => setActiveTab('CART')}
                                 className="w-full bg-slate-800 text-white p-4 rounded-xl shadow-2xl flex justify-between items-center animate-bounce-slight"
                             >
                                 <div className="flex items-center gap-3">
@@ -1105,6 +1106,46 @@ const POS = () => {
                     <CashOpeningModal onOpen={openSession} />
                 )
             }
+
+            {/* =====================================================================================
+                MOBILE TAB SWITCHER - Bottom Navigation (Priority 4 Fix)
+               ===================================================================================== */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex gap-3 z-50 shadow-2xl">
+                {/* Catalog Tab */}
+                <button
+                    onClick={() => setActiveTab('CATALOG')}
+                    className={`
+                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2
+                        ${activeTab === 'CATALOG'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <Package size={20} />
+                    <span>Catálogo</span>
+                </button>
+
+                {/* Cart Tab with Badge */}
+                <button
+                    onClick={() => setActiveTab('CART')}
+                    className={`
+                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 relative
+                        ${activeTab === 'CART'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <Receipt size={20} />
+                    <span>Ticket</span>
+                    {cart.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-md">
+                            {cart.length}
+                        </span>
+                    )}
+                </button>
+            </div>
         </div>
     );
 };

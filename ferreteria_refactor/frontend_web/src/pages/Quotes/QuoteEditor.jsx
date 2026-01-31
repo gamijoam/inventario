@@ -18,6 +18,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
     const [notes, setNotes] = useState('');
     const [saving, setSaving] = useState(false);
     const [customers, setCustomers] = useState([]);
+    const [activeTab, setActiveTab] = useState('CATALOG'); // 'CATALOG' | 'CART'
 
     // Refs
     const searchRef = useRef(null);
@@ -166,9 +167,9 @@ const QuoteEditor = ({ quoteId, onBack }) => {
     };
 
     return (
-        <div className="h-full flex flex-col md:flex-row gap-4 p-4 lg:p-0">
+        <div className="h-full flex flex-col md:flex-row gap-4 p-4 lg:p-0 pb-20 md:pb-4">
             {/* LEFT: Catalog (60-70%) */}
-            <div className="flex-1 bg-slate-50 flex flex-col overflow-hidden rounded-2xl border border-slate-200">
+            <div className={`flex-1 bg-slate-50 flex-col overflow-hidden rounded-2xl border border-slate-200 ${activeTab === 'CATALOG' ? 'flex' : 'hidden md:flex'}`}>
                 {/* Search Bar */}
                 <div className="p-4 bg-white border-b border-slate-200">
                     <div className="relative">
@@ -232,7 +233,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
             </div>
 
             {/* RIGHT: Quote Builder (30-40%) */}
-            <div className="w-full md:w-[400px] xl:w-[480px] bg-white flex flex-col shadow-xl z-20 rounded-2xl border border-slate-200 overflow-hidden">
+            <div className={`bg-white flex-col shadow-xl z-20 rounded-2xl border border-slate-200 overflow-hidden ${activeTab === 'CART' ? 'flex w-full md:w-[400px] xl:w-[480px]' : 'hidden md:flex md:w-[400px] xl:w-[480px]'}`}>
                 {/* Header Actions */}
                 <div className="p-4 border-b border-slate-200 bg-slate-50/80 backdrop-blur-sm flex items-center justify-between">
                     <button
@@ -354,6 +355,46 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                 onClose={() => setIsCustomerModalOpen(false)}
                 onSuccess={handleCustomerCreated}
             />
+
+            {/* =====================================================================================
+                MOBILE TAB SWITCHER - Bottom Navigation
+               ===================================================================================== */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex gap-3 z-50 shadow-2xl">
+                {/* Catalog Tab */}
+                <button
+                    onClick={() => setActiveTab('CATALOG')}
+                    className={`
+                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2
+                        ${activeTab === 'CATALOG'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <Layers size={20} />
+                    <span>Catálogo</span>
+                </button>
+
+                {/* Cart Tab with Badge */}
+                <button
+                    onClick={() => setActiveTab('CART')}
+                    className={`
+                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 relative
+                        ${activeTab === 'CART'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <ShoppingCart size={20} />
+                    <span>Cotización</span>
+                    {cart.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-md">
+                            {cart.length}
+                        </span>
+                    )}
+                </button>
+            </div>
         </div>
     );
 };

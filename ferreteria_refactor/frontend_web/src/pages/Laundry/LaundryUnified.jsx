@@ -37,6 +37,10 @@ const LaundryUnified = () => {
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [showLateOnly, setShowLateOnly] = useState(false);
 
+    // --- MOBILE TAB STATE ---
+    const [activeTab, setActiveTab] = useState('DASHBOARD'); // 'DASHBOARD' | 'FORM'
+
+
     // --- NEW ORDER FORM STATE ---
     const [isCreating, setIsCreating] = useState(false); // Mobile toggle or generic state
     const [ticketNumber, setTicketNumber] = useState(null);
@@ -328,10 +332,10 @@ const LaundryUnified = () => {
     const filteredOrders = getFilteredOrders();
 
     return (
-        <div className="flex h-[calc(100vh-70px)] overflow-hidden bg-slate-50 relative z-0 w-full">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-70px)] overflow-hidden bg-slate-50 relative z-0 w-full pb-20 md:pb-0">
 
             {/* LEFT PANEL: DASHBOARD (65%) */}
-            <div className="flex-1 flex flex-col min-w-0 border-r border-slate-200">
+            <div className={`flex-1 flex-col min-w-0 border-r border-slate-200 ${activeTab === 'DASHBOARD' ? 'flex' : 'hidden md:flex'}`}>
                 {/* Header & Filters */}
                 <div className="p-4 bg-white border-b border-slate-100 flex flex-col gap-3">
                     <div className="flex justify-between items-center">
@@ -407,7 +411,7 @@ const LaundryUnified = () => {
             </div>
 
             {/* RIGHT PANEL: QUICK ORDER */}
-            <div className="w-[480px] bg-white shadow-xl flex flex-col transition-all duration-300 z-10 border-l border-slate-200 shrink-0">
+            <div className={`bg-white shadow-xl flex-col transition-all duration-300 z-10 border-l border-slate-200 shrink-0 ${activeTab === 'FORM' ? 'flex w-full md:w-[480px]' : 'hidden md:flex md:w-[480px]'}`}>
                 <div className="p-4 bg-indigo-600 text-white shadow-lg flex justify-between items-center relative overflow-hidden shrink-0">
                     <div className="relative z-10">
                         <h2 className="text-lg font-bold flex items-center gap-2">
@@ -723,6 +727,46 @@ const LaundryUnified = () => {
                     onClose={() => { setSelectedOrder(null); setRefreshTrigger(p => p + 1); }}
                 />
             )}
+
+            {/* =====================================================================================
+                MOBILE TAB SWITCHER - Bottom Navigation
+               ===================================================================================== */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex gap-3 z-50 shadow-2xl">
+                {/* Dashboard Tab */}
+                <button
+                    onClick={() => setActiveTab('DASHBOARD')}
+                    className={`
+                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2
+                        ${activeTab === 'DASHBOARD'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <LayoutGrid size={20} />
+                    <span>Dashboard</span>
+                </button>
+
+                {/* Form Tab with Badge */}
+                <button
+                    onClick={() => setActiveTab('FORM')}
+                    className={`
+                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 relative
+                        ${activeTab === 'FORM'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <Plus size={20} />
+                    <span>Nuevo Pedido</span>
+                    {cart.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-md">
+                            {cart.length}
+                        </span>
+                    )}
+                </button>
+            </div>
         </div>
     );
 };

@@ -13,30 +13,32 @@ const formatStock = (stock) => {
 
 const CreatePurchase = () => {
     const navigate = useNavigate();
-    const searchInputRef = useRef(null);
-    const productSearchRef = useRef(null);
 
     // State
     const [suppliers, setSuppliers] = useState([]);
     const [products, setProducts] = useState([]);
-    const [warehouses, setWarehouses] = useState([]); // NEW
+    const [warehouses, setWarehouses] = useState([]);
     const [selectedSupplier, setSelectedSupplier] = useState(null);
-    const [selectedWarehouse, setSelectedWarehouse] = useState(null); // NEW
+    const [selectedWarehouse, setSelectedWarehouse] = useState(null);
+    const [purchaseItems, setPurchaseItems] = useState([]);
+    const [productSearch, setProductSearch] = useState('');
     const [supplierSearch, setSupplierSearch] = useState('');
     const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+    const [paymentType, setPaymentType] = useState('CASH'); // CASH or CREDIT
+    const [showCostUpdateModal, setShowCostUpdateModal] = useState(null);
+    const [activeTab, setActiveTab] = useState('ITEMS'); // 'ITEMS' | 'SUMMARY'
 
     const [invoiceData, setInvoiceData] = useState({
         invoice_number: '',
         purchase_date: new Date().toISOString().split('T')[0],
-        due_date: '',
+        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         notes: ''
     });
 
-    const [purchaseItems, setPurchaseItems] = useState([]);
-    const [productSearch, setProductSearch] = useState('');
+    // Refs
+    const searchInputRef = useRef(null);
+    const productSearchRef = useRef(null);
     const [filteredProducts, setFilteredProducts] = useState([]);
-    const [paymentType, setPaymentType] = useState('CREDIT'); // CASH or CREDIT
-    const [showCostUpdateModal, setShowCostUpdateModal] = useState(null);
 
     // Load suppliers, products, and warehouses
     const fetchSuppliers = async () => {
@@ -251,7 +253,7 @@ const CreatePurchase = () => {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50 gap-4 p-4">
+        <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50 gap-4 p-4 pb-20 md:pb-4">
             {/* TOP HEADER: Invoice & Supplier Info */}
             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex-shrink-0 z-30">
                 <div className="flex gap-6 items-start">
@@ -390,9 +392,9 @@ const CreatePurchase = () => {
             </div>
 
             {/* MAIN CONTENT: Items & Search */}
-            <div className="flex-1 flex gap-4 overflow-hidden">
+            <div className="flex-1 flex gap-4 overflow-hidden md:flex-row flex-col">
                 {/* LEFT: Items List */}
-                <div className="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-2xl shadow-sm">
+                <div className={`flex-1 flex-col overflow-hidden bg-white border border-slate-200 rounded-2xl shadow-sm ${activeTab === 'ITEMS' ? 'flex' : 'hidden md:flex'}`}>
                     {/* Search Bar */}
                     <div className="p-4 border-b border-slate-100 bg-slate-50/50 z-20">
                         <div className="relative">
@@ -561,7 +563,7 @@ const CreatePurchase = () => {
                 </div>
 
                 {/* RIGHT SIDEBAR: Actions & Payment */}
-                <div className="w-80 flex flex-col gap-4 overflow-y-auto pb-2">
+                <div className={`flex flex-col gap-4 overflow-y-auto pb-2 ${activeTab === 'SUMMARY' ? 'flex w-full md:w-80' : 'hidden md:flex md:w-80'}`}>
                     <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                         <h3 className="text-xs font-bold text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <ArrowRight size={14} className="text-indigo-600" /> Condiciones
@@ -760,6 +762,46 @@ const CreatePurchase = () => {
                     </div>
                 </div>
             )}
+
+            {/* =====================================================================================
+                MOBILE TAB SWITCHER - Bottom Navigation
+               ===================================================================================== */}
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex gap-3 z-50 shadow-2xl">
+                {/* Items Tab */}
+                <button
+                    onClick={() => setActiveTab('ITEMS')}
+                    className={`
+                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2
+                        ${activeTab === 'ITEMS'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <Package size={20} />
+                    <span>Items</span>
+                    {purchaseItems.length > 0 && (
+                        <span className="ml-1 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                            {purchaseItems.length}
+                        </span>
+                    )}
+                </button>
+
+                {/* Summary Tab */}
+                <button
+                    onClick={() => setActiveTab('SUMMARY')}
+                    className={`
+                        flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 relative
+                        ${activeTab === 'SUMMARY'
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }
+                    `}
+                >
+                    <DollarSign size={20} />
+                    <span>Resumen</span>
+                </button>
+            </div>
         </div>
 
     );
