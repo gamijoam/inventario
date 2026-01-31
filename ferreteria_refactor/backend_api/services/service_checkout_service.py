@@ -178,7 +178,9 @@ class ServiceCheckoutService:
                         amount=p.amount,
                         currency=p.currency,
                         payment_method=p.payment_method,
-                        exchange_rate=p.exchange_rate
+                        exchange_rate=p.exchange_rate,
+                        reference=p.reference, # NEW
+                        payment_date=p.payment_date # NEW
                     )
                     db.add(pay)
             else:
@@ -187,7 +189,9 @@ class ServiceCheckoutService:
                      amount=new_sale.total_amount,
                      currency=new_sale.currency,
                      payment_method=new_sale.payment_method,
-                     exchange_rate=new_sale.exchange_rate_used
+                     exchange_rate=new_sale.exchange_rate_used,
+                     reference=payment_data.reference, # NEW
+                     payment_date=payment_data.payment_date # NEW
                  )
                  db.add(pay)
 

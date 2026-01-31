@@ -101,7 +101,17 @@ class SalesService:
             is_service_only = True
             for item in sale_data.items:
                  prod = db.query(models.Product).filter(models.Product.id == item.product_id).first()
-                 if prod and not (prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']):
+                 
+                 is_service = False
+                 if prod:
+                     # Check Unit Type
+                     if prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']:
+                         is_service = True
+                     # Check Category Name (Robust fallback)
+                     elif prod.category and ('SERVICIO' in prod.category.name.upper() or 'LAVANDERIA' in prod.category.name.upper() or 'LAUNDRY' in prod.category.name.upper()):
+                         is_service = True
+                         
+                 if not is_service:
                      is_service_only = False
                      break
             
@@ -221,7 +231,14 @@ class SalesService:
                      
                 
                 # New: Determine if Product is a Service (Skip Stock Check)
-                is_service = product.unit_type and product.unit_type.upper() in ['SERVICIO', 'SERVICE']
+                is_service = False
+                if product.unit_type:
+                     ut_upper = product.unit_type.upper()
+                     if 'SERVICIO' in ut_upper or 'SERVICE' in ut_upper:
+                         is_service = True
+                
+                if not is_service and product.category and ('SERVICIO' in product.category.name.upper() or 'LAVANDERIA' in product.category.name.upper() or 'LAUNDRY' in product.category.name.upper()):
+                     is_service = True
 
                 # NEW: COMBO LOGIC - Check if product is a combo
                 if product.is_combo:
@@ -448,7 +465,8 @@ class SalesService:
                         amount=p.amount,
                         currency=p.currency,
                         payment_method=p.payment_method,
-                        exchange_rate=p.exchange_rate
+                        exchange_rate=p.exchange_rate,
+                        reference=p.reference # New: Mapped from frontend
                     )
                     db.add(new_payment)
             else:
@@ -596,7 +614,8 @@ class SalesService:
                 "method": p.payment_method,
                 "amount": float(p.amount), # Raw value
                 "formatted_amount": fmt_money(float(p.amount), p_currency),
-                "currency": p_currency
+                "currency": p_currency,
+                "reference": p.reference if p.reference else None
             })
 
         # Totals
@@ -705,6 +724,9 @@ REF:   {{ sale.formatted_total_ref }}
 PAGOS:
 {% for pay in sale.payments %}
 - {{ pay.method }}: {{ pay.formatted_amount }}
+{% if pay.reference %}  (Ref: {{ pay.reference }})
+{% endif %}
+{% endfor %}
 {% endfor %}
 SU CAMBIO: {{ sale.formatted_change }}
 </left>
@@ -855,14 +877,52 @@ Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
             raise HTTPException(status_code=404, detail="Sale not found")
         
         # 2. Record Payment
+        # Determine payment date (allow backdating)
+        actual_date = payment_data.payment_date if payment_data.payment_date else datetime.now()
+
+        # 2. Record Payment
         payment = models.SalePayment(
             sale_id=payment_data.sale_id,
             amount=payment_data.amount,
             currency=payment_data.currency,
             payment_method=payment_data.payment_method,
-            exchange_rate=payment_data.exchange_rate
+            exchange_rate=payment_data.exchange_rate,
+            reference=payment_data.reference,
+            payment_date=actual_date
         )
         db.add(payment)
+        
+        # FIX: Link to Cash Session if Sale is from a Previous Session
+        # Logic: If Sale.date < Session.start_time, then 'financials.py' ignores this SalePayment.
+        # So we MUST create a 'models.Payment' (Debt Payment) to show it in the Session Report.
+        # If Sale is from THIS session, 'financials.py' already picks up the SalePayment.
+        
+        active_session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
+        if active_session:
+            # Check if Sale is older than session start
+            # Use buffer of 1 minute to avoid race conditions
+            if sale.date < active_session.start_time:
+                print(f"[INFO] Registering Debt Payment for OLD Sale #{sale.id} in Session #{active_session.id}")
+                
+                # Calculate Bs Amount if needed
+                amount_bs = None
+                if payment_data.currency in ["Bs", "VES"]:
+                    amount_bs = payment_data.amount
+                elif payment_data.currency == "USD" and payment_data.exchange_rate:
+                    amount_bs = payment_data.amount * payment_data.exchange_rate
+
+                debt_payment = models.Payment(
+                    customer_id=sale.customer_id,
+                    amount=payment_data.amount,
+                    currency=payment_data.currency,
+                    payment_method=payment_data.payment_method,
+                    exchange_rate_used=payment_data.exchange_rate,
+                    amount_bs=amount_bs,
+                    session_id=active_session.id,
+                    description=f"Abono Factura #{sale.id}",
+                    date=actual_date # Use Backdated Date
+                )
+                db.add(debt_payment)
         
         # 3. Calculate Amount in Sales Currency (USD/Anchor)
         # Assuming sale.balance_pending is in USD (Anchor)

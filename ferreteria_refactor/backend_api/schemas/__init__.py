@@ -270,6 +270,9 @@ class SalePaymentCreate(BaseModel):
     currency: str = "USD"
     payment_method: str = "Efectivo"
     exchange_rate: Decimal = Decimal("1.0")
+    # NEW: Mobile/Laundry Support
+    reference: Optional[str] = None
+    payment_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -320,6 +323,10 @@ class ServiceCheckoutPayment(BaseModel):
     
     warehouse_id: Optional[int] = None 
     unique_uuid: Optional[str] = None # Support idempotency if needed
+    
+    # NEW
+    reference: Optional[str] = None
+    payment_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -331,6 +338,8 @@ class SalePaymentRead(BaseModel):
     currency: str
     payment_method: str
     exchange_rate: Decimal
+    reference: Optional[str] = None
+    payment_date: Optional[datetime] = None
     
     class Config:
         from_attributes = True
@@ -987,6 +996,7 @@ class TransferResultSchema(BaseModel):
 class ServiceOrderDetailBase(BaseModel):
     product_id: Optional[int] = None
     description: Optional[str] = None # New for manual items
+    observations: Optional[str] = None # Special notes/instructions
     quantity: Decimal = Decimal("1.000")
     unit_price: Decimal
     technician_id: Optional[int] = None
@@ -999,6 +1009,8 @@ class ServiceOrderDetailRead(ServiceOrderDetailBase):
     service_order_id: int
     cost: Decimal
     is_manual: bool = False
+    observations: Optional[str] = None
+    created_at: datetime
     
     product: Optional[ProductRead] = None
     technician: Optional[UserRead] = None
@@ -1048,6 +1060,9 @@ class ServiceOrderUpdate(BaseModel):
     priority: Optional[ServicePriority] = None
 
 class ServiceOrderCreate(ServiceOrderBase):
+    # NEW: Support Multi-Item creation
+    items: List[ServiceOrderDetailCreate] = []
+
     @validator('problem_description')
     def validate_tech_fields(cls, v, values):
         service_type = values.get('service_type', ServiceType.REPAIR)

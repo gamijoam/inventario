@@ -34,6 +34,11 @@ const AccountsReceivable = () => {
     const [paymentMethod, setPaymentMethod] = useState('Efectivo');
     const [paymentCurrency, setPaymentCurrency] = useState('USD');
 
+    // NEW: Payment Date State (Defaults to Today)
+    const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+    // NEW: Reference State
+    const [reference, setReference] = useState('');
+
     // NEW: Invoice Detail Modal
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [detailSale, setDetailSale] = useState(null);
@@ -229,6 +234,13 @@ const AccountsReceivable = () => {
             return;
         }
 
+        // Validate Reference
+        const currentM = paymentMethods.find(pm => pm.name === paymentMethod);
+        if (currentM?.requires_reference && !reference.trim()) {
+            toast.error(`El método ${paymentMethod} requiere número de referencia`);
+            return;
+        }
+
         // Determine Rate to Use
         let rateToUse = getCurrentRate();
         // If currency is USD, rate is functionally 1 for calculations, but we record the rate used?
@@ -312,7 +324,10 @@ const AccountsReceivable = () => {
                 amount: finalAmount,
                 currency: paymentCurrency,
                 payment_method: paymentMethod,
-                exchange_rate: rateToUse
+                exchange_rate: rateToUse,
+                // NEW: Send Payment Date
+                payment_date: paymentDate ? new Date(paymentDate).toISOString() : new Date().toISOString(),
+                reference: reference
             });
 
             // Cash Movement (Optional validation)
@@ -906,6 +921,18 @@ const AccountsReceivable = () => {
                                 </div>
                             )}
 
+                            {/* Payment Date Picker */}
+                            <div className="bg-white/50 rounded-xl mb-4">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Fecha de Pago</label>
+                                <input
+                                    type="date"
+                                    value={paymentDate}
+                                    max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                                    onChange={(e) => setPaymentDate(e.target.value)}
+                                    className="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700"
+                                />
+                            </div>
+
                             {/* Dual Inputs */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -982,6 +1009,22 @@ const AccountsReceivable = () => {
                                         ))}
                                     </select>
                                 </div>
+
+                                {/* Reference Input (Conditional) */}
+                                {paymentMethods.find(pm => pm.name === paymentMethod)?.requires_reference && (
+                                    <div className="col-span-2 animate-in fade-in slide-in-from-top-2">
+                                        <label className="block text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">
+                                            Referencia / Nro. Transacción
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={reference}
+                                            onChange={(e) => setReference(e.target.value)}
+                                            placeholder="Ej: 12345678"
+                                            className="w-full p-2.5 bg-indigo-50/50 border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-indigo-700 placeholder:text-indigo-300"
+                                        />
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Moneda de Pago</label>

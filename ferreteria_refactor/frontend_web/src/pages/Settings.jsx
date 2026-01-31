@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Building2, Coins, Receipt, Save, RefreshCw, Trash2, Plus, Edit, Check, X, Star, AlertCircle, Loader2, Globe, Printer, CreditCard, ChevronRight } from 'lucide-react';
+import { Building2, Coins, Receipt, Save, RefreshCw, Trash2, Plus, Edit, Check, X, Star, AlertCircle, Loader2, Globe, Printer, CreditCard, ChevronRight, DollarSign } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useConfig } from '../context/ConfigContext';
 import configService from '../services/configService';
 import apiClient from '../config/axios';
@@ -21,8 +22,9 @@ const PREDEFINED_CURRENCIES = [
 ];
 
 const Settings = () => {
+    const location = useLocation();
     const { business, refreshConfig } = useConfig();
-    const [activeTab, setActiveTab] = useState('business');
+    const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'business');
 
     // Local Forms State
     const [bizForm, setBizForm] = useState({ name: '', document_id: '', address: '', phone: '' });
@@ -33,65 +35,9 @@ const Settings = () => {
     const [showAddRateModal, setShowAddRateModal] = useState(false);
     const [showAddCurrencyModal, setShowAddCurrencyModal] = useState(false);
     const [newRate, setNewRate] = useState({ name: '', rate: '' });
-    const [editingRate, setEditingRate] = useState(null); // New state for editing
     const [newCurrency, setNewCurrency] = useState({ code: '', symbol: '' });
     const [isRatesLoading, setIsRatesLoading] = useState(false);
     const [ratesError, setRatesError] = useState(null);
-
-    // ... (keep existing code up to handleAddRate) ...
-
-    const handleAddRate = async () => {
-        if (!newRate.name || !newRate.rate || !selectedCurrency) {
-            toast.error('Por favor completa todos los campos');
-            return;
-        }
-
-        try {
-            if (editingRate) {
-                // UPDATE EXISTING RATE
-                await apiClient.put(`/config/exchange-rates/${editingRate.id}`, {
-                    name: newRate.name,
-                    rate: parseFloat(newRate.rate),
-                    is_active: newRate.is_active // Include is_active status
-                });
-                toast.success('Tasa actualizada exitosamente');
-            } else {
-                // CREATE NEW RATE
-                let symbol = '$';
-                const existingRate = exchangeRates.find(r => r.currency_code === selectedCurrency);
-                if (existingRate) {
-                    symbol = existingRate.currency_symbol;
-                } else {
-                    const predefined = PREDEFINED_CURRENCIES.find(c => c.code === selectedCurrency);
-                    if (predefined) symbol = predefined.symbol;
-                }
-
-                await apiClient.post('/config/exchange-rates', {
-                    name: newRate.name,
-                    currency_code: selectedCurrency,
-                    currency_symbol: symbol,
-                    rate: parseFloat(newRate.rate),
-                    is_default: false,
-                    is_active: newRate.is_active !== undefined ? newRate.is_active : true
-                });
-                toast.success('Tasa agregada exitosamente');
-            }
-
-            setNewRate({ name: '', rate: '' });
-            setEditingRate(null);
-            setShowAddRateModal(false);
-            fetchExchangeRates();
-            refreshConfig();
-        } catch (error) {
-            console.error('Error saving rate:', error);
-            toast.error('Error al guardar tasa: ' + (error.response?.data?.detail || "Error desconocido"));
-        }
-    };
-
-    // ... (keep handleUpdateRate, handleDeleteRate, etc.) ...
-
-    // ... (Inside the render loop for rates) ...
-
 
     // Tax Settings State
     const [defaultTaxRate, setDefaultTaxRate] = useState('');
@@ -171,7 +117,41 @@ const Settings = () => {
         }
     };
 
+    const handleAddRate = async () => {
+        if (!newRate.name || !newRate.rate || !selectedCurrency) {
+            toast.error('Por favor completa todos los campos');
+            return;
+        }
 
+        try {
+            let symbol = '$';
+            const existingRate = exchangeRates.find(r => r.currency_code === selectedCurrency);
+            if (existingRate) {
+                symbol = existingRate.currency_symbol;
+            } else {
+                const predefined = PREDEFINED_CURRENCIES.find(c => c.code === selectedCurrency);
+                if (predefined) symbol = predefined.symbol;
+            }
+
+            await apiClient.post('/config/exchange-rates', {
+                name: newRate.name,
+                currency_code: selectedCurrency,
+                currency_symbol: symbol,
+                rate: parseFloat(newRate.rate),
+                is_default: false,
+                is_active: true
+            });
+
+            setNewRate({ name: '', rate: '' });
+            setShowAddRateModal(false);
+            fetchExchangeRates();
+            refreshConfig(); // Force global update
+            toast.success('Tasa agregada exitosamente');
+        } catch (error) {
+            console.error('Error adding rate:', error);
+            toast.error('Error al agregar tasa: ' + (error.response?.data?.detail || "Error desconocido"));
+        }
+    };
 
     const handleUpdateRate = async (rateId, field, value) => {
         try {
@@ -343,210 +323,283 @@ const Settings = () => {
                         </div>
                     )}
 
-                    {/* Currencies Tab (REDESIGNED) */}
+                    {/* Currencies Tab */}
                     {activeTab === 'currencies' && (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-
-                            {/* Header & Actions */}
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col">
+                            {/* Header */}
+                            <div className="p-6 border-b border-slate-200/60 flex justify-between items-center bg-white/80 backdrop-blur-sm sticky top-0 z-10">
                                 <div>
-                                    <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Monedas y Tasas de Cambio</h2>
-                                    <p className="text-slate-500 font-medium mt-1">Configura las monedas aceptadas y sus tasas de conversión diarias.</p>
+                                    <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+                                        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2.5 rounded-xl shadow-lg shadow-indigo-200">
+                                            <Coins size={24} className="text-white" />
+                                        </div>
+                                        Gestión de Monedas
+                                    </h2>
+                                    <p className="text-slate-500 text-sm font-medium mt-1 ml-1">Administra tasas de cambio y monedas del sistema</p>
                                 </div>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={fetchExchangeRates}
-                                        disabled={isRatesLoading}
-                                        className="bg-white hover:bg-slate-50 text-slate-600 px-4 py-3 rounded-xl border-2 border-slate-100 font-bold flex items-center transition-all disabled:opacity-50 gap-2 shadow-sm active:scale-95"
-                                    >
-                                        {isRatesLoading ? <Loader2 size={20} className="animate-spin" /> : <RefreshCw size={20} />}
-                                        <span className="hidden sm:inline">Actualizar</span>
-                                    </button>
-                                    <button
-                                        onClick={() => setShowAddCurrencyModal(true)}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-xl font-bold flex items-center shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5 active:scale-95 gap-2"
-                                    >
-                                        <Plus size={20} />
-                                        <span>Nueva Moneda</span>
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={fetchExchangeRates}
+                                    disabled={isRatesLoading}
+                                    className="bg-white hover:bg-slate-50 text-slate-700 px-5 py-2.5 rounded-xl border border-slate-200 font-bold flex items-center transition-all disabled:opacity-50 gap-2 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95"
+                                >
+                                    {isRatesLoading ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                                    Actualizar
+                                </button>
                             </div>
 
                             {ratesError && (
-                                <div className="p-4 bg-rose-50 border border-rose-100 text-rose-700 rounded-2xl flex items-center shadow-sm">
-                                    <AlertCircle size={24} className="mr-3 flex-shrink-0" />
-                                    <p className="font-bold">{ratesError}</p>
+                                <div className="m-6 p-4 bg-gradient-to-r from-rose-50 to-red-50 border border-rose-200 text-rose-700 rounded-xl flex items-center shadow-sm">
+                                    <AlertCircle size={20} className="mr-3 flex-shrink-0" />
+                                    <p className="font-medium">{ratesError}</p>
                                 </div>
                             )}
 
-                            {/* Base Currency Card */}
-                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-6 text-white shadow-xl shadow-emerald-200 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                                    <div className="flex items-center gap-5">
-                                        <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm border border-white/10">
-                                            <Coins size={32} className="text-white" />
+                            {/* Base Currency Banner */}
+                            <div className="mx-6 mt-6 mb-4 p-6 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 rounded-2xl shadow-lg relative overflow-hidden">
+                                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
+                                <div className="relative flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-white/20 backdrop-blur-sm text-white p-4 rounded-2xl shadow-lg">
+                                            <DollarSign size={32} strokeWidth={2.5} />
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2 mb-1">
-                                                <span className="bg-emerald-400/30 text-emerald-50 border border-emerald-400/50 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">
-                                                    Base del Sistema
-                                                </span>
+                                                <span className="bg-white/90 text-emerald-700 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wide shadow-sm">Moneda Base</span>
                                             </div>
-                                            <h3 className="text-2xl font-black tracking-tight">Dólar Americano (USD)</h3>
-                                            <p className="text-emerald-50 font-medium opacity-90">Todas las operaciones se calculan en base a esta moneda.</p>
+                                            <h3 className="text-2xl font-black text-white drop-shadow-sm">
+                                                USD - Dólar Americano
+                                            </h3>
+                                            <p className="text-emerald-50 font-medium text-sm mt-1">
+                                                Todas las tasas se calculan en relación a esta moneda
+                                            </p>
                                         </div>
                                     </div>
-                                    <div className="text-center md:text-right bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20">
-                                        <div className="text-xs font-bold text-emerald-100 uppercase tracking-widest mb-1">Tasa Base</div>
-                                        <div className="text-3xl font-black font-mono tracking-tight text-white">$ 1.00</div>
+                                    <div className="bg-white/90 backdrop-blur-sm px-6 py-4 rounded-2xl shadow-lg">
+                                        <div className="text-4xl font-black text-emerald-600 font-mono tracking-tight">$1.00</div>
+                                        <div className="text-xs text-emerald-600/70 font-bold text-center mt-1">USD</div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Currency Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {uniqueCurrencies.filter(c => c.code !== 'USD').map(curr => {
-                                    const rates = groupedRates[curr.code] || [];
-                                    const defaultRate = rates.find(r => r.is_default);
-
-                                    return (
-                                        <div key={curr.code} className="bg-white rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full overflow-hidden group">
-                                            {/* Card Header */}
-                                            <div className="p-6 border-b border-slate-50 bg-slate-50/30">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-xl font-bold text-slate-700">
-                                                        {curr.symbol}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        {defaultRate && (
-                                                            <div className="flex flex-col items-end">
-                                                                <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">Tasa Actual</span>
-                                                                <span className="font-mono font-bold text-slate-800 text-lg">
-                                                                    {parseFloat(defaultRate.rate).toLocaleString('es-VE', { minimumFractionDigits: 2 })} {curr.symbol}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <h3 className="text-xl font-black text-slate-800 tracking-tight">{curr.name}</h3>
-                                                    <div className="flex items-center gap-2 mt-1">
-                                                        <span className="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase tracking-wider border border-slate-200">
-                                                            {curr.code}
-                                                        </span>
-                                                        <span className="text-xs font-medium text-slate-400">
-                                                            {rates.length} {rates.length === 1 ? 'tasa configurada' : 'tasas configuradas'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Rates List (Mini Table) */}
-                                            <div className="flex-1 p-0">
-                                                {rates.length > 0 ? (
-                                                    <div className="divide-y divide-slate-50">
-                                                        {rates.map(rate => (
-                                                            <div key={rate.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group/item">
-                                                                <div className="flex flex-col gap-0.5">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className={clsx("font-bold text-sm", !rate.is_active && "text-slate-400 line-through decoration-slate-300")}>{rate.name}</span>
-                                                                        {rate.is_default && (
-                                                                            <Star size={12} className="text-amber-500 fill-amber-500" />
-                                                                        )}
-                                                                        {!rate.is_active && (
-                                                                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded ml-1">INACTIVA</span>
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="text-xs font-mono text-slate-400">
-                                                                        1 USD = {parseFloat(rate.rate).toLocaleString()}
-                                                                    </div>
-                                                                </div>
-
-                                                                <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 transition-opacity">
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setEditingRate(rate);
-                                                                            setNewRate({ name: rate.name, rate: rate.rate, is_active: rate.is_active });
-                                                                            setShowAddRateModal(true);
-                                                                        }}
-                                                                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                                        title="Editar Tasa"
-                                                                    >
-                                                                        <Edit size={16} />
-                                                                    </button>
-
-                                                                    <button
-                                                                        onClick={() => handleUpdateRate(rate.id, 'is_active', !rate.is_active)}
-                                                                        className={clsx(
-                                                                            "p-2 rounded-lg transition-colors",
-                                                                            rate.is_active
-                                                                                ? "text-emerald-500 hover:bg-emerald-50"
-                                                                                : "text-slate-300 hover:text-emerald-500 hover:bg-emerald-50"
-                                                                        )}
-                                                                        title={rate.is_active ? "Desactivar" : "Activar"}
-                                                                    >
-                                                                        <Check size={16} className={clsx(rate.is_active ? "opacity-100" : "opacity-50")} />
-                                                                    </button>
-
-                                                                    {!rate.is_default && (
-                                                                        <button
-                                                                            onClick={() => handleUpdateRate(rate.id, 'is_default', true)}
-                                                                            className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg"
-                                                                            title="Hacer Predeterminada"
-                                                                        >
-                                                                            <Star size={18} />
-                                                                        </button>
-                                                                    )}
-
-                                                                    <button
-                                                                        onClick={() => handleDeleteRate(rate.id)}
-                                                                        disabled={rate.is_default}
-                                                                        className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg disabled:opacity-0"
-                                                                        title="Eliminar"
-                                                                    >
-                                                                        <Trash2 size={18} />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <div className="p-8 text-center">
-                                                        <p className="text-slate-400 text-sm font-medium">No hay tasas creadas.</p>
-                                                    </div>
+                            <div className="flex flex-col md:flex-row h-full flex-1 min-h-[500px]">
+                                {/* LEFT: Currency List */}
+                                <div className="md:w-72 bg-gradient-to-b from-slate-50 to-slate-100/50 border-r border-slate-200 flex flex-col">
+                                    <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-white/50 backdrop-blur-sm">
+                                        <h3 className="text-xs font-black text-slate-600 uppercase tracking-wider">Monedas Activas</h3>
+                                        <button
+                                            onClick={() => setShowAddCurrencyModal(true)}
+                                            className="p-2 hover:bg-indigo-50 text-indigo-600 rounded-xl transition-all hover:scale-110 active:scale-95 shadow-sm"
+                                            title="Agregar otra moneda"
+                                        >
+                                            <Plus size={18} strokeWidth={2.5} />
+                                        </button>
+                                    </div>
+                                    <div className="p-3 space-y-2 overflow-y-auto flex-1 custom-scrollbar">
+                                        {uniqueCurrencies.map(curr => (
+                                            <button
+                                                key={curr.code}
+                                                onClick={() => setSelectedCurrency(curr.code)}
+                                                className={clsx(
+                                                    "w-full text-left p-4 rounded-xl transition-all border-2 group relative overflow-hidden",
+                                                    selectedCurrency === curr.code
+                                                        ? 'bg-gradient-to-br from-indigo-500 to-purple-600 border-indigo-400 shadow-lg shadow-indigo-200 scale-105'
+                                                        : 'bg-white border-slate-200 hover:border-indigo-200 hover:shadow-md hover:scale-102'
                                                 )}
-                                            </div>
+                                            >
+                                                <div className="flex justify-between items-center relative z-10">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={clsx(
+                                                            "w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all shadow-sm",
+                                                            selectedCurrency === curr.code
+                                                                ? "bg-white/20 backdrop-blur-sm text-white border-2 border-white/30"
+                                                                : "bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600 border-2 border-slate-200"
+                                                        )}>
+                                                            {curr.code.substring(0, 2)}
+                                                        </div>
+                                                        <div>
+                                                            <div className={clsx(
+                                                                "font-black text-base leading-none mb-1",
+                                                                selectedCurrency === curr.code ? "text-white" : "text-slate-800"
+                                                            )}>
+                                                                {curr.code}
+                                                            </div>
+                                                            <div className={clsx(
+                                                                "text-xs font-medium truncate max-w-[100px]",
+                                                                selectedCurrency === curr.code ? "text-white/80" : "text-slate-500"
+                                                            )}>
+                                                                {curr.name}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {curr.rateCount > 0 && (
+                                                        <span className={clsx(
+                                                            "px-2.5 py-1 rounded-lg text-xs font-black shadow-sm",
+                                                            selectedCurrency === curr.code
+                                                                ? "bg-white/20 backdrop-blur-sm text-white border border-white/30"
+                                                                : "bg-indigo-50 text-indigo-600 border border-indigo-100"
+                                                        )}>
+                                                            {curr.rateCount}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {selectedCurrency === curr.code && (
+                                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-12 bg-white rounded-r-full shadow-lg"></div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
 
-                                            {/* Card Footer */}
-                                            <div className="p-4 border-t border-slate-50 bg-white">
+                                {/* RIGHT: Rate Details */}
+                                <div className="flex-1 p-6 bg-white/50 overflow-y-auto">
+                                    {selectedCurrency ? (
+                                        <div className="space-y-6">
+                                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-200">
+                                                <div>
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <span className="text-4xl font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                                                            {selectedCurrency}
+                                                        </span>
+                                                        <span className="bg-gradient-to-br from-slate-100 to-slate-200 text-slate-700 px-3 py-1.5 rounded-xl text-sm font-black border-2 border-slate-200 shadow-sm">
+                                                            {selectedCurrInfo?.symbol}
+                                                        </span>
+                                                    </div>
+                                                    <h3 className="text-base font-bold text-slate-600">
+                                                        {selectedCurrInfo?.name}
+                                                    </h3>
+                                                </div>
                                                 <button
-                                                    onClick={() => {
-                                                        setSelectedCurrency(curr.code);
-                                                        setShowAddRateModal(true);
-                                                    }}
-                                                    className="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 font-bold hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 group/btn"
+                                                    onClick={() => setShowAddRateModal(true)}
+                                                    className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-black flex items-center shadow-lg shadow-indigo-200 transition-all hover:-translate-y-1 hover:shadow-xl active:scale-95 gap-2 text-sm"
                                                 >
-                                                    <Plus size={18} className="group-hover/btn:scale-110 transition-transform" />
-                                                    Agregar Tasa
+                                                    <Plus size={20} strokeWidth={2.5} /> Nueva Tasa
                                                 </button>
                                             </div>
-                                        </div>
-                                    );
-                                })}
 
-                                {/* Add Currency "Ghost" Card */}
-                                <button
-                                    onClick={() => setShowAddCurrencyModal(true)}
-                                    className="bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-8 text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/30 transition-all group min-h-[300px]"
-                                >
-                                    <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                        <Plus size={32} />
-                                    </div>
-                                    <h3 className="text-lg font-bold">Agregar Otra Moneda</h3>
-                                    <p className="text-sm font-medium mt-1 opacity-70">Ej: Euro, Peso Chileno...</p>
-                                </button>
+                                            {/* Rates Cards Grid */}
+                                            {selectedRates.length > 0 ? (
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                                    {selectedRates.map((rate, idx) => (
+                                                        <div
+                                                            key={rate.id}
+                                                            className="group relative bg-white border-2 border-slate-200 rounded-2xl p-5 hover:border-indigo-300 hover:shadow-lg transition-all duration-300 overflow-hidden"
+                                                        >
+                                                            {/* Gradient Accent */}
+                                                            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+
+                                                            {/* Header */}
+                                                            <div className="flex justify-between items-start mb-4">
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center gap-2 mb-1">
+                                                                        <h4 className="font-black text-slate-800 text-lg">{rate.name}</h4>
+                                                                        {rate.is_default && (
+                                                                            <span className="bg-gradient-to-r from-amber-400 to-orange-500 text-white px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wide shadow-sm flex items-center gap-1">
+                                                                                <Star size={10} fill="currentColor" /> Default
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-xs text-slate-400 font-mono">ID: {rate.id}</p>
+                                                                </div>
+
+                                                                {/* Status Toggle */}
+                                                                <button
+                                                                    onClick={() => handleUpdateRate(rate.id, 'is_active', !rate.is_active)}
+                                                                    className={clsx(
+                                                                        "relative inline-flex h-7 w-12 items-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-inner",
+                                                                        rate.is_active ? 'bg-gradient-to-r from-emerald-400 to-green-500' : 'bg-slate-300'
+                                                                    )}
+                                                                    title={rate.is_active ? "Activa" : "Inactiva"}
+                                                                >
+                                                                    <span className={clsx(
+                                                                        "inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform duration-200",
+                                                                        rate.is_active ? 'translate-x-6' : 'translate-x-1'
+                                                                    )} />
+                                                                </button>
+                                                            </div>
+
+                                                            {/* Rate Input */}
+                                                            <div className="mb-4">
+                                                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Valor de Cambio</label>
+                                                                <div className="relative">
+                                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                                                                        $1 USD =
+                                                                    </div>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        defaultValue={rate.rate}
+                                                                        onBlur={(e) => {
+                                                                            const val = parseFloat(e.target.value);
+                                                                            if (val !== rate.rate && val > 0) {
+                                                                                handleUpdateRate(rate.id, 'rate', val);
+                                                                            }
+                                                                        }}
+                                                                        className="w-full pl-24 pr-16 py-3 border-2 border-slate-200 bg-gradient-to-br from-slate-50 to-white rounded-xl font-mono font-black text-slate-800 text-xl focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-sm"
+                                                                    />
+                                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-600 font-black text-sm">
+                                                                        {rate.currency_symbol}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Actions */}
+                                                            <div className="flex gap-2 pt-3 border-t border-slate-100">
+                                                                <button
+                                                                    onClick={() => !rate.is_default && handleUpdateRate(rate.id, 'is_default', true)}
+                                                                    disabled={rate.is_default}
+                                                                    className={clsx(
+                                                                        "flex-1 py-2 px-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2",
+                                                                        rate.is_default
+                                                                            ? "bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 cursor-default border-2 border-amber-200"
+                                                                            : "bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 border-2 border-transparent"
+                                                                    )}
+                                                                    title={rate.is_default ? "Tasa Predeterminada" : "Marcar como predeterminada"}
+                                                                >
+                                                                    <Star size={16} fill={rate.is_default ? 'currentColor' : 'none'} strokeWidth={2.5} />
+                                                                    {rate.is_default ? 'Predeterminada' : 'Marcar'}
+                                                                </button>
+
+                                                                {!rate.is_default && (
+                                                                    <button
+                                                                        onClick={() => handleDeleteRate(rate.id)}
+                                                                        className="px-3 py-2 text-rose-500 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-all border-2 border-transparent hover:border-rose-200"
+                                                                        title="Eliminar"
+                                                                    >
+                                                                        <Trash2 size={18} strokeWidth={2.5} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center py-20 bg-gradient-to-br from-slate-50 to-indigo-50/30 rounded-2xl border-2 border-dashed border-slate-300 text-center px-4">
+                                                    <div className="bg-white p-6 rounded-2xl shadow-lg mb-4">
+                                                        <Coins size={48} className="text-slate-300" strokeWidth={1.5} />
+                                                    </div>
+                                                    <h4 className="text-xl font-black text-slate-700 mb-2">Sin tasas configuradas</h4>
+                                                    <p className="text-slate-500 max-w-xs text-sm font-medium">
+                                                        Para {selectedCurrInfo?.name} aún no tienes perfiles de tasa activos.
+                                                    </p>
+                                                    <button
+                                                        onClick={() => setShowAddRateModal(true)}
+                                                        className="mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-black flex items-center shadow-lg shadow-indigo-200 transition-all hover:-translate-y-1 active:scale-95 gap-2"
+                                                    >
+                                                        <Plus size={20} strokeWidth={2.5} /> Crear Primera Tasa
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-4 py-20">
+                                            <div className="bg-slate-100 p-8 rounded-full">
+                                                <Globe size={64} className="opacity-30" strokeWidth={1.5} />
+                                            </div>
+                                            <p className="font-bold text-lg text-slate-500">Selecciona una moneda</p>
+                                            <p className="text-sm text-slate-400 max-w-xs text-center">Elige una moneda de la lista para gestionar sus tasas de cambio</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -569,8 +622,8 @@ const Settings = () => {
 
             {/* Modal: Agregar Moneda Personalizada */}
             {showAddCurrencyModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-100 ring-4 ring-white/50">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-100">
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
                             <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                                 <Globe className="text-indigo-600" size={24} /> Nueva Moneda
@@ -579,36 +632,33 @@ const Settings = () => {
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="p-6 space-y-5">
-                            <p className="text-slate-500 text-sm font-medium leading-relaxed">Agrega un código de moneda internacional para empezar a gestionar sus tasas.</p>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 pl-1">Código ISO 4217</label>
-                                    <input
-                                        type="text"
-                                        maxLength={3}
-                                        value={newCurrency.code}
-                                        onChange={e => setNewCurrency({ ...newCurrency, code: e.target.value.toUpperCase() })}
-                                        className="w-full text-center p-4 text-3xl font-black text-slate-800 bg-slate-50/50 rounded-2xl border-2 border-slate-100 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all uppercase placeholder:text-slate-300"
-                                        placeholder="EUR"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 pl-1">Símbolo Visual</label>
-                                    <input
-                                        type="text"
-                                        value={newCurrency.symbol}
-                                        onChange={e => setNewCurrency({ ...newCurrency, symbol: e.target.value })}
-                                        className="w-full text-center p-4 text-xl font-bold text-slate-800 bg-slate-50/50 rounded-2xl border-2 border-slate-100 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all placeholder:text-slate-300"
-                                        placeholder="€"
-                                    />
-                                </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-slate-500 text-sm mb-2 font-medium">Agrega un código de moneda personalizado (ISO 4217).</p>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Código (ISO)</label>
+                                <input
+                                    type="text"
+                                    maxLength={3}
+                                    value={newCurrency.code}
+                                    onChange={e => setNewCurrency({ ...newCurrency, code: e.target.value.toUpperCase() })}
+                                    className="w-full text-center p-3 text-2xl font-black text-slate-800 bg-slate-100 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all uppercase placeholder:text-slate-300"
+                                    placeholder="USD"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Símbolo</label>
+                                <input
+                                    type="text"
+                                    value={newCurrency.symbol}
+                                    onChange={e => setNewCurrency({ ...newCurrency, symbol: e.target.value })}
+                                    className="w-full text-center p-3 text-2xl font-black text-slate-800 bg-slate-100 rounded-xl border-transparent focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
+                                    placeholder="$"
+                                />
                             </div>
                         </div>
                         <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex gap-3">
-                            <button onClick={() => setShowAddCurrencyModal(false)} className="flex-1 py-3.5 font-bold text-slate-500 hover:bg-white hover:shadow-sm rounded-xl transition-all">Cancelar</button>
-                            <button onClick={handleAddCustomCurrency} className="flex-1 py-3.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all">Guardar Moneda</button>
+                            <button onClick={() => setShowAddCurrencyModal(false)} className="flex-1 py-2.5 font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors">Cancelar</button>
+                            <button onClick={handleAddCustomCurrency} className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">Guardar</button>
                         </div>
                     </div>
                 </div>
@@ -616,86 +666,69 @@ const Settings = () => {
 
             {/* Modal: Agregar Tasa */}
             {showAddRateModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100 ring-4 ring-white/50">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
-                            <div>
-                                <h3 className="text-xl font-bold text-slate-800">{editingRate ? 'Editar Tasa' : 'Nueva Tasa'}</h3>
-                                <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mt-0.5">Para {selectedCurrInfo?.name}</p>
-                            </div>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-100">
+                        <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                            <h3 className="text-xl font-bold text-slate-800">Nueva Tasa para {selectedCurrency}</h3>
                             <button
-                                onClick={() => { setShowAddRateModal(false); setNewRate({ name: '', rate: '' }); setEditingRate(null); }}
+                                onClick={() => { setShowAddRateModal(false); setNewRate({ name: '', rate: '' }); }}
                                 className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-xl transition-colors"
                             >
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div className="p-8 space-y-6">
+                        <div className="p-6 space-y-6">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 pl-1">
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
                                     Nombre del Perfil
                                 </label>
                                 <input
                                     type="text"
                                     value={newRate.name}
                                     onChange={(e) => setNewRate({ ...newRate, name: e.target.value })}
-                                    placeholder="Ej: Banco Central, Paralelo, Mayorista"
-                                    className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none font-bold text-slate-700 placeholder:text-slate-300 transition-all"
+                                    placeholder="Ej: BCV, Tasa Paralela, Mayorista"
+                                    className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-medium text-slate-700 placeholder:text-slate-300"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 pl-1">
-                                    Valor de la Tasa
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                                    Tasa de Cambio (1 USD =)
                                 </label>
-                                <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                        <span className="text-slate-400 font-bold text-sm">1 USD =</span>
-                                    </div>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-3.5 text-slate-400 font-bold text-sm">{selectedCurrInfo?.symbol}</span>
                                     <input
                                         type="number"
                                         step="0.01"
                                         value={newRate.rate}
                                         onChange={(e) => setNewRate({ ...newRate, rate: e.target.value })}
                                         placeholder="0.00"
-                                        className="w-full pl-20 pr-12 p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none font-mono text-xl font-bold text-slate-800 placeholder:text-slate-300 transition-all"
+                                        className="w-full pl-10 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700 placeholder:text-slate-300"
                                     />
-                                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                                        <span className="text-slate-400 font-bold text-sm">{selectedCurrInfo?.symbol}</span>
-                                    </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={newRate.is_active !== false} // Default to true if undefined
-                                        onChange={(e) => setNewRate({ ...newRate, is_active: e.target.checked })}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                </label>
-                                <div>
-                                    <span className="block text-sm font-bold text-slate-700">Tasa Activa</span>
-                                    <span className="block text-xs text-slate-500">Si se desactiva, no aparecerá en el POS o facturación.</span>
-                                </div>
+                            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3">
+                                <AlertCircle className="text-amber-500 flex-shrink-0" size={20} />
+                                <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                                    Esta tasa se utilizará para convertir automaticamente los precios base (USD) al momento de facturar en {selectedCurrInfo?.name}.
+                                </p>
                             </div>
                         </div>
 
-                        <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
+                        <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
                             <button
-                                onClick={() => { setShowAddRateModal(false); setNewRate({ name: '', rate: '' }); setEditingRate(null); }}
-                                className="px-6 py-3 text-slate-500 hover:bg-white hover:text-slate-700 hover:shadow-sm font-bold rounded-xl transition-all"
+                                onClick={() => { setShowAddRateModal(false); setNewRate({ name: '', rate: '' }); }}
+                                className="px-5 py-2.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 font-bold rounded-xl transition-colors"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleAddRate}
-                                className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all hover:-translate-y-0.5 active:scale-95 flex items-center gap-2"
+                                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all hover:translate-y-[-1px] active:translate-y-[1px]"
                             >
-                                <Save size={18} /> {editingRate ? 'Actualizar' : 'Guardar'}
+                                Crear Tasa
                             </button>
                         </div>
                     </div>

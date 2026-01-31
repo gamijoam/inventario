@@ -344,6 +344,10 @@ class SalePayment(Base):
     currency = Column(String, default="USD") # USD or Bs
     payment_method = Column(String, default="Efectivo") # Efectivo, Tarjeta, etc.
     exchange_rate = Column(Numeric(14, 4), default=1.0000) # Rate used for this specific payment
+    
+    # New Fields for Laundry/Mobile Payments
+    reference = Column(String, nullable=True) # Transfer Reference / Detail
+    payment_date = Column(DateTime, nullable=True) # Actual date of payment (for reconciliation)
 
     sale = relationship("Sale", back_populates="payments")
 
@@ -667,6 +671,7 @@ class PaymentMethod(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
+    requires_reference = Column(Boolean, default=False) # New: Require reference for this method (e.g. Zelle, Transfer)
     is_system = Column(Boolean, default=False) # Prevent deletion of core methods
 
     def __repr__(self):
@@ -963,6 +968,7 @@ class ServiceOrderDetail(Base):
     
     description = Column(String, nullable=True) # Manual description or Product Name snapshot
     is_manual = Column(Boolean, default=False)
+    observations = Column(String, nullable=True) # Special notes/instructions for this item
     
     quantity = Column(Numeric(12, 3), default=1.000)
     unit_price = Column(Numeric(12, 2), nullable=False)
