@@ -328,7 +328,7 @@ const LaundryUnified = () => {
     const filteredOrders = getFilteredOrders();
 
     return (
-        <div className="flex h-[calc(100vh-70px)] overflow-hidden bg-slate-50 relative z-0">
+        <div className="flex h-[calc(100vh-70px)] overflow-hidden bg-slate-50 relative z-0 w-full">
 
             {/* LEFT PANEL: DASHBOARD (65%) */}
             <div className="flex-1 flex flex-col min-w-0 border-r border-slate-200">
@@ -369,7 +369,7 @@ const LaundryUnified = () => {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-hidden p-4">
+                <div className="flex-1 overflow-hidden p-3">
                     {viewMode === 'list' ? (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden h-full flex flex-col">
                             <LaundryList orders={filteredOrders} onSelectOrder={setSelectedOrder} onDeleteOrder={handleDeleteOrder} />
@@ -406,9 +406,9 @@ const LaundryUnified = () => {
                 </div>
             </div>
 
-            {/* RIGHT PANEL: QUICK ORDER (35%) */}
-            <div className={`w-[400px] xl:w-[450px] bg-white shadow-xl flex flex-col transition-all duration-300 transform translate-x-0 z-10 border-l border-slate-200`}>
-                <div className="p-5 bg-indigo-600 text-white shadow-lg flex justify-between items-center relative overflow-hidden shrink-0">
+            {/* RIGHT PANEL: QUICK ORDER */}
+            <div className="w-[480px] bg-white shadow-xl flex flex-col transition-all duration-300 z-10 border-l border-slate-200 shrink-0">
+                <div className="p-4 bg-indigo-600 text-white shadow-lg flex justify-between items-center relative overflow-hidden shrink-0">
                     <div className="relative z-10">
                         <h2 className="text-lg font-bold flex items-center gap-2">
                             <Plus size={20} className="text-indigo-200" /> Nuevo Pedido
@@ -420,7 +420,7 @@ const LaundryUnified = () => {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                     {/* TICKET SUCCESS */}
                     {ticketNumber && (
                         <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex items-center gap-3 animate-bounce">
@@ -701,11 +701,11 @@ const LaundryUnified = () => {
                 </div>
 
                 {/* FOOTER ACTIONS */}
-                <div className="p-5 bg-white border-t border-slate-100">
+                <div className="p-4 bg-white border-t border-slate-100">
                     <button
                         onClick={handleCreateOrder}
                         disabled={formLoading || cart.length === 0 || !selectedCustomer}
-                        className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-4 rounded-xl font-bold shadow-xl shadow-slate-200 flex justify-center items-center gap-2 transition-all active:scale-95"
+                        className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-3 rounded-xl font-bold shadow-xl shadow-slate-200 flex justify-center items-center gap-2 transition-all active:scale-95"
                     >
                         {formLoading ? 'Procesando...' : (
                             <>
