@@ -4,10 +4,10 @@ import logging
 import re
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from backend_api.config import settings
-from backend_api.models.tenant import Tenant
-from backend_api.models.models import User, UserRole
-from backend_api.security import get_password_hash
+from ..config import settings
+from ..models.tenant import Tenant
+from ..models.models import User, UserRole
+from ..security import get_password_hash
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -181,7 +181,7 @@ class TenantService:
     @staticmethod
     def seed_exchange_rates(schema_name: str):
         """Seed default exchange rates to avoid empty state"""
-        from backend_api.models.models import ExchangeRate
+        from ..models.models import ExchangeRate
         
         logger.info(f"💱 Seeding Exchange Rates for: {schema_name}")
         db = SessionLocal()
@@ -215,7 +215,7 @@ class TenantService:
     @staticmethod
     def seed_payment_methods(schema_name: str):
         """Seed default payment methods (Efectivo, Pago Movil, Zelle, Punto)"""
-        from backend_api.models.models import PaymentMethod
+        from ..models.models import PaymentMethod
         
         logger.info(f"💳 Seeding Payment Methods for: {schema_name}")
         db = SessionLocal()
@@ -247,7 +247,7 @@ class TenantService:
     @staticmethod
     def seed_tenant_warehouse(schema_name: str):
         """Seed default main warehouse 'Almacen1'"""
-        from backend_api.models.models import Warehouse
+        from ..models.models import Warehouse
         
         logger.info(f"🏭 Seeding Default Warehouse for: {schema_name}")
         db = SessionLocal()
@@ -279,7 +279,7 @@ class TenantService:
     @staticmethod
     def seed_currencies(schema_name: str):
         """Seed default currencies for new tenant"""
-        from backend_api.models.models import Currency
+        from ..models.models import Currency
         
         logger.info(f"💵 Seeding Currencies for: {schema_name}")
         db = SessionLocal()
