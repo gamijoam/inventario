@@ -4,172 +4,115 @@ import authService from '../services/authService';
 
 const AuthContext = createContext(null);
 
-// Helper function to decode JWT token
-const decodeToken = (token) => {
-    try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(
-            atob(base64)
-                .split('')
-                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                .join('')
-        );
-        return JSON.parse(jsonPayload);
-    } catch (error) {
-        console.error('Error decoding token:', error);
-        return null;
-    }
-};
+// 🔐 SECURITY ENHANCEMENT: Cookie-Based Authentication
+// No more localStorage token handling - cookies are managed by the browser
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(localStorage.getItem('token'));
     const [loading, setLoading] = useState(true);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-    // Fetch user profile from backend
-    const fetchUserProfile = async (authToken) => {
+    // Fetch current user profile from backend
+    // This endpoint will use the HttpOnly cookie automatically
+    const fetchUserProfile = async () => {
         try {
-            // Decode token to get username
-            const decoded = decodeToken(authToken);
-            if (!decoded || !decoded.sub) {
-                throw new Error('Invalid token');
-            }
+            console.log('🔍 Fetching user profile...');
 
-            // Fetch full user profile from backend
-            const response = await apiClient.get('/users', {
-                headers: { Authorization: `Bearer ${authToken}` }
-            });
+            // Call /users/me endpoint that returns current authenticated user
+            // The cookie is sent automatically by the browser
+            const response = await apiClient.get('/users/me');
 
-            console.log('User Profile Response:', response.data);
+            const currentUser = response.data;
 
-            if (!Array.isArray(response.data)) {
-                console.warn('Expected array of users, got:', response.data);
-                throw new Error('Invalid response format from /users');
-            }
+            const userData = {
+                id: currentUser.id,
+                username: currentUser.username,
+                role: currentUser.role,
+                full_name: currentUser.full_name,
+                is_active: currentUser.is_active,
+                preferences: currentUser.preferences || {}
+            };
 
-            // Find current user by username from token
-            const currentUser = response.data.find(u => u.username === decoded.sub);
+            setUser(userData);
+            setIsAuthenticated(true);
+            console.log('✅ User authenticated:', userData.username);
 
-            if (currentUser) {
-                const userData = {
-                    id: currentUser.id,
-                    username: currentUser.username,
-                    role: currentUser.role,
-                    full_name: currentUser.full_name,
-                    is_active: currentUser.is_active,
-                    preferences: currentUser.preferences || {} // Ensure it persists
-                };
-
-                setUser(userData);
-                localStorage.setItem('user', JSON.stringify(userData));
-                return userData;
-            } else {
-                throw new Error('User not found');
-            }
-            return null;
+            return userData;
         } catch (error) {
-            console.error('Error fetching user profile:', error);
+            console.error('❌ Error fetching user profile:', error);
 
-            // Fallback: decode from token
-            const decoded = decodeToken(authToken);
-            if (decoded) {
-                const fallbackUser = {
-                    id: 'offline-user',
-                    username: decoded.sub,
-                    role: decoded.role || 'CASHIER',
-                    full_name: decoded.sub,
-                    is_active: true,
-                    isOffline: true
-                };
-                setUser(fallbackUser);
-                localStorage.setItem('user', JSON.stringify(fallbackUser));
-                return fallbackUser;
-            }
-            return null;
-        }
-    };
-
-    useEffect(() => {
-        const initAuth = async () => {
-            if (token) {
-                localStorage.setItem('token', token);
-
-                // Try to load user from localStorage first
-                const storedUser = localStorage.getItem('user');
-                if (storedUser) {
-                    try {
-                        setUser(JSON.parse(storedUser));
-                    } catch (e) {
-                        console.error('Error parsing stored user:', e);
-                    }
-                }
-
-                // Fetch fresh user data
-                await fetchUserProfile(token);
-            } else {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+            // If 401, user is not authenticated
+            if (error.response?.status === 401) {
                 setUser(null);
+                setIsAuthenticated(false);
             }
-            setLoading(false);
-        };
 
-        initAuth();
-    }, [token]);
-
-    // Axios Interceptors
-    useEffect(() => {
-        // Request Interceptor: Attach Token
-        const reqInterceptor = apiClient.interceptors.request.use(
-            (config) => {
-                if (token) {
-                    config.headers.Authorization = `Bearer ${token}`;
-                }
-                return config;
-            },
-            (error) => Promise.reject(error)
-        );
-
-        // Response Interceptor: Handle 401 (Expired Token)
-        const resInterceptor = apiClient.interceptors.response.use(
-            (response) => response,
-            (error) => {
-                if (error.response && error.response.status === 401) {
-                    console.warn('Session expired or unauthorized. Logging out...');
-                    logout();
-                }
-                return Promise.reject(error);
-            }
-        );
-
-        return () => {
-            apiClient.interceptors.request.eject(reqInterceptor);
-            apiClient.interceptors.response.eject(resInterceptor);
-        };
-    }, [token]);
-
-    const login = async (username, password) => {
-        try {
-            const data = await authService.login(username, password);
-            setToken(data.access_token);
-            localStorage.setItem('token', data.access_token);
-
-            // Fetch user profile immediately after login
-            await fetchUserProfile(data.access_token);
-
-            return true;
-        } catch (error) {
-            console.error("Login failed", error);
             throw error;
         }
     };
 
-    const logout = () => {
-        setToken(null);
-        setUser(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+    // Initialize authentication on app load
+    useEffect(() => {
+        const initAuth = async () => {
+            try {
+                // Try to fetch user profile using the HttpOnly cookie
+                await fetchUserProfile();
+            } catch (error) {
+                // If fetch fails (401), user needs to login
+                console.log('No active session found');
+                setUser(null);
+                setIsAuthenticated(false);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initAuth();
+    }, []);
+
+    const login = async (username, password) => {
+        try {
+            console.log('🔐 Attempting login...');
+
+            // Call login endpoint - backend will set HttpOnly cookie
+            const data = await authService.login(username, password);
+
+            console.log('✅ Login successful, cookie set by backend');
+
+            // ✅ REMOVED: No more localStorage.setItem('token', ...)
+            // The cookie is automatically set by the backend and sent by the browser
+
+            // Fetch user profile immediately after login
+            await fetchUserProfile();
+
+            return true;
+        } catch (error) {
+            console.error("❌ Login failed", error);
+            setUser(null);
+            setIsAuthenticated(false);
+            throw error;
+        }
+    };
+
+    const logout = async () => {
+        try {
+            console.log('🚪 Logging out...');
+
+            // Call backend logout endpoint to clear the HttpOnly cookie
+            await apiClient.post('/auth/logout');
+
+            console.log('✅ Logout successful, cookie cleared by backend');
+        } catch (error) {
+            console.error('Error during logout:', error);
+            // Continue with local cleanup even if backend call fails
+        } finally {
+            // Clear local state
+            setUser(null);
+            setIsAuthenticated(false);
+
+            // ✅ REMOVED: No more localStorage.removeItem('token')
+            // The cookie is cleared by the backend
+        }
     };
 
     // Helper function to check if user has required role
@@ -182,55 +125,54 @@ export const AuthProvider = ({ children }) => {
         return rolesArray.includes(user.role);
     };
 
-    // Helper function to check if user is admin
-    const isAdmin = () => hasRole('ADMIN');
-
-    // NEW: Update User Preferences (Theme, etc.)
+    // Update user preferences
     const updateUserPreferences = async (newPreferences) => {
         if (!user) return;
 
-        const previousUser = { ...user };
-
-        // 1. Optimistic Update
-        const updatedUser = {
-            ...user,
-            preferences: {
-                ...(user.preferences || {}),
-                ...newPreferences
-            }
-        };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser)); // Persist locally
-
         try {
-            // 2. API Call
+            // Update preferences on backend
             await apiClient.put(`/users/${user.id}`, {
-                preferences: newPreferences // Backend will merge this dict
+                preferences: { ...user.preferences, ...newPreferences }
             });
-            console.log("Preferences saved successfully");
+
+            // Update local state
+            const updatedUser = {
+                ...user,
+                preferences: { ...user.preferences, ...newPreferences }
+            };
+            setUser(updatedUser);
+
+            console.log('✅ User preferences updated');
         } catch (error) {
-            console.error("Failed to save preferences:", error);
-            // 3. Revert on failure
-            setUser(previousUser);
-            localStorage.setItem('user', JSON.stringify(previousUser));
+            console.error('Error updating preferences:', error);
             throw error;
         }
     };
 
+    const value = {
+        user,
+        loading,
+        isAuthenticated,
+        login,
+        logout,
+        hasRole,
+        updateUserPreferences,
+        refreshUser: fetchUserProfile
+    };
+
     return (
-        <AuthContext.Provider value={{
-            user,
-            token,
-            login,
-            logout,
-            loading,
-            hasRole,
-            isAdmin,
-            updateUserPreferences // NEW
-        }}>
-            {!loading && children}
+        <AuthContext.Provider value={value}>
+            {children}
         </AuthContext.Provider>
     );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+    const context = useContext(AuthContext);
+    if (!context) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+    return context;
+};
+
+export default AuthContext;

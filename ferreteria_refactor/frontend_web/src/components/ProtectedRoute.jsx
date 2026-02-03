@@ -5,13 +5,14 @@ import { useAuth } from '../context/AuthContext';
  * ProtectedRoute Component
  * 
  * Protects routes based on authentication and optionally by user roles.
+ * Updated for HttpOnly cookie authentication - uses isAuthenticated instead of token.
  * 
  * @param {string|string[]} roles - Optional. Required role(s) to access this route
  * @param {ReactNode} children - The component to render if authorized
  * @param {string} redirectTo - Where to redirect if unauthorized (default: '/unauthorized')
  */
 const ProtectedRoute = ({ roles, children, redirectTo = '/unauthorized' }) => {
-    const { user, token, hasRole, loading } = useAuth();
+    const { user, isAuthenticated, hasRole, loading } = useAuth();
 
     // Wait for auth to load
     if (loading) {
@@ -26,7 +27,8 @@ const ProtectedRoute = ({ roles, children, redirectTo = '/unauthorized' }) => {
     }
 
     // Not logged in - redirect to login
-    if (!token || !user) {
+    // Using isAuthenticated flag instead of token (cookie-based auth)
+    if (!isAuthenticated || !user) {
         return <Navigate to="/login" replace />;
     }
 

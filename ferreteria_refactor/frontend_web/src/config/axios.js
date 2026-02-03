@@ -2,7 +2,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 // --- CONFIGURACIÓN AGNÓSTICA AL DOMINIO ---
-// En desarrollo: usa localhost:8001
+// En desarrollo: usa localhost:8000
 // En producción: usa ruta relativa (el navegador usará el dominio actual)
 
 const isDev = import.meta.env.DEV;
@@ -18,22 +18,22 @@ console.log('🔧 Axios config:', {
     hostname: window.location.hostname
 });
 
+// 🔐 SECURITY ENHANCEMENT: HttpOnly Cookie Authentication
+// withCredentials: true permite que el navegador envíe y reciba cookies automáticamente
 const apiClient = axios.create({
     baseURL,
-    withCredentials: true,
+    withCredentials: true,  // CRÍTICO: Habilita cookies HttpOnly
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
     },
 });
 
-// Request Interceptor (Add Token)
+// Request Interceptor (Multi-tenant support only)
 apiClient.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
+        // ✅ REMOVED: No more manual Authorization header injection
+        // The browser automatically sends the HttpOnly cookie with every request
 
         // --- MULTI-TENANT LOCAL SUPPORT ---
         // Permite probar diferentes empresas en localhost sin subdominios
@@ -60,23 +60,18 @@ apiClient.interceptors.response.use(
             const isLoginPage = window.location.pathname === '/login';
 
             if (!isLoginRequest && !isLoginPage) {
-                // Unauthorized: Clear token and redirect
-                console.warn('⚠️ 401 Detectado - Limpiando sesión y redirigiendo...');
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+                // Unauthorized: Cookie expired or invalid
+                console.warn('⚠️ 401 Detectado - Sesión expirada, redirigiendo a login...');
 
-                // En Electron / HashRouter / react-router v6, cambiar window.location.href puede ser brusco.
-                // Intentamos forzar la navegación vía hash si es SPA, o recarga completa si es necesario.
+                // ✅ REMOVED: No more localStorage token cleanup (cookies are handled by browser)
+                // The HttpOnly cookie will be cleared by calling /auth/logout or by expiration
+
+                // Redirect to login
                 if (window.location.hash !== '#/login') {
                     window.location.hash = '#/login';
-                    // Fallback reload solo si no cambia nada
-                    // setTimeout(() => window.location.reload(), 500); 
                 }
-            } else if (isLoginRequest) {
-                // For login failure, just clear potential stale tokens, but let the component handle the error display
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
             }
+            // For login failures, no action needed - component will handle error display
         } else if (status === 403) {
             // Forbidden
             toast.error('No tienes permisos para realizar esta acción.');

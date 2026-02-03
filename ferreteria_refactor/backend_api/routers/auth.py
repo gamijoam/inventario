@@ -1,6 +1,6 @@
 from datetime import timedelta
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -13,9 +13,16 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 @router.post("/token")
 async def login_for_access_token(
+    response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(get_db)
 ):
+    """
+    Login endpoint with HYBRID authentication support.
+    
+    Returns JWT token in JSON (legacy support) AND sets HttpOnly cookie (secure).
+    Clients can use either method for authentication.
+    """
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
     if not user:
         # Generic error for security
@@ -49,7 +56,40 @@ async def login_for_access_token(
         expires_delta=access_token_expires
     )
     
+    # 🔐 SECURITY ENHANCEMENT: Set HttpOnly Cookie
+    # This prevents XSS attacks by making the token inaccessible to JavaScript
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,      # CRITICAL: JavaScript cannot read this cookie
+        secure=False,       # CRITICAL: False for localhost HTTP (change to True in production with HTTPS)
+        samesite="lax",     # CRITICAL: Lax allows cookies between localhost:5173 and localhost:8000
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Expiry in seconds
+        path="/",           # Cookie available for all paths
+    )
+    
+    print(f"✅ Login successful for user '{user.username}' - Cookie set (HttpOnly)")
+    
+    # BACKWARD COMPATIBILITY: Also return token in JSON for legacy clients
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/logout")
+async def logout(response: Response):
+    """
+    Logout endpoint - clears the HttpOnly cookie.
+    
+    For clients using Authorization headers, they should simply discard the token.
+    For clients using cookies, this endpoint clears the cookie server-side.
+    """
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        httponly=True,
+        samesite="lax"
+    )
+    
+    print("🚪 User logged out - Cookie cleared")
+    return {"message": "Successfully logged out"}
 
 @router.post("/validate-pin")
 def validate_pin(pin_data: dict, db: Session = Depends(get_db)):

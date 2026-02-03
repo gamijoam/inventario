@@ -59,6 +59,29 @@ def create_user(user_data: schemas.UserCreate, db: Session = Depends(get_db)):
     
     return response_data
 
+@router.get("/me", response_model=schemas.UserRead)
+def get_current_user_profile(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Get current authenticated user's profile.
+    
+    This endpoint uses the HttpOnly cookie (or Authorization header) to identify the user.
+    Perfect for frontend to fetch user data after login without knowing the user ID.
+    """
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "role": current_user.role,
+        "full_name": current_user.full_name,
+        "commission_percentage": current_user.commission_percentage,
+        "is_active": current_user.is_active,
+        "pin": current_user.pin,
+        "preferences": current_user.preferences,
+        "created_at": current_user.created_at
+    }
+
 @router.get("/", response_model=List[schemas.UserRead])
 @router.get("", response_model=List[schemas.UserRead], include_in_schema=False)
 def get_all_users(db: Session = Depends(get_db)):

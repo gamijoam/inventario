@@ -1,23 +1,66 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
-from typing import List, Annotated
+from typing import List, Annotated, Optional
 
 from .database.db import get_db
 from .database.db import get_db
 from .config import settings, Settings
 from .models.models import User, UserRole
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# OAuth2 scheme for Swagger UI and legacy header-based auth
+# FIXED: tokenUrl must include the full path with prefix
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False)
 
-def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session = Depends(get_db)):
-    print(f"🕵️ SERVER PROBE: Checking Token: {token[:15]}...")
+def extract_token_hybrid(
+    request: Request,
+    token_from_header: Optional[str] = Depends(oauth2_scheme)
+) -> str:
+    """
+    HYBRID Token Extraction Strategy (Security Enhancement).
+    
+    Priority Order:
+    1. HttpOnly Cookie (SECURE - XSS protected)
+    2. Authorization Header (LEGACY - for backward compatibility)
+    
+    This allows gradual migration from localStorage to cookies.
+    """
+    # PRIORITY 1: Try to get token from HttpOnly cookie (SECURE)
+    token_from_cookie = request.cookies.get("access_token")
+    
+    if token_from_cookie:
+        print("🔐 Token source: HttpOnly Cookie (SECURE)")
+        return token_from_cookie
+    
+    # PRIORITY 2: Fallback to Authorization header (LEGACY)
+    if token_from_header:
+        print("⚠️  Token source: Authorization Header (LEGACY - consider migrating to cookies)")
+        return token_from_header
+    
+    # No token found in either location
+    print("⛔ No authentication token found (checked cookie + header)")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+def get_current_user(
+    token: Annotated[str, Depends(extract_token_hybrid)], 
+    db: Session = Depends(get_db)
+):
+    """
+    Validate JWT token and return current user.
+    
+    Now supports HYBRID authentication (cookie + header).
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username: str = payload.get("sub")
@@ -26,7 +69,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], db: Session 
             raise credentials_exception
     except JWTError as e:
         print(f"⛔ JWT Validation Error: {e}")
-        print(f"   - Expected Key: {settings.SECRET_KEY[:5]}...")
+        # Removed SECRET_KEY logging for security
         print(f"   - Algorithm: {settings.ALGORITHM}")
         raise credentials_exception
         
