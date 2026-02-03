@@ -15,14 +15,19 @@ try {
 }
 
 async function generateQr() {
-    console.log('Generando código QR para política UNLOCKED...');
+    console.log('🔧 Generando QR - WORK PROFILE MODE (COPE)');
+    console.log('   Modo: Perfil de trabajo + uso personal permitido');
+    console.log('   ⚠️  Este NO es un dispositivo completamente gestionado');
     const auth = await getClient();
     const androidmanagement = google.androidmanagement({ version: 'v1', auth });
 
     const enrollmentToken = {
         policyName: `${enterpriseId}/policies/policy_unlocked`,
-        oneTimeOnly: true, // Cambiado a TRUE para evitar límites de tokens reusables
-        duration: '3600s'
+        oneTimeOnly: true,
+        duration: '3600s',
+        // Modo menos restrictivo: Perfil de trabajo (COPE - Company Owned, Personally Enabled)
+        // Permite uso personal + apps de trabajo separadas
+        allowPersonalUsage: 'PERSONAL_USAGE_ALLOWED'
     };
 
     try {
@@ -33,6 +38,7 @@ async function generateQr() {
 
         console.log('\n✅ Token de enrolamiento creado con éxito.');
         console.log('------------------------------------------------');
+        console.log('Modo de Enrolamiento: FULLY MANAGED (Corporate Owned)');
         console.log('Token Value:', res.data.value);
         console.log('QR Code URL:', res.data.qrCode);
 
@@ -41,8 +47,9 @@ async function generateQr() {
         console.log('URL guardada en qr.txt');
 
         console.log('------------------------------------------------');
-        console.log(' Abre la URL del QR en tu navegador y escanéalo con tu dispositivo.');
-        console.log(' (Toca 6 veces en la pantalla de bienvenida de Android para iniciar el lector QR)');
+        console.log('⚠️  IMPORTANTE: Este QR es para DISPOSITIVO COMPLETAMENTE GESTIONADO.');
+        console.log('    Debe escanearse en un dispositivo RESTABLECIDO DE FÁBRICA.');
+        console.log('    (Toca 6 veces en la pantalla de bienvenida de Android)');
 
     } catch (error) {
         console.error('❌ Error generando QR:', error.message);
