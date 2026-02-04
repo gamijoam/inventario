@@ -17,7 +17,9 @@ const POSCatalog = ({
     onFilterCategory,
     selectedCategoryId = null,
     searchTerm = '',
-    currencySymbol = '$'
+    currencySymbol = '$',
+    secondaryCurrency = null,
+    convertProductPrice = null
 }) => {
 
     // Internal state for search visualization if controlled by parent via onSearch/searchTerm
@@ -145,6 +147,17 @@ const POSCatalog = ({
                                                     {parseFloat(product.price).toFixed(2)}
                                                 </span>
                                             </div>
+
+                                            {/* Secondary Price (Bs usually) */}
+                                            {convertProductPrice && secondaryCurrency && (
+                                                <div className="flex items-baseline gap-1 mb-1.5 opacity-80">
+                                                    <span className="text-xs font-bold text-slate-400">{secondaryCurrency.symbol}</span>
+                                                    <span className="text-sm font-bold text-slate-600 leading-none">
+                                                        {convertProductPrice(product, secondaryCurrency.currency_code).toFixed(2)}
+                                                    </span>
+                                                </div>
+                                            )}
+
                                             <h3 className="text-xs font-medium text-slate-600 leading-snug line-clamp-2 min-h-[2.5em]" title={product.name}>
                                                 {product.name}
                                             </h3>

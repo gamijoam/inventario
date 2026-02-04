@@ -477,6 +477,9 @@ const POS = () => {
                     selectedCategoryId={selectedCategory}
                     searchTerm={searchTerm}
                     currencySymbol={anchorCurrency.symbol}
+                    // Secondary Currency Props
+                    secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                    convertProductPrice={convertProductPrice}
                 />
             </div>
 
@@ -493,6 +496,8 @@ const POS = () => {
                     anchorCurrency={anchorCurrency}
                     onCheckout={() => setIsPaymentOpen(true)}
                     onItemClick={(item) => setSelectedItemForEdit(item)}
+                    secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                    convertPrice={convertPrice}
                 />
             </div>
 

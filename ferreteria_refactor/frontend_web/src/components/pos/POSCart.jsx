@@ -21,7 +21,9 @@ const POSCart = ({
     totals = { totalUSD: 0, totalBs: 0 },
     anchorCurrency = { symbol: '$' },
     onCheckout,
-    onItemClick
+    onItemClick,
+    secondaryCurrency,
+    convertPrice
 }) => {
 
     // Calculate Taxes for display
@@ -92,9 +94,16 @@ const POSCart = ({
                                             <h4 className="text-xs font-bold text-slate-700 truncate pr-2 max-w-[140px]" title={item.name}>
                                                 {item.name}
                                             </h4>
-                                            <span className="text-xs font-bold text-slate-900 flex-shrink-0">
-                                                {anchorCurrency.symbol}{item.total_usd?.toFixed(2)}
-                                            </span>
+                                            <div className="text-right">
+                                                <div className="text-xs font-bold text-slate-900">
+                                                    {anchorCurrency.symbol}{item.subtotal_usd?.toFixed(2)}
+                                                </div>
+                                                {secondaryCurrency && (
+                                                    <div className="text-[10px] font-bold text-slate-500">
+                                                        {secondaryCurrency.symbol}{(item.subtotal_bs || 0).toFixed(2)}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="flex items-center justify-between">
