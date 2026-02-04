@@ -484,6 +484,7 @@ class SalesService:
                     db.add(fallback_payment)
             
             db.commit()
+            db.refresh(new_sale)
             
             # Emit Stock Update Events using BackgroundTasks
             if background_tasks:

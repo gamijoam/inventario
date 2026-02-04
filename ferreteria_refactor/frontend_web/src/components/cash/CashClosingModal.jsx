@@ -65,8 +65,12 @@ const CashClosingModal = ({ isOpen, onClose }) => {
         setSubmitting(true);
 
         const closingData = {
-            final_cash: parseFloat(counts['USD']) || 0,
-            final_cash_bs: parseFloat(counts['Bs']) || 0,
+            final_cash_reported: parseFloat(counts['USD']) || 0,
+            final_cash_reported_bs: parseFloat(counts['Bs']) || 0,
+            currencies: currencies.map(c => ({
+                currency_symbol: c.symbol,
+                final_reported: parseFloat(counts[c.symbol]) || 0
+            }))
         };
 
         const success = await closeSession(closingData);

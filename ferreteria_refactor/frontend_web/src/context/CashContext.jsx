@@ -1,6 +1,7 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import apiClient from '../config/axios';
 import { useWebSocket } from './WebSocketContext';
+import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
 import printerService from '../services/printerService';
 
@@ -12,13 +13,29 @@ export const CashProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const { subscribe } = useWebSocket();
 
+    // Get Auth Context to prevent race conditions
+    const { isAuthenticated, user } = useAuth(); // Assuming useAuth is available/imported
+
     const checkStatus = async (retryCount = 0) => {
+        // Prevent checking if not authenticated yet
+        if (!isAuthenticated) return;
+
+        console.log(`🔄 Checking cash session status... (Attempt ${retryCount + 1})`);
+        if (retryCount === 0) setLoading(true); // Only set loading on first attempt to avoid flicker on retries
+
         try {
             const response = await apiClient.get('/cash/sessions/current');
-            console.log('✅ Cash session check successful:', response.data);
-            setIsSessionOpen(true);
-            setSession(response.data);
-            setLoading(false);
+
+            if (!response.data) {
+                // Handle 200 OK with null/empty body -> No active session
+                console.log('ℹ️ No active cash session found (Server returned null).');
+                setIsSessionOpen(false);
+                setSession(null);
+            } else {
+                console.log('✅ Cash session check successful:', response.data);
+                setIsSessionOpen(true);
+                setSession(response.data);
+            }
         } catch (error) {
             // If 401 Unauthorized, token might be invalid (server restarted)
             if (error.response?.status === 401) {
@@ -31,7 +48,6 @@ export const CashProvider = ({ children }) => {
                 }
                 setIsSessionOpen(false);
                 setSession(null);
-                setLoading(false);
                 return;
             }
 
@@ -40,26 +56,35 @@ export const CashProvider = ({ children }) => {
                 const delay = retryCount === 0 ? 1000 : (retryCount + 1) * 500; // First retry after 1s
                 console.warn(`⏳ Cash session check failed (attempt ${retryCount + 1}/5), retrying in ${delay}ms...`);
                 setTimeout(() => checkStatus(retryCount + 1), delay);
-                return;
+                return; // Don't stop loading yet
             }
 
             // No active session or max retries reached
-            console.warn('⚠️ No active cash session found or error checking status:', error);
+            console.warn('⚠️ Error checking status:', error);
             if (error.response?.status !== 404) {
-                // Only alert if it's NOT a 404 (404 is normal for "Closed")
+                // 404 should technically be handled by the null check above if backend is updated,
+                // but keep this for backward compat or if backend still throws 404.
                 console.error('🔥 Error Checking Cash Session:', error);
-                // Show toast to user for diagnostics
-                toast.error(`Error verificando caja: ${error.response?.status || 'Network Error'} - ${error.message}`);
+
+                // Only show toast for actual errors, not 404 "Not Found"
+                if (error.response?.status !== 404) {
+                    toast.error(`Error verificando caja: ${error.response?.status || 'Network Error'} - ${error.message}`);
+                }
             }
 
             setIsSessionOpen(false);
             setSession(null);
-            setLoading(false);
         }
+        // Refactored flow to avoid finally block complexity with retry
+        setLoading(false);
     };
 
     useEffect(() => {
-        checkStatus();
+        if (isAuthenticated) {
+            checkStatus();
+        } else {
+            setLoading(false); // Stop loading if not auth
+        }
 
         // WebSocket Subscriptions
         const unsubOpen = subscribe('cash_session:opened', (data) => {
@@ -89,7 +114,7 @@ export const CashProvider = ({ children }) => {
             unsubOpen();
             unsubClose();
         };
-    }, [subscribe]);
+    }, [subscribe, isAuthenticated]);
 
     const openSession = async (sessionData) => {
         try {
@@ -99,7 +124,20 @@ export const CashProvider = ({ children }) => {
             return true;
         } catch (error) {
             console.error('Error opening session:', error);
-            alert('Error al abrir caja: ' + (error.response?.data?.detail || error.message));
+            let errorMessage = "Error desconocido";
+            const detail = error.response?.data?.detail;
+
+            if (typeof detail === 'string') {
+                errorMessage = detail;
+            } else if (Array.isArray(detail)) {
+                errorMessage = detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join(', ');
+            } else if (typeof detail === 'object') {
+                errorMessage = JSON.stringify(detail);
+            } else {
+                errorMessage = error.message;
+            }
+
+            toast.error(`Error al abrir caja: ${errorMessage}`);
             return false;
         }
     };
@@ -113,7 +151,20 @@ export const CashProvider = ({ children }) => {
             return true;
         } catch (error) {
             console.error('Error closing session:', error);
-            alert('Error al cerrar caja: ' + (error.response?.data?.detail || error.message));
+            let errorMessage = "Error desconocido";
+            const detail = error.response?.data?.detail;
+
+            if (typeof detail === 'string') {
+                errorMessage = detail;
+            } else if (Array.isArray(detail)) {
+                errorMessage = detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join(', ');
+            } else if (typeof detail === 'object') {
+                errorMessage = JSON.stringify(detail);
+            } else {
+                errorMessage = error.message;
+            }
+
+            toast.error(`Error al cerrar caja: ${errorMessage}`);
             return false;
         }
     };

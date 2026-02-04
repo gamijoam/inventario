@@ -93,8 +93,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     // Calculate Totals using CURRENT DEFAULT RATE as requested
     const defaultBsRate = getExchangeRate('Bs') || getExchangeRate('VES') || 1;
 
-    // Use the Default Rate for the Bs Total Display
-    const displayTotalBs = totalUSD * defaultBsRate;
+    // Use the Passed TotalBs (Cart Logic) or Fallback to calculation
+    const displayTotalBs = totalBs || (totalUSD * defaultBsRate);
 
     // Payment Logic using Default Rate for consistency with display
     const totalPaidUSD = payments.reduce((acc, p) => {
@@ -104,9 +104,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         if (p.currency === 'USD' || p.currency === '$') {
             rate = 1;
         } else if (p.currency === 'Bs' || p.currency === 'VES') {
-            // UPDATED: Use Default Rate as requested by user ("tasa que este por defecto")
-            // This ensures the "Total in Bs" display matches the payment calculation
-            rate = defaultBsRate;
+            // UPDATED: Use Effective Rate derived from Cart Totals
+            // This ensures that paying the exact TotalBs amount covers the TotalUSD amount
+            const effectiveRate = (totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate;
+            rate = effectiveRate;
         } else {
             rate = getExchangeRate(p.currency) || 1;
         }
@@ -333,7 +334,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                     Su Vuelto: <span className="text-white text-2xl">${formatCurrency(changeUSD, 'USD').replace('$', '')}</span>
                                                 </div>
                                                 <div className="text-sm font-bold text-emerald-400 font-mono mt-1 bg-emerald-900/40 px-3 py-1 rounded-full border border-emerald-500/30">
-                                                    Bs {formatCurrency(changeUSD * defaultBsRate, 'VES').replace('Bs', '')}
+                                                    Bs {formatCurrency(changeUSD * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate), 'VES').replace('Bs', '')}
                                                 </div>
                                             </div>
                                         ) : (
@@ -351,7 +352,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         <div className="text-right">
                                             <div className="text-[10px] text-slate-500 uppercase font-bold">En Bolívares</div>
                                             <div className="text-xl font-bold text-slate-400 font-mono">
-                                                Bs {formatCurrency(Math.abs(remainingUSD) * defaultBsRate, 'VES').replace('Bs', '')}
+                                                Bs {formatCurrency(Math.abs(remainingUSD) * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate), 'VES').replace('Bs', '')}
                                             </div>
                                         </div>
                                     </div>

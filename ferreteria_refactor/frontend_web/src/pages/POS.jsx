@@ -43,7 +43,7 @@ const formatStock = (stock) => {
 const POS = () => {
     const { user } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates } = useCart();
-    const { isSessionOpen, openSession, loading } = useCash();
+    const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
     const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
@@ -594,7 +594,7 @@ const POS = () => {
                 <CashMovementModal isOpen={isMovementOpen} onClose={() => { setIsMovementOpen(false); focusSearch(); }} />
                 <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
                 <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
-                {!isLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
+                {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
                 <CashClosingModal isOpen={isClosingOpen} onClose={() => setIsClosingOpen(false)} />
             </div>
         </div>

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from typing import List, Dict, Optional
 from datetime import datetime, date
@@ -52,6 +52,7 @@ async def open_cash_session(
         print(f"💰 Session Created with ID: {new_session_id}")
         
         # Initialize currencies
+        currencies_response = []
         for req_curr in initial_cash.currencies:
             if not req_curr.currency_symbol: continue 
             
@@ -61,31 +62,55 @@ async def open_cash_session(
                 initial_amount=req_curr.initial_amount
             )
             db.add(db_curr)
+            db.flush() # Flush to generate ID
+            
+            # Add to response list conforming to CashSessionCurrencyRead
+            currencies_response.append({
+                "id": db_curr.id,
+                "currency_symbol": db_curr.currency_symbol,
+                "initial_amount": db_curr.initial_amount,
+                "final_reported": None,
+                "final_expected": None,
+                "difference": None
+            })
         
-        # Final Commit (All changes at once)
+        # PRE-COMMIT CAPTURE: Capture all values needed for response/broadcast
+        captured_id = new_session.id
+        captured_start_time = new_session.start_time
+        captured_initial_cash = float(new_session.initial_cash or 0)
+        captured_initial_cash_bs = float(new_session.initial_cash_bs or 0)
+        
+        # Final Commit
         db.commit()
         
-        # EXPLICIT RE-QUERY (Robust against "Could not refresh instance"):
-        # We use the integer ID stored in variable, NOT new_session.id (which triggers reload)
-        from sqlalchemy.orm import joinedload
-        final_session = db.query(models.CashSession).options(
-            joinedload(models.CashSession.currencies)
-        ).filter(models.CashSession.id == new_session_id).first()
+        # Manually reconstruct the object for return using CAPTURED variables
+        # Must match schemas.CashSessionRead STRICTLY
+        response_model = {
+             "id": captured_id,
+             "user_id": current_user.id,
+             "start_time": captured_start_time,
+             "end_time": None, # Required field, can be None
+             "status": "OPEN",
+             "initial_cash": initial_cash.initial_cash,
+             "initial_cash_bs": initial_cash.initial_cash_bs,
+             "final_cash_reported": None,
+             "final_cash_reported_bs": None,
+             "final_cash_expected": None,
+             "currencies": currencies_response 
+        }
         
-        if not final_session:
-             # Should practically never happen if commit worked
-             logger.error("🔥 CRITICAL: Created session not found after commit!")
-             raise HTTPException(status_code=500, detail="Error crítico de consistencia en base de datos.")
+        # Broadcast cash session opened event
+        try:
+            await manager.broadcast("cash_session:opened", {
+                "session_id": captured_id,
+                "initial_cash": captured_initial_cash,
+                "initial_cash_bs": captured_initial_cash_bs,
+                "start_time": captured_start_time.isoformat()
+            })
+        except Exception as e:
+            logger.error(f"⚠️ Websocket broadcast failed: {e}")
 
-        # Broadcast cash session opened event to all connected clients
-        await manager.broadcast("cash_session:opened", {
-            "session_id": final_session.id,
-            "initial_cash": float(final_session.initial_cash or 0),
-            "initial_cash_bs": float(final_session.initial_cash_bs or 0),
-            "start_time": final_session.start_time.isoformat()
-        })
-        
-        return final_session
+        return response_model
     
     except Exception as e:
         import traceback
@@ -119,20 +144,27 @@ async def open_cash_session(
 
     return new_session
 
-@router.get("/sessions/current", response_model=schemas.CashSessionRead)
+@router.get("/sessions/current", response_model=Optional[schemas.CashSessionRead])
 def get_current_session(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     # Get ANY open session (global, not per-user)
+    print(f"💰 [DEBUG] Checking for OPEN session in DB...")
     session = db.query(models.CashSession).filter(
         models.CashSession.status == "OPEN"
     ).first()
+    print(f"💰 [DEBUG] Found session: {session.id if session else 'None'}")
 
     if not session:
-        raise HTTPException(status_code=404, detail="No hay sesión de caja activa")
+        # Return None (200 OK) instead of 404 to avoid frontend console errors
+        return None
     
     return session
+
+# ... (Previous code remains, skipping to close_cash_session)
+
+
 
 @router.post("/movements", response_model=schemas.CashMovementRead)
 def register_movement(
@@ -598,8 +630,6 @@ async def close_cash_session(
     # CALCULATE EXPECTED BY CURRENCY
     # ============================================
     
-    # cash_methods removed - using flexible check
-    
     # Track sales and movements by currency
     cash_sales_by_currency = {}  # {currency_symbol: amount}
     movements_by_currency = {}   # {currency_symbol: {'deposits': X, 'expenses': Y}}
@@ -628,15 +658,10 @@ async def close_cash_session(
                 cash_sales_by_currency[curr] = Decimal("0.00")
             cash_sales_by_currency[curr] += dp.amount
     
-    # Process Change (Vuelto) - Deduct from Cash Sales bucket or separate bucket?
-    # Logic: Expected = Initial + Sales(Tendered) - Change + Deposits - Expenses
-    # So we can just subtract from 'sales' bucket or handle separately.
-    # Let's handle separately for clarity in calculation below.
-    
+    # Process Change (Vuelto)
     change_by_currency = {}
     sales_for_change = db.query(models.Sale.change_amount, models.Sale.change_currency).filter(
         models.Sale.date >= session.start_time,
-        # models.Sale.date <= datetime.now(),
         models.Sale.change_amount > 0
     ).all()
     
@@ -728,7 +753,7 @@ async def close_cash_session(
     ).all()
     
     total_credit_pending = sum(float(sale.balance_pending or 0) for sale in credit_sales)
-
+ 
     # Update Session
     session.end_time = datetime.now()
     session.final_cash_reported = close_data.final_cash_reported
@@ -739,27 +764,66 @@ async def close_cash_session(
     session.difference_bs = close_data.final_cash_reported_bs - expected_bs
     session.status = "CLOSED"
     
-    db.commit()
-    db.refresh(session)
-    
-    # Broadcast cash session closed event to all connected clients
-    # Generate Z Report Payload for automatic printing
-    from ..services.sales_service import SalesService
-    z_report_payload = SalesService.generate_z_report_payload(db, session.id)
+    # Generate Payload BEFORE Commit to avoid lazy load issues later
+    response_data = {
+        "id": session.id,
+        "user_id": session.user_id,
+        "start_time": session.start_time,
+        "end_time": session.end_time,
+        "status": "CLOSED",
+        "initial_cash": session.initial_cash,
+        "initial_cash_bs": session.initial_cash_bs,
+        "final_cash_reported": session.final_cash_reported,
+        "final_cash_reported_bs": session.final_cash_reported_bs,
+        "final_cash_expected": session.final_cash_expected,
+        "final_cash_expected_bs": session.final_cash_expected_bs,
+        "difference": session.difference,
+        "difference_bs": session.difference_bs,
+        "currencies": [
+            {
+                "id": c.id,
+                "currency_symbol": c.currency_symbol,
+                "initial_amount": c.initial_amount,
+                "final_reported": c.final_reported,
+                "final_expected": c.final_expected,
+                "difference": c.difference
+            } for c in currency_records
+        ],
+        "user_id": session.user_id 
+    }
 
-    await manager.broadcast("cash_session:closed", {
-        "session_id": session.id,
-        "end_time": session.end_time.isoformat(),
-        "final_cash_reported": float(session.final_cash_reported),
-        "final_cash_reported_bs": float(session.final_cash_reported_bs),
-        "difference": float(session.difference),
-        "difference_bs": float(session.difference_bs),
-        "credit_pending": total_credit_pending,
-        "credit_count": len(credit_sales),
-        "print_payload": z_report_payload # Payload for frontend to print
-    })
+    # CAPTURE VARS FOR BROADCAST
+    broadcast_session_id = session.id
+    broadcast_end_time = session.end_time.isoformat()
+    broadcast_final_reported = float(session.final_cash_reported or 0)
+    broadcast_final_reported_bs = float(session.final_cash_reported_bs or 0)
+    broadcast_difference = float(session.difference or 0)
+    broadcast_difference_bs = float(session.difference_bs or 0)
+
+    db.commit()
+    # NO db.refresh(session) calls!
+
+    # Broadcast cash session closed event
+    from ..services.sales_service import SalesService
+    z_report_payload = SalesService.generate_z_report_payload(db, session_id)
+
+    try:
+        await manager.broadcast("cash_session:closed", {
+            "session_id": broadcast_session_id,
+            "end_time": broadcast_end_time,
+            "final_cash_reported": broadcast_final_reported,
+            "final_cash_reported_bs": broadcast_final_reported_bs,
+            "difference": broadcast_difference,
+            "difference_bs": broadcast_difference_bs,
+            "credit_pending": total_credit_pending,
+            "credit_count": len(credit_sales),
+            "print_payload": z_report_payload 
+        })
+    except Exception as e:
+        logger.error(f"⚠️ Websocket broadcast failed: {e}")
     
-    return session
+    return response_data
+
 
 @router.get("/sessions/{session_id}/z-report-payload")
 def get_z_report_payload(
