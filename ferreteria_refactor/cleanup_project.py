@@ -38,6 +38,11 @@ FILES_TO_ARCHIVE = [
     "alembic_error_log.txt",
     "test_output.txt",
     
+    # Password Debugging
+    "check_admin_hash.py",
+    "test_verify.py",
+    "reset_admin_password.py",
+    
     # One-off scripts and tests
     "apply_unit_id.sql",
     "apply_unit_id_migration.py",

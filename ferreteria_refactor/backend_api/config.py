@@ -14,10 +14,10 @@ else:
 # Try loading from base path (priority)
 env_path = os.path.join(base_path, ".env")
 if os.path.exists(env_path):
-    load_dotenv(dotenv_path=env_path)
+    load_dotenv(dotenv_path=env_path, override=True)
 else:
     # Fallback to CWD
-    load_dotenv()
+    load_dotenv(override=True)
 
 class Settings:
     # Support both naming conventions

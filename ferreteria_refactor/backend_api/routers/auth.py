@@ -39,8 +39,12 @@ async def login_for_access_token(
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-    except Exception:
+    except Exception as e:
         # If hash is invalid/unknown (e.g. from old system), treat as auth failure
+        print(f"❌ AUTH ERROR: verify_password failed: {e}")
+        import traceback
+        traceback.print_exc()
+        
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password (Security Update Required)",
