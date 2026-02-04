@@ -29,18 +29,17 @@ import {
     Utensils,
     ChefHat,
     Smartphone,
-    Plus, // NEW
+    Plus,
     ArrowRight,
     Download,
     Wrench,
-    ShieldCheck, // NEW: RMA
-    X // NEW: Mobile close button
+    ShieldCheck,
+    X,
+    HelpCircle
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
-
-// Moved inside component to use context
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const location = useLocation();
@@ -51,7 +50,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const menuStructure = [
         {
             type: 'single',
-            item: { icon: LayoutDashboard, label: 'Dashboard', path: '/' }
+            item: { icon: LayoutDashboard, label: 'Resumen', path: '/' }
         },
         // RESTAURANT MODULE
         ...(modules?.restaurant ? [{
@@ -63,39 +62,35 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' },
                 { icon: Smartphone, label: 'Comandera Móvil', path: '/mobile/login' },
                 { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
-                { icon: ClipboardList, label: 'Recetas / Escandallos', path: '/restaurant/recipes' },
+                { icon: ClipboardList, label: 'Recetas', path: '/restaurant/recipes' },
             ]
         }] : []),
         // SERVICE & LAUNDRY MODULES
         ...((modules?.services || modules?.laundry) ? [{
             type: 'group',
-            label: modules?.services ? 'Servicios Técnicos' : 'Gestión de Lavandería', // Dynamic Label
-            icon: modules?.services ? Wrench : Smartphone, // Dynamic Icon
+            label: modules?.services ? 'Servicios' : 'Lavandería',
+            icon: modules?.services ? Wrench : Smartphone,
             items: [
-                // Repair Shop Items (Only if Services enabled)
                 ...(modules?.services ? [
-                    { icon: FileText, label: 'Taller / Reparaciones', path: '/services/list' },
+                    { icon: FileText, label: 'Taller', path: '/services/list' },
                     { icon: Plus, label: 'Nueva Recepción', path: '/services/reception' }
                 ] : []),
-
-                // Laundry Items (Only if Laundry enabled)
                 ...(modules?.laundry ? [
                     { icon: Smartphone, label: 'Tablero Lavandería', path: '/laundry' },
-                    // { icon: Plus, label: 'Nueva Orden', path: '/laundry/new' } // Hidden as per feedback
                 ] : []),
             ]
         }] : []),
         {
             type: 'group',
-            label: 'Ventas y Atención',
-            icon: ShoppingCart, // Used for collapsed tooltip or main icon
+            label: 'Ventas',
+            icon: ShoppingCart,
             items: [
                 { icon: ShoppingCart, label: 'Nueva Venta', path: '/pos' },
                 { icon: FileText, label: 'Historial', path: '/sales-history' },
                 { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
                 { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
                 ...(modules?.services ? [
-                    { icon: ShieldCheck, label: 'Garantías (RMA)', path: '/rma/warranty' }
+                    { icon: ShieldCheck, label: 'Garantías', path: '/rma/warranty' }
                 ] : []),
                 { icon: Users, label: 'Clientes', path: '/customers' },
             ]
@@ -109,24 +104,24 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: Tags, label: 'Categorías', path: '/categories' },
                 { icon: Archive, label: 'Movimientos', path: '/inventory' },
                 { icon: Warehouse, label: 'Almacenes', path: '/warehouses' },
-                { icon: ArrowRightLeft, label: 'Traslados Internos', path: '/transfers' },
-                { icon: ArrowRight, label: 'Exportar (Salida)', path: '/transfers/external/out' },
-                { icon: Download, label: 'Importar (Entrada)', path: '/transfers/external/in' },
+                { icon: ArrowRightLeft, label: 'Traslados', path: '/transfers' },
+                { icon: ArrowRight, label: 'Exportar', path: '/transfers/external/out' },
+                { icon: Download, label: 'Importar', path: '/transfers/external/in' },
             ]
         },
         {
             type: 'group',
-            label: 'Finanzas y Compras',
+            label: 'Finanzas',
             icon: DollarSign,
             items: [
                 { icon: Briefcase, label: 'Compras', path: '/purchases' },
                 { icon: Truck, label: 'Proveedores', path: '/suppliers' },
                 { icon: RefreshCcw, label: 'Corte de Caja', path: '/cash-history' },
                 { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
-                { icon: BarChart2, label: 'Antigüedad (Aging)', path: '/credit/aging' },
+                { icon: BarChart2, label: 'Antigüedad', path: '/credit/aging' },
                 { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
                 ...(modules?.services ? [
-                    { icon: DollarSign, label: 'Pago de Comisiones', path: '/hr/commissions' }
+                    { icon: DollarSign, label: 'Comisiones', path: '/hr/commissions' }
                 ] : []),
                 { icon: BarChart2, label: 'Reportes Unificados', path: '/reports/unified' },
                 { icon: PieChart, label: 'Reportes Detallados', path: '/reports/detailed' },
@@ -140,230 +135,141 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: Users, label: 'Usuarios', path: '/users' },
                 { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
                 { icon: Settings, label: 'Configuración', path: '/settings' },
-                // Help moved to footer
             ]
         }
     ];
 
-    // State for expanded groups
     const [expandedGroups, setExpandedGroups] = useState({});
 
-    // Auto-expand group if current path is inside it
     useEffect(() => {
-        if (isCollapsed) return; // Don't messy auto-expand if collapsed
-
+        if (isCollapsed) return;
         const newExpanded = { ...expandedGroups };
-
         menuStructure.forEach(group => {
             if (group.type === 'group') {
                 const hasActiveItem = group.items.some(item => item.path === location.pathname);
-                if (hasActiveItem) {
-                    newExpanded[group.label] = true;
-                }
+                if (hasActiveItem) newExpanded[group.label] = true;
             }
         });
-
-        // Only update if changed (to prevent loops, though object creation makes it tricky, simple check here)
-        // For simplicity, just setting it is fine as effect runs on path change
         setExpandedGroups(prev => ({ ...prev, ...newExpanded }));
     }, [location.pathname, isCollapsed]);
 
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
-    };
+    const handleLogout = () => { logout(); navigate('/login'); };
 
     const toggleGroup = (label) => {
         if (isCollapsed) {
-            toggleSidebar(); // Auto open sidebar if user clicks a group in collapsed mode
-            setTimeout(() => {
-                setExpandedGroups(prev => ({ ...prev, [label]: true }));
-            }, 50);
+            toggleSidebar();
+            setTimeout(() => setExpandedGroups(prev => ({ ...prev, [label]: true })), 50);
             return;
         }
         setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
     };
 
     return (
-        <aside
-            className={cn(
-                "bg-white border-r border-slate-200 fixed h-full transition-all duration-300 ease-in-out shadow-sm inset-y-0 left-0",
-                // DESKTOP: Always visible as flex, width based on collapse state
-                "md:flex flex-col",
-                isCollapsed ? "md:w-20" : "md:w-64",
-                "md:z-10",
-                // MOBILE: Conditional visibility - only apply on mobile screens
-                isMobileMenuOpen ? "flex max-md:flex" : "hidden max-md:hidden",
-                "max-md:w-64 max-md:z-50",
-                // Mobile slide animation - only on mobile
-                isMobileMenuOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full"
-            )}
-        >
-            {/* Mobile Close Button - Only visible on mobile */}
-            {isMobileMenuOpen && (
-                <button
-                    onClick={closeMobileMenu}
-                    className="md:hidden absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors z-10"
-                    aria-label="Cerrar menú"
-                >
-                    <X size={20} />
-                </button>
-            )}
-
-            <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 relative bg-slate-50/50">
-                {!isCollapsed && (
-                    <div className="flex items-center gap-2 font-bold text-xl text-slate-800 transition-opacity duration-300">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md shadow-indigo-200">
-                            I
+        <aside className={cn(
+            "bg-white border-r border-slate-200 fixed h-full transition-all duration-300 ease-in-out shadow-[1px_0_5px_rgba(0,0,0,0.02)] inset-y-0 left-0 flex flex-col z-20",
+            isCollapsed ? "md:w-20" : "md:w-64",
+            isMobileMenuOpen ? "flex w-64 translate-x-0 z-50" : "hidden md:flex max-md:-translate-x-full"
+        )}>
+            {/* Logo Area */}
+            <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white relative">
+                {!isCollapsed ? (
+                    <div className="flex items-center gap-3 animate-in fade-in duration-300">
+                        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white shadow-sm">
+                            <span className="font-bold text-lg">M</span>
                         </div>
-                        <span className="tracking-tight">InvenSoft</span>
+                        <span className="font-bold text-lg text-slate-900 tracking-tight">Mi Inventario</span>
                     </div>
-                )}
-                {isCollapsed && (
+                ) : (
                     <div className="w-full flex justify-center">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-md shadow-indigo-200">
-                            I
+                        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white shadow-sm">
+                            <span className="font-bold text-lg">M</span>
                         </div>
                     </div>
                 )}
 
-                {/* Desktop collapse button - Hidden on mobile */}
-                <button
-                    onClick={toggleSidebar}
-                    className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-600 shadow-sm transition-colors z-30 transform hover:scale-110"
-                >
+                {/* Close Mobile */}
+                {isMobileMenuOpen && (
+                    <button onClick={closeMobileMenu} className="md:hidden absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                        <X size={20} />
+                    </button>
+                )}
+
+                {/* Desktop Collapse */}
+                <button onClick={toggleSidebar} className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-slate-200 rounded-full items-center justify-center text-slate-400 hover:text-indigo-600 shadow-sm transition-transform hover:scale-105 z-30">
                     {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
                 </button>
             </div>
 
-            <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
+            {/* Navigation */}
+            <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-1 custom-scrollbar">
                 {menuStructure.map((group, idx) => {
-                    // RENDER SINGLE ITEM
+                    // SINGLE ITEM
                     if (group.type === 'single') {
                         const isActive = location.pathname === group.item.path;
                         return (
                             <Link
                                 key={group.item.path}
                                 to={group.item.path}
-                                onClick={closeMobileMenu} // Close mobile menu on navigation
+                                onClick={closeMobileMenu}
                                 className={cn(
-                                    "flex items-center px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative my-1",
+                                    "flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative group mb-1",
                                     isActive
-                                        ? "bg-indigo-50 text-indigo-600 shadow-sm"
+                                        ? "bg-slate-900 text-white shadow-md shadow-slate-200"
                                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-                                    isCollapsed && "justify-center"
+                                    isCollapsed && "justify-center px-0"
                                 )}
+                                title={isCollapsed ? group.item.label : ''}
                             >
-                                <group.item.icon
-                                    size={20}
-                                    className={cn(
-                                        "transition-colors flex-shrink-0",
-                                        isActive ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600"
-                                    )}
-                                />
-                                {!isCollapsed && <span className="ml-3 truncate">{group.item.label}</span>}
-                                {isCollapsed && (
-                                    <div className="absolute left-full ml-4 px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 shadow-xl translate-x-2 group-hover:translate-x-0">
-                                        {group.item.label}
-                                        <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 w-2 h-2 bg-slate-800 transform rotate-45"></div>
-                                    </div>
-                                )}
+                                <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600")} strokeWidth={isActive ? 2.5 : 2} />
+                                {!isCollapsed && <span className="ml-3 font-semibold">{group.item.label}</span>}
                             </Link>
                         );
                     }
 
-                    // RENDER GROUP
+                    // GROUP ITEM
                     const isExpanded = expandedGroups[group.label];
                     const hasActiveChild = group.items.some(item => item.path === location.pathname);
 
                     if (isCollapsed) {
-                        // Collapsed mode: Show group icon only (simplified)
-                        // Or show main icon and a tooltip with subitems (Advanced) -- Let's keep it simple: Main icon that expands sidebar
                         return (
-                            <div
-                                key={idx}
-                                className="group relative my-1 flex justify-center"
-                            >
-                                <button
-                                    onClick={() => toggleGroup(group.label)}
-                                    className={cn(
-                                        "flex items-center justify-center w-10 h-10 rounded-xl transition-all",
-                                        hasActiveChild ? "bg-indigo-50 text-indigo-600" : "text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                                    )}
-                                >
+                            <div key={idx} className="flex justify-center my-1 group relative">
+                                <button onClick={() => toggleGroup(group.label)} className={cn("w-10 h-10 flex items-center justify-center rounded-lg transition-all", hasActiveChild ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:bg-slate-50")}>
                                     <group.icon size={20} />
                                 </button>
-                                {/* Tooltip for group */}
-                                <div className="absolute left-full ml-4 top-0 bg-slate-800 text-white rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-all z-50 shadow-xl translate-x-2 group-hover:translate-x-0 overflow-hidden min-w-[150px]">
-                                    <div className="px-3 py-2 border-b border-slate-700 font-bold text-xs bg-slate-900/50">
-                                        {group.label}
-                                    </div>
-                                    <div className="py-1">
-                                        {group.items.map(subItem => (
-                                            <div key={subItem.path} className="px-3 py-1.5 text-xs text-slate-300 flex items-center gap-2">
-                                                <subItem.icon size={12} />
-                                                {subItem.label}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="absolute left-0 top-3 -translate-x-1 w-2 h-2 bg-slate-800 transform rotate-45"></div>
-                                </div>
+                                {/* Tooltip Logic Simplified */}
                             </div>
                         );
                     }
 
                     return (
-                        <div key={idx} className="my-1">
+                        <div key={idx} className="mb-2">
                             <button
                                 onClick={() => toggleGroup(group.label)}
-                                className={cn(
-                                    "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-bold transition-all group select-none",
-                                    hasActiveChild && !isExpanded
-                                        ? "text-indigo-600 bg-indigo-50/50"
-                                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                                )}
+                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors group select-none"
                             >
                                 <div className="flex items-center">
-                                    <group.icon
-                                        size={20}
-                                        className={cn(
-                                            "transition-colors",
-                                            hasActiveChild && !isExpanded ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600"
-                                        )}
-                                    />
-                                    <span className="ml-3">{group.label}</span>
+                                    <group.icon size={18} className={cn("text-slate-400 group-hover:text-slate-600 transition-colors", hasActiveChild && "text-slate-900")} />
+                                    <span className={cn("ml-3 font-semibold", hasActiveChild && "text-slate-900")}>{group.label}</span>
                                 </div>
-                                <ChevronDown
-                                    size={16}
-                                    className={cn(
-                                        "transition-transform duration-200 text-slate-400",
-                                        isExpanded ? "transform rotate-180" : ""
-                                    )}
-                                />
+                                <ChevronDown size={14} className={cn("transition-transform duration-200", isExpanded && "rotate-180")} />
                             </button>
 
-                            {/* Submenu */}
-                            <div
-                                className={cn(
-                                    "overflow-hidden transition-all duration-300 ease-in-out pl-4 space-y-0.5 border-l-2 border-slate-100 ml-4 mt-1",
-                                    isExpanded ? "max-h-[500px] opacity-100 mb-2" : "max-h-0 opacity-0"
-                                )}
-                            >
+                            <div className={cn("overflow-hidden transition-all duration-300 ease-in-out pl-4 space-y-0.5 mt-1 border-l border-slate-100 ml-4", isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0")}>
                                 {group.items.map(subItem => {
                                     const isSubActive = location.pathname === subItem.path;
                                     return (
                                         <Link
                                             key={subItem.path}
                                             to={subItem.path}
-                                            onClick={closeMobileMenu} // Close mobile menu on navigation
+                                            onClick={closeMobileMenu}
                                             className={cn(
-                                                "flex items-center px-3 py-2 rounded-lg text-xs font-medium transition-all relative",
+                                                "flex items-center px-3 py-2 rounded-md text-sm transition-all relative",
                                                 isSubActive
-                                                    ? "text-indigo-600 bg-indigo-50"
-                                                    : "text-slate-500 hover:text-indigo-600 hover:translate-x-1"
+                                                    ? "text-indigo-600 font-bold bg-indigo-50/50"
+                                                    : "text-slate-500 font-medium hover:text-slate-900 hover:bg-slate-50"
                                             )}
                                         >
-                                            <span className={cn("w-1.5 h-1.5 rounded-full mr-2 transition-colors", isSubActive ? "bg-indigo-500" : "bg-slate-300")}></span>
+                                            <span className={cn("w-1.5 h-1.5 rounded-full mr-2.5", isSubActive ? "bg-indigo-600" : "bg-slate-200")}></span>
                                             {subItem.label}
                                         </Link>
                                     );
@@ -374,41 +280,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 })}
             </nav>
 
-            <div className="p-4 border-t border-slate-100 bg-slate-50/30">
-                <Link
-                    to="/help"
-                    className={cn(
-                        "flex items-center px-3 py-2.5 mb-3 w-full rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 shadow-md shadow-indigo-200 hover:shadow-lg hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all duration-300",
-                        isCollapsed && "justify-center px-0 bg-none bg-indigo-600"
-                    )}
-                    title={isCollapsed ? "Centro de Ayuda" : ""}
-                >
-                    <BookOpen size={20} className="text-white/90" />
-                    {!isCollapsed && <span className="ml-3">Centro de Ayuda</span>}
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 bg-white">
+                <Link to="/help" className={cn("flex items-center px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors w-full mb-1", isCollapsed && "justify-center")}>
+                    <HelpCircle size={20} />
+                    {!isCollapsed && <span className="ml-3 font-semibold text-sm">Ayuda</span>}
                 </Link>
-
-                <button
-                    onClick={handleLogout}
-                    className={cn(
-                        "flex items-center px-3 py-2 w-full rounded-xl text-sm font-bold text-rose-600 hover:bg-rose-50 transition-colors",
-                        isCollapsed && "justify-center"
-                    )}
-                >
+                <button onClick={handleLogout} className={cn("flex items-center px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors w-full", isCollapsed && "justify-center")}>
                     <LogOut size={20} />
-                    {!isCollapsed && <span className="ml-3">Cerrar Sesión</span>}
+                    {!isCollapsed && <span className="ml-3 font-bold text-sm">Salir</span>}
                 </button>
-
-                {!isCollapsed && (
-                    <div className="mt-4 flex items-center gap-3 px-3 transition-opacity duration-300 border-t border-slate-100 pt-4">
-                        <div className="w-9 h-9 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 font-black text-xs shadow-sm">
-                            {user?.username?.substring(0, 2).toUpperCase() || 'US'}
-                        </div>
-                        <div className="text-xs overflow-hidden">
-                            <p className="font-bold text-slate-700 truncate">{user?.username || 'Usuario'}</p>
-                            <p className="text-slate-400 font-medium truncate w-32">{user?.role || 'Rol'}</p>
-                        </div>
-                    </div>
-                )}
             </div>
         </aside>
     );

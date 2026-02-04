@@ -18,9 +18,9 @@ export default function DashboardLayout() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
+        <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 flex">
             {/* Mobile Header with Hamburger - Only visible on mobile */}
-            <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 z-30 shadow-sm">
+            <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 z-30 shadow-sm">
                 <button
                     onClick={() => setIsMobileMenuOpen(true)}
                     className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -40,7 +40,7 @@ export default function DashboardLayout() {
             {/* Mobile Overlay - Dark backdrop when menu is open */}
             {isMobileMenuOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                    className="fixed inset-0 bg-black/50 z-40 md:hidden animate-in fade-in duration-200"
                     onClick={closeMobileMenu}
                 />
             )}
@@ -65,8 +65,8 @@ export default function DashboardLayout() {
             >
                 <Header />
 
-                <main className="flex-1 p-8 overflow-y-auto">
-                    <div className="max-w-7xl mx-auto">
+                <main className="flex-1 p-6 md:p-8 overflow-y-auto overflow-x-hidden">
+                    <div className="max-w-7xl mx-auto w-full">
                         <Outlet />
                     </div>
                 </main>
