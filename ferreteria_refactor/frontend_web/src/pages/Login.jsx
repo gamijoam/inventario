@@ -12,10 +12,16 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Auth & Config
-    const { login } = useAuth();
+    const { login, user, isAuthenticated } = useAuth();
     const { business } = useConfig();
     const navigate = useNavigate();
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (isAuthenticated && user) {
+            window.location.href = '/#/';
+        }
+    }, [isAuthenticated, user]);
 
     // Tenant logic (preserved)
     const hostname = window.location.hostname;
@@ -39,7 +45,8 @@ const Login = () => {
         setLoading(true);
         try {
             await login(username, password);
-            navigate('/');
+            // Force standard URL structure by reloading at root
+            window.location.href = '/#/';
         } catch (err) {
             setError(err.response?.data?.detail || 'Credenciales inválidas. Por favor intenta nuevamente.');
         } finally {

@@ -338,6 +338,9 @@ function App() {
                             } />
                           </Route>
                         </Route>
+
+                        {/* Catch all - Redirect to Dashboard */}
+                        <Route path="*" element={<Navigate to="/" replace />} />
                       </Routes>
                     </Router>
                   </CartProvider>

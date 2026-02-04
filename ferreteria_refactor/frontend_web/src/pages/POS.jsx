@@ -1,5 +1,8 @@
 import { useAuth } from '../context/AuthContext';
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock } from 'lucide-react';
+import CashClosingModal from '../components/cash/CashClosingModal';
+
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Layers } from 'lucide-react'; // Keep only used icons if any. Actually POSCatalog/Cart manage their own.
 import { Button } from '../components/ui/button'; // Might be used in modals?
@@ -62,6 +65,7 @@ const POS = () => {
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
     const [isMovementOpen, setIsMovementOpen] = useState(false);
     const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
+    const [isClosingOpen, setIsClosingOpen] = useState(false);
     const [lastSaleData, setLastSaleData] = useState(null);
     const [selectedProductIndex, setSelectedProductIndex] = useState(-1);
     const [quoteCustomer, setQuoteCustomer] = useState(null);
@@ -462,92 +466,137 @@ const POS = () => {
     const [activeTab, setActiveTab] = useState('CATALOG');
 
 
+
     return (
-        <div className="flex flex-col md:flex-row h-[calc(100vh-1rem)] overflow-hidden gap-4 p-4 bg-slate-100">
+        <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
+            {/* GLOBAL POS HEADER */}
+            <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-20">
+                <div className="flex items-center gap-4">
+                    <Link to="/" className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800 transition-colors" title="Volver al Dashboard">
+                        <ArrowLeft size={20} />
+                    </Link>
+                    <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
+                    <h1 className="text-lg font-black text-slate-800 tracking-tight hidden md:block">Punto de Venta</h1>
+                </div>
 
-            {/* SECCIÓN IZQUIERDA: CATÁLOGO */}
-            <div className="flex-1 min-w-0 h-full">
-                <POSCatalog
-                    products={filteredCatalog}
-                    categories={rootCategories}
-                    loading={isLoading}
-                    onAddToCart={handleProductClick}
-                    onSearch={setSearchTerm}
-                    onFilterCategory={setSelectedCategory}
-                    selectedCategoryId={selectedCategory}
-                    searchTerm={searchTerm}
-                    currencySymbol={anchorCurrency.symbol}
-                    // Secondary Currency Props
-                    secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
-                    convertProductPrice={convertProductPrice}
-                />
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsMovementOpen(true)}
+                        className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200"
+                    >
+                        <ArrowRightLeft size={16} /> Movimientos
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsAdvanceOpen(true)}
+                        className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
+                    >
+                        <Banknote size={16} /> Avance
+                    </Button>
+
+                    <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
+
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsClosingOpen(true)}
+                        className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 font-bold gap-2"
+                    >
+                        <Lock size={16} /> Cerrar Caja
+                    </Button>
+                </div>
             </div>
 
-            {/* SECCIÓN DERECHA: CARRITO (Fixed Width on Desktop) */}
-            <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
-                <POSCart
-                    cartItems={cart}
-                    onRemoveItem={removeFromCart}
-                    onUpdateQuantity={updateQuantity}
-                    onClearCart={() => {
-                        if (confirm('¿Vaciar carrito?')) clearCart();
-                    }}
-                    totals={{ totalUSD, totalBs }}
-                    anchorCurrency={anchorCurrency}
-                    onCheckout={() => setIsPaymentOpen(true)}
-                    onItemClick={(item) => setSelectedItemForEdit(item)}
-                    secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
-                    convertPrice={convertPrice}
-                />
-            </div>
+            {/* MAIN CONTENT (Split Layout) */}
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-4 p-4">
+                {/* SECCIÓN IZQUIERDA: CATÁLOGO */}
+                <div className="flex-1 min-w-0 h-full">
+                    <POSCatalog
+                        products={filteredCatalog}
+                        categories={rootCategories}
+                        loading={isLoading}
+                        onAddToCart={handleProductClick}
+                        onSearch={setSearchTerm}
+                        onFilterCategory={setSelectedCategory}
+                        selectedCategoryId={selectedCategory}
+                        searchTerm={searchTerm}
+                        currencySymbol={anchorCurrency.symbol}
+                        // Secondary Currency Props
+                        secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                        convertProductPrice={convertProductPrice}
+                    />
+                </div>
 
-            {/* MOBILE VIEW HANDLING (Simple Toggle) */}
-            <div className="fixed bottom-4 right-4 md:hidden z-50">
-                {/* Mobile Cart Floating Button Logic is handled inside POSCart/Catalog or we can add here if needed. 
+                {/* SECCIÓN DERECHA: CARRITO (Fixed Width on Desktop) */}
+                <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
+                    <POSCart
+                        cartItems={cart}
+                        onRemoveItem={removeFromCart}
+                        onUpdateQuantity={updateQuantity}
+                        onClearCart={() => {
+                            if (confirm('¿Vaciar carrito?')) clearCart();
+                        }}
+                        totals={{ totalUSD, totalBs }}
+                        anchorCurrency={anchorCurrency}
+                        onCheckout={() => setIsPaymentOpen(true)}
+                        onItemClick={(item) => setSelectedItemForEdit(item)}
+                        secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                        convertPrice={convertPrice}
+                    />
+                </div>
+
+                {/* MOBILE VIEW HANDLING (Simple Toggle) */}
+                <div className="fixed bottom-4 right-4 md:hidden z-50">
+                    {/* Mobile Cart Floating Button Logic is handled inside POSCart/Catalog or we can add here if needed. 
                      The new POSCatalog has responsive grid. 
                      The new POSCart is full height. 
                      For mobile, we normally toggle visibility. 
                      Let's ignore complex mobile toggle for this specific prompt and focus on the split layout asked.
                      But if user is on mobile, they see ONLY catalog or ONLY cart.
                  */}
-                {cart.length > 0 && (
-                    <Button
-                        size="icon"
-                        className="rounded-full h-14 w-14 shadow-xl bg-indigo-600 text-white"
-                        onClick={() => setIsPaymentOpen(true)} // Quick checkout on mobile? Or show cart?
-                    >
-                        <Layers />
-                    </Button>
-                )}
+                    {cart.length > 0 && (
+                        <Button
+                            size="icon"
+                            className="rounded-full h-14 w-14 shadow-xl bg-indigo-600 text-white"
+                            onClick={() => setIsPaymentOpen(true)} // Quick checkout on mobile? Or show cart?
+                        >
+                            <Layers />
+                        </Button>
+                    )}
+                </div>
+
+                {/* --- MODALS --- */}
+                <POSSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+                <UnitSelectionModal isOpen={!!selectedProductForUnits} product={selectedProductForUnits} onClose={() => setSelectedProductForUnits(null)} onSelect={handleUnitSelect} />
+                <EditItemModal isOpen={!!selectedItemForEdit} item={selectedItemForEdit} onClose={() => setSelectedItemForEdit(null)} onUpdate={updateQuantity} onDelete={removeFromCart} />
+
+                <PaymentModal
+                    isOpen={isPaymentOpen}
+                    onClose={() => { setIsPaymentOpen(false); focusSearch(); }}
+                    totalUSD={totalUSD}
+                    totalBs={totalBs}
+                    totalsByCurrency={totalsByCurrency}
+                    cart={cart}
+                    onConfirm={handleCheckout}
+                    warehouseId={selectedWarehouseId}
+                    initialCustomer={quoteCustomer}
+                    quoteId={activeQuoteId}
+                    customSubmit={activeServiceOrderId ? handleServiceCheckoutSubmit : null}
+                />
+
+                <PinAuthModal isOpen={pinModalOpen} onClose={() => { setPinModalOpen(false); setPendingPriceUpdate(null); setActivePricePopover(null); }} onSuccess={handlePinSuccess} title="Autorización Requerida" message="Ingrese PIN de supervisor." />
+                <SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={1} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} />
+                <ServiceImportModal isOpen={isServiceImportOpen} onClose={() => setIsServiceImportOpen(false)} onSelect={handleServiceOrderSelect} />
+                <CashMovementModal isOpen={isMovementOpen} onClose={() => { setIsMovementOpen(false); focusSearch(); }} />
+                <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
+                <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
+                {!isLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
+                <CashClosingModal isOpen={isClosingOpen} onClose={() => setIsClosingOpen(false)} />
             </div>
-
-            {/* --- MODALS --- */}
-            <POSSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
-            <UnitSelectionModal isOpen={!!selectedProductForUnits} product={selectedProductForUnits} onClose={() => setSelectedProductForUnits(null)} onSelect={handleUnitSelect} />
-            <EditItemModal isOpen={!!selectedItemForEdit} item={selectedItemForEdit} onClose={() => setSelectedItemForEdit(null)} onUpdate={updateQuantity} onDelete={removeFromCart} />
-
-            <PaymentModal
-                isOpen={isPaymentOpen}
-                onClose={() => { setIsPaymentOpen(false); focusSearch(); }}
-                totalUSD={totalUSD}
-                totalBs={totalBs}
-                totalsByCurrency={totalsByCurrency}
-                cart={cart}
-                onConfirm={handleCheckout}
-                warehouseId={selectedWarehouseId}
-                initialCustomer={quoteCustomer}
-                quoteId={activeQuoteId}
-                customSubmit={activeServiceOrderId ? handleServiceCheckoutSubmit : null}
-            />
-
-            <PinAuthModal isOpen={pinModalOpen} onClose={() => { setPinModalOpen(false); setPendingPriceUpdate(null); setActivePricePopover(null); }} onSuccess={handlePinSuccess} title="Autorización Requerida" message="Ingrese PIN de supervisor." />
-            <SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={1} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} />
-            <ServiceImportModal isOpen={isServiceImportOpen} onClose={() => setIsServiceImportOpen(false)} onSelect={handleServiceOrderSelect} />
-            <CashMovementModal isOpen={isMovementOpen} onClose={() => { setIsMovementOpen(false); focusSearch(); }} />
-            <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
-            <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
-            {!isLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
-
         </div>
     );
 };
