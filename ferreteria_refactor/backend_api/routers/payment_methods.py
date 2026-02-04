@@ -52,9 +52,20 @@ def create_payment_method(method: PaymentMethodCreate, db: Session = Depends(get
         is_system=False
     )
     db.add(new_method)
+    db.flush() # Generate ID
+    
+    # Capture state before commit
+    resp_obj = PaymentMethodResponse(
+        id=new_method.id,
+        name=new_method.name,
+        is_active=new_method.is_active,
+        requires_reference=new_method.requires_reference,
+        is_system=new_method.is_system
+    )
+    
     db.commit()
-    db.refresh(new_method)
-    return new_method
+    # No db.refresh()
+    return resp_obj
 
 @router.put("/{method_id}", response_model=PaymentMethodResponse)
 def update_payment_method(method_id: int, method: PaymentMethodUpdate, db: Session = Depends(get_db)):
@@ -77,9 +88,19 @@ def update_payment_method(method_id: int, method: PaymentMethodUpdate, db: Sessi
     if method.requires_reference is not None:
         db_method.requires_reference = method.requires_reference
         
+    db.flush()
+    
+    # Capture state
+    resp_obj = PaymentMethodResponse(
+        id=db_method.id,
+        name=db_method.name,
+        is_active=db_method.is_active,
+        requires_reference=db_method.requires_reference,
+        is_system=db_method.is_system
+    )
+    
     db.commit()
-    db.refresh(db_method)
-    return db_method
+    return resp_obj
 
 @router.delete("/{method_id}")
 def delete_payment_method(method_id: int, db: Session = Depends(get_db)):

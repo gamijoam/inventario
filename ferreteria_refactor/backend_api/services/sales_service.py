@@ -121,6 +121,7 @@ class SalesService:
             # 1. Create Sale Header
             # CRITICAL FIX: Respect Frontend's VES calculation (preserves anchoring)
             total_bs = sale_data.total_amount_bs
+            current_time = datetime.now() # Explicitly set time to avoid refresh need
             
             print(f"[DEBUG] Creating Sale. Method: {sale_data.payment_method}. Payments: {sale_data.payments}")
 
@@ -130,10 +131,11 @@ class SalesService:
             if sale_data.is_credit and sale_data.customer_id:
                 customer = db.query(models.Customer).filter(models.Customer.id == sale_data.customer_id).first()
                 if customer:
-                    due_date = datetime.now() + timedelta(days=customer.payment_term_days)
+                    due_date = current_time + timedelta(days=customer.payment_term_days)
                     balance_pending = sale_data.total_amount
             
             new_sale = models.Sale(
+                date=current_time, # Explicitly set date
                 total_amount=sale_data.total_amount,
                 payment_method=sale_data.payment_method,
                 customer_id=sale_data.customer_id,
@@ -150,26 +152,34 @@ class SalesService:
                 notes=sale_data.notes,
                 due_date=due_date,
                 balance_pending=balance_pending,
-                warehouse_id=warehouse_id, # Link sale to warehouse
-                # user_id=user_id # TODO: Uncomment when user_id is added to Sale model
+                warehouse_id=warehouse_id, 
                 
                 # Hybrid / Offline Logic
-                sync_status="PENDING", # Always pending until pushed
-                is_offline_sale=True, # Mark as local sale
-                unique_uuid=str(uuid.uuid4()) # Generate UUID for sync
+                sync_status="PENDING", 
+                is_offline_sale=True, 
+                unique_uuid=str(uuid.uuid4()) 
             )
             db.add(new_sale)
             db.flush() # Get ID
             
+            # Capture ID and Key Data immediately after flush (while session is active)
+            new_sale_id = new_sale.id
+            sale_total_amount = float(new_sale.total_amount)
+            sale_currency = new_sale.currency
+            sale_payment_method = new_sale.payment_method
+            sale_customer_id = new_sale.customer_id
+            sale_date_iso = current_time.isoformat()
+
             # Update Quote Status if this sale comes from a quote
             if sale_data.quote_id:
                 quote = db.query(models.Quote).filter(models.Quote.id == sale_data.quote_id).first()
                 if quote:
-                    quote.status = "CONVERTED" # Mark as Sold/Converted
-                    db.add(quote) # Ensure update is tracked       
+                    quote.status = "CONVERTED" 
+                    db.add(quote)       
+            
             # 2. Process Items
             for item in sale_data.items:
-                sold_instances = [] # Initialize here to avoid UnboundLocalError
+                sold_instances = [] 
                 
                 # Fetch Product with Pessimistic Lock
                 product = db.query(models.Product).filter(models.Product.id == item.product_id).with_for_update().first()
@@ -308,7 +318,7 @@ class SalesService:
                             movement_type="SALE",
                             quantity=-qty_to_deduct,
                             balance_after=child_product.stock, # Legacy balance
-                            description=f"Sale via combo: {product.name}{unit_description} (Sale #{new_sale.id})",
+                            description=f"Sale via combo: {product.name}{unit_description} (Sale #{new_sale_id})",
                             # warehouse_id=warehouse_id # TODO: Add warehouse_id to Kardex
                         )
                         db.add(kardex_entry)
@@ -388,7 +398,7 @@ class SalesService:
                         movement_type="SALE",
                         quantity=-units_to_deduct,
                         balance_after=product.stock,
-                        description=f"Sale #{new_sale.id} from Warehouse #{warehouse_id}"
+                        description=f"Sale #{new_sale_id} from Warehouse #{warehouse_id}"
                     )
                     db.add(kardex_entry)
                 
@@ -407,7 +417,7 @@ class SalesService:
 
                 # Create Sale Detail - SAME FOR BOTH
                 detail = models.SaleDetail(
-                    sale_id=new_sale.id,
+                    sale_id=new_sale_id, # Use captured ID
                     product_id=product.id,
                     quantity=units_to_deduct,
                     unit_price=item.unit_price,
@@ -461,7 +471,7 @@ class SalesService:
             if sale_data.payments:
                 for p in sale_data.payments:
                     new_payment = models.SalePayment(
-                        sale_id=new_sale.id,
+                        sale_id=new_sale_id, # Use captured ID
                         amount=p.amount,
                         currency=p.currency,
                         payment_method=p.payment_method,
@@ -475,7 +485,7 @@ class SalesService:
                 # Credit sales with no specific down-payment should have NO payments.
                 if not new_sale.is_credit:
                     fallback_payment = models.SalePayment(
-                        sale_id=new_sale.id,
+                        sale_id=new_sale_id, # Use captured ID
                         amount=sale_data.total_amount,
                         currency=sale_data.currency,
                         payment_method=sale_data.payment_method,
@@ -484,7 +494,9 @@ class SalesService:
                     db.add(fallback_payment)
             
             db.commit()
-            db.refresh(new_sale)
+            
+            # NO db.refresh(new_sale) here! It causes "ObjectDeletedError" if session is unclean.
+            # We already have all data captured in local variables.
             
             # Emit Stock Update Events using BackgroundTasks
             if background_tasks:
@@ -497,12 +509,12 @@ class SalesService:
                 
                 # Emit Sale Event
                 background_tasks.add_task(run_broadcast, WebSocketEvents.SALE_COMPLETED, {
-                    "id": new_sale.id,
-                    "total_amount": float(new_sale.total_amount),
-                    "currency": new_sale.currency,
-                    "payment_method": new_sale.payment_method,
-                    "customer_id": new_sale.customer_id,
-                    "date": new_sale.date.isoformat() if new_sale.date else None
+                    "id": new_sale_id,
+                    "total_amount": sale_total_amount,
+                    "currency": sale_currency,
+                    "payment_method": sale_payment_method,
+                    "customer_id": sale_customer_id,
+                    "date": sale_date_iso
                 })
                 
                 # AUTO-PRINT TICKET
@@ -510,7 +522,7 @@ class SalesService:
                 # Client (Frontend) is now responsible for initiating print via local bridge.
                 # background_tasks.add_task(print_sale_ticket, new_sale.id)
                 
-            return {"status": "success", "sale_id": new_sale.id}
+            return {"status": "success", "sale_id": new_sale_id}
         
         except HTTPException:
             raise
