@@ -1095,13 +1095,15 @@ async def upload_product_image(
         raise HTTPException(status_code=400, detail=f"Error procesando imagen: {str(e)}")
     
     # 4. Update database
-    product.image_url = f"/images/products/{image_filename}"
+    # 4. Update database
+    new_image_url = f"/images/products/{image_filename}"
+    product.image_url = new_image_url
     product.updated_at = datetime.now() # Force update to bust cache
     db.commit()
     
     return {
         "success": True,
-        "image_url": product.image_url,
+        "image_url": new_image_url,
         "message": "Imagen subida correctamente"
     }
 
