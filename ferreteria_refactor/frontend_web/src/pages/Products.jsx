@@ -326,6 +326,9 @@ const Products = () => {
                 isOpen={isModalOpen}
                 onClose={() => { setIsModalOpen(false); setSelectedProduct(null); }}
                 initialData={selectedProduct}
+                categories={categories}
+                warehouses={warehouses}
+                exchangeRates={exchangeRates}
                 onSubmit={async (productData) => {
                     try {
                         if (selectedProduct) { await apiClient.put(`/products/${selectedProduct.id}`, productData); alert("Actualizado"); }
