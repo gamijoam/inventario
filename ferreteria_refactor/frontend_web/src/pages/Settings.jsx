@@ -537,24 +537,35 @@ const Settings = () => {
                                                                 {/* Rate Input */}
                                                                 <div className="mb-4">
                                                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Valor de Cambio</label>
-                                                                    <div className="relative">
-                                                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
-                                                                            $1 USD =
+                                                                    <div className="flex items-center overflow-hidden border-2 border-slate-200 rounded-xl focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all shadow-sm bg-white">
+                                                                        <div className="bg-slate-50 px-4 py-4 flex items-center border-r border-slate-200">
+                                                                            <span className="text-slate-400 font-bold text-sm whitespace-nowrap">$1 USD =</span>
                                                                         </div>
+
                                                                         <input
                                                                             type="number"
-                                                                            step="0.01"
+                                                                            step="0.0001"
                                                                             defaultValue={rate.rate}
-                                                                            onBlur={(e) => {
-                                                                                const val = parseFloat(e.target.value);
-                                                                                if (val !== rate.rate && val > 0) {
-                                                                                    handleUpdateRate(rate.id, 'rate', val);
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') {
+                                                                                    e.target.blur();
                                                                                 }
                                                                             }}
-                                                                            className="w-full pl-24 pr-16 py-3 border-2 border-slate-200 bg-gradient-to-br from-slate-50 to-white rounded-xl font-mono font-black text-slate-800 text-xl focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all shadow-sm"
+                                                                            onBlur={(e) => {
+                                                                                const val = parseFloat(e.target.value);
+                                                                                if (!isNaN(val) && val !== rate.rate && val >= 0) {
+                                                                                    handleUpdateRate(rate.id, 'rate', val);
+                                                                                } else {
+                                                                                    // Reset if invalid
+                                                                                    e.target.value = rate.rate;
+                                                                                }
+                                                                            }}
+                                                                            className="w-full px-4 py-3 font-mono font-black text-slate-800 text-2xl outline-none bg-transparent"
+                                                                            placeholder="0.00"
                                                                         />
-                                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-indigo-600 font-black text-sm">
-                                                                            {rate.currency_symbol}
+
+                                                                        <div className="bg-slate-50 px-4 py-4 flex items-center border-l border-slate-200 min-w-[3rem] justify-center">
+                                                                            <span className="text-indigo-600 font-black text-lg">{rate.currency_symbol}</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -714,15 +725,17 @@ const Settings = () => {
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
                                     Tasa de Cambio (1 USD =)
                                 </label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-3.5 text-slate-400 font-bold text-sm">{selectedCurrInfo?.symbol}</span>
+                                <div className="flex items-center overflow-hidden border-2 border-slate-200 rounded-xl focus-within:border-indigo-400 focus-within:ring-4 focus-within:ring-indigo-500/10 transition-all shadow-sm bg-white">
+                                    <div className="bg-slate-50 px-4 py-3 border-r border-slate-200">
+                                        <span className="text-slate-400 font-bold text-sm">{selectedCurrInfo?.symbol}</span>
+                                    </div>
                                     <input
                                         type="number"
-                                        step="0.01"
+                                        step="0.0001"
                                         value={newRate.rate}
                                         onChange={(e) => setNewRate({ ...newRate, rate: e.target.value })}
                                         placeholder="0.00"
-                                        className="w-full pl-10 p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold text-slate-700 placeholder:text-slate-300"
+                                        className="w-full px-4 py-3 font-bold text-slate-800 text-2xl outline-none placeholder:text-slate-300"
                                     />
                                 </div>
                             </div>

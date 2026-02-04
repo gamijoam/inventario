@@ -144,7 +144,9 @@ async def create_exchange_rate(
         "currency_code": new_rate.currency_code,
         "currency_symbol": new_rate.currency_symbol,
         "is_default": new_rate.is_default,
-        "is_active": new_rate.is_active
+        "is_active": new_rate.is_active,
+        "created_at": new_rate.created_at,
+        "updated_at": new_rate.updated_at
     }
     
     db.commit()
@@ -204,7 +206,9 @@ async def update_exchange_rate(
         "currency_code": rate.currency_code,
         "currency_symbol": rate.currency_symbol,
         "is_default": rate.is_default,
-        "is_active": rate.is_active
+        "is_active": rate.is_active,
+        "created_at": rate.created_at,
+        "updated_at": rate.updated_at
     }
 
     db.commit()
@@ -215,7 +219,7 @@ async def update_exchange_rate(
     import json
     # Since we didn't capture 'old_state' easily, we'll log the new state.
     # Ideally we'd do the diff, but this is a quick action.
-    log_action(db, user_id=1, action="UPDATE", table_name="exchange_rates", record_id=rate.id, changes=json.dumps({"rate": rate.rate, "is_active": rate.is_active}, default=str))
+    log_action(db, user_id=1, action="UPDATE", table_name="exchange_rates", record_id=response_data["id"], changes=json.dumps({"rate": response_data["rate"], "is_active": response_data["is_active"]}, default=str))
 
     # Broadcast event
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_UPDATED, {

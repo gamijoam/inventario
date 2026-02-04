@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, Calendar, Trash2, Eye, Printer, AlertTriangle, X, FileText, ArrowRight, Filter } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Calendar, Trash2, Eye, Printer, AlertTriangle, X, FileText, ArrowRight, Filter, Download, MoreHorizontal, FileDown } from 'lucide-react';
 import apiClient from '../config/axios';
 import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
@@ -7,6 +7,16 @@ import { pdf } from '@react-pdf/renderer';
 import InvoicePDF from '../components/pdf/InvoicePDF';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
+
+// Shadcn UI Components
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { Separator } from '../components/ui/separator';
 
 const SalesHistory = () => {
     const { user } = useAuth();
@@ -31,6 +41,20 @@ const SalesHistory = () => {
     // PIN Auth
     const [adminPin, setAdminPin] = useState('');
     const [pinError, setPinError] = useState('');
+
+    // Metrics Calculation
+    const metrics = useMemo(() => {
+        const completedSales = filteredSales.filter(s => s.status !== 'VOIDED');
+        const totalSales = completedSales.length;
+        const totalRevenue = completedSales.reduce((acc, curr) => acc + Number(curr.total_amount || 0), 0);
+        const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
+
+        return {
+            totalSales,
+            totalRevenue,
+            averageTicket
+        };
+    }, [filteredSales]);
 
     useEffect(() => {
         fetchSales();
@@ -58,8 +82,10 @@ const SalesHistory = () => {
             if (selectedStatus) params.status = selectedStatus;
 
             const response = await apiClient.get('/returns/sales/search', { params });
-            setSales(response.data);
-            setFilteredSales(response.data);
+            // Sort by ID desc locally to ensure order if not forced by backend
+            const sorted = response.data.sort((a, b) => b.id - a.id);
+            setSales(sorted);
+            setFilteredSales(sorted);
         } catch (error) {
             console.error('Error fetching sales:', error);
         } finally {
@@ -258,412 +284,331 @@ const SalesHistory = () => {
     };
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Historial de Ventas</h1>
-                <p className="text-slate-500 text-sm mt-1">Consulta, reimprime o anula transacciones pasadas.</p>
-            </div>
-
-            {/* Filters Card */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                <div className="flex items-center gap-2 mb-4 text-slate-700 text-sm font-bold uppercase tracking-wide">
-                    <Filter size={16} className="text-indigo-500" />
-                    Filtros de Búsqueda
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div className="md:col-span-1">
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Desde</label>
-                        <div className="relative">
-                            <Calendar size={16} className="absolute left-3 top-2.5 text-slate-400" />
-                            <input
-                                type="date"
-                                value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-medium text-slate-700"
-                            />
-                        </div>
-                    </div>
-                    <div className="md:col-span-1">
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Hasta</label>
-                        <div className="relative">
-                            <Calendar size={16} className="absolute left-3 top-2.5 text-slate-400" />
-                            <input
-                                type="date"
-                                value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-medium text-slate-700"
-                            />
-                        </div>
-                    </div>
-                    <div className="md:col-span-1">
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Búsqueda</label>
-                        <div className="relative">
-                            <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Ticket, Cliente..."
-                                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-medium text-slate-700 placeholder:text-slate-400"
-                            />
-                        </div>
-                    </div>
-                    <div className="md:col-span-1">
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Estado</label>
-                        <select
-                            value={selectedStatus}
-                            onChange={(e) => setSelectedStatus(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-medium text-slate-700 bg-white"
-                        >
-                            <option value="">Todas</option>
-                            <option value="COMPLETED">Completadas</option>
-                            <option value="VOIDED">Anuladas</option>
-                        </select>
-                    </div>
-                    <div className="md:col-span-1">
-                        <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wide">Método</label>
-                        <select
-                            value={selectedPaymentMethod}
-                            onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-sm font-medium text-slate-700 bg-white"
-                        >
-                            <option value="">Todos</option>
-                            {paymentMethods.map(method => (
-                                <option key={method.id} value={method.name}>{method.name}</option>
-                            ))}
-                        </select>
-                    </div>
+        <div className="space-y-6 max-w-7xl mx-auto px-4 py-8">
+            {/* Header & Metrics */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">Historial de Ventas</h1>
+                    <p className="text-slate-500 font-medium">Gestiona y consulta todas las transacciones.</p>
                 </div>
             </div>
 
-            {/* Desktop Sales Table (Zebra Style) */}
-            <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-slate-500 uppercase bg-slate-50/50 border-b border-slate-100">
-                            <tr>
-                                <th className="px-6 py-4 font-bold tracking-wider">Ticket</th>
-                                <th className="px-6 py-4 font-bold tracking-wider">Hora</th>
-                                <th className="px-6 py-4 font-bold tracking-wider">Cliente</th>
-                                <th className="px-6 py-4 font-bold tracking-wider text-right">Monto</th>
-                                <th className="px-6 py-4 font-bold tracking-wider text-center">Método</th>
-                                <th className="px-6 py-4 font-bold tracking-wider text-center">Estado</th>
-                                <th className="px-6 py-4 font-bold tracking-wider text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="7" className="text-center py-12 text-slate-400 font-medium">
-                                        Cargando datos...
-                                    </td>
-                                </tr>
-                            ) : filteredSales.length === 0 ? (
-                                <tr>
-                                    <td colSpan="7" className="text-center py-12 text-slate-400 font-medium">
-                                        No se encontraron ventas para los filtros seleccionados
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredSales.map((sale, index) => (
-                                    <tr
-                                        key={sale.id}
-                                        onClick={() => handleViewDetails(sale)}
-                                        className={clsx(
-                                            "transition-colors duration-200 cursor-pointer group",
-                                            index % 2 === 0 ? "bg-white" : "bg-slate-50/50",
-                                            "hover:bg-indigo-50/60"
-                                        )}
-                                    >
-                                        <td className="px-6 py-4 font-medium text-slate-700">
-                                            #{sale.id}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {new Date(sale.date).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-700 font-medium">
-                                            {sale.customer?.name || 'Cliente General'}
-                                        </td>
-                                        <td className={clsx("px-6 py-4 text-right", sale.status === 'VOIDED' && "opacity-50 line-through")}>
-                                            {renderPaymentInfo(sale)}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                                {sale.payment_method || 'Mixto'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            {getStatusBadge(sale.status)}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
-                                                <button
-                                                    onClick={() => handleViewDetails(sale)}
-                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                    title="Ver Detalles"
-                                                >
-                                                    <Eye size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handlePrintPDF(sale)}
-                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                    title="PDF Nota de Entrega"
-                                                >
-                                                    <FileText size={18} />
-                                                </button>
-                                                {sale.status !== 'VOIDED' && (
-                                                    <button
-                                                        onClick={() => handleVoidClick(sale)}
-                                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                                        title="Anular Venta"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
+            {/* Metrics Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">
+                            Ventas Totales
+                        </CardTitle>
+                        <FileText className="h-4 w-4 text-emerald-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-black text-slate-800">{metrics.totalSales}</div>
+                        <p className="text-xs text-slate-400 font-bold mt-1">Transacciones filtradas</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">
+                            Ingreso Total
+                        </CardTitle>
+                        <AlertTriangle className="h-4 w-4 text-emerald-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-black text-emerald-600">${Number(metrics.totalRevenue).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                        <p className="text-xs text-slate-400 font-bold mt-1">En USD (aprox)</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">
+                            Ticket Promedio
+                        </CardTitle>
+                        <Calendar className="h-4 w-4 text-indigo-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-black text-indigo-600">${Number(metrics.averageTicket).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                        <p className="text-xs text-slate-400 font-bold mt-1">Por transacción</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Filter Toolbar */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <div className="flex items-center gap-3 w-full md:w-auto flex-1">
+                    <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                        <Input
+                            placeholder="Buscar folio, cliente o referencia..."
+                            className="pl-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-colors"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <Input
+                            type="date"
+                            className="w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                        />
+                        <span className="text-slate-300">-</span>
+                        <Input
+                            type="date"
+                            className="w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                        />
+                    </div>
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="gap-2 border-slate-200 text-slate-600">
+                                <Filter size={14} /> Filtro: {selectedStatus === '' ? 'Todos' : selectedStatus === 'VOIDED' ? 'Anulados' : 'Completados'}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Filtrar Estado</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setSelectedStatus('')}>Todos</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSelectedStatus('COMPLETED')}>Completados</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSelectedStatus('VOIDED')}>Anulados</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Button variant="outline" className="gap-2 border-slate-200 text-slate-600 hover:text-indigo-600 active:scale-95 transition-transform" onClick={() => alert('Exportar Excel no implementado en demo')}>
+                        <FileDown size={14} /> Exportar
+                    </Button>
+                </div>
+            </div>
+
+            {/* Sales Table */}
+            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                <Table>
+                    <TableHeader className="bg-slate-50/50">
+                        <TableRow>
+                            <TableHead className="w-[100px] font-bold text-slate-500 uppercase text-xs tracking-wider">Folio</TableHead>
+                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider">Fecha</TableHead>
+                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider">Cliente</TableHead>
+                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider text-right">Total</TableHead>
+                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider text-center">Estado</TableHead>
+                            <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            <TableRow>
+                                <TableCell colSpan={6} className="h-32 text-center text-slate-400 font-medium animate-pulse">
+                                    Cargando datos...
+                                </TableCell>
+                            </TableRow>
+                        ) : filteredSales.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={6} className="h-32 text-center text-slate-400 font-medium">
+                                    No se encontraron ventas
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            filteredSales.map((sale) => (
+                                <TableRow key={sale.id} className="hover:bg-slate-50/50 group">
+                                    <TableCell className="font-mono font-bold text-slate-700">
+                                        #{sale.id}
+                                    </TableCell>
+                                    <TableCell className="text-slate-500 text-xs">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-slate-600">{new Date(sale.date).toLocaleDateString()}</span>
+                                            <span>{new Date(sale.date).toLocaleTimeString()}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-8 w-8 bg-indigo-100 text-indigo-600 font-bold border border-indigo-200">
+                                                <AvatarFallback>
+                                                    {sale.customer?.name ? sale.customer.name.substring(0, 2).toUpperCase() : 'GN'}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-slate-700 text-sm">
+                                                    {sale.customer?.name || 'Cliente General'}
+                                                </span>
+                                                {sale.customer?.id_number && (
+                                                    <span className="text-[10px] text-slate-400 font-medium">
+                                                        {sale.customer.id_number}
+                                                    </span>
                                                 )}
                                             </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className={clsx("font-bold", sale.status === 'VOIDED' ? "text-slate-400 line-through" : "text-slate-800")}>
+                                            ${Number(sale.total_amount).toFixed(2)}
+                                        </div>
+                                        {sale.payment_method && (
+                                            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wide">
+                                                {sale.payment_method}
+                                            </div>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        {sale.status === 'VOIDED' ? (
+                                            <Badge variant="destructive" className="bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100">
+                                                Anulada
+                                            </Badge>
+                                        ) : (
+                                            <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-none">
+                                                Completada
+                                            </Badge>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <span className="sr-only">Open menu</span>
+                                                    <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => handleViewDetails(sale)}>
+                                                    <Eye className="mr-2 h-4 w-4" /> Ver Detalles
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handlePrintPDF(sale)}>
+                                                    <FileText className="mr-2 h-4 w-4" /> Nota de Entrega
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleReprint(sale)}>
+                                                    <Printer className="mr-2 h-4 w-4" /> Reimprimir Ticket
+                                                </DropdownMenuItem>
+                                                {sale.status !== 'VOIDED' && (
+                                                    <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => handleVoidClick(sale)} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50">
+                                                            <Trash2 className="mr-2 h-4 w-4" /> Anular Venta
+                                                        </DropdownMenuItem>
+                                                    </>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
             </div>
 
-            {/* Mobile Sales Cards */}
-            <div className="md:hidden space-y-4">
-                {loading ? (
-                    <div className="text-center py-8 text-slate-400">Cargando...</div>
-                ) : filteredSales.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400">No se encontraron ventas</div>
-                ) : (
-                    filteredSales.map(sale => (
-                        <div
-                            key={sale.id}
-                            className={clsx(
-                                "bg-white p-4 rounded-xl border shadow-sm active:scale-[0.98] transition-all",
-                                sale.status === 'VOIDED' ? "border-rose-100 bg-rose-50/30" : "border-slate-200"
-                            )}
-                            onClick={() => handleViewDetails(sale)}
-                        >
-                            <div className="flex justify-between items-start mb-3">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="font-bold text-lg text-slate-800">#{sale.id}</span>
-                                        {getStatusBadge(sale.status)}
-                                    </div>
-                                    <p className="text-xs text-slate-400">
-                                        {new Date(sale.date).toLocaleDateString()} • {new Date(sale.date).toLocaleTimeString()}
-                                    </p>
-                                    <p className="text-sm font-bold text-slate-700 mt-1">
-                                        {sale.customer?.name || 'Cliente General'}
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <div className={clsx("text-lg font-black", sale.status === 'VOIDED' ? "text-slate-400 line-through" : "text-indigo-600")}>
-                                        ${Number(sale.total_amount).toFixed(2)}
-                                    </div>
-                                    <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full border border-slate-200 mt-1 inline-block">
-                                        {sale.payment_method || 'Mixto'}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="flex gap-2 pt-3 border-t border-slate-100" onClick={e => e.stopPropagation()}>
-                                <button
-                                    onClick={() => handlePrintPDF(sale)}
-                                    className="flex-1 py-2 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center justify-center gap-1"
-                                >
-                                    <FileText size={14} /> PDF
-                                </button>
-                                {sale.status !== 'VOIDED' && (
-                                    <button
-                                        onClick={() => handleVoidClick(sale)}
-                                        className="flex-1 py-2 rounded-lg bg-rose-50 text-rose-700 text-xs font-bold flex items-center justify-center gap-1"
-                                    >
-                                        <Trash2 size={14} /> Anular
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => handleViewDetails(sale)}
-                                    className="flex-1 py-2 rounded-lg bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-100"
-                                >
-                                    <Eye size={14} /> Ver
-                                </button>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
+            {/* Modals - Kept but restyled slightly if needing container updates, though they are fixed position */}
+            {/* Keeping existing modal logic as is, just wrapped in fragment if needed, but they are here in the flow */}
 
-            {/* Sale Detail Modal (Bento Styled) */}
+            {/* Sale Detail Modal (Bento Styled - Same as before but verified styling) */}
             {showDetailModal && selectedSale && (
-                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+                        {/* Header */}
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <div>
                                 <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                    <span className="bg-indigo-100 text-indigo-600 p-1.5 rounded-lg"><FileText size={20} /></span>
-                                    Venta #{selectedSale.id}
+                                    <Badge variant="outline" className="bg-indigo-50 text-indigo-600 border-indigo-100 px-2 py-1 h-auto text-xs">
+                                        VENTA
+                                    </Badge>
+                                    #{selectedSale.id}
                                 </h3>
-                                <p className="text-sm text-slate-500 mt-1 ml-1">
+                                <p className="text-sm text-slate-500 mt-1">
                                     {new Date(selectedSale.date).toLocaleString()}
                                 </p>
                             </div>
-                            <button
-                                onClick={() => setShowDetailModal(false)}
-                                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                            >
-                                <X size={24} />
-                            </button>
+                            <Button variant="ghost" size="icon" onClick={() => setShowDetailModal(false)}>
+                                <X className="h-5 w-5 text-slate-400" />
+                            </Button>
                         </div>
 
-                        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                        {/* Content */}
+                        <ScrollArea className="flex-1 p-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
-                                    <p className="font-bold text-slate-800 text-lg">{selectedSale.customer?.name || 'Cliente General'}</p>
-                                    {selectedSale.customer?.id_number && (
-                                        <p className="text-sm text-slate-500 font-medium">{selectedSale.customer.id_number}</p>
-                                    )}
-                                </div>
-                                <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Estado</p>
-                                    <div className="mt-1">{getStatusBadge(selectedSale.status)}</div>
-                                </div>
+                                <Card className="shadow-sm">
+                                    <CardContent className="p-4">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
+                                        <p className="font-bold text-slate-800 text-lg">{selectedSale.customer?.name || 'Cliente General'}</p>
+                                        {selectedSale.customer?.id_number && (
+                                            <p className="text-sm text-slate-500 font-medium">{selectedSale.customer.id_number}</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                                <Card className="shadow-sm">
+                                    <CardContent className="p-4">
+                                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Estado</p>
+                                        <div className="mt-1">{getStatusBadge(selectedSale.status)}</div>
+                                    </CardContent>
+                                </Card>
                             </div>
 
-                            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-slate-50 border-b border-slate-200">
-                                        <tr>
-                                            <th className="text-left p-3 font-semibold text-slate-600 pl-4">Producto</th>
-                                            <th className="text-center p-3 font-semibold text-slate-600">Cant.</th>
-                                            <th className="text-right p-3 font-semibold text-slate-600">Precio</th>
-                                            <th className="text-right p-3 font-semibold text-slate-600 pr-4">Subtotal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
+                            <Card className="shadow-none border border-slate-200 overflow-hidden mb-6">
+                                <Table>
+                                    <TableHeader className="bg-slate-50">
+                                        <TableRow>
+                                            <TableHead>Producto</TableHead>
+                                            <TableHead className="text-center">Cant.</TableHead>
+                                            <TableHead className="text-right">Precio</TableHead>
+                                            <TableHead className="text-right">Total</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
                                         {selectedSale.details?.map((detail, index) => (
-                                            <tr key={index}>
-                                                <td className="p-3 pl-4 text-slate-700 font-medium">{detail.product?.name || 'N/A'}</td>
-                                                <td className="p-3 text-center text-slate-600">{detail.quantity}</td>
-                                                <td className="p-3 text-right text-slate-600">${Number(detail.unit_price).toFixed(2)}</td>
-                                                <td className="p-3 text-right font-bold text-slate-800 pr-4">${Number(detail.subtotal).toFixed(2)}</td>
-                                            </tr>
+                                            <TableRow key={index}>
+                                                <TableCell className="font-medium">{detail.product?.name || 'N/A'}</TableCell>
+                                                <TableCell className="text-center">{detail.quantity}</TableCell>
+                                                <TableCell className="text-right">${Number(detail.unit_price).toFixed(2)}</TableCell>
+                                                <TableCell className="text-right font-bold">${Number(detail.subtotal).toFixed(2)}</TableCell>
+                                            </TableRow>
                                         ))}
-                                    </tbody>
-                                    <tfoot className="bg-slate-50 border-t border-slate-200">
-                                        <tr>
-                                            <td colSpan="3" className="p-4 text-right font-bold text-slate-600 uppercase tracking-wide">Total Venta:</td>
-                                            <td className="p-4 text-right font-black text-xl text-indigo-600 pr-4">
-                                                ${Number(selectedSale.total_amount).toFixed(2)}
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-
-                            {/* Payment History Section */}
-                            {selectedSale.payments && selectedSale.payments.length > 0 && (
-                                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-6">
-                                    <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                                        <h4 className="font-bold text-slate-700 text-sm">Historial de Pagos</h4>
-                                        <span className="text-xs text-slate-400">{selectedSale.payments.length} transacciones</span>
-                                    </div>
-                                    <div className="divide-y divide-slate-100">
-                                        {selectedSale.payments.map((p, i) => (
-                                            <div key={i} className="p-3 px-4 flex justify-between items-center text-sm hover:bg-slate-50/50 transition-colors">
-                                                <div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-slate-700">{p.payment_method}</span>
-                                                        {p.reference && (
-                                                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
-                                                                Ref: {p.reference}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center gap-2 mt-0.5">
-                                                        {p.payment_date && (
-                                                            <span className="text-xs text-slate-500 font-medium">
-                                                                {new Date(p.payment_date).toLocaleDateString()}
-                                                            </span>
-                                                        )}
-                                                        {p.currency !== 'USD' && (
-                                                            <span className="text-[10px] text-slate-400 bg-slate-100 px-1 rounded">
-                                                                Tasa: {p.exchange_rate}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="font-bold text-slate-700">{p.currency} {Number(p.amount).toFixed(2)}</div>
-                                                    {p.currency !== 'USD' && (
-                                                        <div className="text-xs text-slate-400 mt-0.5">
-                                                            ${(Number(p.amount) / (p.exchange_rate || 1)).toFixed(2)}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    </TableBody>
+                                </Table>
+                                <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end items-center gap-4">
+                                    <span className="font-bold text-slate-500 uppercase tracking-wider text-xs">Total Venta</span>
+                                    <span className="font-black text-2xl text-indigo-600">${Number(selectedSale.total_amount).toFixed(2)}</span>
                                 </div>
-                            )}
+                            </Card>
+                        </ScrollArea>
 
-                        </div>
-
-                        <div className="p-5 border-t border-slate-100 bg-slate-50 flex gap-3">
-                            <button
-                                onClick={() => handlePrintPDF(selectedSale)}
-                                className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
-                            >
-                                <FileText size={18} />
-                                Generar PDF
-                            </button>
-                            <button
-                                onClick={() => handleReprint(selectedSale)}
-                                className="flex-1 px-4 py-3 bg-white text-indigo-600 border-2 border-indigo-100 hover:border-indigo-300 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2"
-                            >
-                                <Printer size={18} />
-                                Reimprimir
-                            </button>
-                            <button
-                                onClick={() => setShowDetailModal(false)}
-                                className="px-6 py-3 bg-slate-200 text-slate-600 hover:bg-slate-300 rounded-xl font-bold text-sm transition-colors"
-                            >
-                                Cerrar
-                            </button>
+                        {/* Footer */}
+                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-3">
+                            <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={() => handlePrintPDF(selectedSale)}>
+                                <FileText className="mr-2 h-4 w-4" /> Generar PDF
+                            </Button>
+                            <Button variant="outline" className="flex-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50" onClick={() => handleReprint(selectedSale)}>
+                                <Printer className="mr-2 h-4 w-4" /> Reimprimir
+                            </Button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* PIN Auth Modal (Bento Styled) */}
+            {/* PIN Auth Modal */}
             {showPinModal && saleToVoid && (
-                <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center z-50 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-in fade-in zoom-in duration-200 border border-slate-200">
-                        <div className="p-6 border-b border-slate-100 text-center">
+                <div className="fixed inset-0 bg-slate-900/70 flex items-center justify-center z-50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                    <Card className="w-full max-w-sm shadow-2xl border-2 border-white/20">
+                        <CardHeader className="text-center pb-2">
                             <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <AlertTriangle className="text-rose-500" size={32} />
+                                <AlertTriangle className="text-rose-500 h-8 w-8" />
                             </div>
-                            <h3 className="text-xl font-black text-rose-600 mb-1">Confirmar Anulación</h3>
-                            <p className="text-slate-500 text-sm">
-                                ¿Estás seguro de anular la venta <span className="font-bold text-slate-800">#{saleToVoid.id}</span>?
+                            <CardTitle className="text-xl font-black text-rose-600">Confirmar Anulación</CardTitle>
+                            <p className="text-slate-500 text-sm mt-1">
+                                Anular venta <span className="font-bold text-slate-800">#{saleToVoid.id}</span>
                             </p>
-                        </div>
-
-                        <div className="p-6">
-                            <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 mb-6">
-                                <p className="text-xs text-rose-700 font-bold leading-relaxed text-center">
-                                    ⚠️ Esta acción devolverá los productos al inventario y reembolsará el dinero.
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="bg-rose-50 border border-rose-100 rounded-xl p-3">
+                                <p className="text-xs text-rose-700 font-bold text-center leading-relaxed">
+                                    Esta acción devolverá los productos al inventario y reembolsará el dinero.
                                 </p>
                             </div>
-
-                            <div className="mb-2">
-                                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide text-center">
-                                    PIN de Administrador Requerido
-                                </label>
-                                <input
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block text-center">PIN Administrativo</label>
+                                <Input
                                     type="password"
                                     value={adminPin}
                                     onChange={(e) => {
@@ -671,37 +616,24 @@ const SalesHistory = () => {
                                         setPinError('');
                                     }}
                                     onKeyPress={(e) => e.key === 'Enter' && handleVoidConfirm()}
-                                    className="w-full p-4 border-2 border-slate-200 rounded-xl focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 outline-none text-center text-3xl tracking-[1em] font-black text-slate-800 placeholder-slate-300"
-                                    placeholder="••••"
-                                    maxLength="6"
+                                    className="text-center text-2xl tracking-[0.5em] font-black h-14"
+                                    maxLength={6}
                                     autoFocus
                                 />
                                 {pinError && (
-                                    <p className="text-rose-600 text-xs font-bold mt-2 text-center animate-pulse">{pinError}</p>
+                                    <p className="text-rose-600 text-xs font-bold text-center animate-pulse">{pinError}</p>
                                 )}
                             </div>
-                        </div>
-
-                        <div className="p-4 border-t border-slate-100 grid grid-cols-2 gap-3 bg-slate-50 rounded-b-2xl">
-                            <button
-                                onClick={() => {
-                                    setShowPinModal(false);
-                                    setSaleToVoid(null);
-                                    setAdminPin('');
-                                    setPinError('');
-                                }}
-                                className="px-4 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={handleVoidConfirm}
-                                className="px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-lg shadow-rose-200 transition-colors"
-                            >
-                                ANULAR
-                            </button>
-                        </div>
-                    </div>
+                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                <Button variant="outline" onClick={() => { setShowPinModal(false); setAdminPin(''); }}>
+                                    Cancelar
+                                </Button>
+                                <Button variant="destructive" onClick={handleVoidConfirm}>
+                                    ANULAR
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
         </div>
