@@ -13,6 +13,10 @@ from decimal import Decimal
 sqlite3.register_adapter(Decimal, lambda x: float(x))
 sqlite3.register_converter("DECIMAL", lambda x: Decimal(x))
 
+# Force PostgreSQL to speak UTF-8 and English (to avoid Windows Spanish locale issues)
+os.environ["PGCLIENTENCODING"] = "utf-8"
+os.environ["LC_MESSAGES"] = "C"
+
 DB_TYPE = os.getenv("DB_TYPE", "postgres")
 DATABASE_URL = settings.DATABASE_URL
 
@@ -54,7 +58,9 @@ if DB_TYPE == "sqlite" or "sqlite" in str(DATABASE_URL):
     pool_config = {} # SQLite doesn't use the same pool config as Postgres
 else:
     # VPS/Docker Mode (Postgres)
-    connect_args = {}
+    # CRITICAL: Use 'latin1' to match Windows Spanish PostgreSQL error messages
+    # This prevents UnicodeDecodeError when Auth fails
+    connect_args = {"client_encoding": "latin1"}
     pool_config = {
         "pool_size": 20,        # Mantener 20 conexiones listas
         "max_overflow": 10,     # Permitir 10 extra en picos

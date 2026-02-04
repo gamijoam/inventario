@@ -1,6 +1,16 @@
-from logging.config import fileConfig
+# -*- coding: utf-8 -*-
+"""Alembic environment configuration with UTF-8 enforcement"""
 import sys
 import os
+
+# Force UTF-8 encoding for all file operations
+if sys.version_info >= (3, 7):
+    # Python 3.7+ uses UTF-8 by default, but let's be explicit
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool

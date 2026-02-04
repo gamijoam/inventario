@@ -23,12 +23,15 @@ class Settings:
     # Support both naming conventions
     DATABASE_URL: str = os.getenv("DB_URL", os.getenv("DATABASE_URL", "sqlite:///./ferreteria.db"))
     
-    # Security
+    # Security - CRITICAL: SECRET_KEY must be set in environment
     SECRET_KEY: str = os.getenv("SECRET_KEY")
-    # USE STABLE KEY FOR DEV if not set, instead of random (avoids logout on restart)
     if not SECRET_KEY:
-        SECRET_KEY = "dev_secret_key_stable_12345" 
-        print("WARNING: SECRET_KEY not set in .env. Using stable dev key.")
+        raise ValueError(
+            "CRITICAL SECURITY ERROR: SECRET_KEY environment variable is not set.\n"
+            "Please generate a secure key using 'python generate_key.py' and add it to your .env file:\n"
+            "SECRET_KEY=<your-generated-key-here>"
+        )
+    
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     
