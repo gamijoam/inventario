@@ -132,7 +132,7 @@ const BulkProductActions = ({ onImportComplete }) => {
     return (
         <>
             {/* Compact Header Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
                 {/* Download Template */}
                 <button
                     onClick={downloadTemplate}
@@ -215,8 +215,8 @@ const BulkProductActions = ({ onImportComplete }) => {
                             <label
                                 htmlFor="file-upload-modal"
                                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors cursor-pointer ${uploading
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
                                     }`}
                             >
                                 <Upload size={18} />
