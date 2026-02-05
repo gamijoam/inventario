@@ -46,5 +46,8 @@ class Settings:
     # Cookies
     COOKIE_DOMAIN: str = os.getenv("COOKIE_DOMAIN") # e.g. .miinventariofacil.com
     SECURE_COOKIES: bool = os.getenv("SECURE_COOKIES", "true").lower() == "true"
+    
+    # Media Storage (v31 Enforced Path)
+    MEDIA_ROOT: str = "/app/media" if os.getenv("DOCKER_CONTAINER") else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "media")
 
 settings = Settings()

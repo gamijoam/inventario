@@ -43,7 +43,7 @@ class ProductBase(BaseModel):
     is_active: bool = Field(True, description="Indica si el producto está disponible para la venta")
     
     # Image Support
-    image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", example="/images/products/123.webp")
+    image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", example="/media/tenant-a/products/uuid-v4.webp")
     updated_at: Optional[datetime] = Field(None, description="Fecha de última actualización (auto-gestionada)")
 
     # Warranty Configuration

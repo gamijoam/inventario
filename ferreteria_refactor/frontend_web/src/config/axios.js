@@ -1,15 +1,13 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
-
-// --- CONFIGURACIÓN AGNÓSTICA AL DOMINIO ---
-// En desarrollo: usa localhost:8000
-// En producción: usa ruta relativa (el navegador usará el dominio actual)
+import { API_BASE_URL } from './constants';
 
 const isDev = import.meta.env.DEV;
 
+// Forzamos el uso de la API CENTRAL en producción
 const baseURL = isDev
-    ? 'http://localhost:8000/api/v1'  // Desarrollo: backend en puerto 8000
-    : '/api/v1';                        // Producción: ruta relativa (Traefik maneja el routing)
+    ? 'http://localhost:8000/api/v1'
+    : `${API_BASE_URL}/api/v1`;
 
 console.log('🔧 Axios config:', {
     isDev,
@@ -35,12 +33,31 @@ apiClient.interceptors.request.use(
         // ✅ REMOVED: No more manual Authorization header injection
         // The browser automatically sends the HttpOnly cookie with every request
 
-        // --- MULTI-TENANT LOCAL SUPPORT ---
-        // Permite probar diferentes empresas en localhost sin subdominios
-        const selectedTenant = localStorage.getItem('selected_tenant');
-        if (selectedTenant && selectedTenant !== 'public') {
-            config.headers['X-Tenant-ID'] = selectedTenant;
-            console.log(`🔌 [Axios] Injecting Tenant ID: ${selectedTenant}`);
+        // --- MULTI-TENANT LOGIC (v33) ---
+        // 1. Prioridad: Subdominio (Producción)
+        const hostname = window.location.hostname;
+        const parts = hostname.split('.');
+
+        let tenantId = null;
+        if (parts.length >= 3 && !hostname.includes('localhost')) {
+            const subdomain = parts[0];
+            if (!['www', 'api', 'app', 'dashboard'].includes(subdomain)) {
+                tenantId = subdomain;
+            }
+        }
+
+        // 2. Fallback: LocalStorage (Desarrollo/Testing)
+        if (!tenantId) {
+            const selectedTenant = localStorage.getItem('selected_tenant');
+            if (selectedTenant && selectedTenant !== 'public') {
+                tenantId = selectedTenant;
+            }
+        }
+
+        // 3. Inject Header
+        if (tenantId) {
+            config.headers['X-Tenant-ID'] = tenantId;
+            // console.log(`🔌 [Axios] Active Tenant: ${tenantId}`);
         }
 
         return config;

@@ -13,8 +13,8 @@ export const useCloudConfig = () => {
 
 export const CloudConfigProvider = ({ children }) => {
     const [config, setConfig] = useState({
-        cloudUrl: '',
-        isConfigured: false,
+        cloudUrl: 'https://api.miinventariofacil.com',
+        isConfigured: true, // FORCED: Assume SaaS is always configured
         syncEnabled: true,
         syncIntervalMinutes: 10
     });
@@ -35,11 +35,17 @@ export const CloudConfigProvider = ({ children }) => {
                 const parsed = JSON.parse(savedConfig);
                 setConfig({
                     ...parsed,
-                    isConfigured: !!parsed.cloudUrl
+                    cloudUrl: 'https://api.miinventariofacil.com', // FORCE SaaS Primary URL
+                    isConfigured: true
                 });
             } else {
-                // Si no hay configuración, marcar como no configurado
-                setConfig(prev => ({ ...prev, isConfigured: false }));
+                // Default SaaS setup
+                setConfig({
+                    cloudUrl: 'https://api.miinventariofacil.com',
+                    isConfigured: true,
+                    syncEnabled: true,
+                    syncIntervalMinutes: 10
+                });
             }
         } catch (error) {
             console.error('Error loading config:', error);

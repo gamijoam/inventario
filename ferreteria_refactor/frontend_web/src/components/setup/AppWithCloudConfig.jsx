@@ -4,14 +4,12 @@ import InitialSetupWizard from './InitialSetupWizard';
 
 const AppWithCloudConfig = ({ children }) => {
     const { config, isLoading } = useCloudConfig();
-    const [showWizard, setShowWizard] = useState(false);
+    const [showWizard] = useState(false); // FORCED: Never show wizard in SaaS mode
 
     useEffect(() => {
-        // Solo mostrar wizard si no está configurado Y no estamos cargando
-        if (!isLoading && !config.isConfigured) {
-            setShowWizard(true);
-        }
-    }, [isLoading, config.isConfigured]);
+        // Setup wizard is disabled for SaaS version
+        console.log('[Setup] Wizard disabled. Using hardcoded Cloud URL.');
+    }, []);
 
     // Pantalla de carga mientras se verifica la configuración
     if (isLoading) {

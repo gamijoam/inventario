@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BASE_API_URL } from '../../config/constants';
+import noImgPlaceholder from '../../assets/no-img.svg';
 
 /**
  * ProductImage Component
@@ -7,7 +8,6 @@ import { BASE_API_URL } from '../../config/constants';
  */
 const ProductImage = ({ src, alt, className, iconSize = 24, updatedAt }) => {
     const [error, setError] = useState(false);
-    const placeholderUrl = 'https://via.placeholder.com/150';
 
     // Cache busting with updated_at (or current time if not provided)
     const getVersionedUrl = (url) => {
@@ -18,9 +18,9 @@ const ProductImage = ({ src, alt, className, iconSize = 24, updatedAt }) => {
     if (!src || error) {
         return (
             <img
-                src={placeholderUrl}
+                src={noImgPlaceholder}
                 alt="Sin imagen"
-                className={`${className} object-cover opacity-50`}
+                className={`${className} object-cover opacity-50 grayscale`}
             />
         );
     }

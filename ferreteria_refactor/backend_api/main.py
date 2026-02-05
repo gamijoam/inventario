@@ -33,13 +33,20 @@ app = FastAPI(
     version="2.2.0",
 )
 
-# --- CONFIGURACIÓN DE CORS (Prioridad Máxima) ---
+# --- CONFIGURACIÓN DE CORS DINÁMICA (v36 - CORS FIX) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://miinventariofacil.com", 
+        "https://api.miinventariofacil.com",
+        "http://localhost:3000",
+        "http://localhost:5173"
+    ],
+    allow_origin_regex=r"https://.*\.miinventariofacil\.com", # Permite todos los subdominios
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
@@ -67,7 +74,8 @@ import traceback
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
-        print(f"👉 [REQ] {request.method} {request.url.path}")
+        origin = request.headers.get("origin", "no-origin")
+        print(f"👉 [REQ] {request.method} {request.url.path} | Origin: {origin}")
         try:
             response = await call_next(request)
             process_time = time.time() - start_time
@@ -229,24 +237,14 @@ def run_migrations():
 
 @app.on_event("startup")
 def startup_event():
-    # Create images directory - environment aware
-    IS_DOCKER = os.getenv('DOCKER_CONTAINER', 'false').lower() == 'true'
+    # Use consolidated media dir from utils
+    from .utils.media_utils import BASE_MEDIA_DIR
     
-    if getattr(sys, 'frozen', False):
-        # FROZEN (PyInstaller): Use executable directory for data persistence
-        base_dir = os.path.dirname(sys.executable)
-        images_dir = os.path.join(base_dir, "data", "images", "products")
-    elif IS_DOCKER:
-        images_dir = "/app/data/images/products"
-    else:
-        # Local development
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        images_dir = os.path.join(base_dir, "data", "images", "products")
+    # Ensure media structure exists
+    os.makedirs(BASE_MEDIA_DIR, exist_ok=True)
+    print(f"[INFO] Directorio Media verificado: {BASE_MEDIA_DIR}")
     
-    os.makedirs(images_dir, exist_ok=True)
-    print(f"[INFO] Directorio de imagenes creado: {images_dir}")
-    
-    # Run Alembic migrations - this is the PRIMARY way to create/update schema
+    # Run Alembic migrations
     print("[INFO] Iniciando migraciones de Alembic...")
     run_migrations()
     
@@ -335,40 +333,11 @@ def startup_event():
 # STATIC FILES - ORDER MATTERS!
 # ============================================
 
-# 1. FIRST: Mount product images (must be before frontend catch-all)
-IS_DOCKER = os.getenv('DOCKER_CONTAINER', 'false').lower() == 'true'
-
-if getattr(sys, 'frozen', False):
-    # FROZEN (PyInstaller)
-    base_dir = os.path.dirname(sys.executable)
-    legacy_images_dir = os.path.join(base_dir, "data", "images", "products")
-    media_dir = os.path.join(base_dir, "media")
-elif IS_DOCKER:
-    # MODO SAAS / VPS (Production)
-    # Important: Mandatory path for volume persistence
-    legacy_images_dir = "/app/data/images/products"
-    media_dir = "/app/media"
-else:
-    # Local development
-    # In v29 root is ferreteria_refactor/
-    _root = os.path.dirname(os.path.abspath(__file__)) # /backend_api
-    media_dir = os.path.join(os.path.dirname(_root), "media") # /media
-    legacy_images_dir = os.path.join(os.path.dirname(_root), "data", "images", "products")
-
-# Create directories if they don't exist
-os.makedirs(legacy_images_dir, exist_ok=True)
-os.makedirs(media_dir, exist_ok=True)
-
-# Mount Legacy images (for backward compatibility if any)
-app.mount("/images/products", StaticFiles(directory=legacy_images_dir), name="product_images_legacy")
-
 # Mount NEW Multi-tenant Media folder
-# This will serve files from {media_dir}/{tenant_id}/...
-app.mount("/media", StaticFiles(directory=media_dir), name="media")
+from .utils.media_utils import BASE_MEDIA_DIR
+app.mount("/media", StaticFiles(directory=BASE_MEDIA_DIR), name="media")
 
-
-
-print(f"[INFO] Directorio Media montado: {media_dir}")
+print(f"[INFO] Directorio Media montado: {BASE_MEDIA_DIR}")
 print("[INFO] Imagenes montadas como archivos estaticos")
 
 # 2. THEN: Mount frontend static files

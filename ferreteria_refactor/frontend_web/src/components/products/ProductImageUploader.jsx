@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { BASE_API_URL } from '../../config/constants';
+import noImgPlaceholder from '../../assets/no-img.svg';
 import clsx from 'clsx';
 
 export default function ProductImageUploader({ productId, currentImageUrl, onImageUpdate }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
-  const placeholderUrl = 'https://via.placeholder.com/150';
 
   // Cache busting: add timestamp to force reload + cross-domain support
   const getImageUrl = (url) => {
@@ -42,7 +42,7 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
       formData.append('file', file);
 
       const response = await apiClient.post(
-        `/products/${productId}/image`,
+        `/products/upload-image`,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -112,7 +112,7 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
               alt="Producto"
               className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
               onError={(e) => {
-                e.target.src = placeholderUrl;
+                e.target.src = noImgPlaceholder;
               }}
 
             />
