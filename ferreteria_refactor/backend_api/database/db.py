@@ -79,8 +79,21 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-from sqlalchemy import text
+from sqlalchemy import text, event
 from ..tenant_context import get_tenant_schema
+
+# 🔒 SECURITY: Reset search_path on connection checkout
+# This ensures that whenever a connection is pulled from the pool,
+# it starts in a clean 'public' state, preventing data leakage.
+@event.listens_for(engine, "checkout")
+def receive_checkout(dbapi_connection, connection_record, connection_proxy):
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("SET search_path TO public")
+    except Exception as e:
+        print(f"❌ Error resetting search_path on checkout: {e}")
+    finally:
+        cursor.close()
 
 def get_db():
     db = SessionLocal()
@@ -90,16 +103,20 @@ def get_db():
             schema = get_tenant_schema()
             if schema and schema != "public":
                 # Inject Schema Search Path
-                # "schema, public" means: try schema first, falback to public (for shared tables if any)
+                # "schema, public" means: try schema first, fallback to public
                 try:
                     db.execute(text(f'SET search_path TO "{schema}", public'))
                 except Exception as e:
                     print(f"❌ Error setting schema '{schema}': {e}")
-                    # If schema is invalid, we might want to fail hard or fallback.
-                    # For now, let's allow fallback but log it, or maybe rollback
                     db.rollback()
-                    # In strict SaaS, we should probably raise an error here.
+                    raise RuntimeError(f"Could not switch to tenant schema: {schema}")
         
         yield db
     finally:
+        # 🔒 SECURITY: Explicitly reset to public before returning to pool
+        try:
+            if DB_TYPE == "postgres" or "postgres" in str(DATABASE_URL):
+                db.execute(text("SET search_path TO public"))
+        except:
+            pass
         db.close()
