@@ -20,7 +20,7 @@ class RegisterRequest(BaseModel):
     company_name: str
     email: EmailStr
     password: str
-    business_type: PlanType = PlanType.FERRETERIA
+    business_type: Optional[PlanType] = None  # Removed default to detect selection
     
     # Backward compatibility: handle plan_type if sent
     plan_type: Optional[PlanType] = None
@@ -51,8 +51,13 @@ async def register_tenant(request: RegisterRequest):
         # ideally this should be a background task if migration takes long)
         # But user needs to know if it failed.
         
-        # Determine which field to use (prioritize business_type)
-        final_plan = request.business_type.value if request.business_type else (request.plan_type.value if request.plan_type else "FERRETERIA")
+        # Logical Mapping: Priority for business_type, then plan_type, then default to FERRETERIA
+        if request.business_type:
+            final_plan = request.business_type.value
+        elif request.plan_type:
+            final_plan = request.plan_type.value
+        else:
+            final_plan = "FERRETERIA"
         
         result = TenantService.create_tenant(
             name=request.company_name,

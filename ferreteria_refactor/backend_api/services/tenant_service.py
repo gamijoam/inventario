@@ -45,25 +45,26 @@ class TenantService:
                 raise ValueError(f"El ID de empresa '{schema_name}' ya existe. Por favor elija otro.")
             
             # Determine Config based on Plan
+            # Initialize all as False
             config = {
                 "modules": {
                     "restaurant": False,
                     "laundry": False,
                     "services": False,
-                    "ferreteria": True
+                    "ferreteria": False
                 }
             }
             
-            if plan_type.upper() == "RESTAURANT":
+            plan_type_upper = plan_type.upper()
+            
+            if plan_type_upper == "RESTAURANT":
                 config["modules"]["restaurant"] = True
-            elif plan_type.upper() == "LAUNDRY":
+            elif plan_type_upper == "LAUNDRY":
                 config["modules"]["laundry"] = True
-            elif plan_type.upper() == "SERVICES":
+            elif plan_type_upper == "SERVICES":
                 config["modules"]["services"] = True
-            elif plan_type.upper() == "FERRETERIA":
-                # User feedback: Ferreteria should be pure Retail (No Technical Services by default)
-                # config["modules"]["services"] = True
-                pass
+            elif plan_type_upper == "FERRETERIA":
+                config["modules"]["ferreteria"] = True
             
             # 2. Register in public.tenants
             new_tenant = Tenant(
