@@ -237,7 +237,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                 exchange_rate_id: u.exchange_rate_id ? parseInt(u.exchange_rate_id) : null
             })),
             combo_items: formData.is_combo ? formData.combo_items.map(ci => ({ child_product_id: ci.child_product_id, quantity: parseFloat(ci.quantity) })) : [],
-            prices: pricesArray
+            prices: pricesArray,
+            image_url: formData.image_url
         };
         onSubmit(payload);
     };
@@ -288,18 +289,11 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                             {/* Image Upload - Fixed Square */}
                                             <div className="w-32 h-32 flex-shrink-0">
                                                 <div className="w-full h-full bg-slate-50 rounded-lg border border-dashed border-slate-200 hover:border-indigo-400 transition-all cursor-pointer flex flex-col items-center justify-center relative overflow-hidden group">
-                                                    {initialData?.id ? (
-                                                        <ProductImageUploader
-                                                            productId={initialData.id}
-                                                            currentImageUrl={formData.image_url}
-                                                            onImageUpdate={(newUrl) => setFormData({ ...formData, image_url: newUrl })}
-                                                        />
-                                                    ) : (
-                                                        <div className="text-center p-2">
-                                                            <ImageIcon className="mx-auto text-slate-300 mb-1" size={24} />
-                                                            <span className="text-[10px] text-slate-400 font-medium block leading-tight">Guardar para subir</span>
-                                                        </div>
-                                                    )}
+                                                    <ProductImageUploader
+                                                        productId={initialData?.id}
+                                                        currentImageUrl={formData.image_url}
+                                                        onImageUpdate={(newUrl) => setFormData(prev => ({ ...prev, image_url: newUrl }))}
+                                                    />
                                                 </div>
                                             </div>
 

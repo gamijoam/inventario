@@ -60,6 +60,10 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
   };
 
   const handleDelete = async () => {
+    if (!productId) {
+      onImageUpdate(null);
+      return;
+    }
     if (!confirm('¿Eliminar la imagen del producto?')) return;
 
     setUploading(true);

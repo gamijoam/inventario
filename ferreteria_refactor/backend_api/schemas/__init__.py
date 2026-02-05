@@ -230,6 +230,7 @@ class ProductUpdate(BaseModel):
     warranty_duration: Optional[int] = None
     warranty_unit: Optional[str] = None
     warranty_notes: Optional[str] = None
+    image_url: Optional[str] = None
 
     class Config:
         from_attributes = True

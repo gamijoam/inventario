@@ -29,7 +29,7 @@ async def upload_product_image(
     Isolation: /media/{tenant_id}/products/{uuid}.jpg
     """
     image_url = save_upload_file(file, folder="products")
-    return {"url": image_url}
+    return {"success": True, "image_url": image_url}
 
 # Helper para ejecutar broadcast asíncrono desde contexto síncrono
 def run_broadcast(event: str, data: dict):
