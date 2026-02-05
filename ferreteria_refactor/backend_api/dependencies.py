@@ -121,9 +121,47 @@ warehouse_or_admin = has_role([UserRole.ADMIN, UserRole.WAREHOUSE])
 # All authenticated users (any role)
 any_authenticated = Depends(get_current_active_user)
 
-def require_restaurant_module(settings: Settings = Depends(lambda: settings)):
-    if not settings.MODULE_RESTAURANT_ENABLED:
+def require_restaurant_module(db: Session = Depends(get_db)):
+    from .tenant_context import get_tenant_schema
+    from .models.tenant import Tenant
+    
+    current_schema = get_tenant_schema()
+    if current_schema == "public":
+        return # Allow in public/development
+        
+    tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
+    if not tenant or not tenant.has_restaurant_module:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Restaurant module is disabled"
+            detail="Restaurant module is disabled for this tenant"
+        )
+
+def require_laundry_module(db: Session = Depends(get_db)):
+    from .tenant_context import get_tenant_schema
+    from .models.tenant import Tenant
+    
+    current_schema = get_tenant_schema()
+    if current_schema == "public":
+        return
+        
+    tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
+    if not tenant or not tenant.has_laundry_module:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Laundry module is disabled for this tenant"
+        )
+
+def require_services_module(db: Session = Depends(get_db)):
+    from .tenant_context import get_tenant_schema
+    from .models.tenant import Tenant
+    
+    current_schema = get_tenant_schema()
+    if current_schema == "public":
+        return
+        
+    tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
+    if not tenant or not tenant.has_services_module:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Services module is disabled for this tenant"
         )

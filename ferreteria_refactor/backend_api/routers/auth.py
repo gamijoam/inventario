@@ -66,10 +66,11 @@ async def login_for_access_token(
         key="access_token",
         value=access_token,
         httponly=True,      # CRITICAL: JavaScript cannot read this cookie
-        secure=False,       # CRITICAL: False for localhost HTTP (change to True in production with HTTPS)
-        samesite="lax",     # CRITICAL: Lax allows cookies between localhost:5173 and localhost:8000
+        secure=settings.SECURE_COOKIES, # True in production with HTTPS
+        samesite="lax",     # Lax is usually sufficient for same-site subdomains
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Expiry in seconds
         path="/",           # Cookie available for all paths
+        domain=settings.COOKIE_DOMAIN, # Important for multi-tenant subdomains
     )
     
     print(f"✅ Login successful for user '{user.username}' - Cookie set (HttpOnly)")
@@ -89,7 +90,9 @@ async def logout(response: Response):
         key="access_token",
         path="/",
         httponly=True,
-        samesite="lax"
+        samesite="lax",
+        secure=settings.SECURE_COOKIES,
+        domain=settings.COOKIE_DOMAIN
     )
     
     print("🚪 User logged out - Cookie cleared")

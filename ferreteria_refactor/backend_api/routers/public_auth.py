@@ -20,7 +20,10 @@ class RegisterRequest(BaseModel):
     company_name: str
     email: EmailStr
     password: str
-    plan_type: PlanType = PlanType.FERRETERIA
+    business_type: PlanType = PlanType.FERRETERIA
+    
+    # Backward compatibility: handle plan_type if sent
+    plan_type: Optional[PlanType] = None
     
     @validator('company_name')
     def name_must_be_valid(cls, v):
@@ -48,12 +51,15 @@ async def register_tenant(request: RegisterRequest):
         # ideally this should be a background task if migration takes long)
         # But user needs to know if it failed.
         
+        # Determine which field to use (prioritize business_type)
+        final_plan = request.business_type.value if request.business_type else (request.plan_type.value if request.plan_type else "FERRETERIA")
+        
         result = TenantService.create_tenant(
             name=request.company_name,
             schema_name=schema_name,
             admin_email=request.email,
             admin_password=request.password,
-            plan_type=request.plan_type.value
+            plan_type=final_plan
         )
         
         return {

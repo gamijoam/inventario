@@ -60,21 +60,26 @@ def get_public_config(db: Session = Depends(get_db)):
     if current_schema != "public":
         try:
             # Query tenant in public schema table
-            # Validating search path doesn't matter for public table, but ensures safety
             tenant_obj = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
             
             if tenant_obj:
                 tenant_found = True
                 tenant_name = tenant_obj.name
-                if tenant_obj.config:
-                    # Check for "modules" key in DB config
+                
+                # REFACTOR: Use the NEW boolean columns instead of .env or JSON config
+                modules = {
+                    "restaurant": tenant_obj.has_restaurant_module,
+                    "laundry": tenant_obj.has_laundry_module,
+                    "services": tenant_obj.has_services_module,
+                    "ferreteria": tenant_obj.has_hardware_module
+                }
+                
+                # Falling back to JSON config if all booleans are False (for existing tenants)
+                if not any(modules.values()) and tenant_obj.config:
                     db_modules = tenant_obj.config.get("modules", {})
-                    
-                    # Logic: Server Capability AND Tenant Entitlement
                     for mod, enabled in db_modules.items():
                         if mod in modules:
-                            server_enabled = modules[mod] # From env
-                            modules[mod] = server_enabled and enabled
+                            modules[mod] = enabled
             else:
                 print(f"⚠️ Warning: Schema '{current_schema}' detected but not found in DB. Falling back to public defaults.")
                 

@@ -16,5 +16,11 @@ class Tenant(Base):
     # Stores feature flags: {"restaurant": true, "laundry": false}
     config = Column(JSON, default=dict)
 
+    # Module Flags (NEW System)
+    has_restaurant_module = Column(Boolean, default=False)
+    has_laundry_module = Column(Boolean, default=False)
+    has_hardware_module = Column(Boolean, default=False)
+    has_services_module = Column(Boolean, default=False)
+
     def __repr__(self):
         return f"<Tenant(name={self.name}, schema={self.schema_name})>"

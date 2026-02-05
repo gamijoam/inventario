@@ -70,7 +70,12 @@ class TenantService:
                 name=name, 
                 schema_name=schema_name, 
                 domain=None, 
-                config=config
+                config=config,
+                # Set module flags based on plan_type/business_type
+                has_restaurant_module=(plan_type.upper() == "RESTAURANT"),
+                has_laundry_module=(plan_type.upper() == "LAUNDRY"),
+                has_services_module=(plan_type.upper() == "SERVICES"),
+                has_hardware_module=(plan_type.upper() == "FERRETERIA")
             )
             db.add(new_tenant)
             db.commit()

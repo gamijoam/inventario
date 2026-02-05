@@ -43,4 +43,8 @@ class Settings:
     # Timezone
     TIMEZONE: str = os.getenv("TIMEZONE", "America/Caracas")
 
+    # Cookies
+    COOKIE_DOMAIN: str = os.getenv("COOKIE_DOMAIN") # e.g. .miinventariofacil.com
+    SECURE_COOKIES: bool = os.getenv("SECURE_COOKIES", "true").lower() == "true"
+
 settings = Settings()
