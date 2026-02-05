@@ -110,8 +110,10 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             setIsAuthenticated(false);
 
-            // ✅ REMOVED: No more localStorage.removeItem('token')
-            // The cookie is cleared by the backend
+            // 🧹 PURGE ALL STORAGE
+            localStorage.clear();
+            sessionStorage.clear();
+            console.log('🧹 Purged localStorage and sessionStorage');
         }
     };
 

@@ -18,10 +18,10 @@ const Login = () => {
 
     // Redirect if already authenticated
     useEffect(() => {
-        if (isAuthenticated && user) {
-            window.location.href = '/#/';
+        if (!loading && isAuthenticated && user) {
+            navigate('/');
         }
-    }, [isAuthenticated, user]);
+    }, [isAuthenticated, user, loading]);
 
     // Tenant logic (preserved)
     const hostname = window.location.hostname;
@@ -43,10 +43,17 @@ const Login = () => {
         e.preventDefault();
         setError('');
         setLoading(true);
+
+        // 🔄 SYNC TENANT FROM SUBDOMAIN BEFORE LOGIN
+        if (isSubdomain) {
+            const tenantFromUrl = hostname.split('.')[0];
+            localStorage.setItem('selected_tenant', tenantFromUrl);
+            console.log("🔄 Auto-synced tenant for login:", tenantFromUrl);
+        }
+
         try {
             await login(username, password);
-            // Force standard URL structure by reloading at root
-            window.location.href = '/#/';
+            navigate('/');
         } catch (err) {
             setError(err.response?.data?.detail || 'Credenciales inválidas. Por favor intenta nuevamente.');
         } finally {

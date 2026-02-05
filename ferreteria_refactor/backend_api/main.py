@@ -94,9 +94,14 @@ print("[INFO] License Guard DESACTIVADO TEMPORALMENTE PARA DEBUG")
 
 app.add_middleware(
     CORSMiddleware,
-    # ⚠️ HARDCODED PARA ARREGLAR ERROR DE PRODUCCIÓN
-    allow_origins=["*"],
-    allow_credentials=False,  # Starlette prohíbe True si usas "*"
+    allow_origins=[
+        "https://miinventariofacil.com",
+        "https://www.miinventariofacil.com",
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ],
+    allow_origin_regex=r"https://.*\.miinventariofacil\.com",
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

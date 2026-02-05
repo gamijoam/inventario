@@ -67,8 +67,8 @@ apiClient.interceptors.response.use(
                 // The HttpOnly cookie will be cleared by calling /auth/logout or by expiration
 
                 // Redirect to login
-                if (window.location.hash !== '#/login') {
-                    window.location.hash = '#/login';
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
                 }
             }
             // For login failures, no action needed - component will handle error display
