@@ -203,6 +203,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                                         size="lg"
                                         className="w-24 h-24 object-contain transition-transform group-hover:scale-110"
                                     />
+
                                     <div className="absolute top-2 right-2 bg-indigo-600 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
                                         <Plus size={16} strokeWidth={3} />
                                     </div>
@@ -277,7 +278,8 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                         <div key={item.id} className="bg-white p-3 rounded-xl shadow-sm border border-slate-200 flex gap-3 group">
                             {/* Image Placeholder */}
                             <div className="w-12 h-12 bg-slate-100 rounded-lg flex-shrink-0 flex items-center justify-center p-1">
-                                <ProductThumbnail imageUrl={item.image_url} size="xs" />
+                                <ProductThumbnail imageUrl={item.image_url} size="xs" updatedAt={item.updated_at} />
+
                             </div>
 
                             <div className="flex-1 min-w-0">

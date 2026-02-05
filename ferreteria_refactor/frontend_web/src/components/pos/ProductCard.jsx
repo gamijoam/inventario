@@ -44,17 +44,15 @@ const ProductCard = ({
             {/* Image Section */}
             <div className="relative h-36 bg-slate-50 border-b border-slate-50 overflow-hidden p-4">
                 <div className="absolute inset-0 flex items-center justify-center p-4">
-                    {product.image_url ? (
-                        <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
-                            onError={(e) => { e.target.style.display = 'none'; }}
-                        />
-                    ) : (
-                        <Package className="text-slate-300 w-12 h-12" strokeWidth={1.5} />
-                    )}
+                    <ProductThumbnail
+                        imageUrl={product.image_url}
+                        productName={product.name}
+                        size="lg"
+                        className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
+                        updatedAt={product.updated_at}
+                    />
                 </div>
+
 
                 {/* Float Badges */}
                 <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">

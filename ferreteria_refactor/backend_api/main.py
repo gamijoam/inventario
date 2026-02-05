@@ -362,9 +362,9 @@ os.makedirs(media_dir, exist_ok=True)
 app.mount("/images/products", StaticFiles(directory=legacy_images_dir), name="product_images_legacy")
 
 # Mount NEW Multi-tenant Media folder
-# This will serve files from /app/media/{tenant_id}/...
-# ENFORCING ABSOLUTE PATH /app/media FOR DOCKER PERSISTENCE
-app.mount("/media", StaticFiles(directory="/app/media"), name="media")
+# This will serve files from {media_dir}/{tenant_id}/...
+app.mount("/media", StaticFiles(directory=media_dir), name="media")
+
 
 
 print(f"[INFO] Directorio Media montado: {media_dir}")

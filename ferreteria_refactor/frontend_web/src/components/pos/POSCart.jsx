@@ -85,7 +85,9 @@ const POSCart = ({
                                             imageUrl={item.image_url}
                                             productName={item.name}
                                             size="sm"
+                                            updatedAt={item.updated_at}
                                         />
+
                                     </div>
 
                                     {/* Info */}

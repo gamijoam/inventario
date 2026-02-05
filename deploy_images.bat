@@ -1,6 +1,6 @@
 @echo off
 set USER=gamijoam
-set TAG=v20
+set TAG=v24
 
 echo ------------------------------------------------
 echo 🚀 Iniciando Build ^& Push para Produccion (Windows)
@@ -10,6 +10,7 @@ echo ------------------------------------------------
 echo 🏗️ [1/3] Construyendo imagen del Backend...
 docker build -f ./ferreteria_refactor/backend_api/Dockerfile -t %USER%/ferreteria-backend:%TAG% .
 if %errorlevel% neq 0 exit /b %errorlevel%
+
 
 :: 2. Frontend App
 echo 🏗️ [2/3] Construyendo imagen del Frontend App...

@@ -5,6 +5,8 @@ import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { Search, Loader2, Barcode, Check, Trash2, Layers, AlertCircle, Save, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import ProductThumbnail from '../../components/products/ProductThumbnail';
+
 
 const SerializedReception = () => {
     const { modules } = useConfig();
@@ -227,13 +229,13 @@ const SerializedReception = () => {
                                             onClick={() => handleProductSelect(product)}
                                             className="flex items-start gap-4 p-4 bg-white border border-slate-200 rounded-xl hover:border-indigo-500 hover:shadow-md transition-all text-left"
                                         >
-                                            {product.image_url ? (
-                                                <img src={product.image_url} alt="" className="w-16 h-16 object-cover rounded-lg bg-slate-100" />
-                                            ) : (
-                                                <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-300">
-                                                    <Layers size={24} />
-                                                </div>
-                                            )}
+                                            <ProductThumbnail
+                                                imageUrl={product.image_url}
+                                                productName={product.name}
+                                                size="md"
+                                                updatedAt={product.updated_at}
+                                            />
+
                                             <div>
                                                 <h3 className="font-bold text-slate-800">{product.name}</h3>
                                                 <p className="text-xs text-slate-500 font-mono mt-1">{product.sku}</p>
@@ -257,7 +259,14 @@ const SerializedReception = () => {
                             {/* Selected Product Header */}
                             <div className="flex items-center justify-between bg-indigo-50 p-4 rounded-xl border border-indigo-100 mb-6">
                                 <div className="flex items-center gap-4">
-                                    {selectedProduct.image_url && <img src={selectedProduct.image_url} className="w-12 h-12 rounded bg-white object-cover" />}
+                                    <ProductThumbnail
+                                        imageUrl={selectedProduct.image_url}
+                                        productName={selectedProduct.name}
+                                        size="md"
+                                        className="bg-white"
+                                        updatedAt={selectedProduct.updated_at}
+                                    />
+
                                     <div>
                                         <h2 className="font-bold text-indigo-900">{selectedProduct.name}</h2>
                                         <p className="text-xs text-indigo-600 font-mono">{selectedProduct.sku}</p>

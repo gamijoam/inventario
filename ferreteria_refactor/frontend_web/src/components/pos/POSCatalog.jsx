@@ -120,18 +120,14 @@ const POSCatalog = ({
 
                                         {/* Image Area (Square) */}
                                         <div className="aspect-square w-full bg-slate-100 relative overflow-hidden">
-                                            {hasImage ? (
-                                                <img
-                                                    src={product.image_url}
-                                                    alt={product.name}
-                                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                                    loading="lazy"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-slate-300 bg-slate-50">
-                                                    <ImageIcon size={32} />
-                                                </div>
-                                            )}
+                                            <ProductThumbnail
+                                                imageUrl={product.image_url}
+                                                productName={product.name}
+                                                size="lg"
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                updatedAt={product.updated_at}
+                                            />
+
 
                                             {/* Gradient Overlay on Hover */}
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-2">

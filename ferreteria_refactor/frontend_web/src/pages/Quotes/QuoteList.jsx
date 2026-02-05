@@ -6,7 +6,9 @@ import {
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { useConfig } from '../../context/ConfigContext';
+import { API_BASE_URL } from '../../config/constants';
 import clsx from 'clsx';
+
 
 const QuoteList = ({ onCreateNew, onEdit }) => {
     const [quotes, setQuotes] = useState([]);
@@ -93,8 +95,9 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             const itemsHtml = items.map(item => `
                 <tr style="border-bottom: 1px solid #eee;">
                     <td style="padding: 8px; width: 50px; text-align: center;">
-                        ${item.product?.image_url ? `<img src="${apiClient.defaults.baseURL.replace('/api/v1', '')}${item.product.image_url}" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px;">` : '<span style="font-size:10px; color:#ccc;">Sin foto</span>'}
+                        ${item.product?.image_url ? `<img src="${API_BASE_URL}${item.product.image_url}" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px;">` : '<span style="font-size:10px; color:#ccc;">Sin foto</span>'}
                     </td>
+
                     <td style="padding: 8px; font-family: monospace; font-size: 12px; color: #555;">${item.product?.sku || '-'}</td>
                     <td style="padding: 8px;">
                         <div style="font-weight: bold;">${item.product?.name || 'Item'}</div>

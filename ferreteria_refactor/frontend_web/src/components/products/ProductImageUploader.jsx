@@ -1,18 +1,24 @@
 import { useState } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import apiClient from '../../config/axios';
+import { BASE_API_URL } from '../../config/constants';
 import clsx from 'clsx';
 
 export default function ProductImageUploader({ productId, currentImageUrl, onImageUpdate }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const placeholderUrl = 'https://via.placeholder.com/150';
 
-  // Cache busting: add timestamp to force reload
+  // Cache busting: add timestamp to force reload + cross-domain support
   const getImageUrl = (url) => {
     if (!url) return null;
-    return `${url}?v=${Date.now()}`;
+    const isAbsolute = url.startsWith('http');
+    const fullUrl = isAbsolute ? url : `${BASE_API_URL}${url}`;
+    return `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
   };
+
+
 
   const handleUpload = async (file) => {
     if (!file) return;
@@ -106,8 +112,9 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
               alt="Producto"
               className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
               onError={(e) => {
-                e.target.src = '/placeholder.png';
+                e.target.src = placeholderUrl;
               }}
+
             />
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
               <button
