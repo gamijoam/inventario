@@ -15,8 +15,21 @@ from ..websocket.events import WebSocketEvents
 from ..audit_utils import log_action
 from ..services.product_import_service import ProductImportService
 from ..services.product_export_service import ProductExportService
+from ..utils.media_utils import save_upload_file
 
 router = APIRouter(prefix="/products", tags=["products"])
+
+@router.post("/upload-image", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+async def upload_product_image(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))
+):
+    """
+    Securely upload a product image.
+    Isolation: /media/{tenant_id}/products/{uuid}.jpg
+    """
+    image_url = save_upload_file(file, folder="products")
+    return {"url": image_url}
 
 # Helper para ejecutar broadcast asíncrono desde contexto síncrono
 def run_broadcast(event: str, data: dict):

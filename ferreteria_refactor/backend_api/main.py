@@ -338,26 +338,36 @@ def startup_event():
 # ============================================
 
 # 1. FIRST: Mount product images (must be before frontend catch-all)
-# 1. FIRST: Mount product images (must be before frontend catch-all)
 IS_DOCKER = os.getenv('DOCKER_CONTAINER', 'false').lower() == 'true'
 
 if getattr(sys, 'frozen', False):
     # FROZEN (PyInstaller): Use executable directory
     base_dir = os.path.dirname(sys.executable)
-    images_dir = os.path.join(base_dir, "data", "images", "products")
+    legacy_images_dir = os.path.join(base_dir, "data", "images", "products")
+    media_dir = os.path.join(base_dir, "media")
 elif IS_DOCKER:
-    images_dir = "/app/data/images/products"
+    legacy_images_dir = "/app/data/images/products"
+    media_dir = "/app/media"
 else:
     # Local development
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    images_dir = os.path.join(base_dir, "data", "images", "products")
+    legacy_images_dir = os.path.join(base_dir, "data", "images", "products")
+    media_dir = os.path.join(base_dir, "media")
 
-# Create directory if it doesn't exist
-os.makedirs(images_dir, exist_ok=True)
-print(f"[INFO] Directorio de imagenes: {images_dir}")
+# Create directories if they don't exist
+os.makedirs(legacy_images_dir, exist_ok=True)
+os.makedirs(media_dir, exist_ok=True)
 
-# Mount the directory
-app.mount("/images/products", StaticFiles(directory=images_dir), name="product_images")
+# Mount Legacy images (for backward compatibility if any)
+app.mount("/images/products", StaticFiles(directory=legacy_images_dir), name="product_images_legacy")
+
+# Mount NEW Multi-tenant Media folder
+# This will serve files from /app/media/{tenant_id}/...
+# ENFORCING ABSOLUTE PATH /app/media FOR DOCKER PERSISTENCE
+app.mount("/media", StaticFiles(directory="/app/media"), name="media")
+
+
+print(f"[INFO] Directorio Media montado: {media_dir}")
 print("[INFO] Imagenes montadas como archivos estaticos")
 
 # 2. THEN: Mount frontend static files
