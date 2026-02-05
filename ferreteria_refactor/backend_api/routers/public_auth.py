@@ -3,7 +3,11 @@ from pydantic import BaseModel, EmailStr, validator
 from typing import Optional
 from enum import Enum
 import re
+import logging
+import traceback
 from ..services.tenant_service import TenantService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/public",
@@ -79,7 +83,9 @@ async def register_tenant(request: RegisterRequest):
         }
         
     except ValueError as ve:
+        logger.error(f"❌ Validation Error during registration: {ve}")
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        print(f"Register Error: {e}")
-        raise HTTPException(status_code=500, detail="Error interno al crear la empresa. Contacte soporte.")
+        logger.error(f"❌ FATAL ERROR IN REGISTRO: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno al crear la empresa: {str(e)}")

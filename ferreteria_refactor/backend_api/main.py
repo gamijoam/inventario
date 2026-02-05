@@ -33,6 +33,16 @@ app = FastAPI(
     version="2.2.0",
 )
 
+# --- CONFIGURACIÓN DE CORS (Prioridad Máxima) ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 # --- SAAS MULTI-TENANT MIDDLEWARE ---
 from .middleware.tenant_middleware import TenantMiddleware
 app.add_middleware(TenantMiddleware)
@@ -92,19 +102,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 #     print("[INFO] MODO SAAS: License Guard DESACTIVADO (Gestion Centralizada)")
 print("[INFO] License Guard DESACTIVADO TEMPORALMENTE PARA DEBUG")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://miinventariofacil.com",
-        "https://www.miinventariofacil.com",
-        "http://localhost:3000",
-        "http://localhost:5173",
-    ],
-    allow_origin_regex=r"https://.*\.miinventariofacil\.com",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 # --- ROUTERS API (Prioridad Alta) ---
 app.include_router(products, prefix="/api/v1", tags=["Inventario"])
@@ -341,18 +339,21 @@ def startup_event():
 IS_DOCKER = os.getenv('DOCKER_CONTAINER', 'false').lower() == 'true'
 
 if getattr(sys, 'frozen', False):
-    # FROZEN (PyInstaller): Use executable directory
+    # FROZEN (PyInstaller)
     base_dir = os.path.dirname(sys.executable)
     legacy_images_dir = os.path.join(base_dir, "data", "images", "products")
     media_dir = os.path.join(base_dir, "media")
 elif IS_DOCKER:
+    # MODO SAAS / VPS (Production)
+    # Important: Mandatory path for volume persistence
     legacy_images_dir = "/app/data/images/products"
     media_dir = "/app/media"
 else:
     # Local development
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    legacy_images_dir = os.path.join(base_dir, "data", "images", "products")
-    media_dir = os.path.join(base_dir, "media")
+    # In v29 root is ferreteria_refactor/
+    _root = os.path.dirname(os.path.abspath(__file__)) # /backend_api
+    media_dir = os.path.join(os.path.dirname(_root), "media") # /media
+    legacy_images_dir = os.path.join(os.path.dirname(_root), "data", "images", "products")
 
 # Create directories if they don't exist
 os.makedirs(legacy_images_dir, exist_ok=True)

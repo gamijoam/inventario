@@ -10,6 +10,8 @@ from ..models.models import User, UserRole
 from ..security import get_password_hash
 
 # Logger
+import traceback
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Database Connection (Public/System)
@@ -29,10 +31,10 @@ class TenantService:
     @staticmethod
     def create_tenant(name: str, schema_name: str, admin_email: str, admin_password: str, plan_type: str = "FERRETERIA"):
         """
-        Orchestrates full tenant creation:
-        1. DB Registration
-        2. Schema Creation
-        3. Migrations
+        Orchestrates full tenant creation (v29 Atomic Flow):
+        1. DB Registration in public.tenants
+        2. Schema Creation (Postgres)
+        3. Migrations (Alembic)
         4. Admin User Seeding
         """
         logger.info(f"🏗️  TenantService: Creating Tenant '{name}' ({schema_name})")
@@ -45,70 +47,69 @@ class TenantService:
                 raise ValueError(f"El ID de empresa '{schema_name}' ya existe. Por favor elija otro.")
             
             # Determine Config based on Plan
-            # Initialize all as False
             config = {
                 "modules": {
-                    "restaurant": False,
-                    "laundry": False,
-                    "services": False,
-                    "ferreteria": False
+                    "restaurant": (plan_type.upper() == "RESTAURANT"),
+                    "laundry": (plan_type.upper() == "LAUNDRY"),
+                    "services": (plan_type.upper() == "SERVICES"),
+                    "ferreteria": (plan_type.upper() == "FERRETERIA")
                 }
             }
             
-            plan_type_upper = plan_type.upper()
-            
-            if plan_type_upper == "RESTAURANT":
-                config["modules"]["restaurant"] = True
-            elif plan_type_upper == "LAUNDRY":
-                config["modules"]["laundry"] = True
-            elif plan_type_upper == "SERVICES":
-                config["modules"]["services"] = True
-            elif plan_type_upper == "FERRETERIA":
-                config["modules"]["ferreteria"] = True
-            
-            # 2. Register in public.tenants
+            # 2. Register in public.tenants (PRE-COMMIT)
             new_tenant = Tenant(
                 name=name, 
                 schema_name=schema_name, 
                 domain=None, 
                 config=config,
-                # Set module flags based on plan_type/business_type
-                has_restaurant_module=(plan_type.upper() == "RESTAURANT"),
-                has_laundry_module=(plan_type.upper() == "LAUNDRY"),
-                has_services_module=(plan_type.upper() == "SERVICES"),
-                has_hardware_module=(plan_type.upper() == "FERRETERIA")
+                has_restaurant_module=config["modules"]["restaurant"],
+                has_laundry_module=config["modules"]["laundry"],
+                has_services_module=config["modules"]["services"],
+                has_hardware_module=config["modules"]["ferreteria"]
             )
             db.add(new_tenant)
-            db.commit()
-            logger.info("✅ Tenant registered in DB.")
             
-            # 3. Create Schema (Postgres Only)
+            # 3. Create Schema (Postgres Only) - ATOMIC STEP
             if "sqlite" in str(settings.DATABASE_URL):
-                 logger.warning("⚠️  [SQLite] Skipping CREATE SCHEMA (Not supported).")
+                 logger.warning("⚠️  [SQLite] Skipping CREATE SCHEMA.")
             else:
-                with engine.connect() as conn:
-                    # Quote schema name to support dashes
-                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-                    conn.commit()
+                try:
+                    logger.info(f"🏗️  Executing: CREATE SCHEMA \"{schema_name}\"")
+                    db.execute(text(f'CREATE SCHEMA "{schema_name}"'))
                     logger.info(f"✅ Schema '{schema_name}' created.")
+                except Exception as se:
+                    logger.error(f"❌ FATAL ERROR: Failed to create schema '{schema_name}': {se}")
+                    traceback.print_exc()
+                    raise RuntimeError(f"No se pudo crear el esquema de base de datos: {str(se)}")
 
-            # 4. Run Migrations
+            # 3.1 Create Media Directory for Tenant
+            try:
+                # Standardized v29 path
+                if os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER"):
+                    base_media = "/app/media"
+                else:
+                    _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    base_media = os.path.join(_root, "media")
+                
+                tenant_media_path = os.path.join(base_media, str(schema_name), "products")
+                os.makedirs(tenant_media_path, exist_ok=True)
+                logger.info(f"✅ Media directory created: {tenant_media_path}")
+            except Exception as me:
+                logger.error(f"⚠️  Warning creating media dir: {me}")
+
+            # 4. COMMIT Tenant Record + Schema
+            db.commit()
+            logger.info("✅ Tenant and Schema synchronized.")
+
+            # 5. Run Migrations (Post-registration)
             if "sqlite" not in str(settings.DATABASE_URL):
                 TenantService.run_alembic(schema_name)
 
-            # 5. Seed Admin User
+            # 6. Seed Admin User & Data
             TenantService.seed_tenant_admin(schema_name, admin_email, admin_password, name)
-            
-            # 6. Seed Exchange Rates (PREVENT EMPTY DB BUG)
             TenantService.seed_exchange_rates(schema_name)
-
-            # 7. Seed Payment Methods (User Request)
             TenantService.seed_payment_methods(schema_name)
-
-            # 8. Seed Currencies (Fix for New Tenant Cash Session)
             TenantService.seed_currencies(schema_name)
-            
-            # 9. Seed Default Warehouse (User Request: "Almacen1")
             TenantService.seed_tenant_warehouse(schema_name)
 
             return {
@@ -118,7 +119,8 @@ class TenantService:
             }
 
         except Exception as e:
-            logger.error(f"❌ Error creating tenant: {e}")
+            logger.error(f"❌ ERROR EN REGISTRO (Service Level): {e}")
+            traceback.print_exc()
             db.rollback()
             raise e
         finally:
@@ -126,12 +128,16 @@ class TenantService:
 
     @staticmethod
     def run_alembic(schema_name):
-        """Run alembic upgrade head for a specific schema"""
+        """Run alembic upgrade head for a specific schema with detailed logging"""
         logger.info(f"🔄 [ALEMBIC] Migrating schema: {schema_name}...")
         
-        # Determine project root (assuming we run from backend_api or root)
-        # Safe bet: We expect to be running from root in uvicorn
-        cwd = os.getcwd() 
+        # v29 structure: WORKDIR /app
+        cwd = "/app" if os.environ.get("DOCKER_CONTAINER") else os.getcwd()
+        
+        # Ensure we are in the directory containing alembic.ini
+        if not os.path.exists(os.path.join(cwd, "alembic.ini")):
+             # Fallback logic for local dev if CWD is not project root
+             cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         
         cmd = [
             "alembic",
@@ -139,12 +145,17 @@ class TenantService:
             "upgrade", "head"
         ]
         
-        # Execute
-        result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+        # Execute with environment pass-through
+        env = os.environ.copy()
+        result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
         
         if result.returncode != 0:
-            logger.error(f"❌ Migration FAILED for {schema_name}\nSTDOUT: {result.stdout}\nSTDERR: {result.stderr}")
-            raise RuntimeError(f"Migration failed: {result.stderr}")
+            logger.error(f"❌ Migration FAILED for {schema_name}")
+            print("--- ALEMBIC STDOUT ---")
+            print(result.stdout)
+            print("--- ALEMBIC STDERR ---")
+            print(result.stderr)
+            raise RuntimeError(f"Error en migraciones: {result.stderr}")
         
         logger.info(f"✅ Migration OK for {schema_name}")
         return True

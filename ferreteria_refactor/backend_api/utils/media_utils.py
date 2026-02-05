@@ -9,11 +9,15 @@ from PIL import Image
 # In Docker, this is mounted to a persistent volume /app/media
 # For local dev, we use a local 'media' folder
 if os.path.exists("/.dockerenv") or os.environ.get("DOCKER_CONTAINER"):
+    # MODO SAAS / VPS (Production)
     BASE_MEDIA_DIR = "/app/media"
 else:
-    # Local development: 'media' folder next to this file or in package root
-    _base_api_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    BASE_MEDIA_DIR = os.path.join(_base_api_dir, "media")
+    # Local development (v29 structure)
+    # Root of the API is ferreteria_refactor/backend_api
+    _utils_dir = os.path.dirname(os.path.abspath(__file__))
+    _api_dir = os.path.dirname(_utils_dir)
+    _root_dir = os.path.dirname(_api_dir)
+    BASE_MEDIA_DIR = os.path.join(_root_dir, "media")
 
 # Allowed extensions
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
