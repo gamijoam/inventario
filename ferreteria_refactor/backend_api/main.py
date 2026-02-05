@@ -94,16 +94,9 @@ print("[INFO] License Guard DESACTIVADO TEMPORALMENTE PARA DEBUG")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://127.0.0.1:5173",
-        "http://localhost:5500",  # Live Server (Default)
-        "http://127.0.0.1:5500",
-        "http://localhost:3000",
-        "https://demo.invensoft.lat",
-        "https://invensoft.lat",
-    ],
-    allow_credentials=True,
+    # ⚠️ HARDCODED PARA ARREGLAR ERROR DE PRODUCCIÓN
+    allow_origins=["*"],
+    allow_credentials=False,  # Starlette prohíbe True si usas "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )

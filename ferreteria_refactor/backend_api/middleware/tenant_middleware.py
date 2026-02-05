@@ -8,9 +8,9 @@ from ..config import settings
 class TenantMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp):
         super().__init__(app)
-        # Regex to validate safe schema names (alphanumeric + underscore only)
+        # Regex to validate safe schema names (alphanumeric + underscore + dash)
         # Prevents SQL Injection via Host header
-        self.schema_validator = re.compile(r'^[a-z0-9_]+$')
+        self.schema_validator = re.compile(r'^[a-z0-9_-]+$')
 
     async def dispatch(self, request: Request, call_next):
         
@@ -34,7 +34,7 @@ class TenantMiddleware(BaseHTTPMiddleware):
             if len(parts) >= 3: # Needs at least subdomain.domain.com
                 subdomain = parts[0]
                 if subdomain not in ["www", "api", "app", "dashboard"]:
-                    tenant_slug = f"tenant_{subdomain}"
+                    tenant_slug = subdomain
         
         # 3. Set Context
         # Ensure it's safe (lowercase, sanitary)

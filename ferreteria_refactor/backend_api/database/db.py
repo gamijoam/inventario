@@ -92,7 +92,7 @@ def get_db():
                 # Inject Schema Search Path
                 # "schema, public" means: try schema first, falback to public (for shared tables if any)
                 try:
-                    db.execute(text(f"SET search_path TO {schema}, public"))
+                    db.execute(text(f'SET search_path TO "{schema}", public'))
                 except Exception as e:
                     print(f"❌ Error setting schema '{schema}': {e}")
                     # If schema is invalid, we might want to fail hard or fallback.

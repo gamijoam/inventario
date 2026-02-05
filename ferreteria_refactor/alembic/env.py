@@ -105,8 +105,22 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    # Lógica para Docker: Leer URL del entorno
+    import os
+    
+    # Obtenemos la URL del .env (inyectada por Docker Compose)
+    db_url = os.getenv("DATABASE_URL")
+    
+    config_section = config.get_section(config.config_ini_section)
+    
+    if db_url:
+        # Si existe la variable (estamos en Docker o Prod), sobrescribimos la URL del .ini
+        safe_url = db_url.split('@')[1] if '@' in db_url else db_url
+        print(f"🔌 [ALEMBIC] Usando conexión de base de datos desde entorno: {safe_url}") 
+        config_section["sqlalchemy.url"] = db_url
+        
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        config_section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
         connect_args={'client_encoding': 'utf8'}
@@ -123,7 +137,7 @@ def run_migrations_online() -> None:
             print(f"[ALEMBIC] Running migrations for TENANT schema: {tenant_schema}")
             # Set search path to tenant schema (and public for shared types if any)
             # IMPORTANT: We want alembic_version to be in the TENANT schema.
-            connection.execute(text(f'SET search_path TO {tenant_schema}, public'))
+            connection.execute(text(f'SET search_path TO "{tenant_schema}", public'))
             target_schema = tenant_schema
         else:
             print("🌍 [ALEMBIC] Running migrations for PUBLIC schema")

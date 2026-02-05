@@ -20,11 +20,11 @@ class TenantService:
     
     @staticmethod
     def slugify_schema_name(name: str) -> str:
-        """Convert 'My Company' to 'tenant_my_company'"""
+        """Convert 'My Company' to 'my-company'"""
         slug = name.lower().strip()
-        slug = re.sub(r'[^a-z0-9]', '_', slug)
-        slug = re.sub(r'_+', '_', slug)
-        return f"tenant_{slug}"
+        slug = re.sub(r'[^a-z0-9]', '-', slug) # Use dashes per user request
+        slug = re.sub(r'-+', '-', slug)
+        return slug.strip('-')
 
     @staticmethod
     def create_tenant(name: str, schema_name: str, admin_email: str, admin_password: str, plan_type: str = "FERRETERIA"):
@@ -81,7 +81,8 @@ class TenantService:
                  logger.warning("⚠️  [SQLite] Skipping CREATE SCHEMA (Not supported).")
             else:
                 with engine.connect() as conn:
-                    conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
+                    # Quote schema name to support dashes
+                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
                     conn.commit()
                     logger.info(f"✅ Schema '{schema_name}' created.")
 
@@ -150,7 +151,7 @@ class TenantService:
         try:
             # Set Schema for Postgres
             if "sqlite" not in str(settings.DATABASE_URL):
-                db.execute(text(f"SET search_path TO {schema_name}, public"))
+                db.execute(text(f'SET search_path TO "{schema_name}", public'))
                 
             # Check if admin exists
             existing_admin = db.query(User).filter(User.username == "admin").first()
@@ -187,7 +188,7 @@ class TenantService:
         db = SessionLocal()
         try:
             if "sqlite" not in str(settings.DATABASE_URL):
-                db.execute(text(f"SET search_path TO {schema_name}, public"))
+                db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             if db.query(ExchangeRate).first():
                 logger.info("skipped, already seeded")
@@ -221,7 +222,7 @@ class TenantService:
         db = SessionLocal()
         try:
             if "sqlite" not in str(settings.DATABASE_URL):
-                db.execute(text(f"SET search_path TO {schema_name}, public"))
+                db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             if db.query(PaymentMethod).first():
                 logger.info("skipped, already seeded")
@@ -253,7 +254,7 @@ class TenantService:
         db = SessionLocal()
         try:
             if "sqlite" not in str(settings.DATABASE_URL):
-                db.execute(text(f"SET search_path TO {schema_name}, public"))
+                db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             # Check if any warehouse exists
             if db.query(Warehouse).count() > 0:
@@ -285,7 +286,7 @@ class TenantService:
         db = SessionLocal()
         try:
             if "sqlite" not in str(settings.DATABASE_URL):
-                db.execute(text(f"SET search_path TO {schema_name}, public"))
+                db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             if db.query(Currency).count() > 0:
                  logger.info("skipped, currencies already exist")

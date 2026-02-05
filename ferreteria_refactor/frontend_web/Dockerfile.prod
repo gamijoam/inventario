@@ -1,0 +1,31 @@
+# ETAPA 1: Construcción (Build)
+FROM node:18-alpine as build-stage
+
+WORKDIR /app
+
+# Copiamos package.json e instalamos dependencias
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copiamos el código fuente
+COPY . .
+
+# ARGUMENTOS DE CONSTRUCCIÓN (Para que Vite sepa dónde está el backend)
+# Esto es crucial: En producción, el frontend debe apuntar a tu dominio real de API
+ENV VITE_API_URL=https://api.miinventariofacil.com
+
+# Ejecutamos el build (crea la carpeta /dist)
+RUN npm run build
+
+# ETAPA 2: Producción (Nginx)
+FROM nginx:alpine as production-stage
+
+# Copiamos los archivos compilados de la etapa anterior a Nginx
+COPY --from=build-stage /app/dist /usr/share/nginx/html
+
+# Copiamos nuestra configuración personalizada de Nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

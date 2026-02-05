@@ -1,19 +1,43 @@
-node_modules
-venv
-__pycache__
-.git
-.env
-dist
-ferreteria_refactor/frontend_web/node_modules
-ferreteria_refactor/frontend_web/dist
-# --- Base de Datos Local (CRÍTICO) ---
-*.db
-*.sqlite
-*.sqlite3
-ferreteria.db
+# Docker Ignore - Sistema de Ferretería
 
-# --- Configuración Local (CRÍTICO) ---
-.env
+# 1. Configuración y Secretos
+**/.env
+*.env
+.env.prod
 .env.local
-.env.development
-# Excepción: si tienes un .env.production específico, ese sí podría ir, pero mejor no.
+.env.test
+
+# 2. Entornos Virtuales
+venv/
+env/
+.venv/
+
+# 3. Control de Versiones
+.git/
+.gitignore
+
+# 4. Caché de Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 5. Node.js (Frontend & Landing)
+**/node_modules/
+**/dist/
+**/build/
+.npm/
+
+# 6. Sistema e IDEs
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 7. Otros
+*.log
+docker-compose.override.yml

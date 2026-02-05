@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------
+  # TRAEFIK (Reverse Proxy + Auto SSL)
+  # ----------------------------------------
+  traefik:
+    image: traefik:v2.11
+    container_name: traefik
+    restart: always
+    command:
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.dnschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.myresolver.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53"
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    environment:
+      - CF_DNS_API_TOKEN=WO3Vgw3-HDp1eR-LopwYAoeKjvh33XtP10D6Ti3i
+      - CF_API_EMAIL=rodriguezisaac876@gmail.com
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - ferreteria_net
+
+  # ----------------------------------------
+  # LANDING PAGE (miinventariofacil.com)
+  # ----------------------------------------
+  landing:
+    image: gamijoam/ferreteria-landing:v11
+    container_name: landing_prod
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.landing.rule=Host(`miinventariofacil.com`)"
+      - "traefik.http.routers.landing.entrypoints=websecure"
+      - "traefik.http.routers.landing.tls.certresolver=myresolver"
+    networks:
+      - ferreteria_net
+
+  # ----------------------------------------
+  # FRONTEND APP (*.miinventariofacil.com)
+  # ----------------------------------------
+  frontend:
+    image: gamijoam/ferreteria-app:v11
+    container_name: frontend_prod
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`miinventariofacil.com`) || HostRegexp(`{subdomain:[a-z0-9-]+}.miinventariofacil.com`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      - "traefik.http.routers.frontend.tls.domains[0].main=miinventariofacil.com"
+      - "traefik.http.routers.frontend.tls.domains[0].sans=*.miinventariofacil.com"
+    networks:
+      - ferreteria_net
+
+  # ----------------------------------------
+  # BACKEND API (api.miinventariofacil.com)
+  # ----------------------------------------
+  backend:
+    image: gamijoam/ferreteria-backend:v12
+    container_name: backend_prod
+    restart: always
+    env_file:
+      - .env.prod
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.miinventariofacil.com`)"
+      - "traefik.http.routers.backend.entrypoints=websecure"
+      - "traefik.http.routers.backend.tls.certresolver=myresolver"
+    networks:
+      - ferreteria_net
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ----------------------------------------
+  # DATABASE (Postgres)
+  # ----------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: db_prod
+    restart: always
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    env_file:
+      - .env.prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${DB_USER} -d $${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ferreteria_net
+
+volumes:
+  postgres_data_prod:
+  letsencrypt:
+
+networks:
+  ferreteria_net:
+    driver: bridge

@@ -1,3 +1,11 @@
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : 'https://api.miinventariofacil.com';
+
+const APP_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5173'
+    : `https://${window.location.hostname.replace('miinventariofacil.com', '').replace('.', '') || 'www'}.miinventariofacil.com`;
+
 window.openRegisterModal = function (e) {
     if (e) e.preventDefault();
     const modal = document.getElementById("registerModal");
@@ -77,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function () {
             submitBtn.style.opacity = "0.7";
 
             try {
-                const response = await fetch('http://localhost:8000/api/v1/public/register', {
+                const response = await fetch(`${API_URL}/api/v1/public/register`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -105,7 +113,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 localStorage.setItem('selected_tenant', data.tenant_id);
 
                 setTimeout(() => {
-                    window.location.href = 'http://localhost:5173/login';
+                    // Si tenemos tenant_id, redirigimos al subdominio del cliente
+                    const finalUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+                        ? `${APP_URL}/login`
+                        : `https://${data.tenant_id}.miinventariofacil.com/login`;
+
+                    window.location.href = finalUrl;
                 }, 3000);
 
             } catch (err) {
