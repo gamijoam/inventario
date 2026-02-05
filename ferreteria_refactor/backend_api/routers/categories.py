@@ -110,7 +110,7 @@ def update_category(category_id: int, category: schemas.CategoryUpdate, db: Sess
         db_category.parent_id = category.parent_id
     
     db.commit()
-    db.refresh(db_category)
+    db.expunge(db_category)
     return db_category
 
 @router.delete("/{category_id}")

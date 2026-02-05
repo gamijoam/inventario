@@ -60,7 +60,7 @@ def open_table(table_id: int, db: Session = Depends(get_db), current_user = Depe
     table.status = TableStatusDB.OCCUPIED
     
     db.commit()
-    db.refresh(new_order)
+    db.expunge(new_order)
     return new_order
 
 @router.get("/{table_id}/current", response_model=OrderRead)
@@ -140,7 +140,7 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreate], background_t
         
     order.updated_at = datetime.now()
     db.commit()
-    db.refresh(order)
+    db.expunge(order)
     
     # TRIGGER KITCHEN PRINT
     try:

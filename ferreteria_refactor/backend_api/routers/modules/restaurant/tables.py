@@ -46,7 +46,6 @@ def create_table(table: TableCreate, db: Session = Depends(get_db)):
     db_table = RestaurantTable(**table.model_dump())
     db.add(db_table)
     db.commit()
-    db.refresh(db_table)
     return db_table
 
 @router.put("/{table_id}", response_model=TableRead)
@@ -63,7 +62,6 @@ def update_table(table_id: int, table_update: TableUpdate, db: Session = Depends
         setattr(db_table, key, value)
     
     db.commit()
-    db.refresh(db_table)
     return db_table
 
 @router.delete("/{table_id}", status_code=status.HTTP_204_NO_CONTENT)

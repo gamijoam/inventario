@@ -168,10 +168,16 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             purchase.paid_amount = order_data.total_amount
             purchase.payment_status = models.PaymentStatus.PAID
         
-        db.commit()
-        # db.refresh(purchase)
+        # 🔒 SECURITY: Eager Load relations BEFORE commit (v44)
+        captured_id = purchase.id
+        purchase = db.query(models.PurchaseOrder).options(
+            joinedload(models.PurchaseOrder.supplier),
+            joinedload(models.PurchaseOrder.items).joinedload(models.PurchaseItem.product)
+        ).filter(models.PurchaseOrder.id == captured_id).first()
         
-        # Emission of events
+        db.commit()
+        
+        # Final Event Emission (safe after commit)
         for p_info in updated_products_info:
             await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, p_info)
             await manager.broadcast(WebSocketEvents.PRODUCT_STOCK_UPDATED, {
@@ -179,12 +185,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                 "stock": p_info["stock"]
             })
 
-        # SAFE RE-QUERY PATTERN
-        # Instead of db.refresh() which fails, we re-fetch the object with all relations
-        return db.query(models.PurchaseOrder).options(
-            joinedload(models.PurchaseOrder.supplier),
-            joinedload(models.PurchaseOrder.items).joinedload(models.PurchaseItem.product)
-        ).filter(models.PurchaseOrder.id == purchase.id).first()
+        return schemas.PurchaseOrderResponse.model_validate(purchase)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -295,11 +296,15 @@ def register_payment(
                 (p.total_amount - p.paid_amount) for p in pending_purchases
             )
         
+        # Eager Load payment BEFORE commit (v44)
+        captured_id = payment.id
+        payment = db.query(models.PurchasePayment).options(
+            joinedload(models.PurchasePayment.purchase)
+        ).filter(models.PurchasePayment.id == captured_id).first()
+
         db.commit()
-        # db.refresh(payment)
-        
-        # Safe re-query
-        return db.query(models.PurchasePayment).filter(models.PurchasePayment.id == payment.id).first()
+
+        return schemas.PurchasePaymentResponse.model_validate(payment)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))

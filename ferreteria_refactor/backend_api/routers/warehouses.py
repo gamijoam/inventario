@@ -29,7 +29,6 @@ def create_warehouse(warehouse: schemas.WarehouseCreate, db: Session = Depends(g
     db.add(db_warehouse)
     try:
         db.commit()
-        db.refresh(db_warehouse)
         return db_warehouse
     except IntegrityError:
         db.rollback()
@@ -59,7 +58,6 @@ def update_warehouse(warehouse_id: int, warehouse: schemas.WarehouseUpdate, db: 
 
     try:
         db.commit()
-        db.refresh(db_warehouse)
         return db_warehouse
     except Exception as e:
         db.rollback()

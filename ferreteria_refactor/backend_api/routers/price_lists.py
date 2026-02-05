@@ -45,7 +45,7 @@ def create_price_list(
     )
     db.add(new_list)
     db.commit()
-    db.refresh(new_list)
+    db.expunge(new_list)
     return new_list
 
 @router.put("/{list_id}", response_model=schemas.PriceListRead)
@@ -64,12 +64,8 @@ def update_price_list(
          if existing:
              raise HTTPException(status_code=400, detail="Name already in use")
 
-    price_list.name = list_data.name
-    price_list.requires_auth = list_data.requires_auth
-    price_list.is_active = list_data.is_active
     
     db.commit()
-    db.refresh(price_list)
     return price_list
 
 @router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT)

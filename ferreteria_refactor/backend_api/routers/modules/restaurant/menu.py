@@ -66,7 +66,6 @@ def create_section(section: schemas.MenuSectionCreate, db: Session = Depends(get
     new_sec = RestaurantMenuSection(**section.dict())
     db.add(new_sec)
     db.commit()
-    db.refresh(new_sec)
     return new_sec
 
 @router.delete("/sections/{id}")
@@ -87,7 +86,6 @@ def add_menu_item(item: schemas.MenuItemCreate, db: Session = Depends(get_db)):
     db_item = RestaurantMenuItem(**item.dict())
     db.add(db_item)
     db.commit()
-    db.refresh(db_item)
     return db_item # Minimal return, client usually re-fetches full menu
 
 @router.delete("/items/{id}")
@@ -118,13 +116,11 @@ def add_ingredient_to_recipe(recipe: schemas.RecipeCreate, db: Session = Depends
     if existing:
         existing.quantity = recipe.quantity
         db.commit()
-        db.refresh(existing)
         return existing
     
     new_recipe = RestaurantRecipe(**recipe.dict())
     db.add(new_recipe)
     db.commit()
-    db.refresh(new_recipe)
     return new_recipe
 
 @router.delete("/recipes/{id}")

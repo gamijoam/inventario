@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from .. import schemas
-from ..models import models # FIXED: explicit import of models module
+from ..models import models
 from ..database.db import get_db
 from ..utils.time_utils import get_venezuela_now
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy import desc
+from enum import Enum
 import traceback
 
 router = APIRouter(
@@ -23,9 +24,6 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
             prefix = "LAV"
 
         # 2. Generate Ticket Number
-        # Find last ticket with this prefix to ensure continuity per type if desired, 
-        # OR just global continuity. User requested specific identifier for Laundry.
-        # Let's simple filter by ticket_number like "PREFIX-%"
         last_order = db.query(models.ServiceOrder)\
             .filter(models.ServiceOrder.ticket_number.like(f"{prefix}-%"))\
             .order_by(desc(models.ServiceOrder.id)).first()
@@ -61,7 +59,7 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
             diagnosis_notes=order_data.diagnosis_notes,
             estimated_delivery=order_data.estimated_delivery,
             order_metadata=order_data.order_metadata,
-            priority=order_data.priority # Added Priority Field
+            priority=order_data.priority
         )
         
         db.add(new_order)
@@ -99,16 +97,27 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
                 )
                 db.add(new_detail)
 
+        # 🔒 SECURITY: Eager Load relations BEFORE commit while schema is active (v44)
+        captured_id = new_order.id
+        final_order = db.query(models.ServiceOrder).options(
+            joinedload(models.ServiceOrder.customer),
+            joinedload(models.ServiceOrder.technician),
+            joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product)
+        ).filter(models.ServiceOrder.id == captured_id).first()
+
+        if not final_order:
+            raise HTTPException(status_code=500, detail="Error re-loading order pre-commit")
+
         db.commit()
-        # db.refresh(new_order)
-        
-        # Safe re-query
-        return db.query(models.ServiceOrder).filter(models.ServiceOrder.id == new_order.id).first()
+
+        # Force serialization while data is in memory
+        return schemas.ServiceOrderRead.model_validate(final_order)
         
     except Exception as e:
-        print(f"[ERROR] Create Service Order Failed: {e}")
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
+        print(f"❌ [CRITICAL ERROR] Create Service Order Failed!")
+        print(traceback.format_exc())
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error en servidor al crear orden: {str(e)}")
 
 @router.delete("/orders/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_service_order(order_id: int, db: Session = Depends(get_db)):
@@ -116,10 +125,6 @@ def delete_service_order(order_id: int, db: Session = Depends(get_db)):
     order = db.query(models.ServiceOrder).get(order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
-        
-    # Validation: strict check?
-    # If order is PAID (converted to Sale), maybe block?
-    # For now, allow deletion of active orders.
     
     db.delete(order)
     db.commit()
@@ -131,7 +136,7 @@ def get_service_orders(
     limit: int = 100, 
     status: Optional[str] = None,
     customer_id: Optional[int] = None,
-    service_type: Optional[str] = None, # NEW PARAM
+    service_type: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """List service orders with filters"""
@@ -158,9 +163,7 @@ def get_service_order(order_id: int, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=404, detail="Service Order not found")
     return order
-    return order
 
-# NEW: Add Item to Order
 @router.post("/orders/{order_id}/items", response_model=schemas.ServiceOrderRead)
 def add_service_order_item(
     order_id: int, 
@@ -172,9 +175,7 @@ def add_service_order_item(
     if not order:
         raise HTTPException(status_code=404, detail="Service Order not found")
         
-    # Logic for Manual vs Product Item
     if item_data.product_id:
-        # PRODUCT ITEM
         product = db.query(models.Product).get(item_data.product_id)
         if not product:
             raise HTTPException(status_code=400, detail="Product not found")
@@ -183,15 +184,13 @@ def add_service_order_item(
         cost = product.cost_price
         is_manual = False
     else:
-        # MANUAL ITEM
         if not item_data.description:
              raise HTTPException(status_code=400, detail="Description is required for manual items")
              
         description = item_data.description
-        cost = 0 # Manual services usually have 0 direct cost unless specified otherwise
+        cost = 0 
         is_manual = True
         
-    # Create Detail
     new_detail = models.ServiceOrderDetail(
         service_order_id=order_id,
         product_id=item_data.product_id,
@@ -206,9 +205,7 @@ def add_service_order_item(
     
     db.add(new_detail)
     db.commit()
-    # db.refresh(order)
     
-    # Safe re-query
     return db.query(models.ServiceOrder).get(order_id)
 
 @router.delete("/orders/{order_id}/items/{item_id}", response_model=schemas.ServiceOrderRead)
@@ -232,10 +229,8 @@ def delete_service_order_item(
         
     db.delete(item)
     db.commit()
-    db.refresh(order)
     return order
 
-# NEW: Update Status & Notes
 @router.patch("/orders/{order_id}/status", response_model=schemas.ServiceOrderRead)
 def update_service_order_status(
     order_id: int, 
@@ -247,7 +242,6 @@ def update_service_order_status(
     if not order:
         raise HTTPException(status_code=404, detail="Service Order not found")
         
-    # Validate Status Enum if provided
     if update_data.status:
         if update_data.status not in models.ServiceOrderStatus.__members__:
              raise HTTPException(status_code=400, detail=f"Invalid status. Options: {list(models.ServiceOrderStatus.__members__.keys())}")
@@ -257,13 +251,7 @@ def update_service_order_status(
         order.diagnosis_notes = update_data.diagnosis_notes
         
     if update_data.order_metadata:
-        # Merge or Replace? Using Replace for simplicity as frontend sends full object usually
-        # But safer to merge if needed. For now, replace as per Pydantic model.
-        # Ensure we don't lose existing metadata if we only send partial? 
-        # Frontend should send the merged dict.
-        # But wait, SQLAlchemy JSON type:
         if order.order_metadata:
-             # Merge logic: {**old, **new}
              order.order_metadata = {**order.order_metadata, **update_data.order_metadata}
         else:
              order.order_metadata = update_data.order_metadata
@@ -274,13 +262,19 @@ def update_service_order_status(
     if update_data.priority:
         order.priority = update_data.priority
         
-    db.commit()
-    # db.refresh(order)
+    # Eager Load for status update response BEFORE commit (v44)
+    final_order = db.query(models.ServiceOrder).options(
+        joinedload(models.ServiceOrder.customer),
+        joinedload(models.ServiceOrder.technician),
+        joinedload(models.ServiceOrder.details)
+    ).filter(models.ServiceOrder.id == order_id).first()
     
-    # Safe re-query
-    return db.query(models.ServiceOrder).get(order_id)
+    if not final_order:
+        raise HTTPException(status_code=404, detail="Service Order not found after update")
 
-# CHECKOUT ENDPOINTS
+    db.commit()
+    
+    return schemas.ServiceOrderRead.model_validate(final_order)
 
 from ..services.service_checkout_service import ServiceCheckoutService
 
@@ -297,10 +291,7 @@ def checkout_service_order(
 ):
     """
     Convert a Service Order into a Sale (Process Payment).
-    Ignores items in payload; uses items from the Service Order to ensure integrity.
     """
-    # TODO: Add User ID from auth dependency
     user_id = 1 
-    
     sale = ServiceCheckoutService.convert_order_to_sale(db, order_id, payment_data, user_id)
     return {"status": "success", "sale_id": sale.id, "ticket_number": sale.id}

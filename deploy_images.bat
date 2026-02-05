@@ -1,6 +1,6 @@
 @echo off
 set USER=gamijoam
-set TAG=v38
+set TAG=v44
 
 echo ------------------------------------------------
 echo 🚀 Iniciando Build ^& Push para Produccion (Windows)

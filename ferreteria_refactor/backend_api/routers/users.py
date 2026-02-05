@@ -264,7 +264,6 @@ def update_pin(user_id: int, pin_data: dict, db: Session = Depends(get_db)):
     # Update PIN
     user.pin = pin
     db.commit()
-    db.refresh(user)
     
     return {
         "id": user.id,

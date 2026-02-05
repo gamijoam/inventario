@@ -965,7 +965,7 @@ Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
         sale.paid = (new_balance <= 0.01) # Trace threshold
         
         db.commit()
-        db.refresh(payment)
+        db.expunge(payment)
         
         return {
             "status": "success",

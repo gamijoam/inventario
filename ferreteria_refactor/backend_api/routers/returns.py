@@ -236,21 +236,15 @@ def process_return(return_data: schemas.ReturnCreate, db: Session = Depends(get_
         )
         db.add(cash_movement)
     
-    db.commit()
-    db.commit()
-    # db.refresh(new_return)
-
-    # Safe re-query
-    return db.query(models.Return).options(
+    # 🔒 SECURITY: Final Eager Load BEFORE commit (v44)
+    captured_id = new_return.id
+    new_return = db.query(models.Return).options(
         joinedload(models.Return.details).joinedload(models.ReturnDetail.product)
-    ).filter(models.Return.id == new_return.id).first()
+    ).filter(models.Return.id == captured_id).first()
 
-    # AUDIT LOG
-    from ..audit_utils import log_action
-    log_action(db, user_id=1, action="CREATE", table_name="returns", record_id=new_return.id, changes=f"Return Processed for Sale #{sale.id}. Reason: {return_data.reason}. Refunded: {total_refund}")
-
+    db.commit()
     
-    return new_return
+    return schemas.ReturnRead.model_validate(new_return)
 
 @router.get("", response_model=List[schemas.ReturnRead])
 def get_returns(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
