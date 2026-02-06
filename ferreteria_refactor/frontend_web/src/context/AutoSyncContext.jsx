@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import apiClient from '../config/axios';
 import { useCloudConfig } from './CloudConfigContext';
 
 const AutoSyncContext = createContext();
@@ -41,7 +41,7 @@ export const AutoSyncProvider = ({ children }) => {
 
         try {
             // USAR BACKEND PARA VERIFICAR CONEXIÓN (Evita CORS)
-            const response = await axios.post('/api/v1/cloud/test-connection', {
+            const response = await apiClient.post('/cloud/test-connection', {
                 url: cloudConfig.cloudUrl
             });
 
@@ -71,7 +71,7 @@ export const AutoSyncProvider = ({ children }) => {
                 if (token) {
                     try {
                         // Enviamos la configuración al backend silenciosamente
-                        await axios.put('/api/v1/config/cloud_url', {
+                        await apiClient.put('/config/cloud_url', {
                             key: 'cloud_url',
                             value: cloudConfig.cloudUrl
                         }, {
@@ -124,7 +124,7 @@ export const AutoSyncProvider = ({ children }) => {
 
             // 2. Ejecutar sincronización
             console.log('🔄 Iniciando sincronización...');
-            const response = await axios.post('/api/v1/sync-local/trigger');
+            const response = await apiClient.post('/sync-local/trigger');
 
             // 3. Actualizar estado
             setSyncStatus(prev => ({

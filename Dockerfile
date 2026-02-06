@@ -28,7 +28,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code directly to /app (v29 flat structure)
 # This includes alembic.ini, alembic/, backend_api/, etc.
-COPY ferreteria_refactor/ /app/
+# Copy backend code maintaining hierarchy (v47 fix)
+COPY ferreteria_refactor/ /app/ferreteria_refactor/
 
 # Copy built frontend from Stage 1 to /app/static
 COPY --from=frontend-build /app/frontend/dist /app/static

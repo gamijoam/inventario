@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../config/constants';
 
 const CloudConfigContext = createContext();
 
@@ -13,7 +14,7 @@ export const useCloudConfig = () => {
 
 export const CloudConfigProvider = ({ children }) => {
     const [config, setConfig] = useState({
-        cloudUrl: 'https://api.miinventariofacil.com',
+        cloudUrl: API_BASE_URL,
         isConfigured: true, // FORCED: Assume SaaS is always configured
         syncEnabled: true,
         syncIntervalMinutes: 10
@@ -35,13 +36,13 @@ export const CloudConfigProvider = ({ children }) => {
                 const parsed = JSON.parse(savedConfig);
                 setConfig({
                     ...parsed,
-                    cloudUrl: 'https://api.miinventariofacil.com', // FORCE SaaS Primary URL
+                    cloudUrl: API_BASE_URL, // FORCE SaaS Primary URL
                     isConfigured: true
                 });
             } else {
                 // Default SaaS setup
                 setConfig({
-                    cloudUrl: 'https://api.miinventariofacil.com',
+                    cloudUrl: API_BASE_URL,
                     isConfigured: true,
                     syncEnabled: true,
                     syncIntervalMinutes: 10

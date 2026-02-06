@@ -10,9 +10,11 @@ RUN npm ci
 # Copiamos el código fuente
 COPY . .
 
-# ARGUMENTOS DE CONSTRUCCIÓN (Para que Vite sepa dónde está el backend)
-# Esto es crucial: En producción, el frontend debe apuntar a tu dominio real de API
-ENV VITE_API_URL=https://api.miinventariofacil.com
+# ARGUMENTOS DE CONSTRUCCIÓN (Crucial para que Vite capture la variable durante el build)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+RUN echo "VITE_API_URL set to: $VITE_API_URL"
 
 # Ejecutamos el build (crea la carpeta /dist)
 RUN npm run build

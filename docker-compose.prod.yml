@@ -81,6 +81,10 @@ services:
       - "traefik.http.routers.backend.tls.certresolver=myresolver"
     networks:
       - ferreteria_net
+    volumes:
+      - media_data_prod:/app/media
+    environment:
+      - DOCKER_CONTAINER: "true"
     depends_on:
       db:
         condition: service_healthy
@@ -106,6 +110,7 @@ services:
 
 volumes:
   postgres_data_prod:
+  media_data_prod:
   letsencrypt:
 
 networks:

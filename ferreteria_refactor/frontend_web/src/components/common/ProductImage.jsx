@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BASE_API_URL } from '../../config/constants';
+import { API_ROOT_URL } from '../../config/constants';
 import noImgPlaceholder from '../../assets/no-img.svg';
 
 /**
@@ -27,7 +27,7 @@ const ProductImage = ({ src, alt, className, iconSize = 24, updatedAt }) => {
 
     // Prepend BASE_API_URL if it's not an absolute URL (doesn't start with http)
     const isAbsolute = src.startsWith('http');
-    const fullUrl = isAbsolute ? src : `${BASE_API_URL}${src}`;
+    const fullUrl = isAbsolute ? src : `${API_ROOT_URL}${src}`;
     const finalUrl = getVersionedUrl(fullUrl);
 
     return (

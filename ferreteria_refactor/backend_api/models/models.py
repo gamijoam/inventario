@@ -475,6 +475,7 @@ class User(Base):
     pin = Column(String, nullable=True)  # 4-6 digit PIN for discount authorization
     role = Column(Enum(UserRole), default=UserRole.CASHIER)
     full_name = Column(String, nullable=True)
+    email = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
     commission_percentage = Column(Numeric(5, 2), default=0.00) # NEW: Commission %
     

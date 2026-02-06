@@ -6,7 +6,6 @@ import os
 import sys
 
 # --- DIAGNÓSTICO DE INICIO ---
-# --- DIAGNÓSTICO DE INICIO ---
 print("[INFO] Verificando entorno Python...", flush=True)
 try:
     import aiofiles
@@ -62,7 +61,9 @@ from .config import settings
 @app.on_event("startup")
 async def startup_event_async():
     print("\n" + "="*60)
-    print("[INFO] FERRETERIA API INICIADA (Modo Docker SaaS v2)")
+    print(f"[INFO] FERRETERIA API INICIADA (Environment: {settings.ENVIRONMENT.upper()})")
+    if settings.ENVIRONMENT == "staging":
+        print("[WARNING] AGENTE ENTORNO STAGING DETECTADO - CONFIGURACIÓN DE QA ACTIVA")
     print("="*60 + "\n")
 
 # --- MIDDLEWARE DE LOGGING Y SEGURIDAD ---

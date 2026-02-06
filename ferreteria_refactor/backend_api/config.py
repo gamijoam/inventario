@@ -22,6 +22,7 @@ else:
 class Settings:
     # Support both naming conventions
     DATABASE_URL: str = os.getenv("DB_URL", os.getenv("DATABASE_URL", "sqlite:///./ferreteria.db"))
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production").lower()
     
     # Security - CRITICAL: SECRET_KEY must be set in environment
     SECRET_KEY: str = os.getenv("SECRET_KEY")

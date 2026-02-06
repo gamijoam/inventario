@@ -43,7 +43,17 @@ class ProductBase(BaseModel):
     is_active: bool = Field(True, description="Indica si el producto está disponible para la venta")
     
     # Image Support
-    image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", example="/media/tenant-a/products/uuid-v4.webp")
+    image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", example="/media/products/uuid-v4.webp")
+    
+    @validator('image_url', pre=True)
+    def sanitize_image_url(cls, v):
+        if not v:
+            return v
+        # Remove /qa/ and other prefixes to stay in /media/products/...
+        # Matches patterns like /media/qa/products/ or /media/tenant-a/products/
+        import re
+        # Convert /media/(anything)/products/ to /media/products/
+        return re.sub(r"/media/[^/]+/products/", "/media/products/", v)
     updated_at: Optional[datetime] = Field(None, description="Fecha de última actualización (auto-gestionada)")
 
     # Warranty Configuration

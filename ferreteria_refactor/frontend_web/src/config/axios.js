@@ -5,8 +5,8 @@ import { API_BASE_URL } from './constants';
 const isDev = import.meta.env.DEV;
 
 // Forzamos el uso de la API CENTRAL en producción
-const baseURL = isDev
-    ? 'http://localhost:8000/api/v1'
+const baseURL = API_BASE_URL.includes('/api/v1')
+    ? API_BASE_URL
     : `${API_BASE_URL}/api/v1`;
 
 console.log('🔧 Axios config:', {

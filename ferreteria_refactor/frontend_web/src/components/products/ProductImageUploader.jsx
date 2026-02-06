@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import apiClient from '../../config/axios';
-import { BASE_API_URL } from '../../config/constants';
+import { BASE_API_URL, API_ROOT_URL } from '../../config/constants';
 import noImgPlaceholder from '../../assets/no-img.svg';
 import clsx from 'clsx';
 
@@ -14,7 +14,7 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
   const getImageUrl = (url) => {
     if (!url) return null;
     const isAbsolute = url.startsWith('http');
-    const fullUrl = isAbsolute ? url : `${BASE_API_URL}${url}`;
+    const fullUrl = isAbsolute ? url : `${API_ROOT_URL}${url}`;
     return `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
   };
 
