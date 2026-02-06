@@ -351,7 +351,7 @@ class SaleDetailRead(BaseModel):
     product_id: int
     quantity: Decimal
     unit_price: Decimal
-    subtotal: Decimal
+    subtotal: Decimal = Decimal("0.00")
     discount: Decimal = Decimal("0.00")
     discount_type: str = "NONE"
     tax_rate: Decimal = Decimal("0.00")
@@ -362,6 +362,12 @@ class SaleDetailRead(BaseModel):
     
     # Warranty Snapshot
     warranty_expiration_date: Optional[datetime] = None
+
+    @validator('subtotal', 'discount', 'tax_rate', pre=True, always=True)
+    def validate_decimals(cls, v):
+        if v is None:
+            return Decimal("0.00")
+        return v
     
     class Config:
         from_attributes = True
@@ -370,9 +376,9 @@ class SaleRead(BaseModel):
     id: int
     date: datetime
     total_amount: Decimal
-    total_amount_bs: Optional[Decimal] = None # NEW
-    change_amount: Optional[Decimal] = None # NEW
-    change_currency: Optional[str] = None # NEW
+    total_amount_bs: Decimal = Decimal("0.00")
+    change_amount: Decimal = Decimal("0.00")
+    change_currency: str = "VES"
     
     payment_method: str
     customer_id: Optional[int]
@@ -388,6 +394,24 @@ class SaleRead(BaseModel):
     status: str = "COMPLETED" # Derived from property
     unique_uuid: Optional[str] = None
     is_offline_sale: bool = False
+
+    @validator('total_amount_bs', 'change_amount', pre=True, always=True)
+    def validate_decimals(cls, v):
+        if v is None:
+            return Decimal("0.00")
+        return v
+
+    @validator('change_currency', pre=True, always=True)
+    def validate_currency(cls, v):
+        if v is None:
+            return "VES"
+        return v
+
+    @validator('is_offline_sale', pre=True, always=True)
+    def validate_offline_flag(cls, v):
+        if v is None:
+            return False
+        return v
     
     class Config:
         from_attributes = True
