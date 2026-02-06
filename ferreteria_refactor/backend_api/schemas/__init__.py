@@ -1170,3 +1170,12 @@ class CommissionPayoutRequest(BaseModel):
     reference: Optional[str] = None
 
 
+# Authentication Recovery Schemas
+from pydantic import EmailStr
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=6)

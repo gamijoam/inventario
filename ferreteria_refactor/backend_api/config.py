@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 from dotenv import load_dotenv
 
 import sys
@@ -50,5 +51,17 @@ class Settings:
     
     # Media Storage (v31 Enforced Path)
     MEDIA_ROOT: str = "/app/media" if os.getenv("DOCKER_CONTAINER") else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "media")
+
+    # Email / SMTP Settings (Required for Forgot Password)
+    SMTP_HOST: Optional[str] = os.getenv("SMTP_HOST")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: Optional[str] = os.getenv("SMTP_USER")
+    SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD")
+    EMAILS_FROM_EMAIL: Optional[str] = os.getenv("EMAILS_FROM_EMAIL")
+    EMAILS_FROM_NAME: str = os.getenv("EMAILS_FROM_NAME", "Ferreteria Sistema")
+    SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() == "true"
+
+    # Frontend URL (For reset links)
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
 settings = Settings()

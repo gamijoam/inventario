@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -15,12 +15,33 @@ except ImportError as e:
 
 from .models import models
 from .database.db import engine
-from .routers import (
-    auth, products, users, reports, customers, suppliers, 
-    purchases, cash, config, quotes, warehouses, transfers, 
-    inventory, returns, categories, websocket, audit, system, 
-    payment_methods, sync, sync_local, cloud, credits, services, commissions, rma, price_lists
-)
+from .routers.products import router as products_router
+from .routers.customers import router as customers_router
+from .routers.quotes import router as quotes_router
+from .routers.cash import router as cash_router
+from .routers.suppliers import router as suppliers_router
+from .routers.inventory import router as inventory_router
+from .routers.returns import router as returns_router
+from .routers.reports import router as reports_router
+from .routers.purchases import router as purchases_router
+from .routers.users import router as users_router
+from .routers.config import router as config_router
+from .routers.auth import router as auth_router
+from .routers.categories import router as categories_router
+from .routers.websocket import router as websocket_router
+from .routers.audit import router as audit_router
+from .routers.system import router as system_router
+from .routers.payment_methods import router as payment_methods_router
+from .routers.sync import router as sync_router
+from .routers.sync_local import router as sync_local_router
+from .routers.cloud import router as cloud_router
+from .routers.credits import router as credits_router
+from .routers.services import router as services_router
+from .routers.commissions import router as commissions_router
+from .routers.rma import router as rma_router
+from .routers.price_lists import router as price_lists_router
+from .routers.warehouses import router as warehouses_router
+from .routers.transfers import router as transfers_router
 from .audit_utils import log_action
 from .models.models import UserRole
 from .routers.hardware_bridge import router as hardware_bridge_router  # WebSocket router
@@ -38,6 +59,8 @@ app.add_middleware(
     allow_origins=[
         "https://miinventariofacil.com", 
         "https://api.miinventariofacil.com",
+        "https://qa.miinventariofacil.com",
+        "https://api-qa.miinventariofacil.com",
         "http://localhost:3000",
         "http://localhost:5173"
     ],
@@ -64,6 +87,12 @@ async def startup_event_async():
     print(f"[INFO] FERRETERIA API INICIADA (Environment: {settings.ENVIRONMENT.upper()})")
     if settings.ENVIRONMENT == "staging":
         print("[WARNING] AGENTE ENTORNO STAGING DETECTADO - CONFIGURACIÓN DE QA ACTIVA")
+    
+    # EXTREME DIAGNOSTIC: Print all routes
+    print("\n[ROUTES] Full hierarchy:")
+    for route in sorted(app.routes, key=lambda x: getattr(x, 'path', '')):
+        if hasattr(route, 'methods'):
+            print(f"  {list(route.methods)} {route.path}")
     print("="*60 + "\n")
 
 # --- MIDDLEWARE DE LOGGING Y SEGURIDAD ---
@@ -113,49 +142,52 @@ print("[INFO] License Guard DESACTIVADO TEMPORALMENTE PARA DEBUG")
 
 
 
-# --- ROUTERS API (Prioridad Alta) ---
-app.include_router(products, prefix="/api/v1", tags=["Inventario"])
-app.include_router(customers, prefix="/api/v1", tags=["Clientes"])
-app.include_router(quotes, prefix="/api/v1", tags=["Presupuestos"])
-app.include_router(cash, prefix="/api/v1", tags=["Caja"])
-app.include_router(suppliers, prefix="/api/v1", tags=["Proveedores"])
-app.include_router(inventory, prefix="/api/v1", tags=["Inventario (Operaciones)"])
-app.include_router(returns, prefix="/api/v1", tags=["Devoluciones"])
-app.include_router(reports, prefix="/api/v1", tags=["Reportes"])
-app.include_router(purchases, prefix="/api/v1", tags=["Compras"])
-app.include_router(users, prefix="/api/v1", tags=["Usuarios"])
-app.include_router(config, prefix="/api/v1", tags=["Configuración"])
-app.include_router(auth, prefix="/api/v1", tags=["Autenticación"])
-app.include_router(categories, prefix="/api/v1", tags=["Categorías"])
-app.include_router(websocket, prefix="/api/v1", tags=["WebSocket Events"])
-app.include_router(audit, prefix="/api/v1", tags=["Auditoría"])
-app.include_router(system, prefix="/api/v1", tags=["Sistema y Licencias"])
-app.include_router(credits.router, prefix="/api/v1", tags=["Créditos y Cobranzas"])
-app.include_router(payment_methods.router, prefix="/api/v1", tags=["Métodos de Pago"])
-app.include_router(hardware_bridge_router, prefix="/api/v1", tags=["Hardware Bridge"])
-app.include_router(sync.router, prefix="/api/v1", tags=["Sincronización Híbrida"]) # VPS Side
-app.include_router(sync_local.router, prefix="/api/v1", tags=["Sincronización Local"]) # Client Side
-app.include_router(warehouses.router, prefix="/api/v1", tags=["Almacenes"])
-app.include_router(transfers.router, prefix="/api/v1", tags=["Traslados"]) # New Transfer Router # New line for warehouses
-app.include_router(services, prefix="/api/v1", tags=["Servicios Técnicos"]) # NEW: Service Order Router
-app.include_router(commissions.router, prefix="/api/v1", tags=["Comisiones"]) # NEW: Commissions
-app.include_router(rma.router, prefix="/api/v1", tags=["Garantías RMA"]) # NEW: RMA
-app.include_router(price_lists.router, prefix="/api/v1", tags=["Listas de Precios"]) # NEW: Price Lists
-app.include_router(rma.router, prefix="/api/v1", tags=["Garantías RMA"]) # NEW: RMA
-app.include_router(price_lists.router, prefix="/api/v1", tags=["Listas de Precios"]) # NEW: Price Lists
-app.include_router(cloud.router, prefix="/api/v1", tags=["Cloud Configuration"]) # Cloud testing
+# --- ROUTER HIERARCHY (v60 - Nested Patterns) ---
+v1_router = APIRouter(prefix="/api/v1")
 
-# NEW: Public Auth (Tenant Registration)
+v1_router.include_router(products_router, tags=["Inventario"])
+v1_router.include_router(customers_router, tags=["Clientes"])
+v1_router.include_router(quotes_router, tags=["Presupuestos"])
+v1_router.include_router(cash_router, tags=["Caja"])
+v1_router.include_router(suppliers_router, tags=["Proveedores"])
+v1_router.include_router(inventory_router, tags=["Inventario (Operaciones)"])
+v1_router.include_router(returns_router, tags=["Devoluciones"])
+v1_router.include_router(reports_router, tags=["Reportes"])
+v1_router.include_router(purchases_router, tags=["Compras"])
+v1_router.include_router(users_router, tags=["Usuarios"])
+v1_router.include_router(config_router, tags=["Configuración"])
+v1_router.include_router(auth_router, tags=["Autenticación"])
+v1_router.include_router(categories_router, tags=["Categorías"])
+v1_router.include_router(websocket_router, tags=["WebSocket Events"])
+v1_router.include_router(audit_router, tags=["Auditoría"])
+v1_router.include_router(system_router, tags=["Sistema y Licencias"])
+v1_router.include_router(credits_router, tags=["Créditos y Cobranzas"])
+v1_router.include_router(payment_methods_router, tags=["Métodos de Pago"])
+v1_router.include_router(hardware_bridge_router, tags=["Hardware Bridge"])
+v1_router.include_router(sync_router, tags=["Sincronización Híbrida"])
+v1_router.include_router(sync_local_router, tags=["Sincronización Local"])
+v1_router.include_router(warehouses_router, tags=["Almacenes"])
+v1_router.include_router(transfers_router, tags=["Traslados"])
+v1_router.include_router(services_router, tags=["Servicios Técnicos"])
+v1_router.include_router(commissions_router, tags=["Comisiones"])
+v1_router.include_router(rma_router, tags=["Garantías RMA"])
+v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
+v1_router.include_router(cloud_router, tags=["Cloud Configuration"])
+
+# Include Public Auth and Restaurant in v1 hierarchy too
 from .routers import public_auth
-app.include_router(public_auth.router, prefix="/api/v1", tags=["Public Auth"])
+v1_router.include_router(public_auth.router, tags=["Public Auth"])
 
 from .routers.modules.restaurant import tables as restaurant_tables
 from .routers.modules.restaurant import orders as restaurant_orders
 from .routers.modules.restaurant import menu as restaurant_menu
 
-app.include_router(restaurant_tables.router, prefix="/api/v1/restaurant", tags=["Restaurante"])
-app.include_router(restaurant_orders.router, prefix="/api/v1/restaurant")
-app.include_router(restaurant_menu.router, prefix="/api/v1/restaurant", tags=["Restaurante - Menú"])
+v1_router.include_router(restaurant_tables.router, prefix="/restaurant", tags=["Restaurante"])
+v1_router.include_router(restaurant_orders.router, prefix="/restaurant")
+v1_router.include_router(restaurant_menu.router, prefix="/restaurant", tags=["Restaurante - Menú"])
+
+# Finally, include the master router into the app
+app.include_router(v1_router)
 
 # DEBUG ENDPOINT - Remove after debugging
 @app.get("/api/v1/debug/routes")

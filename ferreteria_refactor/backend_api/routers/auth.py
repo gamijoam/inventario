@@ -8,6 +8,7 @@ from ..database.db import get_db
 from ..models import models
 from ..security import verify_password, create_access_token, get_password_hash
 from ..config import settings
+from .. import schemas
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -138,6 +139,73 @@ def validate_pin(pin_data: dict, db: Session = Depends(get_db)):
             "valid": False,
             "message": "Invalid PIN"
         }
+
+@router.post("/forgot-password")
+async def forgot_password(
+    request: schemas.ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Step 1 of the recovery flow.
+    Receives email, generates a 1-hour recovery token and sends reset link.
+    """
+    user = db.query(models.User).filter(models.User.email == request.email).first()
+    if not user:
+        # Return success even if user not found to prevent email enumeration
+        print(f"🕵️ Recovery requested for non-existent email: {request.email}")
+        return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
+
+    # Generate token with specific payload to differentiate from access tokens
+    # Expire in 1 hour
+    recovery_token = create_access_token(
+        data={"sub": user.username, "type": "password_reset"},
+        expires_delta=timedelta(hours=1)
+    )
+
+    from ..utils.email_utils import send_reset_password_email
+    try:
+        send_reset_password_email(user.email, recovery_token)
+    except Exception as e:
+         raise HTTPException(
+            status_code=500,
+            detail=f"Error al enviar el correo: {str(e)}"
+        )
+
+    return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
+
+@router.post("/reset-password")
+async def reset_password(
+    request: schemas.ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Step 2 of the recovery flow.
+    Validates recovery token and updates user password.
+    """
+    from jose import jwt, JWTError
+    
+    try:
+        payload = jwt.decode(request.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        
+        if username is None or token_type != "password_reset":
+             raise HTTPException(status_code=400, detail="Token de recuperación inválido o expirado")
+             
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Token de recuperación inválido o expirado")
+
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Update password
+    user.password_hash = get_password_hash(request.new_password)
+    db.commit()
+    
+    print(f"🔐 Password successfully reset for user: {username}")
+    return {"message": "Tu contraseña ha sido actualizada exitosamente."}
+
 
 def init_admin_user(db: Session):
     """Check if any user exists, if not create admin."""

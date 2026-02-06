@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Lock, User, LogIn, AlertCircle, Eye, EyeOff, LayoutTemplate, Briefcase } from 'lucide-react';
 
 const Login = () => {
@@ -161,9 +161,9 @@ const Login = () => {
                                     <label className="text-sm font-medium text-slate-700" htmlFor="password">
                                         Contraseña
                                     </label>
-                                    <a href="#" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline">
+                                    <Link to="/forgot-password" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline">
                                         ¿Olvidaste tu contraseña?
-                                    </a>
+                                    </Link>
                                 </div>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
