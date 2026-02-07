@@ -82,7 +82,7 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-indigo-600 to-purple-600 rounded-t-2xl">
@@ -126,8 +126,8 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
                                 <button
                                     onClick={() => setSelectedCategory(null)}
                                     className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedCategory === null
-                                            ? 'bg-indigo-600 text-white shadow-md'
-                                            : 'text-slate-700 hover:bg-slate-100'
+                                        ? 'bg-indigo-600 text-white shadow-md'
+                                        : 'text-slate-700 hover:bg-slate-100'
                                         }`}
                                 >
                                     Todos los servicios
@@ -137,8 +137,8 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
                                         key={cat.id}
                                         onClick={() => setSelectedCategory(cat.id)}
                                         className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedCategory === cat.id
-                                                ? 'bg-indigo-600 text-white shadow-md'
-                                                : 'text-slate-700 hover:bg-slate-100'
+                                            ? 'bg-indigo-600 text-white shadow-md'
+                                            : 'text-slate-700 hover:bg-slate-100'
                                             }`}
                                     >
                                         {cat.name}
@@ -154,8 +154,8 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
                             <button
                                 onClick={() => setSelectedCategory(null)}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === null
-                                        ? 'bg-indigo-600 text-white shadow-md'
-                                        : 'bg-slate-100 text-slate-700'
+                                    ? 'bg-indigo-600 text-white shadow-md'
+                                    : 'bg-slate-100 text-slate-700'
                                     }`}
                             >
                                 Todos
@@ -165,8 +165,8 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
                                     key={cat.id}
                                     onClick={() => setSelectedCategory(cat.id)}
                                     className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === cat.id
-                                            ? 'bg-indigo-600 text-white shadow-md'
-                                            : 'bg-slate-100 text-slate-700'
+                                        ? 'bg-indigo-600 text-white shadow-md'
+                                        : 'bg-slate-100 text-slate-700'
                                         }`}
                                 >
                                     {cat.name}
@@ -203,8 +203,8 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
                                             key={service.id}
                                             onClick={() => handleSelectService(service)}
                                             className={`p-4 rounded-xl border-2 transition-all text-left hover:shadow-lg ${isSelected
-                                                    ? 'border-emerald-500 bg-emerald-50'
-                                                    : 'border-slate-200 hover:border-indigo-400 bg-white'
+                                                ? 'border-emerald-500 bg-emerald-50'
+                                                : 'border-slate-200 hover:border-indigo-400 bg-white'
                                                 }`}
                                         >
                                             <div className="font-bold text-slate-800 text-sm mb-1 line-clamp-2">

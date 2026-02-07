@@ -193,12 +193,20 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                         <X size={20} />
                     </button>
                 )}
-
-                {/* Desktop Collapse */}
-                <button onClick={toggleSidebar} className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white border border-slate-200 rounded-full items-center justify-center text-slate-400 hover:text-indigo-600 shadow-sm transition-transform hover:scale-105 z-30">
-                    {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-                </button>
             </div>
+
+            {/* Desktop Collapse Button - Positioned Below Header */}
+            <button
+                onClick={toggleSidebar}
+                className="hidden md:flex absolute -right-3 top-20 w-6 h-12 bg-white border-2 border-indigo-500 rounded-full items-center justify-center text-indigo-600 shadow-md hover:shadow-lg hover:bg-indigo-50 transition-all duration-200 z-30"
+                title={isCollapsed ? "Expandir menú (→)" : "Colapsar menú (←)"}
+            >
+                {isCollapsed ? (
+                    <ChevronRight size={20} strokeWidth={3} />
+                ) : (
+                    <ChevronLeft size={20} strokeWidth={3} />
+                )}
+            </button>
 
             {/* Navigation */}
             <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-1 custom-scrollbar">
