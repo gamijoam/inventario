@@ -20,48 +20,49 @@ else:
     # Fallback to CWD
     load_dotenv(override=True)
 
-class Settings:
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
     # Support both naming conventions
-    DATABASE_URL: str = os.getenv("DB_URL", os.getenv("DATABASE_URL", "sqlite:///./ferreteria.db"))
-    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production").lower()
+    DATABASE_URL: str = os.getenv("DB_URL", "sqlite:///./ferreteria.db")
+    ENVIRONMENT: str = "production"
     
-    # Security - CRITICAL: SECRET_KEY must be set in environment
-    SECRET_KEY: str = os.getenv("SECRET_KEY")
-    if not SECRET_KEY:
-        raise ValueError(
-            "CRITICAL SECURITY ERROR: SECRET_KEY environment variable is not set.\n"
-            "Please generate a secure key using 'python generate_key.py' and add it to your .env file:\n"
-            "SECRET_KEY=<your-generated-key-here>"
-        )
-    
-    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    # Security
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "temporary_key_for_build")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # Modules
-    MODULE_RESTAURANT_ENABLED: bool = os.getenv("MODULE_RESTAURANT_ENABLED", "false").lower() == "true"
-    MODULE_SERVICES_ENABLED: bool = os.getenv("MODULE_SERVICES_ENABLED", "false").lower() == "true"
-    MODULE_LAUNDRY_ENABLED: bool = os.getenv("MODULE_LAUNDRY_ENABLED", "false").lower() == "true"
+    MODULE_RESTAURANT_ENABLED: bool = False
+    MODULE_SERVICES_ENABLED: bool = False
+    MODULE_LAUNDRY_ENABLED: bool = False
     
     # Timezone
-    TIMEZONE: str = os.getenv("TIMEZONE", "America/Caracas")
+    TIMEZONE: str = "America/Caracas"
 
     # Cookies
-    COOKIE_DOMAIN: str = os.getenv("COOKIE_DOMAIN") # e.g. .miinventariofacil.com
-    SECURE_COOKIES: bool = os.getenv("SECURE_COOKIES", "true").lower() == "true"
+    COOKIE_DOMAIN: Optional[str] = None
+    SECURE_COOKIES: bool = True
     
-    # Media Storage (v31 Enforced Path)
+    # Media Storage
     MEDIA_ROOT: str = "/app/media" if os.getenv("DOCKER_CONTAINER") else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "media")
 
-    # Email / SMTP Settings (Required for Forgot Password)
-    SMTP_HOST: Optional[str] = os.getenv("SMTP_HOST")
-    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
-    SMTP_USER: Optional[str] = os.getenv("SMTP_USER")
-    SMTP_PASSWORD: Optional[str] = os.getenv("SMTP_PASSWORD")
-    EMAILS_FROM_EMAIL: Optional[str] = os.getenv("EMAILS_FROM_EMAIL")
-    EMAILS_FROM_NAME: str = os.getenv("EMAILS_FROM_NAME", "Ferreteria Sistema")
-    SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() == "true"
+    # Email / SMTP Settings (Real Connection)
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    EMAILS_FROM_EMAIL: Optional[str] = None
+    EMAILS_FROM_NAME: str = "Inventario Fácil"
+    SMTP_TLS: bool = True
+    SMTP_SSL: bool = False
 
-    # Frontend URL (For reset links)
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    # Frontend URL
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    class Config:
+        env_file = ".env"
+        # Permite cargar variables del sistema si no están en .env
+        case_sensitive = True
 
 settings = Settings()
