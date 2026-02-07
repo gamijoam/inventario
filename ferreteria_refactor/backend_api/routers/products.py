@@ -55,6 +55,7 @@ def read_products(
 ):
     try:
         query = db.query(models.Product).options(
+            joinedload(models.Product.category),  # Load category relationship
             joinedload(models.Product.units), 
             joinedload(models.Product.stocks), 
             joinedload(models.Product.prices),

@@ -255,7 +255,10 @@ const Dashboard = () => {
             if (showToast) toast.success('Dashboard actualizado');
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
-            toast.error('Error cargando datos');
+            // Don't show toast for 403 errors (permission denied) - axios interceptor handles it
+            if (error.response?.status !== 403) {
+                toast.error('Error cargando datos');
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);

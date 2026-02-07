@@ -247,6 +247,7 @@ class ProductUpdate(BaseModel):
 
 class ProductRead(ProductBase):
     id: int
+    category: Optional['CategoryResponse'] = None  # Include category relationship
     price_rules: List[PriceRuleRead] = []
     units: List[ProductUnitRead] = []
     combo_items: List[ComboItemRead] = []  # NEW: Include combo items

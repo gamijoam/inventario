@@ -68,6 +68,10 @@ apiClient.interceptors.request.use(
 );
 
 // Response Interceptor (Error Handling)
+// Debounce mechanism for 403 errors to prevent toast spam
+let last403Time = 0;
+const DEBOUNCE_403_MS = 2000; // Only show one 403 toast every 2 seconds
+
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -98,8 +102,14 @@ apiClient.interceptors.response.use(
             }
             // For auth routes or public pages, let the component handle the error
         } else if (status === 403) {
-            // Forbidden
-            toast.error('No tienes permisos para realizar esta acción.');
+            // Forbidden - Debounce to prevent multiple toasts
+            const now = Date.now();
+            if (now - last403Time > DEBOUNCE_403_MS) {
+                toast.error('No tienes permisos para algunas acciones.');
+                last403Time = now;
+            }
+            // Silently log the error without showing toast
+            console.warn('⚠️ 403 Forbidden:', error.config.url);
         } else if (!status) {
             // Network Error
             toast.error('Error de conexión con el servidor.');

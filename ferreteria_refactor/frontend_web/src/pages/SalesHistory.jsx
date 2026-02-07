@@ -17,6 +17,7 @@ import { Input } from '../components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Separator } from '../components/ui/separator';
+import { ScrollArea } from '../components/ui/scroll-area';
 
 const SalesHistory = () => {
     const { user } = useAuth();
