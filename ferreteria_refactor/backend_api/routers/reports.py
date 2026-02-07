@@ -80,15 +80,31 @@ def get_dashboard_financials(
     sales_by_currency = []
     total_sales_base_usd = Decimal("0.00")
     
+    # CRITICAL FIX: Handle case where there are returns but no sales in the period
+    # This can happen if a sale was made yesterday but returned today
+    # We need to ensure we don't show negative sales
+    all_currencies = set()
+    for currency, _, _ in results:
+        all_currencies.add(currency or "USD")
+    for currency in returns_map.keys():
+        all_currencies.add(currency)
+    
+    # Build a complete sales map including zero-sale currencies
+    sales_map = {}
     for currency, total_collected, count in results:
-        # Safety check: total_collected usually isn't None but SQL sum can be
-        if total_collected is None:
-            total_collected = Decimal("0.00")
-        else:
-            total_collected = Decimal(str(total_collected))
+        sales_map[currency or "USD"] = {
+            "collected": Decimal(str(total_collected)) if total_collected else Decimal("0.00"),
+            "count": count
+        }
+    
+    # Process each currency
+    for currency in all_currencies:
+        sale_data = sales_map.get(currency, {"collected": Decimal("0.00"), "count": 0})
+        total_collected = sale_data["collected"]
+        count = sale_data["count"]
             
         # Subtract returns for this currency
-        refunds = returns_map.get(currency or "USD", Decimal("0.00"))
+        refunds = returns_map.get(currency, Decimal("0.00"))
         # Ensure refunds is Decimal (just in case)
         if refunds is None: 
             refunds = Decimal("0.00")
@@ -97,8 +113,13 @@ def get_dashboard_financials(
             
         net_collected = total_collected - refunds
         
+        # CRITICAL: Only include currencies with activity (sales or returns)
+        # Skip if both are zero
+        if total_collected == 0 and refunds == 0:
+            continue
+        
         sales_by_currency.append({
-            "currency": currency or "USD",
+            "currency": currency,
             "total_collected": float(round(net_collected, 2)),
             "count": count,
             "returns": float(round(refunds, 2)) # Optional: show returns
