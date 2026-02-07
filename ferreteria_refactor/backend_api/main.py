@@ -239,12 +239,12 @@ def run_migrations():
 
         if not os.path.exists(alembic_ini_path):
             error_msg = f"alembic.ini no encontrado en: {alembic_ini_path}"
-            print(f"[ERROR] ❌ {error_msg}")
+            print(f"[WARN] {error_msg}")
             
             if IS_DOCKER:
                 raise FileNotFoundError(error_msg)
             else:
-                print("[WARN] Modo desarrollo: continuando sin migraciones")
+                print("[INFO] Modo desarrollo sin Alembic: usando create_all() como fallback")
                 return
 
         alembic_cfg = Config(alembic_ini_path)
@@ -284,20 +284,21 @@ def startup_event():
     # FALLBACK: Create tables if they don't exist (for development/first run)
     # This ensures the app works even if migrations fail or DB is in inconsistent state
     # BUT we want Alembic to be the main source of truth
-    # try:
-    #     from .database.db import Base
-    #     # We only run this if tables are missing, but let's leave it as a safety net
-    #     # checking only if 'users' table exists to avoid overhead
-    #     from sqlalchemy import inspect
-    #     inspector = inspect(engine)
-    #     if not inspector.has_table("users"):
-    #         print("[INFO] Tabla 'users' no detectada. Ejecutando create_all() por seguridad...")
-    #         Base.metadata.create_all(bind=engine)
-    #         print("[INFO] Tablas base creadas exitosamente via SQLAlchemy")
-    #     else:
-    #         print("[INFO] Schema verificado.")
-    # except Exception as e:
-    #     print(f"[WARN] Nota al verificar schema: {e}")
+    try:
+        from .database.db import Base
+        # We only run this if tables are missing, but let's leave it as a safety net
+        # checking only if 'users' table exists to avoid overhead
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        if not inspector.has_table("users"):
+            print("[INFO] Tabla 'users' no detectada. Ejecutando create_all() por seguridad...")
+            Base.metadata.create_all(bind=engine)
+            print("[INFO] Tablas base creadas exitosamente via SQLAlchemy")
+        else:
+            print("[INFO] Schema verificado.")
+    except Exception as e:
+        print(f"[WARN] Nota al verificar schema: {e}")
+
 
 
 

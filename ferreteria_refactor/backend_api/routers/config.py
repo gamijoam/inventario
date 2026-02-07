@@ -38,11 +38,11 @@ def get_public_config(db: Session = Depends(get_db)):
     # 3. Tenant Entitlements (DB) - What the customer paid for.
 
     if current_schema == "public":
-        # Force Clean Slate for Public/Localhost
+        # Use Server Capabilities from .env for local development (no tenant)
         modules = {
-            "restaurant": False,
-            "laundry": False,
-            "services": False,
+            "restaurant": settings.MODULE_RESTAURANT_ENABLED,
+            "laundry": settings.MODULE_LAUNDRY_ENABLED,
+            "services": settings.MODULE_SERVICES_ENABLED,
             "ferreteria": True 
         }
     else:

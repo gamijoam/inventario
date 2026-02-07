@@ -1,6 +1,11 @@
 import os
 from typing import Optional
 from pydantic_settings import BaseSettings
+from pathlib import Path
+
+# Get the directory where this config.py file is located
+BASE_DIR = Path(__file__).resolve().parent
+ENV_FILE = BASE_DIR / ".env"
 
 class Settings(BaseSettings):
     # Pydantic leerá estas variables automáticamente del entorno (.env o Docker)
@@ -45,8 +50,9 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
 
     class Config:
-        # Esto es vital: le dice a Pydantic que busque en el archivo .env
-        env_file = ".env"
-        extra = "ignore" # Ignora variables extrañas en el .env
+        # Use absolute path to .env file in backend_api directory
+        env_file = str(ENV_FILE)
+        env_file_encoding = "utf-8"
+        extra = "ignore"
 
 settings = Settings()
