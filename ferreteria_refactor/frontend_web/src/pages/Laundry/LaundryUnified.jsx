@@ -133,6 +133,11 @@ const LaundryUnified = () => {
         }
     };
 
+    const handleEditOrder = (e, order) => {
+        e?.stopPropagation();
+        setSelectedOrder(order);
+    };
+
     // ==========================================
     // 2. NEW ORDER LOGIC
     // ==========================================
@@ -376,7 +381,7 @@ const LaundryUnified = () => {
                 <div className="flex-1 overflow-hidden p-3">
                     {viewMode === 'list' ? (
                         <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden h-full flex flex-col">
-                            <LaundryList orders={filteredOrders} onSelectOrder={setSelectedOrder} onDeleteOrder={handleDeleteOrder} />
+                            <LaundryList orders={filteredOrders} onSelectOrder={setSelectedOrder} onDeleteOrder={handleDeleteOrder} onEditOrder={handleEditOrder} />
                         </div>
                     ) : (
                         <div className="flex gap-4 h-full overflow-x-auto pb-2">

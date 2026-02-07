@@ -104,10 +104,13 @@ class SalesService:
                  
                  is_service = False
                  if prod:
-                     # Check Unit Type
-                     if prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']:
+                     # PRIMARY CHECK: is_service field
+                     if prod.is_service:
                          is_service = True
-                     # Check Category Name (Robust fallback)
+                     # FALLBACK: Check Unit Type
+                     elif prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']:
+                         is_service = True
+                     # FALLBACK: Check Category Name (Robust fallback)
                      elif prod.category and ('SERVICIO' in prod.category.name.upper() or 'LAVANDERIA' in prod.category.name.upper() or 'LAUNDRY' in prod.category.name.upper()):
                          is_service = True
                          
@@ -242,12 +245,17 @@ class SalesService:
                 
                 # New: Determine if Product is a Service (Skip Stock Check)
                 is_service = False
-                if product.unit_type:
+                
+                # PRIMARY CHECK: is_service field (most reliable)
+                if product.is_service:
+                    is_service = True
+                # FALLBACK: Check unit_type
+                elif product.unit_type:
                      ut_upper = product.unit_type.upper()
                      if 'SERVICIO' in ut_upper or 'SERVICE' in ut_upper:
                          is_service = True
-                
-                if not is_service and product.category and ('SERVICIO' in product.category.name.upper() or 'LAVANDERIA' in product.category.name.upper() or 'LAUNDRY' in product.category.name.upper()):
+                # FALLBACK: Check category name
+                elif product.category and ('SERVICIO' in product.category.name.upper() or 'LAVANDERIA' in product.category.name.upper() or 'LAUNDRY' in product.category.name.upper()):
                      is_service = True
 
                 # NEW: COMBO LOGIC - Check if product is a combo

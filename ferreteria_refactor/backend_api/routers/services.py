@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from .. import schemas
 from ..models import models
 from ..database.db import get_db
+from ..dependencies import get_current_active_user
 from ..utils.time_utils import get_venezuela_now
 from typing import List, Optional, Dict, Any
 from sqlalchemy import desc
@@ -235,7 +236,8 @@ def delete_service_order_item(
 def update_service_order_status(
     order_id: int, 
     update_data: schemas.ServiceOrderUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """Update order status, diagnosis notes, and metadata"""
     order = db.query(models.ServiceOrder).get(order_id)
@@ -243,6 +245,14 @@ def update_service_order_status(
         raise HTTPException(status_code=404, detail="Service Order not found")
         
     if update_data.status:
+        # 🔒 AUTHORIZATION: Only admins can revert DELIVERED orders
+        if order.status == models.ServiceOrderStatus.DELIVERED:
+            if current_user.role != models.UserRole.ADMIN:
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Solo administradores pueden revertir órdenes entregadas"
+                )
+        
         if update_data.status not in models.ServiceOrderStatus.__members__:
              raise HTTPException(status_code=400, detail=f"Invalid status. Options: {list(models.ServiceOrderStatus.__members__.keys())}")
         order.status = models.ServiceOrderStatus[update_data.status]

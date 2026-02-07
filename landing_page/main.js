@@ -1,10 +1,13 @@
+// 1. CONFIGURACIÓN DE LA API
+// Si es localhost, usa puerto 8000. Si no, usa el MARCADOR que Docker reemplazará.
 const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:8000'
-    : 'https://api.miinventariofacil.com';
+    : '__API_URL_PLACEHOLDER__';
 
+// 2. CONFIGURACIÓN DE LA APP (URL BASE)
 const APP_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5173'
-    : `https://${window.location.hostname.replace('miinventariofacil.com', '').replace('.', '') || 'www'}.miinventariofacil.com`;
+    : window.location.origin; // Usamos el origen actual (ej: https://qa.miinventariofacil.com)
 
 window.openRegisterModal = function (e) {
     if (e) e.preventDefault();
@@ -85,6 +88,7 @@ document.addEventListener('DOMContentLoaded', function () {
             submitBtn.style.opacity = "0.7";
 
             try {
+                // Aquí usamos la variable API_URL que Docker habrá modificado
                 const response = await fetch(`${API_URL}/api/v1/public/register`, {
                     method: 'POST',
                     headers: {
@@ -113,10 +117,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 localStorage.setItem('selected_tenant', data.tenant_id);
 
                 setTimeout(() => {
-                    // Si tenemos tenant_id, redirigimos al subdominio del cliente
-                    const finalUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-                        ? `${APP_URL}/login`
-                        : `https://${data.tenant_id}.miinventariofacil.com/login`;
+                    // 3. LÓGICA DE REDIRECCIÓN CORREGIDA
+                    // Detectamos el dominio raíz actual (quitando 'www.')
+                    const currentHost = window.location.hostname.replace(/^www\./, '');
+
+                    let finalUrl;
+
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        finalUrl = 'http://localhost:5173/login';
+                    } else {
+                        // Construimos el subdominio basándonos en DONDE estamos ahora.
+                        // Si estamos en "qa.miinventariofacil.com", resultará en "juan.qa.miinventariofacil.com"
+                        finalUrl = `https://${data.tenant_id}.${currentHost}/login`;
+                    }
 
                     window.location.href = finalUrl;
                 }, 3000);

@@ -7,6 +7,7 @@ import {
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { formatCurrency } from '../../utils/currency';
+import { useAuth } from '../../context/AuthContext';
 import ServiceDeliveryModal from './components/ServiceDeliveryModal';
 import PaymentModal from '../../components/pos/PaymentModal';
 
@@ -23,6 +24,7 @@ const STATUS_COLORS = {
 const ServiceManager = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -105,7 +107,9 @@ const ServiceManager = () => {
             toast.success(`Estado actualizado a ${newStatus}`);
             fetchOrder();
         } catch (error) {
-            toast.error("Error al actualizar estado");
+            // Show backend error message if available
+            const errorMessage = error.response?.data?.detail || "Error al actualizar estado";
+            toast.error(errorMessage);
         }
     };
 
@@ -194,11 +198,13 @@ const ServiceManager = () => {
     };
 
     const interceptStatusChange = (newStatus) => {
-        if (newStatus === 'DELIVERED') {
-            // Check if already paid? Ideally yes, but for now just open Delivery Modal
-            // which calculates total. Agent Note: The modal handles the "Pay vs Deliver" logic.
+        console.log('🔵 BUTTON CLICKED:', newStatus, 'Current:', order.status);
+
+        // Only open delivery modal when CHANGING TO delivered (not when already delivered)
+        if (newStatus === 'DELIVERED' && order.status !== 'DELIVERED') {
             setShowDeliveryModal(true);
         } else {
+            // Direct status change - backend will validate authorization
             handleUpdateStatus(newStatus);
         }
     };
@@ -517,22 +523,35 @@ const ServiceManager = () => {
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                         <h3 className="font-semibold text-gray-800 mb-4">Estado del Servicio</h3>
 
+                        {/* Authorization Warning */}
+                        {order.status === 'DELIVERED' && user?.role !== 'ADMIN' && (
+                            <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <p className="text-xs text-amber-800">
+                                    🔒 Solo administradores pueden revertir órdenes entregadas
+                                </p>
+                            </div>
+                        )}
+
                         <div className="space-y-2">
                             <div className="space-y-2">
-                                {['DIAGNOSING', 'IN_PROGRESS', 'READY', 'DELIVERED'].map(statusStep => (
-                                    <button
-                                        key={statusStep}
-                                        onClick={() => interceptStatusChange(statusStep)}
-                                        className={`w-full py-3 px-4 rounded-lg text-left text-sm font-medium transition-all flex justify-between items-center
-                                ${order.status === statusStep
-                                                ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                                                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                                            }`}
-                                    >
-                                        {statusStep.replace('_', ' ')}
-                                        {order.status === statusStep && <CheckCircle size={16} />}
-                                    </button>
-                                ))}
+                                {['DIAGNOSING', 'IN_PROGRESS', 'READY', 'DELIVERED'].map(statusStep => {
+                                    const isCurrentStatus = order.status === statusStep;
+
+                                    return (
+                                        <button
+                                            key={statusStep}
+                                            onClick={() => interceptStatusChange(statusStep)}
+                                            className={`w-full py-3 px-4 rounded-lg text-left text-sm font-medium transition-all flex justify-between items-center
+                                    ${isCurrentStatus
+                                                    ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                                                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                                }`}
+                                        >
+                                            {statusStep.replace('_', ' ')}
+                                            {isCurrentStatus && <CheckCircle size={16} />}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                         {/* Modals */}

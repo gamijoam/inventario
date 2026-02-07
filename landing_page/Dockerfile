@@ -1,10 +1,19 @@
 # Production Dockerfile for Static Landing Page
 FROM nginx:alpine
 
-# Copy static files to the Nginx html directory
+# Recibimos la variable desde el script .bat
+ARG VITE_API_URL
+
+# Copiamos los archivos estáticos
 COPY . /usr/share/nginx/html
 
-# Expose port (Nginx default)
+# ⚠️ AQUÍ ESTÁ EL CAMBIO CLAVE:
+# Buscamos "__API_URL_PLACEHOLDER__" y lo reemplazamos por la variable real.
+# Esto es mucho más seguro porque esa palabra no existe naturalmente en el código.
+
+RUN find /usr/share/nginx/html -type f \( -name "*.html" -o -name "*.js" \) -exec sed -i "s|__API_URL_PLACEHOLDER__|$VITE_API_URL|g" {} +
+
+# Expose port
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

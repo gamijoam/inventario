@@ -1,7 +1,10 @@
 import React from 'react';
-import { Package, CheckCircle, Clock, AlertTriangle, User, Trash2, Activity } from 'lucide-react';
+import { Package, CheckCircle, Clock, AlertTriangle, User, Trash2, Activity, Edit } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
 
-const LaundryList = ({ orders, onSelectOrder, onDeleteOrder }) => {
+const LaundryList = ({ orders, onSelectOrder, onDeleteOrder, onEditOrder }) => {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'ADMIN';
 
     const getStatusBadge = (status) => {
         const styles = {
@@ -99,13 +102,24 @@ const LaundryList = ({ orders, onSelectOrder, onDeleteOrder }) => {
                                         {new Date(order.created_at).toLocaleDateString()}
                                     </td>
                                     <td className="px-3 py-2 text-center">
-                                        <button
-                                            onClick={(e) => onDeleteOrder(e, order.id)}
-                                            className="text-gray-300 hover:text-rose-500 p-1.5 hover:bg-rose-50 rounded transition-colors"
-                                            title="Eliminar orden"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
+                                        <div className="flex gap-1 justify-center">
+                                            <button
+                                                onClick={(e) => onEditOrder(e, order)}
+                                                className="text-gray-300 hover:text-indigo-500 p-1.5 hover:bg-indigo-50 rounded transition-colors"
+                                                title="Editar orden"
+                                            >
+                                                <Edit size={16} />
+                                            </button>
+                                            {isAdmin && (
+                                                <button
+                                                    onClick={(e) => onDeleteOrder(e, order.id)}
+                                                    className="text-gray-300 hover:text-rose-500 p-1.5 hover:bg-rose-50 rounded transition-colors"
+                                                    title="Eliminar orden"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             );
@@ -146,13 +160,24 @@ const LaundryList = ({ orders, onSelectOrder, onDeleteOrder }) => {
                                             {new Date(order.created_at).toLocaleDateString()}
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={(e) => onDeleteOrder(e, order.id)}
-                                        className="text-gray-300 hover:text-rose-500 p-2 hover:bg-rose-50 rounded transition-colors"
-                                        title="Eliminar orden"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div className="flex gap-1">
+                                        <button
+                                            onClick={(e) => onEditOrder(e, order)}
+                                            className="text-gray-300 hover:text-indigo-500 p-2 hover:bg-indigo-50 rounded transition-colors"
+                                            title="Editar orden"
+                                        >
+                                            <Edit size={16} />
+                                        </button>
+                                        {isAdmin && (
+                                            <button
+                                                onClick={(e) => onDeleteOrder(e, order.id)}
+                                                className="text-gray-300 hover:text-rose-500 p-2 hover:bg-rose-50 rounded transition-colors"
+                                                title="Eliminar orden"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Customer */}

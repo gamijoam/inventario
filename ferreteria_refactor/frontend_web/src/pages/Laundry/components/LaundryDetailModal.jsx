@@ -190,7 +190,9 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                     ...currentMeta,
                     sale_id: result.saleId || result.id,
                     payment_status: 'PAID',
-                    payment_date: new Date().toISOString()
+                    payment_date: new Date().toISOString(),
+                    // Store payment details including references
+                    payment_details: result.payments || []
                 }
             });
 
@@ -229,7 +231,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                                 <h2 className="font-bold text-2xl text-slate-800">Orden #{order.ticket_number}</h2>
                             </div>
                             <p className="text-slate-500 text-sm ml-12">
-                                {new Date(order.created_at).toLocaleString()} • {order.customer?.name}
+                                {new Date(order.created_at).toLocaleString()}
                             </p>
                         </div>
                         <div className="flex gap-2">
@@ -241,6 +243,40 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Customer Info Card */}
+                    {order.customer && (
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 mb-6">
+                            <div className="flex items-center gap-2 mb-3">
+                                <User size={18} className="text-indigo-500" />
+                                <h3 className="font-bold text-slate-700">Información del Cliente</h3>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div>
+                                    <span className="text-slate-500 text-xs">Nombre:</span>
+                                    <p className="font-semibold text-slate-800">{order.customer.name}</p>
+                                </div>
+                                {order.customer.phone && (
+                                    <div>
+                                        <span className="text-slate-500 text-xs">Teléfono:</span>
+                                        <p className="font-semibold text-slate-800">{order.customer.phone}</p>
+                                    </div>
+                                )}
+                                {order.customer.email && (
+                                    <div>
+                                        <span className="text-slate-500 text-xs">Email:</span>
+                                        <p className="font-semibold text-slate-800 text-xs">{order.customer.email}</p>
+                                    </div>
+                                )}
+                                {order.customer.address && (
+                                    <div className="col-span-2">
+                                        <span className="text-slate-500 text-xs">Dirección:</span>
+                                        <p className="font-semibold text-slate-800">{order.customer.address}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Timeline */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 mb-6">
@@ -258,10 +294,9 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                                     <button
                                         key={step.id}
                                         onClick={() => handleUpdateStatus(step.id)}
-                                        disabled={order.status === 'DELIVERED' && step.id !== 'DELIVERED'}
-                                        className={`flex flex-col items-center gap-2 bg-white px-2 group ${order.status === 'DELIVERED' ? 'cursor-default' : 'cursor-pointer'}`}
+                                        className="flex flex-col items-center gap-2 bg-white px-2 group cursor-pointer"
                                     >
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${isPassed ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-slate-300'} ${!isPassed && !order.status.includes('DELIVERED') && 'group-hover:border-indigo-400'}`}>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${isPassed ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-slate-300'} ${!isPassed && 'group-hover:border-indigo-400'}`}>
                                             {isPassed ? <CheckCircle size={14} /> : <div className="w-2 h-2 rounded-full bg-slate-300" />}
                                         </div>
                                         <span className={`text-xs font-bold ${isCurrent ? 'text-indigo-700' : isPassed ? 'text-slate-700' : 'text-slate-400'}`}>
@@ -398,7 +433,7 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                                             <td className="py-3 px-3 text-right font-bold text-slate-700">${(Number(item.quantity) * Number(item.unit_price)).toFixed(2)}</td>
                                             <td className="py-3 px-3 text-right">
                                                 {!isPaid && (
-                                                    <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <div className="flex gap-1 justify-end">
                                                         <button
                                                             onClick={() => handleEditItem(item)}
                                                             className="text-indigo-400 hover:text-indigo-600 p-1 hover:bg-indigo-50 rounded"
@@ -469,10 +504,34 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                                 <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-6 text-center">
                                     <CheckCircle size={40} className="text-emerald-500 mx-auto mb-3" />
                                     <h3 className="text-emerald-800 font-bold text-lg mb-1">Orden Pagada</h3>
-                                    <p className="text-emerald-600 text-xs mb-4">
-                                        Ref: {order.order_metadata?.sale_id} <br />
-                                        {new Date(order.order_metadata?.payment_date).toLocaleDateString()}
-                                    </p>
+                                    <div className="text-emerald-600 text-sm mb-4 space-y-2">
+                                        <p className="text-xs">
+                                            Venta: #{order.order_metadata?.sale_id}<br />
+                                            {new Date(order.order_metadata?.payment_date).toLocaleDateString()}
+                                        </p>
+
+                                        {/* Payment Details */}
+                                        {order.order_metadata?.payment_details && order.order_metadata.payment_details.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-emerald-200">
+                                                <p className="text-xs font-bold text-emerald-700 mb-2">Métodos de Pago:</p>
+                                                {order.order_metadata.payment_details.map((payment, idx) => (
+                                                    <div key={idx} className="text-xs bg-white rounded p-2 mb-1 text-left">
+                                                        <div className="flex justify-between">
+                                                            <span className="font-semibold text-emerald-800">{payment.method}</span>
+                                                            <span className="font-bold text-emerald-700">
+                                                                {payment.currency === 'USD' || payment.currency === '$' ? '$' : 'Bs'} {Number(payment.amount).toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                        {payment.reference && (
+                                                            <div className="mt-1 text-emerald-600">
+                                                                <span className="font-semibold">Ref:</span> {payment.reference}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                     {order.status !== 'DELIVERED' && (
                                         <button
                                             onClick={() => handleUpdateStatus('DELIVERED')}

@@ -63,6 +63,21 @@ class ServiceCheckoutService:
             generic_service_product = ServiceCheckoutService.get_or_create_service_product(db)
             print(f"[DEBUG] Generic Product ID: {generic_service_product.id}")
 
+            # 🔍 Determine if order contains physical products (not services)
+            # Only require warehouse if there are physical products that need stock tracking
+            has_physical_products = False
+            for item in order.details:
+                if not item.is_manual and item.product_id:
+                    prod = db.query(models.Product).filter(
+                        models.Product.id == item.product_id,
+                        models.Product.is_service == False
+                    ).first()
+                    if prod:
+                        has_physical_products = True
+                        break
+            
+            print(f"[DEBUG] Has Physical Products: {has_physical_products}")
+
             # 3. Create Sale Header
             new_sale = models.Sale(
                 total_amount=payment_data.total_amount,
@@ -74,7 +89,7 @@ class ServiceCheckoutService:
                 is_credit=False, 
                 paid=not payment_data.is_credit,
                 notes=f"Orden de Servicio #{order.ticket_number}. {payment_data.notes or ''}",
-                warehouse_id=1, 
+                warehouse_id=1 if has_physical_products else None,  # ✅ Conditional warehouse
                 # Metadata
                 date=datetime.now(),
                 unique_uuid=str(uuid.uuid4()),
