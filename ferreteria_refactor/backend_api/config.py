@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     
     # Media Storage
     MEDIA_ROOT: str = "/app/media"
+    
+    # Feature Flags
+    ENABLE_LOCAL_SYNC: bool = False  # Disable local sync to prevent 400 errors in QA/Production
 
     # Email / SMTP Settings
     # Quitamos el '= None' para forzar a Pydantic a buscar en el entorno

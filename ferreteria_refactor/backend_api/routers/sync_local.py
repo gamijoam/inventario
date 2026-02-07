@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Response
 from sqlalchemy.orm import Session
 from ..database.db import get_db
 from ..services import sync_client
 from ..models import models
+from ..config import settings
 
 router = APIRouter(prefix="/sync-local", tags=["sync-local"])
 
@@ -14,6 +15,11 @@ async def trigger_manual_sync(
     """
     Called by Desktop App Frontend to start a full sync from VPS.
     """
+    # Feature flag: Return early if sync is disabled
+    if not settings.ENABLE_LOCAL_SYNC:
+        print("[SYNC] Local sync is disabled via ENABLE_LOCAL_SYNC flag")
+        return Response(status_code=204)  # No Content
+    
     try:
         # Get cloud URL from business configuration (key-value store)
         cloud_url_config = db.query(models.BusinessConfig).filter(

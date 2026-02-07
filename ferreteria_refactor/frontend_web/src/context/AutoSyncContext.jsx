@@ -13,6 +13,9 @@ export const useAutoSync = () => {
 };
 
 export const AutoSyncProvider = ({ children }) => {
+    // Feature flag: Skip all sync logic if disabled
+    const isSyncEnabled = import.meta.env.VITE_ENABLE_SYNC === 'true';
+
     const { config: cloudConfig } = useCloudConfig();
 
     const [syncStatus, setSyncStatus] = useState({
@@ -95,6 +98,12 @@ export const AutoSyncProvider = ({ children }) => {
 
     // Función de sincronización
     const performSync = useCallback(async (manual = false) => {
+        // Feature flag: Skip if sync is disabled
+        if (!isSyncEnabled) {
+            console.log('[SYNC] Sync is disabled via VITE_ENABLE_SYNC flag');
+            return { success: false, reason: 'disabled' };
+        }
+
         if (syncStatus.isSyncing) {
             console.log('⏳ Sincronización ya en progreso...');
             return;
@@ -170,6 +179,12 @@ export const AutoSyncProvider = ({ children }) => {
 
     // Configurar sincronización automática
     useEffect(() => {
+        // Feature flag: Skip auto-sync if disabled
+        if (!isSyncEnabled) {
+            console.log('[SYNC] Auto-sync is disabled via VITE_ENABLE_SYNC flag');
+            return;
+        }
+
         if (!cloudConfig.syncEnabled || !cloudConfig.isConfigured) return;
 
         // Sincronización inicial después de 30 segundos
