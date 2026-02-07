@@ -171,6 +171,9 @@ class Product(Base):
     
     # NEW: Serialized Inventory Support
     has_imei = Column(Boolean, default=False)
+    
+    # NEW: Service/Non-Stock Product Flag
+    is_service = Column(Boolean, default=False)  # True = no requiere seguimiento de stock
 
     
     # Image Support

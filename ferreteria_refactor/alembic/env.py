@@ -4,11 +4,12 @@ import sys
 import os
 
 # Force UTF-8 encoding for all file operations
-if sys.version_info >= (3, 7):
-    # Python 3.7+ uses UTF-8 by default, but let's be explicit
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# DISABLED: This causes deadlock when running from subprocess.run()
+# if sys.version_info >= (3, 7):
+#     # Python 3.7+ uses UTF-8 by default, but let's be explicit
+#     import io
+#     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+#     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from logging.config import fileConfig
 
@@ -132,21 +133,33 @@ def run_migrations_online() -> None:
         x_args = context.get_x_argument(as_dictionary=True)
         tenant_schema = x_args.get("tenant")
         
-        target_schema = "public" # Default
         if tenant_schema:
-            print(f"[ALEMBIC] Running migrations for TENANT schema: {tenant_schema}")
+            print(f"🔍 [ALEMBIC] Configuring for TENANT schema: {tenant_schema}")
+            
+            # --- ISOLATION FIX ---
+            # We use a DIFFERENT version table name for tenants to avoid conflict with public schema
+            # This ensures Alembic doesn't accidentally read version from public.alembic_version
+            version_table = "alembic_version_tenant"
+            
             # Set search path to tenant schema (and public for shared types if any)
-            # IMPORTANT: We want alembic_version to be in the TENANT schema.
             connection.execute(text(f'SET search_path TO "{tenant_schema}", public'))
             target_schema = tenant_schema
+            
+            print(f"✅ [ALEMBIC] Using ISOLATED version table: {version_table} in {tenant_schema}")
+
         else:
             print("🌍 [ALEMBIC] Running migrations for PUBLIC schema")
+            version_table = "alembic_version" # Default for public
+            target_schema = "public"          # Explicitly set for public schema
+            # Ensure search path includes public
+            connection.execute(text("SET search_path TO public"))
 
         context.configure(
             connection=connection, 
             target_metadata=target_metadata,
             render_as_batch=True,
-            version_table_schema=target_schema # Stores alembic_version in the correct schema
+            version_table_schema=target_schema, # Stores table in the correct schema
+            version_table=version_table # USE THE ISOLATED NAME
         )
 
         with context.begin_transaction():

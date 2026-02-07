@@ -61,20 +61,19 @@ def get_products_from_lico(source_conn):
     """Obtiene todos los productos de la BD antigua"""
     cursor = source_conn.cursor(cursor_factory=RealDictCursor)
     
-    # ⚠️ AJUSTA ESTA QUERY SEGÚN LA ESTRUCTURA DE TU BD ANTIGUA
+    # ⚠️ Query simplificada con solo columnas esenciales
+    # Si tu BD tiene más columnas (supplier_id, location, etc.), agrégalas aquí
     query = """
         SELECT 
             id,
             name,
             description,
-            barcode,
             sku,
             price,
-            cost,
+            cost_price as cost,
             stock,
             category_id,
-            is_active,
-            created_at
+            is_active
         FROM products
         WHERE is_active = true
         ORDER BY id
@@ -99,57 +98,101 @@ def migrate_product(product, target_conn, warehouse_id):
     cursor = target_conn.cursor()
     
     try:
-        # 1. Insertar producto (o actualizar si ya existe por barcode/sku)
-        insert_product_query = """
-            INSERT INTO products (
-                name, description, barcode, sku, price, cost, 
-                category_id, is_active, created_at
-            ) VALUES (
-                %(name)s, %(description)s, %(barcode)s, %(sku)s, %(price)s, %(cost)s,
-                %(category_id)s, %(is_active)s, %(created_at)s
-            )
-            ON CONFLICT (barcode) DO UPDATE SET
-                name = EXCLUDED.name,
-                description = EXCLUDED.description,
-                price = EXCLUDED.price,
-                cost = EXCLUDED.cost,
-                category_id = EXCLUDED.category_id
-            RETURNING id
-        """
+        # 1. Insertar producto preservando el ID original
+        # Primero verificamos si ya existe un producto con el mismo ID
+        check_query = "SELECT id FROM products WHERE id = %(id)s LIMIT 1"
+        cursor.execute(check_query, {'id': product['id']})
+        existing = cursor.fetchone()
         
-        cursor.execute(insert_product_query, {
-            'name': product['name'],
-            'description': product.get('description'),
-            'barcode': product.get('barcode'),
-            'sku': product.get('sku'),
-            'price': product.get('price', 0),
-            'cost': product.get('cost', 0),
-            'category_id': product.get('category_id'),
-            'is_active': product.get('is_active', True),
-            'created_at': product.get('created_at', datetime.now())
-        })
+        if existing:
+            # Si existe, actualizamos
+            product_id = existing[0]
+            update_query = """
+                UPDATE products SET
+                    name = %(name)s,
+                    description = %(description)s,
+                    sku = %(sku)s,
+                    price = %(price)s,
+                    cost_price = %(cost)s,
+                    category_id = %(category_id)s
+                WHERE id = %(id)s
+            """
+            cursor.execute(update_query, {
+                'id': product['id'],
+                'name': product['name'],
+                'description': product.get('description'),
+                'sku': product.get('sku'),
+                'price': product.get('price', 0),
+                'cost': product.get('cost', 0),
+                'category_id': product.get('category_id')
+            })
+            new_product_id = product_id
+        else:
+            # Si no existe, insertamos con el ID original
+            insert_product_query = """
+                INSERT INTO products (
+                    id, name, description, sku, price, cost_price, 
+                    category_id, is_active
+                ) VALUES (
+                    %(id)s, %(name)s, %(description)s, %(sku)s, %(price)s, %(cost)s,
+                    %(category_id)s, %(is_active)s
+                )
+            """
+            
+            cursor.execute(insert_product_query, {
+                'id': product['id'],  # ← Preservar ID original
+                'name': product['name'],
+                'description': product.get('description'),
+                'sku': product.get('sku'),
+                'price': product.get('price', 0),
+                'cost': product.get('cost', 0),
+                'category_id': product.get('category_id'),
+                'is_active': product.get('is_active', True)
+            })
+            
+            new_product_id = product['id']  # ← Usar el ID original
         
-        new_product_id = cursor.fetchone()[0]
-        
-        # 2. Crear registro de stock en warehouse_id = 1
+        # 2. Crear/actualizar registro de stock en warehouse_id = 1
         stock_quantity = product.get('stock', 0)
         
-        insert_stock_query = """
-            INSERT INTO product_stocks (
-                product_id, warehouse_id, quantity, location
-            ) VALUES (
-                %(product_id)s, %(warehouse_id)s, %(quantity)s, %(location)s
-            )
-            ON CONFLICT (product_id, warehouse_id) DO UPDATE SET
-                quantity = EXCLUDED.quantity
+        # Verificar si ya existe un registro de stock para este producto y warehouse
+        check_stock_query = """
+            SELECT id FROM product_stocks 
+            WHERE product_id = %(product_id)s AND warehouse_id = %(warehouse_id)s
         """
-        
-        cursor.execute(insert_stock_query, {
+        cursor.execute(check_stock_query, {
             'product_id': new_product_id,
-            'warehouse_id': warehouse_id,
-            'quantity': stock_quantity,
-            'location': None  # Puedes agregar lógica para ubicaciones si las tienes
+            'warehouse_id': warehouse_id
         })
+        existing_stock = cursor.fetchone()
+        
+        if existing_stock:
+            # Actualizar stock existente
+            update_stock_query = """
+                UPDATE product_stocks SET
+                    quantity = %(quantity)s
+                WHERE product_id = %(product_id)s AND warehouse_id = %(warehouse_id)s
+            """
+            cursor.execute(update_stock_query, {
+                'product_id': new_product_id,
+                'warehouse_id': warehouse_id,
+                'quantity': stock_quantity
+            })
+        else:
+            # Insertar nuevo registro de stock
+            insert_stock_query = """
+                INSERT INTO product_stocks (
+                    product_id, warehouse_id, quantity, location
+                ) VALUES (
+                    %(product_id)s, %(warehouse_id)s, %(quantity)s, %(location)s
+                )
+            """
+            cursor.execute(insert_stock_query, {
+                'product_id': new_product_id,
+                'warehouse_id': warehouse_id,
+                'quantity': stock_quantity,
+                'location': None
+            })
         
         target_conn.commit()
         print(f"  ✅ Migrado: {product['name']} (Stock: {stock_quantity})")
@@ -235,7 +278,16 @@ def main():
         else:
             error_count += 1
     
-    # 5. Resumen
+    # 5. Actualizar la secuencia de IDs para evitar conflictos futuros
+    print()
+    print("🔄 Actualizando secuencia de IDs...")
+    cursor = target_conn.cursor()
+    cursor.execute("SELECT setval('products_id_seq', (SELECT MAX(id) FROM products))")
+    target_conn.commit()
+    cursor.close()
+    print("✅ Secuencia actualizada")
+    
+    # 6. Resumen
     print()
     print("=" * 60)
     print("📊 RESUMEN DE MIGRACIÓN")

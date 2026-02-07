@@ -63,6 +63,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         exchange_rate_id: null,
         is_combo: false,
         has_imei: false,
+        is_service: false,  // NEW: Service/Non-stock product flag
         warranty_duration: 0,
         warranty_unit: 'DAYS',
         warranty_notes: '',
@@ -129,6 +130,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                     exchange_rate_id: initialData.exchange_rate_id || null,
                     is_combo: initialData.is_combo || false,
                     has_imei: initialData.has_imei || false,
+                    is_service: initialData.is_service || false,  // NEW: Load service flag
                     warranty_duration: parseInt(initialData.warranty_duration) || 0,
                     warranty_unit: initialData.warranty_unit || 'DAYS',
                     warranty_notes: initialData.warranty_notes || '',
@@ -145,7 +147,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             } else {
                 setFormData({
                     name: '', sku: '', category_id: null, cost: 0, price: 0, stock: 0, min_stock: 5, location: '',
-                    margin: 0, unit_type: 'UNID', exchange_rate_id: null, is_combo: false, has_imei: false, units: [],
+                    margin: 0, unit_type: 'UNID', exchange_rate_id: null, is_combo: false, has_imei: false, is_service: false, units: [],
                     combo_items: [], tax_rate: 0, warehouse_stocks: [], prices: {}, image_url: ''
                 });
             }
@@ -228,6 +230,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             profit_margin: formData.profit_margin ? parseFloat(formData.profit_margin) : null,
             discount_percentage: parseFloat(formData.discount_percentage) || 0,
             tax_rate: parseFloat(formData.tax_rate) || 0,
+            is_service: formData.is_service || false,  // NEW: Include service flag
             units: formData.units.map(u => ({
                 unit_name: u.unit_name,
                 conversion_factor: u.type === 'fraction' ? (u.user_input !== 0 ? 1 / parseFloat(u.user_input) : 0) : parseFloat(u.user_input),
@@ -341,6 +344,29 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
+                                                </div>
+
+                                                {/* Product Type Options */}
+                                                <div className="mt-4 pt-4 border-t border-slate-100">
+                                                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2 block">Tipo de Producto</Label>
+                                                    <div className="flex items-center gap-2 bg-blue-50/50 border border-blue-100 rounded-lg px-3 py-2.5">
+                                                        <input
+                                                            type="checkbox"
+                                                            id="is_service"
+                                                            checked={formData.is_service || false}
+                                                            onChange={(e) => setFormData({ ...formData, is_service: e.target.checked })}
+                                                            className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-4 h-4"
+                                                        />
+                                                        <label htmlFor="is_service" className="text-sm font-medium text-blue-900 cursor-pointer flex-1">
+                                                            Es un servicio (no requiere inventario)
+                                                        </label>
+                                                        <Package size={16} className="text-blue-400" />
+                                                    </div>
+                                                    {formData.is_service && (
+                                                        <p className="text-xs text-blue-600 mt-2 ml-6">
+                                                            ℹ️ Los servicios no requieren stock y no afectan la valorización del inventario
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
