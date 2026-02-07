@@ -12,6 +12,7 @@ import { toast } from 'react-hot-toast';
 import { useConfig } from '../../context/ConfigContext';
 import LaundryDetailModal from './components/LaundryDetailModal';
 import LaundryList from './components/LaundryList';
+import ServiceSelectorModal from './components/ServiceSelectorModal';
 
 // Status Columns for Kanban
 const COLUMNS = [
@@ -61,6 +62,7 @@ const LaundryUnified = () => {
     const [productSearch, setProductSearch] = useState('');
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [showProductResults, setShowProductResults] = useState(false);
+    const [showServiceSelector, setShowServiceSelector] = useState(false);
 
     // Cart & Item
     const [cart, setCart] = useState([]);
@@ -156,19 +158,8 @@ const LaundryUnified = () => {
         return () => clearTimeout(timer);
     }, [customerSearch, selectedCustomer]);
 
-    // Product Search
-    useEffect(() => {
-        const timer = setTimeout(async () => {
-            if (productSearch.length > 1 && (!selectedProduct || productSearch !== selectedProduct.name)) {
-                try {
-                    const res = await apiClient.get(`/products?search=${productSearch}`);
-                    setProducts(res.data);
-                    setShowProductResults(true);
-                } catch (e) { console.error(e); }
-            } else { setProducts([]); setShowProductResults(false); }
-        }, 400);
-        return () => clearTimeout(timer);
-    }, [productSearch, selectedProduct]);
+    // Product Search - Now handled by ServiceSelectorModal
+    // Keeping state for backward compatibility with handleProductSelect
 
     const handleProductSelect = (product) => {
         setSelectedProduct(product);
@@ -615,24 +606,13 @@ const LaundryUnified = () => {
                         ) : (
                             /* PRODUCT SEARCH MODE */
                             <>
-                                <div className="relative">
-                                    <input
-                                        className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        placeholder="Buscar servicio (ej: Lavado)..."
-                                        value={productSearch}
-                                        onChange={e => setProductSearch(e.target.value)}
-                                    />
-                                    {showProductResults && (
-                                        <div className="absolute z-20 w-full mt-1 bg-white border rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                                            {products.map(p => (
-                                                <div key={p.id} onClick={() => handleProductSelect(p)} className="p-2 hover:bg-slate-50 cursor-pointer border-b text-sm flex justify-between">
-                                                    <span>{p.name}</span>
-                                                    <span className="font-bold text-indigo-600">${p.price}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
+                                <button
+                                    onClick={() => setShowServiceSelector(true)}
+                                    className="w-full p-3 text-sm border-2 border-dashed border-indigo-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all text-left flex items-center gap-2 text-indigo-600 font-medium"
+                                >
+                                    <Search size={18} />
+                                    {selectedProduct ? selectedProduct.name : 'Buscar servicio (clic para abrir selector)...'}
+                                </button>
 
                                 {selectedProduct && (
                                     <div className="animate-in fade-in slide-in-from-top-2 space-y-3">
@@ -732,6 +712,14 @@ const LaundryUnified = () => {
                     onClose={() => { setSelectedOrder(null); setRefreshTrigger(p => p + 1); }}
                 />
             )}
+
+            {/* Service Selector Modal */}
+            <ServiceSelectorModal
+                isOpen={showServiceSelector}
+                onClose={() => setShowServiceSelector(false)}
+                onSelectService={handleProductSelect}
+                selectedServices={cart}
+            />
 
             {/* =====================================================================================
                 MOBILE TAB SWITCHER - Bottom Navigation
