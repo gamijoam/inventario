@@ -7,28 +7,52 @@ import { Lock, Eye, EyeOff, Loader2, CheckCircle2, ArrowLeft } from 'lucide-reac
 export default function ResetPassword() {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const token = searchParams.get('token');
+
+    // Fallback robusto para capturar el token (maneja puntos del JWT en Traefik)
+    const getTokenFromUrl = () => {
+        // Intento 1: useSearchParams (React Router)
+        const tokenFromParams = searchParams.get('token');
+        if (tokenFromParams) return tokenFromParams;
+
+        // Intento 2: window.location.search (fallback para caracteres especiales)
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenFromWindow = urlParams.get('token');
+        if (tokenFromWindow) return tokenFromWindow;
+
+        // Intento 3: Parseo manual (último recurso)
+        const search = window.location.search;
+        const match = search.match(/[?&]token=([^&]+)/);
+        return match ? decodeURIComponent(match[1]) : null;
+    };
+
+    const token = getTokenFromUrl();
 
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [tokenError, setTokenError] = useState(false);
 
-    useEffect(() => {
-        if (!token) {
-            toast.error('Token no encontrado en la URL');
-            navigate('/login');
-        }
-    }, [token, navigate]);
+    // NO redirigir automáticamente - el formulario siempre se muestra
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Validar token antes de enviar
+        if (!token) {
+            setTokenError(true);
+            toast.error('Token no encontrado. Por favor, solicita un nuevo enlace de recuperación.');
+            return;
+        }
+
         if (password !== confirmPassword) {
             return toast.error('Las contraseñas no coinciden');
         }
 
         setLoading(true);
+        setTokenError(false);
+
         try {
             await axios.post('auth/reset-password', {
                 token: token,
@@ -38,7 +62,15 @@ export default function ResetPassword() {
             toast.success('Contraseña actualizada correctamente');
         } catch (error) {
             console.error('Error resetting password:', error);
-            toast.error(error.response?.data?.detail || 'Error al restablecer la contraseña');
+            const errorMessage = error.response?.data?.detail || 'Error al restablecer la contraseña';
+
+            // Si el error es de token inválido, mostrar en pantalla sin redirigir
+            if (error.response?.status === 400 || error.response?.status === 404) {
+                setTokenError(true);
+                toast.error(errorMessage);
+            } else {
+                toast.error(errorMessage);
+            }
         } finally {
             setLoading(false);
         }
@@ -81,6 +113,18 @@ export default function ResetPassword() {
                         Elige una nueva contraseña segura para tu cuenta.
                     </p>
                 </div>
+
+                {tokenError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <p className="text-sm text-red-800">
+                            ⚠️ El enlace de recuperación es inválido o ha expirado.
+                            <Link to="/forgot-password" className="font-medium underline ml-1">
+                                Solicita uno nuevo aquí
+                            </Link>
+                        </p>
+                    </div>
+                )}
+
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                     <div className="space-y-4">
                         <div>

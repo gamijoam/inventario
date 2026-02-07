@@ -54,6 +54,16 @@ export const AuthProvider = ({ children }) => {
     // Initialize authentication on app load
     useEffect(() => {
         const initAuth = async () => {
+            // Skip auth check for public routes
+            const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/mobile/login'];
+            const currentPath = window.location.pathname;
+
+            if (publicRoutes.includes(currentPath)) {
+                console.log(`⏭️ Skipping auth check for public route: ${currentPath}`);
+                setLoading(false);
+                return;
+            }
+
             try {
                 // Try to fetch user profile using the HttpOnly cookie
                 await fetchUserProfile();

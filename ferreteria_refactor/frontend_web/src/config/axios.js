@@ -74,11 +74,17 @@ apiClient.interceptors.response.use(
         const status = error.response ? error.response.status : null;
 
         if (status === 401) {
-            // Avoid redirect loop if already on login page or if error is from login attempt
-            const isLoginRequest = error.config.url.includes('/auth/token');
+            // Exclude ALL /auth/ API routes from automatic redirect
+            // This includes: /auth/token, /auth/forgot-password, /auth/reset-password, etc.
+            const isAuthRoute = error.config.url.includes('/auth/');
+
+            // Also exclude public page routes
+            const publicPages = ['/login', '/forgot-password', '/reset-password', '/mobile/login'];
+            const isPublicPage = publicPages.includes(window.location.pathname);
+
             const isLoginPage = window.location.pathname === '/login';
 
-            if (!isLoginRequest && !isLoginPage) {
+            if (!isAuthRoute && !isPublicPage && !isLoginPage) {
                 // Unauthorized: Cookie expired or invalid
                 console.warn('⚠️ 401 Detectado - Sesión expirada, redirigiendo a login...');
 
@@ -90,7 +96,7 @@ apiClient.interceptors.response.use(
                     window.location.href = '/login';
                 }
             }
-            // For login failures, no action needed - component will handle error display
+            // For auth routes or public pages, let the component handle the error
         } else if (status === 403) {
             // Forbidden
             toast.error('No tienes permisos para realizar esta acción.');
