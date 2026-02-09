@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { getTenants } from '../api/tenants';
+import { getTenants, deleteTenant, updateTenantStatus } from '../api/tenants';
 import type { Tenant } from '../types/tenant';
 import { Plus, Search, Building, Trash2, Edit } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import CreateTenantModal from '../components/CreateTenantModal';
+import EditTenantModal from '../components/EditTenantModal';
+import Switch from '../components/ui/Switch';
 
 const Tenants: React.FC = () => {
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
 
     useEffect(() => {
         fetchTenants();
@@ -31,6 +35,44 @@ const Tenants: React.FC = () => {
         }
     };
 
+    const handleDelete = async (id: number, name: string) => {
+        if (!window.confirm(`¿Estás seguro de eliminar la empresa "${name}"?\n\n⚠️ ESTA ACCIÓN ELIMINARÁ TODOS LOS DATOS Y ESQUEMAS DE BASE DE DATOS.\nNO SE PUEDE DESHACER.`)) {
+            return;
+        }
+
+        const toastId = toast.loading('Eliminando empresa...');
+        try {
+            await deleteTenant(id);
+            setTenants(prev => prev.filter(t => t.id !== id));
+            toast.success('Empresa eliminada correctamente', { id: toastId });
+        } catch (error: any) {
+            console.error(error);
+            const msg = error.response?.data?.detail || 'Error al eliminar empresa';
+            toast.error(msg, { id: toastId });
+        }
+    };
+
+    const handleStatusChange = async (id: number, currentStatus: boolean) => {
+        const newStatus = !currentStatus;
+        // Optimistic update
+        setTenants(prev => prev.map(t => t.id === id ? { ...t, is_active: newStatus } : t));
+
+        try {
+            await updateTenantStatus(id, newStatus);
+            toast.success(`Empresa ${newStatus ? 'activada' : 'desactivada'}`);
+        } catch (error: any) {
+            console.error(error);
+            // Revert changes on error
+            setTenants(prev => prev.map(t => t.id === id ? { ...t, is_active: currentStatus } : t));
+            toast.error('Error al actualizar estado');
+        }
+    };
+
+    const openEditModal = (tenant: Tenant) => {
+        setSelectedTenant(tenant);
+        setIsEditModalOpen(true);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -39,7 +81,7 @@ const Tenants: React.FC = () => {
                     <p className="text-sm text-gray-500 mt-1">Administra los tenants y sus configuraciones.</p>
                 </div>
                 <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={() => setIsCreateModalOpen(true)}
                     className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors"
                 >
                     <Plus className="w-5 h-5 mr-2" />
@@ -125,12 +167,15 @@ const Tenants: React.FC = () => {
                                             </code>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${tenant.is_active
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-red-100 text-red-800'
-                                                }`}>
-                                                {tenant.is_active ? 'Activo' : 'Inactivo'}
-                                            </span>
+                                            <div className="flex items-center">
+                                                <Switch
+                                                    checked={tenant.is_active}
+                                                    onChange={() => handleStatusChange(tenant.id, tenant.is_active)}
+                                                />
+                                                <span className={`ml-2 text-xs font-medium ${tenant.is_active ? 'text-green-600' : 'text-gray-500'}`}>
+                                                    {tenant.is_active ? 'Activo' : 'Inactivo'}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {tenant.user_count ?? '-'}
@@ -140,10 +185,18 @@ const Tenants: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div className="flex justify-end gap-2">
-                                                <button className="text-indigo-600 hover:text-indigo-900 p-1 hover:bg-indigo-50 rounded" title="Editar">
+                                                <button
+                                                    onClick={() => openEditModal(tenant)}
+                                                    className="text-indigo-600 hover:text-indigo-900 p-1 hover:bg-indigo-50 rounded"
+                                                    title="Editar"
+                                                >
                                                     <Edit className="h-4 w-4" />
                                                 </button>
-                                                <button className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded" title="Eliminar">
+                                                <button
+                                                    onClick={() => handleDelete(tenant.id, tenant.name)}
+                                                    className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded"
+                                                    title="Eliminar"
+                                                >
                                                     <Trash2 className="h-4 w-4" />
                                                 </button>
                                             </div>
@@ -157,9 +210,16 @@ const Tenants: React.FC = () => {
             </div>
 
             <CreateTenantModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
                 onSuccess={fetchTenants}
+            />
+
+            <EditTenantModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                onSuccess={fetchTenants}
+                tenant={selectedTenant}
             />
         </div>
     );

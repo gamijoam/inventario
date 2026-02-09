@@ -22,3 +22,10 @@ export interface CreateTenantDTO {
     admin_password: string;
     config?: Record<string, any>;
 }
+
+export interface UpdateTenantDTO {
+    name?: string;
+    domain?: string;
+    is_active?: boolean;
+    config?: Record<string, any>;
+}

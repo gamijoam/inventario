@@ -218,31 +218,40 @@ def toggle_tenant_status(
         
     return tenant
 
-@router.put("/tenants/{tenant_id}/domain", response_model=TenantOut)
-def update_tenant_domain(
+@router.patch("/tenants/{tenant_id}", response_model=TenantOut)
+def update_tenant(
     tenant_id: int,
-    domain_update: TenantUpdate,
+    tenant_in: TenantUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_superuser)
 ):
     """
-    Update custom domain.
-    Payload: {"domain": "app.newdomain.com"}
+    Update generic Tenant fields (Name, Domain, Config).
     """
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(404, "Tenant not found")
         
-    if domain_update.domain:
-        # Check uniqueness
-        existing = db.query(Tenant).filter(Tenant.domain == domain_update.domain).first()
-        if existing and existing.id != tenant_id:
-            raise HTTPException(400, "Domain already associated with another tenant")
-            
-        tenant.domain = domain_update.domain
-        db.commit()
-        db.refresh(tenant)
+    if tenant_in.name is not None:
+        tenant.name = tenant_in.name
         
+    if tenant_in.domain is not None:
+        # Check uniqueness if domain changed
+        if tenant_in.domain != tenant.domain:
+            existing = db.query(Tenant).filter(Tenant.domain == tenant_in.domain).first()
+            if existing:
+                raise HTTPException(400, "Domain already associated with another tenant")
+            tenant.domain = tenant_in.domain
+            
+    if tenant_in.config is not None:
+        # Merging config could be better but simplified replaced here
+        tenant.config = tenant_in.config
+
+    if tenant_in.is_active is not None:
+        tenant.is_active = tenant_in.is_active
+
+    db.commit()
+    db.refresh(tenant)
     return tenant
 
 @router.delete("/tenants/{tenant_id}", status_code=204)

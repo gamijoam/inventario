@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import DashboardLayout from './layouts/DashboardLayout';
+import Dashboard from './pages/Dashboard';
 import Tenants from './pages/Tenants';
 
 // Protected Route Wrapper
@@ -40,18 +41,7 @@ const App = () => {
               <DashboardLayout />
             </ProtectedRoute>
           }>
-            <Route index element={
-              <div className="p-8 text-center max-w-2xl mx-auto mt-10">
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">Bienvenido al Panel SaaS</h1>
-                <p className="text-gray-600 text-lg">
-                  Aquí podrás gestionar todas las empresas (tenants), usuarios y configuraciones globales
-                  de la plataforma Ferretería Enterprise.
-                </p>
-                <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800">
-                  <p className="font-semibold">👈 Comienza seleccionando "Empresas" en el menú lateral.</p>
-                </div>
-              </div>
-            } />
+            <Route index element={<Dashboard />} />
             <Route path="tenants" element={<Tenants />} />
           </Route>
 
