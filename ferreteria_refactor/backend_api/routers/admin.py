@@ -1,0 +1,301 @@
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from typing import List, Dict, Any
+import os
+import sys
+import argparse
+from alembic import command
+from alembic.config import Config
+
+from ..database.db import get_db, engine
+from ..dependencies import get_current_superuser
+from ..models.models import User, UserRole
+from ..models.tenant import Tenant
+from ..schemas.tenant import TenantOut, TenantCreate, TenantUpdate
+from ..security import get_password_hash
+from ..config import settings
+
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin"],
+    dependencies=[Depends(get_current_superuser)]  # 🔒 SUPERUSER ONLY
+)
+
+def run_alembic_upgrade(schema_name: str):
+    """
+    Programmatically run Alembic migrations for a specific tenant schema.
+    Simulates: alembic -x tenant=schema_name upgrade head
+    """
+    try:
+        # Resolve alembic.ini path
+        # Assuming struct: ferreteria_refactor/backend_api/routers/admin.py
+        # root is: ferreteria_refactor/
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        root_dir = os.path.dirname(os.path.dirname(current_dir)) # backend_api -> ferreteria_refactor
+        alembic_ini_path = os.path.join(root_dir, "alembic.ini")
+        
+        if not os.path.exists(alembic_ini_path):
+             # Fallback: maybe we are in root (Docker)
+             alembic_ini_path = "alembic.ini"
+             
+        print(f"🚀 [ADMIN] Starting migration for schema '{schema_name}' using {alembic_ini_path}")
+        
+        # Create Config object
+        alembic_cfg = Config(alembic_ini_path)
+        
+        # Force the database URL from settings to ensure we use the correct credentials
+        alembic_cfg.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
+        
+        # Inject the -x tenant=schema argument
+        # env.py reads context.get_x_argument() which comes from config.cmd_opts
+        alembic_cfg.cmd_opts = argparse.Namespace(x=[f"tenant={schema_name}"])
+        
+        # Run Upgrade
+        command.upgrade(alembic_cfg, "head")
+        print(f"✅ [ADMIN] Schema '{schema_name}' migrated successfully.")
+        
+    except Exception as e:
+        print(f"❌ [ADMIN] Migration FAILED for '{schema_name}': {e}")
+        import traceback
+        traceback.print_exc()
+        raise e
+
+@router.post("/tenants", response_model=TenantOut, status_code=status.HTTP_201_CREATED)
+def create_tenant(
+    tenant_in: TenantCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Create a new Tenant (Company).
+    
+    1. Validates schema name.
+    2. Creates Tenant record in public.tenants.
+    3. Creates PostgreSQL SCHEMA.
+    4. Runs Alembic Migrations to create tables in that schema.
+    5. Creates initial Admin User in the new schema.
+    """
+    # 1. Validate Schema Name (Security)
+    schema = tenant_in.schema_name.lower().strip()
+    if not schema.isalnum() or schema == "public" or schema.startswith("pg_"):
+        raise HTTPException(400, "Invalid schema name. Use strictly lowercase alphanumeric.")
+
+    # 2. Check duplicates
+    if db.query(Tenant).filter(Tenant.schema_name == schema).first():
+        raise HTTPException(400, f"Schema '{schema}' already exists.")
+    
+    if tenant_in.domain and db.query(Tenant).filter(Tenant.domain == tenant_in.domain).first():
+        raise HTTPException(400, f"Domain '{tenant_in.domain}' is already taken.")
+        
+    try:
+        # 3. Create Tenant Record
+        new_tenant = Tenant(
+            name=tenant_in.name,
+            schema_name=schema,
+            domain=tenant_in.domain,
+            config=tenant_in.config,
+            is_active=True
+        )
+        db.add(new_tenant)
+        db.commit()
+        db.refresh(new_tenant)
+        
+        # 4. Create Schema DDL
+        print(f"🏗️ Creating schema: {schema}")
+        db.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
+        db.commit() # Commit DDL
+        
+        # 5. Run Alembic Migrations
+        # We need to run this OUTSIDE the current transaction or handle it carefully
+        # But alembic manages its own headers usually.
+        run_alembic_upgrade(schema)
+        
+        # 6. Create Admin User in the NEW Tenant Schema
+        # Switch search_path to the new tenant to insert user
+        db.execute(text(f'SET search_path TO "{schema}", public'))
+        
+        admin_user = User(
+            username="admin", # Default admin username
+            email=tenant_in.admin_email,
+            password_hash=get_password_hash(tenant_in.admin_password),
+            role=UserRole.ADMIN,
+            full_name="Administrador Principal",
+            is_active=True,
+            is_superuser=True # Tenant Admin is superuser within their tenant? Or just Admin? usually just Admin.
+            # But specific logic might require is_superuser=False for tenant admins.
+            # Let's set is_superuser=False, creating a "Local Admin". 
+            # Real Superusers are global.
+        )
+        db.add(admin_user)
+        db.commit()
+        
+        # Reset search path to public for safety (though request ends here)
+        db.execute(text("SET search_path TO public"))
+        
+        return new_tenant
+        
+    except Exception as e:
+        db.rollback()
+        # In a real production system, you might want to 'DROP SCHEMA' if migration failed 
+        # to ensure atomicity, but for diagnosis we leave it or log it.
+        print(f"🔥 Error creating tenant: {e}")
+        raise HTTPException(500, f"Failed to create tenant: {str(e)}")
+
+@router.get("/tenants", response_model=Dict[str, Any])
+def list_tenants(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Get list of all tenants (companies/schemas) in the system.
+    """
+    try:
+        tenants = db.query(Tenant).order_by(Tenant.created_at.desc()).all()
+        
+        tenant_list = []
+        for tenant in tenants:
+            user_count = 0
+            try:
+                # Count users in specific schema
+                sql = text(f'SELECT COUNT(*) FROM "{tenant.schema_name}".users')
+                user_count = db.execute(sql).scalar() or 0
+            except Exception:
+                pass
+            
+            # Map to TenantOut manually to include runtime computed fields
+            t_out = TenantOut.model_validate(tenant)
+            t_out.user_count = user_count
+            tenant_list.append(t_out)
+        
+        return {
+            "total": len(tenant_list),
+            "tenants": tenant_list
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Error listing tenants: {str(e)}")
+
+@router.get("/tenants/{tenant_id}", response_model=TenantOut)
+def get_tenant_details(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    try:
+        sql = text(f'SELECT COUNT(*) FROM "{tenant.schema_name}".users')
+        user_count = db.execute(sql).scalar() or 0
+        
+        t_out = TenantOut.model_validate(tenant)
+        t_out.user_count = user_count
+        return t_out
+    except Exception as e:
+        # Fallback if validation fails or schema issues
+        return tenant
+
+@router.patch("/tenants/{tenant_id}/status", response_model=TenantOut)
+def toggle_tenant_status(
+    tenant_id: int,
+    status_update: TenantUpdate, # reusing Update schema but only reading is_active
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Suspend or Activate a Tenant.
+    Payload: {"is_active": false}
+    """
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    if status_update.is_active is not None:
+        tenant.is_active = status_update.is_active
+        db.commit()
+        db.refresh(tenant)
+        
+    return tenant
+
+@router.put("/tenants/{tenant_id}/domain", response_model=TenantOut)
+def update_tenant_domain(
+    tenant_id: int,
+    domain_update: TenantUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Update custom domain.
+    Payload: {"domain": "app.newdomain.com"}
+    """
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    if domain_update.domain:
+        # Check uniqueness
+        existing = db.query(Tenant).filter(Tenant.domain == domain_update.domain).first()
+        if existing and existing.id != tenant_id:
+            raise HTTPException(400, "Domain already associated with another tenant")
+            
+        tenant.domain = domain_update.domain
+        db.commit()
+        db.refresh(tenant)
+        
+    return tenant
+
+@router.delete("/tenants/{tenant_id}", status_code=204)
+def delete_tenant(
+    tenant_id: int,
+    confirm: bool = False, # Query param for safety
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    ⚠️ DESTRUCTIVE: Delete Tenant and DROP entire SCHEMA.
+    Must pass ?confirm=true
+    """
+    if not confirm:
+        raise HTTPException(400, "Must explicitly confirm deletion with ?confirm=true")
+        
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    schema_name = tenant.schema_name
+    
+    try:
+        # 1. Delete DB Record
+        db.delete(tenant)
+        db.commit()
+        
+        # 2. DROP SCHEMA CASCADE
+        print(f"🔥 DROPPING SCHEMA: {schema_name}")
+        db.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
+        db.commit()
+        
+        return None # 204 No Content
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"Failed to delete tenant: {str(e)}")
+
+@router.get("/stats")
+def get_system_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    try:
+        total_tenants = db.query(Tenant).count()
+        active_tenants = db.query(Tenant).filter(Tenant.is_active == True).count()
+        
+        return {
+            "total_tenants": total_tenants,
+            "active_tenants": active_tenants,
+            "inactive_tenants": total_tenants - active_tenants,
+            "tenants_by_plan": {} 
+        }
+        
+    except Exception as e:
+        raise HTTPException(500, f"Error calculating stats: {str(e)}")

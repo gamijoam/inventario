@@ -165,3 +165,32 @@ def require_services_module(db: Session = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Services module is disabled for this tenant"
         )
+
+# ========================================
+# SUPERUSER DEPENDENCY (Admin Panel)
+# ========================================
+
+def get_current_superuser(
+    current_user: Annotated[User, Depends(get_current_active_user)]
+) -> User:
+    """
+    Verify that the current user has superuser privileges.
+    
+    Use this dependency for admin panel endpoints that should only be
+    accessible to superusers (e.g., tenant management, system configuration).
+    
+    Raises:
+        HTTPException: 403 if user is not a superuser
+    
+    Returns:
+        User: The authenticated superuser
+    """
+    if not current_user.is_superuser:
+        print(f"⛔ Superuser Access DENIED: User '{current_user.username}' is not a superuser")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Superuser privileges required"
+        )
+    
+    print(f"✅ Superuser Access GRANTED: User '{current_user.username}'")
+    return current_user

@@ -7,7 +7,7 @@
     <title>POS Ultra | El Sistema que Tu Ferretería Necesita para Crecer</title>
     <meta name="description"
         content="Sistema SaaS de gestión para ferreterías, bodegas y minimarkets. Control total de inventario, ventas rápidas y facturación simple en la nube.">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=qa_v3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
@@ -60,7 +60,7 @@
                 <div class="hero-buttons">
                     <a href="#" onclick="openRegisterModal(event)" class="btn-primary btn-large">
                         <i class="fas fa-rocket"></i>
-                        Empezar Prueba Gratuita de 14 Días
+                        Empezar Prueba Gratuita Ahora
                     </a>
                     <a href="#download" class="btn-secondary btn-large">
                         <i class="fas fa-play-circle"></i>
@@ -357,7 +357,7 @@
                 <h2>¿Listo para transformar tu ferretería?</h2>
                 <p>Únete a cientos de negocios que ya tomaron el control. Empieza hoy mismo, sin tarjeta de crédito.</p>
                 <div class="download-buttons">
-                    <a href="#" onclick="openRegisterModal(event)" class="btn-primary btn-xl">
+                    <a href="javascript:void(0)" onclick="openRegisterModal(event)" class="btn-primary btn-xl">
                         <i class="fas fa-rocket"></i>
                         Crear mi Cuenta Gratuita Ahora
                     </a>
@@ -427,10 +427,10 @@
         </div>
     </footer>
 
-    <!-- Registration Modal (mantiene la lógica original) -->
-    <div id="registerModal" class="modal">
+    <!-- Registration Modal -->
+    <div id="registerModal" class="modal" style="display:none;">
         <div class="modal-content">
-            <span class="close">&times;</span>
+            <span class="close" onclick="closeRegisterModal()">&times;</span>
             <h2>🚀 Crea tu cuenta</h2>
             <p>Empieza tu prueba gratis en segundos</p>
             <form id="registerForm">
@@ -467,7 +467,7 @@
         </div>
     </div>
 
-    <script src="/main.js?v=qa_v2"></script>
+    <script src="main.js?v=qa_v2"></script>
 </body>
 
 </html>

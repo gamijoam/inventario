@@ -480,6 +480,7 @@ class User(Base):
     full_name = Column(String, nullable=True)
     email = Column(String(255), nullable=True)
     is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)  # NEW: Superuser flag for admin panel
     commission_percentage = Column(Numeric(5, 2), default=0.00) # NEW: Commission %
     
     # User Preferences (Theme, shortcuts, etc.)

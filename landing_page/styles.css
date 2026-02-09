@@ -146,6 +146,7 @@ body {
     gap: 0.5rem;
     transition: transform 0.2s, box-shadow 0.2s;
     font-size: 0.95rem;
+    cursor: pointer;
 }
 
 .btn-nav-cta:hover {
@@ -821,18 +822,21 @@ body {
 }
 
 /* ===================================
-   Modal (preserved from original)
+   Modal (Fixed & Enhanced)
    =================================== */
 .modal {
     display: none;
     position: fixed;
-    z-index: 10000;
+    z-index: 99999;
+    /* Max Z-index */
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
-    overflow: hidden;
-    background-color: rgba(0, 0, 0, 0.8);
+    overflow: auto;
+    /* Enable scroll if needed */
+    background-color: rgba(0, 0, 0, 0.85);
+    /* Darker backdrop */
     backdrop-filter: blur(8px);
     align-items: center;
     justify-content: center;
@@ -851,6 +855,8 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
     font-family: var(--font-main);
     text-align: left;
+    color: #1e293b;
+    /* Ensure text is dark on white bg */
 }
 
 @keyframes modalPop {
@@ -874,6 +880,7 @@ body {
     font-weight: bold;
     cursor: pointer;
     transition: color 0.2s;
+    z-index: 10;
 }
 
 .close:hover {
@@ -897,6 +904,7 @@ body {
 .form-group {
     margin-bottom: 1.25rem;
     position: relative;
+    color: #334155;
 }
 
 .form-group label {
@@ -952,6 +960,7 @@ body {
         gap: 1.5rem;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        z-index: 999;
     }
 }
 
@@ -984,6 +993,7 @@ body {
     .feature-showcase-item.reverse {
         grid-template-columns: 1fr;
         direction: ltr;
+        /* Ensure text flows correctly on mobile */
     }
 
     .footer-grid {

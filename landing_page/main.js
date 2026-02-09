@@ -9,11 +9,32 @@ const APP_URL = window.location.hostname === 'localhost' || window.location.host
     ? 'http://localhost:5173'
     : window.location.origin; // Usamos el origen actual (ej: https://qa.miinventariofacil.com)
 
+// 3. FUNCIONES GLOBALES DEL MODAL
 window.openRegisterModal = function (e) {
     if (e) e.preventDefault();
+    console.log("Intentando abrir modal...");
     const modal = document.getElementById("registerModal");
-    if (modal) modal.style.display = "flex";
+    if (modal) {
+        modal.style.display = "flex";
+        console.log("Modal abierto exitosamente");
+    } else {
+        console.error("ERROR: No se encontró el elemento #registerModal");
+        alert("Error: No se pudo cargar el formulario de registro. Por favor recarga la página.");
+    }
 };
+
+window.closeRegisterModal = function () {
+    const modal = document.getElementById("registerModal");
+    if (modal) modal.style.display = "none";
+};
+
+// Cerrar modal al hacer click fuera
+window.onclick = function (event) {
+    const modal = document.getElementById("registerModal");
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+}
 
 document.addEventListener('DOMContentLoaded', function () {
     // 1. Fetch version.json

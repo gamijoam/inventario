@@ -13,7 +13,9 @@ try:
 except ImportError as e:
     print(f"[ERROR] ERROR CRITICO: aiofiles NO esta instalado: {e}", flush=True)
 
+
 from .models import models
+from .config import settings
 from .database.db import engine
 from .routers.products import router as products_router
 from .routers.customers import router as customers_router
@@ -42,6 +44,7 @@ from .routers.rma import router as rma_router
 from .routers.price_lists import router as price_lists_router
 from .routers.warehouses import router as warehouses_router
 from .routers.transfers import router as transfers_router
+from .routers.admin import router as admin_router  # NEW: Admin panel
 from .audit_utils import log_action
 from .models.models import UserRole
 from .routers.hardware_bridge import router as hardware_bridge_router  # WebSocket router
@@ -61,25 +64,29 @@ app.add_middleware(
         "https://api.miinventariofacil.com",
         "https://qa.miinventariofacil.com",
         "https://api-qa.miinventariofacil.com",
+        "https://admin.qa.miinventariofacil.com", # Admin Panel
         "http://localhost:3000",
-        "http://localhost:5173"
+        "http://localhost:5173",
+        "http://localhost:5174" # Admin Panel Local
     ],
     allow_origin_regex=r"https://.*\.miinventariofacil\.com", # Permite todos los subdominios
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["x-tenant-id", "Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
     expose_headers=["*"],
 )
+
+# --- SESSION MIDDLEWARE (Required for SQLAdmin) ---
+from starlette.middleware.sessions import SessionMiddleware
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
 
 # --- SAAS MULTI-TENANT MIDDLEWARE ---
 from .middleware.tenant_middleware import TenantMiddleware
 app.add_middleware(TenantMiddleware)
 
+
 from .config import settings
-
-
-
 
 @app.on_event("startup")
 async def startup_event_async():
@@ -173,6 +180,8 @@ v1_router.include_router(commissions_router, tags=["Comisiones"])
 v1_router.include_router(rma_router, tags=["Garantías RMA"])
 v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
 v1_router.include_router(cloud_router, tags=["Cloud Configuration"])
+v1_router.include_router(admin_router, tags=["Admin Panel"])  # NEW: Superuser admin endpoints
+
 
 # Include Public Auth and Restaurant in v1 hierarchy too
 from .routers import public_auth
@@ -423,3 +432,77 @@ else:
     @app.get("/")
     def root():
         return {"message": "Ferreteria API (Backend Only)"}
+
+# ============================================
+# SQLADMIN - Native Admin Panel
+# ============================================
+from sqladmin import Admin, ModelView
+from sqladmin.authentication import AuthenticationBackend
+from starlette.requests import Request
+from starlette.responses import RedirectResponse
+# Re-importing relative modules to ensure context in this block
+from .database.db import engine, SessionLocal
+from .models.models import User
+from .models.tenant import Tenant
+from .security import verify_password
+from .config import settings
+
+class AdminAuth(AuthenticationBackend):
+    async def login(self, request: Request) -> bool:
+        form = await request.form()
+        username = form.get("username")
+        password = form.get("password")
+
+        db = SessionLocal()
+        try:
+            # Check user (match by username OR email)
+            user = db.query(User).filter(
+                (User.username == username) | (User.email == username)
+            ).first()
+            
+            if not user:
+                return False
+                
+            if not verify_password(password, user.password_hash):
+                return False
+                
+            # CRITICAL: Verify superuser
+            if not user.is_superuser:
+                return False
+
+            request.session.update({"token": user.username})
+            return True
+        except Exception:
+            return False
+        finally:
+            db.close()
+
+    async def logout(self, request: Request) -> bool:
+        request.session.clear()
+        return True
+
+    async def authenticate(self, request: Request) -> bool:
+        token = request.session.get("token")
+        if not token:
+            return False
+        return True
+
+class UserAdmin(ModelView, model=User):
+    column_list = [User.id, User.username, User.role, User.is_active, User.is_superuser]
+    column_searchable_list = [User.username, User.email]
+    icon = "fa-solid fa-user"
+    name = "Usuario"
+    name_plural = "Usuarios"
+
+class TenantAdmin(ModelView, model=Tenant):
+    column_list = [Tenant.id, Tenant.name, Tenant.schema_name, Tenant.is_active]
+    column_searchable_list = [Tenant.name, Tenant.schema_name]
+    icon = "fa-solid fa-building"
+    name = "Empresa"
+    name_plural = "Empresas"
+
+# Initialize Admin with Authentication
+authentication_backend = AdminAuth(secret_key=settings.SECRET_KEY)
+admin = Admin(app, engine, authentication_backend=authentication_backend)
+admin.add_view(UserAdmin)
+admin.add_view(TenantAdmin)
