@@ -24,7 +24,7 @@ class PruebaVPS(Base):
     fecha_actualizacion = Column(DateTime, default=get_venezuela_now, onupdate=get_venezuela_now)
     
     # Relación con usuarios (quien creó este registro)
-    usuario_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    usuario_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
     usuario = relationship("User")
     
     def __repr__(self):

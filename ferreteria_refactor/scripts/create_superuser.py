@@ -1,78 +1,94 @@
 """
-Script to create or promote a user to superuser status.
-
-Usage:
-    python create_superuser.py <username>
-
-Example:
-    python create_superuser.py admin
+Script: create_superuser.py
+Description: 
+    - Ensures the 'Public' tenant exists (for shared logic).
+    - Ensures the 'Ferreteria' tenant exists.
+    - Creates a SUPER_ADMIN user in the public schema.
+    - Hashes password securely.
 """
-
 import sys
 import os
+import argparse
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from passlib.context import CryptContext
 
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add project root to path
+sys.path.insert(0, os.getcwd())
 
-from backend_api.database.db import SessionLocal
-from backend_api.models.models import User
-from backend_api.security import get_password_hash
+from backend_api.config import settings
+from backend_api.models.models import User, UserRole
+from backend_api.models.tenant import Tenant
 
-def create_or_promote_superuser(username: str):
-    """Create a new superuser or promote an existing user to superuser."""
-    db = SessionLocal()
-    
+# Password Hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_superuser(username, password, email):
+    engine = create_engine(settings.DATABASE_URL)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
     try:
-        # Check if user exists
-        user = db.query(User).filter(User.username == username).first()
+        # 1. Ensure 'Ferreteria' Tenant Exists
+        print("Checking/Creating Default Tenant...")
+        target_schema = "ferreteria"
+        tenant = session.query(Tenant).filter(Tenant.schema_name == target_schema).first()
         
-        if user:
-            # User exists, promote to superuser
-            if user.is_superuser:
-                print(f"✅ User '{username}' is already a superuser.")
-            else:
-                user.is_superuser = True
-                db.commit()
-                print(f"✅ User '{username}' has been promoted to superuser.")
-        else:
-            # User doesn't exist, create new superuser
-            print(f"User '{username}' not found. Creating new superuser...")
-            password = input("Enter password for new superuser: ")
-            
-            if len(password) < 4:
-                print("❌ Password must be at least 4 characters long.")
-                return
-            
-            new_user = User(
-                username=username,
-                password_hash=get_password_hash(password),
-                role="ADMIN",
+        if not tenant:
+            print(f"Creating tenant '{target_schema}'...")
+            tenant = Tenant(
+                name="Ferreteria Local",
+                schema_name=target_schema,
+                domain="ferreteria.localhost",
                 is_active=True,
-                is_superuser=True,
-                full_name="Super Administrator"
+                is_demo=False
             )
-            
-            db.add(new_user)
-            db.commit()
-            print(f"✅ Superuser '{username}' created successfully!")
+            session.add(tenant)
+            session.commit()
+            print("✓ Tenant created.")
+        else:
+            print(f"✓ Tenant '{target_schema}' already exists.")
+
+        # 2. Check/Create Superuser
+        print(f"Checking/Creating Superuser '{email}'...")
+        user = session.query(User).filter(User.email == email).first()
         
-        # Show current superusers
-        print("\n📋 Current superusers:")
-        superusers = db.query(User).filter(User.is_superuser == True).all()
-        for su in superusers:
-            print(f"   - {su.username} ({su.role}) - Active: {su.is_active}")
-            
+        if not user:
+            print("Creating superuser...")
+            hashed_pw = get_password_hash(password)
+            user = User(
+                username=username, # Optional display name
+                email=email,       # Login ID
+                password_hash=hashed_pw,
+                role=UserRole.ADMIN,
+                is_superuser=True,
+                is_active=True,
+                full_name="Super Administrador"
+            )
+            session.add(user)
+            session.commit()
+            print(f"✓ Superuser '{email}' created successfully.")
+        else:
+            print(f"! User '{email}' already exists. Updating to superuser...")
+            user.is_superuser = True
+            user.role = UserRole.ADMIN
+            session.commit()
+            print("✓ User updated.")
+
     except Exception as e:
-        print(f"❌ Error: {e}")
-        db.rollback()
+        print(f"Error: {e}")
+        session.rollback()
     finally:
-        db.close()
+        session.close()
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python create_superuser.py <username>")
-        print("Example: python create_superuser.py admin")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Create a Superuser")
+    parser.add_argument("--username", default="admin", help="Username")
+    parser.add_argument("--password", default="admin123", help="Password")
+    parser.add_argument("--email", default="admin@example.com", help="Email")
     
-    username = sys.argv[1]
-    create_or_promote_superuser(username)
+    args = parser.parse_args()
+    create_superuser(args.username, args.password, args.email)

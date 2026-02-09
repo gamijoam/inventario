@@ -1,7 +1,9 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Numeric, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from .models import Base  # Assuming Base is in models.py or similar
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from ..database.db import Base # Avoid circular import with models.py
 
 class TenantPayment(Base):
     __tablename__ = "tenant_payments"

@@ -55,7 +55,7 @@ class RestaurantOrder(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     table_id = Column(Integer, ForeignKey("restaurant_tables.id"), nullable=False)
-    waiter_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Who opened/attends the table
+    waiter_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Who opened/attends the table
     
     status = Column(Enum(OrderStatusDB), default=OrderStatusDB.PENDING)
     total_amount = Column(Numeric(12, 2), default=0.00)

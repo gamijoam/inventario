@@ -383,7 +383,7 @@ class SaleDetail(Base):
     unit_id = Column(Integer, ForeignKey("product_units.id"), nullable=True)  # Which presentation was sold
     
     # NEW: Commission Support
-    salesperson_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Who sold this item
+    salesperson_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Who sold this item
     
     # Warranty Snapshot
     warranty_expiration_date = Column(DateTime, nullable=True)
@@ -401,7 +401,7 @@ class CashSession(Base):
     __tablename__ = "cash_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
     start_time = Column(DateTime, default=get_venezuela_now)
     end_time = Column(DateTime, nullable=True)
     initial_cash = Column(Numeric(18, 4), default=0.0000)
@@ -471,14 +471,15 @@ class UserRole(str, enum.Enum):
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = {"schema": "public"}
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, nullable=True) # Now optional/display name
     password_hash = Column(String, nullable=False)
     pin = Column(String, nullable=True)  # 4-6 digit PIN for discount authorization
     role = Column(Enum(UserRole), default=UserRole.CASHIER)
     full_name = Column(String, nullable=True)
-    email = Column(String(255), nullable=True)
+    email = Column(String(255), unique=True, index=True, nullable=False) # Login ID
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)  # NEW: Superuser flag for admin panel
     commission_percentage = Column(Numeric(5, 2), default=0.00) # NEW: Commission %
@@ -504,7 +505,7 @@ class CommissionLog(Base):
     __tablename__ = "commission_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=False)
     
     # Legacy/Specific Link
     sale_detail_id = Column(Integer, ForeignKey("sale_details.id"), nullable=True) # Now Nullable for generic support
@@ -763,7 +764,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Nullable for system actions or if user deleted
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Nullable for system actions or if user deleted
     action = Column(String, nullable=False) # CREATE, UPDATE, DELETE, LOGIN
     table_name = Column(String, nullable=False)
     record_id = Column(Integer, nullable=True)
@@ -926,7 +927,7 @@ class ServiceOrder(Base):
     ticket_number = Column(String, unique=True, index=True, nullable=False) # SRV-0001
     
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
-    technician_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Assigned Technician
+    technician_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Assigned Technician
     
     status = Column(Enum(ServiceOrderStatus), default=ServiceOrderStatus.RECEIVED)
     service_type = Column(Enum(ServiceType), default=ServiceType.REPAIR)
@@ -979,7 +980,7 @@ class ServiceOrderDetail(Base):
     unit_price = Column(Numeric(12, 2), nullable=False)
     cost = Column(Numeric(14, 4), default=0.0000)
     
-    technician_id = Column(Integer, ForeignKey("users.id"), nullable=True) # Who performed this specific task?
+    technician_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Who performed this specific task?
     
     created_at = Column(DateTime, default=get_venezuela_now)
 

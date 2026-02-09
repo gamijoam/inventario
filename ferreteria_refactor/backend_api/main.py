@@ -77,7 +77,7 @@ app.add_middleware(
         "http://admin.localhost:5173",
         "http://admin.localhost:8000",
     ],
-    allow_origin_regex=r"https://.*\.miinventariofacil\.com|http://.*\.localhost:(5173|8000)", # Permite subdominios de producción y localhost
+    allow_origin_regex=r"https://.*\.miinventariofacil\.com|http://.*\.localhost:(5173|8000|3000)", # Permite subdominios de producción y localhost
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["x-tenant-id", "Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
