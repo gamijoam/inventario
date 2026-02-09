@@ -50,6 +50,7 @@ from backend_api.models.prueba import PruebaActualizacion
 from backend_api.models.prueba_vps import PruebaVPS
 from backend_api.models.notas import NotasRapidas
 from backend_api.models.tenant import Tenant # Register Tenant model
+from backend_api.models.payment import TenantPayment # Register Payment model
 from sqlalchemy import text # For SET search_path
 
 # this is the Alembic Config object, which provides

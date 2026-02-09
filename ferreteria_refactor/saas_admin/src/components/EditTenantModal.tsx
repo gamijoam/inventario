@@ -14,7 +14,7 @@ interface EditTenantModalProps {
 
 const EditTenantModal: React.FC<EditTenantModalProps> = ({ isOpen, onClose, onSuccess, tenant }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm<UpdateTenantDTO>();
+    const { register, handleSubmit, formState: { errors }, setValue } = useForm<UpdateTenantDTO>();
 
     useEffect(() => {
         if (tenant) {

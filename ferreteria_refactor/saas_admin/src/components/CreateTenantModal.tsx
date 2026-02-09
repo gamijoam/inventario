@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { X, Loader2, Info } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { createTenant } from '../api/tenants';
 import type { CreateTenantDTO } from '../types/tenant';
 import toast from 'react-hot-toast';
@@ -13,7 +13,7 @@ interface CreateTenantModalProps {
 
 const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, onSuccess }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<CreateTenantDTO>();
+    const { register, handleSubmit, formState: { errors } } = useForm<CreateTenantDTO>();
 
     // Subscription Type Logic
     const [planType, setPlanType] = useState('DEMO_15'); // DEMO_15, SUB_3, SUB_6, SUB_12

@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 
 const Login: React.FC = () => {
     const { login, isLoading } = useAuth();
-    const { register, handleSubmit, formState: { errors } } = useForm<LoginCredentials>();
+    const { register, handleSubmit, getValues, formState: { errors } } = useForm<LoginCredentials>();
 
     const onSubmit = async (data: LoginCredentials) => {
         try {

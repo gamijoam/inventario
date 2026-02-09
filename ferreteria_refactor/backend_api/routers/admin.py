@@ -13,7 +13,9 @@ from ..dependencies import get_current_superuser
 from ..models.models import User, UserRole
 from ..models.tenant import Tenant
 from ..models.tenant import Tenant
+from ..models.payment import TenantPayment
 from ..schemas.tenant import TenantOut, TenantCreate, TenantUpdate
+from ..schemas import payment as payment_schema
 from .. import schemas
 from ..security import get_password_hash
 from ..config import settings
@@ -399,6 +401,51 @@ def delete_tenant(
     except Exception as e:
         db.rollback()
         raise HTTPException(500, f"Failed to delete tenant: {str(e)}")
+
+@router.get("/tenants/{tenant_id}/payments", response_model=List[schemas.payment.PaymentOut])
+def list_tenant_payments(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    List history of payments for a tenant
+    """
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    payments = db.query(TenantPayment).filter(TenantPayment.tenant_id == tenant_id).order_by(TenantPayment.created_at.desc()).all()
+    return payments
+
+@router.post("/payments", response_model=schemas.payment.PaymentOut, status_code=status.HTTP_201_CREATED)
+def create_payment(
+    payment_in: schemas.payment.PaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Register a manual payment.
+    Use this to record payments made via Zelle, Cash, etc.
+    """
+    tenant = db.query(Tenant).filter(Tenant.id == payment_in.tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    new_payment = TenantPayment(
+        tenant_id=payment_in.tenant_id,
+        amount=payment_in.amount,
+        currency=payment_in.currency,
+        payment_method=payment_in.payment_method,
+        reference=payment_in.reference,
+        status=payment_in.status,
+        notes=payment_in.notes
+    )
+    db.add(new_payment)
+    db.commit()
+    db.refresh(new_payment)
+    
+    return new_payment
 
 @router.get("/stats")
 def get_system_stats(

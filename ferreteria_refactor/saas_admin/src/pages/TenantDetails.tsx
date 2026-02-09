@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle, DollarSign } from 'lucide-react';
 import { getTenantById, getTenantUsers } from '../api/tenants';
+import { billingApi } from '../api/billing';
 import type { TenantUser } from '../api/tenants';
 import type { Tenant } from '../types/tenant';
+import type { Payment } from '../types/billing';
 import toast from 'react-hot-toast';
 
 import EditTenantModal from '../components/EditTenantModal';
 import CreateUserModal from '../components/CreateUserModal';
 import RenewSubscriptionModal from '../components/RenewSubscriptionModal';
+import RegisterPaymentModal from '../components/RegisterPaymentModal';
 
 const TenantDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -16,12 +19,14 @@ const TenantDetails: React.FC = () => {
 
     const [tenant, setTenant] = useState<Tenant | null>(null);
     const [users, setUsers] = useState<TenantUser[]>([]);
+    const [payments, setPayments] = useState<Payment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'general' | 'users'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'users' | 'payments'>('general');
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
+    const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -32,12 +37,22 @@ const TenantDetails: React.FC = () => {
     const loadData = async (tenantId: number) => {
         try {
             setIsLoading(true);
+            // Load tenant and users first (critical)
             const [tenantData, usersData] = await Promise.all([
                 getTenantById(tenantId),
                 getTenantUsers(tenantId)
             ]);
             setTenant(tenantData);
             setUsers(usersData);
+
+            // Load payments separately (non-critical)
+            try {
+                const paymentsData = await billingApi.getTenantPayments(tenantId);
+                setPayments(paymentsData);
+            } catch (paymentError) {
+                console.warn('Failed to load payments:', paymentError);
+                setPayments([]); // Set empty array if payments fail
+            }
         } catch (error) {
             console.error(error);
             toast.error('Error al cargar información de la empresa');
@@ -119,8 +134,8 @@ const TenantDetails: React.FC = () => {
                     <button
                         onClick={() => setIsRenewModalOpen(true)}
                         className={`flex items-center px-4 py-2 rounded-lg bg-white border shadow-sm text-sm font-medium transition-colors ${isExpired || isNearExpiration
-                                ? 'border-red-300 text-red-700 hover:bg-red-50'
-                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                            ? 'border-red-300 text-red-700 hover:bg-red-50'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                             }`}
                     >
                         {(isExpired || isNearExpiration) && <AlertTriangle className="w-4 h-4 mr-2" />}
@@ -134,6 +149,16 @@ const TenantDetails: React.FC = () => {
                         >
                             <Plus className="w-4 h-4 mr-2" />
                             Nuevo Usuario
+                        </button>
+                    )}
+
+                    {activeTab === 'payments' && (
+                        <button
+                            onClick={() => setIsPaymentModalOpen(true)}
+                            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition-colors"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Registrar Pago
                         </button>
                     )}
                 </div>
@@ -165,8 +190,8 @@ const TenantDetails: React.FC = () => {
                     <button
                         onClick={() => setActiveTab('general')}
                         className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'general'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                             }`}
                     >
                         Vista General
@@ -174,18 +199,27 @@ const TenantDetails: React.FC = () => {
                     <button
                         onClick={() => setActiveTab('users')}
                         className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'users'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                             }`}
                     >
                         Usuarios ({users.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('payments')}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'payments'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                    >
+                        Historial de Pagos
                     </button>
                 </nav>
             </div>
 
             {/* Tab Content */}
             <div className="mt-6">
-                {activeTab === 'general' ? (
+                {activeTab === 'general' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {/* Info Cards */}
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -243,7 +277,9 @@ const TenantDetails: React.FC = () => {
                             <p className="text-gray-600">{new Date(tenant.created_at).toLocaleDateString()}</p>
                         </div>
                     </div>
-                ) : (
+                )}
+
+                {activeTab === 'users' && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
@@ -296,6 +332,76 @@ const TenantDetails: React.FC = () => {
                         </table>
                     </div>
                 )}
+
+                {activeTab === 'payments' && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referencia</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notas</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {payments.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <div className="p-3 bg-gray-100 rounded-full">
+                                                    <DollarSign className="w-6 h-6 text-gray-400" />
+                                                </div>
+                                                <p className="font-medium text-gray-900">No hay pagos registrados</p>
+                                                <p className="text-sm">Registra el primer pago usando el botón superior.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    payments.map((payment) => (
+                                        <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                {new Date(payment.created_at).toLocaleDateString()}
+                                                <span className="text-xs text-gray-400 block">
+                                                    {new Date(payment.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="font-mono text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded">
+                                                    {payment.reference || 'N/A'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="capitalize text-sm text-gray-700">
+                                                    {payment.payment_method}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="font-semibold text-gray-900">
+                                                    {payment.currency === 'USD' ? '$' : 'Bs'} {Number(payment.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                </span>
+                                                <span className="text-xs text-gray-400 ml-1">{payment.currency}</span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === 'completed'
+                                                    ? 'bg-green-50 text-green-700 border border-green-100'
+                                                    : 'bg-yellow-50 text-yellow-700 border border-yellow-100'
+                                                    }`}>
+                                                    {payment.status === 'completed' ? 'Completado' : 'Pendiente'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title={payment.notes || ''}>
+                                                {payment.notes || '-'}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
 
             <EditTenantModal
@@ -318,6 +424,13 @@ const TenantDetails: React.FC = () => {
                         onClose={() => setIsRenewModalOpen(false)}
                         onSuccess={() => loadData(tenant.id)}
                         tenant={tenant}
+                    />
+                    <RegisterPaymentModal
+                        isOpen={isPaymentModalOpen}
+                        onClose={() => setIsPaymentModalOpen(false)}
+                        onSuccess={() => loadData(tenant.id)}
+                        tenantId={tenant.id}
+                        currentExpiration={tenant.subscription_expires_at}
                     />
                 </>
             )}

@@ -53,7 +53,16 @@ class TenantMiddleware(BaseHTTPMiddleware):
     def is_valid_domain(self, host: str) -> bool:
         """Check if looking at a real domain (not localhost/ip)"""
         if not host: return False
-        if "localhost" in host: return False
+        
+        # Allow localhost subdomains for local multi-tenant development
+        # Example: prueba9.localhost, demo.localhost
+        if ".localhost" in host and host != "localhost":
+            return True
+            
+        # Block plain localhost (no subdomain)
+        if host == "localhost" or host.startswith("localhost:"):
+            return False
+            
         if host.replace('.', '').isnumeric(): return False # IP Check
         return True
 

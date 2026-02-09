@@ -67,9 +67,17 @@ app.add_middleware(
         "https://admin.qa.miinventariofacil.com", # Admin Panel
         "http://localhost:3000",
         "http://localhost:5173",
-        "http://localhost:5174" # Admin Panel Local
+        "http://localhost:5174", # Admin Panel Local
+        "http://localhost:8000",
+        # Local multi-tenant development
+        "http://prueba9.localhost:5173",
+        "http://prueba9.localhost:8000",
+        "http://demo.localhost:5173",
+        "http://demo.localhost:8000",
+        "http://admin.localhost:5173",
+        "http://admin.localhost:8000",
     ],
-    allow_origin_regex=r"https://.*\.miinventariofacil\.com", # Permite todos los subdominios
+    allow_origin_regex=r"https://.*\.miinventariofacil\.com|http://.*\.localhost:(5173|8000)", # Permite subdominios de producción y localhost
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["x-tenant-id", "Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],

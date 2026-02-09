@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, LogOut, Menu } from 'lucide-react';
+import { LayoutDashboard, Building2, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const DashboardLayout: React.FC = () => {
@@ -36,8 +36,8 @@ const DashboardLayout: React.FC = () => {
                                 key={item.name}
                                 to={item.href}
                                 className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 group ${active
-                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+                                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                                     }`}
                             >
                                 <Icon className={`mr-3 h-5 w-5 ${active ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />

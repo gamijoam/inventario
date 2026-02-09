@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Loader2, Calendar } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { updateTenant } from '../api/tenants';
 import toast from 'react-hot-toast';
 import type { Tenant } from '../types/tenant';
