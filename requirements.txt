@@ -50,3 +50,4 @@ python-multipart>=0.0.6
 
 httpx
 sqladmin[full]
+itsdangerous
