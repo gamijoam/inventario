@@ -1,0 +1,328 @@
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle } from 'lucide-react';
+import { getTenantById, getTenantUsers } from '../api/tenants';
+import type { TenantUser } from '../api/tenants';
+import type { Tenant } from '../types/tenant';
+import toast from 'react-hot-toast';
+
+import EditTenantModal from '../components/EditTenantModal';
+import CreateUserModal from '../components/CreateUserModal';
+import RenewSubscriptionModal from '../components/RenewSubscriptionModal';
+
+const TenantDetails: React.FC = () => {
+    const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
+
+    const [tenant, setTenant] = useState<Tenant | null>(null);
+    const [users, setUsers] = useState<TenantUser[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'general' | 'users'>('general');
+
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+    const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
+
+    useEffect(() => {
+        if (id) {
+            loadData(parseInt(id));
+        }
+    }, [id]);
+
+    const loadData = async (tenantId: number) => {
+        try {
+            setIsLoading(true);
+            const [tenantData, usersData] = await Promise.all([
+                getTenantById(tenantId),
+                getTenantUsers(tenantId)
+            ]);
+            setTenant(tenantData);
+            setUsers(usersData);
+        } catch (error) {
+            console.error(error);
+            toast.error('Error al cargar información de la empresa');
+            navigate('/dashboard/tenants');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Calculate days remaining helper
+    const getDaysRemaining = (dateStr: string | null) => {
+        if (!dateStr) return 0;
+        const today = new Date();
+        const expiration = new Date(dateStr);
+        const diffTime = expiration.getTime() - today.getTime();
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+        );
+    }
+
+    if (!tenant) return null;
+
+    const daysRemaining = getDaysRemaining(tenant.subscription_expires_at);
+    const isExpired = daysRemaining < 0;
+    const isNearExpiration = daysRemaining < 5 && daysRemaining >= 0;
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => navigate('/dashboard/tenants')}
+                        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                        <ArrowLeft className="w-6 h-6 text-gray-600" />
+                    </button>
+                    <div>
+                        <div className="flex items-center gap-3">
+                            <h1 className="text-2xl font-bold text-gray-900">{tenant.name}</h1>
+                            <button
+                                onClick={() => setIsEditModalOpen(true)}
+                                className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Editar nombre"
+                            >
+                                <Edit className="w-4 h-4" />
+                            </button>
+
+                            {/* DEMO / PREMIUM BADGE */}
+                            {tenant.is_demo ? (
+                                <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">
+                                    <Clock className="w-3 h-3" />
+                                    MODO DEMO
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                    <Crown className="w-3 h-3" />
+                                    PREMIUM
+                                </span>
+                            )}
+
+                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${tenant.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                }`}>
+                                {tenant.is_active ? 'Activo' : 'Inactivo'}
+                            </span>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">{tenant.domain || 'Sin dominio configurado'}</p>
+                    </div>
+                </div>
+
+                {/* Header Actions */}
+                <div className='flex gap-2'>
+                    <button
+                        onClick={() => setIsRenewModalOpen(true)}
+                        className={`flex items-center px-4 py-2 rounded-lg bg-white border shadow-sm text-sm font-medium transition-colors ${isExpired || isNearExpiration
+                                ? 'border-red-300 text-red-700 hover:bg-red-50'
+                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                    >
+                        {(isExpired || isNearExpiration) && <AlertTriangle className="w-4 h-4 mr-2" />}
+                        {tenant.is_demo ? 'Activar Suscripción' : 'Renovar Suscripción'}
+                    </button>
+
+                    {activeTab === 'users' && (
+                        <button
+                            onClick={() => setIsUserModalOpen(true)}
+                            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition-colors"
+                        >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Nuevo Usuario
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Subscription Alert Card */}
+            {(isExpired || isNearExpiration) && (
+                <div className={`p-4 rounded-lg border ${isExpired ? 'bg-red-50 border-red-200 text-red-800' : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+                    }`}>
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="w-5 h-5" />
+                        <div>
+                            <p className="font-semibold">
+                                {isExpired ? '¡La suscripción ha vencido!' : '¡La suscripción está por vencer!'}
+                            </p>
+                            <p className="text-sm opacity-90">
+                                {isExpired
+                                    ? `Venció hace ${Math.abs(daysRemaining)} días. El inquilino podría perder acceso.`
+                                    : `Quedan solo ${daysRemaining} días de servicio.`}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Tabs */}
+            <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                    <button
+                        onClick={() => setActiveTab('general')}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'general'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                    >
+                        Vista General
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('users')}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'users'
+                                ? 'border-blue-500 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                    >
+                        Usuarios ({users.length})
+                    </button>
+                </nav>
+            </div>
+
+            {/* Tab Content */}
+            <div className="mt-6">
+                {activeTab === 'general' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {/* Info Cards */}
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-blue-50 rounded-lg">
+                                    <Hash className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <h3 className="font-medium text-gray-900">Schema</h3>
+                            </div>
+                            <code className="text-sm bg-gray-100 px-2 py-1 rounded text-gray-600 font-mono">
+                                {tenant.schema_name}
+                            </code>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-purple-50 rounded-lg">
+                                    <Calendar className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <h3 className="font-medium text-gray-900">Vencimiento</h3>
+                            </div>
+                            <p className={`text-lg font-bold ${isExpired ? 'text-red-600' : 'text-gray-800'}`}>
+                                {tenant.subscription_expires_at
+                                    ? new Date(tenant.subscription_expires_at).toLocaleDateString()
+                                    : 'Indefinido'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                                {tenant.subscription_expires_at && (
+                                    isExpired
+                                        ? `Vencido hace ${Math.abs(daysRemaining)} días`
+                                        : `${daysRemaining} días restantes`
+                                )}
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-green-50 rounded-lg">
+                                    <Building className="w-5 h-5 text-green-600" />
+                                </div>
+                                <h3 className="font-medium text-gray-900">Dominio</h3>
+                            </div>
+                            <p className="text-gray-600 truncate" title={tenant.domain || ''}>
+                                {tenant.domain || 'No asignado'}
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-gray-50 rounded-lg">
+                                    <Calendar className="w-5 h-5 text-gray-600" />
+                                </div>
+                                <h3 className="font-medium text-gray-900">Registro</h3>
+                            </div>
+                            <p className="text-gray-600">{new Date(tenant.created_at).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {users.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                                            No hay usuarios registrados en esta empresa.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    users.map((user) => (
+                                        <tr key={user.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <div className="flex items-center">
+                                                    <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold">
+                                                        {user.username.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div className="ml-3">
+                                                        <div className="text-sm font-medium text-gray-900">{user.full_name}</div>
+                                                        <div className="text-xs text-gray-500">@{user.username}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                {user.email || 'No email'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className="px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full border border-blue-100">
+                                                    {user.role}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                                    }`}>
+                                                    {user.is_active ? 'Activo' : 'Inactivo'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            <EditTenantModal
+                isOpen={isEditModalOpen}
+                onClose={() => setIsEditModalOpen(false)}
+                onSuccess={() => tenant && loadData(tenant.id)}
+                tenant={tenant}
+            />
+
+            {tenant && (
+                <>
+                    <CreateUserModal
+                        isOpen={isUserModalOpen}
+                        onClose={() => setIsUserModalOpen(false)}
+                        onSuccess={() => loadData(tenant.id)}
+                        tenantId={tenant.id}
+                    />
+                    <RenewSubscriptionModal
+                        isOpen={isRenewModalOpen}
+                        onClose={() => setIsRenewModalOpen(false)}
+                        onSuccess={() => loadData(tenant.id)}
+                        tenant={tenant}
+                    />
+                </>
+            )}
+        </div>
+    );
+};
+
+export default TenantDetails;

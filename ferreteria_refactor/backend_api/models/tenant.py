@@ -13,6 +13,10 @@ class Tenant(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=get_venezuela_now)
     
+    # Subscription Logic
+    is_demo = Column(Boolean, default=True) # New tenants are Demo by default usually
+    subscription_expires_at = Column(DateTime, nullable=True) # NULL means forever or undefined
+
     # Stores feature flags: {"restaurant": true, "laundry": false}
     config = Column(JSON, default=dict)
 

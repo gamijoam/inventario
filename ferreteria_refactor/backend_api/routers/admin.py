@@ -12,7 +12,9 @@ from ..database.db import get_db, engine
 from ..dependencies import get_current_superuser
 from ..models.models import User, UserRole
 from ..models.tenant import Tenant
+from ..models.tenant import Tenant
 from ..schemas.tenant import TenantOut, TenantCreate, TenantUpdate
+from .. import schemas
 from ..security import get_password_hash
 from ..config import settings
 
@@ -95,7 +97,9 @@ def create_tenant(
             schema_name=schema,
             domain=tenant_in.domain,
             config=tenant_in.config,
-            is_active=True
+            is_active=True,
+            is_demo=tenant_in.is_demo,
+            subscription_expires_at=tenant_in.subscription_expires_at
         )
         db.add(new_tenant)
         db.commit()
@@ -196,6 +200,106 @@ def get_tenant_details(
         # Fallback if validation fails or schema issues
         return tenant
 
+@router.get("/tenants/{tenant_id}/users")
+def get_tenant_users(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    List all users belonging to a specific Tenant.
+    """
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    try:
+        # Query users from the tenant's schema
+        # We manually map columns because we are querying a different schema than the default session might expect
+        # or we can use raw SQL for simplicity in this admin context.
+        sql = text(f'SELECT id, username, email, full_name, role, is_active FROM "{tenant.schema_name}".users')
+        results = db.execute(sql).fetchall()
+        
+        users = []
+        for row in results:
+            users.append({
+                "id": row.id,
+                "username": row.username,
+                "email": row.email,
+                "full_name": row.full_name,
+                "role": row.role,
+                "is_active": row.is_active
+            })
+            
+        return users
+        
+    except Exception as e:
+        print(f"Error fetching tenant users: {e}")
+        raise HTTPException(500, f"Error fetching users: {str(e)}")
+
+@router.post("/tenants/{tenant_id}/users", status_code=status.HTTP_201_CREATED)
+def create_tenant_user(
+    tenant_id: int,
+    user_in: schemas.UserCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Create a new User inside a specific Tenant.
+    """
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    schema = tenant.schema_name
+    
+    try:
+        # Switch to Tenant Schema
+        db.execute(text(f'SET search_path TO "{schema}", public'))
+        
+        # Check if username exists IN THAT SCHEMA
+        existing = db.query(User).filter(User.username == user_in.username).first()
+        if existing:
+            # Revert search path before raising
+            db.execute(text("SET search_path TO public"))
+            raise HTTPException(400, "Username already exists in this tenant")
+            
+        # Create User
+        new_user = User(
+            username=user_in.username,
+            password_hash=get_password_hash(user_in.password),
+            email=user_in.email,
+            full_name=user_in.full_name,
+            role=user_in.role.upper(), # Ensure ENUM compat
+            is_active=True
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        
+        # Reset search path
+        db.execute(text("SET search_path TO public"))
+        
+        return {
+            "id": new_user.id,
+            "username": new_user.username,
+            "email": new_user.email,
+            "role": new_user.role,
+            "is_active": new_user.is_active
+        }
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        db.rollback()
+        # Ensure search path is reset even on error
+        try:
+            db.execute(text("SET search_path TO public"))
+        except:
+            pass
+        print(f"Error creating tenant user: {e}")
+        raise HTTPException(500, f"Failed to create user: {str(e)}")
+
 @router.patch("/tenants/{tenant_id}/status", response_model=TenantOut)
 def toggle_tenant_status(
     tenant_id: int,
@@ -249,6 +353,12 @@ def update_tenant(
 
     if tenant_in.is_active is not None:
         tenant.is_active = tenant_in.is_active
+
+    if tenant_in.is_demo is not None:
+        tenant.is_demo = tenant_in.is_demo
+
+    if tenant_in.subscription_expires_at is not None:
+        tenant.subscription_expires_at = tenant_in.subscription_expires_at
 
     db.commit()
     db.refresh(tenant)

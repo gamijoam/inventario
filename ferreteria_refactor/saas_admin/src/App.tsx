@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Tenants from './pages/Tenants';
+import TenantDetails from './pages/TenantDetails';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -43,6 +44,7 @@ const App = () => {
           }>
             <Route index element={<Dashboard />} />
             <Route path="tenants" element={<Tenants />} />
+            <Route path="tenants/:id" element={<TenantDetails />} />
           </Route>
 
           {/* Redirect root to dashboard (which handles auth) */}

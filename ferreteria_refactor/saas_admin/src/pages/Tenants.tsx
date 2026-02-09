@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getTenants, deleteTenant, updateTenantStatus } from '../api/tenants';
 import type { Tenant } from '../types/tenant';
 import { Plus, Search, Building, Trash2, Edit } from 'lucide-react';
@@ -156,7 +157,9 @@ const Tenants: React.FC = () => {
                                                     {tenant.name.substring(0, 2).toUpperCase()}
                                                 </div>
                                                 <div className="ml-4">
-                                                    <div className="text-sm font-medium text-gray-900">{tenant.name}</div>
+                                                    <Link to={`/dashboard/tenants/${tenant.id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline">
+                                                        {tenant.name}
+                                                    </Link>
                                                     <div className="text-sm text-gray-500">{tenant.domain || 'Sin dominio'}</div>
                                                 </div>
                                             </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Info } from 'lucide-react';
 import { createTenant } from '../api/tenants';
 import type { CreateTenantDTO } from '../types/tenant';
 import toast from 'react-hot-toast';
@@ -13,21 +13,55 @@ interface CreateTenantModalProps {
 
 const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, onSuccess }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const { register, handleSubmit, formState: { errors }, reset } = useForm<CreateTenantDTO>();
+    const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<CreateTenantDTO>();
+
+    // Subscription Type Logic
+    const [planType, setPlanType] = useState('DEMO_15'); // DEMO_15, SUB_3, SUB_6, SUB_12
 
     if (!isOpen) return null;
 
-    const onSubmit = async (data: CreateTenantDTO) => {
+    const onSubmit = async (data: any) => {
         setIsLoading(true);
         try {
-            await createTenant(data);
+            // Calculate Subscription Dates based on selected Plan
+            let isDemo = true;
+            const now = new Date();
+            let expiresAt = new Date();
+
+            switch (planType) {
+                case 'DEMO_15':
+                    isDemo = true;
+                    expiresAt.setDate(now.getDate() + 15);
+                    break;
+                case 'SUB_3':
+                    isDemo = false;
+                    expiresAt.setMonth(now.getMonth() + 3);
+                    break;
+                case 'SUB_6':
+                    isDemo = false;
+                    expiresAt.setMonth(now.getMonth() + 6);
+                    break;
+                case 'SUB_12':
+                    isDemo = false;
+                    expiresAt.setFullYear(now.getFullYear() + 1);
+                    break;
+            }
+
+            const payload: CreateTenantDTO = {
+                ...data,
+                // Ensure schema name is lowercase/safe
+                schema_name: data.schema_name.toLowerCase().replace(/[^a-z0-9]/g, ''),
+                is_demo: isDemo,
+                subscription_expires_at: expiresAt.toISOString()
+            };
+
+            await createTenant(payload);
             toast.success('Empresa creada exitosamente');
-            reset();
             onSuccess();
             onClose();
         } catch (error: any) {
             console.error(error);
-            const msg = error.response?.data?.detail || 'Error al crear la empresa';
+            const msg = error.response?.data?.detail || 'Error al crear empresa';
             toast.error(msg);
         } finally {
             setIsLoading(false);
@@ -36,7 +70,7 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
@@ -50,86 +84,104 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
                 </div>
 
                 {/* Body */}
-                <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit(onSubmit)} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                    {/* Nombre Empresa */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de la Empresa</label>
-                        <input
-                            {...register('name', { required: 'El nombre es obligatorio' })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                            placeholder="Ej: Ferretería El Clavo"
-                        />
-                        {errors.name && <span className="text-xs text-red-500">{errors.name.message}</span>}
-                    </div>
+                    {/* Left Column: Basic Info */}
+                    <div className="space-y-4">
+                        <h4 className="font-medium text-gray-900 border-b pb-1">Datos Generales</h4>
 
-                    {/* Schema (Technical Name) */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Esquema (DB)</label>
-                        <input
-                            {...register('schema_name', {
-                                required: 'El esquema es obligatorio',
-                                pattern: {
-                                    value: /^[a-z0-9_]+$/,
-                                    message: 'Solo minúsculas, números y guiones bajos (sin espacios)'
-                                }
-                            })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-mono text-sm"
-                            placeholder="Ej: ferreteria_juan"
-                        />
-                        {errors.schema_name && <span className="text-xs text-red-500">{errors.schema_name.message}</span>}
-                        <p className="text-xs text-gray-400 mt-1">Este será el identificador interno de la base de datos.</p>
-                    </div>
-
-                    {/* Domain */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Dominio Personalizado (Opcional)</label>
-                        <input
-                            {...register('domain')}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                            placeholder="Ej: https://juan.mitool.com"
-                        />
-                    </div>
-
-                    <div className="border-t border-gray-100 my-4 pt-4">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3">Cuenta de Administrador</h4>
-
-                        {/* Admin Email */}
-                        <div className="mb-3">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Comercial</label>
                             <input
-                                {...register('admin_email', {
-                                    required: 'El correo es obligatorio',
+                                {...register('name', { required: 'El nombre es obligatorio' })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                placeholder="Ej: Ferretería El Clavo"
+                            />
+                            {errors.name && <span className="text-xs text-red-500">{errors.name.message}</span>}
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Identificador (Schema)</label>
+                            <input
+                                {...register('schema_name', {
+                                    required: 'El identificador es obligatorio',
                                     pattern: {
-                                        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                                        message: "Correo inválido"
+                                        value: /^[a-z0-9]+$/,
+                                        message: 'Solo letras minúsculas y números'
                                     }
                                 })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-sm"
+                                placeholder="ej: ferreteria01"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">Identificador único de base de datos. No se puede cambiar.</p>
+                            {errors.schema_name && <span className="text-xs text-red-500">{errors.schema_name.message}</span>}
+                        </div>
+
+                        {/* Domain */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Dominio (Opcional)</label>
+                            <input
+                                {...register('domain')}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                placeholder="Ej: https://tutienda.com"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Right Column: Admin & Plan */}
+                    <div className="space-y-4">
+                        <h4 className="font-medium text-gray-900 border-b pb-1">Administrador Inicial</h4>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email Admin</label>
+                            <input
                                 type="email"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                                {...register('admin_email', { required: 'El email es obligatorio' })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                                 placeholder="admin@empresa.com"
                             />
                             {errors.admin_email && <span className="text-xs text-red-500">{errors.admin_email.message}</span>}
                         </div>
 
-                        {/* Admin Password */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña Inicial</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña Admin</label>
                             <input
+                                type="password"
                                 {...register('admin_password', {
                                     required: 'La contraseña es obligatoria',
                                     minLength: { value: 6, message: 'Mínimo 6 caracteres' }
                                 })}
-                                type="password"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                placeholder="••••••••"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                placeholder="******"
                             />
                             {errors.admin_password && <span className="text-xs text-red-500">{errors.admin_password.message}</span>}
+                        </div>
+
+                        <div className="pt-2">
+                            <h4 className="font-medium text-gray-900 border-b pb-1 mb-3">Plan de Suscripción</h4>
+                            <div className="space-y-2">
+                                <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${planType === 'DEMO_15' ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                                    <input type="radio" name="plan" value="DEMO_15" checked={planType === 'DEMO_15'} onChange={(e) => setPlanType(e.target.value)} className="w-4 h-4 text-blue-600" />
+                                    <span className="ml-2 text-sm font-medium text-gray-900">Demo Gratuita (15 Días)</span>
+                                </label>
+                                <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${planType === 'SUB_3' ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                                    <input type="radio" name="plan" value="SUB_3" checked={planType === 'SUB_3'} onChange={(e) => setPlanType(e.target.value)} className="w-4 h-4 text-blue-600" />
+                                    <span className="ml-2 text-sm font-medium text-gray-900">Plan Trimestral</span>
+                                </label>
+                                <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${planType === 'SUB_6' ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                                    <input type="radio" name="plan" value="SUB_6" checked={planType === 'SUB_6'} onChange={(e) => setPlanType(e.target.value)} className="w-4 h-4 text-blue-600" />
+                                    <span className="ml-2 text-sm font-medium text-gray-900">Plan Semestral</span>
+                                </label>
+                                <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${planType === 'SUB_12' ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
+                                    <input type="radio" name="plan" value="SUB_12" checked={planType === 'SUB_12'} onChange={(e) => setPlanType(e.target.value)} className="w-4 h-4 text-blue-600" />
+                                    <span className="ml-2 text-sm font-medium text-gray-900">Plan Anual</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="flex justify-end gap-3 pt-2">
+                    <div className="col-span-1 md:col-span-2 flex justify-end gap-3 pt-4 border-t border-gray-100 mt-2">
                         <button
                             type="button"
                             onClick={onClose}
