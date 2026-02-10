@@ -51,7 +51,7 @@ if "%COMP_CHOICE%"=="5" ( set DO_ADMIN=1 )
 if defined DO_BACK (
     echo.
     echo 🏗️  Construyendo Backend [%TAG%]...
-    docker build -f ./ferreteria_refactor/backend_api/Dockerfile -t %USER%/ferreteria-backend:%TAG% .
+    docker build -f ./ferreteria_refactor/backend_api/Dockerfile -t %USER%/ferreteria-backend:201 .
 )
 
 if defined DO_FRONT (
