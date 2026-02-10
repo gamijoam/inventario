@@ -55,8 +55,8 @@ def run_alembic_upgrade(schema_name: str):
         # env.py reads context.get_x_argument() which comes from config.cmd_opts
         alembic_cfg.cmd_opts = argparse.Namespace(x=[f"tenant={schema_name}"])
         
-        # Run Upgrade
-        command.upgrade(alembic_cfg, "head")
+        # Run Upgrade - STRICTLY target tenant branch
+        command.upgrade(alembic_cfg, "tenant@head")
         print(f"✅ [ADMIN] Schema '{schema_name}' migrated successfully.")
         
     except Exception as e:
@@ -128,16 +128,26 @@ def create_tenant(
             role=UserRole.ADMIN,
             full_name="Administrador Principal",
             is_active=True,
-            is_superuser=True # Tenant Admin is superuser within their tenant? Or just Admin? usually just Admin.
-            # But specific logic might require is_superuser=False for tenant admins.
-            # Let's set is_superuser=False, creating a "Local Admin". 
-            # Real Superusers are global.
+            is_superuser=False,
+            tenant_id=new_tenant.id # 🔒 Link user to this tenant 
         )
         db.add(admin_user)
         db.commit()
+
+        # 7. Seed Initial Tenant Data (Currencies, Payment Methods, Warehouse)
+        from ..utils.tenant_seeding import seed_tenant_data
+        # Note: seed_tenant_data handles its own search_path setting/resetting, 
+        # but we are currently in schema context. 
+        # It's safer to let it handle it, but we should make sure we reset before calling it if it expects to start fresh,
+        # OR we just rely on its SET search_path. 
+        # Since we are already in the schema context here in step 6, we should probably finish this block 
+        # or just pass the session.
         
-        # Reset search path to public for safety (though request ends here)
+        # Reset search path to public for safety before calling external util
         db.execute(text("SET search_path TO public"))
+        
+        # Call Seeder
+        seed_tenant_data(db, schema)
         
         return new_tenant
         

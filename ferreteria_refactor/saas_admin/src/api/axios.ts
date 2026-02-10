@@ -1,7 +1,20 @@
 import axios from 'axios';
 
+const getApiUrl = () => {
+    const envUrl = import.meta.env.VITE_API_URL;
+    if (envUrl) return envUrl;
+
+    // Dynamic Localhost Subdomain Handling
+    if (import.meta.env.DEV && window.location.hostname.includes('.localhost')) {
+        // e.g. admin.localhost:5174 -> http://admin.localhost:8000/api/v1
+        return `http://${window.location.hostname.split(':')[0]}:8000/api/v1`;
+    }
+
+    return 'http://localhost:8000/api/v1'; // Default Fallback
+};
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
+    baseURL: getApiUrl(),
     headers: {
         'Content-Type': 'application/json',
     },

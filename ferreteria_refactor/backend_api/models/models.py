@@ -478,6 +478,9 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     pin = Column(String, nullable=True)  # 4-6 digit PIN for discount authorization
     role = Column(Enum(UserRole), default=UserRole.CASHIER)
+    
+    # Tenant Isolation
+    tenant_id = Column(Integer, ForeignKey("public.tenants.id"), nullable=True) # Nullable for Superadmins or initial migration
     full_name = Column(String, nullable=True)
     email = Column(String(255), unique=True, index=True, nullable=False) # Login ID
     is_active = Column(Boolean, default=True)

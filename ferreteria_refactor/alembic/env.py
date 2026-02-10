@@ -90,7 +90,15 @@ def run_migrations_online() -> None:
         # ====================================================================
         # SCHEMA DETECTION: Determine if we're running on public or tenant
         # ====================================================================
-        target_schema = os.getenv("ALEMBIC_SCHEMA", "public")
+        # Priority 1: Check -x tenant=schema argument (from admin script)
+        x_args = context.get_x_argument(as_dictionary=True)
+        tenant_arg = x_args.get("tenant")
+        
+        if tenant_arg:
+            target_schema = tenant_arg
+        else:
+            # Priority 2: Check Environment Variable (from Docker/CI)
+            target_schema = os.getenv("ALEMBIC_SCHEMA", "public")
         
         print(f"\n{'='*60}")
         print(f"[ALEMBIC] Target Schema: {target_schema}")

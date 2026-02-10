@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..database.db import get_db
 from ..models import models
+from ..models.tenant import Tenant
 from ..security import verify_password, create_access_token, get_password_hash
 from ..config import settings
 from .. import schemas
@@ -109,6 +110,7 @@ def fix_password_emergency(email: str = "rodriguezisaac876@gmail.com", db: Sessi
 
 @router.post("/token")
 async def login_for_access_token(
+    request: Request,
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session = Depends(get_db)
@@ -119,17 +121,81 @@ async def login_for_access_token(
     Returns JWT token in JSON (legacy support) AND sets HttpOnly cookie (secure).
     Clients can use either method for authentication.
     """
-    # Allow login by username OR email
-    user = db.query(models.User).filter(
+    # 1. Resolve Tenant from Host
+    host = request.headers.get("host", "").split(":")[0] # Remove port
+    print(f"🔐 [AUTH] Login attempt from host: {host}")
+    
+    current_tenant_id = None
+    
+    # Check if we are on a tenant subdomain
+    # Logic similar to Middleware but simpler (we just need the ID)
+    # Production: subdomain.domain.com
+    # Local: subdomain.localhost
+    
+    tenant_slug = None
+    parts = host.split('.')
+    if "localhost" in host:
+         if len(parts) == 2 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
+             tenant_slug = parts[0]
+    else:
+        # Production logic (simplified)
+         if len(parts) >= 3 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
+             tenant_slug = parts[0]
+             
+    # Custom Domain Check? User mentioned miferreteria3.com
+    # If the host is NOT one of our system domains, treat it as a custom domain
+    system_domains = ["localhost", "miinventariofacil.com"]
+    is_system_domain = any(sys_d in host for sys_d in system_domains)
+    
+    tenant_query = db.query(Tenant)
+    
+    if tenant_slug:
+        print(f"   Detected Tenant Slug: {tenant_slug}")
+        tenant = tenant_query.filter(Tenant.schema_name == tenant_slug).first()
+        if tenant: 
+            current_tenant_id = tenant.id
+            print(f"   ✅ Context: Tenant '{tenant.name}' (ID: {tenant.id})")
+    elif not is_system_domain:
+         # Try finding by domain
+         print(f"   Checking custom domain: {host}")
+         tenant = tenant_query.filter(Tenant.domain == host).first()
+         if tenant:
+             current_tenant_id = tenant.id
+             print(f"   ✅ Context: Tenant '{tenant.name}' (ID: {tenant.id}) via Custom Domain")
+             
+    # 2. User Lookup with Tenant Isolation
+    # GLOBAL ADMIN (admin.localhost) -> Can login anywhere or just admin? 
+    # Let's say Global Admin can login anywhere for now, but regular users must match.
+    
+    query = db.query(models.User).filter(
         (models.User.username == form_data.username) | (models.User.email == form_data.username)
-    ).first()
+    )
+    
+    user = query.first()
+    
     if not user:
-        # Generic error for security
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+        
+    # 3. Enforce Isolation
+    if user.tenant_id is not None:
+        # This is a TENANT USER
+        if current_tenant_id != user.tenant_id:
+            print(f"⛔ Security Alert: User {user.username} (Tenant {user.tenant_id}) tried to login to Tenant {current_tenant_id}")
+            # Ambiguous error to prevent enumeration/confusion
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password (Tenant Mismatch)",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    else:
+        # This is a GLOBAL USER (Superadmin)
+        # Verify if they are allowed to login to tenant portals?
+        # For now, allow Global Admin to login everywhere to help with support.
+        print(f"⚠️ Global User {user.username} logging in to context {current_tenant_id}")
         
     try:
         if not verify_password(form_data.password, user.password_hash):

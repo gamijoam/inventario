@@ -28,12 +28,17 @@ class TenantMiddleware(BaseHTTPMiddleware):
                 tenant_slug = candidate
         
         # PRODUCTION LOGIC: Subdomain extraction
-        elif self.is_valid_domain(host):
+        if self.is_valid_domain(host):
             # Example: client1.miapp.com -> client1
+            # Example: ferreteria.localhost -> ferreteria
             parts = host.split('.')
             if len(parts) >= 3: # Needs at least subdomain.domain.com
                 subdomain = parts[0]
-                if subdomain not in ["www", "api", "app", "dashboard"]:
+                if subdomain not in ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]:
+                    tenant_slug = subdomain
+            elif len(parts) == 2 and parts[1] == "localhost": # Special case for localhost
+                subdomain = parts[0]
+                if subdomain not in ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]:
                     tenant_slug = subdomain
         
         # 3. Set Context

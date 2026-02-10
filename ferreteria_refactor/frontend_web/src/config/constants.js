@@ -2,20 +2,26 @@ const getApiUrl = () => {
     // 1. Prioritize Environment Variable
     let url = import.meta.env.VITE_API_URL;
 
-    // 2. Fallback for Development
-    if (!url && import.meta.env.DEV) {
-        return 'http://localhost:8000';
+    // 2. Dynamic Localhost Subdomain Handling (Multi-tenant Dev)
+    if (import.meta.env.DEV && window.location.hostname.includes('.localhost')) {
+        // Example: ferreteria.localhost:5173 -> http://ferreteria.localhost:8000/api/v1
+        const subdomain = window.location.hostname.split('.localhost')[0];
+        // Ensure we don't duplicate protocol or port if already correct
+        return `http://${window.location.hostname.split(':')[0]}:8000/api/v1`;
+        // More robust: use current hostname (with subdomain) but switch port to 8000
     }
 
-    // 3. Fallback for Production (Staging/QA should have the var set)
+    // 3. Fallback for Development (Generic localhost)
+    if (!url && import.meta.env.DEV) {
+        return 'http://localhost:8000/api/v1';
+    }
+
+    // 4. Fallback for Production
     if (!url) {
         url = 'https://api.miinventariofacil.com/api/v1';
     }
 
-    // Cleaning: Ensure no double /api/v1 and no trailing slashes
-    url = url.trim().replace(/\/+$/, ""); // Remove trailing slashes
-
-    return url;
+    return url.trim().replace(/\/+$/, "");
 };
 
 export const API_BASE_URL = getApiUrl();

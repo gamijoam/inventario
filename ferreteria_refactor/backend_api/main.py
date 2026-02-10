@@ -77,7 +77,7 @@ app.add_middleware(
         "http://admin.localhost:5173",
         "http://admin.localhost:8000",
     ],
-    allow_origin_regex=r"https://.*\.miinventariofacil\.com|http://.*\.localhost:(5173|8000|3000)", # Permite subdominios de producción y localhost
+    allow_origin_regex=r"https://.*\.miinventariofacil\.com|http://.*\.localhost:(5173|8000|3000|5174)", # Permite subdominios de producción y localhost
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["x-tenant-id", "Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
@@ -268,8 +268,8 @@ def run_migrations():
         # FORCE script location to absolute path found above
         alembic_cfg.set_main_option("script_location", script_location)
         
-        print("[MIGRATION] 📦 Ejecutando 'alembic upgrade head'...")
-        command.upgrade(alembic_cfg, "head")
+        print("[MIGRATION] 📦 Ejecutando 'alembic upgrade shared@head'...")
+        command.upgrade(alembic_cfg, "shared@head")
         print("[MIGRATION] ✅ Migraciones aplicadas correctamente.")
         
     except Exception as e:
@@ -329,52 +329,52 @@ def startup_event():
     db = SessionLocal()
     try:
         init_admin_user(db)
-        init_exchange_rates(db)
-        init_currencies(db) # Seed default currencies (USD, BS, etc.)
-        init_warehouses(db) # Safe idempotent initialization
+        # init_exchange_rates(db)  <-- Tenant specific, moved to tenant creation
+        # init_currencies(db)      <-- Tenant specific
+        # init_warehouses(db)      <-- Tenant specific
 
         # Initialize Payment Methods
         # Initialize Payment Methods with Better Names
-        print("[DEBUG] Verificando metodos de pago...", flush=True)
-        if db.query(models.PaymentMethod).count() == 0:
-            print("[INFO] Inicializando metodos de pago por defecto...")
-            defaults = [
-                "Efectivo Divisa ($)", 
-                "Efectivo Bolívares (Bs)", 
-                "Punto de Venta (Bs)", 
-                "Pago Móvil (Bs)", 
-                "Zelle / Transferencia ($)",
-                "Crédito",
-                "Biopago (Bs)"
-            ]
-            for name in defaults:
-                db.add(models.PaymentMethod(name=name, is_active=True, is_system=True))
-            db.commit()
-            print("[OK] Metodos de pago creados.")
-        else:
-             # Migración rápida de nombres (Safe Update)
-             try:
-                 # Map Old -> New
-                 replacements = {
-                     "Efectivo": "Efectivo Divisa ($)",
-                     "Punto de Venta": "Punto de Venta (Bs)",
-                     "Pago Movil": "Pago Móvil (Bs)",
-                     "Zelle": "Zelle / Transferencia ($)",
-                     "Transferencia": "Transferencia (Bs)"
-                 }
-                 
-                 for old_name, new_name in replacements.items():
-                     # Check if old exists and new doesn't
-                     old_method = db.query(models.PaymentMethod).filter(models.PaymentMethod.name == old_name).first()
-                     new_method_exists = db.query(models.PaymentMethod).filter(models.PaymentMethod.name == new_name).first()
-                     
-                     if old_method and not new_method_exists:
-                         old_method.name = new_name
-                         print(f"[MIGRATION] Renombrado '{old_name}' -> '{new_name}'")
-                         
-                 db.commit()
-             except Exception as e:
-                 print(f"[WARN] Error en migración de nombres de pago: {e}")
+        # print("[DEBUG] Verificando metodos de pago...", flush=True)
+        # if db.query(models.PaymentMethod).count() == 0:
+        #     print("[INFO] Inicializando metodos de pago por defecto...")
+        #     defaults = [
+        #         "Efectivo Divisa ($)", 
+        #         "Efectivo Bolívares (Bs)", 
+        #         "Punto de Venta (Bs)", 
+        #         "Pago Móvil (Bs)", 
+        #         "Zelle / Transferencia ($)",
+        #         "Crédito",
+        #         "Biopago (Bs)"
+        #     ]
+        #     for name in defaults:
+        #         db.add(models.PaymentMethod(name=name, is_active=True, is_system=True))
+        #     db.commit()
+        #     print("[OK] Metodos de pago creados.")
+        # else:
+        #      # Migración rápida de nombres (Safe Update)
+        #      try:
+        #          # Map Old -> New
+        #          replacements = {
+        #              "Efectivo": "Efectivo Divisa ($)",
+        #              "Punto de Venta": "Punto de Venta (Bs)",
+        #              "Pago Movil": "Pago Móvil (Bs)",
+        #              "Zelle": "Zelle / Transferencia ($)",
+        #              "Transferencia": "Transferencia (Bs)"
+        #          }
+        #          
+        #          for old_name, new_name in replacements.items():
+        #              # Check if old exists and new doesn't
+        #              old_method = db.query(models.PaymentMethod).filter(models.PaymentMethod.name == old_name).first()
+        #              new_method_exists = db.query(models.PaymentMethod).filter(models.PaymentMethod.name == new_name).first()
+        #              
+        #              if old_method and not new_method_exists:
+        #                  old_method.name = new_name
+        #                  print(f"[MIGRATION] Renombrado '{old_name}' -> '{new_name}'")
+        #                  
+        #          db.commit()
+        #      except Exception as e:
+        #          print(f"[WARN] Error en migración de nombres de pago: {e}")
     except Exception as e:
         print(f"[WARN] Nota de Inicializacion: {e}")
     finally:
