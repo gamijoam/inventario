@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, LogOut, Megaphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const DashboardLayout: React.FC = () => {
@@ -10,6 +10,7 @@ const DashboardLayout: React.FC = () => {
     const navigation = [
         { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
         { name: 'Empresas', href: '/dashboard/tenants', icon: Building2 },
+        { name: 'Mensajes', href: '/dashboard/messages', icon: Megaphone },
     ];
 
     const isActive = (path: string) => {

@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
+import GlobalBanner from '../components/common/GlobalBanner';
 import { cn } from '../utils/cn';
 
 export default function DashboardLayout() {
@@ -63,6 +64,7 @@ export default function DashboardLayout() {
                     isSidebarCollapsed ? "md:ml-20" : "md:ml-64"
                 )}
             >
+                <GlobalBanner />
                 <Header />
 
                 <main className="flex-1 p-6 md:p-8 overflow-y-auto overflow-x-hidden">

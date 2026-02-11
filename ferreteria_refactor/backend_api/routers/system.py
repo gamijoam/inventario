@@ -12,7 +12,6 @@ import uuid
 
 
 router = APIRouter(
-    prefix="/license",
     tags=["system"]
 )
 
@@ -36,7 +35,7 @@ class LicenseStatusResponse(BaseModel):
     error: str = None
 
 
-@router.get("/machine-id")
+@router.get("/license/machine-id")
 def get_machine_hardware_id():
     """
     Obtiene el ID de hardware de la máquina actual.
@@ -49,7 +48,7 @@ def get_machine_hardware_id():
     }
 
 
-@router.get("/status", response_model=LicenseStatusResponse)
+@router.get("/license/status", response_model=LicenseStatusResponse)
 def get_license_status():
     """
     Obtiene el estado actual de la licencia.
@@ -111,7 +110,7 @@ def get_license_status():
         )
 
 
-@router.post("/activate")
+@router.post("/license/activate")
 def activate_license(request: LicenseActivationRequest):
     """
     Activa una nueva licencia.
@@ -192,3 +191,48 @@ def activate_license(request: LicenseActivationRequest):
         "days_remaining": days_remaining,
         "hardware_locked": license_type == "FULL" and "hw_id" in payload
     }
+
+
+# --- System Messages (Public/Auth) ---
+
+from ..models.system_messages import SystemMessage, MessageLevel
+from ..schemas.system_messages import SystemMessageResponse
+from typing import List
+from sqlalchemy import or_, desc, case
+from ..database.db import get_db
+from sqlalchemy.orm import Session
+from fastapi import Depends
+from ..utils.time_utils import get_venezuela_now
+
+@router.get("/system/messages/active", response_model=List[SystemMessageResponse])
+def get_active_system_messages(
+    db: Session = Depends(get_db)
+):
+    """
+    Get all currently ACTIVE system messages for the global banner.
+    Path: /api/v1/system/messages/active
+    Filter: is_active=True AND starts_at <= Now AND (expires_at > Now OR expires_at is None)
+    """
+    now = get_venezuela_now()
+    
+    # Sort Priority: Critical > Warning > Info
+    priority_case = case(
+        (SystemMessage.level == MessageLevel.CRITICAL, 1),
+        (SystemMessage.level == MessageLevel.WARNING, 2),
+        (SystemMessage.level == MessageLevel.INFO, 3),
+        else_=4
+    )
+
+    messages = db.query(SystemMessage).filter(
+        SystemMessage.is_active == True,
+        or_(
+            SystemMessage.starts_at <= now,
+            SystemMessage.starts_at == None
+        ),
+        or_(
+            SystemMessage.expires_at > now,
+            SystemMessage.expires_at == None
+        )
+    ).order_by(priority_case, SystemMessage.starts_at.desc()).all()
+    
+    return messages

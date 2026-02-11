@@ -7,6 +7,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import DashboardHome from './pages/DashboardHome';
 import Tenants from './pages/Tenants';
 import TenantDetails from './pages/TenantDetails';
+import SystemMessages from './pages/SystemMessages';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: ReactElement }) => {
@@ -45,6 +46,7 @@ const App = () => {
             <Route index element={<DashboardHome />} />
             <Route path="tenants" element={<Tenants />} />
             <Route path="tenants/:id" element={<TenantDetails />} />
+            <Route path="messages" element={<SystemMessages />} />
           </Route>
 
           {/* Redirect root to dashboard (which handles auth) */}

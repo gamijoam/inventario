@@ -32,6 +32,7 @@ from backend_api.models.prueba_vps import PruebaVPS
 from backend_api.models.notas import NotasRapidas
 from backend_api.models.tenant import Tenant
 from backend_api.models.payment import TenantPayment
+from backend_api.models.system_messages import SystemMessage
 
 # Alembic Config
 config = context.config
@@ -49,6 +50,7 @@ SHARED_TABLES = {
     "users",
     "tenants", 
     "tenant_payments",
+    "system_messages",
     "alembic_version"  # Version tracking
 }
 

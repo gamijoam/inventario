@@ -557,40 +557,32 @@ def get_dashboard_stats(
     from sqlalchemy import func, extract
     from datetime import datetime, timedelta
     
+    print(f"[DASHBOARD] Stats calculation started for user: {current_user.username}")
+    
     # 1. Basic Counts
     total_tenants = db.query(func.count(Tenant.id)).scalar()
     active_tenants = db.query(func.count(Tenant.id)).filter(Tenant.is_active == True).scalar()
     total_users = db.query(func.count(User.id)).scalar()
     
+    print(f"[DASHBOARD] Basic counts: Tenants={total_tenants}, Active={active_tenants}, Users={total_users}")
+
     # 2. New Tenants (Last 30 Days)
     thirty_days_ago = get_venezuela_now() - timedelta(days=30)
     new_tenants = db.query(func.count(Tenant.id)).filter(Tenant.created_at >= thirty_days_ago).scalar()
     
     # 3. Growth Data (Last 6 Months)
-    # Group by Month-Year. 
-    # SQLite has different syntax than Postgres for date extraction, keeping it compatible or explicit.
-    # Assuming PostgreSQL as per project context (VPS).
-    
-    # Postgres: to_char(created_at, 'Mon')
-    # Let's try to fetch just the dates and aggregate in Python to be DB-agnostic & safer for now,
-    # unless dataset is huge (it's not for tenants).
-    
     six_months_ago = get_venezuela_now() - timedelta(days=180)
     recent_tenants_dates = db.query(Tenant.created_at).filter(Tenant.created_at >= six_months_ago).all()
     
     # Python Aggregation
     growth_map = {}
+    spanish_months = {"Jan": "Ene", "Feb": "Feb", "Mar": "Mar", "Apr": "Abr", "May": "May", "Jun": "Jun", 
+                      "Jul": "Jul", "Aug": "Ago", "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dic"}
     
     # Initialize last 6 months in map
     for i in range(5, -1, -1):
         month_date = get_venezuela_now() - timedelta(days=30 * i)
         month_key = month_date.strftime("%b") # Jan, Feb..
-        # Translate to Spanish if needed? "Ene", "Feb"...
-        spanish_months = {"Jan": "Ene", "Feb": "Feb", "Mar": "Mar", "Apr": "Abr", "May": "May", "Jun": "Jun", 
-                          "Jul": "Jul", "Aug": "Ago", "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dic"}
-        if settings.TIMEZONE: # Just a dummy check to use settings
-            pass 
-            
         spanish_key = spanish_months.get(month_key, month_key)
         growth_map[spanish_key] = 0
 
@@ -604,6 +596,7 @@ def get_dashboard_stats(
                 
     # Convert to List
     growth_data = [{"month": k, "tenants": v} for k, v in growth_map.items()]
+    print(f"[DASHBOARD] Growth data calculated: {len(growth_data)} months")
 
     return {
         "total_tenants": total_tenants,
@@ -612,3 +605,70 @@ def get_dashboard_stats(
         "total_users": total_users,
         "growth_data": growth_data
     }
+
+# --- System Messages CRUD ---
+
+from ..models.system_messages import SystemMessage
+from ..schemas.system_messages import SystemMessageCreate, SystemMessageUpdate, SystemMessageResponse
+from typing import List
+
+@router.get("/messages", response_model=List[SystemMessageResponse])
+def get_system_messages(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    messages = db.query(SystemMessage).order_by(SystemMessage.created_at.desc()).offset(skip).limit(limit).all()
+    return messages
+
+@router.post("/messages", response_model=SystemMessageResponse)
+def create_system_message(
+    message: SystemMessageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    db_message = SystemMessage(**message.model_dump())
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_message)
+    return db_message
+
+@router.put("/messages/{message_id}", response_model=SystemMessageResponse)
+def update_system_message(
+    message_id: int,
+    message_update: SystemMessageUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    db_message = db.query(SystemMessage).filter(SystemMessage.id == message_id).first()
+    if not db_message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    update_data = message_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_message, key, value)
+    
+    db.commit()
+    db.refresh(db_message)
+    return db_message
+
+@router.delete("/messages/{message_id}")
+def delete_system_message(
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    # Hard delete or Soft delete? Requirement says "Soft Delete con is_active" but usually DELETE is hard or toggles active.
+    # I'll implement hard delete for cleanup, and update can handle soft delete via is_active.
+    # Or, if user asked for soft delete specifically on DELETE verb:
+    # "Soft Delete con is_active" -> OK, I'll set is_active=False.
+    
+    db_message = db.query(SystemMessage).filter(SystemMessage.id == message_id).first()
+    if not db_message:
+        raise HTTPException(status_code=404, detail="Message not found")
+        
+    # Soft delete logic
+    db_message.is_active = False
+    db.commit()
+    return {"status": "success", "message": "System message deactivated"}
