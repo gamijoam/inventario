@@ -731,14 +731,27 @@ def init_currencies(db: Session):
 @router.get("/debug/seed")
 def debug_seed_currencies(db: Session = Depends(get_db)):
     """Force seed check and return status"""
-    count_before = db.query(models.Currency).count()
-    init_currencies(db)
-    count_after = db.query(models.Currency).count()
-    # Also return the actual data to see what the API sees
-    data = db.query(models.Currency).all()
-    return {
-        "count_before": count_before,
-        "count_after": count_after,
-        "seeded": count_after > count_before,
-        "data": data
-    }
+    from ..tenant_context import get_tenant_schema
+    
+    schema = get_tenant_schema()
+    if schema == "public" or schema is None:
+        return {
+             "status": "skipped", 
+             "reason": "Cannot seed currencies in public schema. This endpoint is for tenant contexts only."
+        }
+
+    try:
+        count_before = db.query(models.Currency).count()
+        init_currencies(db)
+        count_after = db.query(models.Currency).count()
+        # Also return the actual data to see what the API sees
+        data = db.query(models.Currency).all()
+        return {
+            "count_before": count_before,
+            "count_after": count_after,
+            "seeded": count_after > count_before,
+            "data": data
+        }
+    except Exception as e:
+        print(f"❌ Error in debug_seed: {e}")
+        return {"status": "error", "detail": str(e)}

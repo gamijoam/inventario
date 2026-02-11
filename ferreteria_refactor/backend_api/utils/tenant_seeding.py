@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from ..models.models import Currency, PaymentMethod, Warehouse
+from ..models.models import Currency, PaymentMethod, Warehouse, ExchangeRate
 
 def seed_tenant_data(db: Session, schema: str):
     """
@@ -19,10 +19,21 @@ def seed_tenant_data(db: Session, schema: str):
                 # Base Currency (USD, Anchor = Yes, Rate = 1.00)
                 Currency(name="Dólar Estadounidense", symbol="$", rate=1.00, is_anchor=True, is_active=True),
                 # Secondary Currency (VES, Anchor = No, Rate = 60.00 default)
-                Currency(name="Bolívar Venezolano", symbol="Bs.", rate=60.00, is_anchor=False, is_active=True)
+                Currency(name="Bolívar Venezolano", symbol="Bs.", rate=60.00, is_anchor=False, is_active=True),
+                # New: COP
+                Currency(name="Peso Colombiano", symbol="COP", rate=4200.00, is_anchor=False, is_active=True),
             ]
             db.add_all(currencies)
             print("   ✅ Currencies staged")
+
+        # 2.1 Seed Exchange Rates (CRITICAL for Price Calculation)
+        if db.query(ExchangeRate).count() == 0:
+            rates = [
+                ExchangeRate(name="BCV", currency_code="VES", currency_symbol="Bs", rate=45.00, is_default=True, is_active=True),
+                ExchangeRate(name="Paralelo", currency_code="VES", currency_symbol="Bs", rate=52.00, is_default=False, is_active=True),
+            ]
+            db.add_all(rates)
+            print("   ✅ Exchange Rates staged")
             
         # 3. Seed Payment Methods
         if db.query(PaymentMethod).count() == 0:
@@ -43,7 +54,8 @@ def seed_tenant_data(db: Session, schema: str):
             main_warehouse = Warehouse(
                 name="Tienda Principal",
                 address="Dirección Principal",
-                is_active=True
+                is_active=True,
+                is_main=True # NEW: Mark as Main Warehouse
             )
             db.add(main_warehouse)
             print("   ✅ Default Warehouse staged")

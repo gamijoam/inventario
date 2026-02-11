@@ -39,8 +39,9 @@ class TenantMiddleware(BaseHTTPMiddleware):
                     tenant_slug = subdomain
             elif len(parts) == 2 and parts[1] == "localhost": # Special case for localhost
                 subdomain = parts[0]
-                if subdomain not in ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]:
-                    tenant_slug = subdomain
+                reserved = ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]
+                if subdomain not in reserved and not subdomain.startswith("admin-") and not subdomain.startswith("api-"):
+                     tenant_slug = subdomain
                     
         # Default to public if nothing found
         if not tenant_slug:

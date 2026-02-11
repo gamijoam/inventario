@@ -115,7 +115,7 @@ const POSCatalog = ({
                                                 isLowStock ? "bg-rose-500 text-white hover:bg-rose-600" : "bg-white/90 text-slate-700 hover:bg-white"
                                             )}
                                         >
-                                            {stock} {stock === 1 ? 'ud' : 'uds'}
+                                            {Number(stock)} {stock === 1 ? 'Unid.' : 'Unids.'}
                                         </Badge>
 
                                         {/* Image Area (Square) */}

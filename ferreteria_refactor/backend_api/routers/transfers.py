@@ -48,7 +48,7 @@ def create_transfer(transfer_data: schemas.InventoryTransferCreate, db: Session 
             product = db.query(models.Product).get(item.product_id)
             raise HTTPException(
                 status_code=400, 
-                detail=f"Insufficient stock for product '{product.name}'. Available: {current_qty}, Requested: {item.quantity}"
+                detail=f"Stock insuficiente para el producto '{product.name}'. Disponible: {current_qty}, Solicitado: {item.quantity}"
             )
 
     # 3. Create Transfer Record

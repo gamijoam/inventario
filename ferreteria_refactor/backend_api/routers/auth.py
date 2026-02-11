@@ -125,6 +125,11 @@ async def login_for_access_token(
     # Priority: X-Tenant-ID -> Subdomain Parsing
     # We must match the logic used by TenantMiddleware to ensure consistency
     
+    # Always extract host first, as it is needed for system domain checks later
+    host = request.headers.get("host", "").split(":")[0] # Remove port
+    print(f"🔐 [AUTH] Login attempt from host: {host}")
+    
+    current_tenant_id = None
     tenant_slug = None
     
     # PRIORITY 1: Explicit Header (e.g. from axios interceptor)
@@ -138,8 +143,7 @@ async def login_for_access_token(
 
     # PRIORITY 2: Subdomain Parsing (Fallback)
     if not tenant_slug:
-        host = request.headers.get("host", "").split(":")[0] # Remove port
-        print(f"🔐 [AUTH] Login attempt from host: {host}")
+        # Host is already defined above
         
         parts = host.split('.')
         if "localhost" in host:
@@ -147,7 +151,8 @@ async def login_for_access_token(
                  tenant_slug = parts[0]
         else:
             # Production logic (simplified)
-             if len(parts) >= 3 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
+             reserved = ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]
+             if len(parts) >= 3 and parts[0] not in reserved and not parts[0].startswith("admin-") and not parts[0].startswith("api-"):
                  tenant_slug = parts[0]
              
     # Custom Domain Check? User mentioned miferreteria3.com

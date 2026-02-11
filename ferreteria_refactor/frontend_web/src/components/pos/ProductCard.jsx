@@ -91,7 +91,7 @@ const ProductCard = ({
                     </span>
                     {!isLowStock && (
                         <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                            Stock: {Number(currentStock).toFixed(0)}
+                            Stock: {Number(currentStock).toFixed(0)} Unid.
                         </span>
                     )}
                 </div>

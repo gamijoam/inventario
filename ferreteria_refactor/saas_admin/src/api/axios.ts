@@ -39,7 +39,13 @@ api.interceptors.request.use(
         if (parts.length >= 3) {
             const subdomain = parts[0];
             const reserved = ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"];
-            if (!reserved.includes(subdomain)) {
+
+            // Enhanced reserved check (starts with admin- or api-)
+            const isReserved = reserved.includes(subdomain) ||
+                subdomain.startsWith('admin-') ||
+                subdomain.startsWith('api-');
+
+            if (!isReserved) {
                 config.headers['X-Tenant-ID'] = subdomain;
             }
         } else if (hostname.includes('.localhost') && !hostname.startsWith('localhost')) {

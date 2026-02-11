@@ -269,7 +269,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
                 {/* Stock Warning */}
                 {quantity * (item.conversion_factor || 1) > item.stock && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg mb-4 text-sm text-center">
-                        ⚠️ Stock insuficiente (Disponible: {item.stock})
+                        ⚠️ Stock insuficiente (Disponible: {Number(item.stock)})
                     </div>
                 )}
 

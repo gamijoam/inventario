@@ -289,7 +289,7 @@ class SalesService:
                              wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
                              raise HTTPException(
                                 status_code=400,
-                                detail=f"Insufficient stock for combo component '{child_product.name}' in '{wh_name}'. Needed: {qty_needed}, Available: {available_qty}"
+                                detail=f"Stock insuficiente para el componente '{child_product.name}' en '{wh_name}'. Se necesita: {qty_needed}, Disponible: {available_qty}"
                             )
                     
                     # All checks passed, now deduct stock from buffer/children
@@ -353,7 +353,7 @@ class SalesService:
                         # Verify quantity match
                         # Serialized items usually behave as Units (factor 1). 
                         if len(item.serial_numbers) != units_to_deduct:
-                             raise HTTPException(status_code=400, detail=f"Quantity mismatch for serialized product '{product.name}'. Expected {int(units_to_deduct)} serials, got {len(item.serial_numbers)}.")
+                             raise HTTPException(status_code=400, detail=f"Discrepancia de cantidad para producto serializado '{product.name}'. Esperado {int(units_to_deduct)}, recibido {len(item.serial_numbers)}.")
 
                         # Fetch and Lock Instances
                         sold_instances = db.query(models.ProductInstance).filter(
@@ -367,7 +367,7 @@ class SalesService:
                         if len(sold_instances) != len(item.serial_numbers):
                             found_sns = {i.serial_number for i in sold_instances}
                             missing = set(item.serial_numbers) - found_sns
-                            raise HTTPException(status_code=400, detail=f"Serial numbers not found or unavailable in this warehouse: {list(missing)}")
+                            raise HTTPException(status_code=400, detail=f"Números de serie no encontrados o no disponibles en este almacén: {list(missing)}")
                             
                         # Update Status to SOLD
                         for instance in sold_instances:
@@ -383,7 +383,7 @@ class SalesService:
 
                     if available_qty < units_to_deduct:
                         wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
-                        raise HTTPException(status_code=400, detail=f"Insufficient stock for product '{product.name}' in warehouse '{wh_name or 'Unknown'}'. Available: {available_qty}")
+                        raise HTTPException(status_code=400, detail=f"Stock insuficiente para el producto '{product.name}' en almacén '{wh_name or 'Desconocido'}'. Disponible: {available_qty}")
                     
                     # Update Stock
                     product_stock.quantity -= units_to_deduct
