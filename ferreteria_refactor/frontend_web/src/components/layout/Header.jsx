@@ -1,15 +1,19 @@
-import { Search, Bell, ShoppingCart, PackageSearch, DollarSign, RefreshCw, User, LogOut, Settings } from 'lucide-react';
+import { Search, Bell, ShoppingCart, PackageSearch, DollarSign, RefreshCw, User, LogOut, Settings, AlertTriangle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { useState } from 'react';
 import ExchangeRateUpdateModal from '../common/ExchangeRateUpdateModal';
+import { cn } from '../../utils/cn';
 
 export default function Header() {
     const { currencies } = useConfig();
     const { user, logout } = useAuth();
+    const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
     const [showRateModal, setShowRateModal] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+    const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
 
     // Find the non-anchor default currency (usually Local Currency)
     const displayCurrency = currencies.find(c => c.is_default && !c.is_anchor) || currencies.find(c => !c.is_anchor);
@@ -67,10 +71,98 @@ export default function Header() {
                 </div>
 
                 {/* Notifications */}
-                <button className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors">
-                    <Bell size={20} />
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-                </button>
+                <div className="relative">
+                    <button
+                        onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
+                        className="relative p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                    >
+                        <Bell size={20} />
+                        {unreadCount > 0 && (
+                            <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 rounded-full border-2 border-white text-[10px] flex items-center justify-center font-bold text-white">
+                                {unreadCount > 9 ? '9+' : unreadCount}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Notification Dropdown Backdrop */}
+                    {isNotificationMenuOpen && (
+                        <div className="fixed inset-0 z-40" onClick={() => setIsNotificationMenuOpen(false)}></div>
+                    )}
+
+                    {/* Notification Dropdown */}
+                    {isNotificationMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-80 max-h-[480px] bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 animate-in fade-in zoom-in-95 duration-100 origin-top-right flex flex-col overflow-hidden">
+                            <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Notificaciones</h3>
+                                {unreadCount > 0 && (
+                                    <button
+                                        onClick={() => markAllAsRead()}
+                                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-tight"
+                                    >
+                                        Marcar todo como leído
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="overflow-y-auto flex-1 overscroll-contain">
+                                {notifications.length === 0 ? (
+                                    <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+                                        <Bell size={32} strokeWidth={1} className="mb-2 opacity-20" />
+                                        <p className="text-xs font-medium">No hay notificaciones</p>
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-slate-50">
+                                        {notifications.map((n) => (
+                                            <div
+                                                key={n.id}
+                                                onClick={() => { markAsRead(n.id); }}
+                                                className={cn(
+                                                    "px-5 py-4 flex gap-4 hover:bg-slate-50 transition-colors cursor-pointer group relative",
+                                                    !n.isRead && "bg-indigo-50/30"
+                                                )}
+                                            >
+                                                {!n.isRead && (
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-600"></div>
+                                                )}
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm",
+                                                    n.level === 'critical' ? 'bg-rose-100 text-rose-600' :
+                                                        n.level === 'warning' ? 'bg-amber-100 text-amber-600' :
+                                                            'bg-indigo-100 text-indigo-600'
+                                                )}>
+                                                    {n.level === 'critical' ? <AlertCircle size={20} /> :
+                                                        n.level === 'warning' ? <AlertTriangle size={20} /> :
+                                                            <Bell size={20} />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                                        <p className={cn("text-xs truncate uppercase font-bold tracking-tight", !n.isRead ? "text-slate-900" : "text-slate-500")}>
+                                                            {n.title}
+                                                        </p>
+                                                        <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                                                            {new Date(n.starts_at || Date.now()).toLocaleDateString([], { day: '2-digit', month: 'short' })}
+                                                        </span>
+                                                    </div>
+                                                    <p className={cn("text-xs leading-relaxed line-clamp-2", !n.isRead ? "text-slate-600" : "text-slate-400")}>
+                                                        {n.content}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {notifications.length > 0 && (
+                                <div className="p-3 border-t border-slate-50 bg-slate-50/30 text-center">
+                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                                        Fin de las notificaciones
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 {/* User Menu */}
                 <div className="relative">

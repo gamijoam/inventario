@@ -626,12 +626,47 @@ def get_system_messages(
 def create_system_message(
     message: SystemMessageCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_superuser)
+    current_user: User = Depends(get_current_superuser),
+    background_tasks: BackgroundTasks = None
 ):
+    from ..websocket.manager import manager
+    from ..websocket.events import WebSocketEvents
+
     db_message = SystemMessage(**message.model_dump())
     db.add(db_message)
     db.commit()
     db.refresh(db_message)
+    
+    # Broadcast in real-time
+    try:
+        # Convert to dict for serialization
+        msg_data = {
+            "id": db_message.id,
+            "title": db_message.title,
+            "content": db_message.content,
+            "level": db_message.level,
+            "starts_at": db_message.starts_at.isoformat() if db_message.starts_at else None,
+            "expires_at": db_message.expires_at.isoformat() if db_message.expires_at else None,
+            "is_active": db_message.is_active
+        }
+        
+        if background_tasks:
+            background_tasks.add_task(manager.broadcast, WebSocketEvents.SYSTEM_NOTIFICATION, msg_data)
+        else:
+            # Fallback for scripts/tests
+            import asyncio
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(manager.broadcast(WebSocketEvents.SYSTEM_NOTIFICATION, msg_data))
+                else:
+                    loop.run_until_complete(manager.broadcast(WebSocketEvents.SYSTEM_NOTIFICATION, msg_data))
+            except Exception:
+                pass
+            
+    except Exception as e:
+        print(f"[WS] Failed to broadcast system message: {e}")
+
     return db_message
 
 @router.put("/messages/{message_id}", response_model=SystemMessageResponse)

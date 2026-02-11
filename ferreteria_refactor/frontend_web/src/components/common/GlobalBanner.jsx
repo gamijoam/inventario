@@ -1,88 +1,113 @@
 import { useState, useEffect } from 'react';
-import { X, Info, AlertTriangle, AlertCircle } from 'lucide-react';
-import apiClient from '../../config/axios';
+import { X, Info, AlertTriangle, AlertCircle, Bell } from 'lucide-react';
+import { cn } from '../../utils/cn';
+import { useNotifications } from '../../context/NotificationContext';
 
 const GlobalBanner = () => {
-    const [message, setMessage] = useState(null);
+    const { notifications } = useNotifications();
+    const [activeNotification, setActiveNotification] = useState(null);
     const [visible, setVisible] = useState(false);
 
     useEffect(() => {
-        const fetchMessages = async () => {
-            try {
-                const response = await apiClient.get('/system/messages/active');
-                if (response.data && response.data.length > 0) {
-                    // Get highest priority message that hasn't been dismissed
-                    const activeMsg = response.data.find(msg => {
-                        const dismissed = localStorage.getItem(`dismissed_msg_${msg.id}`);
-                        return !dismissed;
-                    });
+        // Logic:
+        // 1. If there's a LIVE (real-time) notification that hasn't been dismissed, show it.
+        // 2. If there's a CRITICAL notification that hasn't been dismissed, show it.
 
-                    if (activeMsg) {
-                        setMessage(activeMsg);
-                        setVisible(true);
-                    }
-                }
-            } catch (error) {
-                console.error("Error fetching system messages", error);
-            }
-        };
+        const live = notifications.find(n => n.isLive && !n.isRead && !localStorage.getItem(`dismissed_popup_${n.id}`));
+        if (live) {
+            setActiveNotification(live);
+            setVisible(true);
+            return;
+        }
 
-        fetchMessages();
-    }, []);
+        const critical = notifications.find(n => n.level === 'critical' && !n.isRead && !localStorage.getItem(`dismissed_popup_${n.id}`));
+        if (critical) {
+            setActiveNotification(critical);
+            setVisible(true);
+            return;
+        }
+
+        // If neither, hide
+        if (!live && !critical) {
+            setVisible(false);
+        }
+    }, [notifications]);
 
     const handleDismiss = () => {
-        if (message) {
-            localStorage.setItem(`dismissed_msg_${message.id}`, 'true');
+        if (activeNotification) {
+            localStorage.setItem(`dismissed_popup_${activeNotification.id}`, 'true');
             setVisible(false);
         }
     };
 
-    if (!visible || !message) return null;
+    if (!visible || !activeNotification) return null;
 
     const getStyles = (level) => {
         switch (level) {
             case 'info':
                 return {
-                    bg: 'bg-blue-600',
+                    bg: 'bg-indigo-600/95',
                     icon: <Info className="w-5 h-5 text-white" />
                 };
             case 'warning':
                 return {
-                    bg: 'bg-yellow-500',
+                    bg: 'bg-amber-500/95',
                     icon: <AlertTriangle className="w-5 h-5 text-white" />
                 };
             case 'critical':
                 return {
-                    bg: 'bg-red-600',
+                    bg: 'bg-red-600/95',
                     icon: <AlertCircle className="w-5 h-5 text-white" />
                 };
             default:
                 return {
-                    bg: 'bg-indigo-600',
-                    icon: <Info className="w-5 h-5 text-white" />
+                    bg: 'bg-slate-800/95',
+                    icon: <Bell className="w-5 h-5 text-white" />
                 };
         }
     };
 
-    const styles = getStyles(message.level);
+    const styles = getStyles(activeNotification.level);
 
     return (
-        <div className={`${styles.bg} text-white px-4 py-3 shadow-md relative z-50`}>
-            <div className="container mx-auto flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    {styles.icon}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                        <span className="font-bold">{message.title}:</span>
-                        <span className="text-sm sm:text-base">{message.content}</span>
+        <div className="fixed top-20 right-4 sm:right-8 z-[100] max-w-md w-[calc(100vw-2rem)] animate-in slide-in-from-top-4 duration-500">
+            <div className={cn(
+                "backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex flex-col gap-3",
+                styles.bg,
+                "shadow-[0_20px_50px_rgba(0,0,0,0.3)] text-white overflow-hidden relative"
+            )}>
+                {/* Decorative glow */}
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white/20 rounded-xl">
+                            {styles.icon}
+                        </div>
+                        <h4 className="font-black text-sm tracking-widest uppercase text-white/90">
+                            {activeNotification.title}
+                        </h4>
                     </div>
+                    <button
+                        onClick={handleDismiss}
+                        className="bg-white/10 hover:bg-white/20 transition-all p-1.5 rounded-lg text-white/80 hover:text-white"
+                        aria-label="Cerrar"
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
-                <button
-                    onClick={handleDismiss}
-                    className="text-white/80 hover:text-white transition-colors p-1"
-                    aria-label="Cerrar notificación"
-                >
-                    <X className="w-5 h-5" />
-                </button>
+
+                <div className="pl-12 pr-4">
+                    <p className="text-sm text-white font-medium leading-relaxed">
+                        {activeNotification.content}
+                    </p>
+                </div>
+
+                <div className="mt-1 flex justify-end">
+                    <span className="text-[9px] uppercase font-black tracking-[0.2em] text-white/30">
+                        {activeNotification.isLive ? 'Aviso en Vivo' : 'Importante'}
+                    </span>
+                </div>
             </div>
         </div>
     );

@@ -25,8 +25,6 @@ const SupplierLedger = React.lazy(() => import('./pages/Suppliers/SupplierLedger
 import UnifiedReports from './pages/Reports/UnifiedReports';
 
 // ... existing imports ...
-
-// ... existing imports ...
 import Suppliers from './pages/Suppliers';
 import ReturnsManager from './pages/Returns/ReturnsManager';
 import WarrantyManager from './pages/Returns/WarrantyManager';
@@ -39,9 +37,6 @@ import ExternalTransferOut from './pages/Inventory/Transfers/ExternalTransferOut
 
 import ExternalTransferIn from './pages/Inventory/Transfers/ExternalTransferIn';
 import SerializedReception from './pages/Inventory/SerializedReception';
-
-// ... existing imports
-
 
 import AccountsReceivable from './pages/Credit/AccountsReceivable';
 import AgingReport from './pages/Credit/AgingReport';
@@ -58,6 +53,7 @@ import { CartProvider } from './context/CartContext';
 import { CashProvider } from './context/CashContext';
 import { ConfigProvider } from './context/ConfigContext';
 import { WebSocketProvider } from './context/WebSocketContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { CloudConfigProvider } from './context/CloudConfigContext';
 import { AutoSyncProvider } from './context/AutoSyncContext';
 
@@ -87,269 +83,271 @@ function App() {
         <AppWithCloudConfig>
           <AutoSyncProvider>
             <WebSocketProvider>
-              <ConfigProvider>
-                <CashProvider>
-                  <CartProvider>
-                    <Router>
-                      <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/forgot-password" element={<ForgotPassword />} />
-                        <Route path="/reset-password" element={<ResetPassword />} />
+              <NotificationProvider>
+                <ConfigProvider>
+                  <CashProvider>
+                    <CartProvider>
+                      <Router>
+                        <Routes>
+                          <Route path="/login" element={<Login />} />
+                          <Route path="/forgot-password" element={<ForgotPassword />} />
+                          <Route path="/reset-password" element={<ResetPassword />} />
 
-                        {/* Mobile Waiter Routes */}
-                        <Route path="/mobile/login" element={<WaiterLogin />} />
-                        <Route path="/mobile" element={
-                          <ProtectedRoute>
-                            <MobileWaiterLayout />
-                          </ProtectedRoute>
-                        }>
-                          <Route index element={<Navigate to="tables" replace />} />
-                          <Route path="tables" element={<MobileTableGrid />} />
-                          <Route path="order/:tableId" element={<MobileOrderTaker />} />
-                        </Route>
-
-                        <Route path="/unauthorized" element={<Unauthorized />} />
-
-                        {/* Reports Routes */}
-                        <Route path="/reports/detailed" element={
-                          <ProtectedRoute allowedRoles={['ADMIN']}>
-                            <DetailedReports />
-                          </ProtectedRoute>
-                        } />
-                        <Route path="/reports/unified" element={
-                          <ProtectedRoute allowedRoles={['ADMIN']}>
-                            <UnifiedReports />
-                          </ProtectedRoute>
-                        } />
-
-                        {/* Standalone POS Routes (No Dashboard Layout) */}
-                        <Route element={<ProtectedRoute roles={['ADMIN', 'CASHIER']} />}>
-                          <Route path="/pos" element={<POS />} />
-                          <Route path="/cash-close" element={<CashClose />} />
-                        </Route>
-
-                        {/* Dashboard Layout Routes */}
-                        <Route element={<ProtectedRoute />}>
-                          <Route element={<DashboardLayout />}>
-                            <Route path="/" element={<Dashboard />} />
-
-                            {/* Inventory - ADMIN or WAREHOUSE */}
-                            <Route path="/products" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <Products />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/categories" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <Categories />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/inventory" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <Inventory />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/warehouses" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <WarehouseManager />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/inventory/serialized-reception" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <SerializedReception />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/transfers" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <InventoryTransfers />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/transfers/external/out" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <ExternalTransferOut />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/transfers/external/in" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <ExternalTransferIn />
-                              </ProtectedRoute>
-                            } />
-
-                            {/* Sales - ADMIN or CASHIER */}
-                            <Route path="/sales-history" element={
-                              <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                <SalesHistory />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/cash-history" element={
-                              <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                <CashHistory />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/customers" element={
-                              <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                <CustomerManager />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/quotes" element={
-                              <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                <QuotesManager />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/accounts-receivable" element={
-                              <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                <AccountsReceivable />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/credit/aging" element={
-                              <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                <AgingReport />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/credit/ledger/:clientId" element={
-                              <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                <ClientLedger />
-                              </ProtectedRoute>
-                            } />
-
-                            {/* Purchases - ADMIN or WAREHOUSE */}
-                            <Route path="/purchases" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <Purchases />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/purchases/new" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <CreatePurchase />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/purchases/:id" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <PurchaseDetail />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/suppliers" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <Suppliers />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/accounts-payable" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <AccountsPayable />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/suppliers/:supplierId/ledger" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <SupplierLedger />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/returns" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <ReturnsManager />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/rma/warranty" element={
-                              <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                <WarrantyManager />
-                              </ProtectedRoute>
-                            } />
-
-                            {/* Admin Only */}
-                            <Route path="/settings" element={
-                              <ProtectedRoute roles={['ADMIN']}>
-                                <Settings />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/users" element={
-                              <ProtectedRoute roles={['ADMIN']}>
-                                <UsersManager />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/audit-logs" element={
-                              <ProtectedRoute roles={['ADMIN']}>
-                                <AuditLogs />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/hr/commissions" element={
-                              <ProtectedRoute roles={['ADMIN']}>
-                                <CommissionPayout />
-                              </ProtectedRoute>
-                            } />
-
-                            {/* Restaurant Module - Phase 1 */}
-                            <Route path="/restaurant/tables" element={
-                              <ProtectedRoute>
-                                <TableMap />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/restaurant/kitchen" element={
-                              <ProtectedRoute>
-                                <KitchenDisplay />
-                              </ProtectedRoute>
-                            } />
-
-                            {/* Restaurant Management */}
-                            <Route path="/restaurant/menu" element={
-                              <ProtectedRoute roles={['ADMIN']}>
-                                <MenuManager />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/restaurant/recipes" element={
-                              <ProtectedRoute roles={['ADMIN']}>
-                                <RecipeEditor />
-                              </ProtectedRoute>
-                            } />
-
-                            <Route path="/help" element={<Help />} />
-
-                            {/* Service Module Routes */}
-                            <Route path="/services" element={
-                              <ProtectedRoute>
-                                <ServicesDashboard />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/services/list" element={
-                              <ProtectedRoute>
-                                <ServiceList />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/services/reception" element={
-                              <ProtectedRoute>
-                                <Reception />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/services/orders/:id" element={
-                              <ProtectedRoute>
-                                <ServiceManager />
-                              </ProtectedRoute>
-                            } />
-
-                            {/* Laundry Routes - Decoupled */}
-                            <Route path="/laundry" element={
-                              <ProtectedRoute>
-                                <LaundryDashboard />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/laundry/new" element={
-                              <ProtectedRoute>
-                                <LaundryForm />
-                              </ProtectedRoute>
-                            } />
-                            <Route path="/laundry/ticket/:orderId" element={
-                              <ProtectedRoute>
-                                <LaundryTicket />
-                              </ProtectedRoute>
-                            } />
+                          {/* Mobile Waiter Routes */}
+                          <Route path="/mobile/login" element={<WaiterLogin />} />
+                          <Route path="/mobile" element={
+                            <ProtectedRoute>
+                              <MobileWaiterLayout />
+                            </ProtectedRoute>
+                          }>
+                            <Route index element={<Navigate to="tables" replace />} />
+                            <Route path="tables" element={<MobileTableGrid />} />
+                            <Route path="order/:tableId" element={<MobileOrderTaker />} />
                           </Route>
-                        </Route>
 
-                        {/* Catch all - Redirect to Dashboard */}
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                      </Routes>
-                    </Router>
-                  </CartProvider>
-                </CashProvider>
-              </ConfigProvider>
+                          <Route path="/unauthorized" element={<Unauthorized />} />
+
+                          {/* Reports Routes */}
+                          <Route path="/reports/detailed" element={
+                            <ProtectedRoute allowedRoles={['ADMIN']}>
+                              <DetailedReports />
+                            </ProtectedRoute>
+                          } />
+                          <Route path="/reports/unified" element={
+                            <ProtectedRoute allowedRoles={['ADMIN']}>
+                              <UnifiedReports />
+                            </ProtectedRoute>
+                          } />
+
+                          {/* Standalone POS Routes (No Dashboard Layout) */}
+                          <Route element={<ProtectedRoute roles={['ADMIN', 'CASHIER']} />}>
+                            <Route path="/pos" element={<POS />} />
+                            <Route path="/cash-close" element={<CashClose />} />
+                          </Route>
+
+                          {/* Dashboard Layout Routes */}
+                          <Route element={<ProtectedRoute />}>
+                            <Route element={<DashboardLayout />}>
+                              <Route path="/" element={<Dashboard />} />
+
+                              {/* Inventory - ADMIN or WAREHOUSE */}
+                              <Route path="/products" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <Products />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/categories" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <Categories />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/inventory" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <Inventory />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/warehouses" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <WarehouseManager />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/inventory/serialized-reception" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <SerializedReception />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/transfers" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <InventoryTransfers />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/transfers/external/out" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <ExternalTransferOut />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/transfers/external/in" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <ExternalTransferIn />
+                                </ProtectedRoute>
+                              } />
+
+                              {/* Sales - ADMIN or CASHIER */}
+                              <Route path="/sales-history" element={
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                  <SalesHistory />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/cash-history" element={
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                  <CashHistory />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/customers" element={
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                  <CustomerManager />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/quotes" element={
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                  <QuotesManager />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/accounts-receivable" element={
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                  <AccountsReceivable />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/credit/aging" element={
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                  <AgingReport />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/credit/ledger/:clientId" element={
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
+                                  <ClientLedger />
+                                </ProtectedRoute>
+                              } />
+
+                              {/* Purchases - ADMIN or WAREHOUSE */}
+                              <Route path="/purchases" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <Purchases />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/purchases/new" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <CreatePurchase />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/purchases/:id" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <PurchaseDetail />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/suppliers" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <Suppliers />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/accounts-payable" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <AccountsPayable />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/suppliers/:supplierId/ledger" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <SupplierLedger />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/returns" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <ReturnsManager />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/rma/warranty" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <WarrantyManager />
+                                </ProtectedRoute>
+                              } />
+
+                              {/* Admin Only */}
+                              <Route path="/settings" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <Settings />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/users" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <UsersManager />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/audit-logs" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <AuditLogs />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/hr/commissions" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <CommissionPayout />
+                                </ProtectedRoute>
+                              } />
+
+                              {/* Restaurant Module - Phase 1 */}
+                              <Route path="/restaurant/tables" element={
+                                <ProtectedRoute>
+                                  <TableMap />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/restaurant/kitchen" element={
+                                <ProtectedRoute>
+                                  <KitchenDisplay />
+                                </ProtectedRoute>
+                              } />
+
+                              {/* Restaurant Management */}
+                              <Route path="/restaurant/menu" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <MenuManager />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/restaurant/recipes" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <RecipeEditor />
+                                </ProtectedRoute>
+                              } />
+
+                              <Route path="/help" element={<Help />} />
+
+                              {/* Service Module Routes */}
+                              <Route path="/services" element={
+                                <ProtectedRoute>
+                                  <ServicesDashboard />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/services/list" element={
+                                <ProtectedRoute>
+                                  <ServiceList />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/services/reception" element={
+                                <ProtectedRoute>
+                                  <Reception />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/services/orders/:id" element={
+                                <ProtectedRoute>
+                                  <ServiceManager />
+                                </ProtectedRoute>
+                              } />
+
+                              {/* Laundry Routes - Decoupled */}
+                              <Route path="/laundry" element={
+                                <ProtectedRoute>
+                                  <LaundryDashboard />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/laundry/new" element={
+                                <ProtectedRoute>
+                                  <LaundryForm />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/laundry/ticket/:orderId" element={
+                                <ProtectedRoute>
+                                  <LaundryTicket />
+                                </ProtectedRoute>
+                              } />
+                            </Route>
+                          </Route>
+
+                          {/* Catch all - Redirect to Dashboard */}
+                          <Route path="*" element={<Navigate to="/" replace />} />
+                        </Routes>
+                      </Router>
+                    </CartProvider>
+                  </CashProvider>
+                </ConfigProvider>
+              </NotificationProvider>
             </WebSocketProvider>
           </AutoSyncProvider>
         </AppWithCloudConfig>

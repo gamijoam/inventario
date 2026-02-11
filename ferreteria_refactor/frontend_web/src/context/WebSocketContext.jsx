@@ -24,21 +24,31 @@ export const WebSocketProvider = ({ children }) => {
             try { ws.current.close(); } catch (e) { }
         }
 
-        // --- CONFIGURACIÓN AGNÓSTICA AL DOMINIO ---
-        // En desarrollo: usa localhost:8001
-        // En producción: usa el dominio actual con protocolo correcto
-
+        // En desarrollo local (localhost): usa 127.0.0.1:8000
+        // En producción: usa el API_BASE_URL configurado
         const isDev = import.meta.env.DEV;
         let wsUrl;
 
-        if (isDev) {
-            // Desarrollo: backend en localhost:8000 (Usar 127.0.0.1 evita problemas de resolución IPv4/IPv6 en Windows)
+        if (isDev && window.location.hostname === 'localhost') {
             wsUrl = 'ws://127.0.0.1:8000/api/v1/ws';
         } else {
-            // Producción: construir URL dinámicamente
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.host; // Obtiene 'demo3.invensoft.lat' o el dominio actual
-            wsUrl = `${protocol}//${host}/api/v1/ws`;
+            // Obtener la URL base de la configuración (ej: https://api.miinventariofacil.com/api/v1)
+            // Y convertirla a ws/wss
+            const apiBase = apiClient.defaults.baseURL || '';
+            const wsProtocol = apiBase.startsWith('https') ? 'wss:' : 'ws:';
+
+            // Reemplazar http/https por ws/wss y asegurar que termina en /ws
+            let cleanBase = apiBase
+                .replace(/^https?:\/\//, '')
+                .replace(/\/+$/, '');
+
+            // Si la base ya incluye /api/v1, solo añadimos /ws
+            // Si no, lo construimos completo
+            if (cleanBase.includes('/api/v1')) {
+                wsUrl = `${wsProtocol}//${cleanBase}/ws`;
+            } else {
+                wsUrl = `${wsProtocol}//${cleanBase}/api/v1/ws`;
+            }
         }
 
         try {
