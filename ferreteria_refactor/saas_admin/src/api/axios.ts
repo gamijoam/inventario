@@ -27,6 +27,26 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // GLOBAL FIX: Inject Tenant ID from Subdomain
+        // This ensures the API knows which tenant context to use,
+        // even if the API domain is different (e.g. api-qa vs elsol.qa)
+        const hostname = window.location.hostname;
+        const parts = hostname.split('.');
+
+        // Basic check to avoid sending it on localhost main or public domains
+        // Ex: elsol.qa.miinventariofacil.com -> parts[0] = elsol
+        if (parts.length >= 3) {
+            const subdomain = parts[0];
+            const reserved = ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"];
+            if (!reserved.includes(subdomain)) {
+                config.headers['X-Tenant-ID'] = subdomain;
+            }
+        } else if (hostname.includes('.localhost') && !hostname.startsWith('localhost')) {
+            // Localhost support: tenant.localhost
+            config.headers['X-Tenant-ID'] = parts[0];
+        }
+
         return config;
     },
     (error) => {

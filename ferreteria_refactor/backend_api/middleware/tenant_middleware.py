@@ -18,17 +18,18 @@ class TenantMiddleware(BaseHTTPMiddleware):
         # Priority: X-Forwarded-Host (from Traefik/Nginx) -> Host Header
         host = request.headers.get("x-forwarded-host", request.headers.get("host", "")).split(":")[0]
         
-        # 2. Extract Tenant Slug
-        tenant_slug = "public"
         
-        # DEBUG/DEV OVERRIDE: Allow explicit header for easy testing
+        # 2. Extract Tenant Slug
+        tenant_slug = None
+        
+        # PRIORITY 1: Explicit Header (e.g. from axios interceptor or internal services)
         if "x-tenant-id" in request.headers:
             candidate = request.headers.get("x-tenant-id")
             if self.is_safe_schema(candidate):
                 tenant_slug = candidate
         
-        # PRODUCTION LOGIC: Subdomain extraction
-        if self.is_valid_domain(host):
+        # PRIORITY 2: Subdomain extraction (fallback if no header)
+        if not tenant_slug and self.is_valid_domain(host):
             # Example: client1.miapp.com -> client1
             # Example: ferreteria.localhost -> ferreteria
             parts = host.split('.')
@@ -40,6 +41,10 @@ class TenantMiddleware(BaseHTTPMiddleware):
                 subdomain = parts[0]
                 if subdomain not in ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]:
                     tenant_slug = subdomain
+                    
+        # Default to public if nothing found
+        if not tenant_slug:
+            tenant_slug = "public"
         
         # 3. Set Context
         # Ensure it's safe (lowercase, sanitary)
