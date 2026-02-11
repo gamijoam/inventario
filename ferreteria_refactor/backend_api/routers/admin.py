@@ -153,9 +153,9 @@ def list_tenants(
         for tenant in tenants:
             user_count = 0
             try:
-                # Count users in specific schema
-                sql = text(f'SELECT COUNT(*) FROM "{tenant.schema_name}".users')
-                user_count = db.execute(sql).scalar() or 0
+                # Count users in public.users linked to this tenant
+                sql = text('SELECT COUNT(*) FROM public.users WHERE tenant_id = :t_id')
+                user_count = db.execute(sql, {"t_id": tenant.id}).scalar() or 0
             except Exception:
                 pass
             
@@ -182,8 +182,8 @@ def get_tenant_details(
         raise HTTPException(404, "Tenant not found")
         
     try:
-        sql = text(f'SELECT COUNT(*) FROM "{tenant.schema_name}".users')
-        user_count = db.execute(sql).scalar() or 0
+        sql = text('SELECT COUNT(*) FROM public.users WHERE tenant_id = :t_id')
+        user_count = db.execute(sql, {"t_id": tenant.id}).scalar() or 0
         
         t_out = TenantOut.model_validate(tenant)
         t_out.user_count = user_count
@@ -206,11 +206,9 @@ def get_tenant_users(
         raise HTTPException(404, "Tenant not found")
         
     try:
-        # Query users from the tenant's schema
-        # We manually map columns because we are querying a different schema than the default session might expect
-        # or we can use raw SQL for simplicity in this admin context.
-        sql = text(f'SELECT id, username, email, full_name, role, is_active FROM "{tenant.schema_name}".users')
-        results = db.execute(sql).fetchall()
+        # Query users from the public schema filtered by tenant_id
+        sql = text('SELECT id, username, email, full_name, role, is_active FROM public.users WHERE tenant_id = :t_id')
+        results = db.execute(sql, {"t_id": tenant.id}).fetchall()
         
         users = []
         for row in results:
@@ -707,3 +705,22 @@ def delete_system_message(
     db_message.is_active = False
     db.commit()
     return {"status": "success", "message": "System message deactivated"}
+@router.post("/tenants/{tenant_id}/seed")
+def seed_tenant_endpoint(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Inject demo data into a tenant's schema based on their active modules.
+    """
+    from ..services.seeder import seed_tenant_data
+    
+    try:
+        result = seed_tenant_data(db, tenant_id)
+        return result
+    except ValueError as ve:
+        raise HTTPException(404, str(ve))
+    except Exception as e:
+        print(f"🔥 Error seeding tenant {tenant_id}: {e}")
+        raise HTTPException(500, f"Seeding failed: {str(e)}")

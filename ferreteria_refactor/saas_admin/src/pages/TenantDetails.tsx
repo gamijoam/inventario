@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle, DollarSign } from 'lucide-react';
-import { getTenantById, getTenantUsers } from '../api/tenants';
+import { getTenantById, getTenantUsers, seedTenant } from '../api/tenants';
 import { billingApi } from '../api/billing';
 import type { TenantUser } from '../api/tenants';
 import type { Tenant } from '../types/tenant';
@@ -21,6 +21,7 @@ const TenantDetails: React.FC = () => {
     const [users, setUsers] = useState<TenantUser[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isSeeding, setIsSeeding] = useState(false);
     const [activeTab, setActiveTab] = useState<'general' | 'users' | 'payments'>('general');
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -69,6 +70,22 @@ const TenantDetails: React.FC = () => {
         const expiration = new Date(dateStr);
         const diffTime = expiration.getTime() - today.getTime();
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    };
+
+    const handleSeedData = async () => {
+        if (!tenant || !window.confirm('¿Estás seguro de inyectar datos de prueba? Esto creará productos, clientes y ventas reales en este esquema.')) return;
+
+        try {
+            setIsSeeding(true);
+            const result = await seedTenant(tenant.id);
+            toast.success(result.message || 'Datos inyectados correctamente');
+            loadData(tenant.id); // Refresh counts if needed
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.response?.data?.detail || 'Error al inyectar datos');
+        } finally {
+            setIsSeeding(false);
+        }
     };
 
     if (isLoading) {
@@ -130,7 +147,21 @@ const TenantDetails: React.FC = () => {
                 </div>
 
                 {/* Header Actions */}
-                <div className='flex gap-2'>
+                <div className='flex gap-2 flex-wrap'>
+                    <button
+                        onClick={handleSeedData}
+                        disabled={isSeeding}
+                        className="flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                        title="Inyectar datos de prueba coherentes"
+                    >
+                        {isSeeding ? (
+                            <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent animate-spin rounded-full mr-2" />
+                        ) : (
+                            <span className="mr-2">🌱</span>
+                        )}
+                        {isSeeding ? 'Inyectando...' : 'Inyectar Demo'}
+                    </button>
+
                     <button
                         onClick={() => setIsRenewModalOpen(true)}
                         className={`flex items-center px-4 py-2 rounded-lg bg-white border shadow-sm text-sm font-medium transition-colors ${isExpired || isNearExpiration

@@ -54,3 +54,8 @@ export const impersonateTenant = async (id: number): Promise<{ access_token: str
     const response = await api.post<{ access_token: string; tenant_domain: string | null; tenant_schema: string }>(`/admin/tenants/${id}/impersonate`);
     return response.data;
 };
+
+export const seedTenant = async (id: number): Promise<any> => {
+    const response = await api.post(`/admin/tenants/${id}/seed`);
+    return response.data;
+};
