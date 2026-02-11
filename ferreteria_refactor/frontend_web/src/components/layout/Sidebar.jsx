@@ -35,7 +35,8 @@ import {
     Wrench,
     ShieldCheck,
     X,
-    HelpCircle
+    HelpCircle,
+    LifeBuoy
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -290,6 +291,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
             {/* Footer */}
             <div className="p-4 border-t border-slate-100 bg-white">
+                <Link to="/support" className={cn("flex items-center px-3 py-2 rounded-lg text-indigo-500 hover:text-indigo-900 hover:bg-indigo-50 transition-colors w-full mb-1", isCollapsed && "justify-center")}>
+                    <LifeBuoy size={20} />
+                    {!isCollapsed && <span className="ml-3 font-semibold text-sm">Soporte Técnico</span>}
+                </Link>
                 <Link to="/help" className={cn("flex items-center px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors w-full mb-1", isCollapsed && "justify-center")}>
                     <HelpCircle size={20} />
                     {!isCollapsed && <span className="ml-3 font-semibold text-sm">Ayuda</span>}

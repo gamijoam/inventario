@@ -45,6 +45,8 @@ from .routers.price_lists import router as price_lists_router
 from .routers.warehouses import router as warehouses_router
 from .routers.transfers import router as transfers_router
 from .routers.admin import router as admin_router  # NEW: Admin panel
+from .routers.support_client import router as support_client_router
+from .routers.support_admin import router as support_admin_router
 from .audit_utils import log_action
 from .models.models import UserRole
 from .routers.hardware_bridge import router as hardware_bridge_router  # WebSocket router
@@ -189,6 +191,8 @@ v1_router.include_router(rma_router, tags=["Garantías RMA"])
 v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
 v1_router.include_router(cloud_router, tags=["Cloud Configuration"])
 v1_router.include_router(admin_router, tags=["Admin Panel"])  # NEW: Superuser admin endpoints
+v1_router.include_router(support_client_router, tags=["Soporte"])
+v1_router.include_router(support_admin_router, tags=["Admin Soporte"])
 
 
 # Include Public Auth and Restaurant in v1 hierarchy too

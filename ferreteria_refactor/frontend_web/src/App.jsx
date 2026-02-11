@@ -71,6 +71,7 @@ import CommissionPayout from './pages/HumanResources/CommissionPayout'; // NEW: 
 import LaundryDashboard from './pages/Laundry/LaundryDashboard';
 import LaundryForm from './pages/Laundry/LaundryForm';
 import LaundryTicket from './pages/Laundry/components/LaundryTicket';
+import SupportTickets from './pages/SupportTickets';
 
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
@@ -298,6 +299,7 @@ function App() {
                               } />
 
                               <Route path="/help" element={<Help />} />
+                              <Route path="/support" element={<SupportTickets />} />
 
                               {/* Service Module Routes */}
                               <Route path="/services" element={

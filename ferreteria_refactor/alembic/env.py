@@ -33,6 +33,7 @@ from backend_api.models.notas import NotasRapidas
 from backend_api.models.tenant import Tenant
 from backend_api.models.payment import TenantPayment
 from backend_api.models.system_messages import SystemMessage
+from backend_api.models.support import SupportTicket
 
 # Alembic Config
 config = context.config
@@ -51,6 +52,7 @@ SHARED_TABLES = {
     "tenants", 
     "tenant_payments",
     "system_messages",
+    "support_tickets",
     "alembic_version"  # Version tracking
 }
 
