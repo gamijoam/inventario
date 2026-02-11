@@ -12,7 +12,12 @@ const authService = {
             }
         });
         return response.data;
-    }
+    },
+
+    async impersonateLogin(token) {
+        const response = await apiClient.post('/auth/exchange-token', { access_token: token });
+        return response.data;
+    },
 };
 
 export default authService;

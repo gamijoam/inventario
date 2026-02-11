@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, User, LogIn, AlertCircle, Eye, EyeOff, LayoutTemplate, Briefcase } from 'lucide-react';
+import authService from '../services/authService';
+import toast from 'react-hot-toast';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -12,7 +14,7 @@ const Login = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const { login, user, isAuthenticated } = useAuth();
+    const { login, user, isAuthenticated, refreshUser } = useAuth();
     const { business } = useConfig();
     const navigate = useNavigate();
 
@@ -22,6 +24,40 @@ const Login = () => {
             navigate('/');
         }
     }, [isAuthenticated, user, loading]);
+
+    // 🕵️ IMPERSONATION HANDLER
+    useEffect(() => {
+        const handleImpersonation = async () => {
+            const params = new URLSearchParams(window.location.search);
+            const token = params.get('impersonate_token');
+
+            if (token) {
+                console.log("🕵️ Detectado token de impersonación...");
+                setLoading(true);
+                try {
+                    // 1. Exchange Token for HttpOnly Cookie
+                    await authService.impersonateLogin(token);
+
+                    // 2. Refresh User Profile (checks cookie)
+                    await refreshUser();
+
+                    toast.success('Sesión iniciada como Soporte/Admin');
+                    navigate('/');
+
+                } catch (err) {
+                    console.error("Fallo impersonación:", err);
+                    setError('El enlace de acceso es inválido o ha expirado.');
+                    toast.error('Error al iniciar sesión con token de acceso');
+                } finally {
+                    setLoading(false);
+                    // Clear URL params
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            }
+        };
+
+        handleImpersonation();
+    }, []);
 
     // Tenant logic (preserved)
     const hostname = window.location.hostname;

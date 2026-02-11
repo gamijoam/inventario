@@ -24,7 +24,8 @@ from ..models.payment import TenantPayment
 from ..schemas.tenant import TenantOut, TenantCreate, TenantUpdate
 from ..schemas import payment as payment_schema
 from .. import schemas
-from ..security import get_password_hash
+from datetime import timedelta
+from ..security import get_password_hash, create_access_token
 from ..config import settings
 
 router = APIRouter(
@@ -470,3 +471,75 @@ def get_system_stats(
         
     except Exception as e:
         raise HTTPException(500, f"Error calculating stats: {str(e)}")
+
+@router.post("/tenants/{tenant_id}/impersonate")
+def impersonate_tenant(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Generate an access token for the first admin user of the target tenant.
+    Allows Super Admins to log in as that user (Impersonation).
+    """
+    # 1. Fetch Tenant
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+        
+    # 2. Fetch Tenant Admin User
+    # We look for a user in the PUBLIC schema that is linked to this tenant_id
+    # AND has role='admin' or 'owner'.
+    # Note: Users created via seed/provisioning are in the public.users table but linked via tenant_id.
+    
+    target_user = db.query(User).filter(
+        User.tenant_id == tenant_id,
+        User.role == UserRole.ADMIN,
+        User.is_active == True
+    ).first()
+    
+    if not target_user:
+        # Fallback: try finding any user for this tenant if no admin found (unlikely)
+        target_user = db.query(User).filter(
+            User.tenant_id == tenant_id,
+            User.is_active == True
+        ).first()
+        
+    if not target_user:
+        raise HTTPException(404, "No active user found for this tenant to impersonate")
+        
+    # 3. Generate Short-Lived Token
+    expiration = timedelta(minutes=15) # Short lived for security
+    access_token = create_access_token(
+        data={"sub": target_user.username, "role": target_user.role.value, "impersonated_by": current_user.username},
+        expires_delta=expiration
+    )
+    
+    # 4. Construct Redirect URL
+    # If in dev (localhost), use localhost port logic or env var.
+    # If in prod, use tenant domain or wildcard subdomain.
+    
+    # We'll rely on the frontend to construct the full URL if needed, 
+    # OR return a fully qualified URL here based on settings.
+    # For now, let's return the token and let the frontend handle the redirect logic
+    # depending on whether it's a subdomain or custom domain.
+    
+    # Determine base DOMAIN for the tenant
+    if tenant.domain:
+        # Custom domain
+        base_url = f"https://{tenant.domain}"
+    else:
+        # Subdomain approach
+        # Assuming frontend is at app.miinventariofacil.com in prod
+        # or localhost:5173 in dev.
+        # This is tricky because backend doesn't always know frontend URL.
+        # We will return the schema_name/domain info and let frontend decide.
+        base_url = None 
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "target_user": target_user.username,
+        "tenant_domain": tenant.domain,
+        "tenant_schema": tenant.schema_name
+    }

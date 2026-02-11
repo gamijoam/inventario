@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getTenants, deleteTenant, updateTenantStatus, updateTenant } from '../api/tenants';
+import { getTenants, deleteTenant, updateTenantStatus, updateTenant, impersonateTenant } from '../api/tenants';
 import type { Tenant } from '../types/tenant';
-import { Plus, Search, Building, Trash2, Edit, Utensils, Shirt, Zap, ShoppingBag } from 'lucide-react';
+import { Plus, Search, Building, Trash2, Edit, Utensils, Shirt, Zap, ShoppingBag, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import CreateTenantModal from '../components/CreateTenantModal';
 import EditTenantModal from '../components/EditTenantModal';
 import Switch from '../components/ui/Switch';
-import ModuleToggle from '../components/ModuleToggle';
 
 const Tenants: React.FC = () => {
     const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -94,6 +93,60 @@ const Tenants: React.FC = () => {
                 return t;
             }));
             toast.error('Error al actualizar módulo');
+        }
+    };
+
+    const handleImpersonate = async (id: number, tenantName: string) => {
+        const toastId = toast.loading(`Generando acceso para ${tenantName}...`);
+        try {
+            const data = await impersonateTenant(id);
+
+            // Construct URL
+            let targetUrl = '';
+
+            /* 
+               CRITICAL LOGIC FOR URL CONSTRUCTION:
+               We use VITE_API_URL to detect the environment (QA vs PROD) reliably,
+               instead of guessing from the Admin hostname.
+            */
+
+            const protocol = window.location.protocol;
+            const apiUrl = import.meta.env.VITE_API_URL || '';
+
+            // Default Base URL (Production)
+            let baseDomain = 'miinventariofacil.com';
+
+            if (window.location.hostname.includes('localhost')) {
+                // Localhost
+                targetUrl = 'http://localhost:5173/login';
+            } else {
+                // Detect QA based on API URL (set in deploy_images.bat)
+                if (apiUrl.includes('api-qa')) {
+                    baseDomain = 'qa.miinventariofacil.com';
+                }
+
+                if (data.tenant_domain) {
+                    targetUrl = `${protocol}//${data.tenant_domain}/login`;
+                } else {
+                    targetUrl = `${protocol}//${data.tenant_schema}.${baseDomain}/login`;
+                }
+            }
+
+            // Append Token
+            if (!targetUrl.includes('?')) {
+                targetUrl += `?impersonate_token=${data.access_token}`;
+            } else {
+                targetUrl += `&impersonate_token=${data.access_token}`;
+            }
+
+            // Open in new tab
+            window.open(targetUrl, '_blank');
+            toast.success('Acceso generado correctamente', { id: toastId });
+
+        } catch (error: any) {
+            console.error(error);
+            const msg = error.response?.data?.detail || 'Error al generar acceso';
+            toast.error(msg, { id: toastId });
         }
     };
 
@@ -262,6 +315,13 @@ const Tenants: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <div className="flex justify-end gap-2">
+                                                <button
+                                                    onClick={() => handleImpersonate(tenant.id, tenant.name)}
+                                                    className="text-yellow-600 hover:text-yellow-900 p-1 hover:bg-yellow-50 rounded"
+                                                    title="Acceder como Administrador"
+                                                >
+                                                    <Key className="h-4 w-4" />
+                                                </button>
                                                 <button
                                                     onClick={() => openEditModal(tenant)}
                                                     className="text-indigo-600 hover:text-indigo-900 p-1 hover:bg-indigo-50 rounded"

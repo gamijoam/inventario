@@ -83,6 +83,67 @@ async def debug_login(request: Request, db: Session = Depends(get_db)):
     else:
         return {**result, "status": "failed", "reason": "Invalid password"}
 
+
+# 🆕 IMPERSONATION TOKEN EXCHANGE
+@router.post("/exchange-token")
+async def exchange_token(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db)
+):
+    """
+    Exchanges a valid Access Token (via body or query) for a HttpOnly Session Cookie.
+    Used for Impersonation flow.
+    """
+    try:
+        body = await request.json()
+        token = body.get("access_token")
+    except:
+        token = request.query_params.get("token")
+        
+    if not token:
+        raise HTTPException(400, "Token required")
+        
+    # Validate Token
+    from jose import jwt, JWTError
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+             raise HTTPException(401, "Invalid token")
+    except JWTError:
+        raise HTTPException(401, "Invalid token")
+        
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if not user:
+         raise HTTPException(401, "User not found")
+         
+    # Set Cookie
+    # Reuse access_token or create new? Reuse is fine if expiry is enough.
+    # But creating new is cleaner to reset expiry if needed.
+    # Let's simple reuse the provided token or re-issue with standard time.
+    # Re-issuing checks active status implicitly.
+    
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    new_access_token = create_access_token(
+        data={"sub": user.username, "role": user.role.value, "impersonated": True},
+        expires_delta=access_token_expires
+    )
+    
+    response.set_cookie(
+        key="access_token",
+        value=new_access_token,
+        httponly=True,
+        secure=settings.SECURE_COOKIES,
+        samesite="lax", # Lax is better for redirect flows than Strict
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+        domain=None if settings.ENVIRONMENT == "development" else settings.COOKIE_DOMAIN,
+    )
+    
+    return {"status": "success", "user": user.username}
+
+
 # EMERGENCY ENDPOINT
 @router.get("/fix_password_emergency")
 def fix_password_emergency(email: str = "rodriguezisaac876@gmail.com", db: Session = Depends(get_db)):

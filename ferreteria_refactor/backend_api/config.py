@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # Cookies
     COOKIE_DOMAIN: Optional[str] = None
-    SECURE_COOKIES: bool = True
+    SECURE_COOKIES: bool = False # Default to False for dev, should be True in Prod via ENV
     
     # Media Storage
     MEDIA_ROOT: str = "/app/media"

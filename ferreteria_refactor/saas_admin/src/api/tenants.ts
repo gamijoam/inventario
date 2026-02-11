@@ -49,3 +49,8 @@ export const updateTenantStatus = async (id: number, isActive: boolean): Promise
     const response = await api.patch<Tenant>(`/admin/tenants/${id}/status`, { is_active: isActive });
     return response.data;
 };
+
+export const impersonateTenant = async (id: number): Promise<{ access_token: string; tenant_domain: string | null; tenant_schema: string }> => {
+    const response = await api.post<{ access_token: string; tenant_domain: string | null; tenant_schema: string }>(`/admin/tenants/${id}/impersonate`);
+    return response.data;
+};
