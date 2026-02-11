@@ -121,26 +121,34 @@ async def login_for_access_token(
     Returns JWT token in JSON (legacy support) AND sets HttpOnly cookie (secure).
     Clients can use either method for authentication.
     """
-    # 1. Resolve Tenant from Host
-    host = request.headers.get("host", "").split(":")[0] # Remove port
-    print(f"🔐 [AUTH] Login attempt from host: {host}")
-    
-    current_tenant_id = None
-    
-    # Check if we are on a tenant subdomain
-    # Logic similar to Middleware but simpler (we just need the ID)
-    # Production: subdomain.domain.com
-    # Local: subdomain.localhost
+    # 1. Resolve Tenant
+    # Priority: X-Tenant-ID -> Subdomain Parsing
+    # We must match the logic used by TenantMiddleware to ensure consistency
     
     tenant_slug = None
-    parts = host.split('.')
-    if "localhost" in host:
-         if len(parts) == 2 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
-             tenant_slug = parts[0]
-    else:
-        # Production logic (simplified)
-         if len(parts) >= 3 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
-             tenant_slug = parts[0]
+    
+    # PRIORITY 1: Explicit Header (e.g. from axios interceptor)
+    if "x-tenant-id" in request.headers:
+        candidate = request.headers.get("x-tenant-id")
+        # Reuse same regex/validation if possible, or just trust simple alphanumeric
+        import re
+        if re.match(r'^[a-z0-9_-]+$', candidate):
+             tenant_slug = candidate
+             print(f"🔐 [AUTH] Tenant resolved via Header: {tenant_slug}")
+
+    # PRIORITY 2: Subdomain Parsing (Fallback)
+    if not tenant_slug:
+        host = request.headers.get("host", "").split(":")[0] # Remove port
+        print(f"🔐 [AUTH] Login attempt from host: {host}")
+        
+        parts = host.split('.')
+        if "localhost" in host:
+             if len(parts) == 2 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
+                 tenant_slug = parts[0]
+        else:
+            # Production logic (simplified)
+             if len(parts) >= 3 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
+                 tenant_slug = parts[0]
              
     # Custom Domain Check? User mentioned miferreteria3.com
     # If the host is NOT one of our system domains, treat it as a custom domain
