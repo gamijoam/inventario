@@ -11,6 +11,12 @@ export interface Tenant {
     subscription_expires_at: string | null; // ISO Date
     days_remaining?: number; // Calculated helper
     user_count?: number;
+
+    // Module Flags
+    has_restaurant_module: boolean;
+    has_laundry_module: boolean;
+    has_hardware_module: boolean;
+    has_services_module: boolean;
 }
 
 export interface TenantListResponse {
@@ -37,4 +43,10 @@ export interface UpdateTenantDTO {
     config?: Record<string, any>;
     is_demo?: boolean;
     subscription_expires_at?: string | null;
+
+    // Module Flags
+    has_restaurant_module?: boolean;
+    has_laundry_module?: boolean;
+    has_hardware_module?: boolean;
+    has_services_module?: boolean;
 }

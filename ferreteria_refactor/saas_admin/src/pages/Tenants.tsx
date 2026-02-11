@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getTenants, deleteTenant, updateTenantStatus } from '../api/tenants';
+import { getTenants, deleteTenant, updateTenantStatus, updateTenant } from '../api/tenants';
 import type { Tenant } from '../types/tenant';
-import { Plus, Search, Building, Trash2, Edit } from 'lucide-react';
+import { Plus, Search, Building, Trash2, Edit, Utensils, Shirt, Zap, ShoppingBag } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import CreateTenantModal from '../components/CreateTenantModal';
 import EditTenantModal from '../components/EditTenantModal';
 import Switch from '../components/ui/Switch';
+import ModuleToggle from '../components/ModuleToggle';
 
 const Tenants: React.FC = () => {
     const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -66,6 +67,33 @@ const Tenants: React.FC = () => {
             // Revert changes on error
             setTenants(prev => prev.map(t => t.id === id ? { ...t, is_active: currentStatus } : t));
             toast.error('Error al actualizar estado');
+        }
+    };
+
+    const handleModuleToggle = async (id: number, moduleKey: keyof Tenant, newValue: boolean) => {
+        // Optimistic update
+        setTenants(prev => prev.map(t => {
+            if (t.id === id) {
+                return { ...t, [moduleKey]: newValue };
+            }
+            return t;
+        }));
+
+        try {
+            // @ts-ignore - Dynamic key access
+            await updateTenant(id, { [moduleKey]: newValue });
+            toast.success(`Módulo actualizado`);
+        } catch (error) {
+            console.error(error);
+            // Revert
+            setTenants(prev => prev.map(t => {
+                if (t.id === id) {
+                    // @ts-ignore
+                    return { ...t, [moduleKey]: !newValue };
+                }
+                return t;
+            }));
+            toast.error('Error al actualizar módulo');
         }
     };
 
@@ -135,6 +163,9 @@ const Tenants: React.FC = () => {
                                         Esquema DB
                                     </th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Módulos Contratados
+                                    </th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Estado
                                     </th>
                                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -168,6 +199,49 @@ const Tenants: React.FC = () => {
                                             <code className="px-2 py-1 text-xs font-mono bg-gray-100 rounded text-gray-600">
                                                 {tenant.schema_name}
                                             </code>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handleModuleToggle(tenant.id, 'has_hardware_module', !tenant.has_hardware_module)}
+                                                    className={`p-2 rounded-lg transition-all duration-200 border ${tenant.has_hardware_module
+                                                        ? 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100 hover:border-blue-300 shadow-sm'
+                                                        : 'bg-white border-dashed border-gray-300 text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
+                                                    title="Módulo Ferretería / Retail"
+                                                >
+                                                    <ShoppingBag size={18} />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleModuleToggle(tenant.id, 'has_restaurant_module', !tenant.has_restaurant_module)}
+                                                    className={`p-2 rounded-lg transition-all duration-200 border ${tenant.has_restaurant_module
+                                                        ? 'bg-orange-50 border-orange-200 text-orange-600 hover:bg-orange-100 hover:border-orange-300 shadow-sm'
+                                                        : 'bg-white border-dashed border-gray-300 text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
+                                                    title="Módulo Restaurante"
+                                                >
+                                                    <Utensils size={18} />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleModuleToggle(tenant.id, 'has_laundry_module', !tenant.has_laundry_module)}
+                                                    className={`p-2 rounded-lg transition-all duration-200 border ${tenant.has_laundry_module
+                                                        ? 'bg-cyan-50 border-cyan-200 text-cyan-600 hover:bg-cyan-100 hover:border-cyan-300 shadow-sm'
+                                                        : 'bg-white border-dashed border-gray-300 text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
+                                                    title="Módulo Lavandería"
+                                                >
+                                                    <Shirt size={18} />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleModuleToggle(tenant.id, 'has_services_module', !tenant.has_services_module)}
+                                                    className={`p-2 rounded-lg transition-all duration-200 border ${tenant.has_services_module
+                                                        ? 'bg-purple-50 border-purple-200 text-purple-600 hover:bg-purple-100 hover:border-purple-300 shadow-sm'
+                                                        : 'bg-white border-dashed border-gray-300 text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
+                                                    title="Módulo Servicios"
+                                                >
+                                                    <Zap size={18} />
+                                                </button>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">

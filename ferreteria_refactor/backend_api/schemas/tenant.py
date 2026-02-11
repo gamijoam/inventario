@@ -34,6 +34,12 @@ class TenantUpdate(BaseModel):
     is_demo: Optional[bool] = None
     subscription_expires_at: Optional[datetime] = None
 
+    # Module Flags
+    has_restaurant_module: Optional[bool] = None
+    has_laundry_module: Optional[bool] = None
+    has_hardware_module: Optional[bool] = None
+    has_services_module: Optional[bool] = None
+
     @field_validator('domain')
     @classmethod
     def empty_string_to_none(cls, v: Optional[str]) -> Optional[str]:

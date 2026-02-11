@@ -350,6 +350,16 @@ def update_tenant(
     if tenant_in.subscription_expires_at is not None:
         tenant.subscription_expires_at = tenant_in.subscription_expires_at
 
+    # Module Flags Updates
+    if tenant_in.has_restaurant_module is not None:
+        tenant.has_restaurant_module = tenant_in.has_restaurant_module
+    if tenant_in.has_laundry_module is not None:
+        tenant.has_laundry_module = tenant_in.has_laundry_module
+    if tenant_in.has_hardware_module is not None:
+        tenant.has_hardware_module = tenant_in.has_hardware_module
+    if tenant_in.has_services_module is not None:
+        tenant.has_services_module = tenant_in.has_services_module
+
     db.commit()
     db.refresh(tenant)
     return tenant
