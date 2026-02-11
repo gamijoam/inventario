@@ -43,7 +43,7 @@ class TenantUpdate(BaseModel):
 
 class TenantOut(TenantBase):
     id: int
-    created_at: datetime
+    created_at: Optional[datetime] = None
     
     # Module Flags
     has_restaurant_module: bool = False

@@ -22,8 +22,7 @@ def seed_tenant_data(db: Session, schema: str):
                 Currency(name="Bolívar Venezolano", symbol="Bs.", rate=60.00, is_anchor=False, is_active=True)
             ]
             db.add_all(currencies)
-            db.commit()
-            print("   ✅ Currencies seeded")
+            print("   ✅ Currencies staged")
             
         # 3. Seed Payment Methods
         if db.query(PaymentMethod).count() == 0:
@@ -37,8 +36,7 @@ def seed_tenant_data(db: Session, schema: str):
                 PaymentMethod(name="Biopago", is_active=True, requires_reference=False, is_system=True)
             ]
             db.add_all(methods)
-            db.commit()
-            print("   ✅ Payment Methods seeded")
+            print("   ✅ Payment Methods staged")
 
         # 4. Seed Default Warehouse
         if db.query(Warehouse).count() == 0:
@@ -48,8 +46,11 @@ def seed_tenant_data(db: Session, schema: str):
                 is_active=True
             )
             db.add(main_warehouse)
-            db.commit()
-            print("   ✅ Default Warehouse seeded")
+            print("   ✅ Default Warehouse staged")
+            
+        # 5. COMMIT EVERYTHING ONCE
+        db.commit()
+        print("   ✅ ALL Tenant Data Seeded & Committed")
 
     except Exception as e:
         db.rollback()

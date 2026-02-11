@@ -5,13 +5,20 @@ from typing import List, Dict, Any
 import os
 import sys
 import argparse
+import re
 from alembic import command
 from alembic.config import Config
 
-from ..database.db import get_db, engine
+from ..database.db import get_db, engine, Base
 from ..dependencies import get_current_superuser
+# Import ALL models to ensure they are registered in Base.metadata for reflection
+from ..models import models
+from ..models import tenant as tenant_model
+from ..models import payment
+from ..models import restaurant
+from ..models import notas
+
 from ..models.models import User, UserRole
-from ..models.tenant import Tenant
 from ..models.tenant import Tenant
 from ..models.payment import TenantPayment
 from ..schemas.tenant import TenantOut, TenantCreate, TenantUpdate
@@ -26,45 +33,6 @@ router = APIRouter(
     dependencies=[Depends(get_current_superuser)]  # 🔒 SUPERUSER ONLY
 )
 
-def run_alembic_upgrade(schema_name: str):
-    """
-    Programmatically run Alembic migrations for a specific tenant schema.
-    Simulates: alembic -x tenant=schema_name upgrade head
-    """
-    try:
-        # Resolve alembic.ini path
-        # Assuming struct: ferreteria_refactor/backend_api/routers/admin.py
-        # root is: ferreteria_refactor/
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        root_dir = os.path.dirname(os.path.dirname(current_dir)) # backend_api -> ferreteria_refactor
-        alembic_ini_path = os.path.join(root_dir, "alembic.ini")
-        
-        if not os.path.exists(alembic_ini_path):
-             # Fallback: maybe we are in root (Docker)
-             alembic_ini_path = "alembic.ini"
-             
-        print(f"🚀 [ADMIN] Starting migration for schema '{schema_name}' using {alembic_ini_path}")
-        
-        # Create Config object
-        alembic_cfg = Config(alembic_ini_path)
-        
-        # Force the database URL from settings to ensure we use the correct credentials
-        alembic_cfg.set_main_option("sqlalchemy.url", str(settings.DATABASE_URL))
-        
-        # Inject the -x tenant=schema argument
-        # env.py reads context.get_x_argument() which comes from config.cmd_opts
-        alembic_cfg.cmd_opts = argparse.Namespace(x=[f"tenant={schema_name}"])
-        
-        # Run Upgrade - STRICTLY target tenant branch
-        command.upgrade(alembic_cfg, "tenant@head")
-        print(f"✅ [ADMIN] Schema '{schema_name}' migrated successfully.")
-        
-    except Exception as e:
-        print(f"❌ [ADMIN] Migration FAILED for '{schema_name}': {e}")
-        import traceback
-        traceback.print_exc()
-        raise e
-
 @router.post("/tenants", response_model=TenantOut, status_code=status.HTTP_201_CREATED)
 def create_tenant(
     tenant_in: TenantCreate,
@@ -77,13 +45,13 @@ def create_tenant(
     1. Validates schema name.
     2. Creates Tenant record in public.tenants.
     3. Creates PostgreSQL SCHEMA.
-    4. Runs Alembic Migrations to create tables in that schema.
+    4. PROVISION TABLES (Schema Reflection) - No Alembic dependecy.
     5. Creates initial Admin User in the new schema.
     """
     # 1. Validate Schema Name (Security)
     schema = tenant_in.schema_name.lower().strip()
-    if not schema.isalnum() or schema == "public" or schema.startswith("pg_"):
-        raise HTTPException(400, "Invalid schema name. Use strictly lowercase alphanumeric.")
+    if not re.match(r'^[a-z0-9_]+$', schema) or schema == "public" or schema.startswith("pg_"):
+        raise HTTPException(400, "Invalid schema name. Use lowercase alphanumeric and underscores.")
 
     # 2. Check duplicates
     if db.query(Tenant).filter(Tenant.schema_name == schema).first():
@@ -110,12 +78,21 @@ def create_tenant(
         # 4. Create Schema DDL
         print(f"🏗️ Creating schema: {schema}")
         db.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
-        db.commit() # Commit DDL
+        db.commit() 
         
-        # 5. Run Alembic Migrations
-        # We need to run this OUTSIDE the current transaction or handle it carefully
-        # But alembic manages its own headers usually.
-        run_alembic_upgrade(schema)
+        # 5. Schema Reflection (Create Tables)
+        print(f"🏗️ Provisión de tablas via Schema Reflection en {schema}...")
+        
+        # Use a separate connection to avoid messing with current session transaction
+        with engine.connect() as conn:
+            with conn.begin(): # Start transaction
+                # Force search_path to the new schema
+                # This ensures that "schema-less" tables (Product, Sale) are created IN THIS SCHEMA
+                # Tables with explicit schema="public" (User, Tenant) will be ignored by create_all because they exist.
+                conn.execute(text(f'SET search_path TO "{schema}"'))
+                Base.metadata.create_all(conn)
+                
+        print(f"✅ Tablas creadas exitosamente en: {schema}")
         
         # 6. Create Admin User in the NEW Tenant Schema
         # Switch search_path to the new tenant to insert user
@@ -126,7 +103,7 @@ def create_tenant(
             email=tenant_in.admin_email,
             password_hash=get_password_hash(tenant_in.admin_password),
             role=UserRole.ADMIN,
-            full_name="Administrador Principal",
+            full_name=f"Admin {tenant_in.name}",
             is_active=True,
             is_superuser=False,
             tenant_id=new_tenant.id # 🔒 Link user to this tenant 
@@ -136,25 +113,26 @@ def create_tenant(
 
         # 7. Seed Initial Tenant Data (Currencies, Payment Methods, Warehouse)
         from ..utils.tenant_seeding import seed_tenant_data
-        # Note: seed_tenant_data handles its own search_path setting/resetting, 
-        # but we are currently in schema context. 
-        # It's safer to let it handle it, but we should make sure we reset before calling it if it expects to start fresh,
-        # OR we just rely on its SET search_path. 
-        # Since we are already in the schema context here in step 6, we should probably finish this block 
-        # or just pass the session.
         
-        # Reset search path to public for safety before calling external util
-        db.execute(text("SET search_path TO public"))
+        # 7. Seed Initial Tenant Data (Currencies, Payment Methods, Warehouse)
+        from ..utils.tenant_seeding import seed_tenant_data
+        from ..database.db import SessionLocal
         
-        # Call Seeder
-        seed_tenant_data(db, schema)
+        # Use a FRESH session for seeding to avoid any transaction/search_path conflicts
+        # with the main request session (which might be reset by middleware or dependencies)
+        seed_db = SessionLocal()
+        try:
+            seed_tenant_data(seed_db, schema)
+        finally:
+            seed_db.close()
+            
+        print(f"✅ Seeding completed for {schema}")
         
         return new_tenant
         
     except Exception as e:
         db.rollback()
         # In a real production system, you might want to 'DROP SCHEMA' if migration failed 
-        # to ensure atomicity, but for diagnosis we leave it or log it.
         print(f"🔥 Error creating tenant: {e}")
         raise HTTPException(500, f"Failed to create tenant: {str(e)}")
 
@@ -397,7 +375,14 @@ def delete_tenant(
     schema_name = tenant.schema_name
     
     try:
-        # 1. Delete DB Record
+        # 1. CASCADE DELETE: Remove dependent records from PUBLIC schema first
+        # Users linked to this tenant
+        db.query(User).filter(User.tenant_id == tenant_id).delete()
+        
+        # Payments linked to this tenant (if any in public, usually they are)
+        db.query(TenantPayment).filter(TenantPayment.tenant_id == tenant_id).delete()
+        
+        # Delete Tenant Record
         db.delete(tenant)
         db.commit()
         

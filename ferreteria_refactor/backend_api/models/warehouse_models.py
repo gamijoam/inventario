@@ -1,4 +1,8 @@
 
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric
+from sqlalchemy.orm import relationship
+from ..database.db import Base
+
 class Warehouse(Base):
     __tablename__ = "warehouses"
 

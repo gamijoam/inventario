@@ -181,21 +181,30 @@ async def login_for_access_token(
         )
         
     # 3. Enforce Isolation
-    if user.tenant_id is not None:
-        # This is a TENANT USER
-        if current_tenant_id != user.tenant_id:
-            print(f"⛔ Security Alert: User {user.username} (Tenant {user.tenant_id}) tried to login to Tenant {current_tenant_id}")
-            # Ambiguous error to prevent enumeration/confusion
+    if current_tenant_id:
+        # We are in a TENANT context
+        if user.tenant_id != current_tenant_id:
+            # Reject everyone who is NOT part of this tenant
+            # This INCLUDES Public Admins (tenant_id=None) to prevent confusion
+            print(f"⛔ Auth Block: User {user.username} (Tenant {user.tenant_id}) blocked from Tenant {current_tenant_id}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password (Tenant Mismatch)",
+                detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
     else:
-        # This is a GLOBAL USER (Superadmin)
-        # Verify if they are allowed to login to tenant portals?
-        # For now, allow Global Admin to login everywhere to help with support.
-        print(f"⚠️ Global User {user.username} logging in to context {current_tenant_id}")
+        # We are in PUBLIC context (Admin Panel / Landing)
+        if user.tenant_id is not None:
+             # Reject Tenant Users trying to login to Public Admin
+             print(f"⛔ Auth Block: Tenant User {user.username} tried public login")
+             raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+             
+        # Allow Public Users (Superadmin)
+        print(f"✅ Public User {user.username} logging in to PUBLIC context")
         
     try:
         if not verify_password(form_data.password, user.password_hash):
@@ -383,6 +392,7 @@ def init_admin_user(db: Session):
             password_hash=p_hash,
             role=models.UserRole.ADMIN,
             full_name="Administrador Sistema",
+            email="admin@system.local", # Required field
             is_active=True,
             pin="0000" # Default PIN
         )

@@ -41,7 +41,7 @@ class ProductBase(BaseModel):
     is_combo: bool = Field(False, description="Indica si el producto es un combo/bundle")
     has_imei: bool = Field(False, description="Indica si el producto maneja seriales/IMEIs") # NEW
     is_service: bool = Field(False, description="Indica si es un servicio (no requiere stock)") # NEW
-    is_active: bool = Field(True, description="Indica si el producto está disponible para la venta")
+    is_active: Optional[bool] = True
     
     # Image Support
     image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", example="/media/products/uuid-v4.webp")
@@ -671,7 +671,7 @@ class UserRead(BaseModel):
     role: str
     full_name: Optional[str]
     is_active: bool
-    created_at: datetime
+    created_at: Optional[datetime]
     commission_percentage: Optional[Decimal] = Decimal("0.00")
     preferences: Optional[Dict[str, Any]] = {} # NEW
 

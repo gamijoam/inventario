@@ -8,7 +8,7 @@ from ..tenant_context import get_tenant_schema
 DATABASE_URL = settings.DATABASE_URL
 
 # PostgreSQL connection arguments
-connect_args = {"client_encoding": "latin1"}
+connect_args = {"client_encoding": "utf8"}
 pool_config = {
     "pool_size": 20,
     "max_overflow": 10,
