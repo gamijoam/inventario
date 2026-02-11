@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import DashboardLayout from './layouts/DashboardLayout';
-import Dashboard from './pages/Dashboard';
+import DashboardHome from './pages/DashboardHome';
 import Tenants from './pages/Tenants';
 import TenantDetails from './pages/TenantDetails';
 
@@ -42,7 +42,7 @@ const App = () => {
               <DashboardLayout />
             </ProtectedRoute>
           }>
-            <Route index element={<Dashboard />} />
+            <Route index element={<DashboardHome />} />
             <Route path="tenants" element={<Tenants />} />
             <Route path="tenants/:id" element={<TenantDetails />} />
           </Route>

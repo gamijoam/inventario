@@ -27,6 +27,7 @@ from .. import schemas
 from datetime import timedelta
 from ..security import get_password_hash, create_access_token
 from ..config import settings
+from ..utils.time_utils import get_venezuela_now
 
 router = APIRouter(
     prefix="/admin",
@@ -542,4 +543,72 @@ def impersonate_tenant(
         "target_user": target_user.username,
         "tenant_domain": tenant.domain,
         "tenant_schema": tenant.schema_name
+    }
+
+@router.get("/dashboard/stats")
+def get_dashboard_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Get aggregated statistics for the Admin Dashboard.
+    Optimized to use SQL COUNT instead of fetching objects.
+    """
+    from sqlalchemy import func, extract
+    from datetime import datetime, timedelta
+    
+    # 1. Basic Counts
+    total_tenants = db.query(func.count(Tenant.id)).scalar()
+    active_tenants = db.query(func.count(Tenant.id)).filter(Tenant.is_active == True).scalar()
+    total_users = db.query(func.count(User.id)).scalar()
+    
+    # 2. New Tenants (Last 30 Days)
+    thirty_days_ago = get_venezuela_now() - timedelta(days=30)
+    new_tenants = db.query(func.count(Tenant.id)).filter(Tenant.created_at >= thirty_days_ago).scalar()
+    
+    # 3. Growth Data (Last 6 Months)
+    # Group by Month-Year. 
+    # SQLite has different syntax than Postgres for date extraction, keeping it compatible or explicit.
+    # Assuming PostgreSQL as per project context (VPS).
+    
+    # Postgres: to_char(created_at, 'Mon')
+    # Let's try to fetch just the dates and aggregate in Python to be DB-agnostic & safer for now,
+    # unless dataset is huge (it's not for tenants).
+    
+    six_months_ago = get_venezuela_now() - timedelta(days=180)
+    recent_tenants_dates = db.query(Tenant.created_at).filter(Tenant.created_at >= six_months_ago).all()
+    
+    # Python Aggregation
+    growth_map = {}
+    
+    # Initialize last 6 months in map
+    for i in range(5, -1, -1):
+        month_date = get_venezuela_now() - timedelta(days=30 * i)
+        month_key = month_date.strftime("%b") # Jan, Feb..
+        # Translate to Spanish if needed? "Ene", "Feb"...
+        spanish_months = {"Jan": "Ene", "Feb": "Feb", "Mar": "Mar", "Apr": "Abr", "May": "May", "Jun": "Jun", 
+                          "Jul": "Jul", "Aug": "Ago", "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dic"}
+        if settings.TIMEZONE: # Just a dummy check to use settings
+            pass 
+            
+        spanish_key = spanish_months.get(month_key, month_key)
+        growth_map[spanish_key] = 0
+
+    # Fill data
+    for t_date in recent_tenants_dates:
+        if t_date[0]:
+            m_key = t_date[0].strftime("%b")
+            s_key = spanish_months.get(m_key, m_key)
+            if s_key in growth_map:
+                growth_map[s_key] += 1
+                
+    # Convert to List
+    growth_data = [{"month": k, "tenants": v} for k, v in growth_map.items()]
+
+    return {
+        "total_tenants": total_tenants,
+        "active_tenants": active_tenants,
+        "new_tenants_last_30_days": new_tenants,
+        "total_users": total_users,
+        "growth_data": growth_data
     }
