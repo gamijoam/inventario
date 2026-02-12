@@ -477,7 +477,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                     </Button>
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
                                     {payments.map((payment, index) => {
                                         const selectedMethod = paymentMethods.find(m => m.name === payment.method);
                                         const needsReference = selectedMethod?.requires_reference;
@@ -554,6 +554,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         )
                                     })}
                                 </div>
+
                             </div>
                         )}
                     </div>

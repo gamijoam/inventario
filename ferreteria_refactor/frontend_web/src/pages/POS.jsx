@@ -302,19 +302,21 @@ const POS = () => {
                 if (product) {
                     // Try to match unit or use base
                     const unitName = item.is_box ? 'Caja' : 'Unidad';
-                    let unit = product.units?.find(u => u.name === unitName);
+                    let unit = product.units?.find(u => u.unit_name === unitName);
 
                     if (!unit) {
                         unit = {
                             name: unitName,
                             price_usd: parseFloat(item.unit_price),
                             factor: 1,
-                            is_base: !item.is_box
+                            is_base: !item.is_box,
+                            exchange_rate_id: product.exchange_rate_id // Inherit product's anchored rate if present
                         };
                     }
 
                     // Add to cart with specific price from quote
                     addToCart(product, { ...unit, price_usd: parseFloat(item.unit_price) });
+
 
                     // Update quantity
                     const itemId = `${product.id}_${unit.name.replace(/\s+/g, '_')}`;

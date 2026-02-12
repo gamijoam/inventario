@@ -8,9 +8,6 @@ import { useHotkeys } from 'react-hotkeys-hook';
 const GlobalSearch = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
-    const [results, setResults] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [selectedIndex, setSelectedIndex] = useState(0);
     const inputRef = useRef(null);
     const navigate = useNavigate();
 
@@ -26,75 +23,16 @@ const GlobalSearch = () => {
         }
     }, [isOpen]);
 
-    // Handle searching with debounce
-    useEffect(() => {
-        if (!query || query.length < 2) {
-            setResults(null);
-            return;
-        }
-
-        const timer = setTimeout(async () => {
-            setIsLoading(true);
-            try {
-                const { data } = await apiClient.get(`/system/search?q=${query}`);
-                setResults(data);
-                setSelectedIndex(0);
-            } catch (error) {
-                console.error("Search failed", error);
-            } finally {
-                setIsLoading(false);
-            }
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [query]);
-
-    // Flatten results for keyboard navigation
-    const flatResults = React.useMemo(() => {
-        if (!results) return [];
-        return [
-            ...(results.navigation || []),
-            ...(results.products || []),
-            ...(results.customers || []),
-            ...(results.sales || []),
-            ...(results.quotes || []),
-            ...(results.service_orders || [])
-        ];
-    }, [results]);
-
     const handleKeyDown = (e) => {
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setSelectedIndex(prev => (prev + 1) % flatResults.length);
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setSelectedIndex(prev => (prev - 1 + flatResults.length) % flatResults.length);
-        } else if (e.key === 'Enter') {
-            if (flatResults[selectedIndex]) {
-                handleNavigate(flatResults[selectedIndex]);
-            }
-        } else if (e.key === 'Escape') {
+        if (e.key === 'Escape') {
             setIsOpen(false);
         }
     };
 
-    const handleNavigate = (item) => {
+    const handleNavigate = (url) => {
         setIsOpen(false);
         setQuery('');
-        navigate(item.url);
-        // If it's a specific entity search, we might want to pass state, but for now simple navigation
-    };
-
-    const ResultIcon = ({ type }) => {
-        switch (type) {
-            case 'product': return <Package size={16} className="text-blue-500" />;
-            case 'customer': return <User size={16} className="text-emerald-500" />;
-            case 'sale': return <ShoppingCart size={16} className="text-indigo-500" />;
-            case 'quote': return <FileText size={16} className="text-amber-500" />;
-            case 'service_order': return <ArrowRight size={16} className="text-rose-500" />;
-            case 'nav': return <Command size={16} className="text-slate-400" />;
-            default: return <Search size={16} className="text-slate-400" />;
-        }
+        navigate(url);
     };
 
     return (
@@ -130,106 +68,49 @@ const GlobalSearch = () => {
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 onKeyDown={handleKeyDown}
-                                placeholder="Escribe para buscar productos, clientes, facturas..."
+                                placeholder="Próximamente: búsqueda rápida..."
                                 className="flex-1 bg-transparent border-none outline-none text-lg text-slate-800 placeholder-slate-400"
                             />
-                            {isLoading ? (
-                                <div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-500 border-t-transparent"></div>
-                            ) : query && (
+                            {query && (
                                 <button onClick={() => setQuery('')} className="p-1 hover:bg-slate-100 rounded-full text-slate-400">
                                     <X size={18} />
                                 </button>
                             )}
                         </div>
 
-                        {/* Results Area */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
-                            {!query || query.length < 2 ? (
-                                <div className="p-4">
-                                    <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-2">Sugerencias de Navegación</h3>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                                        {[
-                                            { title: "Dashboard Principal", url: "/", icon: <Command size={16} /> },
-                                            { title: "Realizar una Venta", url: "/pos", icon: <ShoppingCart size={16} /> },
-                                            { title: "Inventario de Stock", url: "/inventory", icon: <Package size={16} /> },
-                                            { title: "Base de Clientes", url: "/customers", icon: <User size={16} /> },
-                                        ].map((navItem, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => handleNavigate(navItem)}
-                                                className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-left transition-colors border border-transparent hover:border-slate-100 group"
-                                            >
-                                                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                                    {navItem.icon}
-                                                </div>
-                                                <span className="text-sm font-semibold text-slate-700">{navItem.title}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : results && flatResults.length > 0 ? (
-                                <div className="space-y-1">
-                                    {Object.entries(results).map(([type, items]) => {
-                                        if (items.length === 0) return null;
-                                        const typeLabels = {
-                                            products: "Productos",
-                                            customers: "Clientes",
-                                            sales: "Ventas",
-                                            quotes: "Cotizaciones",
-                                            service_orders: "Órdenes de Servicio",
-                                            navigation: "Navegación"
-                                        };
+                        {/* Results Area - Placeholder info */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 text-center">
+                            <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+                                <Search size={48} strokeWidth={1} className="mb-4 opacity-20" />
+                                <h3 className="text-lg font-bold text-slate-700 mb-2">Buscador en Desarrollo</h3>
+                                <p className="text-sm max-w-md mx-auto">
+                                    Estamos trabajando para integrar búsquedas instantáneas de productos, clientes y ventas en esta barra.
+                                </p>
 
-                                        return (
-                                            <div key={type}>
-                                                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest my-2 px-3">{typeLabels[type] || type}</h3>
-                                                {items.map((item) => {
-                                                    const isSelected = flatResults[selectedIndex]?.id === item.id && flatResults[selectedIndex]?.title === item.title;
-                                                    return (
-                                                        <div
-                                                            key={`${item.type}-${item.id}`}
-                                                            onClick={() => handleNavigate(item)}
-                                                            className={cn(
-                                                                "flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border border-transparent",
-                                                                isSelected ? "bg-indigo-50 border-indigo-100 ring-1 ring-indigo-200" : "hover:bg-slate-50"
-                                                            )}
-                                                        >
-                                                            <div className={cn(
-                                                                "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm transition-colors",
-                                                                isSelected ? "bg-white text-indigo-600" : "bg-white text-slate-400 border border-slate-100"
-                                                            )}>
-                                                                <ResultIcon type={item.type} />
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className={cn("text-sm font-bold truncate", isSelected ? "text-indigo-900" : "text-slate-800")}>{item.title}</p>
-                                                                {item.subtitle && <p className="text-xs text-slate-500 truncate">{item.subtitle}</p>}
-                                                            </div>
-                                                            {isSelected && (
-                                                                <div className="text-indigo-500 px-2">
-                                                                    <ExternalLink size={14} />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
+                                <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+                                    {[
+                                        { title: "Dashboard", url: "/", icon: <Command size={16} /> },
+                                        { title: "Nueva Venta", url: "/pos", icon: <ShoppingCart size={16} /> },
+                                        { title: "Productos", url: "/inventory", icon: <Package size={16} /> },
+                                        { title: "Clientes", url: "/customers", icon: <User size={16} /> },
+                                    ].map((navItem, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => handleNavigate(navItem.url)}
+                                            className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-indigo-50 text-left transition-colors border border-slate-100 group"
+                                        >
+                                            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-slate-500 group-hover:text-indigo-600 shadow-sm">
+                                                {navItem.icon}
                                             </div>
-                                        );
-                                    })}
+                                            <span className="text-sm font-semibold text-slate-700">{navItem.title}</span>
+                                        </button>
+                                    ))}
                                 </div>
-                            ) : !isLoading && (
-                                <div className="py-12 flex flex-col items-center justify-center text-slate-400">
-                                    <Search size={48} strokeWidth={1} className="mb-4 opacity-20" />
-                                    <p className="text-sm font-medium">No se encontraron resultados para "{query}"</p>
-                                </div>
-                            )}
+                            </div>
                         </div>
 
                         {/* Footer Info */}
                         <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                            <div className="flex gap-4">
-                                <span className="flex items-center gap-1"><span className="p-1 bg-white border border-slate-200 rounded shadow-xs text-[9px]">⏎</span> Ir a</span>
-                                <span className="flex items-center gap-1"><span className="p-1 bg-white border border-slate-200 rounded shadow-xs text-[9px]">↑↓</span> Navegar</span>
-                            </div>
                             <span>Esc para cerrar</span>
                         </div>
                     </div>
@@ -240,3 +121,4 @@ const GlobalSearch = () => {
 };
 
 export default GlobalSearch;
+

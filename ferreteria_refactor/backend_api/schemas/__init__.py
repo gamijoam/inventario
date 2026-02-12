@@ -440,6 +440,8 @@ class CustomerBase(BaseModel):
     unique_uuid: Optional[str] = Field(None, description="UUID único para sync")
     is_blocked: bool = Field(False, description="Bloqueo administrativo para impedir nuevas ventas")
 
+
+
 class CustomerCreate(CustomerBase):
     pass
 

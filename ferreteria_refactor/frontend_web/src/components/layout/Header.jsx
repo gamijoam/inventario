@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useState } from 'react';
 import ExchangeRateUpdateModal from '../common/ExchangeRateUpdateModal';
-import GlobalSearch from './GlobalSearch';
+
 
 export default function Header() {
     const { currencies } = useConfig();
@@ -22,8 +22,7 @@ export default function Header() {
     return (
         <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-20 px-6 flex items-center justify-between transition-all">
 
-            {/* Left: Global Search */}
-            <GlobalSearch />
+            <div className="flex-1"></div>
 
             {/* Right: Actions & User */}
             <div className="flex items-center gap-3 md:gap-6">

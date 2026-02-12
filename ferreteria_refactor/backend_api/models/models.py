@@ -578,6 +578,7 @@ class Customer(Base):
     credit_limit = Column(Numeric(12, 2), default=100.00)
     payment_term_days = Column(Integer, default=15)  # Default payment term in days
     is_blocked = Column(Boolean, default=False)  # Manual credit block flag
+
     
     # Hybrid/Sync Fields
     unique_uuid = Column(String(36), nullable=True, unique=True, index=True)

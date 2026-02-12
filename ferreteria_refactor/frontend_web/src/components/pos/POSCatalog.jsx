@@ -1,3 +1,8 @@
+import { Search, Package, Box } from 'lucide-react';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { ScrollArea } from '../ui/scroll-area';
+import { cn } from '../../lib/utils';
 import ProductCard from './ProductCard';
 
 const POSCatalog = ({
