@@ -86,6 +86,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // 4. LÓGICA DE CONTRASEÑA (Movida al final/global)
+
+
+    // ... (rest of the code)
+
     // Form Handler
     const form = document.getElementById('registerForm');
     if (form) {
@@ -96,10 +101,22 @@ document.addEventListener('DOMContentLoaded', function () {
             const planType = document.getElementById('planType').value;
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
 
             const loadingMsg = document.getElementById('loadingMessage');
             const errorMsg = document.getElementById('errorMessage');
             const submitBtn = this.querySelector('button[type="submit"]');
+
+            // 0. VALIDACIÓN DE CONTRASEÑAS
+            if (password !== confirmPassword) {
+                errorMsg.textContent = "❌ Las contraseñas no coinciden.";
+                errorMsg.style.display = "block";
+                // Shake animation effect for visual feedback
+                const confirmInput = document.getElementById('confirmPassword');
+                confirmInput.style.borderColor = "#EF4444";
+                setTimeout(() => confirmInput.style.borderColor = "", 2000);
+                return;
+            }
 
             // UI Loading State
             loadingMsg.style.display = "block";
@@ -134,7 +151,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 const data = await response.json();
                 if (!response.ok) {
-                    throw new Error(data.detail || 'Error en el registro');
+                    let errorDetail = data.detail || 'Error en el registro';
+                    // If detail is an array (FastAPI validation), extract the first message
+                    if (typeof errorDetail === 'object') {
+                        errorDetail = JSON.stringify(errorDetail);
+                        // Try to be nicer if it's a standard list of errors
+                        if (Array.isArray(data.detail) && data.detail.length > 0) {
+                            errorDetail = data.detail[0].msg || JSON.stringify(data.detail);
+                        }
+                    }
+                    throw new Error(errorDetail);
                 }
 
                 localStorage.setItem('selected_tenant', data.tenant_id);
@@ -161,7 +187,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 progressBar.style.transition = "none";
                 progressBar.style.width = "0%";
 
-                errorMsg.textContent = "❌ " + err.message;
+                // Handle different error formats
+                let msg = err.message;
+                if (msg === '[object Object]') {
+                    // Attempt to recover if we accidentally threw an object
+                    msg = "Error desconocido en el servidor.";
+                }
+
+                // If the original data.detail was an array/object, try to prettify it locally?
+                // Actually, let's fix the throw site first.
+                // But here, let's ensure we don't show [object Object]
+
+                errorMsg.textContent = "❌ " + msg;
                 errorMsg.style.display = "block";
                 submitBtn.style.display = "block"; // Show button again
                 submitBtn.disabled = false;
@@ -170,6 +207,28 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+
+    // Validar visibilidad moviendo la funcion al scope global explícitamente y con logs
+    window.togglePasswordVisibility = function (inputId, icon) {
+        console.log("Toggling password for:", inputId);
+        const input = document.getElementById(inputId);
+        if (!input) {
+            console.error("Input not found:", inputId);
+            return;
+        }
+
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.remove("fa-eye");
+            icon.classList.add("fa-eye-slash");
+        } else {
+            input.type = "password";
+            icon.classList.remove("fa-eye-slash");
+            icon.classList.add("fa-eye");
+        }
+    };
+
 
     // Smooth scroll para navegación (Safeguard)
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {

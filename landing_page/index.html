@@ -7,7 +7,7 @@
     <title>Mi Inventario Fácil | Control Total para tu Negocio</title>
     <meta name="description"
         content="Software de gestión y punto de venta para ferreterías, repuestos, minimarkets y restaurantes. Controla inventario, ventas y facturación en una sola plataforma.">
-    <link rel="stylesheet" href="styles.css?v=qa_v5">
+    <link rel="stylesheet" href="styles.css?v=qa_v8">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -365,7 +365,22 @@
                 </div>
                 <div class="form-group">
                     <label>Contraseña</label>
-                    <input type="password" id="password" required placeholder="Mínimo 6 caracteres">
+                    <div class="password-wrapper" style="position: relative;">
+                        <input type="password" id="password" required placeholder="Mínimo 6 caracteres"
+                            style="width: 100%; padding-right: 40px;">
+                        <i class="fas fa-eye password-toggle" onclick="togglePasswordVisibility('password', this)"
+                            style="position: absolute; right: 15px; top: 38%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; z-index: 10;"></i>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirmar Contraseña</label>
+                    <div class="password-wrapper" style="position: relative;">
+                        <input type="password" id="confirmPassword" required placeholder="Repite tu contraseña"
+                            style="width: 100%; padding-right: 40px;">
+                        <i class="fas fa-eye password-toggle"
+                            onclick="togglePasswordVisibility('confirmPassword', this)"
+                            style="position: absolute; right: 15px; top: 38%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; z-index: 10;"></i>
+                    </div>
                 </div>
 
                 <p class="text-xs text-muted mb-4">
@@ -394,7 +409,8 @@
         </div>
     </div>
 
-    <script src="main.js?v=qa_v5"></script>
+    <script src="main.js?v=qa_v8"></script>
+    </script>
 </body>
 
 </html>

@@ -2,11 +2,11 @@ import os
 import subprocess
 import logging
 import re
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 from ..config import settings
 from ..models.tenant import Tenant
-from ..models.models import User, UserRole
+from ..models.models import User, UserRole, Base # Import Base for reflection
+from ..database.db import SessionLocal, engine # Import shared engine
 from ..security import get_password_hash
 
 # Logger
@@ -14,9 +14,9 @@ import traceback
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Database Connection (Public/System)
-engine = create_engine(settings.DATABASE_URL)
-SessionLocal = sessionmaker(bind=engine)
+# REMOVED: Local engine creation to avoid duplicates
+# engine = create_engine(settings.DATABASE_URL)
+# SessionLocal = sessionmaker(bind=engine)
 
 class TenantService:
     
@@ -31,16 +31,23 @@ class TenantService:
     @staticmethod
     def create_tenant(name: str, schema_name: str, admin_email: str, admin_password: str, plan_type: str = "FERRETERIA"):
         """
-        Orchestrates full tenant creation (v29 Atomic Flow):
+        Orchestrates full tenant creation (v30 Schema Reflection):
         1. DB Registration in public.tenants
         2. Schema Creation (Postgres)
-        3. Migrations (Alembic)
+        3. Provision Tables (Schema Reflection)
         4. Admin User Seeding
         """
         logger.info(f"🏗️  TenantService: Creating Tenant '{name}' ({schema_name})")
         db = SessionLocal()
         
         try:
+            # 0. Check if Admin Email exists (Global Check)
+            # This prevents the DuplicateKeyError (UniqueViolation) later in the process
+            # and avoids creating "Zombie Tenants" with no admin.
+            existing_user = db.query(User).filter(User.email == admin_email).first()
+            if existing_user:
+                raise ValueError(f"El correo electrónico '{admin_email}' ya se encuentra registrado. Por favor use otro.")
+                
             # 1. Check if exists
             existing = db.query(Tenant).filter(Tenant.schema_name == schema_name).first()
             if existing:
@@ -79,8 +86,12 @@ class TenantService:
                     logger.info(f"✅ Schema '{schema_name}' created.")
                 except Exception as se:
                     logger.error(f"❌ FATAL ERROR: Failed to create schema '{schema_name}': {se}")
-                    traceback.print_exc()
-                    raise RuntimeError(f"No se pudo crear el esquema de base de datos: {str(se)}")
+                    # Don't raise immediately if it exists, maybe we are retrying? case-by-case
+                    # But for new registration, it should be clean.
+                    if "already exists" in str(se):
+                         logger.warning(f"Schema {schema_name} already exists, continuing to provisioning...")
+                    else:
+                         raise RuntimeError(f"No se pudo crear el esquema de base de datos: {str(se)}")
 
             # 3.1 Create Media Directory for Tenant
             try:
@@ -97,16 +108,20 @@ class TenantService:
             except Exception as me:
                 logger.error(f"⚠️  Warning creating media dir: {me}")
 
-            # 4. COMMIT Tenant Record + Schema
+            # 4. COMMIT Tenant Record (So ID is generated and safe)
             db.commit()
-            logger.info("✅ Tenant and Schema synchronized.")
-
-            # 5. Run Migrations (Post-registration)
+            
+            # 5. Schema Reflection (Create Tables) - REPLACING ALEMBIC
+            logger.info(f"🏗️ Provisioning tables via Schema Reflection in {schema_name}...")
             if "sqlite" not in str(settings.DATABASE_URL):
-                TenantService.run_alembic(schema_name)
+                with engine.connect() as conn:
+                    with conn.begin():
+                        conn.execute(text(f'SET search_path TO "{schema_name}"'))
+                        Base.metadata.create_all(conn)
+            logger.info(f"✅ Tables provisioned in: {schema_name}")
 
             # 6. Seed Admin User & Data
-            TenantService.seed_tenant_admin(schema_name, admin_email, admin_password, name)
+            TenantService.seed_tenant_admin(schema_name, admin_email, admin_password, name, new_tenant.id)
             TenantService.seed_exchange_rates(schema_name)
             TenantService.seed_payment_methods(schema_name)
             TenantService.seed_currencies(schema_name)
@@ -121,68 +136,46 @@ class TenantService:
         except Exception as e:
             logger.error(f"❌ ERROR EN REGISTRO (Service Level): {e}")
             traceback.print_exc()
-            db.rollback()
+            try:
+                db.rollback()
+            except:
+                pass
             raise e
         finally:
             db.close()
 
     @staticmethod
-    def run_alembic(schema_name):
-        """Run alembic upgrade head for a specific schema with detailed logging"""
-        logger.info(f"🔄 [ALEMBIC] Migrating schema: {schema_name}...")
-        
-        # v29 structure: WORKDIR /app
-        cwd = "/app" if os.environ.get("DOCKER_CONTAINER") else os.getcwd()
-        
-        # Ensure we are in the directory containing alembic.ini
-        if not os.path.exists(os.path.join(cwd, "alembic.ini")):
-             # Fallback logic for local dev if CWD is not project root
-             cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        
-        cmd = [
-            "alembic",
-            "-x", f"tenant={schema_name}",
-            "upgrade", "head"
-        ]
-        
-        # Execute with environment pass-through
-        env = os.environ.copy()
-        result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env)
-        
-        if result.returncode != 0:
-            logger.error(f"❌ Migration FAILED for {schema_name}")
-            print("--- ALEMBIC STDOUT ---")
-            print(result.stdout)
-            print("--- ALEMBIC STDERR ---")
-            print(result.stderr)
-            raise RuntimeError(f"Error en migraciones: {result.stderr}")
-        
-        logger.info(f"✅ Migration OK for {schema_name}")
-        return True
-
-    @staticmethod
-    def seed_tenant_admin(schema_name: str, email: str, password: str, tenant_name: str):
+    def seed_tenant_admin(schema_name: str, email: str, password: str, tenant_name: str, tenant_id: int):
         """Seed initial admin user for the tenant"""
-        logger.info(f"🌱 Seeding Admin User for: {schema_name}")
+        logger.info(f"🌱 Seeding Admin User for: {schema_name} (Tenant ID: {tenant_id})")
         db = SessionLocal()
         try:
             # Set Schema for Postgres
             if "sqlite" not in str(settings.DATABASE_URL):
+                # We need public for the User table, but we set search_path to ensure visibility if needed
                 db.execute(text(f'SET search_path TO "{schema_name}", public'))
                 
-            # Check if admin exists
-            existing_admin = db.query(User).filter(User.username == "admin").first()
+            # Check if admin exists FOR THIS TENANT
+            # User table is shared (public schema), so we MUST filter by tenant_id
+            existing_admin = db.query(User).filter(
+                User.username == "admin",
+                User.tenant_id == tenant_id
+            ).first()
+            
             if existing_admin:
-                 logger.info(f"⚠️  Admin user already exists in {schema_name}.")
+                 logger.info(f"⚠️  Admin user already exists for tenant {tenant_id}.")
                  return
 
             # Create Admin
             admin_user = User(
                 username="admin",
+                email=email, # Use the actual email provided
                 password_hash=get_password_hash(password),
                 role=UserRole.ADMIN,
                 is_active=True,
-                full_name=f"Admin {tenant_name}"
+                full_name=f"Admin {tenant_name}",
+                tenant_id=tenant_id, # Link to the tenant
+                is_superuser=True # First user is superuser of the tenant
             )
             
             db.add(admin_user)
