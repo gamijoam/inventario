@@ -3,18 +3,15 @@ import { Package, AlertTriangle, Layers, RotateCcw, User } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import ProductThumbnail from '../products/ProductThumbnail';
 
-const formatCurrency = (amount, currency = 'USD') => {
+const formatLocalCurrency = (amount, currency = 'USD') => {
     try {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: currency,
-            minimumFractionDigits: 2
-        }).format(amount);
-    } catch (error) {
-        return new Intl.NumberFormat('en-US', {
+        // Use es-VE or similar locale to get 1.234,56 format
+        return new Intl.NumberFormat('de-DE', { // de-DE is very consistent with the dot-thousands comma-decimals requirement
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(amount);
+    } catch (error) {
+        return amount.toFixed(2);
     }
 };
 
@@ -33,88 +30,91 @@ const ProductCard = ({
         <div
             onClick={() => onClick(product)}
             className={`
-                group relative flex flex-col justify-between bg-white rounded-xl cursor-pointer transition-all duration-300
-                border h-full min-h-[240px] overflow-hidden
+                group relative flex flex-col justify-between bg-white rounded-2xl cursor-pointer transition-all duration-500
+                border h-full min-h-[260px] overflow-hidden
                 ${isSelected
-                    ? 'ring-2 ring-indigo-600 shadow-xl border-transparent -translate-y-1'
-                    : 'border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 hover:border-indigo-200'
+                    ? 'ring-4 ring-blue-500/20 shadow-2xl border-blue-500 -translate-y-2'
+                    : 'border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 hover:border-blue-200'
                 }
             `}
         >
-            {/* Image Section */}
-            <div className="relative h-36 bg-slate-50 border-b border-slate-50 overflow-hidden p-4">
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                    <ProductThumbnail
-                        imageUrl={product.image_url}
-                        productName={product.name}
-                        size="lg"
-                        className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
-                        updatedAt={product.updated_at}
-                    />
-                </div>
+            {/* Image Section - Cleaner & More Premium */}
+            <div className="relative h-40 bg-gradient-to-b from-slate-50 to-white overflow-hidden p-6 flex items-center justify-center">
+                <ProductThumbnail
+                    imageUrl={product.image_url}
+                    productName={product.name}
+                    size="lg"
+                    className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-110"
+                    updatedAt={product.updated_at}
+                />
 
-
-                {/* Float Badges */}
-                <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                {/* Status Badges - Top-Right */}
+                <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end">
                     {product.has_imei && (
-                        <Badge variant="secondary" className="bg-blue-600 text-white hover:bg-blue-700 text-[9px] px-1.5 h-5 gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> SERIAL
-                        </Badge>
-                    )}
-                    {product.units && product.units.length > 0 && (
-                        <Badge variant="secondary" className="bg-emerald-600 text-white hover:bg-emerald-700 text-[9px] px-1.5 h-5 gap-1">
-                            <Package size={8} /> CAJAS
+                        <Badge className="bg-blue-600/90 hover:bg-blue-600 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm">
+                            IMEI/SERIAL
                         </Badge>
                     )}
                     {product.is_combo && (
-                        <Badge variant="secondary" className="bg-purple-600 text-white hover:bg-purple-700 text-[9px] px-1.5 h-5 gap-1">
-                            <Layers size={8} /> COMBO
+                        <Badge className="bg-purple-500/90 hover:bg-purple-500 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm">
+                            COMBO
                         </Badge>
                     )}
                 </div>
 
-                {/* Stock Tag */}
-                <div className="absolute bottom-2 right-2">
+                {/* Low Stock Indicator - Bottom-Right */}
+                <div className="absolute bottom-3 right-3">
                     {isLowStock && (
-                        <Badge variant={currentStock <= 0 ? "destructive" : "warning"} className="text-[10px] h-5 shadow-sm backdrop-blur-sm px-2">
-                            {currentStock <= 0 ? 'AGOTADO' : 'POCO STOCK'}
+                        <Badge
+                            variant={currentStock <= 0 ? "destructive" : "warning"}
+                            className="text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md backdrop-blur-sm border-white/20"
+                        >
+                            {currentStock <= 0 ? 'SIN STOCK' : 'STOCK BAJO'}
                         </Badge>
                     )}
                 </div>
             </div>
 
             {/* Content Section */}
-            <div className="p-3 flex-1 flex flex-col">
-                <div className="flex justify-between items-start mb-1 gap-2">
-                    <span className="text-[10px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded tracking-tighter truncate max-w-[80px] border border-slate-100">
-                        {product.sku || '---'}
+            <div className="p-4 flex-1 flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-1 rounded-md tracking-widest uppercase border border-slate-200/50 truncate max-w-[90px]">
+                        {product.sku || 'N/A'}
                     </span>
                     {!isLowStock && (
-                        <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                            Stock: {Number(currentStock).toFixed(0)} Unid.
-                        </span>
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                            <Package size={10} className="text-slate-400" />
+                            <span className="text-[10px] font-bold">
+                                {Number(currentStock).toFixed(0)} <span className="font-medium text-slate-400">Unid.</span>
+                            </span>
+                        </div>
                     )}
                 </div>
 
-                <h3 className="font-semibold text-slate-700 text-sm leading-snug line-clamp-2 mb-3 group-hover:text-indigo-600 transition-colors" title={product.name}>
+                <h3 className="font-bold text-slate-800 text-sm leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors min-h-[2.5rem]" title={product.name}>
                     {product.name}
                 </h3>
 
-                <div className="mt-auto pt-2 border-t border-slate-50">
-                    <div className="flex flex-col items-end">
-                        {/* Primary Price (USD) */}
-                        <div className="flex items-baseline gap-0.5">
-                            <span className="text-xs text-slate-400 font-medium">$</span>
-                            <span className="text-xl font-bold text-slate-900 tracking-tight leading-none">
-                                {formatCurrency(product.price, 'USD').replace('$', '')}
+                {/* Price Display Redesign */}
+                <div className="mt-auto pt-3 border-t border-slate-50 flex flex-col gap-1">
+                    {/* Primary Price (USD) - Blue */}
+                    <div className="flex justify-between items-center group/price">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Precio $</span>
+                        <div className="flex items-baseline gap-0.5 text-blue-600">
+                            <span className="text-xs font-black">$</span>
+                            <span className="text-xl font-black tracking-tight">
+                                {formatLocalCurrency(product.price)}
                             </span>
                         </div>
+                    </div>
 
-                        {/* Secondary Price (VES) */}
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                            <span className="text-[10px] text-slate-400 italic">aprox.</span>
-                            <span className="text-xs font-bold text-indigo-600/80 font-mono">
-                                Bs {priceBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {/* Secondary Price (VES) - Green */}
+                    <div className="flex justify-between items-center bg-emerald-50/50 rounded-lg px-2 py-1 border border-emerald-100/50 group/bs">
+                        <span className="text-[10px] font-bold text-emerald-600/70 uppercase">Precio Bs</span>
+                        <div className="flex items-baseline gap-0.5 text-emerald-500">
+                            <span className="text-[10px] font-black">Bs</span>
+                            <span className="text-sm font-black tracking-tight">
+                                {formatLocalCurrency(priceBS)}
                             </span>
                         </div>
                     </div>

@@ -13,6 +13,17 @@ import CurrencyInput from '../common/CurrencyInput';
 
 // Local formatCurrency removed to use ConfigContext one globaly
 
+const formatLocalCurrency = (amount) => {
+    try {
+        return new Intl.NumberFormat('de-DE', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount);
+    } catch (error) {
+        return amount.toFixed(2);
+    }
+};
+
 const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null }) => {
     const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
@@ -286,9 +297,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     <div className="mb-4 z-10 relative">
                         <div className="text-xs text-slate-400 font-medium mb-1">Total a Pagar (Divisa)</div>
                         <div className="flex items-baseline gap-1">
-                            <span className="text-xl text-slate-500 font-light">$</span>
-                            <span className="text-5xl font-black text-white tracking-tighter shadow-indigo-500/10 drop-shadow-lg">
-                                {formatCurrency(totalUSD, 'USD').replace('$', '')}
+                            <span className="text-xl text-blue-400 font-light">$</span>
+                            <span className="text-5xl font-black text-white tracking-tighter shadow-blue-500/10 drop-shadow-lg">
+                                {formatLocalCurrency(totalUSD)}
                             </span>
                         </div>
                     </div>
@@ -297,12 +308,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     <div className="z-10 relative bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50 mb-auto hover:bg-slate-800/80 transition-colors group/card">
                         <div className="flex justify-between items-start mb-1">
                             <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total en Bolívares</div>
-                            <span className="text-[9px] bg-indigo-500/10 text-indigo-300 px-1.5 py-0.5 rounded-full border border-indigo-500/20 font-mono">
-                                Tasa: {formatCurrency(defaultBsRate, 'VES')}
+                            <span className="text-[9px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/20 font-mono">
+                                Tasa: {formatLocalCurrency(defaultBsRate)}
                             </span>
                         </div>
                         <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
-                            {formatCurrency(displayTotalBs, 'VES')}
+                            {formatLocalCurrency(displayTotalBs)} <span className="text-xs">Bs</span>
                         </div>
                     </div>
 
@@ -328,10 +339,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         {changeUSD > 0.0001 ? (
                                             <div className="flex flex-col items-center">
                                                 <div className="text-lg font-bold text-emerald-200">
-                                                    Su Vuelto: <span className="text-white text-xl">${formatCurrency(changeUSD, 'USD').replace('$', '')}</span>
+                                                    Su Vuelto: <span className="text-white text-xl">${formatLocalCurrency(changeUSD)}</span>
                                                 </div>
                                                 <div className="text-xs font-bold text-emerald-400 font-mono mt-0.5 bg-emerald-900/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                                    Bs {formatCurrency(changeUSD * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate), 'VES').replace('Bs', '')}
+                                                    Bs {formatLocalCurrency(changeUSD * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate))}
                                                 </div>
                                             </div>
                                         ) : (
@@ -343,13 +354,13 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         <div>
                                             <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-0.5">Restante</div>
                                             <div className="text-2xl font-bold text-rose-300 font-mono">
-                                                ${formatCurrency(Math.abs(remainingUSD), 'USD').replace('$', '')}
+                                                ${formatLocalCurrency(Math.abs(remainingUSD))}
                                             </div>
                                         </div>
                                         <div className="text-right">
                                             <div className="text-[9px] text-slate-500 uppercase font-bold">En Bolívares</div>
                                             <div className="text-base font-bold text-slate-400 font-mono">
-                                                Bs {formatCurrency(Math.abs(remainingUSD) * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate), 'VES').replace('Bs', '')}
+                                                Bs {formatLocalCurrency(Math.abs(remainingUSD) * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate))}
                                             </div>
                                         </div>
                                     </div>

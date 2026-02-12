@@ -4,6 +4,17 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useConfig } from '../../context/ConfigContext';
 
+const formatLocalCurrency = (amount, decimals = 2) => {
+    try {
+        return new Intl.NumberFormat('de-DE', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }).format(amount);
+    } catch (error) {
+        return amount.toFixed(decimals);
+    }
+};
+
 const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
     const [quantity, setQuantity] = useState(1);
     const [quantityInput, setQuantityInput] = useState('1'); // String for input
@@ -156,8 +167,8 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
                         <span className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-semibold">
                             {item.unit_name}
                         </span>
-                        <span className="text-sm text-gray-500">
-                            ${parseFloat(item.unit_price_usd || 0).toFixed(4)}/{item.unit_name}
+                        <span className="text-sm text-gray-400 font-medium">
+                            ${formatLocalCurrency(item.unit_price_usd || 0, 4)} / {item.unit_name}
                         </span>
                     </div>
                 </div>
@@ -209,8 +220,8 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
                                 onFocus={(e) => e.target.select()}
                                 autoFocus
                             />
-                            <div className="text-center text-sm text-gray-500 mt-2">
-                                Total: {currencySymbol}{totalAmount.toFixed(2)}
+                            <div className="text-center text-xs font-black text-blue-600 bg-blue-50 py-2 rounded-xl border border-blue-100/50 mt-4">
+                                TOTAL: {currencySymbol}{formatLocalCurrency(totalAmount)}
                             </div>
                         </div>
                     ) : (
@@ -285,9 +296,9 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete }) => {
                     </Button>
                     <Button
                         onClick={() => { onUpdate(item.id, quantity); onClose(); }}
-                        className="flex-[2] h-12 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/30 hover:-translate-y-1 transition-all"
+                        className="flex-[2] h-12 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:-translate-y-1 transition-all"
                     >
-                        <Save size={20} className="mr-2" /> Actualizar
+                        <Save size={18} className="mr-2" /> Actualizar
                     </Button>
                 </div>
             </div>
