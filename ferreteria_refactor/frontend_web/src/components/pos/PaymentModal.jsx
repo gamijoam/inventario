@@ -10,6 +10,7 @@ import { Badge } from '../ui/badge';
 import QuickCustomerModal from './QuickCustomerModal';
 import CustomerSearch from './CustomerSearch';
 import CurrencyInput from '../common/CurrencyInput';
+import { cn } from '../../lib/utils';
 
 // Local formatCurrency removed to use ConfigContext one globaly
 
@@ -158,12 +159,20 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             return;
         }
 
-        // Validate References
+        // Validate Amounts & References
         if (!isCreditSale) {
-            for (const p of payments) {
+            for (let i = 0; i < payments.length; i++) {
+                const p = payments[i];
+                const amount = parseFloat(p.amount);
+
+                if (isNaN(amount) || amount <= 0) {
+                    toast.error(`El monto para el método #${i + 1} (${p.method}) no es válido.`);
+                    return;
+                }
+
                 const method = paymentMethods.find(m => m.name === p.method);
                 if (method?.requires_reference && !p.reference?.trim()) {
-                    alert(`Debe ingresar la referencia para el método: ${p.method}`);
+                    toast.error(`Debe ingresar la referencia para el método: ${p.method}`);
                     return;
                 }
             }
@@ -265,8 +274,22 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 if (typeof detail === 'string') {
                     errorMessage = detail;
                 } else if (Array.isArray(detail)) {
-                    errorMessage = detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join(', ');
-                } else if (typeof detail === 'object') {
+                    errorMessage = detail.map(e => {
+                        const field = e.loc?.[e.loc.length - 1];
+                        let msg = e.msg;
+
+                        if (msg.includes('Decimal input should be')) msg = "debe ser un número válido o no estar vacío";
+                        else if (msg.includes('field required')) msg = "es obligatorio";
+
+                        const fieldMap = {
+                            'amount': 'El monto del pago',
+                            'payment_method': 'El método de pago',
+                            'reference': 'La referencia'
+                        };
+
+                        return `${fieldMap[field] || field}: ${msg}`;
+                    }).join('. ');
+                } else {
                     errorMessage = JSON.stringify(detail);
                 }
             } else if (error.message) {
@@ -352,8 +375,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 ) : (
                                     <div className="flex justify-between items-end">
                                         <div>
-                                            <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-0.5">Restante</div>
-                                            <div className="text-2xl font-bold text-rose-300 font-mono">
+                                            <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-0.5">Falta por pagar</div>
+                                            <div className="text-2xl font-bold text-rose-400 font-mono">
                                                 ${formatLocalCurrency(Math.abs(remainingUSD))}
                                             </div>
                                         </div>
@@ -471,9 +494,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         variant="outline"
                                         size="sm"
                                         onClick={addPaymentRow}
-                                        className="text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100 h-7 text-[10px] font-bold px-2"
+                                        className="text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 h-8 text-[10px] font-black px-3 rounded-lg shadow-sm"
                                     >
-                                        + Agregar
+                                        + Agregar otro método de pago
                                     </Button>
                                 </div>
 
@@ -513,14 +536,15 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                     </div>
 
                                                     {/* Amount Input */}
-                                                    <div className="flex-1 relative">
+                                                    <div className="flex-1 relative rounded-xl border-2 border-slate-200 bg-slate-50 transition-all p-1 focus-within:border-indigo-500 focus-within:bg-white focus-within:shadow-md focus-within:shadow-indigo-500/10">
                                                         <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
-                                                            <span className="text-slate-400 font-bold text-sm">
+                                                            <span className="font-bold text-sm text-slate-400">
                                                                 {payment.currency === 'USD' ? '$' : payment.currency}
                                                             </span>
                                                         </div>
                                                         <CurrencyInput
-                                                            className="w-full h-full bg-transparent text-right font-mono text-xl font-bold text-slate-800 placeholder-slate-200 border-none focus:ring-0 p-0 pr-1"
+                                                            autoFocus={index === 0}
+                                                            className="w-full h-full bg-transparent text-right font-mono text-xl font-black text-slate-900 placeholder:text-slate-300 border-none focus:ring-0 p-0 pr-2"
                                                             placeholder="0.00"
                                                             value={payment.amount}
                                                             onChange={(val) => updatePayment(index, 'amount', val)}
@@ -554,7 +578,6 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         )
                                     })}
                                 </div>
-
                             </div>
                         )}
                     </div>
@@ -562,19 +585,20 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     {/* Footer Actions - Pinned */}
                     <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-white/90 backdrop-blur-sm border-t border-slate-100 flex gap-3 shrink-0 z-20">
                         <Button
-                            variant="ghost"
+                            variant="outline"
                             onClick={onClose}
-                            className="font-bold text-slate-500 hover:bg-slate-100 h-12 px-4 rounded-xl text-sm"
+                            className="font-bold text-slate-600 border-slate-200 hover:bg-slate-50 h-12 px-6 rounded-xl text-sm"
                         >
                             Cancelar
                         </Button>
                         <Button
                             onClick={handleConfirm}
                             disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)}
+                            title={(!isCreditSale && !isComplete) ? "El total pagado debe coincidir con el total de la venta" : ""}
                             className={`
                                 flex-1 rounded-xl font-black text-base tracking-wide shadow-xl transition-all h-12
                                 ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)
-                                    ? 'bg-slate-100 text-slate-300'
+                                    ? 'bg-slate-100 text-slate-400'
                                     : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:-translate-y-1 shadow-indigo-500/30'
                                 }
                             `}
@@ -583,7 +607,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>
-                                    {isCreditSale ? 'REGISTRAR CRÉDITO' : 'CONFIRMAR'}
+                                    {isCreditSale ? 'REGISTRAR CRÉDITO' : 'CONFIRMAR PAGO'}
                                     <CheckCircle size={18} strokeWidth={3} className="ml-2" />
                                 </>
                             )}
