@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useState } from 'react';
 import ExchangeRateUpdateModal from '../common/ExchangeRateUpdateModal';
-import { cn } from '../../utils/cn';
+import GlobalSearch from './GlobalSearch';
 
 export default function Header() {
     const { currencies } = useConfig();
@@ -23,21 +23,7 @@ export default function Header() {
         <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-20 px-6 flex items-center justify-between transition-all">
 
             {/* Left: Global Search */}
-            <div className="flex-1 max-w-2xl">
-                <div className="relative group hidden md:block w-full max-w-md">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search size={16} className="text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-                    </div>
-                    <input
-                        type="text"
-                        placeholder="Buscar en todo el sistema... (Ctrl+K)"
-                        className="block w-full pl-10 pr-4 py-2 bg-slate-50/50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    />
-                    <div className="absolute inset-y-0 right-0 max-md:hidden flex items-center pr-3 pointer-events-none">
-                        <kbd className="inline-flex items-center border border-slate-200 rounded px-1.5 text-[10px] font-sans font-medium text-slate-400">⌘K</kbd>
-                    </div>
-                </div>
-            </div>
+            <GlobalSearch />
 
             {/* Right: Actions & User */}
             <div className="flex items-center gap-3 md:gap-6">
