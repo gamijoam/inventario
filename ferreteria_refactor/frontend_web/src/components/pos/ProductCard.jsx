@@ -23,23 +23,32 @@ const ProductCard = ({
     convertProductPrice,
     isSelected = false
 }) => {
+    const [isAnimating, setIsAnimating] = React.useState(false);
+
+    const handleClick = () => {
+        setIsAnimating(true);
+        onClick(product);
+        setTimeout(() => setIsAnimating(false), 300);
+    };
+
     const priceBS = convertProductPrice ? convertProductPrice(product, 'VES') : 0;
     const isLowStock = currentStock <= (product.min_stock || 5);
 
     return (
         <div
-            onClick={() => onClick(product)}
+            onClick={handleClick}
             className={`
-                group relative flex flex-col justify-between bg-white rounded-2xl cursor-pointer transition-all duration-500
-                border h-full min-h-[260px] overflow-hidden
+                group relative flex flex-col justify-between bg-white rounded-2xl cursor-pointer transition-all duration-300
+                border h-full min-h-[220px] overflow-hidden
                 ${isSelected
                     ? 'ring-4 ring-blue-500/20 shadow-2xl border-blue-500 -translate-y-2'
-                    : 'border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-2 hover:border-blue-200'
+                    : 'border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-blue-200'
                 }
+                ${isAnimating ? 'ring-4 ring-blue-500/40 scale-95' : ''}
             `}
         >
             {/* Image Section - Cleaner & More Premium */}
-            <div className="relative h-40 bg-gradient-to-b from-slate-50 to-white overflow-hidden p-6 flex items-center justify-center">
+            <div className="relative h-32 bg-gradient-to-b from-slate-50 to-white overflow-hidden p-4 flex items-center justify-center">
                 <ProductThumbnail
                     imageUrl={product.image_url}
                     productName={product.name}

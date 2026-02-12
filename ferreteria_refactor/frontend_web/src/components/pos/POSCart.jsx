@@ -48,12 +48,15 @@ const POSCart = ({
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
                 <div className="flex items-center gap-2">
-                    <div className="p-2 bg-blue-100 rounded-xl text-blue-600 shadow-sm">
-                        <ShoppingCart size={18} strokeWidth={2.5} />
+                    <div className="p-2 bg-blue-100 rounded-xl text-blue-600 shadow-sm transition-transform active:scale-125 duration-300">
+                        <ShoppingCart size={18} strokeWidth={2.5} className={cn(cartItems.length > 0 && "animate-in zoom-in-50 duration-300")} />
                     </div>
                     <div>
                         <h2 className="text-sm font-black text-slate-800 uppercase tracking-tighter">Orden de Venta</h2>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        <p className={cn(
+                            "text-[10px] font-bold uppercase tracking-wider transition-all",
+                            cartItems.length > 0 ? "text-blue-600 scale-105 origin-left" : "text-slate-400"
+                        )}>
                             {cartItems.length} {cartItems.length === 1 ? 'producto' : 'productos'}
                         </p>
                     </div>
@@ -83,7 +86,8 @@ const POSCart = ({
                 ) : (
                     <ScrollArea className="h-full w-full">
                         <div className="p-3 space-y-3">
-                            {cartItems.map((item, idx) => (
+                            {/* NEW: Reverse sort to show latest at top */}
+                            {[...cartItems].reverse().map((item, idx) => (
                                 <div
                                     key={`${item.id}-${item.unit_id}-${idx}`}
                                     onClick={() => onItemClick && onItemClick(item)}
@@ -124,8 +128,8 @@ const POSCart = ({
                                                     {formatLocalCurrency(item.subtotal_usd)}
                                                 </div>
                                                 {secondaryCurrency && (
-                                                    <div className="text-[10px] font-bold text-emerald-500 tabular-nums bg-emerald-50 px-1.5 rounded-md border border-emerald-100/30">
-                                                        <span className="text-[8px] mr-0.5 italic">Bs</span>
+                                                    <div className="text-[10px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 rounded-md border border-emerald-200/50">
+                                                        <span className="text-[8px] mr-1 italic opacity-60">Bs</span>
                                                         {formatLocalCurrency(item.subtotal_bs || 0)}
                                                     </div>
                                                 )}
@@ -144,9 +148,17 @@ const POSCart = ({
                                                 >
                                                     <Minus size={12} strokeWidth={3} />
                                                 </button>
-                                                <span className="w-10 text-center text-xs font-black text-slate-800 tabular-nums">
-                                                    {item.quantity}
-                                                </span>
+                                                <input
+                                                    type="number"
+                                                    value={item.quantity}
+                                                    onClick={(e) => { e.stopPropagation(); e.target.select(); }}
+                                                    onChange={(e) => {
+                                                        e.stopPropagation();
+                                                        const val = parseFloat(e.target.value);
+                                                        if (!isNaN(val)) onUpdateQuantity(item.id, val);
+                                                    }}
+                                                    className="w-12 text-center text-sm font-black text-slate-900 bg-transparent border-none focus:ring-0 tabular-nums"
+                                                />
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -160,16 +172,16 @@ const POSCart = ({
                                         </div>
                                     </div>
 
-                                    {/* Remove Action (Elegant Overlay) */}
+                                    {/* Remove Action (Accessible) */}
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             onRemoveItem(item.cartItemId || item.id);
                                         }}
-                                        className="absolute -top-1 -right-1 bg-white border border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100"
+                                        className="absolute top-2 right-2 bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl w-8 h-8 flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 active:scale-95"
                                         title="Eliminar item"
                                     >
-                                        <Trash2 size={12} />
+                                        <Trash2 size={16} />
                                     </button>
                                 </div>
                             ))}

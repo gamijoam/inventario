@@ -30,6 +30,8 @@ const POSCatalog = ({
                         <Search size={22} className="opacity-50" />
                     </div>
                     <Input
+                        id="pos-search-input"
+                        autoFocus
                         placeholder="Buscar productos por nombre o código..."
                         className="h-14 pl-12 text-lg bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm rounded-2xl"
                         value={searchTerm}
@@ -41,13 +43,13 @@ const POSCatalog = ({
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mask-gradient-right">
                     <Button
                         variant={selectedCategoryId === null ? "default" : "outline"}
-                        size="sm"
+                        size="md"
                         onClick={() => onFilterCategory(null)}
                         className={cn(
-                            "rounded-full px-5 h-9 font-bold transition-all",
+                            "rounded-2xl px-6 h-11 font-black transition-all uppercase text-[11px] tracking-widest",
                             selectedCategoryId === null
-                                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20"
-                                : "border-slate-200 text-slate-600 bg-white hover:text-blue-600 hover:border-blue-200"
+                                ? "bg-slate-900 hover:bg-black text-white shadow-xl shadow-slate-900/10"
+                                : "border-slate-200 text-slate-500 bg-white hover:text-slate-900 hover:border-slate-400"
                         )}
                     >
                         Todos
@@ -56,13 +58,13 @@ const POSCatalog = ({
                         <Button
                             key={cat.id}
                             variant={selectedCategoryId === cat.id ? "default" : "outline"}
-                            size="sm"
+                            size="md"
                             onClick={() => onFilterCategory(cat.id)}
                             className={cn(
-                                "rounded-full px-5 h-9 font-bold transition-all",
+                                "rounded-2xl px-6 h-11 font-black transition-all uppercase text-[11px] tracking-widest whitespace-nowrap",
                                 selectedCategoryId === cat.id
-                                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20"
-                                    : "border-slate-200 text-slate-600 bg-white hover:text-blue-600 hover:border-blue-200"
+                                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20"
+                                    : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
                             )}
                         >
                             {cat.name}
@@ -94,7 +96,7 @@ const POSCatalog = ({
                     </div>
                 ) : (
                     <ScrollArea className="h-full">
-                        <div className="p-4 grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 pb-24">
+                        <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 pb-24">
                             {products.map((product) => (
                                 <ProductCard
                                     key={product.id}

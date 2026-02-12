@@ -564,7 +564,11 @@ const POS = () => {
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setIsClosingOpen(true)}
+                        onClick={() => {
+                            if (window.confirm('¿Desea cerrar la caja actual? Se generará un resumen de ventas.')) {
+                                setIsClosingOpen(true);
+                            }
+                        }}
                         className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 font-bold gap-2"
                     >
                         <Lock size={16} /> Cerrar Caja
