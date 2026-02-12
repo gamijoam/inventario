@@ -11,6 +11,9 @@ import {
     Truck,
     CreditCard,
     Briefcase,
+    Building2,
+    Printer,
+    Percent,
     ChevronLeft,
     ChevronRight,
     ChevronDown,
@@ -134,12 +137,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         },
         {
             type: 'group',
-            label: 'Sistema',
+            label: 'Configuración',
             icon: Settings,
             items: [
+                { icon: Building2, label: 'General', path: '/settings?tab=business' },
                 { icon: Users, label: 'Usuarios', path: '/users' },
+                { icon: DollarSign, label: 'Monedas', path: '/settings?tab=currencies' },
+                { icon: Percent, label: 'Impuestos', path: '/settings?tab=taxes' },
+                { icon: Printer, label: 'Impresoras', path: '/settings?tab=tickets' },
+                { icon: CreditCard, label: 'Métodos de Pago', path: '/settings?tab=payments' },
                 { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
-                { icon: Settings, label: 'Configuración', path: '/settings' },
             ]
         }
     ];

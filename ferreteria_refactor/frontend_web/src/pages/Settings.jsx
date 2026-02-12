@@ -4,7 +4,7 @@ import {
     Edit, Check, X, Star, AlertCircle, Loader2, Globe, Printer,
     CreditCard, ChevronRight, DollarSign, Users, FileText
 } from 'lucide-react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useSearchParams } from 'react-router-dom';
 import { useConfig } from '../context/ConfigContext';
 import configService from '../services/configService';
 import apiClient from '../config/axios';
@@ -35,9 +35,9 @@ const PREDEFINED_CURRENCIES = [
 ];
 
 const Settings = () => {
-    const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activeTab = searchParams.get('tab') || 'business';
     const { business, refreshConfig } = useConfig();
-    const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'business');
 
     // Local Forms State
     const [bizForm, setBizForm] = useState({ name: '', document_id: '', address: '', phone: '', email: '' });
@@ -217,62 +217,10 @@ const Settings = () => {
     const selectedRates = selectedCurrency ? (groupedRates[selectedCurrency] || []) : [];
     const selectedCurrInfo = uniqueCurrencies.find(c => c.code === selectedCurrency);
 
-    // Sidebar Items
-    const SIDEBAR_ITEMS = [
-        { id: 'business', label: 'General', icon: Building2 },
-        { id: 'users', label: 'Usuarios', icon: Users, isLink: true, to: '/users' },
-        { id: 'currencies', label: 'Monedas', icon: Coins },
-        { id: 'taxes', label: 'Impuestos', icon: FileText },
-        { id: 'tickets', label: 'Impresoras', icon: Printer },
-        { id: 'payments', label: 'Métodos de Pago', icon: CreditCard },
-    ];
-
     return (
-        <div className="flex h-[calc(100vh-theme(spacing.16))] bg-white overflow-hidden">
-            {/* Sidebar Left */}
-            <aside className="w-64 border-r border-slate-200 bg-slate-50/50 flex flex-col">
-                <div className="p-6">
-                    <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                        <div className="bg-indigo-600 p-1.5 rounded-lg">
-                            <Building2 className="text-white" size={16} />
-                        </div>
-                        Configuración
-                    </h2>
-                </div>
-                <div className="flex-1 px-4 py-2 space-y-1">
-                    {SIDEBAR_ITEMS.map((item) => (
-                        item.isLink ? (
-                            <Link
-                                key={item.id}
-                                to={item.to}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-white hover:shadow-sm hover:text-slate-900 transition-all"
-                            >
-                                <item.icon size={18} />
-                                {item.label}
-                            </Link>
-                        ) : (
-                            <button
-                                key={item.id}
-                                onClick={() => setActiveTab(item.id)}
-                                className={clsx(
-                                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                                    activeTab === item.id
-                                        ? "bg-white shadow-sm text-indigo-600 border border-slate-200/60"
-                                        : "text-slate-600 hover:bg-white/60 hover:text-slate-900"
-                                )}
-                            >
-                                <item.icon size={18} className={activeTab === item.id ? "text-indigo-600" : "text-slate-400"} />
-                                {item.label}
-                            </button>
-                        )
-                    ))}
-                </div>
-                <div className="p-4 border-t border-slate-200">
-                    <p className="text-xs text-slate-400 text-center">v2.5.0 - Enterprise Edition</p>
-                </div>
-            </aside>
 
-            {/* Main Content Right */}
+        <div className="flex h-[calc(100vh-theme(spacing.16))] bg-white overflow-hidden">
+            {/* Main Content */}
             <main className="flex-1 bg-slate-50/30 overflow-hidden flex flex-col">
                 <ScrollArea className="flex-1">
                     <div className="max-w-4xl mx-auto p-8 w-full">
@@ -280,9 +228,13 @@ const Settings = () => {
                         {/* HEADER */}
                         <div className="mb-8">
                             <h1 className="text-2xl font-bold text-slate-800">
-                                {SIDEBAR_ITEMS.find(i => i.id === activeTab)?.label || 'Configuración'}
+                                {activeTab === 'business' ? 'General' :
+                                    activeTab === 'currencies' ? 'Monedas' :
+                                        activeTab === 'taxes' ? 'Impuestos' :
+                                            activeTab === 'tickets' ? 'Impresoras' :
+                                                activeTab === 'payments' ? 'Métodos de Pago' : 'Configuración'}
                             </h1>
-                            <p className="text-slate-500">Administra los parámetros de {SIDEBAR_ITEMS.find(i => i.id === activeTab)?.label.toLowerCase()}</p>
+                            <p className="text-slate-500">Administra los parámetros de tu sistema</p>
                         </div>
 
                         {/* BUSINESS (GENERAL) FORM */}
