@@ -9,8 +9,12 @@ import { useConfig } from '../../context/ConfigContext';
  * @param {boolean} showRate - Whether to show the exchange rate (default: true)
  * @param {string} size - Size variant: 'sm', 'md', 'lg' (default: 'md')
  */
-const MultiCurrencyDisplay = ({ amountUSD = 0, showRate = true, size = 'md' }) => {
+const MultiCurrencyDisplay = ({ amountUSD = 0, showRate = true, size = 'md', placeholderIfZero = false }) => {
     const { getExchangeRate } = useConfig();
+
+    if (placeholderIfZero && amountUSD === 0) {
+        return <div className="text-slate-300 font-bold">—</div>
+    }
 
     // Get current Bs exchange rate
     const bsRate = getExchangeRate('Bs') || getExchangeRate('VES') || 1;

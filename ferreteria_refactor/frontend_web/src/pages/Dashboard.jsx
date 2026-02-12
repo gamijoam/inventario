@@ -11,7 +11,7 @@ import {
     Users,
     UtensilsCrossed,
     RefreshCw,
-    Plus,
+    ArrowRight,
     Monitor
 } from 'lucide-react';
 import {
@@ -329,12 +329,12 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
                     title="Ingresos Hoy"
-                    value={<MultiCurrencyDisplay amountUSD={salesSummary?.total_revenue || 0} />}
+                    value={<MultiCurrencyDisplay amountUSD={salesSummary?.total_revenue || 0} showRate={false} placeholderIfZero />}
                     icon={DollarSign}
                 />
                 <KPICard
                     title="Ganancia Real"
-                    value={<MultiCurrencyDisplay amountUSD={profitData?.realized_profit || profitData?.total_profit || 0} />}
+                    value={<MultiCurrencyDisplay amountUSD={profitData?.realized_profit || profitData?.total_profit || 0} showRate={false} placeholderIfZero />}
                     icon={TrendingUp}
                     trend="up"
                     trendValue="12.5%"
@@ -346,7 +346,7 @@ const Dashboard = () => {
                 />
                 <KPICard
                     title="Ticket Promedio"
-                    value={<MultiCurrencyDisplay amountUSD={salesSummary?.average_ticket || 0} showRate={false} size="sm" />}
+                    value={<MultiCurrencyDisplay amountUSD={salesSummary?.average_ticket || 0} showRate={false} size="sm" placeholderIfZero />}
                     icon={CreditCard}
                 />
             </div>
@@ -363,7 +363,7 @@ const Dashboard = () => {
 
                     <div className="flex-1 w-full min-h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
+                            <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
@@ -383,19 +383,22 @@ const Dashboard = () => {
                                     tickLine={false}
                                     tick={{ fill: '#94a3b8', fontSize: 12 }}
                                     tickFormatter={(value) => `$${value}`}
-                                    width={40}
+                                    width={50}
+                                    domain={[0, 'auto + 20']}
                                 />
                                 <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', padding: '12px' }}
                                     cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                    formatter={(value) => [`$${value.toFixed(2)}`, 'Ventas']}
                                 />
                                 <Area
                                     type="monotone"
                                     dataKey="sales"
                                     stroke="#10b981"
-                                    strokeWidth={2}
+                                    strokeWidth={3}
                                     fillOpacity={1}
                                     fill="url(#colorSales)"
+                                    animationDuration={1500}
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
@@ -425,13 +428,18 @@ const Dashboard = () => {
                             </div>
                             <h3 className="text-sm font-semibold text-slate-900">Cuentas por Cobrar</h3>
                         </div>
-                        <div className="bg-blue-50/50 rounded-lg p-4 border border-blue-100 flex justify-between items-center">
+                        <div className="bg-blue-50/50 rounded-lg p-4 border border-blue-100 flex justify-between items-center group/ar cursor-pointer hover:bg-blue-100/50 transition-colors" onClick={() => navigate('/accounts-receivable')}>
                             <div>
-                                <p className="text-xs text-blue-600 font-medium mb-0.5">Pendientes de Pago</p>
-                                <p className="text-2xl font-bold text-blue-700">{recentSales.filter(s => s.is_credit && !s.paid).length}</p>
+                                <p className="text-xs text-blue-600 font-black uppercase tracking-widest mb-1">Monto Pendiente</p>
+                                <div className="text-2xl font-black text-blue-700 leading-none">
+                                    ${recentSales.reduce((acc, s) => acc + (s.is_credit && !s.paid ? Number(s.total_amount || 0) : 0), 0).toFixed(2)}
+                                </div>
+                                <p className="text-[10px] text-blue-500 font-bold mt-1 uppercase">
+                                    {recentSales.filter(s => s.is_credit && !s.paid).length} facturas activas
+                                </p>
                             </div>
-                            <div className="h-10 w-10 bg-white rounded-full flex items-center justify-center border border-blue-100 shadow-sm text-blue-500">
-                                <AlertCircle size={20} />
+                            <div className="h-12 w-12 bg-white rounded-xl flex items-center justify-center border border-blue-100 shadow-sm text-blue-500 group-hover/ar:scale-110 transition-transform">
+                                <ArrowRight size={24} />
                             </div>
                         </div>
                     </Card>
