@@ -173,7 +173,7 @@ const Login = () => {
                             {/* Username */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700" htmlFor="username">
-                                    Usuario / Correo
+                                    Correo
                                 </label>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

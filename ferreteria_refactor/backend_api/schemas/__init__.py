@@ -651,7 +651,7 @@ class ReturnRead(BaseModel):
 class UserCreate(BaseModel):
     username: str
     password: str
-    email: Optional[str] = None
+    email: str # Required for login
     role: str = "CASHIER"  # ADMIN, CASHIER, MANAGER
     full_name: Optional[str] = None
     commission_percentage: Optional[Decimal] = Decimal("0.00")

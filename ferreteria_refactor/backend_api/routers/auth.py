@@ -183,69 +183,38 @@ async def login_for_access_token(
     Clients can use either method for authentication.
     """
     # 1. Resolve Tenant
-    # Priority: X-Tenant-ID -> Subdomain Parsing
-    # We must match the logic used by TenantMiddleware to ensure consistency
-    
-    # Always extract host first, as it is needed for system domain checks later
-    host = request.headers.get("host", "").split(":")[0] # Remove port
-    print(f"🔐 [AUTH] Login attempt from host: {host}")
-    
-    current_tenant_id = None
+    # Matching logic in TenantMiddleware
+    host = request.headers.get("x-forwarded-host", request.headers.get("host", "")).split(":")[0]
     tenant_slug = None
     
-    # PRIORITY 1: Explicit Header (e.g. from axios interceptor)
+    # PRIORITY 1: Explicit Header
     if "x-tenant-id" in request.headers:
-        candidate = request.headers.get("x-tenant-id")
-        # Reuse same regex/validation if possible, or just trust simple alphanumeric
-        import re
-        if re.match(r'^[a-z0-9_-]+$', candidate):
-             tenant_slug = candidate
-             print(f"🔐 [AUTH] Tenant resolved via Header: {tenant_slug}")
-
-    # PRIORITY 2: Subdomain Parsing (Fallback)
+        tenant_slug = request.headers.get("x-tenant-id")
+    
+    # PRIORITY 2: Subdomain Parsing
     if not tenant_slug:
-        # Host is already defined above
-        
         parts = host.split('.')
         if "localhost" in host:
-             if len(parts) == 2 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
-                 tenant_slug = parts[0]
+            if len(parts) == 2 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
+                tenant_slug = parts[0]
         else:
-            # Production logic (simplified)
-             reserved = ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]
-             if len(parts) >= 3 and parts[0] not in reserved and not parts[0].startswith("admin-") and not parts[0].startswith("api-"):
-                 tenant_slug = parts[0]
-             
-    # Custom Domain Check? User mentioned miferreteria3.com
-    # If the host is NOT one of our system domains, treat it as a custom domain
-    system_domains = ["localhost", "miinventariofacil.com"]
-    is_system_domain = any(sys_d in host for sys_d in system_domains)
-    
-    tenant_query = db.query(Tenant)
-    
-    if tenant_slug:
-        print(f"   Detected Tenant Slug: {tenant_slug}")
-        tenant = tenant_query.filter(Tenant.schema_name == tenant_slug).first()
-        if tenant: 
+            reserved = ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]
+            if len(parts) >= 3 and parts[0] not in reserved:
+                tenant_slug = parts[0]
+
+    current_tenant_id = None
+    if tenant_slug and tenant_slug != "public":
+        tenant = db.query(Tenant).filter(Tenant.schema_name == tenant_slug).first()
+        if tenant:
             current_tenant_id = tenant.id
-            print(f"   ✅ Context: Tenant '{tenant.name}' (ID: {tenant.id})")
-    elif not is_system_domain:
-         # Try finding by domain
-         print(f"   Checking custom domain: {host}")
-         tenant = tenant_query.filter(Tenant.domain == host).first()
-         if tenant:
-             current_tenant_id = tenant.id
-             print(f"   ✅ Context: Tenant '{tenant.name}' (ID: {tenant.id}) via Custom Domain")
-             
-    # 2. User Lookup with Tenant Isolation
-    # GLOBAL ADMIN (admin.localhost) -> Can login anywhere or just admin? 
-    # Let's say Global Admin can login anywhere for now, but regular users must match.
-    
-    query = db.query(models.User).filter(
+            print(f"🔐 [AUTH] Context: Tenant '{tenant.name}' (ID: {tenant.id})")
+        else:
+            print(f"⚠️ [AUTH] Tenant slug '{tenant_slug}' not found, falling back to public")
+
+    # 2. User Lookup
+    user = db.query(models.User).filter(
         (models.User.username == form_data.username) | (models.User.email == form_data.username)
-    )
-    
-    user = query.first()
+    ).first()
     
     if not user:
         raise HTTPException(
@@ -256,10 +225,8 @@ async def login_for_access_token(
         
     # 3. Enforce Isolation
     if current_tenant_id:
-        # We are in a TENANT context
-        if user.tenant_id != current_tenant_id:
-            # Reject everyone who is NOT part of this tenant
-            # This INCLUDES Public Admins (tenant_id=None) to prevent confusion
+        # TENANT CONTEXT: Only users belonging to this tenant OR superusers can login
+        if user.tenant_id != current_tenant_id and not user.is_superuser:
             print(f"⛔ Auth Block: User {user.username} (Tenant {user.tenant_id}) blocked from Tenant {current_tenant_id}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -267,18 +234,23 @@ async def login_for_access_token(
                 headers={"WWW-Authenticate": "Bearer"},
             )
     else:
-        # We are in PUBLIC context (Admin Panel / Landing)
+        # PUBLIC/ADMIN CONTEXT: Only users with NO tenant_id (Superadmins) can login
         if user.tenant_id is not None:
-             # Reject Tenant Users trying to login to Public Admin
              print(f"⛔ Auth Block: Tenant User {user.username} tried public login")
              raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-             
-        # Allow Public Users (Superadmin)
-        print(f"✅ Public User {user.username} logging in to PUBLIC context")
+        
+        # Superuser verification for public context
+        if not user.is_superuser and user.role != models.UserRole.ADMIN:
+             print(f"⛔ Auth Block: Regular user {user.username} tried public login")
+             raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         
     try:
         if not verify_password(form_data.password, user.password_hash):

@@ -22,6 +22,7 @@ const UsersManager = () => {
     // Form state
     const [formData, setFormData] = useState({
         username: '',
+        email: '',
         password: '',
         full_name: '',
         role: 'CASHIER',
@@ -52,6 +53,7 @@ const UsersManager = () => {
         if (mode === 'create') {
             setFormData({
                 username: '',
+                email: '',
                 password: '',
                 full_name: '',
                 role: 'CASHIER'
@@ -59,6 +61,7 @@ const UsersManager = () => {
         } else if (mode === 'edit' && user) {
             setFormData({
                 username: user.username,
+                email: user.email || '',
                 password: '',
                 full_name: user.full_name || '',
                 role: user.role,
@@ -79,6 +82,7 @@ const UsersManager = () => {
         setSelectedUser(null);
         setFormData({
             username: '',
+            email: '',
             password: '',
             full_name: '',
             role: 'CASHIER'
@@ -93,6 +97,7 @@ const UsersManager = () => {
                 // Create new user
                 await apiClient.post('/users', {
                     username: formData.username,
+                    email: formData.email || null,
                     password: formData.password,
                     full_name: formData.full_name,
                     role: formData.role,
@@ -103,6 +108,7 @@ const UsersManager = () => {
                 // Update user
                 const updateData = {
                     role: formData.role,
+                    email: formData.email || null,
                     full_name: formData.full_name,
                     commission_percentage: parseFloat(formData.commission_percentage || 0) // NEW
                 };
@@ -412,6 +418,20 @@ const UsersManager = () => {
                                             />
                                         </div>
                                     )}
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Correo Electrónico *
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                            placeholder="ejemplo@empresa.com"
+                                            required
+                                        />
+                                    </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">

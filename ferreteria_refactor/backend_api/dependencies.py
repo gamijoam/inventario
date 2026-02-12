@@ -77,8 +77,35 @@ def get_current_user(
     if user is None:
         print(f"⛔ Auth Failed: User '{username}' not found in DB.")
         raise credentials_exception
+
+    # TENANT VALIDATION: Ensure user belongs to the current context
+    from .tenant_context import get_tenant_schema
+    from .models.tenant import Tenant
     
-    print(f"✅ Auth Success: User '{username}' authenticated.")
+    current_schema = get_tenant_schema()
+    
+    if current_schema != "public":
+        # We are in a tenant schema, fetch tenant record to get ID
+        tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
+        if tenant:
+            if user.tenant_id != tenant.id and not user.is_superuser:
+                print(f"⛔ Tenant Mismatch: User {username} does not belong to tenant '{current_schema}'")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have access to this company"
+                )
+    else:
+        # We are in public context, usually only for Superadmins
+        if user.tenant_id is not None and not user.is_superuser:
+            print(f"⛔ Context Mismatch: Tenant user {username} trying to access public context")
+            # We don't raise 403 here because it might be a valid user just at the wrong URL
+            # But let's be strict for security
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="Please login via your company URL"
+            )
+
+    print(f"✅ Auth Success: User '{username}' authenticated for context '{current_schema}'.")
     return user
 
 def get_current_active_user(current_user: Annotated[User, Depends(get_current_user)]):
