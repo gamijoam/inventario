@@ -660,6 +660,7 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     password: Optional[str] = None
+    email: Optional[str] = None # NEW: Allow email update
     role: Optional[str] = None
     full_name: Optional[str] = None
     is_active: Optional[bool] = None

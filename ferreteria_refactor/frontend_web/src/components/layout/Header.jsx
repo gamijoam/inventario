@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useState } from 'react';
 import ExchangeRateUpdateModal from '../common/ExchangeRateUpdateModal';
+import { cn } from '../../utils/cn';
 
 
 export default function Header() {

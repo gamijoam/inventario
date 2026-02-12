@@ -368,6 +368,10 @@
                     <input type="password" id="password" required placeholder="Mínimo 6 caracteres">
                 </div>
 
+                <p class="text-xs text-muted mb-4">
+                    <i class="fas fa-info-circle"></i> Tu correo electrónico será tu usuario de acceso.
+                </p>
+
                 <button type="submit" class="btn btn-primary w-full mt-4">
                     Crear Cuenta Gratis
                 </button>
@@ -375,15 +379,22 @@
 
             <!-- Social login and sign in link removed as requested -->
 
-            <div id="loadingMessage" style="display:none; text-align: center; margin-top: 1rem;">
-                <i class="fas fa-spinner fa-spin text-primary"></i> Configurando tu espacio...
+            <div id="loadingMessage" style="display:none; text-align: center; margin-top: 1.5rem;">
+                <div class="mb-2 text-sm font-semibold text-primary">Configurando tu espacio de trabajo...</div>
+                <div
+                    style="width: 100%; background-color: #E2E8F0; border-radius: 99px; height: 8px; overflow: hidden;">
+                    <div id="progressBar"
+                        style="width: 0%; height: 100%; background-color: var(--primary); transition: width 0.1s linear;">
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-muted">Por favor espera, estamos preparando tu base de datos.</div>
             </div>
             <div id="errorMessage"
                 style="display:none; color: #EF4444; text-align: center; margin-top: 1rem; font-size: 0.9rem;"></div>
         </div>
     </div>
 
-    <script src="main.js?v=qa_v4"></script>
+    <script src="main.js?v=qa_v5"></script>
 </body>
 
 </html>

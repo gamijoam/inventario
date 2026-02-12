@@ -202,6 +202,16 @@ def update_user(
     
     if user_data.password:
         user.password_hash = get_password_hash(user_data.password)
+    if user_data.email is not None:
+        # Validate uniqueness if email changed
+        if user_data.email != user.email:
+            existing = db.query(models.User).filter(
+                models.User.email == user_data.email, 
+                models.User.id != user_id
+            ).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Email already in use by another user")
+            user.email = user_data.email
     if user_data.role:
         user.role = user_data.role
     if user_data.full_name is not None:

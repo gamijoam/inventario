@@ -261,7 +261,8 @@ def create_tenant_user(
             email=user_in.email,
             full_name=user_in.full_name,
             role=user_in.role.upper(), # Ensure ENUM compat
-            is_active=True
+            is_active=True,
+            tenant_id=tenant_id
         )
         db.add(new_user)
         db.commit()

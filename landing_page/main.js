@@ -104,12 +104,22 @@ document.addEventListener('DOMContentLoaded', function () {
             // UI Loading State
             loadingMsg.style.display = "block";
             errorMsg.style.display = "none";
-            submitBtn.disabled = true;
-            submitBtn.style.opacity = "0.7";
+            submitBtn.style.display = "none"; // Hide button completely
+
+            // Start Progress Bar Animation (10s)
+            const progressBar = document.getElementById('progressBar');
+            // Force reflow
+            void progressBar.offsetWidth;
+            progressBar.style.transition = "width 10s linear";
+            progressBar.style.width = "100%";
+
+            // FIXED: API URL Normalization to avoid double /api/v1
+            // Sometimes the injected API_URL already includes /api/v1
+            const normalizedApiUrl = API_URL.endsWith('/api/v1') ? API_URL : `${API_URL}/api/v1`;
 
             try {
-                // Aquí usamos la variable API_URL que Docker habrá modificado
-                const response = await fetch(`${API_URL}/api/v1/public/register`, {
+                // Remove /api/v1 from the string template since it's now handled in normalizedApiUrl
+                const response = await fetch(`${normalizedApiUrl}/public/register`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -123,40 +133,37 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
 
                 const data = await response.json();
-
                 if (!response.ok) {
                     throw new Error(data.detail || 'Error en el registro');
                 }
 
-                // Success
-                loadingMsg.innerHTML = `<i class="fas fa-check-circle" style="color: green;"></i> ¡Empresa Creada!<br>
-            <strong>ID de Empresa:</strong> ${data.tenant_id}<br>
-            Redirigiendo al Login...`;
-
-                // Simular redirección
                 localStorage.setItem('selected_tenant', data.tenant_id);
 
                 setTimeout(() => {
-                    // 3. LÓGICA DE REDIRECCIÓN CORREGIDA
-                    // Detectamos el dominio raíz actual (quitando 'www.')
-                    const currentHost = window.location.hostname.replace(/^www\./, '');
+                    // Update UI to show success briefly before redirect
+                    loadingMsg.innerHTML = `<div class="text-secondary font-bold text-lg"><i class="fas fa-check-circle"></i> ¡Listo! Redirigiendo...</div>`;
 
+                    // 3. LÓGICA DE REDIRECCIÓN CORREGIDA
+                    const currentHost = window.location.hostname.replace(/^www\./, '');
                     let finalUrl;
 
                     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                         finalUrl = 'http://localhost:5173/login';
                     } else {
-                        // Construimos el subdominio basándonos en DONDE estamos ahora.
-                        // Si estamos en "qa.miinventariofacil.com", resultará en "juan.qa.miinventariofacil.com"
                         finalUrl = `https://${data.tenant_id}.${currentHost}/login`;
                     }
 
                     window.location.href = finalUrl;
-                }, 3000);
+                }, 10000); // Wait 10 seconds to match the visual bar
 
             } catch (err) {
+                // Stop progress bar
+                progressBar.style.transition = "none";
+                progressBar.style.width = "0%";
+
                 errorMsg.textContent = "❌ " + err.message;
                 errorMsg.style.display = "block";
+                submitBtn.style.display = "block"; // Show button again
                 submitBtn.disabled = false;
                 submitBtn.style.opacity = "1";
                 loadingMsg.style.display = "none";
@@ -167,15 +174,24 @@ document.addEventListener('DOMContentLoaded', function () {
     // Smooth scroll para navegación (Safeguard)
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
-            e.preventDefault();
             const targetId = this.getAttribute('href');
+
+            // FIXED: Crash when href is replaced by external URL (e.g. version download)
+            // If it's not an anchor link (does not start with #), let it behave normally.
+            if (!targetId || !targetId.startsWith('#')) return;
+
+            e.preventDefault();
             if (targetId === '#') return; // Ignore empty anchors
 
-            const targetElement = document.querySelector(targetId);
-            if (targetElement) {
-                targetElement.scrollIntoView({
-                    behavior: 'smooth'
-                });
+            try {
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            } catch (err) {
+                console.warn("Smooth scroll error ignored:", err);
             }
         });
     });
