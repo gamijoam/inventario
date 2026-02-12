@@ -575,7 +575,7 @@ class Customer(Base):
     phone = Column(String, nullable=True)
     email = Column(String, nullable=True)
     address = Column(Text, nullable=True)
-    credit_limit = Column(Numeric(12, 2), default=0.00)
+    credit_limit = Column(Numeric(12, 2), default=100.00)
     payment_term_days = Column(Integer, default=15)  # Default payment term in days
     is_blocked = Column(Boolean, default=False)  # Manual credit block flag
     

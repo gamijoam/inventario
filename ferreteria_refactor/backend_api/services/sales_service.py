@@ -73,9 +73,10 @@ class SalesService:
                 ).scalar() or Decimal("0.00")
                 
                 if (current_debt + sale_data.total_amount) > customer.credit_limit:
+                    available = max(Decimal("0.00"), customer.credit_limit - current_debt)
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Excede límite de crédito. Deuda actual: ${current_debt:.2f}, Límite: ${customer.credit_limit:.2f}, Disponible: ${(customer.credit_limit - current_debt):.2f}"
+                        detail=f"⛔ Límite de crédito excedido.\nCliente: {customer.name}\nDeuda: ${current_debt:.2f} / Límite: ${customer.credit_limit:.2f}\nDisponible: ${available:.2f}"
                     )
             
             # 0. Check for Open Cash Session (Enforce Business Logic)

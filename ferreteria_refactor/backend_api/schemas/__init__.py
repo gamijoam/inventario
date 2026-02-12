@@ -435,7 +435,7 @@ class CustomerBase(BaseModel):
     phone: Optional[str] = Field(None, description="Teléfono de contacto principal", example="+58 412 5555555")
     email: Optional[str] = Field(None, description="Correo electrónico para facturación", example="compras@global.com")
     address: Optional[str] = Field(None, description="Dirección fiscal o de entrega", example="Av. Principal, Edif. Azul")
-    credit_limit: Decimal = Field(Decimal("0.00"), description="Límite máximo de crédito permitido en USD", ge=0)
+    credit_limit: Decimal = Field(Decimal("100.00"), description="Límite máximo de crédito permitido en USD", ge=0)
     payment_term_days: int = Field(15, description="Días de crédito otorgados", ge=0)
     unique_uuid: Optional[str] = Field(None, description="UUID único para sync")
     is_blocked: bool = Field(False, description="Bloqueo administrativo para impedir nuevas ventas")
