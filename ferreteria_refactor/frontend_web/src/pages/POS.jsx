@@ -10,7 +10,7 @@ import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 // New Components
 import POSCatalog from '../components/pos/POSCatalog';
@@ -52,6 +52,8 @@ const POS = () => {
     const themeId = user?.preferences?.pos_theme?.id || 'default';
     const currentTheme = POS_THEMES.find(t => t.id === themeId) || DEFAULT_THEME;
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [searchParams] = useSearchParams();
+    const quoteIdParam = searchParams.get('quote_id');
 
     useEffect(() => {
         console.log("STATE CHANGE: isSettingsOpen =", isSettingsOpen);
@@ -270,6 +272,63 @@ const POS = () => {
     }, [modules]);
 
     // ... Quote Loading Logic ...
+    useEffect(() => {
+        if (!isLoading && quoteIdParam && catalog.length > 0) {
+            loadQuoteIntoCart(quoteIdParam);
+        }
+    }, [isLoading, quoteIdParam, catalog.length]);
+
+    const loadQuoteIntoCart = async (id) => {
+        try {
+            const loadingToast = toast.loading(`Cargando cotización #${id}...`);
+            const { data: quote } = await apiClient.get(`/quotes/${id}`);
+            toast.dismiss(loadingToast);
+
+            if (quote.status === 'CONVERTED') {
+                toast.error("Esta cotización ya fue facturada");
+                return;
+            }
+
+            // Set Quote context
+            setActiveQuoteId(quote.id);
+            if (quote.customer) setQuoteCustomer(quote.customer);
+
+            // Add items to cart
+            let addedCount = 0;
+            const items = quote.details || quote.items || [];
+
+            for (const item of items) {
+                const product = catalog.find(p => p.id === item.product_id);
+                if (product) {
+                    // Try to match unit or use base
+                    const unitName = item.is_box ? 'Caja' : 'Unidad';
+                    let unit = product.units?.find(u => u.name === unitName);
+
+                    if (!unit) {
+                        unit = {
+                            name: unitName,
+                            price_usd: parseFloat(item.unit_price),
+                            factor: 1,
+                            is_base: !item.is_box
+                        };
+                    }
+
+                    // Add to cart with specific price from quote
+                    addToCart(product, { ...unit, price_usd: parseFloat(item.unit_price) });
+
+                    // Update quantity
+                    const itemId = `${product.id}_${unit.name.replace(/\s+/g, '_')}`;
+                    updateQuantity(itemId, Number(item.quantity));
+                    addedCount++;
+                }
+            }
+
+            toast.success(`Cotización #${id} cargada (${addedCount} productos)`);
+        } catch (error) {
+            console.error("Error loading quote into POS:", error);
+            toast.error("No se pudo cargar la cotización");
+        }
+    };
 
     // ... WebSocket Logic ...
 

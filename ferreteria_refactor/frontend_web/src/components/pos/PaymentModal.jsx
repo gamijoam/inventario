@@ -268,52 +268,49 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     };
 
     return (
-        <div className="fixed inset-0 bg-[#0f172a]/70 flex items-center justify-center z-50 backdrop-blur-md p-4 transition-all duration-300">
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row min-h-[650px] max-h-[90vh] animate-in fade-in zoom-in-95 duration-300 ring-1 ring-white/20">
+        <div className="fixed inset-0 bg-[#0f172a]/70 flex items-end sm:items-center justify-center z-50 backdrop-blur-md p-0 sm:p-4 transition-all duration-300">
+            <div className="bg-white rounded-t-2xl sm:rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-auto sm:max-h-[85vh] animate-in fade-in zoom-in-95 slide-in-from-bottom-5 duration-300 ring-1 ring-white/20">
 
                 {/* LEFT COLUMN: Premium Summary */}
-                <div className="bg-[#1e293b] text-white p-8 md:w-5/12 flex flex-col relative overflow-hidden group">
+                <div className="bg-[#1e293b] text-white p-6 md:w-5/12 flex flex-col relative overflow-hidden group shrink-0">
                     {/* Background Accents */}
                     <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
                         <DollarSign size={300} strokeWidth={0.5} />
                     </div>
                     <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-                    <h3 className="text-indigo-400 uppercase text-xs font-black tracking-[0.2em] mb-8 z-10 flex items-center gap-2">
-                        <Receipt size={14} /> Resumen de Transacción
+                    <h3 className="text-indigo-400 uppercase text-xs font-black tracking-[0.2em] mb-4 z-10 flex items-center gap-2">
+                        <Receipt size={14} /> Resumen
                     </h3>
 
-                    <div className="mb-8 z-10 relative">
-                        <div className="text-sm text-slate-400 font-medium mb-2">Total a Pagar (Divisa)</div>
+                    <div className="mb-4 z-10 relative">
+                        <div className="text-xs text-slate-400 font-medium mb-1">Total a Pagar (Divisa)</div>
                         <div className="flex items-baseline gap-1">
-                            <span className="text-2xl text-slate-500 font-light">$</span>
-                            <span className="text-6xl font-black text-white tracking-tighter shadow-indigo-500/10 drop-shadow-lg">
+                            <span className="text-xl text-slate-500 font-light">$</span>
+                            <span className="text-5xl font-black text-white tracking-tighter shadow-indigo-500/10 drop-shadow-lg">
                                 {formatCurrency(totalUSD, 'USD').replace('$', '')}
                             </span>
                         </div>
                     </div>
 
                     {/* Total in Bs Display - UPDATED to use Default Rate */}
-                    <div className="z-10 relative bg-slate-800/50 backdrop-blur-sm rounded-2xl p-5 border border-slate-700/50 mb-auto hover:bg-slate-800/80 transition-colors group/card">
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Total en Bolívares</div>
-                            <span className="text-[10px] bg-indigo-500/10 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/20 font-mono">
+                    <div className="z-10 relative bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50 mb-auto hover:bg-slate-800/80 transition-colors group/card">
+                        <div className="flex justify-between items-start mb-1">
+                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total en Bolívares</div>
+                            <span className="text-[9px] bg-indigo-500/10 text-indigo-300 px-1.5 py-0.5 rounded-full border border-indigo-500/20 font-mono">
                                 Tasa: {formatCurrency(defaultBsRate, 'VES')}
                             </span>
                         </div>
-                        <div className="text-3xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
+                        <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
                             {formatCurrency(displayTotalBs, 'VES')}
-                        </div>
-                        <div className="mt-2 text-[10px] text-slate-500">
-                            * Calculado a la tasa de cambio actual.
                         </div>
                     </div>
 
                     {/* Pending / Change Status */}
-                    <div className="z-10 mt-8">
+                    <div className="z-10 mt-4">
                         {!isCreditSale && (
                             <div className={`
-                                relative overflow-hidden rounded-2xl p-6 transition-all duration-500 border
+                                relative overflow-hidden rounded-xl p-4 transition-all duration-500 border
                                 ${isComplete
                                     ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/50 shadow-lg shadow-emerald-900/20'
                                     : 'bg-slate-800/80 border-slate-700'
@@ -321,37 +318,37 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             `}>
                                 {isComplete ? (
                                     <div className="text-center relative z-10">
-                                        <div className="flex items-center justify-center mb-2">
-                                            <div className="bg-white/20 p-2 rounded-full backdrop-blur-md">
-                                                <CheckCircle className="text-white" size={24} strokeWidth={3} />
+                                        <div className="flex items-center justify-center mb-1">
+                                            <div className="bg-white/20 p-1.5 rounded-full backdrop-blur-md">
+                                                <CheckCircle className="text-white" size={20} strokeWidth={3} />
                                             </div>
                                         </div>
-                                        <div className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1">Pago Completado</div>
+                                        <div className="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1">Pago Completado</div>
 
                                         {changeUSD > 0.0001 ? (
                                             <div className="flex flex-col items-center">
-                                                <div className="text-xl font-bold text-emerald-200">
-                                                    Su Vuelto: <span className="text-white text-2xl">${formatCurrency(changeUSD, 'USD').replace('$', '')}</span>
+                                                <div className="text-lg font-bold text-emerald-200">
+                                                    Su Vuelto: <span className="text-white text-xl">${formatCurrency(changeUSD, 'USD').replace('$', '')}</span>
                                                 </div>
-                                                <div className="text-sm font-bold text-emerald-400 font-mono mt-1 bg-emerald-900/40 px-3 py-1 rounded-full border border-emerald-500/30">
+                                                <div className="text-xs font-bold text-emerald-400 font-mono mt-0.5 bg-emerald-900/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
                                                     Bs {formatCurrency(changeUSD * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate), 'VES').replace('Bs', '')}
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="text-xl font-bold text-white">Cuenta Saldada Exactamente</div>
+                                            <div className="text-lg font-bold text-white">Cuenta Saldada</div>
                                         )}
                                     </div>
                                 ) : (
                                     <div className="flex justify-between items-end">
                                         <div>
-                                            <div className="text-xs font-bold text-rose-400 uppercase tracking-widest mb-1">Restante</div>
-                                            <div className="text-3xl font-bold text-rose-300 font-mono">
+                                            <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-0.5">Restante</div>
+                                            <div className="text-2xl font-bold text-rose-300 font-mono">
                                                 ${formatCurrency(Math.abs(remainingUSD), 'USD').replace('$', '')}
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-[10px] text-slate-500 uppercase font-bold">En Bolívares</div>
-                                            <div className="text-xl font-bold text-slate-400 font-mono">
+                                            <div className="text-[9px] text-slate-500 uppercase font-bold">En Bolívares</div>
+                                            <div className="text-base font-bold text-slate-400 font-mono">
                                                 Bs {formatCurrency(Math.abs(remainingUSD) * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate), 'VES').replace('Bs', '')}
                                             </div>
                                         </div>
@@ -362,11 +359,11 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
                         {/* Credit Sale Indicator */}
                         {isCreditSale && (
-                            <div className="mt-4 bg-indigo-600/20 border border-indigo-500/30 rounded-xl p-4 flex items-center gap-3">
-                                <CreditCard className="text-indigo-400" size={24} />
+                            <div className="mt-3 bg-indigo-600/20 border border-indigo-500/30 rounded-xl p-3 flex items-center gap-3">
+                                <CreditCard className="text-indigo-400" size={20} />
                                 <div>
-                                    <div className="text-indigo-300 font-bold text-sm">Venta a Crédito</div>
-                                    <div className="text-indigo-400/70 text-xs">Pago diferido</div>
+                                    <div className="text-indigo-300 font-bold text-xs">Venta a Crédito</div>
+                                    <div className="text-indigo-400/70 text-[10px]">Pago diferido</div>
                                 </div>
                             </div>
                         )}
@@ -374,40 +371,41 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 </div>
 
                 {/* RIGHT COLUMN: Actions & Inputs */}
-                <div className="p-8 md:w-7/12 bg-slate-50 flex flex-col h-full overflow-hidden">
+                <div className="p-4 md:p-6 md:w-7/12 bg-slate-50 flex flex-col h-full overflow-hidden relative">
                     {/* Header */}
-                    <div className="flex justify-between items-center mb-8 shrink-0">
-                        <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2 tracking-tight">
-                            <span className="w-2 h-8 bg-indigo-600 rounded-full inline-block"></span>
+                    <div className="flex justify-between items-center mb-4 shrink-0">
+                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2 tracking-tight">
+                            <span className="w-1.5 h-6 bg-indigo-600 rounded-full inline-block"></span>
                             Procesar Pago
                         </h2>
                         <Button
                             variant="ghost"
                             size="icon"
                             onClick={onClose}
-                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl h-10 w-10"
+                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl h-9 w-9"
                         >
-                            <X size={24} />
+                            <X size={20} />
                         </Button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6 pb-4">
+                    {/* Scrollable Content Area */}
+                    <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4 pb-20"> {/* pb-20 prevents content from being hidden behind absolute footer if we used one, but here we use flex, so it's a buffer */}
 
-                        {/* Customer Section */}
-                        <div className={`group transition-all duration-300 border rounded-2xl p-1 ${isCreditSale && !selectedCustomer ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-white border-slate-200 shadow-sm hover:border-indigo-200'}`}>
-                            <div className="p-4">
-                                <div className="flex justify-between items-center mb-4">
-                                    <label className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                        <User size={14} /> Cliente
+                        {/* Customer Section - Compact */}
+                        <div className={`group transition-all duration-300 border rounded-xl p-0.5 ${isCreditSale && !selectedCustomer ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-white border-slate-200 shadow-sm hover:border-indigo-200'}`}>
+                            <div className="p-3">
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                        <User size={12} /> Cliente
                                         {isCreditSale && <span className="bg-rose-100 text-rose-600 text-[9px] px-2 py-0.5 rounded-full">Requerido</span>}
                                     </label>
                                     <Button
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => setIsQuickCustomerOpen(true)}
-                                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-8 text-xs font-bold"
+                                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-6 text-[10px] font-bold px-2"
                                     >
-                                        <UserPlus size={14} className="mr-1" /> Nuevo
+                                        <UserPlus size={12} className="mr-1" /> Nuevo
                                     </Button>
                                 </div>
 
@@ -415,22 +413,22 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                     customers={customers}
                                     selectedCustomer={selectedCustomer}
                                     onSelect={setSelectedCustomer}
-                                    className="scale-100" // Ensure internal styling works
+                                    className="scale-100"
                                 />
 
                                 {isCreditSale && selectedCustomer && (
-                                    <div className="mt-4 flex gap-4 p-3 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                                    <div className="mt-2 flex gap-3 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
                                         <div className="flex-1">
-                                            <span className="text-[10px] text-indigo-400 font-bold uppercase">Límite Crédito</span>
-                                            <div className="text-sm font-black text-indigo-900 font-mono">
+                                            <span className="text-[9px] text-indigo-400 font-bold uppercase">Límite Crédito</span>
+                                            <div className="text-xs font-black text-indigo-900 font-mono">
                                                 ${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}
                                             </div>
                                         </div>
                                         <div className="w-px bg-indigo-100"></div>
                                         <div className="flex-1">
-                                            <span className="text-[10px] text-indigo-400 font-bold uppercase">Saldo Actual</span>
-                                            <div className="text-sm font-black text-slate-700 font-mono">
-                                                $0.00 {/* Placeholder for customer balance */}
+                                            <span className="text-[9px] text-indigo-400 font-bold uppercase">Saldo Actual</span>
+                                            <div className="text-xs font-black text-slate-700 font-mono">
+                                                $0.00
                                             </div>
                                         </div>
                                     </div>
@@ -438,49 +436,49 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             </div>
                         </div>
 
-                        {/* Credit Toggle */}
-                        <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${isCreditSale ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-slate-100'}`}>
-                                {isCreditSale && <CheckCircle size={14} className="text-white" strokeWidth={4} />}
+                        {/* Credit Toggle - Compact */}
+                        <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${isCreditSale ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-slate-100'}`}>
+                                {isCreditSale && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
                             </div>
                             <input type="checkbox" checked={isCreditSale} onChange={e => setIsCreditSale(e.target.checked)} className="hidden" />
                             <div className="flex-1">
-                                <div className={`font-bold text-sm ${isCreditSale ? 'text-indigo-700' : 'text-slate-600'}`}>Venta a Crédito</div>
-                                <div className="text-xs text-slate-400">La cuenta por cobrar se asignará al cliente</div>
+                                <div className={`font-bold text-xs ${isCreditSale ? 'text-indigo-700' : 'text-slate-600'}`}>Venta a Crédito</div>
+                                <div className="text-[10px] text-slate-400">La cuenta por cobrar se asignará al cliente</div>
                             </div>
                         </label>
 
-                        {/* Payments Section */}
+                        {/* Payments Section - Compact */}
                         {!isCreditSale && (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 <div className="flex justify-between items-end">
-                                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                        <Layers size={16} className="text-slate-400" />
+                                    <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                                        <Layers size={14} className="text-slate-400" />
                                         Métodos de Pago
                                     </h3>
                                     <Button
                                         variant="outline"
                                         size="sm"
                                         onClick={addPaymentRow}
-                                        className="text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100 h-8 text-xs font-bold"
+                                        className="text-indigo-600 bg-indigo-50 border-indigo-100 hover:bg-indigo-100 h-7 text-[10px] font-bold px-2"
                                     >
-                                        + Agregar Otro
+                                        + Agregar
                                     </Button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     {payments.map((payment, index) => {
                                         const selectedMethod = paymentMethods.find(m => m.name === payment.method);
                                         const needsReference = selectedMethod?.requires_reference;
 
                                         return (
-                                            <div key={index} className="flex flex-col gap-2 p-3 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
+                                            <div key={index} className="flex flex-col gap-2 p-2 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
 
-                                                <div className="flex gap-3">
-                                                    {/* Method & Currency */}
-                                                    <div className="flex flex-col gap-2 w-5/12">
+                                                <div className="flex gap-2">
+                                                    {/* Method & Currency - Tighter */}
+                                                    <div className="flex flex-col gap-1.5 w-5/12">
                                                         <select
-                                                            className="w-full bg-slate-50 border-none text-xs font-bold text-slate-700 rounded-lg py-2 focus:ring-0"
+                                                            className="w-full bg-slate-50 border-none text-[11px] font-bold text-slate-700 rounded-md py-1.5 pl-2 pr-6 focus:ring-0 leading-tight"
                                                             value={payment.method}
                                                             onChange={(e) => updatePayment(index, 'method', e.target.value)}
                                                         >
@@ -488,14 +486,14 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                                 <option key={m.id} value={m.name}>{m.name}</option>
                                                             ))}
                                                         </select>
-                                                        <div className="flex gap-2">
+                                                        <div className="flex gap-1">
                                                             {currencies.slice(0, 3).map(c => (
                                                                 <Button
                                                                     key={c.symbol}
                                                                     size="sm"
                                                                     variant={payment.currency === c.symbol ? "default" : "outline"}
                                                                     onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                                    className={`flex-1 h-7 text-[10px] font-bold px-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
+                                                                    className={`flex-1 h-6 text-[9px] font-bold px-0 rounded-md ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
                                                                 >
                                                                     {c.symbol}
                                                                 </Button>
@@ -505,13 +503,13 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
                                                     {/* Amount Input */}
                                                     <div className="flex-1 relative">
-                                                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                                            <span className="text-slate-400 font-bold text-lg">
+                                                        <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
+                                                            <span className="text-slate-400 font-bold text-sm">
                                                                 {payment.currency === 'USD' ? '$' : payment.currency}
                                                             </span>
                                                         </div>
                                                         <CurrencyInput
-                                                            className="w-full h-full bg-transparent text-right font-mono text-2xl font-bold text-slate-800 placeholder-slate-200 border-none focus:ring-0 p-0 pr-2"
+                                                            className="w-full h-full bg-transparent text-right font-mono text-xl font-bold text-slate-800 placeholder-slate-200 border-none focus:ring-0 p-0 pr-1"
                                                             placeholder="0.00"
                                                             value={payment.amount}
                                                             onChange={(val) => updatePayment(index, 'amount', val)}
@@ -522,20 +520,20 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                     {payments.length > 1 && (
                                                         <button
                                                             onClick={() => removePaymentRow(index)}
-                                                            className="flex items-center justify-center w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                                                            className="flex items-center justify-center w-6 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                                                         >
-                                                            <Trash2 size={16} />
+                                                            <Trash2 size={14} />
                                                         </button>
                                                     )}
                                                 </div>
 
-                                                {/* Reference Input */}
+                                                {/* Reference Input - Compact */}
                                                 {needsReference && (
-                                                    <div className="animate-in fade-in slide-in-from-top-2">
+                                                    <div className="animate-in fade-in slide-in-from-top-1">
                                                         <Input
                                                             type="text"
                                                             placeholder="Referencia / # Transferencia"
-                                                            className="bg-indigo-50/50 border-indigo-100 text-xs text-indigo-800 placeholder:text-indigo-300 h-9"
+                                                            className="bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 placeholder:text-indigo-300 h-7 rounded-md"
                                                             value={payment.reference || ''}
                                                             onChange={(e) => updatePayment(index, 'reference', e.target.value)}
                                                         />
@@ -549,13 +547,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         )}
                     </div>
 
-                    {/* Footer Actions */}
-                    <div className="mt-auto pt-6 border-t border-slate-100 flex gap-4 shrink-0">
+                    {/* Footer Actions - Pinned */}
+                    <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-white/90 backdrop-blur-sm border-t border-slate-100 flex gap-3 shrink-0 z-20">
                         <Button
                             variant="ghost"
-                            size="lg"
                             onClick={onClose}
-                            className="font-bold text-slate-500 hover:bg-slate-100 h-14 px-6 rounded-xl"
+                            className="font-bold text-slate-500 hover:bg-slate-100 h-12 px-4 rounded-xl text-sm"
                         >
                             Cancelar
                         </Button>
@@ -563,7 +560,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             onClick={handleConfirm}
                             disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)}
                             className={`
-                                flex-1 rounded-xl font-black text-lg tracking-wide shadow-xl transition-all h-14
+                                flex-1 rounded-xl font-black text-base tracking-wide shadow-xl transition-all h-12
                                 ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)
                                     ? 'bg-slate-100 text-slate-300'
                                     : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:-translate-y-1 shadow-indigo-500/30'
@@ -571,11 +568,11 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             `}
                         >
                             {processing ? (
-                                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>
-                                    {isCreditSale ? 'REGISTRAR CRÉDITO' : 'CONFIRMAR PAGO'}
-                                    <CheckCircle size={20} strokeWidth={3} className="ml-3" />
+                                    {isCreditSale ? 'REGISTRAR CRÉDITO' : 'CONFIRMAR'}
+                                    <CheckCircle size={18} strokeWidth={3} className="ml-2" />
                                 </>
                             )}
                         </Button>
