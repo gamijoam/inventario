@@ -41,12 +41,14 @@ import {
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
+import { useAppTour } from '../../hooks/useAppTour';
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const location = useLocation();
     const navigate = useNavigate();
     const { logout, user } = useAuth();
     const { modules } = useConfig();
+    const { startTour } = useAppTour();
 
     const menuStructure = [
         {
@@ -219,6 +221,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                             <Link
                                 key={group.item.path}
                                 to={group.item.path}
+                                id={group.item.label === 'Resumen' ? 'sidebar-dashboard' : undefined}
                                 onClick={closeMobileMenu}
                                 className={cn(
                                     "flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative group mb-1",
@@ -254,6 +257,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                         <div key={idx} className="mb-2">
                             <button
                                 onClick={() => toggleGroup(group.label)}
+                                id={group.label === 'Ventas' ? 'sidebar-sales' : undefined}
                                 className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors group select-none"
                             >
                                 <div className="flex items-center">
@@ -299,6 +303,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                     <HelpCircle size={20} />
                     {!isCollapsed && <span className="ml-3 font-semibold text-sm">Ayuda</span>}
                 </Link>
+                <button
+                    onClick={() => startTour()}
+                    className={cn("flex items-center px-3 py-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors w-full mb-1", isCollapsed && "justify-center")}
+                >
+                    <RefreshCcw size={20} />
+                    {!isCollapsed && <span className="ml-3 font-semibold text-sm">Repetir Tour</span>}
+                </button>
                 <button onClick={handleLogout} className={cn("flex items-center px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors w-full", isCollapsed && "justify-center")}>
                     <LogOut size={20} />
                     {!isCollapsed && <span className="ml-3 font-bold text-sm">Salir</span>}

@@ -168,6 +168,7 @@ export default function Header() {
                 <div className="relative">
                     <button
                         onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                        id="user-menu"
                         className="flex items-center gap-2 focus:outline-none"
                     >
                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center text-xs font-bold shadow-md ring-2 ring-white">

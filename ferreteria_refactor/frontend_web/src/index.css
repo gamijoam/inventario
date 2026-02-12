@@ -2,12 +2,75 @@
 
 @import "tailwindcss";
 
-@theme {
+/* @theme {
   --font-sans: "Inter", "sans-serif";
-}
+} */
 
 @layer base {
   body {
     @apply bg-slate-50 text-slate-800 antialiased;
   }
+}
+
+/* --- driver.js Onboarding Theme --- */
+.onboarding-popover-theme {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-radius: 1.5rem !important;
+  padding: 1.5rem !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid #e2e8f0 !important;
+  max-width: 350px !important;
+}
+
+.onboarding-popover-theme .driver-popover-title {
+  font-weight: 800 !important;
+  font-size: 1.25rem !important;
+  color: #1e293b !important;
+  margin-bottom: 0.75rem !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.onboarding-popover-theme .driver-popover-description {
+  font-size: 0.95rem !important;
+  color: #64748b !important;
+  line-height: 1.6 !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.onboarding-popover-theme .driver-popover-footer {
+  margin-top: 1.5rem !important;
+}
+
+.onboarding-popover-theme .driver-popover-next-btn,
+.onboarding-popover-theme .driver-popover-prev-btn,
+.onboarding-popover-theme .driver-popover-close-btn {
+  border-radius: 0.75rem !important;
+  padding: 0.5rem 1rem !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+  transition: all 0.2s !important;
+}
+
+.onboarding-popover-theme .driver-popover-next-btn {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.onboarding-popover-theme .driver-popover-next-btn:hover {
+  background-color: #4338ca !important;
+}
+
+.onboarding-popover-theme .driver-popover-prev-btn {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.onboarding-popover-theme .driver-popover-progress-text {
+  color: #94a3b8 !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
 }

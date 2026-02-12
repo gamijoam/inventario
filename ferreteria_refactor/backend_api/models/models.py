@@ -489,6 +489,7 @@ class User(Base):
     
     # User Preferences (Theme, shortcuts, etc.)
     preferences = Column(JSON, default={}, nullable=True) # NEW: JSON Configuration
+    is_onboarding_completed = Column(Boolean, default=False) # NEW: Onboarding tour state
 
     created_at = Column(DateTime, default=get_venezuela_now)
 

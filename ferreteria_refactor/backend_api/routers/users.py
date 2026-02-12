@@ -79,8 +79,19 @@ def get_current_user_profile(
         "is_active": current_user.is_active,
         "pin": current_user.pin,
         "preferences": current_user.preferences,
+        "is_onboarding_completed": current_user.is_onboarding_completed,
         "created_at": current_user.created_at
     }
+
+@router.post("/me/onboarding-completed")
+def complete_onboarding(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Mark onboarding tour as completed for the current user"""
+    current_user.is_onboarding_completed = True
+    db.commit()
+    return {"status": "success", "is_onboarding_completed": True}
 
 @router.get("/", response_model=List[schemas.UserRead])
 @router.get("", response_model=List[schemas.UserRead], include_in_schema=False)

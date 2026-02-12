@@ -674,6 +674,7 @@ class UserRead(BaseModel):
     created_at: Optional[datetime]
     commission_percentage: Optional[Decimal] = Decimal("0.00")
     preferences: Optional[Dict[str, Any]] = {} # NEW
+    is_onboarding_completed: bool = False # NEW
 
 
     class Config:

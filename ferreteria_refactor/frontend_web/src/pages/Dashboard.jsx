@@ -304,6 +304,7 @@ const Dashboard = () => {
                     </button>
                     <button
                         onClick={() => navigate('/products')}
+                        id="btn-new-product"
                         className="flex-1 sm:flex-none h-10 px-4 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium rounded-lg shadow-sm transition-all flex items-center justify-center gap-2"
                     >
                         <Package size={18} />

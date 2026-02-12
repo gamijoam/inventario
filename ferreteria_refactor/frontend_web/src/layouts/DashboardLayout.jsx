@@ -4,6 +4,7 @@ import { Menu, X } from 'lucide-react';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
 import GlobalBanner from '../components/common/GlobalBanner';
+import OnboardingController from '../components/common/OnboardingController';
 import { cn } from '../utils/cn';
 
 export default function DashboardLayout() {
@@ -64,6 +65,7 @@ export default function DashboardLayout() {
                     isSidebarCollapsed ? "md:ml-20" : "md:ml-64"
                 )}
             >
+                <OnboardingController />
                 <GlobalBanner />
                 <Header />
 
