@@ -493,7 +493,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                     <Input
                                                                         type="number"
                                                                         className="w-24 h-8 text-right text-xs bg-slate-50 focus:bg-white border-slate-200"
-                                                                        value={qty}
+                                                                        value={Number(qty).toString()}
                                                                         placeholder="0"
                                                                         onChange={(e) => {
                                                                             const val = parseFloat(e.target.value) || 0;
