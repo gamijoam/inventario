@@ -42,6 +42,7 @@ import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { useAppTour } from '../../hooks/useAppTour';
+import TourSelectionModal from '../common/TourSelectionModal';
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const location = useLocation();
@@ -49,6 +50,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const { logout, user } = useAuth();
     const { modules } = useConfig();
     const { startTour } = useAppTour();
+    const [isTourModalOpen, setIsTourModalOpen] = useState(false);
 
     const menuStructure = [
         {
@@ -241,11 +243,12 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                     // GROUP ITEM
                     const isExpanded = expandedGroups[group.label];
                     const hasActiveChild = group.items.some(item => item.path === location.pathname);
+                    const groupId = `sidebar-group-${group.label.toLowerCase().replace(/\s+/g, '-')}`;
 
                     if (isCollapsed) {
                         return (
                             <div key={idx} className="flex justify-center my-1 group relative">
-                                <button onClick={() => toggleGroup(group.label)} className={cn("w-10 h-10 flex items-center justify-center rounded-lg transition-all", hasActiveChild ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:bg-slate-50")}>
+                                <button id={groupId} onClick={() => toggleGroup(group.label)} className={cn("w-10 h-10 flex items-center justify-center rounded-lg transition-all", hasActiveChild ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:bg-slate-50")}>
                                     <group.icon size={20} />
                                 </button>
                                 {/* Tooltip Logic Simplified */}
@@ -257,7 +260,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                         <div key={idx} className="mb-2">
                             <button
                                 onClick={() => toggleGroup(group.label)}
-                                id={group.label === 'Ventas' ? 'sidebar-sales' : undefined}
+                                id={groupId}
                                 className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors group select-none"
                             >
                                 <div className="flex items-center">
@@ -270,10 +273,12 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                             <div className={cn("overflow-hidden transition-all duration-300 ease-in-out pl-4 space-y-0.5 mt-1 border-l border-slate-100 ml-4", isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0")}>
                                 {group.items.map(subItem => {
                                     const isSubActive = location.pathname === subItem.path;
+                                    const itemId = `sidebar-item-${subItem.label.toLowerCase().replace(/\s+/g, '-')}`;
                                     return (
                                         <Link
                                             key={subItem.path}
                                             to={subItem.path}
+                                            id={itemId}
                                             onClick={closeMobileMenu}
                                             className={cn(
                                                 "flex items-center px-3 py-2 rounded-md text-sm transition-all relative",
@@ -303,18 +308,25 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                     <HelpCircle size={20} />
                     {!isCollapsed && <span className="ml-3 font-semibold text-sm">Ayuda</span>}
                 </Link>
+
                 <button
-                    onClick={() => startTour()}
+                    onClick={() => setIsTourModalOpen(true)}
                     className={cn("flex items-center px-3 py-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors w-full mb-1", isCollapsed && "justify-center")}
                 >
-                    <RefreshCcw size={20} />
-                    {!isCollapsed && <span className="ml-3 font-semibold text-sm">Repetir Tour</span>}
+                    <BookOpen size={20} />
+                    {!isCollapsed && <span className="ml-3 font-semibold text-sm">Guía de Uso</span>}
                 </button>
                 <button onClick={handleLogout} className={cn("flex items-center px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors w-full", isCollapsed && "justify-center")}>
                     <LogOut size={20} />
                     {!isCollapsed && <span className="ml-3 font-bold text-sm">Salir</span>}
                 </button>
             </div>
+
+            {/* Tour Selection Modal */}
+            <TourSelectionModal
+                isOpen={isTourModalOpen}
+                onClose={() => setIsTourModalOpen(false)}
+            />
         </aside>
     );
 }
