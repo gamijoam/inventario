@@ -171,7 +171,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
     return (
         <aside className={cn(
-            "bg-white border-r border-slate-200 fixed h-full transition-all duration-300 ease-in-out shadow-[1px_0_5px_rgba(0,0,0,0.02)] inset-y-0 left-0 flex flex-col z-20",
+            "bg-white border-r border-slate-200 fixed h-full transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-[1px_0_15px_rgba(0,0,0,0.02)] inset-y-0 left-0 flex flex-col z-20",
             isCollapsed ? "md:w-20" : "md:w-64",
             isMobileMenuOpen ? "flex w-64 translate-x-0 z-50" : "hidden md:flex max-md:-translate-x-full"
         )}>
@@ -203,13 +203,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             {/* Desktop Collapse Button - Positioned Below Header */}
             <button
                 onClick={toggleSidebar}
-                className="hidden md:flex absolute -right-3 top-20 w-6 h-12 bg-white border-2 border-indigo-500 rounded-full items-center justify-center text-indigo-600 shadow-md hover:shadow-lg hover:bg-indigo-50 transition-all duration-200 z-30"
+                className="hidden md:flex absolute -right-3 top-20 w-6 h-12 bg-white border-2 border-indigo-500 rounded-full items-center justify-center text-indigo-600 shadow-[0_4px_12px_rgba(79,70,229,0.2)] hover:shadow-[0_4px_20px_rgba(79,70,229,0.4)] hover:bg-indigo-50 transition-all duration-300 z-30 group/collapse"
                 title={isCollapsed ? "Expandir menú (→)" : "Colapsar menú (←)"}
             >
                 {isCollapsed ? (
-                    <ChevronRight size={20} strokeWidth={3} />
+                    <ChevronRight size={20} strokeWidth={3} className="group-hover/collapse:translate-x-0.5 transition-transform" />
                 ) : (
-                    <ChevronLeft size={20} strokeWidth={3} />
+                    <ChevronLeft size={20} strokeWidth={3} className="group-hover/collapse:-translate-x-0.5 transition-transform" />
                 )}
             </button>
 

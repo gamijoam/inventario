@@ -41,30 +41,32 @@ const Card = ({ children, className }) => (
 );
 
 const KPICard = ({ title, value, icon: Icon, trend, trendValue }) => (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 relative overflow-hidden group">
+    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:ring-1 hover:ring-indigo-500/20 transition-all duration-300 relative overflow-hidden group hover:-translate-y-1">
         <div className="flex justify-between items-start mb-4">
-            <p className="text-slate-500 text-sm font-medium">{title}</p>
-            <Icon size={18} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+            <p className="text-slate-500 text-xs font-black uppercase tracking-widest">{title}</p>
+            <div className="p-2 bg-slate-50 rounded-lg group-hover:bg-indigo-50 transition-colors">
+                <Icon size={18} className="text-slate-400 group-hover:text-indigo-600 transition-colors" />
+            </div>
         </div>
 
         <div className="mb-2">
             {typeof value === 'string' || typeof value === 'number' ? (
-                <h3 className="text-3xl font-bold text-slate-900 tracking-tight">{value}</h3>
+                <h3 className="text-3xl font-black text-slate-900 tracking-tight">{value}</h3>
             ) : (
-                <div className="text-3xl font-bold text-slate-900 tracking-tight">{value}</div>
+                <div className="text-3xl font-black text-slate-900 tracking-tight">{value}</div>
             )}
         </div>
 
         {trend && (
             <div className="flex items-center gap-2">
                 <span className={cn(
-                    "inline-flex items-center gap-1 text-sm font-medium",
-                    trend === 'up' ? "text-emerald-600" : "text-rose-600"
+                    "inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full",
+                    trend === 'up' ? "text-emerald-700 bg-emerald-50" : "text-rose-700 bg-rose-50"
                 )}>
-                    {trend === 'up' ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                    {trend === 'up' ? <ArrowUpRight size={14} strokeWidth={3} /> : <ArrowDownRight size={14} strokeWidth={3} />}
                     {trendValue}
                 </span>
-                <span className="text-slate-400 text-xs">vs mes anterior</span>
+                <span className="text-slate-400 text-[10px] font-medium uppercase tracking-tight">vs mes anterior</span>
             </div>
         )}
     </div>
@@ -73,9 +75,12 @@ const KPICard = ({ title, value, icon: Icon, trend, trendValue }) => (
 const RecentSalesTable = ({ sales = [] }) => {
     if (!sales || sales.length === 0) {
         return (
-            <div className="text-center py-12 text-slate-400">
-                <Package size={48} className="mx-auto mb-4 opacity-50" />
-                <p>No hay ventas recientes</p>
+            <div className="text-center py-16 px-4">
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
+                    <Package size={32} className="text-slate-300" />
+                </div>
+                <h4 className="text-slate-900 font-bold mb-1">¡Listo para comenzar!</h4>
+                <p className="text-slate-500 text-sm max-w-xs mx-auto">Tus ventas aparecerán aquí en tiempo real una vez que realices tu primera transacción.</p>
             </div>
         );
     }

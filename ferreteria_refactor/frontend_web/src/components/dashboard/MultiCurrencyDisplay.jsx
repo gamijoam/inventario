@@ -38,9 +38,9 @@ const MultiCurrencyDisplay = ({ amountUSD = 0, showRate = true, size = 'md' }) =
     const classes = sizeClasses[size] || sizeClasses.md;
 
     return (
-        <div className="space-y-1">
+        <div className="space-y-0.5">
             {/* USD Amount (Primary) */}
-            <div className={`${classes.usd} font-bold text-slate-800 tracking-tight`}>
+            <div className={`${classes.usd} font-black text-slate-900 tracking-tighter`}>
                 ${amountUSD.toLocaleString('en-US', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
@@ -48,8 +48,9 @@ const MultiCurrencyDisplay = ({ amountUSD = 0, showRate = true, size = 'md' }) =
             </div>
 
             {/* Bs Amount (Secondary) */}
-            <div className={`${classes.bs} font-semibold text-slate-500`}>
-                Bs {amountBs.toLocaleString('es-VE', {
+            <div className={`${classes.bs} font-bold text-emerald-600/80 font-mono`}>
+                <span className="text-[0.7em] opacity-60 mr-0.5">Bs</span>
+                {amountBs.toLocaleString('es-VE', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 })}
@@ -57,7 +58,7 @@ const MultiCurrencyDisplay = ({ amountUSD = 0, showRate = true, size = 'md' }) =
 
             {/* Exchange Rate (Optional) */}
             {showRate && (
-                <div className={`${classes.rate} text-slate-400 font-medium`}>
+                <div className={`${classes.rate} inline-block bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-bold uppercase tracking-tighter`}>
                     Tasa: {bsRate.toFixed(2)}
                 </div>
             )}

@@ -8,6 +8,7 @@ import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
+import { cn } from '../utils/cn';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
@@ -222,26 +223,28 @@ const Products = () => {
                             </TableRow>
                         ) : (
                             filteredProducts.map((product) => (
-                                <TableRow key={product.id} className="group">
+                                <TableRow key={product.id} className="group hover:bg-indigo-50/30 transition-colors duration-200">
                                     <TableCell>
-                                        <ProductThumbnail
-                                            imageUrl={product.image_url}
-                                            productName={product.name}
-                                            size="sm"
-                                            className="rounded-lg border border-slate-100 mix-blend-multiply"
-                                        />
+                                        <div className="relative">
+                                            <ProductThumbnail
+                                                imageUrl={product.image_url}
+                                                productName={product.name}
+                                                size="md"
+                                                className="h-14 w-14 rounded-xl border border-slate-100 shadow-sm mix-blend-multiply transition-transform group-hover:scale-105"
+                                            />
+                                        </div>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex flex-col">
-                                            <span className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors text-base tracking-tight">
                                                 {product.name}
                                             </span>
-                                            <div className="flex items-center gap-2 mt-0.5">
-                                                <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-mono border border-slate-200">
-                                                    {product.sku || 'N/A'}
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold border border-slate-200 uppercase tracking-tighter">
+                                                    SKU: {product.sku || '---'}
                                                 </span>
                                                 {product.has_imei && (
-                                                    <Badge variant="outline" className="text-[9px] h-4 px-1 gap-1 border-blue-200 text-blue-700 bg-blue-50">
+                                                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-1 border-blue-200 text-blue-700 bg-blue-50 font-black">
                                                         SERIAL
                                                     </Badge>
                                                 )}
@@ -250,61 +253,80 @@ const Products = () => {
                                     </TableCell>
                                     <TableCell>
                                         {product.category?.name ? (
-                                            <Badge variant="outline" className="font-normal text-slate-600 bg-slate-50 border-slate-200">
+                                            <Badge
+                                                variant="outline"
+                                                className="font-bold text-slate-600 bg-white border-slate-200 hover:bg-slate-50 cursor-pointer shadow-sm active:scale-95 transition-transform"
+                                                onClick={() => setFilterCategory(product.category_id.toString())}
+                                            >
                                                 {product.category.name}
                                             </Badge>
                                         ) : (
-                                            <span className="text-slate-400 text-xs italic">Sin categoría</span>
+                                            <Badge
+                                                variant="outline"
+                                                className="font-medium text-slate-400 bg-slate-50/50 border-slate-100 border-dashed italic cursor-pointer hover:bg-slate-100 transition-colors"
+                                                onClick={() => setFilterCategory('')}
+                                            >
+                                                Sin categoría
+                                            </Badge>
                                         )}
                                     </TableCell>
-                                    <TableCell className="text-right font-medium">
-                                        <div className="text-slate-900">${Number(product.price).toFixed(2)}</div>
-                                        <div className="text-xs text-slate-400">USD</div>
+                                    <TableCell className="text-right">
+                                        <div className="flex flex-col items-end">
+                                            <div className="text-2xl font-black text-slate-900 tracking-tighter leading-none">
+                                                ${Number(product.price).toFixed(2)}
+                                            </div>
+                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">USD</div>
+                                        </div>
                                     </TableCell>
                                     <TableCell>
                                         {(() => {
                                             const totalStock = product.stock || 0;
-                                            // Warehouse filtering visual logic
-                                            if (filterWarehouse) {
-                                                const s = product.stocks?.find(st => st.warehouse_id === parseInt(filterWarehouse));
-                                                return (
-                                                    <Badge variant={s?.quantity > 5 ? "secondary" : "destructive"} className="font-bold">
-                                                        {formatStock(s?.quantity || 0)} un.
-                                                    </Badge>
-                                                );
-                                            }
-                                            // Default Total
+                                            const isLow = totalStock <= 5;
+                                            const isOut = totalStock === 0;
+
                                             return (
-                                                <Badge
-                                                    variant={totalStock <= 5 ? "destructive" : "secondary"}
-                                                    className={clsx(
-                                                        "font-bold",
-                                                        totalStock > 5 ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200" : ""
-                                                    )}
-                                                >
-                                                    {formatStock(totalStock)} un.
-                                                </Badge>
+                                                <div className="flex flex-col gap-1">
+                                                    <div className={cn(
+                                                        "text-lg font-black tracking-tight leading-none",
+                                                        isOut ? "text-rose-600" : (isLow ? "text-amber-600" : "text-emerald-600")
+                                                    )}>
+                                                        {formatStock(totalStock)} <span className="text-xs uppercase opacity-70">un.</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className={cn(
+                                                            "w-2 h-2 rounded-full",
+                                                            isOut ? "bg-rose-500 animate-pulse" : (isLow ? "bg-amber-500" : "bg-emerald-500")
+                                                        )}></div>
+                                                        <span className={cn(
+                                                            "text-[10px] font-black uppercase tracking-wider",
+                                                            isOut ? "text-rose-500" : (isLow ? "text-amber-600" : "text-emerald-600")
+                                                        )}>
+                                                            {isOut ? "Agotado" : (isLow ? "Bajo Stock" : "En Stock")}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             );
                                         })()}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900 data-[state=open]:text-indigo-600">
-                                                    <MoreHorizontal size={16} />
+                                                <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-100 shadow-none hover:shadow-sm rounded-xl transition-all">
+                                                    <MoreHorizontal size={20} />
                                                 </Button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                                <DropdownMenuItem onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }}>
-                                                    <Pencil size={14} className="mr-2 text-slate-500" /> Editar
+                                            <DropdownMenuContent align="end" className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
+                                                <DropdownMenuLabel className="text-xs uppercase text-slate-400 tracking-widest">Opciones</DropdownMenuLabel>
+                                                <DropdownMenuItem onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }} className="py-2.5 rounded-lg cursor-pointer">
+                                                    <Pencil size={16} className="mr-3 text-indigo-500" />
+                                                    <span className="font-bold">Editar</span>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem
                                                     onClick={() => handleDelete(product)}
-                                                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 focus:bg-rose-50"
+                                                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 focus:bg-rose-50 py-2.5 rounded-lg cursor-pointer font-bold"
                                                 >
-                                                    <Trash2 size={14} className="mr-2" /> Eliminar
+                                                    <Trash2 size={16} className="mr-3" /> Eliminar
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
