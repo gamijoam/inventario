@@ -289,9 +289,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                 <Card className="md:col-span-12 border-slate-200 shadow-none bg-white">
                                     <CardContent className="p-4">
                                         <div className="flex flex-col sm:flex-row gap-5">
-                                            {/* Image Upload - Fixed Square */}
-                                            <div className="w-32 h-32 flex-shrink-0">
-                                                <div className="w-full h-full bg-slate-50 rounded-lg border border-dashed border-slate-200 hover:border-indigo-400 transition-all cursor-pointer flex flex-col items-center justify-center relative overflow-hidden group">
+                                            {/* Image Upload - Flexible Container */}
+                                            <div className="w-full sm:w-48 flex-shrink-0">
+                                                <div className="w-full group">
                                                     <ProductImageUploader
                                                         productId={initialData?.id}
                                                         currentImageUrl={formData.image_url}

@@ -740,6 +740,20 @@ def delete_product(product_id: int, background_tasks: BackgroundTasks, db: Sessi
     
     return {"status": "success", "message": "Product deactivated"}
 
+@router.delete("/{product_id}/image", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+def delete_product_image(product_id: int, db: Session = Depends(get_db)):
+    """
+    Remove the product image URL from the database.
+    Does not delete the physical file (garbage collection handled elsewhere if needed).
+    """
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    product.image_url = None
+    db.commit()
+    return {"success": True, "message": "Imagen eliminada correctamente"}
+
 # ========================================
 # PRICE CALCULATION UTILITY
 # ========================================

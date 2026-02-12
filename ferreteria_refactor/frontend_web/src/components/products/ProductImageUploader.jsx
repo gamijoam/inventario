@@ -109,34 +109,53 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
     <div className="space-y-4">
       {/* Preview */}
       {currentImageUrl ? (
-        <div className="relative inline-block group">
-          <div className="relative overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-slate-50">
-            <img
-              src={getImageUrl(currentImageUrl)}
-              alt="Producto"
-              className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
-              onError={(e) => {
-                e.target.src = noImgPlaceholder;
-              }}
-
-            />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+        <div className="relative group overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-slate-50 flex items-center justify-center min-h-[160px]">
+          <img
+            src={getImageUrl(currentImageUrl)}
+            alt="Producto"
+            className="max-w-full max-h-64 object-contain transition-transform duration-500 group-hover:scale-105"
+            onError={(e) => {
+              e.target.src = noImgPlaceholder;
+            }}
+          />
+          {/* Overlay with Actions */}
+          <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 backdrop-blur-[2px]">
+            <div className="flex gap-2">
+              <label
+                htmlFor="image-upload-change"
+                className="cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-xl hover:bg-slate-100 transition-all font-bold text-sm flex items-center gap-2 shadow-xl"
+              >
+                <Upload size={16} /> Cambiar
+                <input
+                  type="file"
+                  id="image-upload-change"
+                  accept="image/*"
+                  onChange={handleFileInput}
+                  className="hidden"
+                  disabled={uploading}
+                />
+              </label>
               <button
                 onClick={handleDelete}
                 disabled={uploading}
-                className="bg-rose-500 text-white p-3 rounded-xl hover:bg-rose-600 disabled:opacity-50 transform hover:scale-110 transition-all shadow-lg"
+                className="bg-rose-500 text-white p-2 rounded-xl hover:bg-rose-600 disabled:opacity-50 transition-all shadow-xl"
                 title="Eliminar imagen"
               >
-                <X size={24} />
+                <X size={20} />
               </button>
             </div>
           </div>
+          {uploading && (
+            <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
+              <Upload className="animate-spin text-indigo-500" size={32} />
+            </div>
+          )}
         </div>
       ) : (
         /* Upload Area */
         <div
           className={clsx(
-            "border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300",
+            "border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-300 min-h-[160px] flex items-center justify-center",
             dragActive
               ? 'border-indigo-500 bg-indigo-50/50 scale-[1.02]'
               : 'border-slate-300 hover:border-indigo-300 hover:bg-slate-50'
@@ -156,25 +175,25 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
           />
           <label
             htmlFor="image-upload"
-            className="cursor-pointer flex flex-col items-center"
+            className="cursor-pointer flex flex-col items-center w-full"
           >
             {uploading ? (
-              <div className="p-4 bg-indigo-50 rounded-full mb-3">
+              <div className="p-4 bg-indigo-50 rounded-full mb-2">
                 <Upload className="animate-spin text-indigo-500" size={32} />
               </div>
             ) : (
               <div className={clsx(
-                "p-4 rounded-full mb-3 transition-colors",
-                dragActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-500"
+                "p-3 rounded-full mb-2 transition-colors",
+                dragActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400"
               )}>
-                <ImageIcon size={32} />
+                <ImageIcon size={28} />
               </div>
             )}
-            <p className="mt-2 text-sm font-bold text-slate-700">
-              {uploading ? 'Subiendo...' : 'Arrastra una imagen o haz clic aquí'}
+            <p className="text-xs font-bold text-slate-700">
+              {uploading ? 'Subiendo...' : 'Subir Imagen'}
             </p>
-            <p className="text-xs text-slate-400 mt-1 font-medium">
-              JPG, PNG o WebP (máx. 2MB)
+            <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
+              JPG, PNG o WebP
             </p>
           </label>
         </div>
@@ -182,8 +201,8 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
 
       {/* Error Message */}
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center">
-          <X size={16} className="mr-2 flex-shrink-0" />
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-xl text-[11px] font-medium flex items-center">
+          <X size={14} className="mr-2 flex-shrink-0" />
           {error}
         </div>
       )}
