@@ -19,7 +19,6 @@ window.openRegisterModal = function (e) {
         console.log("Modal abierto exitosamente");
     } else {
         console.error("ERROR: No se encontró el elemento #registerModal");
-        alert("Error: No se pudo cargar el formulario de registro. Por favor recarga la página.");
     }
 };
 
@@ -213,9 +212,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const navbar = document.querySelector('.navbar');
     window.addEventListener('scroll', function () {
         if (window.scrollY > 50) {
-            navbar.style.background = 'rgba(15, 23, 42, 0.95)';
+            navbar.style.boxShadow = '0 4px 6px -1px rgb(0 0 0 / 0.1)';
         } else {
-            navbar.style.background = 'rgba(15, 23, 42, 0.8)';
+            navbar.style.boxShadow = 'none';
         }
     });
 });

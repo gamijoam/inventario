@@ -4,35 +4,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Ultra | El Sistema que Tu Ferretería Necesita para Crecer</title>
+    <title>Mi Inventario Fácil | Control Total para tu Negocio</title>
     <meta name="description"
-        content="Sistema SaaS de gestión para ferreterías, bodegas y minimarkets. Control total de inventario, ventas rápidas y facturación simple en la nube.">
-    <link rel="stylesheet" href="styles.css?v=qa_v3">
+        content="Software de gestión y punto de venta para ferreterías, repuestos, minimarkets y restaurantes. Controla inventario, ventas y facturación en una sola plataforma.">
+    <link rel="stylesheet" href="styles.css?v=qa_v5">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
 
 <body>
-    <!-- Modern Navbar -->
+    <!-- Navbar -->
     <nav class="navbar">
-        <div class="nav-container">
+        <div class="container nav-container">
             <div class="logo">
-                <div class="logo-icon">
-                    <i class="fas fa-bolt"></i>
-                </div>
-                <span class="logo-text">POS Ultra</span>
-                <span class="badge">v2.0</span>
+                <i class="fas fa-bolt"></i>
+                <span>Mi Inventario Fácil</span>
             </div>
             <div class="nav-menu" id="navMenu">
                 <a href="#features" class="nav-link">Características</a>
-                <a href="#benefits" class="nav-link">Beneficios</a>
                 <a href="#testimonials" class="nav-link">Testimonios</a>
-                <a href="#download" class="nav-link">Descargar</a>
-                <a href="#" onclick="openRegisterModal(event)" class="btn-nav-cta">
-                    <i class="fas fa-rocket"></i> Probar Gratis
+                <a href="#pricing" class="nav-link">Precios</a>
+                <a href="#" onclick="openRegisterModal(event)" class="btn btn-primary">
+                    Comenzar prueba gratis
                 </a>
             </div>
             <button class="mobile-menu-toggle" id="mobileMenuToggle">
@@ -43,116 +38,90 @@
 
     <!-- Hero Section -->
     <header class="hero">
-        <div class="hero-container">
+        <div class="container hero-grid">
             <div class="hero-content">
                 <div class="hero-badge">
-                    <i class="fas fa-star"></i>
-                    <span>Más de 500 negocios confían en nosotros</span>
+                    <i class="fas fa-check-circle"></i>
+                    <span>Más de 500 negocios en Latinoamérica</span>
                 </div>
                 <h1 class="hero-title">
-                    El Sistema que Tu Ferretería <br>
-                    <span class="gradient-text">Necesita para Crecer</span>
+                    Controla tu inventario y ventas <span>en una sola plataforma</span>
                 </h1>
                 <p class="hero-subtitle">
-                    Control total de inventario, ventas rápidas y facturación simple.
-                    Todo en una plataforma en la nube fácil de usar.
+                    Software de punto de venta diseñado para ferreterías, repuestos y comercios en Venezuela y
+                    Latinoamérica.
+                    Facturación, múltiples monedas y reportes en tiempo real.
                 </p>
-                <div class="hero-buttons">
-                    <a href="#" onclick="openRegisterModal(event)" class="btn-primary btn-large">
-                        <i class="fas fa-rocket"></i>
-                        Empezar Prueba Gratuita Ahora
+                <div class="hero-actions">
+                    <a href="#" onclick="openRegisterModal(event)" class="btn btn-primary btn-lg">
+                        Comenzar ahora <i class="fas fa-arrow-right"></i>
                     </a>
-                    <a href="#download" class="btn-secondary btn-large">
-                        <i class="fas fa-play-circle"></i>
-                        Ver Demo en Vivo
+                    <a href="#demo" class="btn btn-secondary btn-lg">
+                        <i class="fas fa-play-circle"></i> Ver demo de 2 min
                     </a>
                 </div>
-                <div class="trust-bar">
-                    <div class="trust-item">
-                        <i class="fas fa-check-circle"></i>
-                        <span>Sin tarjeta de crédito</span>
-                    </div>
-                    <div class="trust-item">
-                        <i class="fas fa-shield-alt"></i>
-                        <span>Datos seguros</span>
-                    </div>
-                    <div class="trust-item">
-                        <i class="fas fa-headset"></i>
-                        <span>Soporte 24/7</span>
-                    </div>
+                <div class="trust-item">
+                    <i class="fas fa-shield-alt text-secondary"></i>
+                    <span class="text-muted text-sm">Garantía de satisfacción</span>
                 </div>
             </div>
-            <div class="hero-image">
-                <div class="devices-mockup">
-                    <div class="device laptop">
-                        <div class="device-frame">
-                            <img src="captura1.png" alt="Dashboard POS Ultra" class="device-screen">
-                        </div>
-                    </div>
-                    <div class="device tablet">
-                        <div class="device-frame">
-                            <div class="device-screen-placeholder">
-                                <i class="fas fa-cash-register"></i>
-                                <p>Punto de Venta</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="device phone">
-                        <div class="device-frame">
-                            <div class="device-screen-placeholder">
-                                <i class="fas fa-chart-line"></i>
-                                <p>Reportes</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="hero-decoration">
-                    <div class="decoration-circle circle-1"></div>
-                    <div class="decoration-circle circle-2"></div>
-                    <div class="decoration-circle circle-3"></div>
-                </div>
+            <div class="hero-image-container">
+                <!-- Placeholder for Dashboard Screenshot -->
+                <img src="captura1.png" alt="Dashboard Mi Inventario Fácil" class="hero-image">
             </div>
         </div>
     </header>
 
-    <!-- Problem/Solution Section -->
-    <section class="problem-section">
+    <!-- Trust Bar -->
+    <div class="trust-bar">
+        <div class="container trust-container">
+            <span class="trust-label">Integrado con:</span>
+            <div class="trust-logos">
+                <!-- Placeholder Icons for Banks/Integrations -->
+                <i class="fas fa-university" title="BCV"></i>
+                <i class="fas fa-money-bill-wave" title="Zelle"></i>
+                <i class="fas fa-mobile-alt" title="Pago Móvil"></i>
+                <i class="fab fa-bitcoin" title="Binance Pay"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- How It Works Section -->
+    <section class="section" id="how-it-works">
         <div class="container">
-            <h2 class="section-title">¿Tu negocio sufre de estos dolores de cabeza?</h2>
-            <div class="problem-grid">
-                <div class="problem-card">
-                    <div class="problem-icon">
-                        <i class="fas fa-exclamation-triangle"></i>
+            <div class="section-header">
+                <h2 class="section-title">Configura tu negocio en 3 pasos</h2>
+                <p class="section-desc">Empieza a vender en minutos, no en semanas.</p>
+            </div>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">01</div>
+                    <div class="step-icon">
+                        <i class="fas fa-box-open"></i>
                     </div>
-                    <h3>Inventario Descontrolado</h3>
-                    <p class="problem-text">No sabes qué productos tienes en stock y pierdes ventas por falta de
-                        información.</p>
-                    <div class="solution-badge">
-                        <i class="fas fa-check"></i>
-                        <span>Control en tiempo real</span>
-                    </div>
-                </div>
-                <div class="problem-card">
-                    <div class="problem-icon">
-                        <i class="fas fa-hourglass-half"></i>
-                    </div>
-                    <h3>Ventas Lentas y Errores</h3>
-                    <p class="problem-text">El proceso de venta es lento y cometes errores en precios y cálculos.</p>
-                    <div class="solution-badge">
-                        <i class="fas fa-check"></i>
-                        <span>POS ultra rápido</span>
+                    <div class="step-content">
+                        <h3>Sube tu inventario</h3>
+                        <p>Importa desde Excel o crea productos manualmente de forma rápida.</p>
                     </div>
                 </div>
-                <div class="problem-card">
-                    <div class="problem-icon">
-                        <i class="fas fa-question-circle"></i>
+                <div class="step-card">
+                    <div class="step-number">02</div>
+                    <div class="step-icon">
+                        <i class="fas fa-cash-register"></i>
                     </div>
-                    <h3>Falta de Información</h3>
-                    <p class="problem-text">No tienes reportes claros de tus ganancias, deudas o productos más vendidos.
-                    </p>
-                    <div class="solution-badge">
-                        <i class="fas fa-check"></i>
-                        <span>Reportes instantáneos</span>
+                    <div class="step-content">
+                        <h3>Realiza tu primera venta</h3>
+                        <p>Venta rápida con múltiples monedas (USD, Bs, etc.) y métodos de pago.</p>
+                    </div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">03</div>
+                    <div class="step-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="step-content">
+                        <h3>Analiza tus ganancias</h3>
+                        <p>Reportes automáticos de rentabilidad, stock y flujo de caja.</p>
                     </div>
                 </div>
             </div>
@@ -160,189 +129,121 @@
     </section>
 
     <!-- Features Section -->
-    <section id="features" class="features-section">
+    <section class="section bg-light" id="features">
         <div class="container">
             <div class="section-header">
-                <h2 class="section-title">Potencia cada área de tu negocio</h2>
-                <p class="section-subtitle">Herramientas diseñadas para ferreterías, bodegas y minimarkets</p>
+                <h2 class="section-title">Todo lo que necesitas para gestionar tu negocio</h2>
+                <p class="section-desc">Potentes herramientas simplificadas para el día a día.</p>
             </div>
-
-            <div class="features-showcase">
-                <!-- Feature 1 -->
-                <div class="feature-showcase-item">
-                    <div class="feature-content">
-                        <div class="feature-icon-large">
-                            <i class="fas fa-cash-register"></i>
-                        </div>
-                        <h3>Punto de Venta Ágil</h3>
-                        <p>Procesa ventas en segundos con nuestro POS intuitivo. Soporte para múltiples métodos de pago,
-                            monedas (Bs/$) y descuentos automáticos.</p>
-                        <ul class="feature-list">
-                            <li><i class="fas fa-check"></i> Búsqueda rápida de productos</li>
-                            <li><i class="fas fa-check"></i> Múltiples formas de pago</li>
-                            <li><i class="fas fa-check"></i> Impresión de tickets</li>
-                        </ul>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-bolt"></i>
                     </div>
-                    <div class="feature-image">
-                        <div class="feature-screenshot">
-                            <i class="fas fa-shopping-cart"></i>
-                        </div>
+                    <div class="feature-text">
+                        <h3>Punto de Venta Rápido</h3>
+                        <p>Ventas en segundos con soporte para efectivo, transferencia, Zelle y vuelto en divisas.</p>
                     </div>
                 </div>
-
-                <!-- Feature 2 -->
-                <div class="feature-showcase-item reverse">
-                    <div class="feature-content">
-                        <div class="feature-icon-large">
-                            <i class="fas fa-boxes"></i>
-                        </div>
-                        <h3>Inventario Inteligente</h3>
-                        <p>Control de stock en tiempo real con alertas automáticas. Nunca más te quedarás sin productos
-                            clave.</p>
-                        <ul class="feature-list">
-                            <li><i class="fas fa-check"></i> Alertas de bajo stock</li>
-                            <li><i class="fas fa-check"></i> Multi-almacén</li>
-                            <li><i class="fas fa-check"></i> Valoración automática</li>
-                        </ul>
-                    </div>
-                    <div class="feature-image">
-                        <div class="feature-screenshot">
-                            <i class="fas fa-warehouse"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Feature 3 -->
-                <div class="feature-showcase-item">
-                    <div class="feature-content">
-                        <div class="feature-icon-large">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <h3>Reportes en Tiempo Real</h3>
-                        <p>Análisis detallado de flujo de caja, productos más vendidos y deudas de clientes. Toma
-                            decisiones informadas.</p>
-                        <ul class="feature-list">
-                            <li><i class="fas fa-check"></i> Dashboard ejecutivo</li>
-                            <li><i class="fas fa-check"></i> Reportes de ventas</li>
-                            <li><i class="fas fa-check"></i> Análisis de rentabilidad</li>
-                        </ul>
-                    </div>
-                    <div class="feature-image">
-                        <div class="feature-screenshot">
-                            <i class="fas fa-chart-pie"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Benefits Section -->
-    <section id="benefits" class="benefits-section">
-        <div class="container">
-            <h2 class="section-title">Más que un software, tu socio de crecimiento</h2>
-            <div class="benefits-grid">
-                <div class="benefit-item">
-                    <div class="benefit-icon">
-                        <i class="fas fa-headset"></i>
-                    </div>
-                    <h3>Soporte técnico prioritario</h3>
-                    <p>Asistencia rápida cuando la necesites</p>
-                </div>
-                <div class="benefit-item">
-                    <div class="benefit-icon">
+                <div class="feature-item">
+                    <div class="feature-icon">
                         <i class="fas fa-sync-alt"></i>
                     </div>
-                    <h3>Actualizaciones automáticas</h3>
-                    <p>Sin costo adicional, siempre actualizado</p>
-                </div>
-                <div class="benefit-item">
-                    <div class="benefit-icon">
-                        <i class="fas fa-shield-alt"></i>
+                    <div class="feature-text">
+                        <h3>Múltiples Monedas</h3>
+                        <p>Tasas de cambio actualizables automáticamente (BCV/Paralelo) y cálculos precisos.</p>
                     </div>
-                    <h3>Seguridad de grado bancario</h3>
-                    <p>Tus datos protegidos con encriptación</p>
                 </div>
-                <div class="benefit-item">
-                    <div class="benefit-icon">
-                        <i class="fas fa-cloud"></i>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-boxes"></i>
                     </div>
-                    <h3>Accesible 24/7</h3>
-                    <p>Desde cualquier lugar, cualquier momento</p>
+                    <div class="feature-text">
+                        <h3>Control de Inventario</h3>
+                        <p>Alertas de stock bajo, traslados entre almacenes y valoración de inventario en tiempo real.
+                        </p>
+                    </div>
                 </div>
-                <div class="benefit-item">
-                    <div class="benefit-icon">
-                        <i class="fas fa-file-contract"></i>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-users"></i>
                     </div>
-                    <h3>Sin contratos largos</h3>
-                    <p>Cancela cuando quieras, sin penalidades</p>
+                    <div class="feature-text">
+                        <h3>Gestión de Clientes</h3>
+                        <p>Historial de compras, cuentas por cobrar y fidelización de clientes.</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-pie"></i>
+                    </div>
+                    <div class="feature-text">
+                        <h3>Reportes Avanzados</h3>
+                        <p>Visualiza tus ventas, ganancias y productos más vendidos con un solo clic.</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <i class="fas fa-print"></i>
+                    </div>
+                    <div class="feature-text">
+                        <h3>Impresión de Tickets</h3>
+                        <p>Compatible con impresoras de 58mm y 80mm. Personaliza tus recibos con tu logo.</p>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Testimonials Section -->
-    <section id="testimonials" class="testimonials-section">
+    <section class="section testimonials-bg" id="testimonials">
         <div class="container">
-            <h2 class="section-title">Lo que dicen nuestros clientes</h2>
+            <div class="section-header">
+                <h2 class="section-title">Lo que dicen nuestros clientes</h2>
+            </div>
             <div class="testimonials-grid">
                 <div class="testimonial-card">
-                    <div class="testimonial-rating">
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
+                    <div class="testimonial-stars">
+                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i
+                            class="fas fa-star"></i><i class="fas fa-star"></i>
                     </div>
-                    <p class="testimonial-text">"Desde que implementamos POS Ultra, nuestras ventas aumentaron un 40%.
-                        El control de inventario es increíble."</p>
+                    <p class="testimonial-quote">"Reduje el tiempo de cierre de caja de 30 minutos a 5 minutos. Es
+                        increíblemente fácil de usar."</p>
                     <div class="testimonial-author">
-                        <div class="author-avatar">
-                            <i class="fas fa-user-circle"></i>
-                        </div>
-                        <div class="author-info">
-                            <h4>Carlos Mendoza</h4>
-                            <p>Ferretería El Sol</p>
+                        <div class="author-avatar">CM</div>
+                        <div class="author-meta">
+                            <h4>Carlos Méndez</h4>
+                            <span>Ferretería El Roble, Caracas</span>
                         </div>
                     </div>
                 </div>
                 <div class="testimonial-card">
-                    <div class="testimonial-rating">
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
+                    <div class="testimonial-stars">
+                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i
+                            class="fas fa-star"></i><i class="fas fa-star"></i>
                     </div>
-                    <p class="testimonial-text">"La facilidad de uso es impresionante. Mi equipo aprendió a usarlo en
-                        menos de un día. Los reportes son muy claros."</p>
+                    <p class="testimonial-quote">"El manejo de las tasas de cambio me ha salvado la vida. Ya no tengo
+                        dolores de cabeza con los precios en bolívares."</p>
                     <div class="testimonial-author">
-                        <div class="author-avatar">
-                            <i class="fas fa-user-circle"></i>
-                        </div>
-                        <div class="author-info">
+                        <div class="author-avatar">MG</div>
+                        <div class="author-meta">
                             <h4>María González</h4>
-                            <p>Bodega La Esquina</p>
+                            <span>Repuestos La Pista, Valencia</span>
                         </div>
                     </div>
                 </div>
                 <div class="testimonial-card">
-                    <div class="testimonial-rating">
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
+                    <div class="testimonial-stars">
+                        <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i
+                            class="fas fa-star"></i><i class="fas fa-star"></i>
                     </div>
-                    <p class="testimonial-text">"El mejor sistema que he usado. El soporte técnico es excelente y
-                        siempre están disponibles para ayudar."</p>
+                    <p class="testimonial-quote">"Tener mis reportes de ganancias al día me permite saber exactamente
+                        cuánto está rindiendo mi negocio."</p>
                     <div class="testimonial-author">
-                        <div class="author-avatar">
-                            <i class="fas fa-user-circle"></i>
-                        </div>
-                        <div class="author-info">
+                        <div class="author-avatar">JR</div>
+                        <div class="author-meta">
                             <h4>José Ramírez</h4>
-                            <p>Repuestos JR</p>
+                            <span>Bodega Don José, Maracaibo</span>
                         </div>
                     </div>
                 </div>
@@ -350,89 +251,100 @@
         </div>
     </section>
 
-    <!-- Download/CTA Section -->
-    <section id="download" class="download-section">
+    <!-- Pricing Section -->
+    <section class="section" id="pricing">
         <div class="container">
-            <div class="download-content">
-                <h2>¿Listo para transformar tu ferretería?</h2>
-                <p>Únete a cientos de negocios que ya tomaron el control. Empieza hoy mismo, sin tarjeta de crédito.</p>
-                <div class="download-buttons">
-                    <a href="javascript:void(0)" onclick="openRegisterModal(event)" class="btn-primary btn-xl">
-                        <i class="fas fa-rocket"></i>
-                        Crear mi Cuenta Gratuita Ahora
-                    </a>
-                    <a href="https://drive.google.com/file/d/1vS7SZaOqBEQ6qkwhxUA8v94YK0m86ur6/view"
-                        class="btn-download-large" target="_blank">
-                        <i class="fas fa-download"></i>
-                        Descargar Instalador
-                    </a>
-                </div>
-                <div class="version-info-inline">
-                    <span class="badge">v2.0</span>
-                    <span>Windows 10/11 • 64-bit • Requisitos: 4GB RAM, i3 o superior</span>
+            <div class="section-header">
+                <h2 class="section-title">Plan Único, Todo Incluido</h2>
+                <p class="section-desc">Sin costos ocultos ni complicaciones. Todo lo que necesitas para crecer. Pago
+                    Mensual, Sin contratos forzosos.</p>
+            </div>
+            <div class="pricing-grid" style="grid-template-columns: 1fr; max-width: 400px;">
+                <div class="pricing-card popular">
+                    <div class="badge-popular">Oferta Especial</div>
+                    <h3>Profesional</h3>
+                    <div class="price">$15 <span class="period">/ mes</span></div>
+                    <p class="text-muted mb-4">Acceso total a todas las funciones</p>
+                    <ul class="mb-6 space-y-2">
+                        <li><i class="fas fa-check text-secondary mr-2"></i> Usuarios Ilimitados</li>
+                        <li><i class="fas fa-check text-secondary mr-2"></i> Inventario Ilimitado</li>
+                        <li><i class="fas fa-check text-secondary mr-2"></i> Facturación Multi-moneda</li>
+                        <li><i class="fas fa-check text-secondary mr-2"></i> Reportes Avanzados</li>
+                        <li><i class="fas fa-check text-secondary mr-2"></i> Soporte Prioritario 24/7</li>
+                        <li><i class="fas fa-check text-secondary mr-2"></i> Copias de seguridad automáticas</li>
+                    </ul>
+                    <a href="#" onclick="openRegisterModal(event)" class="btn btn-primary w-full">Empezar Ahora</a>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2 class="section-title mb-4">Empieza a gestionar tu negocio hoy</h2>
+            <p class="section-desc mb-8">Únete a cientos de negocios exitosos que usan Mi Inventario Fácil.</p>
+            <a href="#" onclick="openRegisterModal(event)" class="btn btn-primary btn-xl">
+                Comenzar ahora <i class="fas fa-arrow-right"></i>
+            </a>
+            <!-- Download link removed as requested -->
         </div>
     </section>
 
     <!-- Footer -->
     <footer class="footer">
-        <div class="container">
-            <div class="footer-grid">
-                <div class="footer-col">
-                    <div class="footer-logo">
-                        <div class="logo-icon">
-                            <i class="fas fa-bolt"></i>
-                        </div>
-                        <span class="logo-text">POS Ultra</span>
-                    </div>
-                    <p class="footer-tagline">El sistema que tu negocio necesita para crecer</p>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-facebook"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin"></i></a>
-                    </div>
+        <div class="container footer-grid">
+            <div class="footer-col">
+                <div class="logo mb-4">
+                    <i class="fas fa-bolt text-primary"></i>
+                    <span>Mi Inventario Fácil</span>
                 </div>
-                <div class="footer-col">
-                    <h4>Producto</h4>
-                    <ul>
-                        <li><a href="#features">Características</a></li>
-                        <li><a href="#benefits">Beneficios</a></li>
-                        <li><a href="#download">Descargar</a></li>
-                        <li><a href="#">Precios</a></li>
-                    </ul>
-                </div>
-                <div class="footer-col">
-                    <h4>Soporte</h4>
-                    <ul>
-                        <li><a href="#">Documentación</a></li>
-                        <li><a href="#">Tutoriales</a></li>
-                        <li><a href="#">Contacto</a></li>
-                        <li><a href="#">FAQ</a></li>
-                    </ul>
-                </div>
-                <div class="footer-col">
-                    <h4>Legal</h4>
-                    <ul>
-                        <li><a href="#">Términos de Servicio</a></li>
-                        <li><a href="#">Política de Privacidad</a></li>
-                        <li><a href="#">Cookies</a></li>
-                    </ul>
+                <p class="text-muted text-sm mb-4">
+                    Software de inventario y punto de venta para potenciar el crecimiento de tu negocio.
+                </p>
+                <div class="social-links">
+                    <!-- Placeholder Social Links -->
+                    <a href="#"><i class="fab fa-facebook"></i></a>
+                    <a href="#"><i class="fab fa-instagram"></i></a>
+                    <a href="#"><i class="fab fa-twitter"></i></a>
                 </div>
             </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 POS Ultra. Todos los derechos reservados.</p>
+            <div class="footer-col">
+                <h4>Producto</h4>
+                <ul>
+                    <li><a href="#features">Características</a></li>
+                    <li><a href="#pricing">Precios</a></li>
+                    <li><a href="#demo">Ver Demo</a></li>
+                </ul>
             </div>
+            <div class="footer-col">
+                <h4>Soporte</h4>
+                <ul>
+                    <li><a href="#">Centro de Ayuda</a></li>
+                    <li><a href="#">Contacto</a></li>
+                    <li><a href="#">Estado del Servicio</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <ul>
+                    <li><a href="#">Términos de Servicio</a></li>
+                    <li><a href="#">Política de Privacidad</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Mi Inventario Fácil. Todos los derechos reservados.</p>
         </div>
     </footer>
 
     <!-- Registration Modal -->
-    <div id="registerModal" class="modal" style="display:none;">
+    <div id="registerModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeRegisterModal()">&times;</span>
             <h2>🚀 Crea tu cuenta</h2>
-            <p>Empieza tu prueba gratis en segundos</p>
+            <p class="modal-subtitle">Empieza a usar Mi Inventario Fácil en segundos</p>
+
             <form id="registerForm">
                 <div class="form-group">
                     <label>Nombre de tu Negocio</label>
@@ -455,19 +367,23 @@
                     <label>Contraseña</label>
                     <input type="password" id="password" required placeholder="Mínimo 6 caracteres">
                 </div>
-                <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">
-                    <i class="fas fa-rocket"></i> Crear Cuenta
+
+                <button type="submit" class="btn btn-primary w-full mt-4">
+                    Crear Cuenta Gratis
                 </button>
             </form>
+
+            <!-- Social login and sign in link removed as requested -->
+
             <div id="loadingMessage" style="display:none; text-align: center; margin-top: 1rem;">
-                <i class="fas fa-spinner fa-spin"></i> Configurando tu espacio... esto puede tardar unos segundos.
+                <i class="fas fa-spinner fa-spin text-primary"></i> Configurando tu espacio...
             </div>
             <div id="errorMessage"
-                style="display:none; color: red; text-align: center; margin-top: 1rem; font-size: 0.9rem;"></div>
+                style="display:none; color: #EF4444; text-align: center; margin-top: 1rem; font-size: 0.9rem;"></div>
         </div>
     </div>
 
-    <script src="main.js?v=qa_v2"></script>
+    <script src="main.js?v=qa_v4"></script>
 </body>
 
 </html>
