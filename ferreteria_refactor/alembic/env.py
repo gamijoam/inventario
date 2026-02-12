@@ -34,6 +34,7 @@ from backend_api.models.tenant import Tenant
 from backend_api.models.payment import TenantPayment
 from backend_api.models.system_messages import SystemMessage
 from backend_api.models.support import SupportTicket
+from backend_api.models.admin_task import AdminTask
 
 # Alembic Config
 config = context.config
@@ -53,6 +54,7 @@ SHARED_TABLES = {
     "tenant_payments",
     "system_messages",
     "support_tickets",
+    "admin_tasks",
     "alembic_version"  # Version tracking
 }
 

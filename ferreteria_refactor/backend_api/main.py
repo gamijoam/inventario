@@ -190,7 +190,15 @@ v1_router.include_router(commissions_router, tags=["Comisiones"])
 v1_router.include_router(rma_router, tags=["Garantías RMA"])
 v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
 v1_router.include_router(cloud_router, tags=["Cloud Configuration"])
+from .routers.admin import router as admin_router  # NEW: Superuser admin endpoints
+from .routers.admin_tasks import router as admin_tasks_router # NEW: Admin Tasks
+from .routers.support_client import router as support_client_router
+from .routers.support_admin import router as support_admin_router
+
+# ...
+
 v1_router.include_router(admin_router, tags=["Admin Panel"])  # NEW: Superuser admin endpoints
+v1_router.include_router(admin_tasks_router, tags=["Admin Tasks"]) # NEW: Admin Tasks
 v1_router.include_router(support_client_router, tags=["Soporte"])
 v1_router.include_router(support_admin_router, tags=["Admin Soporte"])
 
