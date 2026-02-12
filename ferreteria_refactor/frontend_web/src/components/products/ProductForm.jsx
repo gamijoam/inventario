@@ -5,7 +5,7 @@ import apiClient from '../../config/axios';
 import ProductUnitManager from './ProductUnitManager';
 import ComboManager from './ComboManager';
 import ProductImageUploader from './ProductImageUploader';
-import clsx from 'clsx';
+import { cn } from '../../lib/utils';
 import {
     Sheet,
     SheetContent,
@@ -157,38 +157,33 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     const handleInputChange = (e) => {
         const { name, value } = e.target;
 
-        // Update state with the raw string value to allow typing decimals (e.g. "10.")
         setFormData(prev => {
             const updated = { ...prev, [name]: value };
 
-            // Logic: Cost + Margin (Markup) -> Price
-            // Parse values only for calculation
+            // Logic: Cost + Margin (Profit) -> Price
             if (name === 'cost' || name === 'profit_margin') {
                 const cost = name === 'cost' ? parseFloat(value) : parseFloat(prev.cost);
                 const margin = name === 'profit_margin' ? parseFloat(value) : parseFloat(prev.profit_margin);
 
-                if (!isNaN(cost) && cost >= 0 && !isNaN(margin) && margin >= 0) {
+                if (!isNaN(cost) && !isNaN(margin)) {
                     const calculatedPrice = cost * (1 + (margin / 100));
-                    updated.price = calculatedPrice.toFixed(2); // Keep 2 decimals string
+                    updated.price = calculatedPrice.toFixed(2);
                 }
             }
 
-            // Reverse Logic: If Price is edited, update Margin (Markup)
+            // Reverse Logic: If Price is edited, update Margin
             if (name === 'price') {
                 const price = parseFloat(value);
                 const cost = parseFloat(prev.cost);
                 if (!isNaN(price) && price > 0 && !isNaN(cost) && cost > 0) {
                     const margin = ((price - cost) / cost) * 100;
-                    updated.profit_margin = margin.toFixed(2); // Keep 2 decimals string
+                    updated.profit_margin = margin.toFixed(2);
                 }
             }
 
             return updated;
         });
     };
-
-    // --- API CALLS ---
-    // fetchCategories, fetchWarehouses, fetchExchangeRates removed as they are now props
 
     const fetchPriceLists = async () => {
         try {
@@ -272,263 +267,342 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                 <Tabs defaultValue="main" className="flex-1 overflow-hidden flex flex-col">
                     <div className="px-6 bg-white border-b border-slate-200 shadow-sm">
-                        <TabsList className="w-full justify-start h-10 bg-transparent p-0 gap-6">
-                            <TabsTrigger value="main" className="data-[state=active]:border-b-2 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 rounded-none bg-transparent h-full px-0 font-medium text-slate-500 shadow-none text-sm">General</TabsTrigger>
-                            <TabsTrigger value="units" className="data-[state=active]:border-b-2 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 rounded-none bg-transparent h-full px-0 font-medium text-slate-500 shadow-none text-sm">Medidas y Precios</TabsTrigger>
-                            <TabsTrigger value="combos" className="data-[state=active]:border-b-2 data-[state=active]:border-slate-900 data-[state=active]:text-slate-900 rounded-none bg-transparent h-full px-0 font-medium text-slate-500 shadow-none text-sm">Combos</TabsTrigger>
+                        <TabsList className="w-full justify-start h-10 bg-transparent p-0 gap-8">
+                            <TabsTrigger value="main" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all">GENERAL</TabsTrigger>
+                            <TabsTrigger value="advanced" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all">AVANZADO</TabsTrigger>
                         </TabsList>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/50">
-                        <TabsContent value="main" className="mt-0 space-y-6 pb-20">
+                        <TabsContent value="main" className="mt-0 space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {/* IDENTITY SECTION: IMAGE + MAIN FIELDS */}
+                            <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+                                <CardContent className="p-6">
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                                        {/* Left: Image Upload (Proportional) */}
+                                        <div className="lg:col-span-4 flex flex-col gap-3">
+                                            <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Imagen del Producto</Label>
+                                            <ProductImageUploader
+                                                productId={initialData?.id}
+                                                currentImageUrl={formData.image_url}
+                                                onImageUpdate={(newUrl) => setFormData(prev => ({ ...prev, image_url: newUrl }))}
+                                            />
+                                        </div>
 
-                            {/* --- MINIMALIST BENTO GRID --- */}
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                                        {/* Right: Primary Info */}
+                                        <div className="lg:col-span-8 space-y-5">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="name" className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Nombre del Producto <span className="text-rose-500">*</span></Label>
+                                                <Input
+                                                    id="name"
+                                                    name="name"
+                                                    value={formData.name}
+                                                    onChange={handleInputChange}
+                                                    placeholder="Ej. Martillo de Carpintero 16oz"
+                                                    className="h-11 text-lg font-bold border-slate-200 focus:ring-indigo-500 focus:border-indigo-500"
+                                                    autoFocus
+                                                />
+                                            </div>
 
-                                {/* SECTION 1: IDENTITY (Compact & Clean) */}
-                                <Card className="md:col-span-12 border-slate-200 shadow-none bg-white">
-                                    <CardContent className="p-4">
-                                        <div className="flex flex-col sm:flex-row gap-5">
-                                            {/* Image Upload - Flexible Container */}
-                                            <div className="w-full sm:w-48 flex-shrink-0">
-                                                <div className="w-full group">
-                                                    <ProductImageUploader
-                                                        productId={initialData?.id}
-                                                        currentImageUrl={formData.image_url}
-                                                        onImageUpdate={(newUrl) => setFormData(prev => ({ ...prev, image_url: newUrl }))}
-                                                    />
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">SKU / Código</Label>
+                                                    <div className="relative group">
+                                                        <Barcode className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
+                                                        <Input
+                                                            name="sku"
+                                                            value={formData.sku}
+                                                            onChange={handleInputChange}
+                                                            className="h-11 pl-10 text-sm font-mono border-slate-200 bg-slate-50/30 focus:bg-white"
+                                                            placeholder="Escanea o escribe..."
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Categoría</Label>
+                                                    <Select
+                                                        value={formData.category_id?.toString()}
+                                                        onValueChange={(val) => setFormData({ ...formData, category_id: val })}
+                                                    >
+                                                        <SelectTrigger className="h-11 border-slate-200 bg-slate-50/30 focus:bg-white">
+                                                            <SelectValue placeholder="Seleccionar categoría..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {categories.map(c => (
+                                                                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                             </div>
 
-                                            {/* Info Fields - Stacked & Dense */}
-                                            <div className="flex-1 flex flex-col justify-between py-1">
-                                                <div className="space-y-1">
-                                                    <Label htmlFor="name" className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Nombre del Producto <span className="text-rose-500">*</span></Label>
-                                                    <Input
-                                                        id="name"
-                                                        name="name"
-                                                        value={formData.name}
-                                                        onChange={handleInputChange}
-                                                        placeholder="Nombre descriptivo..."
-                                                        className="h-9 text-base font-semibold border-slate-200 focus:border-indigo-500"
-                                                        autoFocus
-                                                    />
+                                            {/* Service Toggle - Integrated and clear */}
+                                            <div className={cn(
+                                                "flex items-center gap-4 p-4 rounded-xl transition-all border",
+                                                formData.is_service
+                                                    ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-500/10"
+                                                    : "bg-slate-50 border-slate-100 hover:border-slate-200"
+                                            )}>
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                                                    formData.is_service ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-400"
+                                                )}>
+                                                    <Package size={20} />
                                                 </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-                                                    <div className="space-y-1">
-                                                        <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">SKU / Código</Label>
-                                                        <div className="relative">
-                                                            <Barcode className="absolute left-2.5 top-2.5 text-slate-400" size={14} />
-                                                            <Input
-                                                                name="sku"
-                                                                value={formData.sku}
-                                                                onChange={handleInputChange}
-                                                                className="h-9 pl-8 text-sm font-mono"
-                                                                placeholder="---"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Categoría</Label>
-                                                        <Select
-                                                            value={formData.category_id?.toString()}
-                                                            onValueChange={(val) => setFormData({ ...formData, category_id: val })}
-                                                        >
-                                                            <SelectTrigger className="h-9 w-full border-slate-200">
-                                                                <SelectValue placeholder="Seleccionar..." />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {categories.map(c => (
-                                                                    <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </div>
-
-                                                {/* Product Type Options */}
-                                                <div className="mt-4 pt-4 border-t border-slate-100">
-                                                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2 block">Tipo de Producto</Label>
-                                                    <div className="flex items-center gap-2 bg-blue-50/50 border border-blue-100 rounded-lg px-3 py-2.5">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label htmlFor="is_service" className="text-sm font-bold text-slate-800 cursor-pointer">Es un servicio</Label>
                                                         <input
                                                             type="checkbox"
                                                             id="is_service"
                                                             checked={formData.is_service || false}
                                                             onChange={(e) => setFormData({ ...formData, is_service: e.target.checked })}
-                                                            className="rounded border-blue-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 w-4 h-4"
+                                                            className="sr-only peer"
                                                         />
-                                                        <label htmlFor="is_service" className="text-sm font-medium text-blue-900 cursor-pointer flex-1">
-                                                            Es un servicio (no requiere inventario)
-                                                        </label>
-                                                        <Package size={16} className="text-blue-400" />
+                                                        <div
+                                                            onClick={() => setFormData(p => ({ ...p, is_service: !p.is_service }))}
+                                                            className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:translate-x-5"
+                                                        ></div>
                                                     </div>
-                                                    {formData.is_service && (
-                                                        <p className="text-xs text-blue-600 mt-2 ml-6">
-                                                            ℹ️ Los servicios no requieren stock y no afectan la valorización del inventario
-                                                        </p>
+                                                    <p className="text-[11px] text-slate-500 mt-0.5">No descontará stock ni requiere gestión de almacenes.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* SECTION 2: PRICES & COSTS (Unified Row) */}
+                            <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+                                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
+                                            <DollarSign size={18} />
+                                        </div>
+                                        <h4 className="text-sm font-bold text-slate-800">Precios y Márgenes</h4>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Moneda Base:</span>
+                                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded border border-blue-100">{anchorCurrency.symbol} {anchorCurrency.name || 'USD'}</span>
+                                    </div>
+                                </div>
+                                <CardContent className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                                        {/* Net Cost */}
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Costo Neto</Label>
+                                            <div className="relative group">
+                                                <span className="absolute left-3 top-3 text-slate-400 group-focus-within:text-blue-500 font-bold">$</span>
+                                                <Input
+                                                    type="number"
+                                                    name="cost"
+                                                    value={formData.cost}
+                                                    onChange={handleInputChange}
+                                                    step="0.01"
+                                                    className="pl-8 h-11 text-lg font-bold text-slate-700 border-slate-200 bg-slate-50/30 focus:bg-white"
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Margin - Colored state */}
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Margen (%)</Label>
+                                            <div className="relative group">
+                                                <Input
+                                                    type="number"
+                                                    name="profit_margin"
+                                                    value={formData.profit_margin || ''}
+                                                    onChange={handleInputChange}
+                                                    step="0.01"
+                                                    className={cn(
+                                                        "h-11 text-center text-lg font-extrabold pr-8 border-slate-200 transition-colors",
+                                                        parseFloat(formData.profit_margin) < 0 ? "text-rose-600 bg-rose-50" : "text-indigo-600 bg-indigo-50/50"
+                                                    )}
+                                                    placeholder="0.00"
+                                                />
+                                                <span className="absolute right-3 top-3 text-slate-400 font-bold">%</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Computed Sales Price - The Hero */}
+                                        <div className="md:col-span-2 space-y-1.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-emerald-600 font-black flex items-center gap-1">
+                                                Precio de Venta Sugerido
+                                                <Calculator size={10} />
+                                            </Label>
+                                            <div className="relative group">
+                                                <span className={cn(
+                                                    "absolute left-4 top-3 text-2xl font-black transition-colors",
+                                                    parseFloat(formData.price) > 0 ? "text-emerald-500" : "text-slate-300"
+                                                )}>$</span>
+                                                <Input
+                                                    type="number"
+                                                    name="price"
+                                                    value={formData.price}
+                                                    onChange={handleInputChange}
+                                                    step="0.01"
+                                                    className={cn(
+                                                        "pl-10 h-14 text-3xl font-black transition-all text-right border-2",
+                                                        parseFloat(formData.price) > 0
+                                                            ? "text-emerald-600 border-emerald-500/20 bg-emerald-50/30"
+                                                            : "text-slate-400 border-slate-200 bg-slate-50/50 grayscale opacity-70"
+                                                    )}
+                                                    placeholder="0.00"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8 pt-6 border-t border-slate-100">
+                                        <div className="flex items-center gap-4">
+                                            <div className="space-y-1.5 flex-1">
+                                                <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">IVA (%)</Label>
+                                                <div className="flex items-center gap-2">
+                                                    <Input type="number" name="tax_rate" value={formData.tax_rate} onChange={handleInputChange} className="h-9 w-24 text-center font-bold" />
+                                                    <span className="text-xs text-slate-400">Impuesto aplicado por defecto</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5 flex flex-col items-end">
+                                            <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Referencia Moneda</Label>
+                                            <Select name="exchange_rate_id" value={formData.exchange_rate_id?.toString()} onValueChange={(val) => setFormData({ ...formData, exchange_rate_id: val })}>
+                                                <SelectTrigger className="h-9 w-48 text-xs font-bold bg-slate-100 border-none shadow-none">
+                                                    <SelectValue placeholder="Utilizar Tasa Global" />
+                                                </SelectTrigger>
+                                                <SelectContent align="end">
+                                                    <SelectItem value="null">Tasa Global (Default)</SelectItem>
+                                                    {exchangeRates.map(r => <SelectItem key={r.id} value={r.id.toString()}>{r.name} ({parseFloat(r.rate)})</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* SECTION 3: INVENTORY & STOCK (Collapsible) */}
+                            {!formData.is_service && (
+                                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden animate-in zoom-in-95 duration-200">
+                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
+                                                <Warehouse size={18} />
+                                            </div>
+                                            <h4 className="text-sm font-bold text-slate-800">Ubicación e Inventario</h4>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Stock Total:</span>
+                                            <span className="text-lg font-black text-amber-600 bg-amber-50 px-3 py-0.5 rounded-full border border-amber-200">{formData.stock}</span>
+                                        </div>
+                                    </div>
+                                    <CardContent className="p-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            <div className="space-y-5">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Unidad de Medida Base</Label>
+                                                    <Select value={formData.unit_type} onValueChange={(val) => setFormData({ ...formData, unit_type: val })}>
+                                                        <SelectTrigger className="h-11 border-slate-200">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="UNID">Unidad (Pza/Uds)</SelectItem>
+                                                            <SelectItem value="KILO">Kilo (Kg)</SelectItem>
+                                                            <SelectItem value="METRO">Metro (m)</SelectItem>
+                                                            <SelectItem value="CAJA">Caja</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4 pt-2">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[10px] uppercase tracking-wider text-rose-500 font-bold">Stock Mínimo</Label>
+                                                        <Input type="number" name="min_stock" value={formData.min_stock} onChange={handleInputChange} className="h-10 text-center font-bold border-rose-100 bg-rose-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Ubicación Física</Label>
+                                                        <Input name="location" value={formData.location} onChange={handleInputChange} placeholder="Pasillo A-12..." className="h-10" />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                                <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-black mb-3 block">Distribución de Existencias</Label>
+                                                <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                                                    {warehouses.length > 0 ? warehouses.map(wh => {
+                                                        const qty = formData.warehouse_stocks.find(s => s.warehouse_id === wh.id)?.quantity || 0;
+                                                        return (
+                                                            <div key={wh.id} className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200/50 shadow-sm transition-all hover:bg-slate-50">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+                                                                    <span className="text-[11px] font-bold text-slate-700 truncate w-32">{wh.name}</span>
+                                                                </div>
+                                                                <Input
+                                                                    type="number"
+                                                                    className="w-20 h-8 text-right text-xs font-black bg-slate-50 border-slate-200 focus:bg-white focus:ring-1 focus:ring-indigo-500"
+                                                                    value={Number(qty).toString()}
+                                                                    onChange={(e) => {
+                                                                        const val = parseFloat(e.target.value) || 0;
+                                                                        const newStocks = [...formData.warehouse_stocks];
+                                                                        const idx = newStocks.findIndex(s => s.warehouse_id === wh.id);
+                                                                        if (idx >= 0) newStocks[idx].quantity = val;
+                                                                        else newStocks.push({ warehouse_id: wh.id, quantity: val });
+                                                                        const total = newStocks.reduce((sum, s) => sum + s.quantity, 0);
+                                                                        setFormData(prev => ({ ...prev, warehouse_stocks: newStocks, stock: total }));
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        )
+                                                    }) : (
+                                                        <div className="text-center py-4 bg-white rounded-lg border border-dashed border-slate-300">
+                                                            <p className="text-[10px] text-slate-400 font-bold">No hay almacenes configurados</p>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
                                     </CardContent>
+                                    {!initialData && (
+                                        <div className="bg-amber-50 px-6 py-3 border-t border-amber-100 flex items-center gap-3">
+                                            <AlertCircle size={14} className="text-amber-600" />
+                                            <p className="text-[10px] text-amber-700 font-medium italic">Estas cantidades se registrarán como saldo inicial del inventario.</p>
+                                        </div>
+                                    )}
                                 </Card>
+                            )}
+                        </TabsContent>
 
-                                {/* SECTION 2: PRICING (Financial Style) */}
-                                <Card className="md:col-span-12 lg:col-span-8 border-slate-200 shadow-none bg-white">
-                                    <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-                                        <h4 className="text-sm font-semibold text-slate-800">Precios y Costos</h4>
-                                        <span className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 uppercase font-medium">{anchorCurrency.name}</span>
+                        {/* ADVANCED TAB: Combined Units & Combos */}
+                        <TabsContent value="advanced" className="mt-0 space-y-6 pb-20 animate-in fade-in slide-in-from-right-4 duration-300">
+                            <div className="grid grid-cols-1 gap-6">
+                                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
+                                        <Layers size={18} className="text-indigo-500" />
+                                        <h4 className="text-sm font-bold text-slate-800">Unidades de Venta y Precios Alternativos</h4>
                                     </div>
-                                    <CardContent className="p-5">
-                                        <div className="flex flex-col sm:flex-row items-end gap-4">
-                                            {/* Cost */}
-                                            <div className="flex-1 space-y-1">
-                                                <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Costo Neto</Label>
-                                                <div className="relative">
-                                                    <span className="absolute left-3 top-2.5 text-slate-400 text-xs">$</span>
-                                                    <Input
-                                                        type="number"
-                                                        name="cost"
-                                                        value={formData.cost}
-                                                        onChange={handleInputChange}
-                                                        step="0.01"
-                                                        className="pl-6 h-10 font-medium text-slate-700 border-slate-200"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Margin */}
-                                            <div className="w-32 space-y-1">
-                                                <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold text-center block">Margen</Label>
-                                                <div className="relative">
-                                                    <Input
-                                                        type="number"
-                                                        name="profit_margin"
-                                                        value={formData.profit_margin || ''}
-                                                        onChange={handleInputChange}
-                                                        step="0.01"
-                                                        className="pr-6 h-10 text-center font-medium text-blue-600 border-slate-200"
-                                                    />
-                                                    <span className="absolute right-2 top-3 text-slate-400 text-[10px] font-bold">%</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Price - Highlighted Text Only */}
-                                            <div className="flex-1 space-y-1">
-                                                <Label className="text-[10px] uppercase tracking-wider text-emerald-600 font-bold block text-right">Precio Venta</Label>
-                                                <div className="relative">
-                                                    <span className="absolute left-3 top-2.5 text-emerald-600/70 text-lg font-bold">$</span>
-                                                    <Input
-                                                        type="number"
-                                                        name="price"
-                                                        value={formData.price}
-                                                        onChange={handleInputChange}
-                                                        step="0.01"
-                                                        className="pl-8 h-12 text-2xl font-bold text-emerald-600 border-emerald-100 focus-visible:ring-emerald-500 bg-emerald-50/30 text-right"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <Separator className="my-4" />
-
-                                        {/* Taxes and Exchange */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-1">
-                                                <Label className="text-[10px] flex items-center gap-1 text-slate-500 font-semibold">
-                                                    Impuesto (IVA %)
-                                                </Label>
-                                                <Input type="number" name="tax_rate" value={formData.tax_rate} onChange={handleInputChange} className="h-8 w-24 text-sm" />
-                                            </div>
-                                            <div className="space-y-1 flex flex-col items-end">
-                                                <Label className="text-[10px] text-slate-500 font-semibold">Tasa de Cambio</Label>
-                                                <Select name="exchange_rate_id" value={formData.exchange_rate_id?.toString()} onValueChange={(val) => setFormData({ ...formData, exchange_rate_id: val })}>
-                                                    <SelectTrigger className="h-8 w-40 text-xs">
-                                                        <SelectValue placeholder="Global" />
-                                                    </SelectTrigger>
-                                                    <SelectContent align="end">
-                                                        <SelectItem value="null">Usar Global</SelectItem>
-                                                        {exchangeRates.map(r => <SelectItem key={r.id} value={r.id.toString()}>{r.name}</SelectItem>)}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
+                                    <CardContent className="p-0">
+                                        <ProductUnitManager
+                                            units={formData.units}
+                                            onUnitsChange={(u) => setFormData(p => ({ ...p, units: u }))}
+                                            baseUnitType={formData.unit_type}
+                                            basePrice={formData.price}
+                                            baseCost={formData.cost}
+                                            exchangeRates={exchangeRates}
+                                        />
                                     </CardContent>
                                 </Card>
 
-                                {/* SECTION 3: INVENTORY (Compact) */}
-                                <Card className="md:col-span-12 lg:col-span-4 border-slate-200 shadow-none bg-white">
-                                    <div className="px-5 py-3 border-b border-slate-100">
-                                        <h4 className="text-sm font-semibold text-slate-800">Inventario</h4>
+                                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
+                                        <Tag size={18} className="text-indigo-500" />
+                                        <h4 className="text-sm font-bold text-slate-800">Configuración de Combo / Kit</h4>
                                     </div>
-                                    <CardContent className="p-5 space-y-4">
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Unidad Base</Label>
-                                            <Select value={formData.unit_type} onValueChange={(val) => setFormData({ ...formData, unit_type: val })}>
-                                                <SelectTrigger className="h-9 w-full">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="UNID">Unidad (Pza)</SelectItem>
-                                                    <SelectItem value="KILO">Kilo (Kg)</SelectItem>
-                                                    <SelectItem value="METRO">Metro (m)</SelectItem>
-                                                    {modules?.services && <SelectItem value="SERVICE_UNIT">Servicio</SelectItem>}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        {!['SERVICE', 'SERVICE_UNIT'].includes(formData.unit_type) && (
-                                            <>
-                                                <div className="pt-2">
-                                                    <div className="flex items-center justify-between mb-2">
-                                                        <Label className="text-[10px] text-slate-500 font-bold uppercase">Stock por Almacén</Label>
-                                                        <span className="text-[10px] text-slate-400 font-medium">Cantidad Inicial</span>
-                                                    </div>
-                                                    <div className="space-y-1 max-h-[120px] overflow-y-auto">
-                                                        {warehouses.map(wh => {
-                                                            const qty = formData.warehouse_stocks.find(s => s.warehouse_id === wh.id)?.quantity || 0;
-                                                            return (
-                                                                <div key={wh.id} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
-                                                                    <span className="text-xs text-slate-600 font-medium truncate w-24" title={wh.name}>{wh.name}</span>
-                                                                    <Input
-                                                                        type="number"
-                                                                        className="w-24 h-8 text-right text-xs bg-slate-50 focus:bg-white border-slate-200"
-                                                                        value={Number(qty).toString()}
-                                                                        placeholder="0"
-                                                                        onChange={(e) => {
-                                                                            const val = parseFloat(e.target.value) || 0;
-                                                                            const newStocks = [...formData.warehouse_stocks];
-                                                                            const idx = newStocks.findIndex(s => s.warehouse_id === wh.id);
-                                                                            if (idx >= 0) newStocks[idx].quantity = val;
-                                                                            else newStocks.push({ warehouse_id: wh.id, quantity: val });
-                                                                            const total = newStocks.reduce((sum, s) => sum + s.quantity, 0);
-                                                                            setFormData(prev => ({ ...prev, warehouse_stocks: newStocks, stock: total }));
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            )
-                                                        })}
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-2">
-                                                    <span className="text-xs font-bold text-slate-500">TOTAL</span>
-                                                    <span className="text-2xl font-bold text-slate-900">{formData.stock}</span>
-                                                </div>
-                                            </>
-                                        )}
+                                    <CardContent className="p-0">
+                                        <ComboManager
+                                            comboItems={formData.combo_items}
+                                            onItemsChange={(i) => setFormData(p => ({ ...p, combo_items: i }))}
+                                        />
                                     </CardContent>
                                 </Card>
-
                             </div>
-                        </TabsContent>
-
-                        {/* Other Tabs content wrappers - kept simple but contained */}
-                        <TabsContent value="units" className="h-full mt-0">
-                            <Card className="h-full border-slate-200 shadow-none"><CardContent className="p-6"><ProductUnitManager units={formData.units} onUnitsChange={(u) => setFormData(p => ({ ...p, units: u }))} baseUnitType={formData.unit_type} basePrice={formData.price} baseCost={formData.cost} exchangeRates={exchangeRates} /></CardContent></Card>
-                        </TabsContent>
-                        <TabsContent value="combos" className="h-full mt-0">
-                            <Card className="h-full border-slate-200 shadow-none"><CardContent className="p-6"><ComboManager comboItems={formData.combo_items} onItemsChange={(i) => setFormData(p => ({ ...p, combo_items: i }))} /></CardContent></Card>
                         </TabsContent>
                     </div>
                 </Tabs>

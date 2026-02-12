@@ -151,18 +151,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         }
     ];
 
-    const [expandedGroups, setExpandedGroups] = useState({});
+    const [expandedGroup, setExpandedGroup] = useState(null);
 
     useEffect(() => {
         if (isCollapsed) return;
-        const newExpanded = { ...expandedGroups };
         menuStructure.forEach(group => {
             if (group.type === 'group') {
                 const hasActiveItem = group.items.some(item => item.path === location.pathname);
-                if (hasActiveItem) newExpanded[group.label] = true;
+                if (hasActiveItem) setExpandedGroup(group.label);
             }
         });
-        setExpandedGroups(prev => ({ ...prev, ...newExpanded }));
     }, [location.pathname, isCollapsed]);
 
     const handleLogout = () => { logout(); navigate('/login'); };
@@ -170,58 +168,58 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const toggleGroup = (label) => {
         if (isCollapsed) {
             toggleSidebar();
-            setTimeout(() => setExpandedGroups(prev => ({ ...prev, [label]: true })), 50);
+            setTimeout(() => setExpandedGroup(label), 50);
             return;
         }
-        setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+        setExpandedGroup(prev => prev === label ? null : label);
     };
 
     return (
         <aside className={cn(
             "bg-white border-r border-slate-200 fixed h-full transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-[1px_0_15px_rgba(0,0,0,0.02)] inset-y-0 left-0 flex flex-col z-20",
             isCollapsed ? "md:w-20" : "md:w-64",
-            isMobileMenuOpen ? "flex w-64 translate-x-0 z-50" : "hidden md:flex max-md:-translate-x-full"
+            isMobileMenuOpen ? "flex w-64 translate-x-0 z-50 transition-transform duration-300" : "hidden md:flex max-md:-translate-x-full"
         )}>
             {/* Logo Area */}
-            <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white relative">
+            <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white relative shrink-0">
                 {!isCollapsed ? (
                     <div className="flex items-center gap-3 animate-in fade-in duration-300">
-                        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white shadow-sm">
-                            <span className="font-bold text-lg">M</span>
+                        <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                            <span className="font-black text-lg">M</span>
                         </div>
-                        <span className="font-bold text-lg text-slate-900 tracking-tight">Mi Inventario</span>
+                        <span className="font-black text-lg text-slate-900 tracking-tighter">Mi Inventario</span>
                     </div>
                 ) : (
                     <div className="w-full flex justify-center">
-                        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white shadow-sm">
-                            <span className="font-bold text-lg">M</span>
+                        <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                            <span className="font-black text-lg">M</span>
                         </div>
                     </div>
                 )}
 
                 {/* Close Mobile */}
                 {isMobileMenuOpen && (
-                    <button onClick={closeMobileMenu} className="md:hidden absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                    <button onClick={closeMobileMenu} className="md:hidden absolute right-4 top-1/2 -translate-y-1/2 p-2 hover:bg-slate-100 rounded-lg text-slate-400">
                         <X size={20} />
                     </button>
                 )}
             </div>
 
-            {/* Desktop Collapse Button - Positioned Below Header */}
+            {/* Desktop Collapse Button - Positioned Precisely */}
             <button
                 onClick={toggleSidebar}
-                className="hidden md:flex absolute -right-3 top-20 w-6 h-12 bg-white border-2 border-indigo-500 rounded-full items-center justify-center text-indigo-600 shadow-[0_4px_12px_rgba(79,70,229,0.2)] hover:shadow-[0_4px_20px_rgba(79,70,229,0.4)] hover:bg-indigo-50 transition-all duration-300 z-30 group/collapse"
+                className="hidden md:flex absolute -right-3 top-[68px] w-6 h-12 bg-white border-2 border-slate-200 rounded-full items-center justify-center text-slate-400 shadow-sm hover:border-indigo-500 hover:text-indigo-600 transition-all duration-300 z-30 group/collapse"
                 title={isCollapsed ? "Expandir menú (→)" : "Colapsar menú (←)"}
             >
                 {isCollapsed ? (
-                    <ChevronRight size={20} strokeWidth={3} className="group-hover/collapse:translate-x-0.5 transition-transform" />
+                    <ChevronRight size={16} strokeWidth={3} className="group-hover/collapse:translate-x-0.5 transition-transform" />
                 ) : (
-                    <ChevronLeft size={20} strokeWidth={3} className="group-hover/collapse:-translate-x-0.5 transition-transform" />
+                    <ChevronLeft size={16} strokeWidth={3} className="group-hover/collapse:-translate-x-0.5 transition-transform" />
                 )}
             </button>
 
-            {/* Navigation */}
-            <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-1 custom-scrollbar">
+            {/* Navigation - Scrollable Area */}
+            <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-1 custom-scrollbar scroll-smooth">
                 {menuStructure.map((group, idx) => {
                     // SINGLE ITEM
                     if (group.type === 'single') {
@@ -233,32 +231,39 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                 id={group.item.label === 'Resumen' ? 'sidebar-dashboard' : undefined}
                                 onClick={closeMobileMenu}
                                 className={cn(
-                                    "flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative group mb-1",
+                                    "flex items-center px-4 py-3 rounded-xl text-sm transition-all relative group mb-1",
                                     isActive
-                                        ? "bg-slate-900 text-white shadow-md shadow-slate-200"
-                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-                                    isCollapsed && "justify-center px-0"
+                                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
+                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
+                                    isCollapsed && "justify-center px-0 h-11"
                                 )}
                                 title={isCollapsed ? group.item.label : ''}
                             >
                                 <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600")} strokeWidth={isActive ? 2.5 : 2} />
-                                {!isCollapsed && <span className="ml-3 font-semibold">{group.item.label}</span>}
+                                {!isCollapsed && <span className="ml-3 font-bold">{group.item.label}</span>}
                             </Link>
                         );
                     }
 
                     // GROUP ITEM
-                    const isExpanded = expandedGroups[group.label];
+                    const isExpanded = expandedGroup === group.label;
                     const hasActiveChild = group.items.some(item => item.path === location.pathname);
                     const groupId = `sidebar-group-${group.label.toLowerCase().replace(/\s+/g, '-')}`;
 
                     if (isCollapsed) {
                         return (
                             <div key={idx} className="flex justify-center my-1 group relative">
-                                <button id={groupId} onClick={() => toggleGroup(group.label)} className={cn("w-10 h-10 flex items-center justify-center rounded-lg transition-all", hasActiveChild ? "bg-slate-100 text-slate-900" : "text-slate-400 hover:bg-slate-50")}>
+                                <button
+                                    id={groupId}
+                                    onClick={() => toggleGroup(group.label)}
+                                    className={cn(
+                                        "w-11 h-11 flex items-center justify-center rounded-xl transition-all",
+                                        hasActiveChild ? "bg-indigo-50 text-indigo-600 shadow-sm" : "text-slate-400 hover:bg-slate-50"
+                                    )}
+                                    title={group.label}
+                                >
                                     <group.icon size={20} />
                                 </button>
-                                {/* Tooltip Logic Simplified */}
                             </div>
                         );
                     }
@@ -268,16 +273,24 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                             <button
                                 onClick={() => toggleGroup(group.label)}
                                 id={groupId}
-                                className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors group select-none"
+                                className={cn(
+                                    "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all group select-none mb-1",
+                                    isExpanded ? "bg-slate-50/80 text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                                )}
                             >
                                 <div className="flex items-center">
-                                    <group.icon size={18} className={cn("text-slate-400 group-hover:text-slate-600 transition-colors", hasActiveChild && "text-slate-900")} />
-                                    <span className={cn("ml-3 font-semibold", hasActiveChild && "text-slate-900")}>{group.label}</span>
+                                    <group.icon size={20} className={cn("transition-colors", isExpanded || hasActiveChild ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600")} />
+                                    <span className={cn("ml-3 font-bold tracking-tight", isExpanded || hasActiveChild ? "text-slate-900" : "text-slate-500")}>{group.label}</span>
                                 </div>
-                                <ChevronDown size={14} className={cn("transition-transform duration-200", isExpanded && "rotate-180")} />
+                                <ChevronDown size={14} className={cn("transition-transform duration-300 text-slate-400", isExpanded && "rotate-180 text-indigo-600")} />
                             </button>
 
-                            <div className={cn("overflow-hidden transition-all duration-300 ease-in-out pl-4 space-y-0.5 mt-1 border-l border-slate-100 ml-4", isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0")}>
+                            <div
+                                className={cn(
+                                    "overflow-hidden transition-all duration-300 ease-in-out pl-9 space-y-1 ml-4 border-l-2 border-slate-100",
+                                    isExpanded ? "max-h-[500px] opacity-100 mb-2 mt-1" : "max-h-0 opacity-0"
+                                )}
+                            >
                                 {group.items.map(subItem => {
                                     const isSubActive = location.pathname === subItem.path;
                                     const itemId = `sidebar-item-${subItem.label.toLowerCase().replace(/\s+/g, '-')}`;
@@ -288,13 +301,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                             id={itemId}
                                             onClick={closeMobileMenu}
                                             className={cn(
-                                                "flex items-center px-3 py-2 rounded-md text-sm transition-all relative",
+                                                "flex items-center px-4 py-2 rounded-lg text-[13px] transition-all relative group",
                                                 isSubActive
                                                     ? "text-indigo-600 font-bold bg-indigo-50/50"
-                                                    : "text-slate-500 font-medium hover:text-slate-900 hover:bg-slate-50"
+                                                    : "text-slate-500 font-semibold hover:text-slate-900 hover:bg-slate-50/50"
                                             )}
                                         >
-                                            <span className={cn("w-1.5 h-1.5 rounded-full mr-2.5", isSubActive ? "bg-indigo-600" : "bg-slate-200")}></span>
+                                            <span className={cn(
+                                                "absolute -left-[11px] w-2 h-2 rounded-full border-2 border-white transition-all scale-75",
+                                                isSubActive ? "bg-indigo-600 ring-4 ring-indigo-50 scale-100" : "bg-slate-300 group-hover:bg-slate-400"
+                                            )}></span>
                                             {subItem.label}
                                         </Link>
                                     );
@@ -305,28 +321,40 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 })}
             </nav>
 
-            {/* Footer */}
-            <div className="p-4 border-t border-slate-100 bg-white">
-                <Link to="/support" className={cn("flex items-center px-3 py-2 rounded-lg text-indigo-500 hover:text-indigo-900 hover:bg-indigo-50 transition-colors w-full mb-1", isCollapsed && "justify-center")}>
-                    <LifeBuoy size={20} />
-                    {!isCollapsed && <span className="ml-3 font-semibold text-sm">Soporte Técnico</span>}
-                </Link>
-                <Link to="/help" className={cn("flex items-center px-3 py-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-colors w-full mb-1", isCollapsed && "justify-center")}>
-                    <HelpCircle size={20} />
-                    {!isCollapsed && <span className="ml-3 font-semibold text-sm">Ayuda</span>}
-                </Link>
+            {/* Footer Actions */}
+            <div className="px-3 py-4 border-t border-slate-100 bg-white shrink-0 space-y-1">
+                {/* Support Group */}
+                {!isCollapsed && <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Soporte y Guía</p>}
 
-                <button
-                    onClick={() => setIsTourModalOpen(true)}
-                    className={cn("flex items-center px-3 py-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors w-full mb-1", isCollapsed && "justify-center")}
-                >
-                    <BookOpen size={20} />
-                    {!isCollapsed && <span className="ml-3 font-semibold text-sm">Guía de Uso</span>}
-                </button>
-                <button onClick={handleLogout} className={cn("flex items-center px-3 py-2 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors w-full", isCollapsed && "justify-center")}>
-                    <LogOut size={20} />
-                    {!isCollapsed && <span className="ml-3 font-bold text-sm">Salir</span>}
-                </button>
+                <div className={cn("grid gap-1", isCollapsed ? "grid-cols-1" : "grid-cols-1")}>
+                    <Link to="/support" className={cn("flex items-center px-4 py-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-sm", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")} title="Soporte Técnico">
+                        <LifeBuoy size={18} />
+                        {!isCollapsed && <span className="ml-3">Soporte</span>}
+                    </Link>
+
+                    <button
+                        onClick={() => setIsTourModalOpen(true)}
+                        className={cn("flex items-center px-4 py-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-sm", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")}
+                        title="Guía de Uso"
+                    >
+                        <BookOpen size={18} />
+                        {!isCollapsed && <span className="ml-3">Manual</span>}
+                    </button>
+                </div>
+
+                <div className="pt-2">
+                    <button
+                        onClick={handleLogout}
+                        className={cn(
+                            "flex items-center px-4 py-3 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all w-full font-bold text-sm group",
+                            isCollapsed && "justify-center p-0 h-11 w-11 mx-auto"
+                        )}
+                        title="Cerrar Sesión"
+                    >
+                        <LogOut size={20} className="text-slate-400 group-hover:text-rose-500" />
+                        {!isCollapsed && <span className="ml-3">Cerrar Sesión</span>}
+                    </button>
+                </div>
             </div>
 
             {/* Tour Selection Modal */}

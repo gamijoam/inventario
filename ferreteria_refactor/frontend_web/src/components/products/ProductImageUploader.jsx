@@ -1,16 +1,15 @@
 import { useState } from 'react';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Trash2, RefreshCw } from 'lucide-react';
 import apiClient from '../../config/axios';
-import { BASE_API_URL, API_ROOT_URL } from '../../config/constants';
+import { API_ROOT_URL } from '../../config/constants';
 import noImgPlaceholder from '../../assets/no-img.svg';
-import clsx from 'clsx';
+import { cn } from '../../lib/utils';
 
 export default function ProductImageUploader({ productId, currentImageUrl, onImageUpdate }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
 
-  // Cache busting: add timestamp to force reload + cross-domain support
   const getImageUrl = (url) => {
     if (!url) return null;
     const isAbsolute = url.startsWith('http');
@@ -18,12 +17,9 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
     return `${fullUrl}${fullUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
   };
 
-
-
   const handleUpload = async (file) => {
     if (!file) return;
 
-    // Validate using filesize (2MB max)
     if (file.size > 2 * 1024 * 1024) {
       setError('La imagen es muy pesada (máximo 2MB)');
       return;
@@ -99,111 +95,84 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
     }
   };
 
-  const handleFileInput = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleUpload(e.target.files[0]);
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      {/* Preview */}
+    <div className="w-full">
       {currentImageUrl ? (
-        <div className="relative group overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-slate-50 flex items-center justify-center min-h-[160px]">
+        <div className="relative group rounded-2xl border-2 border-slate-100 bg-white overflow-hidden aspect-square flex items-center justify-center transition-all hover:border-indigo-200 hover:shadow-lg">
           <img
             src={getImageUrl(currentImageUrl)}
-            alt="Producto"
-            className="max-w-full max-h-64 object-contain transition-transform duration-500 group-hover:scale-105"
-            onError={(e) => {
-              e.target.src = noImgPlaceholder;
-            }}
+            alt="Product"
+            className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105"
+            onError={(e) => { e.target.src = noImgPlaceholder; }}
           />
-          {/* Overlay with Actions */}
-          <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 backdrop-blur-[2px]">
-            <div className="flex gap-2">
-              <label
-                htmlFor="image-upload-change"
-                className="cursor-pointer bg-white text-slate-900 px-4 py-2 rounded-xl hover:bg-slate-100 transition-all font-bold text-sm flex items-center gap-2 shadow-xl"
-              >
-                <Upload size={16} /> Cambiar
-                <input
-                  type="file"
-                  id="image-upload-change"
-                  accept="image/*"
-                  onChange={handleFileInput}
-                  className="hidden"
-                  disabled={uploading}
-                />
-              </label>
-              <button
-                onClick={handleDelete}
-                disabled={uploading}
-                className="bg-rose-500 text-white p-2 rounded-xl hover:bg-rose-600 disabled:opacity-50 transition-all shadow-xl"
-                title="Eliminar imagen"
-              >
-                <X size={20} />
-              </button>
-            </div>
+
+          {/* Action Overlay */}
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-3">
+            <label className="cursor-pointer bg-white text-slate-800 p-3 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-xl">
+              <RefreshCw size={20} className={cn(uploading && "animate-spin")} />
+              <input type="file" className="hidden" accept="image/*" onChange={(e) => handleUpload(e.target.files[0])} disabled={uploading} />
+            </label>
+            <button
+              onClick={handleDelete}
+              disabled={uploading}
+              className="bg-rose-500 text-white p-3 rounded-xl hover:bg-rose-600 transition-all shadow-xl"
+            >
+              <Trash2 size={20} />
+            </button>
           </div>
+
           {uploading && (
-            <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
-              <Upload className="animate-spin text-indigo-500" size={32} />
+            <div className="absolute inset-0 bg-white/60 backdrop-blur-sm flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <Upload className="animate-bounce text-indigo-600" size={32} />
+                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Subiendo</span>
+              </div>
             </div>
           )}
         </div>
       ) : (
-        /* Upload Area */
         <div
-          className={clsx(
-            "border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-300 min-h-[160px] flex items-center justify-center",
-            dragActive
-              ? 'border-indigo-500 bg-indigo-50/50 scale-[1.02]'
-              : 'border-slate-300 hover:border-indigo-300 hover:bg-slate-50'
-          )}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
+          className={cn(
+            "relative rounded-2xl border-2 border-dashed aspect-square flex flex-col items-center justify-center transition-all cursor-pointer group",
+            dragActive
+              ? "border-indigo-500 bg-indigo-50/50 scale-[0.98]"
+              : "border-slate-200 bg-slate-50/50 hover:border-indigo-300 hover:bg-white"
+          )}
         >
           <input
             type="file"
-            id="image-upload"
+            className="absolute inset-0 opacity-0 cursor-pointer"
             accept="image/*"
-            onChange={handleFileInput}
-            className="hidden"
             disabled={uploading}
+            onChange={(e) => handleUpload(e.target.files[0])}
           />
-          <label
-            htmlFor="image-upload"
-            className="cursor-pointer flex flex-col items-center w-full"
-          >
-            {uploading ? (
-              <div className="p-4 bg-indigo-50 rounded-full mb-2">
-                <Upload className="animate-spin text-indigo-500" size={32} />
-              </div>
-            ) : (
-              <div className={clsx(
-                "p-3 rounded-full mb-2 transition-colors",
-                dragActive ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-400"
-              )}>
-                <ImageIcon size={28} />
-              </div>
-            )}
-            <p className="text-xs font-bold text-slate-700">
-              {uploading ? 'Subiendo...' : 'Subir Imagen'}
-            </p>
-            <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
-              JPG, PNG o WebP
-            </p>
-          </label>
+
+          <div className={cn(
+            "w-16 h-16 rounded-full flex items-center justify-center transition-all mb-4",
+            dragActive ? "bg-indigo-600 text-white scale-110" : "bg-white text-slate-400 border border-slate-100 group-hover:scale-110 group-hover:text-indigo-500 group-hover:border-indigo-100"
+          )}>
+            <ImageIcon size={32} />
+          </div>
+
+          <p className="text-xs font-bold text-slate-600 uppercase tracking-tighter">Arrastra una imagen</p>
+          <p className="text-[10px] text-slate-400 mt-1">o haz clic para buscar</p>
+
+          {uploading && (
+            <div className="absolute inset-0 bg-white/60 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+              <Upload className="animate-spin text-indigo-600" size={32} />
+            </div>
+          )}
         </div>
       )}
 
-      {/* Error Message */}
       {error && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3 py-2 rounded-xl text-[11px] font-medium flex items-center">
-          <X size={14} className="mr-2 flex-shrink-0" />
-          {error}
+        <div className="mt-3 p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-2 animate-in slide-in-from-top-1">
+          <X size={14} className="text-rose-500 mt-0.5 flex-shrink-0" />
+          <p className="text-[10px] font-bold text-rose-600 leading-tight">{error}</p>
         </div>
       )}
     </div>

@@ -372,7 +372,7 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                         <option value="">🔗 Usar Tasa del Producto (Default)</option>
                                         {exchangeRates && exchangeRates.filter(r => r.is_active).map(rate => (
                                             <option key={rate.id} value={rate.id}>
-                                                {rate.name} ({rate.currency_code}) - {rate.rate}
+                                                {rate.name} ({rate.currency_code}) - {parseFloat(rate.rate)}
                                             </option>
                                         ))}
                                     </select>
