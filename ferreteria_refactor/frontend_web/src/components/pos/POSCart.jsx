@@ -9,6 +9,8 @@ import { cn } from '../../lib/utils';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+import { useConfig } from '../../context/ConfigContext';
+
 function cnLocal(...inputs) {
     return twMerge(clsx(inputs));
 }
@@ -26,11 +28,12 @@ const POSCart = ({
     convertPrice
 }) => {
 
-    // Calculate Taxes for display
-    // Assuming totalUSD includes tax, or we can calculate if needed. 
-    // For now, let's assume totalUSD is the final price.
-    // If we need tax separation, we'd need tax rate info.
-    // Displaying "Impuestos incluidos" is safe for now if not clear.
+    const { business } = useConfig();
+
+    // Calculate Taxes dynamically based on business config
+    const taxRate = parseFloat(business?.default_tax_rate || 0);
+    const subtotalUSD = totals.totalUSD / (1 + (taxRate / 100));
+    const taxAmountUSD = totals.totalUSD - subtotalUSD;
 
     return (
         <div className="flex flex-col h-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
@@ -170,11 +173,11 @@ const POSCart = ({
                 <div className="space-y-1.5 opacity-80">
                     <div className="flex justify-between text-xs text-slate-500">
                         <span>Subtotal</span>
-                        <span>{anchorCurrency.symbol}{(totals.totalUSD * 0.84).toFixed(2)}</span> {/* Approx calc */}
+                        <span>{anchorCurrency.symbol}{subtotalUSD.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-xs text-slate-500">
-                        <span>Impuestos (Est.)</span>
-                        <span>{anchorCurrency.symbol}{(totals.totalUSD * 0.16).toFixed(2)}</span>
+                        <span>{taxRate > 0 ? `Impuestos (${taxRate}%)` : 'Impuestos (0%)'}</span>
+                        <span>{anchorCurrency.symbol}{taxAmountUSD.toFixed(2)}</span>
                     </div>
                 </div>
 

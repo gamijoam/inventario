@@ -283,7 +283,7 @@ async def delete_exchange_rate(
 @router.get("/business", response_model=schemas.BusinessInfo)
 def get_business_info(db: Session = Depends(get_db)):
     """Get aggregated business information"""
-    keys = ["business_name", "business_doc", "business_address", "business_phone", "business_email"]
+    keys = ["business_name", "business_doc", "business_address", "business_phone", "business_email", "default_tax_rate"]
     configs = db.query(models.BusinessConfig).filter(models.BusinessConfig.key.in_(keys)).all()
     config_dict = {c.key: c.value for c in configs}
     
@@ -293,7 +293,8 @@ def get_business_info(db: Session = Depends(get_db)):
         address=config_dict.get("business_address", ""),
         phone=config_dict.get("business_phone", ""),
         email=config_dict.get("business_email", ""),
-        ticket_template=config_dict.get("ticket_template", "")  # NEW
+        ticket_template=config_dict.get("ticket_template", ""),
+        default_tax_rate=Decimal(config_dict.get("default_tax_rate", "0.00"))
     )
 
 @router.put("/business", response_model=schemas.BusinessInfo)
@@ -309,7 +310,8 @@ def update_business_info(
         "business_address": info.address,
         "business_phone": info.phone,
         "business_email": info.email,
-        "ticket_template": info.ticket_template  # NEW
+        "ticket_template": info.ticket_template,
+        "default_tax_rate": str(info.default_tax_rate) if info.default_tax_rate is not None else None
     }
     
     for key, value in mapping.items():

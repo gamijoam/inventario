@@ -898,6 +898,7 @@ class BusinessInfo(BaseModel):
     website: Optional[str] = None
     logo_url: Optional[str] = None # URL for displayed logo
     ticket_template: Optional[str] = None  # NEW: Jinja2 template for tickets
+    default_tax_rate: Optional[Decimal] = Decimal("0.00")
 
 # ========================
 # Audit Log Schemas
