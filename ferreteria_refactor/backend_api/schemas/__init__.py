@@ -687,6 +687,13 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+class DiscoveryRequest(BaseModel):
+    email: str
+
+class DiscoveryResponse(BaseModel):
+    redirect_url: str
+    tenant_name: Optional[str] = None
+
 # Business Configuration Schemas
 class BusinessConfigBase(BaseModel):
     key: str

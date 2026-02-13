@@ -680,7 +680,7 @@ img {
 .form-group input:focus {
     outline: none;
     border-color: var(--primary);
-    ring: 2px solid rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
 }
 
 .social-login {
@@ -770,4 +770,71 @@ img {
     .pricing-card.popular {
         transform: none;
     }
+}
+
+/* Discovery Modal Specifics */
+.modal-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.modal-icon {
+    font-size: 2.5rem;
+    color: var(--primary);
+    margin-bottom: 1rem;
+    opacity: 0.2;
+}
+
+.btn-full {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.modal-footer {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-light);
+    text-align: center;
+    font-size: 0.875rem;
+}
+
+.modal-footer a {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+/* Messages */
+.message {
+    padding: 0.75rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    display: none;
+}
+
+.message.error {
+    background-color: #FEF2F2;
+    color: #DC2626;
+    border: 1px solid #FEE2E2;
+}
+
+.message.success {
+    background-color: #F0FDF4;
+    color: #16A34A;
+    border: 1px solid #DCFCE7;
+}
+
+.btn-outline {
+    background-color: transparent;
+    color: var(--text-main);
+    border: 1px solid var(--border-light);
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.btn-outline:hover {
+    background-color: var(--bg-light);
+    border-color: var(--text-muted);
 }

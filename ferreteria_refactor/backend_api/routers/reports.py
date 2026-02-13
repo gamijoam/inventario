@@ -274,19 +274,12 @@ def get_dashboard_cashflow(db: Session = Depends(get_db)):
             if "Bs" in balances:
                 balances["Bs"]["initial"] += session.initial_cash_bs or 0
     
-    # 2. Get sales income from SalePayment (exclude voided sales)
-    voided_sale_ids = db.query(models.Return.sale_id).distinct().all()
-    voided_sale_ids = [sid[0] for sid in voided_sale_ids]
-    
     sales_query = db.query(
         models.SalePayment.currency,
         func.sum(models.SalePayment.amount).label('total')
     ).join(models.Sale).filter(
         models.Sale.date >= open_sessions[0].start_time  # Since first session opened
     )
-    
-    if voided_sale_ids:
-        sales_query = sales_query.filter(models.Sale.id.notin_(voided_sale_ids))
     
     sales_by_currency = sales_query.group_by(models.SalePayment.currency).all()
     
@@ -525,20 +518,42 @@ def get_sales_summary(
             refund_bs = refund_amount * exchange_rate
             total_refunded_bs += refund_bs
     
-    # Adjust totals
-    total_revenue -= total_refunded
-    total_revenue_bs -= total_refunded_bs
+    # Calculate total returned items
+    # We query it properly from ReturnDetails
+    total_returned_items = db.query(func.sum(models.ReturnDetail.quantity)).join(models.Return).filter(
+        models.Return.date >= start_dt,
+        models.Return.date <= end_dt
+    ).scalar() or 0
+
+    # Financial results
+    gross_revenue = total_revenue
+    gross_revenue_bs = total_revenue_bs
     
-    avg_ticket = total_revenue / total_transactions if total_transactions > 0 else Decimal(0)
+    # Net results (Revenue - Refunds)
+    net_revenue = gross_revenue - total_refunded
+    net_revenue_bs = gross_revenue_bs - total_refunded_bs
+    
+    # Net items (Items Sold - Items Returned)
+    net_items_sold = total_items - total_returned_items
+    
+    # Net Transactions (Sales Count - Returns Count)
+    net_transactions = total_transactions - len(returns)
+
+    avg_ticket = gross_revenue / total_transactions if total_transactions > 0 else Decimal(0)
     
     return {
-        "total_revenue": float(total_revenue),
-        "total_revenue_bs": float(total_revenue_bs),
-        "total_ves": float(total_revenue_bs), # Requested strict alias
-        "total_transactions": total_transactions,
+        "total_revenue": float(net_revenue), # Net (User Preferred)
+        "total_revenue_bs": float(net_revenue_bs),
+        "gross_revenue": float(gross_revenue), 
+        "gross_revenue_bs": float(gross_revenue_bs),
+        "total_ves": float(net_revenue_bs), 
+        "total_transactions": total_transactions, # Gross count
+        "net_transactions": net_transactions, # Net count (User Preferred)
         "cash_sales": float(cash_sales),
         "credit_sales": float(credit_sales),
-        "total_items_sold": float(total_items),
+        "total_items_sold": float(net_items_sold), # Net Items (User Preferred)
+        "gross_items_sold": float(total_items),
+        "total_returned_items": float(total_returned_items),
         "total_refunded": float(total_refunded),
         "average_ticket": float(avg_ticket)
     }
@@ -596,41 +611,6 @@ def get_cash_flow_report(
     
     return movements
 
-@router.get("/sales/by-product")
-def get_sales_by_product(
-    start_date: date,
-    end_date: date,
-    db: Session = Depends(get_db)
-):
-    """
-    Sales aggregated by Product
-    """
-    start_dt = datetime.combine(start_date, datetime.min.time())
-    if start_date == end_date:
-        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
-    else:
-        end_dt = datetime.combine(end_date, datetime.max.time())
-        
-    query = db.query(
-        models.Product.name,
-        func.sum(models.SaleDetail.quantity).label('total_quantity'),
-        func.sum(models.SaleDetail.quantity * models.SaleDetail.unit_price).label('total_revenue')
-    ).join(models.SaleDetail.product).join(models.SaleDetail.sale).filter(
-        models.Sale.date >= start_dt,
-        models.Sale.date <= end_dt,
-        # Optional: Exclude voided sales if you have a status, current model assumes sales present are valid
-    ).group_by(models.Product.name).order_by(desc('total_quantity'))
-    
-    print(f"DEBUG: Found {len(results)} products for period {start_dt} - {end_dt}")
-    
-    return [
-        {
-            "product_name": r.name,
-            "quantity": float(r.total_quantity or 0),
-            "revenue": float(r.total_revenue or 0)
-        }
-        for r in results
-    ]
 
 
 @router.get("/top-products")

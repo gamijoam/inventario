@@ -13,6 +13,40 @@ from .. import schemas
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
+@router.post("/discovery", response_model=schemas.DiscoveryResponse)
+async def discover_tenant(
+    request: schemas.DiscoveryRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Discovery endpoint to find a tenant by user email.
+    """
+    email = request.email.strip().lower()
+    
+    # 1. Look for user by email
+    user = db.query(models.User).filter(models.User.email == email).first()
+    
+    # 🔐 SECURITY CHECK: Never discover superadmins or users without a tenant
+    if not user or user.is_superuser or not user.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No encontramos ninguna cuenta asociada a este correo electrónico."
+        )
+    
+    # 2. Get associated tenant
+    tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+    if not tenant:
+         raise HTTPException(404, "Empresa no encontrada para este usuario.")
+    
+    # 3. Build Redirect URL
+    # Format: https://{slug}.{app_domain}/login
+    redirect_url = f"{settings.PROTOCOL}://{tenant.schema_name}.{settings.APP_DOMAIN}/login"
+    
+    return {
+        "redirect_url": redirect_url,
+        "tenant_name": tenant.name
+    }
+
 # DEBUG ENDPOINT
 @router.post("/debug_login")
 async def debug_login(request: Request, db: Session = Depends(get_db)):

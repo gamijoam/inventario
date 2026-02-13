@@ -4,7 +4,6 @@ import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useState } from 'react';
-import ExchangeRateUpdateModal from '../common/ExchangeRateUpdateModal';
 import { cn } from '../../utils/cn';
 
 
@@ -12,7 +11,6 @@ export default function Header() {
     const { currencies } = useConfig();
     const { user, logout } = useAuth();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
-    const [showRateModal, setShowRateModal] = useState(false);
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
 
@@ -38,13 +36,13 @@ export default function Header() {
                             <span className="text-[9px] uppercase font-bold text-slate-400">Tasa {displayCurrency.symbol}</span>
                             <span className="text-xs font-black text-slate-700">{rate.toFixed(2)}</span>
                         </div>
-                        <button
-                            onClick={() => setShowRateModal(true)}
+                        <Link
+                            to="/settings?tab=currencies"
                             className="ml-1 p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-indigo-600 transition-colors"
-                            title="Actualizar Tasa"
+                            title="Gestionar Tasas"
                         >
                             <RefreshCw size={12} />
-                        </button>
+                        </Link>
                     </div>
                 )}
 
@@ -191,10 +189,6 @@ export default function Header() {
                 </div>
             </div>
 
-            <ExchangeRateUpdateModal
-                isOpen={showRateModal}
-                onClose={() => setShowRateModal(false)}
-            />
         </header>
     );
 }

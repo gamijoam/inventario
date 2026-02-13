@@ -328,7 +328,7 @@ const Dashboard = () => {
             {/* 2. KPI Grid (Vercel Style) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KPICard
-                    title="Ingresos Hoy"
+                    title="Ingresos Hoy (Neto)"
                     value={<MultiCurrencyDisplay amountUSD={salesSummary?.total_revenue || 0} showRate={false} placeholderIfZero />}
                     icon={DollarSign}
                 />
@@ -340,13 +340,13 @@ const Dashboard = () => {
                     trendValue="12.5%"
                 />
                 <KPICard
-                    title="Transacciones"
-                    value={salesSummary?.total_transactions || 0}
+                    title="Artículos Vendidos (Neto)"
+                    value={salesSummary?.total_items_sold || 0}
                     icon={ShoppingCart}
                 />
                 <KPICard
-                    title="Ticket Promedio"
-                    value={<MultiCurrencyDisplay amountUSD={salesSummary?.average_ticket || 0} showRate={false} size="sm" placeholderIfZero />}
+                    title="Ventas Realizadas (Neto)"
+                    value={salesSummary?.net_transactions || 0}
                     icon={CreditCard}
                 />
             </div>

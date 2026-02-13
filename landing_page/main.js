@@ -27,11 +27,32 @@ window.closeRegisterModal = function () {
     if (modal) modal.style.display = "none";
 };
 
+// --- DISCOVERY MODAL LOGIC (YA TENGO CUENTA) ---
+window.openDiscoveryModal = function (e) {
+    if (e) e.preventDefault();
+    console.log("Intentando abrir modal de descubrimiento...");
+    const modal = document.getElementById("discoveryModal");
+    if (modal) {
+        modal.style.display = "flex";
+    } else {
+        console.error("Discovery modal not found!");
+    }
+};
+
+window.closeDiscoveryModal = function () {
+    const modal = document.getElementById("discoveryModal");
+    if (modal) modal.style.display = "none";
+};
+
 // Cerrar modal al hacer click fuera
 window.onclick = function (event) {
-    const modal = document.getElementById("registerModal");
-    if (event.target == modal) {
-        modal.style.display = "none";
+    const regModal = document.getElementById("registerModal");
+    const discModal = document.getElementById("discoveryModal");
+    if (event.target == regModal) {
+        regModal.style.display = "none";
+    }
+    if (event.target == discModal) {
+        discModal.style.display = "none";
     }
 }
 
@@ -292,4 +313,59 @@ document.addEventListener('DOMContentLoaded', function () {
             navbar.style.boxShadow = 'none';
         }
     });
+    // Discovery Form Handler
+    const discoveryForm = document.getElementById('discoveryForm');
+    if (discoveryForm) {
+        discoveryForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const emailInput = document.getElementById('discoveryEmail');
+            const email = emailInput.value.trim().toLowerCase();
+            const messageArea = document.getElementById('discoveryMessage');
+            const btnText = document.getElementById('discoveryBtnText');
+            const spinner = document.getElementById('discoverySpinner');
+            const submitBtn = this.querySelector('button[type="submit"]');
+
+            // UI Reset
+            messageArea.style.display = "none";
+            messageArea.className = "message";
+            spinner.style.display = "inline-block";
+            btnText.textContent = "Buscando...";
+            submitBtn.disabled = true;
+
+            const normalizedApiUrl = API_URL.endsWith('/api/v1') ? API_URL : `${API_URL}/api/v1`;
+
+            try {
+                const response = await fetch(`${normalizedApiUrl}/auth/discovery`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'No pudimos encontrar tu cuenta');
+                }
+
+                messageArea.textContent = "✅ ¡Cuenta encontrada! Redirigiendo...";
+                messageArea.className = "message success";
+                messageArea.style.display = "block";
+
+                setTimeout(() => {
+                    window.location.href = data.redirect_url;
+                }, 1000);
+
+            } catch (err) {
+                console.error("Discovery error:", err);
+                messageArea.textContent = "❌ " + (err.message || 'Error desconocido');
+                messageArea.className = "message error";
+                messageArea.style.display = "block";
+
+                spinner.style.display = "none";
+                btnText.textContent = "Entrar a mi cuenta";
+                submitBtn.disabled = false;
+            }
+        });
+    }
 });

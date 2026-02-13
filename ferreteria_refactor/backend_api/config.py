@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     # Pydantic leerá estas variables automáticamente del entorno (.env o Docker)
     DATABASE_URL: str = "sqlite:///./ferreteria.db" # Si existe DB_URL en .env, lo sobreescribe
     ENVIRONMENT: str = "production"
+    APP_DOMAIN: str = "miinventariofacil.com"
+    PROTOCOL: str = "https"
     
     # Security
     SECRET_KEY: str = "temporary_key_for_build"

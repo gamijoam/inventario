@@ -12,8 +12,10 @@ import {
   CreditCard,
   MessageSquare
 } from 'lucide-react';
+import TenantDiscoveryModal from './components/TenantDiscoveryModal';
 
 const App = () => {
+  const [isDiscoveryOpen, setIsDiscoveryOpen] = React.useState(false);
   const fadeInUp = {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0 },
@@ -44,6 +46,12 @@ const App = () => {
             <a href="#features" className="hover:text-indigo-600 transition-colors">Funcionalidades</a>
             <a href="#tech" className="hover:text-indigo-600 transition-colors">Tecnología</a>
             <a href="#contact" className="hover:text-indigo-600 transition-colors">Contacto</a>
+            <button
+              onClick={() => setIsDiscoveryOpen(true)}
+              className="font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+            >
+              Ya tengo cuenta
+            </button>
           </div>
           <a
             href="http://localhost:5173"
@@ -85,8 +93,11 @@ const App = () => {
                 <Monitor size={20} />
                 Probar Demo
               </a>
-              <button className="flex items-center justify-center gap-2 bg-white text-slate-700 border border-slate-200 px-8 py-4 rounded-xl font-bold text-lg hover:bg-slate-50 transition-all hover:border-slate-300">
-                Ver Video
+              <button
+                onClick={() => setIsDiscoveryOpen(true)}
+                className="flex items-center justify-center gap-2 bg-white text-slate-700 border border-slate-200 px-8 py-4 rounded-xl font-bold text-lg hover:bg-slate-50 transition-all hover:border-slate-300"
+              >
+                Ya tengo cuenta
               </button>
             </div>
           </motion.div>
@@ -246,6 +257,12 @@ const App = () => {
           </div>
         </div>
       </footer>
+
+      {/* Discovery Modal */}
+      <TenantDiscoveryModal
+        isOpen={isDiscoveryOpen}
+        onClose={() => setIsDiscoveryOpen(false)}
+      />
     </div>
   );
 };

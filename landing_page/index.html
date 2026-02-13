@@ -7,7 +7,7 @@
     <title>Mi Inventario Fácil | Control Total para tu Negocio</title>
     <meta name="description"
         content="Software de gestión y punto de venta para ferreterías, repuestos, minimarkets y restaurantes. Controla inventario, ventas y facturación en una sola plataforma.">
-    <link rel="stylesheet" href="styles.css?v=qa_v8">
+    <link rel="stylesheet" href="styles.css?v=qa_v9">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -26,7 +26,8 @@
                 <a href="#features" class="nav-link">Características</a>
                 <a href="#testimonials" class="nav-link">Testimonios</a>
                 <a href="#pricing" class="nav-link">Precios</a>
-                <a href="#" onclick="openRegisterModal(event)" class="btn btn-primary">
+                <a href="javascript:void(0)" onclick="openDiscoveryModal(event)" class="nav-link">Ya tengo cuenta</a>
+                <a href="javascript:void(0)" onclick="openRegisterModal(event)" class="btn btn-primary">
                     Comenzar prueba gratis
                 </a>
             </div>
@@ -53,11 +54,11 @@
                     Facturación, múltiples monedas y reportes en tiempo real.
                 </p>
                 <div class="hero-actions">
-                    <a href="#" onclick="openRegisterModal(event)" class="btn btn-primary btn-lg">
+                    <a href="javascript:void(0)" onclick="openRegisterModal(event)" class="btn btn-primary btn-lg">
                         Comenzar ahora <i class="fas fa-arrow-right"></i>
                     </a>
-                    <a href="#demo" class="btn btn-secondary btn-lg">
-                        <i class="fas fa-play-circle"></i> Ver demo de 2 min
+                    <a href="javascript:void(0)" onclick="openDiscoveryModal(event)" class="btn btn-outline btn-lg">
+                        Ya tengo cuenta
                     </a>
                 </div>
                 <div class="trust-item">
@@ -409,8 +410,37 @@
         </div>
     </div>
 
-    <script src="main.js?v=qa_v8"></script>
-    </script>
+    <!-- Discovery Modal (Ya tengo cuenta) -->
+    <div id="discoveryModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeDiscoveryModal()">&times;</span>
+            <div class="modal-header">
+                <i class="fas fa-search modal-icon"
+                    style="font-size: 2.5rem; color: var(--primary); margin-bottom: 1rem; opacity: 0.2; display: block; text-align: center;"></i>
+                <h2 style="text-align: center; margin-bottom: 0.5rem;">Buscar mi cuenta</h2>
+                <p style="text-align: center; margin-bottom: 2rem; font-size: 0.95rem;">Ingresa tu correo y te
+                    llevaremos a tu plataforma personalizada.</p>
+            </div>
+            <form id="discoveryForm">
+                <div class="form-group">
+                    <label for="discoveryEmail">Correo Electrónico</label>
+                    <input type="email" id="discoveryEmail" placeholder="ejemplo@correo.com" required>
+                </div>
+                <div id="discoveryMessage" class="message"></div>
+
+                <button type="submit" class="btn btn-primary btn-full">
+                    <span id="discoveryBtnText">Entrar a mi cuenta</span>
+                    <i class="fas fa-spinner fa-spin" id="discoverySpinner" style="display: none;"></i>
+                </button>
+            </form>
+            <div class="modal-footer">
+                <p>¿Aún no tienes cuenta? <a href="#"
+                        onclick="closeDiscoveryModal(); openRegisterModal(event)">Regístrate</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="main.js?v=qa_v13"></script>
 </body>
 
 </html>

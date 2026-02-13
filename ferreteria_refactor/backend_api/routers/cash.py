@@ -480,8 +480,8 @@ def get_session_details(
     # Calculate Movements
     # Calculate Movements
     # Separate Expenses from Cash Advances
-    expenses_usd = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and m.currency == "USD"), Decimal("0.00"))
-    expenses_bs = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
+    expenses_usd = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "RETURN"] and m.currency == "USD"), Decimal("0.00"))
+    expenses_bs = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "RETURN"] and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
     
     cash_advances_usd = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and m.currency == "USD"), Decimal("0.00"))
     cash_advances_bs = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
@@ -686,7 +686,7 @@ async def close_cash_session(
         
         if m.type in ["DEPOSIT", "IN"]:
             movements_by_currency[curr]['deposits'] += m.amount
-        elif m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "CASH_ADVANCE"]:
+        elif m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "CASH_ADVANCE", "RETURN"]:
             movements_by_currency[curr]['expenses'] += m.amount
     
     # ============================================
