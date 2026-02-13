@@ -722,6 +722,81 @@ def seed_tenant_endpoint(
         return result
     except ValueError as ve:
         raise HTTPException(404, str(ve))
+
+# --- Backup Manager Endpoints ---
+
+from ..services import backup_service
+from fastapi.responses import FileResponse
+
+@router.get("/backups", response_model=List[Dict[str, Any]])
+def list_backups(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    List all available database backups.
+    """
+    try:
+        return backup_service.list_backups()
     except Exception as e:
-        print(f"🔥 Error seeding tenant {tenant_id}: {e}")
-        raise HTTPException(500, f"Seeding failed: {str(e)}")
+        raise HTTPException(500, f"Error listing backups: {str(e)}")
+
+@router.post("/backups", status_code=status.HTTP_201_CREATED)
+def create_backup(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Trigger a new database backup.
+    """
+    # For now, we run it synchronously to report immediate success/failure 
+    # since pg_dump on a small DB is fast. For larger DBs, this should be a background task.
+    try:
+        result = backup_service.create_backup()
+        return result
+    except Exception as e:
+        raise HTTPException(500, f"Backup creation failed: {str(e)}")
+
+@router.get("/backups/{filename}")
+def download_backup(
+    filename: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Download a specific backup file.
+    """
+    try:
+        filepath = backup_service.get_backup_path(filename)
+        return FileResponse(
+            path=filepath, 
+            filename=filename, 
+            media_type='application/gzip'
+        )
+    except FileNotFoundError:
+        raise HTTPException(404, "Backup file not found")
+    except ValueError:
+        raise HTTPException(400, "Invalid filename")
+    except Exception as e:
+        raise HTTPException(500, f"Error downloading backup: {str(e)}")
+
+@router.delete("/backups/{filename}", status_code=204)
+def delete_backup(
+    filename: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Delete a backup file.
+    """
+    try:
+        success = backup_service.delete_backup(filename)
+        if not success:
+            raise HTTPException(404, "Backup file not found")
+        return None
+    except ValueError:
+        raise HTTPException(400, "Invalid filename")
+    except Exception as e:
+        raise HTTPException(500, f"Error deleting backup: {str(e)}")
+
