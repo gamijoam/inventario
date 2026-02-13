@@ -50,8 +50,9 @@ const Login = () => {
                     toast.error('Error al iniciar sesión con token de acceso');
                 } finally {
                     setLoading(false);
-                    // Clear URL params
-                    window.history.replaceState({}, document.title, window.location.pathname);
+                    // Clear URL params but PRESERVE HASH
+                    const newUrl = window.location.pathname + window.location.hash;
+                    window.history.replaceState({}, document.title, newUrl);
                 }
             }
         };

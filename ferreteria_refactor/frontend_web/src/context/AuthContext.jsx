@@ -55,10 +55,17 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const initAuth = async () => {
             // Skip auth check for public routes
-            const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/mobile/login'];
-            const currentPath = window.location.pathname;
+            // Skip auth check for public routes
+            const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/mobile/login', '/mobile-welcome'];
 
-            if (publicRoutes.includes(currentPath)) {
+            // ADAPTATION FOR HASH ROUTER
+            const currentHash = window.location.hash || '#/';
+            const currentPath = currentHash.replace('#', '');
+
+            // Check if current path starts with any public route (to handle params)
+            const isPublicRoute = publicRoutes.some(route => currentPath.startsWith(route));
+
+            if (isPublicRoute) {
                 console.log(`⏭️ Skipping auth check for public route: ${currentPath}`);
                 setLoading(false);
                 return;
@@ -89,8 +96,12 @@ export const AuthProvider = ({ children }) => {
 
             console.log('✅ Login successful, cookie set by backend');
 
-            // ✅ REMOVED: No more localStorage.setItem('token', ...)
-            // The cookie is automatically set by the backend and sent by the browser
+            // 🔐 HYBRID AUTH: Save token to localStorage for Mobile App usage
+            // The backend returns { access_token: "..." } in the body
+            if (data.access_token) {
+                localStorage.setItem('token', data.access_token);
+                console.log('📱 Mobile Auth: Token saved to localStorage');
+            }
 
             // Fetch user profile immediately after login
             await fetchUserProfile();
@@ -121,6 +132,7 @@ export const AuthProvider = ({ children }) => {
             setIsAuthenticated(false);
 
             // 🧹 PURGE ALL STORAGE
+            localStorage.removeItem('token'); // Clear Mobile Token
             localStorage.clear();
             sessionStorage.clear();
             console.log('🧹 Purged localStorage and sessionStorage');

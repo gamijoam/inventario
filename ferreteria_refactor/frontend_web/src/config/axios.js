@@ -18,29 +18,35 @@ console.log('🔧 Axios config:', {
     hostname: window.location.hostname
 });
 
-// 🔐 SECURITY ENHANCEMENT: HttpOnly Cookie Authentication
-// withCredentials: true permite que el navegador envíe y reciba cookies automáticamente
+// 🔐 SECURITY ENHANCEMENT: Hybrid Authentication (Cookie + Token)
+// Web uses Cookies (HttpOnly). Mobile uses Tokens (Authorization Header).
 const apiClient = axios.create({
-    baseURL,
-    withCredentials: true,  // CRÍTICO: Habilita cookies HttpOnly
+    baseURL, // Default to calculated URL, but interceptor can override
+    withCredentials: true,  // Enable cookies for Web
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
     },
 });
 
-// Request Interceptor (Multi-tenant support only)
+// Request Interceptor (Multi-tenant & Hybrid Auth)
 apiClient.interceptors.request.use(
     (config) => {
-        // ✅ REMOVED: No more manual Authorization header injection
-        // The browser automatically sends the HttpOnly cookie with every request
+        // --- 1. MOBILE BASE URL OVERRIDE ---
+        // If we are functioning as a Mobile App, we might have a stored API URL
+        const mobileApiUrl = localStorage.getItem('api_url');
+        if (mobileApiUrl && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('miinventariofacil.com')) {
+            // We are likely in Capacitor (file:// or similar)
+            config.baseURL = mobileApiUrl;
+        }
 
-        // --- MULTI-TENANT LOGIC (v33) ---
-        // 1. Prioridad: Subdominio (Producción)
+        // --- 2. TENANT RESOLUTION ---
         const hostname = window.location.hostname;
         const parts = hostname.split('.');
 
         let tenantId = null;
+
+        // Priority A: Subdomain (Production Web)
         if (parts.length >= 3 && !hostname.includes('localhost')) {
             const subdomain = parts[0];
             if (!['www', 'api', 'app', 'dashboard'].includes(subdomain)) {
@@ -48,7 +54,7 @@ apiClient.interceptors.request.use(
             }
         }
 
-        // 2. Fallback: LocalStorage (Desarrollo/Testing)
+        // Priority B: LocalStorage (Mobile / Dev)
         if (!tenantId) {
             const selectedTenant = localStorage.getItem('selected_tenant');
             if (selectedTenant && selectedTenant !== 'public') {
@@ -56,10 +62,16 @@ apiClient.interceptors.request.use(
             }
         }
 
-        // 3. Inject Header
+        // Inject Tenant Header
         if (tenantId) {
             config.headers['X-Tenant-ID'] = tenantId;
-            // console.log(`🔌 [Axios] Active Tenant: ${tenantId}`);
+        }
+
+        // --- 3. MOBILE AUTH HEADER INJECTION ---
+        // For mobile, cookies might not work reliably, so we inject the token manually if available
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
         }
 
         return config;
@@ -79,25 +91,26 @@ apiClient.interceptors.response.use(
 
         if (status === 401) {
             // Exclude ALL /auth/ API routes from automatic redirect
-            // This includes: /auth/token, /auth/forgot-password, /auth/reset-password, etc.
             const isAuthRoute = error.config.url.includes('/auth/');
 
             // Also exclude public page routes
-            const publicPages = ['/login', '/forgot-password', '/reset-password', '/mobile/login'];
-            const isPublicPage = publicPages.includes(window.location.pathname);
+            // ADAPTATION FOR HASH ROUTER: Check the hash, not pathname
+            const currentHash = window.location.hash || '#/';
+            const currentPath = currentHash.replace('#', '');
 
-            const isLoginPage = window.location.pathname === '/login';
+            const publicPages = ['/login', '/forgot-password', '/reset-password', '/mobile/login', '/mobile-welcome'];
+            const isPublicPage = publicPages.some(page => currentPath.startsWith(page));
+
+            const isLoginPage = currentPath === '/login';
 
             if (!isAuthRoute && !isPublicPage && !isLoginPage) {
                 // Unauthorized: Cookie expired or invalid
                 console.warn('⚠️ 401 Detectado - Sesión expirada, redirigiendo a login...');
 
-                // ✅ REMOVED: No more localStorage token cleanup (cookies are handled by browser)
-                // The HttpOnly cookie will be cleared by calling /auth/logout or by expiration
-
-                // Redirect to login
-                if (window.location.pathname !== '/login') {
-                    window.location.href = '/login';
+                // Redirect to login (Using Hash)
+                // Avoid infinite loop if already at login
+                if (currentPath !== '/login') {
+                    window.location.href = '/#/login';
                 }
             }
             // For auth routes or public pages, let the component handle the error

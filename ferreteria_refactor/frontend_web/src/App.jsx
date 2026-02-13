@@ -1,11 +1,14 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Unauthorized from './pages/Unauthorized';
+// NEW: Mobile Welcome Screen
+import MobileWelcome from './pages/MobileWelcome';
+
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
@@ -93,6 +96,9 @@ function App() {
                           <Route path="/login" element={<Login />} />
                           <Route path="/forgot-password" element={<ForgotPassword />} />
                           <Route path="/reset-password" element={<ResetPassword />} />
+
+                          {/* NEW: Mobile Welcome (Tenant Setup) */}
+                          <Route path="/mobile-welcome" element={<MobileWelcome />} />
 
                           {/* Mobile Waiter Routes */}
                           <Route path="/mobile/login" element={<WaiterLogin />} />
