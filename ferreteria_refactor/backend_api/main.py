@@ -61,28 +61,29 @@ app = FastAPI(
 # --- CONFIGURACIÓN DE CORS DINÁMICA (v36 - CORS FIX) ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://miinventariofacil.com", 
-        "https://api.miinventariofacil.com",
-        "https://qa.miinventariofacil.com",
-        "https://api-qa.miinventariofacil.com",
-        "https://admin.qa.miinventariofacil.com", # Admin Panel
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:5174", # Admin Panel Local
-        "http://localhost:8000",
-        # Local multi-tenant development
-        "http://prueba9.localhost:5173",
-        "http://prueba9.localhost:8000",
-        "http://demo.localhost:5173",
-        "http://demo.localhost:8000",
-        "http://admin.localhost:5173",
-        "http://admin.localhost:8000",
-    ],
-    allow_origin_regex=r"https://.*\.miinventariofacil\.com|http://.*\.localhost:(5173|8000|3000|5174)", # Permite subdominios de producción y localhost
+    allow_origins=["*"], # 🔓 DEBUG: Permitir todo para conectar móvil
+    # allow_origins=[
+    #     "https://miinventariofacil.com", 
+    #     "https://api.miinventariofacil.com",
+    #     "https://qa.miinventariofacil.com",
+    #     "https://api-qa.miinventariofacil.com",
+    #     "https://admin.qa.miinventariofacil.com", # Admin Panel
+    #     "http://localhost:3000",
+    #     "http://localhost:5173",
+    #     "http://localhost:5174", # Admin Panel Local
+    #     "http://localhost:8000",
+    #     # Local multi-tenant development
+    #     "http://prueba9.localhost:5173",
+    #     "http://prueba9.localhost:8000",
+    #     "http://demo.localhost:5173",
+    #     "http://demo.localhost:8000",
+    #     "http://admin.localhost:5173",
+    #     "http://admin.localhost:8000",
+    # ],
+    allow_origin_regex=None, # r"https://.*\.miinventariofacil\.com|http://.*\.localhost:(5173|8000|3000|5174)", 
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["x-tenant-id", "Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    allow_headers=["*"], # ["x-tenant-id", "Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
     expose_headers=["*"],
 )
 

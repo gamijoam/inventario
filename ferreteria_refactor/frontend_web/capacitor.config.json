@@ -1,5 +1,10 @@
 {
   "appId": "com.miinventariofacil.app",
   "appName": "Mi Inventario Fácil",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
 }

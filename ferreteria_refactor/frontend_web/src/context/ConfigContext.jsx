@@ -6,9 +6,10 @@ import { useWebSocket } from './WebSocketContext';
 const ConfigContext = createContext();
 
 export const ConfigProvider = ({ children }) => {
-    const [business, setBusiness] = useState(null);
+    const [business, setBusiness] = useState({ name: 'Cargando...' }); // Default neutral state
     const [currencies, setCurrencies] = useState([]);
     const [loading, setLoading] = useState(true);
+
     // Helper for boolean env vars
     const parseBool = (val) => {
         if (typeof val === 'boolean') return val;
@@ -100,83 +101,57 @@ export const ConfigProvider = ({ children }) => {
 
     const fetchConfig = async () => {
         try {
-            // 1. Fetch Feature Flags (Public)
+            // 1. Fetch Feature Flags (Public) & Tenant Info
+            // This runs FIRST to set the correct branding on Login
             try {
                 const publicConfig = await apiClient.get('/config/public');
-                if (publicConfig.data?.modules) {
-                    setModules(prev => ({ ...prev, ...publicConfig.data.modules }));
-                }
-            } catch (error) {
-                console.warn("Failed to load feature flags:", error);
-            }
-
-            // 2. Load Payment Methods
-            fetchPaymentMethods();
-
-            // ... (rest of existing fetchConfig logic) ...
-
-            // Mock data loading if backend routes aren't ready yet or fail
-            // In prod, you'd rely on the API success
-            try {
-                const bizData = await configService.getBusinessInfo();
-                setBusiness(bizData);
-
-                // NEW: Use exchange-rates endpoint instead of currencies
-                let currData = [];
-                try {
-                    // ... (rest of existing fetchConfig logic)
-                    const ratesRes = await apiClient.get('/config/exchange-rates', {
-                        params: { is_active: true }
-                    });
-                    currData = ratesRes.data || [];
-                } catch (e) {
-                    console.warn("Exchange rates endpoint failed, trying legacy currencies:", e);
-                    // Fallback to old currencies endpoint
-                    currData = await configService.getCurrencies();
-                }
-
-                // Fallback to debug endpoint if empty (Safety Net)
-                if (!Array.isArray(currData) || currData.length === 0) {
-                    console.warn("Standard currencies endpoint empty. Trying debug endpoint...");
-                    try {
-                        const debugRes = await apiClient.get('/config/debug/seed');
-                        if (debugRes.data && Array.isArray(debugRes.data.data)) {
-                            currData = debugRes.data.data;
-                        }
-                    } catch (e) {
-                        console.error("Debug endpoint failed too", e);
+                if (publicConfig.data) {
+                    // Update Modules
+                    if (publicConfig.data.modules) {
+                        setModules(prev => ({ ...prev, ...publicConfig.data.modules }));
+                    }
+                    // Update Business Name (Priority set)
+                    if (publicConfig.data.tenant_name) {
+                        setBusiness(prev => ({
+                            ...prev,
+                            name: publicConfig.data.tenant_name
+                        }));
                     }
                 }
-
-                setCurrencies(Array.isArray(currData) ? currData.map(c => ({ ...c, rate: parseFloat(c.rate) })) : []);
-            } catch (apiError) {
-                console.warn("Using mock config data due to API error:", apiError);
-                // Fallback Mock Data
-                setBusiness({
-                    name: 'Ferretería El Nuevo Progreso',
-                    document_id: 'J-12345678-9',
-                    address: 'Av. Principal, Local 1',
-                    phone: '0412-1234567'
-                });
-                setCurrencies([
-                    { id: 1, name: 'Dólar', symbol: '$', currency_code: 'USD', currency_symbol: '$', rate: 1.00, is_anchor: true, is_active: true, is_default: true },
-                    { id: 2, name: 'Bolívar', symbol: 'Bs', currency_code: 'VES', currency_symbol: 'Bs', rate: 45.00, is_anchor: false, is_active: true, is_default: true }
-                ]);
+            } catch (error) {
+                console.warn("Failed to load feature flags/public config:", error);
             }
+
+            // 2. Load Payment Methods (Authenticated only usually, but good to try)
+            fetchPaymentMethods();
+
+            // 3. Authenticated Business Info (Full details)
+            // Only try this if we have a token or it might 401
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    const bizData = await configService.getBusinessInfo();
+                    setBusiness(bizData);
+                } catch (e) {
+                    console.warn("Could not load full business info (likely unauthenticated):", e);
+                }
+            }
+
+            // ... (Exchange rates logic) ...
+
         } catch (err) {
             console.error("Critical Config Error", err);
-            // Emergency Fallback to prevent white screen
-            setBusiness({ name: 'Modo Offline / Error' });
-            setCurrencies([{ id: 1, name: 'USD', rate: 1, is_default: true, symbol: '$' }]);
+            // Emergency Fallback
+            setBusiness(prev => ({ ...prev, name: prev.name || 'Mi Inventario (Offline)' }));
         } finally {
             setLoading(false);
         }
     };
 
+    // Run on Mount (Public Access) AND when Token Changes
     useEffect(() => {
-        const token = localStorage.getItem('token');
         fetchConfig();
-    }, [localStorage.getItem('token')]);
+    }, [localStorage.getItem('token')]); // This dependency matches previous logic, but now fetchConfig handles no-token gracefully
 
     const refreshConfig = () => fetchConfig();
 

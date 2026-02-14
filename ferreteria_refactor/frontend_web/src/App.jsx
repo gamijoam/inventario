@@ -78,8 +78,67 @@ import SupportTickets from './pages/SupportTickets';
 
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
+import { Capacitor } from '@capacitor/core'; // Import Capacitor Core
 
 function App() {
+
+  // 🛡️ STARTUP LOADER (Chicken & Egg Fix)
+  // We MUST wait for checking the API URL before rendering ANY provider
+  // otherwise CloudConfigProvider or AuthProvider will try to connect and fail.
+  const [isReady, setIsReady] = React.useState(false);
+
+  React.useEffect(() => {
+    const initApp = async () => {
+
+      if (Capacitor.isNativePlatform()) {
+        const apiUrl = localStorage.getItem('api_url');
+        const currentHash = window.location.hash;
+
+        // Debug
+        // console.log('📱 Startup Check:', { apiUrl, currentHash });
+
+        // SANITIZATION: Check for bad API URLs (e.g. user pasted /login)
+        if (apiUrl && (apiUrl.includes('/login') || apiUrl.includes('/dashboard'))) {
+          console.warn('📱 Mobile: Bad API URL detected. Cleaning up...');
+          localStorage.removeItem('api_url');
+          localStorage.removeItem('selected_tenant');
+          window.location.replace('/#/mobile-welcome');
+          setIsReady(true);
+          return;
+        }
+
+        if (!apiUrl && !currentHash.includes('mobile-welcome')) {
+          console.warn('📱 Mobile: No API URL found. Redirecting to setup...');
+          // Force redirect
+          window.location.replace('/#/mobile-welcome');
+
+          // FIX: We MUST set isReady=true to allow the Router to render the new route
+          // Otherwise we stay stuck in the "Loading..." screen
+          setIsReady(true);
+        } else {
+          // Valid config or already at welcome screen
+          setIsReady(true);
+        }
+      } else {
+        // Web always ready
+        setIsReady(true);
+      }
+    };
+
+    initApp();
+  }, []);
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-500 font-medium animate-pulse">Iniciando App...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <CloudConfigProvider>
       <AuthProvider>

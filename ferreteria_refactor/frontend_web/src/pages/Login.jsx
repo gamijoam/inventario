@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Lock, User, LogIn, AlertCircle, Eye, EyeOff, LayoutTemplate, Briefcase } from 'lucide-react';
 import authService from '../services/authService';
 import toast from 'react-hot-toast';
+import { Capacitor } from '@capacitor/core';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -281,9 +282,26 @@ const Login = () => {
                             </div>
                         )}
 
-                        <p className="text-center text-xs text-slate-400">
-                            © {new Date().getFullYear()} {business?.name || 'Mi Inventario'}. Todos los derechos reservados.
-                        </p>
+                        {/* MOBILE CONFIG BUTTON (Only visible on Native App) */}
+                        {Capacitor.isNativePlatform() && (
+                            <>
+                                <div className="w-full flex justify-center pt-2">
+                                    <Link to="/mobile-welcome" className="flex items-center gap-2 text-xs text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
+                                        <LayoutTemplate size={14} />
+                                        ⚙️ Cambiar Servidor
+                                    </Link>
+                                </div>
+
+                                <div className="mt-4 text-center opacity-50">
+                                    <p className="text-xs text-slate-400">
+                                        © {new Date().getFullYear()} {business?.name || 'Mi Inventario'}
+                                    </p>
+                                    <p className="text-[10px] text-indigo-400 mt-1 font-mono">
+                                        v2.5 Mobile
+                                    </p>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

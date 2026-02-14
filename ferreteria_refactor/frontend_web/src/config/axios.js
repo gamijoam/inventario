@@ -1,6 +1,7 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { API_BASE_URL } from './constants';
+import { Capacitor } from '@capacitor/core';
 
 const isDev = import.meta.env.DEV;
 
@@ -33,10 +34,15 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
     (config) => {
         // --- 1. MOBILE BASE URL OVERRIDE ---
-        // If we are functioning as a Mobile App, we might have a stored API URL
+        // If we are functioning as a Mobile App (Native), we MUST use the stored API URL
         const mobileApiUrl = localStorage.getItem('api_url');
-        if (mobileApiUrl && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('miinventariofacil.com')) {
-            // We are likely in Capacitor (file:// or similar)
+
+        // Check if running natively (Android/iOS)
+        if (Capacitor.isNativePlatform() && mobileApiUrl) {
+            config.baseURL = mobileApiUrl;
+        }
+        // Fallback/Legacy Logic for debugging in browser with mobile mode simulation
+        else if (mobileApiUrl && !window.location.hostname.includes('miinventariofacil.com') && !window.location.hostname.includes('localhost')) {
             config.baseURL = mobileApiUrl;
         }
 
