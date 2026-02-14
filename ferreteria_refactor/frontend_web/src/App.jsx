@@ -78,7 +78,8 @@ import SupportTickets from './pages/SupportTickets';
 
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
-import { Capacitor } from '@capacitor/core'; // Import Capacitor Core
+import { Capacitor } from '@capacitor/core';
+import AndroidBackButton from './components/common/AndroidBackButton';
 
 function App() {
 
@@ -151,6 +152,7 @@ function App() {
                   <CashProvider>
                     <CartProvider>
                       <Router>
+                        <AndroidBackButton />
                         <Routes>
                           <Route path="/login" element={<Login />} />
                           <Route path="/forgot-password" element={<ForgotPassword />} />

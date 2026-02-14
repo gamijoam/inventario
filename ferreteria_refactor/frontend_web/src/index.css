@@ -2,13 +2,47 @@
 
 @import "tailwindcss";
 
+@layer base {
+
+  /* Evita zoom en iOS al hacer foco en inputs */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  @media (min-width: 768px) {
+
+    input,
+    select,
+    textarea {
+      font-size: 0.875rem !important;
+      /* 14px en desktop */
+    }
+  }
+}
+
+
 /* @theme {
   --font-sans: "Inter", "sans-serif";
 } */
 
 @layer base {
+  :root {
+    --sat: env(safe-area-inset-top);
+    --sar: env(safe-area-inset-right);
+    --sab: env(safe-area-inset-bottom);
+    --sal: env(safe-area-inset-left);
+  }
+
   body {
     @apply bg-slate-50 text-slate-800 antialiased;
+    padding-top: var(--sat);
+    padding-left: var(--sal);
+    padding-right: var(--sar);
+    padding-bottom: var(--sab);
+    overscroll-behavior-y: none;
+    /* Evita el rebote en iOS */
   }
 }
 
