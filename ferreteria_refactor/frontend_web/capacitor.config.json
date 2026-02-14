@@ -6,5 +6,12 @@
     "CapacitorHttp": {
       "enabled": true
     }
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "webContentsDebuggingEnabled": true
   }
 }

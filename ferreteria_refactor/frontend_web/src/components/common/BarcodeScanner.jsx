@@ -84,10 +84,11 @@ const BarcodeScannerComponent = ({ onScanned, onClose }) => {
     // Contenido del Portal
     const scannerUI = (
         <div className="fixed inset-0 z-[9999] flex flex-col justify-between pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] bg-transparent">
-            {/* Styles for hiding #root */}
+            {/* Styles for hiding app content (keep mounted for Portal callbacks) */}
             <style>{`
                 .barcode-scanner-active #root {
-                    display: none !important;
+                    opacity: 0 !important;
+                    pointer-events: none !important;
                 }
                 .barcode-scanner-active {
                     background: transparent !important;

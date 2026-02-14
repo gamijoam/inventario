@@ -18,6 +18,10 @@ echo 🔄 Sincronizando Capacitor...
 call npx cap sync
 if %ERRORLEVEL% neq 0 goto :error
 
+echo 📂 Copiando archivos a Android...
+call npx cap copy android
+if %ERRORLEVEL% neq 0 goto :error
+
 echo.
 echo ✅ ¡LISTO!
 echo 👉 Abre Android Studio y dale al botón PLAY (▶️).

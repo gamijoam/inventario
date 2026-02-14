@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw, MoreHorizontal, FileDown, FileUp, ChevronDown } from 'lucide-react';
 import SearchWithScanner from '../components/common/SearchWithScanner';
 import ProductForm from '../components/products/ProductForm';
+import ProductMobileCard from '../components/products/ProductMobileCard';
 import BulkProductActions from '../components/products/BulkProductActions';
 import InventoryValuationCard from '../components/products/InventoryValuationCard';
 import ProductThumbnail from '../components/products/ProductThumbnail';
@@ -115,7 +116,7 @@ const Products = () => {
     });
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto min-h-screen space-y-8 animate-in fade-in duration-500">
+        <div className="max-w-[1600px] mx-auto min-h-screen space-y-4 md:space-y-8 animate-in fade-in duration-500">
 
             {/* 1. Header Section */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
@@ -147,14 +148,12 @@ const Products = () => {
                 </div>
             </div>
 
-            {/* 2. Stats & Tools */}
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Valuation Card - Keep logic but possibly style simplified? Keeping original component for now */}
+            {/* 2. Stats & Tools - Hidden on mobile for compact view */}
+            <div className="hidden md:grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-3">
                     <InventoryValuationCard />
                 </div>
                 <div className="flex flex-col gap-3 justify-end h-full">
-                    {/* Quick Actions Panel */}
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2 h-full justify-center">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Acciones Rápidas</span>
                         <div className="flex flex-wrap gap-2">
@@ -167,11 +166,40 @@ const Products = () => {
                 </div>
             </div>
 
-            {/* 3. Data Table */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden md:min-h-[500px] flex flex-col">
-                {/* Table Toolbar / Filters (Optional Secondary Bar) */}
-                <div className="p-4 border-b border-slate-100 flex gap-4 overflow-x-auto">
-                    {/* Simplified Filters - Using Selects styled minimally */}
+            {/* 3. Filtros y Resultados */}
+            <div className="flex flex-col gap-4">
+
+                {/* Mobile Filters (Horizontal Scroll) */}
+                <div className="flex gap-2 overflow-x-auto pb-2 md:hidden no-scrollbar">
+                    <button
+                        onClick={() => { setFilterCategory(''); setFilterWarehouse(''); }}
+                        className={cn(
+                            "px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors border",
+                            !filterCategory && !filterWarehouse
+                                ? "bg-slate-900 text-white border-slate-900"
+                                : "bg-white text-slate-600 border-slate-200"
+                        )}
+                    >
+                        Todos
+                    </button>
+                    {categories.map(c => (
+                        <button
+                            key={c.id}
+                            onClick={() => setFilterCategory(c.id === parseInt(filterCategory) ? '' : c.id.toString())}
+                            className={cn(
+                                "px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors border",
+                                parseInt(filterCategory) === c.id
+                                    ? "bg-indigo-600 text-white border-indigo-600"
+                                    : "bg-white text-slate-600 border-slate-200"
+                            )}
+                        >
+                            {c.name}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Desktop Filters (Toolbar) */}
+                <div className="hidden md:flex p-4 bg-white rounded-xl border border-slate-200 shadow-sm gap-4">
                     <select
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
@@ -197,147 +225,173 @@ const Products = () => {
                     )}
                 </div>
 
-                <Table>
-                    <TableHeader>
-                        <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                            <TableHead className="w-[80px]">Img</TableHead>
-                            <TableHead className="w-[300px]">Producto / SKU</TableHead>
-                            <TableHead>Categoría</TableHead>
-                            <TableHead className="text-right">Precio</TableHead>
-                            <TableHead>Stock</TableHead>
-                            <TableHead className="text-right w-[80px]">Acciones</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">
-                                    <div className="flex items-center justify-center gap-2 text-slate-500">
-                                        <RefreshCw className="animate-spin" size={16} /> Cargando inventario...
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ) : filteredProducts.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center text-slate-500">
-                                    No se encontraron productos.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            filteredProducts.map((product) => (
-                                <TableRow key={product.id} className="group hover:bg-indigo-50/30 transition-colors duration-200">
-                                    <TableCell>
-                                        <div className="relative">
-                                            <ProductThumbnail
-                                                imageUrl={product.image_url}
-                                                productName={product.name}
-                                                size="md"
-                                                className="h-14 w-14 rounded-xl border border-slate-100 shadow-sm mix-blend-multiply transition-transform group-hover:scale-105"
-                                            />
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-col gap-0.5">
-                                            <span className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors text-base tracking-tight">
-                                                {product.name}
-                                            </span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold border border-slate-200 uppercase tracking-tighter">
-                                                    SKU: {product.sku || '---'}
-                                                </span>
-                                                {product.has_imei && (
-                                                    <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-1 border-blue-200 text-blue-700 bg-blue-50 font-black">
-                                                        SERIAL
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {product.category?.name ? (
-                                            <Badge
-                                                variant="outline"
-                                                className="font-bold text-slate-600 bg-white border-slate-200 hover:bg-slate-50 cursor-pointer shadow-sm active:scale-95 transition-transform"
-                                                onClick={() => setFilterCategory(product.category_id.toString())}
-                                            >
-                                                {product.category.name}
-                                            </Badge>
-                                        ) : (
-                                            <Badge
-                                                variant="outline"
-                                                className="font-medium text-slate-400 bg-slate-50/50 border-slate-100 border-dashed italic cursor-pointer hover:bg-slate-100 transition-colors"
-                                                onClick={() => setFilterCategory('')}
-                                            >
-                                                Sin categoría
-                                            </Badge>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex flex-col items-end">
-                                            <div className="text-2xl font-black text-slate-900 tracking-tighter leading-none">
-                                                ${Number(product.price).toFixed(2)}
-                                            </div>
-                                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">USD</div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {(() => {
-                                            const totalStock = product.stock || 0;
-                                            const isLow = totalStock <= 5;
-                                            const isOut = totalStock === 0;
+                {/* CONTENIDO PRINCIPAL: Cards (Móvil) vs Tabla (Desktop) */}
 
-                                            return (
-                                                <div className="flex flex-col gap-1">
-                                                    <div className={cn(
-                                                        "text-lg font-black tracking-tight leading-none",
-                                                        isOut ? "text-rose-600" : (isLow ? "text-amber-600" : "text-emerald-600")
-                                                    )}>
-                                                        {formatStock(totalStock)} <span className="text-xs uppercase opacity-70">un.</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <div className={cn(
-                                                            "w-2 h-2 rounded-full",
-                                                            isOut ? "bg-rose-500 animate-pulse" : (isLow ? "bg-amber-500" : "bg-emerald-500")
-                                                        )}></div>
-                                                        <span className={cn(
-                                                            "text-[10px] font-black uppercase tracking-wider",
-                                                            isOut ? "text-rose-500" : (isLow ? "text-amber-600" : "text-emerald-600")
-                                                        )}>
-                                                            {isOut ? "Agotado" : (isLow ? "Bajo Stock" : "En Stock")}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-100 shadow-none hover:shadow-sm rounded-xl transition-all">
-                                                    <MoreHorizontal size={20} />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
-                                                <DropdownMenuLabel className="text-xs uppercase text-slate-400 tracking-widest">Opciones</DropdownMenuLabel>
-                                                <DropdownMenuItem onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }} className="py-2.5 rounded-lg cursor-pointer">
-                                                    <Pencil size={16} className="mr-3 text-indigo-500" />
-                                                    <span className="font-bold">Editar</span>
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem
-                                                    onClick={() => handleDelete(product)}
-                                                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 focus:bg-rose-50 py-2.5 rounded-lg cursor-pointer font-bold"
-                                                >
-                                                    <Trash2 size={16} className="mr-3" /> Eliminar
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                {/* Vista Móvil: Lista de Tarjetas */}
+                <div className="md:hidden space-y-3">
+                    {isLoading ? (
+                        <div className="p-8 text-center text-slate-400">Cargando productos...</div>
+                    ) : filteredProducts.length === 0 ? (
+                        <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                            No se encontraron productos.
+                        </div>
+                    ) : (
+                        filteredProducts.map(product => (
+                            <ProductMobileCard
+                                key={product.id}
+                                product={product}
+                                onEdit={(p) => { setSelectedProduct(p); setIsModalOpen(true); }}
+                                onDelete={handleDelete}
+                                onCategoryClick={(catId) => setFilterCategory(catId.toString())}
+                            />
+                        ))
+                    )}
+                </div>
+
+                {/* Vista Desktop: Tabla Tradicional */}
+                <div className="hidden md:flex bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden md:min-h-[500px] flex-col">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
+                                <TableHead className="w-[80px]">Img</TableHead>
+                                <TableHead className="w-[300px]">Producto / SKU</TableHead>
+                                <TableHead>Categoría</TableHead>
+                                <TableHead className="text-right">Precio</TableHead>
+                                <TableHead>Stock</TableHead>
+                                <TableHead className="text-right w-[80px]">Acciones</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-24 text-center">
+                                        <div className="flex items-center justify-center gap-2 text-slate-500">
+                                            <RefreshCw className="animate-spin" size={16} /> Cargando inventario...
+                                        </div>
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
+                            ) : filteredProducts.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-24 text-center text-slate-500">
+                                        No se encontraron productos.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                filteredProducts.map((product) => (
+                                    <TableRow key={product.id} className="group hover:bg-indigo-50/30 transition-colors duration-200">
+                                        <TableCell>
+                                            <div className="relative">
+                                                <ProductThumbnail
+                                                    imageUrl={product.image_url}
+                                                    productName={product.name}
+                                                    size="md"
+                                                    className="h-14 w-14 rounded-xl border border-slate-100 shadow-sm mix-blend-multiply transition-transform group-hover:scale-105"
+                                                />
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="font-black text-slate-900 group-hover:text-indigo-600 transition-colors text-base tracking-tight">
+                                                    {product.name}
+                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold border border-slate-200 uppercase tracking-tighter">
+                                                        SKU: {product.sku || '---'}
+                                                    </span>
+                                                    {product.has_imei && (
+                                                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-1 border-blue-200 text-blue-700 bg-blue-50 font-black">
+                                                            SERIAL
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {product.category?.name ? (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="font-bold text-slate-600 bg-white border-slate-200 hover:bg-slate-50 cursor-pointer shadow-sm active:scale-95 transition-transform"
+                                                    onClick={() => setFilterCategory(product.category_id.toString())}
+                                                >
+                                                    {product.category.name}
+                                                </Badge>
+                                            ) : (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="font-medium text-slate-400 bg-slate-50/50 border-slate-100 border-dashed italic cursor-pointer hover:bg-slate-100 transition-colors"
+                                                    onClick={() => setFilterCategory('')}
+                                                >
+                                                    Sin categoría
+                                                </Badge>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex flex-col items-end">
+                                                <div className="text-2xl font-black text-slate-900 tracking-tighter leading-none">
+                                                    ${Number(product.price).toFixed(2)}
+                                                </div>
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">USD</div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {(() => {
+                                                const totalStock = product.stock || 0;
+                                                const isLow = totalStock <= 5;
+                                                const isOut = totalStock === 0;
+
+                                                return (
+                                                    <div className="flex flex-col gap-1">
+                                                        <div className={cn(
+                                                            "text-lg font-black tracking-tight leading-none",
+                                                            isOut ? "text-rose-600" : (isLow ? "text-amber-600" : "text-emerald-600")
+                                                        )}>
+                                                            {formatStock(totalStock)} <span className="text-xs uppercase opacity-70">un.</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className={cn(
+                                                                "w-2 h-2 rounded-full",
+                                                                isOut ? "bg-rose-500 animate-pulse" : (isLow ? "bg-amber-500" : "bg-emerald-500")
+                                                            )}></div>
+                                                            <span className={cn(
+                                                                "text-[10px] font-black uppercase tracking-wider",
+                                                                isOut ? "text-rose-500" : (isLow ? "text-amber-600" : "text-emerald-600")
+                                                            )}>
+                                                                {isOut ? "Agotado" : (isLow ? "Bajo Stock" : "En Stock")}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-100 shadow-none hover:shadow-sm rounded-xl transition-all">
+                                                        <MoreHorizontal size={20} />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
+                                                    <DropdownMenuLabel className="text-xs uppercase text-slate-400 tracking-widest">Opciones</DropdownMenuLabel>
+                                                    <DropdownMenuItem onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }} className="py-2.5 rounded-lg cursor-pointer">
+                                                        <Pencil size={16} className="mr-3 text-indigo-500" />
+                                                        <span className="font-bold">Editar</span>
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleDelete(product)}
+                                                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 focus:bg-rose-50 py-2.5 rounded-lg cursor-pointer font-bold"
+                                                    >
+                                                        <Trash2 size={16} className="mr-3" /> Eliminar
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
 
             {/* Pagination Placeholder (if needed in future) */}

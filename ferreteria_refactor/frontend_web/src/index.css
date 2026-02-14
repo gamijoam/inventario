@@ -42,7 +42,7 @@
     padding-right: var(--sar);
     padding-bottom: var(--sab);
     overscroll-behavior-y: none;
-    /* Evita el rebote en iOS */
+    -webkit-text-size-adjust: 100%;
   }
 }
 

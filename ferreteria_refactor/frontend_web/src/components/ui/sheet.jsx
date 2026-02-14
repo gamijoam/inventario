@@ -45,6 +45,7 @@ const SheetContent = React.forwardRef(
                     "fixed z-50 gap-4 bg-white shadow-xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
                     sheetVariants.side[side],
                     side === "bottom" && "h-[90vh] rounded-t-2xl",
+                    "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
                     className
                 )}
                 {...props}

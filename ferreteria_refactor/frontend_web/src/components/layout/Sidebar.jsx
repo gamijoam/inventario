@@ -177,6 +177,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     return (
         <aside className={cn(
             "bg-white border-r border-slate-200 fixed h-full transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-[1px_0_15px_rgba(0,0,0,0.02)] inset-y-0 left-0 flex flex-col z-20",
+            // Padding seguro para Notch y Barra de Inicio en móvil
+            "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
             isCollapsed ? "md:w-20" : "md:w-64",
             isMobileMenuOpen ? "flex w-64 translate-x-0 z-50 transition-transform duration-300" : "hidden md:flex max-md:-translate-x-full"
         )}>
