@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle } from 'lucide-react';
+import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductUnitManager from './ProductUnitManager';
 import ComboManager from './ComboManager';
 import ProductImageUploader from './ProductImageUploader';
 import { cn } from '../../lib/utils';
+import BarcodeScannerComponent from '../common/BarcodeScanner';
 import {
     Sheet,
     SheetContent,
@@ -77,6 +78,13 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         prices: {},
         image_url: ''
     });
+
+    const [isScanning, setIsScanning] = useState(false);
+
+    const handleScanResult = (code) => {
+        setFormData(prev => ({ ...prev, sku: code }));
+        setIsScanning(false);
+    };
 
     // --- DATA FETCHING & INIT LOGIC ---
     useEffect(() => {
@@ -313,9 +321,24 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             name="sku"
                                                             value={formData.sku}
                                                             onChange={handleInputChange}
-                                                            className="h-11 pl-10 text-sm font-mono border-slate-200 bg-slate-50/30 focus:bg-white"
+                                                            className="h-11 pl-10 pr-10 text-sm font-mono border-slate-200 bg-slate-50/30 focus:bg-white"
                                                             placeholder="Escanea o escribe..."
                                                         />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsScanning(true)}
+                                                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                                            title="Escanear código de barras"
+                                                        >
+                                                            <ScanBarcode size={18} />
+                                                        </button>
+
+                                                        {isScanning && (
+                                                            <BarcodeScannerComponent
+                                                                onScanned={handleScanResult}
+                                                                onClose={() => setIsScanning(false)}
+                                                            />
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="space-y-1.5">

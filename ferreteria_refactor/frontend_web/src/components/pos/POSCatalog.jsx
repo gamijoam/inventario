@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '../../lib/utils';
 import ProductCard from './ProductCard';
+import SearchWithScanner from '../common/SearchWithScanner';
 
 const POSCatalog = ({
     products = [],
@@ -25,19 +26,14 @@ const POSCatalog = ({
             {/* Sticky Header */}
             <div className="p-4 bg-background border-b z-10 space-y-4 shadow-sm">
                 {/* Row 1: Search */}
-                <div className="relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        <Search size={22} className="opacity-50" />
-                    </div>
-                    <Input
-                        id="pos-search-input"
-                        autoFocus
-                        placeholder="Buscar productos por nombre o código..."
-                        className="h-14 pl-12 text-lg bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm rounded-2xl"
-                        value={searchTerm}
-                        onChange={(e) => onSearch(e.target.value)}
-                    />
-                </div>
+                {/* Row 1: Search */}
+                <SearchWithScanner
+                    value={searchTerm}
+                    onChange={(val) => onSearch(val)}
+                    placeholder="Buscar productos por nombre o código..."
+                    autoFocus
+                    inputClassName="h-14 pl-10 text-lg bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm rounded-2xl"
+                />
 
                 {/* Row 2: Categories */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mask-gradient-right">

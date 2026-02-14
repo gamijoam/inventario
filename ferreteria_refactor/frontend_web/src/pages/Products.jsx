@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+
 import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw, MoreHorizontal, FileDown, FileUp, ChevronDown } from 'lucide-react';
+import SearchWithScanner from '../components/common/SearchWithScanner';
 import ProductForm from '../components/products/ProductForm';
 import BulkProductActions from '../components/products/BulkProductActions';
 import InventoryValuationCard from '../components/products/InventoryValuationCard';
@@ -125,13 +127,13 @@ const Products = () => {
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
                     {/* Search Bar - Integrated in Header Actions */}
+                    {/* Search Bar - Integrated in Header Actions */}
                     <div className="relative flex-1 md:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <Input
-                            placeholder="Buscar producto..."
-                            className="pl-9 h-10 bg-white"
+                        <SearchWithScanner
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(val) => setSearchTerm(val)}
+                            placeholder="Buscar producto..."
+                            inputClassName="h-10 bg-white"
                         />
                     </div>
 

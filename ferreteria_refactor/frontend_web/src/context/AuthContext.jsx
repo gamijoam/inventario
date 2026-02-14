@@ -131,11 +131,18 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             setIsAuthenticated(false);
 
-            // 🧹 PURGE ALL STORAGE
-            localStorage.removeItem('token'); // Clear Mobile Token
+            // 🧹 PURGE STORAGE (But preserve API URL for Mobile)
+            const apiUrl = localStorage.getItem('api_url');
+            const selectedTenant = localStorage.getItem('selected_tenant');
+
             localStorage.clear();
             sessionStorage.clear();
-            console.log('🧹 Purged localStorage and sessionStorage');
+
+            // Restore critical config
+            if (apiUrl) localStorage.setItem('api_url', apiUrl);
+            if (selectedTenant && !selectedTenant.includes('public')) localStorage.setItem('selected_tenant', selectedTenant);
+
+            console.log('🧹 Purged session, preserved API URL');
         }
     };
 
