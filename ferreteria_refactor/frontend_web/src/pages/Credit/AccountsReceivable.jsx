@@ -436,10 +436,10 @@ const AccountsReceivable = () => {
     ];
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto">
-            <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
+            <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Cuentas por Cobrar (CxC)</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Cuentas por Cobrar (CxC)</h1>
                     <p className="text-slate-500 font-medium mt-1">Gestión de créditos, abonos y deudas de clientes</p>
                 </div>
             </div>
@@ -453,7 +453,7 @@ const AccountsReceivable = () => {
                         </div>
                         <div className="relative z-10">
                             <p className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-2">{stat.title}</p>
-                            <p className={`text-3xl font-black text-${stat.color}-600 tracking-tight`}>
+                            <p className={`text-2xl md:text-3xl font-black text-${stat.color}-600 tracking-tight`}>
                                 ${stat.value.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                             </p>
                             <p className="text-slate-400 text-xs mt-2 font-medium">{stat.subtext}</p>

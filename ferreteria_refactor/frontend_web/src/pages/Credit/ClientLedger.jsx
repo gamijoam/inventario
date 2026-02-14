@@ -45,7 +45,7 @@ const ClientLedger = () => {
     if (!data) return <div className="p-10 text-center">No se encontraron datos.</div>;
 
     return (
-        <div className="p-6">
+        <div className="p-4 md:p-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 bg-white p-4 rounded-lg shadow print:shadow-none">
                 <div>
@@ -81,8 +81,8 @@ const ClientLedger = () => {
             </div>
 
             {/* Ledger Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden print:shadow-none">
-                <table className="min-w-full divide-y divide-gray-200">
+            <div className="bg-white rounded-lg shadow overflow-x-auto print:shadow-none">
+                <table className="min-w-[550px] w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 print:bg-gray-100">
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>

@@ -35,40 +35,37 @@ const AgingReport = () => {
     };
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
+        <div className="p-4 md:p-6">
+            <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Antigüedad de Deuda (Aging)</h1>
-                    <p className="text-sm text-gray-500">Análisis de cartera vencida por rangos de días</p>
+                    <h1 className="text-xl md:text-2xl font-bold">Reporte de Antigüedad de Deuda</h1>
+                    <p className="text-gray-500 text-sm">Análisis de deuda por cliente</p>
                 </div>
-                <button
-                    onClick={() => navigate('/accounts-receivable')}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                >
-                    Volver a CxC
+                <button onClick={() => navigate('/credit')} className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm whitespace-nowrap">
+                    Volver a Crédito
                 </button>
             </div>
 
             {loading ? (
                 <div className="text-center py-10">Cargando reporte...</div>
             ) : (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
-                    <table className="min-w-full divide-y divide-gray-200">
+                <div className="bg-white rounded-lg shadow overflow-x-auto">
+                    <table className="min-w-[600px] w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Deuda Total</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-green-600 uppercase tracking-wider">Corriente (0-15)</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-yellow-600 uppercase tracking-wider">15-30 Días</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-orange-600 uppercase tracking-wider">30-60 Días</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">60+ Vencido</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
+                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                <th className="px-3 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Deuda Total</th>
+                                <th className="px-3 md:px-6 py-3 text-right text-xs font-medium text-green-600 uppercase tracking-wider">Corriente (0-15)</th>
+                                <th className="px-3 md:px-6 py-3 text-right text-xs font-medium text-yellow-600 uppercase tracking-wider">15-30 Días</th>
+                                <th className="px-3 md:px-6 py-3 text-right text-xs font-medium text-orange-600 uppercase tracking-wider">30-60 Días</th>
+                                <th className="px-3 md:px-6 py-3 text-right text-xs font-medium text-red-600 uppercase tracking-wider">60+ Vencido</th>
+                                <th className="px-3 md:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {report.map((item) => (
                                 <tr key={item.client_id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                         {item.client_name}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900">

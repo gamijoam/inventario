@@ -186,7 +186,7 @@ const CustomerManager = () => {
     };
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto min-h-screen">
+        <div className="p-4 md:p-6 max-w-[1600px] mx-auto min-h-screen">
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
@@ -201,7 +201,7 @@ const CustomerManager = () => {
                 </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 h-[calc(100vh-140px)]">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
                 {/* Left Panel - Customer List */}
                 <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col md:col-span-1 overflow-hidden h-full ${selectedCustomer ? 'hidden md:flex' : 'flex'}`}>
                     <div className="p-4 border-b border-slate-100">
@@ -309,7 +309,7 @@ const CustomerManager = () => {
                                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-start gap-6">
                                     <div>
                                         <div className="flex items-center gap-3 mb-2">
-                                            <h2 className="text-3xl font-bold tracking-tight">{selectedCustomer.name}</h2>
+                                            <h2 className="text-xl md:text-3xl font-bold tracking-tight">{selectedCustomer.name}</h2>
                                             {selectedCustomer.is_blocked && (
                                                 <span className="bg-rose-500/20 text-rose-200 border border-rose-500/30 px-3 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
                                                     Bloqueado
@@ -381,7 +381,7 @@ const CustomerManager = () => {
                                                 autoFocus
                                             />
                                         ) : (
-                                            <p className="text-2xl font-black text-slate-800 tracking-tight">
+                                            <p className="text-xl md:text-2xl font-black text-slate-800 tracking-tight">
                                                 ${financialStatus.credit_limit.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
                                             </p>
                                         )}
@@ -465,8 +465,8 @@ const CustomerManager = () => {
                                         Historial de Crédito
                                     </h3>
                                 </div>
-                                <div className="flex-1 overflow-auto">
-                                    <table className="w-full">
+                                <div className="flex-1 overflow-x-auto">
+                                    <table className="min-w-[500px] w-full">
                                         <thead className="bg-slate-50 border-b border-slate-100 sticky top-0 z-10">
                                             <tr>
                                                 <th className="text-left py-3 px-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Factura</th>

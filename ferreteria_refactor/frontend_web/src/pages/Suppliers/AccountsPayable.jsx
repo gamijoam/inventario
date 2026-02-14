@@ -107,9 +107,9 @@ const AccountsPayable = () => {
     // Main view - Summary
     if (!selectedSupplier) {
         return (
-            <div className="h-[calc(100vh-64px)] overflow-y-auto bg-slate-50 p-6">
+            <div className="overflow-y-auto bg-slate-50 p-4 md:p-6">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-slate-800">Cuentas por Pagar</h1>
+                    <h1 className="text-xl md:text-2xl font-bold text-slate-800">Cuentas por Pagar</h1>
                     <p className="text-slate-500 font-medium">Gestión de deudas con proveedores</p>
                 </div>
 
@@ -118,7 +118,7 @@ const AccountsPayable = () => {
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-center justify-between group hover:border-indigo-300 transition-all">
                         <div>
                             <p className="text-slate-500 text-sm font-bold uppercase mb-1">Deuda Total</p>
-                            <p className="text-3xl font-black text-slate-800 group-hover:text-indigo-600 transition-colors">${Number(totalDebt || 0).toFixed(2)}</p>
+                            <p className="text-2xl md:text-3xl font-black text-slate-800 group-hover:text-indigo-600 transition-colors">${Number(totalDebt || 0).toFixed(2)}</p>
                         </div>
                         <div className="bg-indigo-50 text-indigo-600 p-3 rounded-xl border border-indigo-100">
                             <TrendingDown size={32} />
@@ -128,7 +128,7 @@ const AccountsPayable = () => {
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-center justify-between group hover:border-rose-300 transition-all">
                         <div>
                             <p className="text-slate-500 text-sm font-bold uppercase mb-1">Facturas Vencidas</p>
-                            <p className="text-3xl font-black text-rose-600">{overdueInvoices}</p>
+                            <p className="text-2xl md:text-3xl font-black text-rose-600">{overdueInvoices}</p>
                         </div>
                         <div className="bg-rose-50 text-rose-600 p-3 rounded-xl border border-rose-100">
                             <AlertTriangle size={32} />
@@ -196,7 +196,7 @@ const AccountsPayable = () => {
 
     // Detail view - Supplier Invoices
     return (
-        <div className="h-[calc(100vh-64px)] overflow-y-auto bg-slate-50 p-6">
+        <div className="overflow-y-auto bg-slate-50 p-4 md:p-6">
             <button
                 onClick={handleBackToList}
                 className="flex items-center text-slate-500 hover:text-slate-800 mb-6 font-bold text-sm bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm transition-all hover:shadow-md"
@@ -209,11 +209,11 @@ const AccountsPayable = () => {
                 <div className="absolute top-0 right-0 p-12 opacity-10">
                     <DollarSign size={200} />
                 </div>
-                <h2 className="text-3xl font-black relative z-10">{selectedSupplier.name}</h2>
-                <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10 border-t border-indigo-800 pt-6">
+                <h2 className="text-xl md:text-3xl font-black relative z-10">{selectedSupplier.name}</h2>
+                <div className="mt-4 md:mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 relative z-10 border-t border-indigo-800 pt-4 md:pt-6">
                     <div>
                         <p className="text-indigo-200 text-sm font-bold uppercase mb-1">Deuda Actual</p>
-                        <p className="text-4xl font-black text-white">
+                        <p className="text-2xl md:text-4xl font-black text-white">
                             ${Number(selectedSupplier.current_balance || 0).toFixed(2)}
                         </p>
                     </div>

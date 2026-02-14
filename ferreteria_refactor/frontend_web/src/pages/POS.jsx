@@ -1,11 +1,12 @@
 import { useAuth } from '../context/AuthContext';
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Layers } from 'lucide-react'; // Keep only used icons if any. Actually POSCatalog/Cart manage their own.
-import { Button } from '../components/ui/button'; // Might be used in modals?
+import { Layers } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
@@ -65,6 +66,7 @@ const POS = () => {
     const [selectedProductForUnits, setSelectedProductForUnits] = useState(null);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+    const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
     const [isMovementOpen, setIsMovementOpen] = useState(false);
     const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
     const [isClosingOpen, setIsClosingOpen] = useState(false);
@@ -529,7 +531,7 @@ const POS = () => {
 
 
     return (
-        <div className="flex flex-col h-screen bg-slate-100 overflow-hidden">
+        <div className="flex flex-col h-screen bg-slate-100 overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
             {/* GLOBAL POS HEADER */}
             <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-20">
                 <div className="flex items-center gap-4">
@@ -614,25 +616,46 @@ const POS = () => {
                     />
                 </div>
 
-                {/* MOBILE VIEW HANDLING (Simple Toggle) */}
-                <div className="fixed bottom-4 right-4 md:hidden z-50">
-                    {/* Mobile Cart Floating Button Logic is handled inside POSCart/Catalog or we can add here if needed. 
-                     The new POSCatalog has responsive grid. 
-                     The new POSCart is full height. 
-                     For mobile, we normally toggle visibility. 
-                     Let's ignore complex mobile toggle for this specific prompt and focus on the split layout asked.
-                     But if user is on mobile, they see ONLY catalog or ONLY cart.
-                 */}
+                {/* MOBILE CART: Floating Button + Sheet */}
+                <div className="fixed bottom-20 right-4 md:hidden z-50">
                     {cart.length > 0 && (
                         <Button
                             size="icon"
-                            className="rounded-full h-14 w-14 shadow-xl bg-indigo-600 text-white"
-                            onClick={() => setIsPaymentOpen(true)} // Quick checkout on mobile? Or show cart?
+                            className="rounded-full h-14 w-14 shadow-xl bg-indigo-600 text-white hover:bg-indigo-700 relative"
+                            onClick={() => setIsMobileCartOpen(true)}
                         >
-                            <Layers />
+                            <ShoppingCart size={22} />
+                            <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-black rounded-full h-6 w-6 flex items-center justify-center shadow-md">
+                                {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                            </span>
                         </Button>
                     )}
                 </div>
+
+                {/* Mobile Cart Sheet */}
+                <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
+                    <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
+                        <SheetHeader className="px-4 pt-4 pb-2 border-b border-slate-100">
+                            <SheetTitle className="text-lg font-black text-slate-800">Carrito ({cart.length})</SheetTitle>
+                        </SheetHeader>
+                        <div className="flex-1 overflow-y-auto h-[calc(85vh-60px)]">
+                            <POSCart
+                                cartItems={cart}
+                                onRemoveItem={removeFromCart}
+                                onUpdateQuantity={updateQuantity}
+                                onClearCart={() => {
+                                    if (confirm('¿Vaciar carrito?')) clearCart();
+                                }}
+                                totals={{ totalUSD, totalBs }}
+                                anchorCurrency={anchorCurrency}
+                                onCheckout={() => { setIsMobileCartOpen(false); setIsPaymentOpen(true); }}
+                                onItemClick={(item) => { setIsMobileCartOpen(false); setSelectedItemForEdit(item); }}
+                                secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                                convertPrice={convertPrice}
+                            />
+                        </div>
+                    </SheetContent>
+                </Sheet>
 
                 {/* --- MODALS --- */}
                 <POSSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />

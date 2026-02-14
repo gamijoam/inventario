@@ -23,11 +23,11 @@ export default function DashboardLayout() {
         <div className="min-h-screen bg-slate-50/50 font-sans text-slate-900 flex w-full">
             {/* Mobile Header - Branding Only */}
             <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-center px-4 z-30 shadow-sm pt-[env(safe-area-inset-top)]">
-                <div className="flex items-center gap-2 font-bold text-lg text-slate-800">
-                    <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md shadow-indigo-200">
-                        I
+                <div className="flex items-center gap-2.5 font-bold text-base text-slate-800">
+                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-lg flex items-center justify-center text-white shadow-md shadow-indigo-200 text-sm font-black">
+                        MI
                     </div>
-                    <span className="tracking-tight">InvenSoft</span>
+                    <span className="tracking-tight"><span className="text-indigo-600">Mi</span> Inventario <span className="text-indigo-600">Fácil</span></span>
                 </div>
             </div>
 

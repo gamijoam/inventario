@@ -15,7 +15,7 @@ const MobileWaiterLayout = () => {
     return (
         <div className="min-h-screen bg-gray-100 flex flex-col">
             {/* Mobile Header */}
-            <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center z-10 sticky top-0">
+            <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center z-10 sticky top-0" style={{ paddingTop: `calc(env(safe-area-inset-top) + 1rem)` }}>
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-blue-500 border border-blue-300 flex items-center justify-center">
                         <User size={18} />

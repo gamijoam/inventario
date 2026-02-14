@@ -126,7 +126,7 @@ const CashClose = () => {
     };
 
     return (
-        <div className="max-w-6xl mx-auto p-6">
+        <div className="max-w-6xl mx-auto p-6" style={{ paddingTop: `calc(env(safe-area-inset-top) + 1.5rem)` }}>
             <div className="flex items-center space-x-3 mb-8">
                 <div className="bg-blue-100 p-3 rounded-full text-blue-600">
                     <ClipboardCheck size={32} />

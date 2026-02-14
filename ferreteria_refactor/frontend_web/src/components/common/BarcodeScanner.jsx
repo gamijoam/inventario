@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { Capacitor } from '@capacitor/core';
@@ -7,6 +7,7 @@ import { X, Camera } from 'lucide-react';
 const BarcodeScannerComponent = ({ onScanned, onClose }) => {
     const [hasPermission, setHasPermission] = useState(null);
     const [error, setError] = useState(null);
+    const hiddenElementsRef = useRef([]);
 
     useEffect(() => {
         if (!Capacitor.isNativePlatform()) {
@@ -43,10 +44,23 @@ const BarcodeScannerComponent = ({ onScanned, onClose }) => {
 
     const startScan = async () => {
         try {
-            // Ocultar la app React
+            // Programmatically hide ALL body children except our scanner portal
+            const bodyChildren = document.body.children;
+            hiddenElementsRef.current = [];
+            for (let i = 0; i < bodyChildren.length; i++) {
+                const child = bodyChildren[i];
+                if (child.id !== 'barcode-scanner-portal') {
+                    const prevDisplay = child.style.display;
+                    const prevOpacity = child.style.opacity;
+                    child.style.display = 'none';
+                    hiddenElementsRef.current.push({ el: child, prevDisplay, prevOpacity });
+                }
+            }
+
+            // Also add class for extra CSS control
             document.querySelector('body').classList.add('barcode-scanner-active');
 
-            // Hacer fondo transparente
+            // Make background transparent for camera to show through
             await BarcodeScanner.hideBackground();
             document.body.style.backgroundColor = "transparent";
             document.documentElement.style.backgroundColor = "transparent";
@@ -68,6 +82,13 @@ const BarcodeScannerComponent = ({ onScanned, onClose }) => {
         if (Capacitor.isNativePlatform()) {
             BarcodeScanner.showBackground();
             BarcodeScanner.stopScan();
+
+            // Restore all previously hidden elements
+            hiddenElementsRef.current.forEach(({ el, prevDisplay }) => {
+                el.style.display = prevDisplay;
+            });
+            hiddenElementsRef.current = [];
+
             document.body.style.backgroundColor = "";
             document.documentElement.style.backgroundColor = "";
             document.querySelector('body').classList.remove('barcode-scanner-active');
@@ -75,21 +96,11 @@ const BarcodeScannerComponent = ({ onScanned, onClose }) => {
         onClose();
     };
 
-    // Renderizar en el body usando Portal para estar fuera de #root (si decidimos ocultar #root)
-    // Nota: Aunque usemos Portal, si ocultamos #root con display:none, el portal sigue funcionando 
-    // porque React mantiene su árbol, pero el nodo DOM del portal debe estar fuera de #root.
-    // React Portals por defecto se montan en el nodo destino. Si el destino es document.body, 
-    // y #root tiene display:none, el portal sigue visible siempre que sea hijo directo de body.
-
-    // Contenido del Portal
+    // Scanner UI rendered via portal to body
     const scannerUI = (
-        <div className="fixed inset-0 z-[9999] flex flex-col justify-between pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] bg-transparent">
-            {/* Styles for hiding app content (keep mounted for Portal callbacks) */}
+        <div id="barcode-scanner-portal" className="fixed inset-0 z-[9999] flex flex-col justify-between pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] bg-transparent">
+            {/* Fallback CSS in case programmatic hiding misses something */}
             <style>{`
-                .barcode-scanner-active #root {
-                    opacity: 0 !important;
-                    pointer-events: none !important;
-                }
                 .barcode-scanner-active {
                     background: transparent !important;
                 }
@@ -149,3 +160,4 @@ const BarcodeScannerComponent = ({ onScanned, onClose }) => {
 };
 
 export default BarcodeScannerComponent;
+

@@ -253,13 +253,13 @@ const CreatePurchase = () => {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50 gap-4 p-4 pb-20 md:pb-4">
+        <div className="flex flex-col min-h-[calc(100vh-64px)] bg-slate-50 gap-4 p-3 md:p-4 pb-32 md:pb-4">
             {/* TOP HEADER: Invoice & Supplier Info */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex-shrink-0 z-30">
-                <div className="flex gap-6 items-start">
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-5">
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm flex-shrink-0 z-30">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-5 w-full">
                         {/* Supplier */}
-                        <div className="col-span-1 relative">
+                        <div className="col-span-1 sm:col-span-2 md:col-span-1 relative">
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
                                 <FileText size={12} /> Proveedor
                             </label>
@@ -337,48 +337,52 @@ const CreatePurchase = () => {
                                 placeholder="Ej: 001-230"
                             />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                <Calendar size={12} /> Fecha Emisión
-                            </label>
-                            <input
-                                type="date"
-                                value={invoiceData.purchase_date}
-                                onChange={(e) => setInvoiceData(prev => ({ ...prev, purchase_date: e.target.value }))}
-                                className="w-full p-2.5 border border-slate-200 rounded-xl outline-none text-sm text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-all"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
-                                <AlertCircle size={12} /> Vencimiento
-                            </label>
-                            <input
-                                type="date"
-                                value={invoiceData.due_date}
-                                onChange={(e) => setInvoiceData(prev => ({ ...prev, due_date: e.target.value }))}
-                                className={clsx(
-                                    "w-full p-2.5 border rounded-xl outline-none text-sm shadow-sm transition-all",
-                                    new Date(invoiceData.due_date) < new Date()
-                                        ? 'border-rose-200 bg-rose-50 text-rose-800'
-                                        : 'border-slate-200 text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
-                                )}
-                            />
+                        <div className="grid grid-cols-2 gap-3 sm:gap-5 col-span-1 sm:col-span-2 md:col-span-1">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
+                                    <Calendar size={12} /> Emisión
+                                </label>
+                                <input
+                                    type="date"
+                                    value={invoiceData.purchase_date}
+                                    onChange={(e) => setInvoiceData(prev => ({ ...prev, purchase_date: e.target.value }))}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none text-sm text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-all"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 flex items-center gap-1">
+                                    <AlertCircle size={12} /> Vence
+                                </label>
+                                <input
+                                    type="date"
+                                    value={invoiceData.due_date}
+                                    onChange={(e) => setInvoiceData(prev => ({ ...prev, due_date: e.target.value }))}
+                                    className={clsx(
+                                        "w-full p-2.5 border rounded-xl outline-none text-sm shadow-sm transition-all",
+                                        new Date(invoiceData.due_date) < new Date()
+                                            ? 'border-rose-200 bg-rose-50 text-rose-800'
+                                            : 'border-slate-200 text-slate-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                                    )}
+                                />
+                            </div>
                         </div>
                     </div>
 
                     {/* Totals Widget */}
-                    <div className="w-72 bg-slate-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-200 flex-shrink-0 relative overflow-hidden group">
+                    <div className="w-full md:w-72 bg-slate-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-200 flex-shrink-0 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                             <DollarSign size={64} />
                         </div>
-                        <div className="relative z-10">
-                            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Factura</div>
-                            <div className="text-3xl font-black tracking-tight mb-2 flex items-baseline gap-1">
-                                <span className="text-lg text-slate-500 font-bold">$</span>
-                                {Number(total).toFixed(2)}
+                        <div className="relative z-10 flex flex-row md:flex-col justify-between items-center md:items-start">
+                            <div>
+                                <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Total Factura</div>
+                                <div className="text-3xl font-black tracking-tight mb-2 flex items-baseline gap-1">
+                                    <span className="text-lg text-slate-500 font-bold">$</span>
+                                    {Number(total).toFixed(2)}
+                                </div>
                             </div>
-                            <div className="flex items-center justify-between bg-slate-800/50 rounded-lg p-2 backdrop-blur-sm">
-                                <span className="text-xs text-slate-400 font-medium">Items: {purchaseItems.length}</span>
+                            <div className="flex flex-col md:flex-row items-end md:items-center justify-between bg-slate-800/50 rounded-lg p-2 backdrop-blur-sm gap-2">
+                                <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Items: {purchaseItems.length}</span>
                                 <span className={clsx(
                                     "text-xs font-bold px-2 py-0.5 rounded-md",
                                     paymentType === 'CREDIT' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
@@ -436,8 +440,104 @@ const CreatePurchase = () => {
                     </div>
 
                     {/* Table */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
-                        <table className="w-full text-sm border-collapse">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-0 bg-slate-50 md:bg-white">
+                        {/* MOBILE CARD LIST */}
+                        <div className="md:hidden space-y-3 p-3">
+                            {purchaseItems.length === 0 ? (
+                                <div className="text-center py-10 text-slate-400">
+                                    <Package size={48} className="mx-auto mb-3 opacity-20" />
+                                    <p className="text-sm font-bold">Tu carrito está vacío</p>
+                                    <p className="text-xs">Agrega productos arriba</p>
+                                </div>
+                            ) : (
+                                purchaseItems.map(item => {
+                                    const projectedPrice = item.unit_cost * (1 + (item.profit_margin || 0) / 100) * (1 + (item.tax_rate || 0) / 100);
+                                    return (
+                                        <div key={item.product_id} className="bg-white rounded-xl p-3 shadow-sm border border-slate-200 relative">
+                                            <div className="flex justify-between items-start mb-3 pr-8">
+                                                <div>
+                                                    <div className="font-bold text-slate-800 text-sm line-clamp-2">{item.product_name}</div>
+                                                    <div className="text-xs text-slate-400 mt-0.5">Base: ${Number(item.original_cost).toFixed(2)}</div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRemoveItem(item.product_id)}
+                                                    className="absolute top-2 right-2 p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+
+                                            <div className="grid grid-cols-12 gap-2 items-center">
+                                                {/* Quantity */}
+                                                <div className="col-span-3">
+                                                    <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Cant</label>
+                                                    <input
+                                                        type="number"
+                                                        value={item.quantity}
+                                                        onChange={(e) => handleQuantityChange(item.product_id, e.target.value)}
+                                                        className="w-full text-center font-bold border border-slate-200 rounded-lg py-1.5 text-sm focus:border-indigo-500 outline-none bg-slate-50"
+                                                    />
+                                                </div>
+
+                                                {/* Cost */}
+                                                <div className="col-span-5 px-1">
+                                                    <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1 text-center">Costo</label>
+                                                    <div className="relative">
+                                                        <span className="absolute left-2 top-1.5 text-slate-400 font-bold text-xs">$</span>
+                                                        <input
+                                                            type="number"
+                                                            value={item.unit_cost}
+                                                            onChange={(e) => handleCostChange(item.product_id, e.target.value)}
+                                                            onBlur={(e) => {
+                                                                if (item.unit_cost !== item.original_cost && item.unit_cost > 0) {
+                                                                    setShowCostUpdateModal({
+                                                                        productId: item.product_id,
+                                                                        newCost: item.unit_cost,
+                                                                        originalCost: item.original_cost,
+                                                                        productName: item.product_name,
+                                                                        profitMargin: item.profit_margin,
+                                                                        taxRate: item.tax_rate,
+                                                                        updatePrice: false,
+                                                                        newSalePrice: null
+                                                                    });
+                                                                }
+                                                            }}
+                                                            className={clsx(
+                                                                "w-full pl-4 pr-1 font-bold rounded-lg py-1.5 outline-none text-center text-sm transition-all border",
+                                                                item.unit_cost !== item.original_cost
+                                                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                                                    : 'bg-white text-slate-600 border-slate-200'
+                                                            )}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Subtotal */}
+                                                <div className="col-span-4 text-right">
+                                                    <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Subtotal</label>
+                                                    <div className="font-mono font-black text-slate-700 text-sm">
+                                                        ${item.subtotal.toFixed(2)}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center">
+                                                <div className="flex gap-2">
+                                                    <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded border border-indigo-100">M: {item.profit_margin}%</span>
+                                                    <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">IVA: {item.tax_rate}%</span>
+                                                </div>
+                                                <div className="text-xs font-medium text-slate-500">
+                                                    Sugerido: <span className="text-slate-700 font-bold">${projectedPrice.toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })
+                            )}
+                        </div>
+
+                        {/* DESKTOP TABLE */}
+                        <table className="hidden md:table w-full text-sm border-collapse">
                             <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm">
                                 <tr>
                                     <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase text-xs tracking-wider">Producto</th>
@@ -638,7 +738,7 @@ const CreatePurchase = () => {
             {/* Price/Cost Update Modal */}
             {showCostUpdateModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full animate-in zoom-in-95 duration-200 border border-slate-200">
+                    <div className="bg-white rounded-2xl shadow-2xl p-5 md:p-6 w-[95%] max-w-md animate-in zoom-in-95 duration-200 border border-slate-200 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center text-amber-600 mb-6 border-b border-slate-100 pb-4">
                             <div className="bg-amber-100 p-2 rounded-xl mr-3">
                                 <AlertCircle size={28} />
@@ -766,7 +866,7 @@ const CreatePurchase = () => {
             {/* =====================================================================================
                 MOBILE TAB SWITCHER - Bottom Navigation
                ===================================================================================== */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex gap-3 z-50 shadow-2xl">
+            <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex gap-3 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
                 {/* Items Tab */}
                 <button
                     onClick={() => setActiveTab('ITEMS')}

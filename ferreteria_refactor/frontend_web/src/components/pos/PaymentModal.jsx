@@ -306,7 +306,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             <div className="bg-white rounded-t-2xl sm:rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-auto sm:max-h-[85vh] animate-in fade-in zoom-in-95 slide-in-from-bottom-5 duration-300 ring-1 ring-white/20">
 
                 {/* LEFT COLUMN: Premium Summary */}
-                <div className="bg-[#1e293b] text-white p-6 md:w-5/12 flex flex-col relative overflow-hidden group shrink-0">
+                <div className="bg-[#1e293b] text-white p-6 md:w-5/12 flex flex-col relative overflow-hidden group shrink-0 max-h-[35vh] md:max-h-none overflow-y-auto">
                     {/* Background Accents */}
                     <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
                         <DollarSign size={300} strokeWidth={0.5} />
@@ -508,9 +508,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         return (
                                             <div key={index} className="flex flex-col gap-2 p-2 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
 
-                                                <div className="flex gap-2">
-                                                    {/* Method & Currency - Tighter */}
-                                                    <div className="flex flex-col gap-1.5 w-5/12">
+                                                {/* Mobile: stack vertically / Desktop: side by side */}
+                                                <div className="flex flex-col sm:flex-row gap-2">
+                                                    {/* Method & Currency */}
+                                                    <div className="flex flex-col gap-1.5 w-full sm:w-5/12">
                                                         <select
                                                             className="w-full bg-slate-50 border-none text-[11px] font-bold text-slate-700 rounded-md py-1.5 pl-2 pr-6 focus:ring-0 leading-tight"
                                                             value={payment.method}
@@ -527,7 +528,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                                     size="sm"
                                                                     variant={payment.currency === c.symbol ? "default" : "outline"}
                                                                     onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                                    className={`flex-1 h-6 text-[9px] font-bold px-0 rounded-md ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
+                                                                    className={`flex-1 h-7 text-[11px] font-bold px-2 rounded-md min-w-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
                                                                 >
                                                                     {c.symbol}
                                                                 </Button>
@@ -535,34 +536,36 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                         </div>
                                                     </div>
 
-                                                    {/* Amount Input */}
-                                                    <div className="flex-1 relative rounded-xl border-2 border-slate-200 bg-slate-50 transition-all p-1 focus-within:border-indigo-500 focus-within:bg-white focus-within:shadow-md focus-within:shadow-indigo-500/10">
-                                                        <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
-                                                            <span className="font-bold text-sm text-slate-400">
-                                                                {payment.currency === 'USD' ? '$' : payment.currency}
-                                                            </span>
+                                                    {/* Amount Input + Remove */}
+                                                    <div className="flex gap-2 flex-1">
+                                                        <div className="flex-1 relative rounded-xl border-2 border-slate-200 bg-slate-50 transition-all p-1 focus-within:border-indigo-500 focus-within:bg-white focus-within:shadow-md focus-within:shadow-indigo-500/10">
+                                                            <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
+                                                                <span className="font-bold text-sm text-slate-400">
+                                                                    {payment.currency === 'USD' ? '$' : payment.currency}
+                                                                </span>
+                                                            </div>
+                                                            <CurrencyInput
+                                                                autoFocus={index === 0}
+                                                                className="w-full h-full bg-transparent text-right font-mono text-xl font-black text-slate-900 placeholder:text-slate-300 border-none focus:ring-0 p-0 pr-2"
+                                                                placeholder="0.00"
+                                                                value={payment.amount}
+                                                                onChange={(val) => updatePayment(index, 'amount', val)}
+                                                            />
                                                         </div>
-                                                        <CurrencyInput
-                                                            autoFocus={index === 0}
-                                                            className="w-full h-full bg-transparent text-right font-mono text-xl font-black text-slate-900 placeholder:text-slate-300 border-none focus:ring-0 p-0 pr-2"
-                                                            placeholder="0.00"
-                                                            value={payment.amount}
-                                                            onChange={(val) => updatePayment(index, 'amount', val)}
-                                                        />
-                                                    </div>
 
-                                                    {/* Remove Button */}
-                                                    {payments.length > 1 && (
-                                                        <button
-                                                            onClick={() => removePaymentRow(index)}
-                                                            className="flex items-center justify-center w-6 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    )}
+                                                        {/* Remove Button */}
+                                                        {payments.length > 1 && (
+                                                            <button
+                                                                onClick={() => removePaymentRow(index)}
+                                                                className="flex items-center justify-center w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </div>
 
-                                                {/* Reference Input - Compact */}
+                                                {/* Reference Input */}
                                                 {needsReference && (
                                                     <div className="animate-in fade-in slide-in-from-top-1">
                                                         <Input
