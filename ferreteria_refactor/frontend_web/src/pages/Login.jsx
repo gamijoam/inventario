@@ -29,8 +29,20 @@ const Login = () => {
     // 🕵️ IMPERSONATION HANDLER
     useEffect(() => {
         const handleImpersonation = async () => {
-            const params = new URLSearchParams(window.location.search);
-            const token = params.get('impersonate_token');
+            // 🔍 Extract parameters from BOTH standard URL and Hash URL
+            // Case 1: domain.com/?impersonate_token=XYZ#/login
+            const searchParams = new URLSearchParams(window.location.search);
+
+            // Case 2: domain.com/#/login?impersonate_token=XYZ (Hash Router style)
+            const hashString = window.location.hash;
+            if (hashString.includes('?')) {
+                const hashParams = new URLSearchParams(hashString.split('?')[1]);
+                hashParams.forEach((value, key) => {
+                    searchParams.append(key, value);
+                });
+            }
+
+            const token = searchParams.get('impersonate_token');
 
             if (token) {
                 console.log("🕵️ Detectado token de impersonación...");

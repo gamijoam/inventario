@@ -89,7 +89,7 @@ app.add_middleware(
         "http://demo.localhost:5173",
         "http://admin.localhost:5173",
     ],
-    allow_origin_regex=r"http://.*\.localhost:5173",  # ✅ Allow any subdomain on localhost
+    allow_origin_regex=r"https?://.*\.miinventariofacil\.com|http://.*\.localhost:\d+",  # ✅ Allow any subdomain on production/QA and localhost
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -74,9 +74,10 @@ apiClient.interceptors.request.use(
         }
 
         // --- 3. MOBILE AUTH HEADER INJECTION ---
-        // For mobile, cookies might not work reliably, so we inject the token manually if available
+        // For mobile (Native), cookies don't work reliably, so we inject the token
+        // For Web, we rely on Cookies (HttpOnly) and MUST NOT send the token to avoid conflicts
         const token = localStorage.getItem('token');
-        if (token) {
+        if (token && Capacitor.isNativePlatform()) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
 
