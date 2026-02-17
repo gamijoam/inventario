@@ -99,10 +99,16 @@ def create_default_config(config_path):
     """Create default config.ini file"""
     config = configparser.ConfigParser()
     
+    config['IDENTIDAD'] = {
+        'tenant_id': 'demo-tenant',
+        'client_id': 'caja-1',
+        'auth_token': 'CAMBIAR_POR_TOKEN_REAL'
+    }
+
     config['SERVIDOR'] = {
         'url_primary': 'wss://demo.invensoft.lat',
         'url_secondary': 'ws://localhost:8000',
-        'nombre_caja': 'caja-1'
+        # 'nombre_caja': 'caja-1' # Deprecated, moved to IDENTIDAD
     }
     
     config['IMPRESORAS'] = {
@@ -147,17 +153,23 @@ def load_config():
         # Validate required sections
         if 'SERVIDOR' not in config:
              print(f"❌ Error: Sección [SERVIDOR] faltante en config.ini")
-             # Don't delete immediately, just warn or exit
              return None
 
         # Extract values
         url_primary = config['SERVIDOR'].get('url_primary')
-        if not url_primary:
-            url_primary = config['SERVIDOR'].get('url_servidor', 'wss://demo.invensoft.lat')
-            
         url_secondary = config['SERVIDOR'].get('url_secondary', 'ws://localhost:8000')
-        client_id = config['SERVIDOR'].get('nombre_caja', 'caja-1')
         
+        # Identity Logic (Backward Compatibility)
+        if 'IDENTIDAD' in config:
+            client_id = config['IDENTIDAD'].get('client_id', 'caja-1')
+            tenant_id = config['IDENTIDAD'].get('tenant_id', 'demo')
+            auth_token = config['IDENTIDAD'].get('auth_token', '')
+        else:
+            # Fallback for old config
+            client_id = config['SERVIDOR'].get('nombre_caja', 'caja-1')
+            tenant_id = 'public'
+            auth_token = 'legacy'
+
         # Printer Config
         printer_mode = 'VIRTUAL'
         if 'CONFIG' in config:
@@ -178,6 +190,8 @@ def load_config():
             'url_primary': url_primary,
             'url_secondary': url_secondary,
             'client_id': client_id,
+            'tenant_id': tenant_id,
+            'auth_token': auth_token,
             'printer_mode': printer_mode,
             'printers': printers_map
         }
@@ -195,15 +209,18 @@ if not CONFIG:
 URL_PRIMARY = CONFIG['url_primary']
 URL_SECONDARY = CONFIG['url_secondary']
 CLIENT_ID = CONFIG['client_id']
+TENANT_ID = CONFIG['tenant_id']
+AUTH_TOKEN = CONFIG['auth_token']
 PRINTER_MODE = CONFIG['printer_mode']
 PRINTERS_MAP = CONFIG['printers']
 
 print("="*60)
-print("Hardware Bridge v4.0 - Multi-Printer")
+print("Hardware Bridge v5.0 - Multi-Tenant SaaS")
 print("="*60)
-print(f"Servidor Primario (VPS): {URL_PRIMARY}")
-print(f"Servidor Secundario:     {URL_SECONDARY}")
-print(f"Caja:                   {CLIENT_ID}")
+print(f"Servidor Primario:      {URL_PRIMARY}")
+print(f"Tenant ID:              {TENANT_ID}")
+print(f"Caja ID:                {CLIENT_ID}")
+print(f"Token:                  {AUTH_TOKEN[:5]}***")
 print(f"Modo Impresora:         {PRINTER_MODE}")
 print("Impresoras Configuradas:")
 for role, name in PRINTERS_MAP.items():
@@ -459,21 +476,30 @@ async def connect_to_server(base_url, server_name):
 
     # Normalize URL (remove trailing slash)
     base_url = base_url.rstrip('/')
-    # Construct URI
-    uri = f"{base_url}/api/v1/ws/hardware/{CLIENT_ID}"
     
-    print(f"🔌 [{server_name}] Connecting to {uri}...")
+    # Construct URI with Auth Params
+    # Endpoint: /api/v1/ws/hardware/connect
+    uri = f"{base_url}/api/v1/ws/hardware/connect?client_id={CLIENT_ID}&tenant_id={TENANT_ID}&token={AUTH_TOKEN}"
+    
+    print(f"🔌 [{server_name}] Connecting to: {base_url}...")
+    print(f"   Using ID: {CLIENT_ID}, Tenant: {TENANT_ID}")
     
     while True:
         try:
-            async with websockets.connect(uri) as websocket:
-                print(f"✅ [{server_name}] Connected successfully")
+            # TRAEFIK COMPLIANCE: ping_interval=20, ping_timeout=10
+            async with websockets.connect(uri, ping_interval=20, ping_timeout=10) as websocket:
+                print(f"✅ [{server_name}] Connected successfully and Authenticated!")
                 
                 # Listen for messages
                 async for message in websocket:
                     try:
                         data = json.loads(message)
-                        print(f"\\n📥 [{server_name}] Received: {data.get('type', 'unknown')}")
+                        
+                        # Handle Keep-Alive Pong (if server sends it manually, though websockets lib handles frames)
+                        if data == "pong":
+                            continue
+
+                        print(f"\n📥 [{server_name}] Received: {data.get('type', 'unknown')}")
                         
                         if data.get('type') == 'print':
                             print(f"🖨️ [{server_name}] Processing print command sale #{data.get('sale_id')}")
@@ -488,6 +514,9 @@ async def connect_to_server(base_url, server_name):
                             else:
                                 print(f"❌ [{server_name}] Print FAILED")
                         
+                        elif data.get('type') == 'conn_ack':
+                            print(f"👋 [{server_name}] Server Acknowledged: {data.get('status')} (Tenant: {data.get('tenant')})")
+                        
                         else:
                             print(f"⚠️ [{server_name}] Unknown type: {data.get('type')}")
                     
@@ -496,9 +525,19 @@ async def connect_to_server(base_url, server_name):
                     except Exception as e:
                         print(f"❌ [{server_name}] Error processing: {e}")
         
+        except websockets.exceptions.InvalidStatusCode as e:
+            # Handle Auth Failures
+            if e.status_code in [401, 403]:
+                print(f"⛔ [{server_name}] AUTHENTICATION REFUSED (HTTP {e.status_code})")
+                print(f"   Please check your TENANT_ID and AUTH_TOKEN in config.ini")
+                print(f"   Retrying in 60 seconds...")
+                await asyncio.sleep(60)
+            else:
+                 print(f"❌ [{server_name}] Connection rejected: {e}")
+                 await asyncio.sleep(10)
+
         except (websockets.exceptions.WebSocketException, OSError) as e:
             # Connection failed or dropped
-            # Don't print stack trace for simple connection errors to keep log clean
             print(f"❌ [{server_name}] Connection error: {e}")
             print(f"🔄 [{server_name}] Retrying in 5s...")
             await asyncio.sleep(5)
@@ -526,7 +565,7 @@ def kill_existing_instances():
         else:
             # Si corre como script (para pruebas)
             current_exe = sys.argv[0]
-            exe_name = "main.py" # Ojo con esto en dev
+            exe_name = "main.py" 
             return # No matar en modo desarrollo/script por seguridad
 
         print(f"🧹 Verificando instancias previas de: {exe_name}")
@@ -555,7 +594,7 @@ if __name__ == "__main__":
         # List available printers
         if PRINTER_MODE == "WINDOWS":
             printers = get_windows_printers()
-            print(f"\\n📋 Available printers: {printers}")
+            print(f"\n📋 Available printers: {printers}")
             
             # Check configured printers
             for role, name in PRINTERS_MAP.items():
@@ -578,8 +617,8 @@ if __name__ == "__main__":
         asyncio.run(main())
     
     except KeyboardInterrupt:
-        print("\\n\\n👋 Hardware Bridge stopped by user")
+        print("\n\n👋 Hardware Bridge stopped by user")
     except Exception as e:
-        print(f"\\n\\n❌ Fatal error: {e}")
+        print(f"\n\n❌ Fatal error: {e}")
         import traceback
         traceback.print_exc()

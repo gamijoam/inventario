@@ -10,63 +10,65 @@ import json
 
 class ConnectionManager:
     def __init__(self):
-        # Store active connections: {client_id: websocket}
-        self.active_connections: Dict[str, WebSocket] = {}
+        # Store active connections: {tenant_id: {client_id: websocket}}
+        self.active_connections: Dict[str, Dict[str, WebSocket]] = {}
     
-    async def connect(self, client_id: str, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, client_id: str, tenant_id: str):
         """Accept and register a new WebSocket connection"""
         await websocket.accept()
-        self.active_connections[client_id] = websocket
-        print(f"[OK] Hardware Bridge connected: {client_id}")
-        print(f"   Active clients: {list(self.active_connections.keys())}")
+        
+        if tenant_id not in self.active_connections:
+            self.active_connections[tenant_id] = {}
+            
+        self.active_connections[tenant_id][client_id] = websocket
+        
+        print(f"✅ [WS] Connected: {tenant_id} -> {client_id}")
+        # print(f"   Active for {tenant_id}: {list(self.active_connections[tenant_id].keys())}")
     
-    def disconnect(self, client_id: str):
+    def disconnect(self, client_id: str, tenant_id: str):
         """Remove a disconnected client"""
-        if client_id in self.active_connections:
-            del self.active_connections[client_id]
-            print(f"[DISCONNECT] Hardware Bridge disconnected: {client_id}")
-            print(f"   Active clients: {list(self.active_connections.keys())}")
+        if tenant_id in self.active_connections:
+            if client_id in self.active_connections[tenant_id]:
+                del self.active_connections[tenant_id][client_id]
+                print(f"❌ [WS] Disconnected: {tenant_id} -> {client_id}")
+            
+            # Clean up empty tenant dicts
+            if not self.active_connections[tenant_id]:
+                del self.active_connections[tenant_id]
+                # print(f"   Tenant {tenant_id} cleared (no active connections)")
     
-    async def send_to_client(self, client_id: str, message: dict) -> bool:
+    async def send_to_client(self, message: dict, client_id: str, tenant_id: str) -> bool:
         """
         Send a message to a specific Hardware Bridge client
-        Returns True if sent successfully, False if client not connected
         """
-        if client_id not in self.active_connections:
-            print(f"[WARN] Client {client_id} not connected")
+        if tenant_id not in self.active_connections:
+            print(f"⚠️ [WS] Tenant {tenant_id} not active")
+            return False
+            
+        if client_id not in self.active_connections[tenant_id]:
+            print(f"⚠️ [WS] Client {client_id} not connected in {tenant_id}")
             return False
         
         try:
-            websocket = self.active_connections[client_id]
+            websocket = self.active_connections[tenant_id][client_id]
             await websocket.send_json(message)
-            print(f"[SEND] Sent message to {client_id}: {message.get('type', 'unknown')}")
+            print(f"📤 [WS] Sent to {tenant_id}/{client_id}: {message.get('type', 'unknown')}")
             return True
         except Exception as e:
-            print(f"[ERROR] Error sending to {client_id}: {e}")
-            self.disconnect(client_id)
+            print(f"❌ [WS] Error sending to {client_id}: {e}")
+            self.disconnect(client_id, tenant_id)
             return False
-    
-    def get_active_clients(self) -> list:
-        """Get list of currently connected client IDs"""
-        return list(self.active_connections.keys())
-    
-    def is_client_connected(self, client_id: str) -> bool:
-        """Check if a specific client is connected"""
-        return client_id in self.active_connections
 
-    async def broadcast(self, message: dict):
-        """Send a message to ALL connected hardware bridges"""
-        if not self.active_connections:
-            print("[WARN] No hardware bridges connected for broadcast")
+    async def broadcast_to_tenant(self, message: dict, tenant_id: str):
+        """Send message to ALL clients in a specific tenant"""
+        if tenant_id not in self.active_connections:
             return
             
-        print(f"[BROADCAST] Sending to {len(self.active_connections)} active bridges")
-        for client_id, websocket in list(self.active_connections.items()):
+        for client_id, websocket in list(self.active_connections[tenant_id].items()):
             try:
                 await websocket.send_json(message)
-            except Exception as e:
-                print(f"[ERROR] Broadcast to {client_id} failed: {e}")
-                self.disconnect(client_id)
+            except Exception:
+                self.disconnect(client_id, tenant_id)
 
 
 # Global instance
