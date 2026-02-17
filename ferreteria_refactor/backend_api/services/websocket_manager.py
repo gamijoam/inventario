@@ -51,13 +51,26 @@ class ConnectionManager:
         
         try:
             websocket = self.active_connections[tenant_id][client_id]
+            print(f"📤 [WS] Sending to {client_id} (Tenant: {tenant_id})...")
             await websocket.send_json(message)
-            print(f"📤 [WS] Sent to {tenant_id}/{client_id}: {message.get('type', 'unknown')}")
+            print(f"✅ [WS] Sent to {client_id}: {message.get('type', 'unknown')}")
             return True
         except Exception as e:
             print(f"❌ [WS] Error sending to {client_id}: {e}")
+            import traceback
+            traceback.print_exc()
             self.disconnect(client_id, tenant_id)
             return False
+
+    def find_client_tenant(self, client_id: str) -> str:
+        """
+        Find which tenant a client belongs to.
+        Returns tenant_id if found, else None.
+        """
+        for tenant_id, clients in self.active_connections.items():
+            if client_id in clients:
+                return tenant_id
+        return None
 
     async def broadcast_to_tenant(self, message: dict, tenant_id: str):
         """Send message to ALL clients in a specific tenant"""

@@ -9,7 +9,9 @@ from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 import asyncio
+import asyncio
 import uuid
+from ..template_presets import get_classic_template # Added for Scriban fallback
 
 # DUPLICATED HELPER due to circular import risks if we try to import from routers
 def run_broadcast(event: str, data: dict):
@@ -705,59 +707,27 @@ class SalesService:
         }
         
         # Use stored template or fallback to default
+        # Use stored template or fallback to default
         template_config = db.query(models.BusinessConfig).get("ticket_template")
+        template = ""
+        
         if template_config and template_config.value:
              template = template_config.value
-             # HOTFIX: Ensure sale.items -> sale.products replacement here too just in case
+             # HOTFIX FOR C# BRIDGE:
+             # The database might contain a Legacy Jinja2 template (with {% ... %}).
+             # The C# Bridge requires Scriban {{ ... }}.
+             # If we detect Jinja2 syntax, we MUST override it with the default Scriban template
+             # to prevent the "Unexpected token" error in the Bridge.
+             if "{%" in template:
+                 print(f"[WARNING] Detected Legacy Jinja2 Template for Sale {sale_id}. Falling back to Scriban Classic Preset.")
+                 template = get_classic_template()
+                 
+             # HOTFIX: Ensure sale.items -> sale.products replacement here just in case (legacy data)
              if "sale.items" in template:
                  template = template.replace("sale.items", "sale.products")
         else:
-            # Fallback Template (DUMB TEMPLATE - No Logic)
-            template = """
-<center>
-<bold>{{ business.name }}</bold>
-{{ business.document_id }}
-{{ business.address }}
-{{ business.phone }}
---------------------------------
-TICKET DE VENTA: #{{ sale.id }}
-FECHA: {{ sale.date }}
-CLIENTE: {{ sale.customer.name }}
-R.I.F/C.I: {{ sale.customer.id_number }}
-{% if sale.is_credit %}
-CONDICION: CREDITO
-VENCE: {{ sale.due_date }}
-{% endif %}
---------------------------------
-DESCRIPCION       CANT     TOTAL
---------------------------------
-{% for item in sale.products %}
-<bold>{{ item.product.name }}</bold>
-               x{{ item.quantity }}   {{ item.formatted_total }}
-{% endfor %}
---------------------------------
-<right>
-<bold>TOTAL: {{ sale.formatted_total }}</bold>
-REF:   {{ sale.formatted_total_ref }}
-(Tasa: {{ sale.exchange_rate }})
-</right>
---------------------------------
-<left>
-PAGOS:
-{% for pay in sale.payments %}
-- {{ pay.method }}: {{ pay.formatted_amount }}
-{% if pay.reference %}  (Ref: {{ pay.reference }})
-{% endif %}
-{% endfor %}
-{% endfor %}
-SU CAMBIO: {{ sale.formatted_change }}
-</left>
---------------------------------
-<center>
-¡GRACIAS POR SU COMPRA!
-</center>
-<cut>
-"""
+            # Fallback to code-defined Scriban template
+            template = get_classic_template()
         return {
             "status": "ready",
             "template": template,

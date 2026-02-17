@@ -53,6 +53,12 @@ const printerService = {
 
             // Enhanced error messages
             if (error.response?.status === 503) {
+                // Show specific Backend Error if available (Bridge V2)
+                const detail = error.response?.data?.detail;
+                if (detail && detail.includes("Bridge V2")) {
+                    throw new Error(detail);
+                }
+
                 throw new Error(
                     `Hardware Bridge no está conectado.\n\n` +
                     `Verifique que:\n` +

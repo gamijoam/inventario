@@ -895,13 +895,23 @@ async def print_remote(
     from ..services.sales_service import SalesService
     from ..services.websocket_manager import manager
     
-    # Check if Hardware Bridge is connected
-    if not manager.is_client_connected(request.client_id):
+    # Dynamic Tenant Lookup
+    print(f"🔍 [DEBUG] Print Request for Client ID: '{request.client_id}'")
+    tenant_id = manager.find_client_tenant(request.client_id)
+    print(f"🔍 [DEBUG] Tenant Lookup Result: '{tenant_id}'")
+    
+    if not tenant_id:
+        # Debug: List all connected clients across all tenants
+        all_clients = []
+        for t_id, clients in manager.active_connections.items():
+            all_clients.extend([f"{c} (en {t_id})" for c in clients.keys()])
+            
+        print(f"❌ [DEBUG] Active Connections: {manager.active_connections}")
         raise HTTPException(
             status_code=503,
-            detail=f"Hardware Bridge '{request.client_id}' no está conectado. Verifique que BridgeInvensoft.exe esté ejecutándose."
+            detail=f"Bridge V2: '{request.client_id}' no conectado. Disponibles: {all_clients}. Verifique config."
         )
-    
+
     # Get print payload
     try:
         payload = SalesService.get_sale_print_payload(db, request.sale_id)
@@ -915,7 +925,7 @@ async def print_remote(
         "payload": payload
     }
     
-    success = await manager.send_to_client(request.client_id, message)
+    success = await manager.send_to_client(message, request.client_id, tenant_id)
     
     if not success:
         raise HTTPException(
@@ -943,20 +953,22 @@ async def print_remote_payload(
     """
     from ..services.websocket_manager import manager
     
-    # Check if Hardware Bridge is connected
-    if not manager.is_client_connected(request.client_id):
+    # Dynamic Tenant Lookup
+    tenant_id = manager.find_client_tenant(request.client_id)
+    
+    if not tenant_id:
         raise HTTPException(
             status_code=503,
             detail=f"Hardware Bridge '{request.client_id}' no está conectado."
         )
-    
+
     # Send to Hardware Bridge via WebSocket
     message = {
         "type": "print",
         "payload": request.payload
     }
     
-    success = await manager.send_to_client(request.client_id, message)
+    success = await manager.send_to_client(message, request.client_id, tenant_id)
     
     if not success:
         raise HTTPException(

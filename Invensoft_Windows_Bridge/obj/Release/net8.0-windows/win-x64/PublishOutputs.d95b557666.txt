@@ -1,0 +1,2 @@
+C:\Users\gamijoam\Documents\inventario\Invensoft_Windows_Bridge\dist_v7\Invensoft_Windows_Bridge.pdb
+C:\Users\gamijoam\Documents\inventario\Invensoft_Windows_Bridge\dist_v7\Invensoft_Windows_Bridge.exe
