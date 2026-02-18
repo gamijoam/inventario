@@ -30,7 +30,9 @@ export const AuthProvider = ({ children }) => {
                 role: currentUser.role,
                 full_name: currentUser.full_name,
                 is_active: currentUser.is_active,
-                preferences: currentUser.preferences || {}
+                is_active: currentUser.is_active,
+                preferences: currentUser.preferences || {},
+                tenant_id: currentUser.tenant_id // NEW: Expose tenant_id to frontend components
             };
 
             setUser(userData);

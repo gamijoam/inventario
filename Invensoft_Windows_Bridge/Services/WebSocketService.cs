@@ -55,7 +55,13 @@ namespace Invensoft_Windows_Bridge.Services
 
         private async Task ConnectAndListenAsync(CancellationToken token)
         {
-            var host = _config.Host.TrimEnd('/');
+            // Ensure correct WS scheme
+            var host = _config.Host;
+            // Ensure correct WS scheme
+            if (host.StartsWith("http://")) host = host.Replace("http://", "ws://");
+            else if (host.StartsWith("https://")) host = host.Replace("https://", "wss://");
+            else if (!host.StartsWith("ws://") && !host.StartsWith("wss://")) host = "ws://" + host;
+
             // Build URL with Query Params
             var url = $"{host}/api/v1/ws/hardware/connect?client_id={_config.ClientId}&tenant_id={_config.TenantId}&token={_config.AuthToken}";
 
@@ -63,6 +69,9 @@ namespace Invensoft_Windows_Bridge.Services
             {
                 // Traefik Keep-Alive settings
                 _ws.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+                
+                // Fix 403 Forbidden: Set Origin Header
+                _ws.Options.SetRequestHeader("Origin", "https://app.miinventariofacil.com");
 
                 NotifyStatus($"🔌 Conectando a {host}...");
                 
@@ -73,6 +82,8 @@ namespace Invensoft_Windows_Bridge.Services
                 catch (WebSocketException wsex)
                 {
                     NotifyStatus($"❌ Error de Conexión: {wsex.Message}");
+                     // Show detailed error for debugging
+                     // System.Windows.MessageBox.Show($"Error conectando a: {url}\n\nDetalle: {wsex.Message}", "Debug Conexión");
                     throw; // Trigger retry loop
                 }
 

@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart } from 'lucide-
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Layers } from 'lucide-react';
+import { Layers, Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { useCart } from '../context/CartContext';
@@ -575,10 +575,20 @@ const POS = () => {
                     >
                         <Lock size={16} /> Cerrar Caja
                     </Button>
+
+                    <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
+
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full"
+                        title="Configuración de Estación"
+                    >
+                        <SettingsIcon size={20} />
+                    </Button>
                 </div>
             </div>
-
-            {/* MAIN CONTENT (Split Layout) */}
             <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-4 p-4">
                 {/* SECCIÓN IZQUIERDA: CATÁLOGO */}
                 <div className="flex-1 min-w-0 h-full">
@@ -685,7 +695,7 @@ const POS = () => {
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
                 <CashClosingModal isOpen={isClosingOpen} onClose={() => setIsClosingOpen(false)} />
             </div>
-        </div>
+        </div >
     );
 };
 

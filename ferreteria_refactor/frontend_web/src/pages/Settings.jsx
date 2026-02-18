@@ -11,6 +11,7 @@ import apiClient from '../config/axios';
 import TicketConfig from './Settings/TicketConfig';
 import PaymentMethodsConfig from './Settings/PaymentMethodsConfig';
 import CurrencyConfig from './Settings/CurrencyConfig';
+import POSConfig from './Settings/POSConfig';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
 
@@ -112,7 +113,10 @@ const Settings = () => {
                                     activeTab === 'currencies' ? 'Monedas' :
                                         activeTab === 'taxes' ? 'Impuestos' :
                                             activeTab === 'tickets' ? 'Impresoras' :
-                                                activeTab === 'payments' ? 'Métodos de Pago' : 'Configuración'}
+                                                activeTab === 'taxes' ? 'Impuestos' :
+                                                    activeTab === 'tickets' ? 'Impresoras' :
+                                                        activeTab === 'payments' ? 'Métodos de Pago' :
+                                                            activeTab === 'pos' ? 'Estación POS' : 'Configuración'}
                             </h1>
                             <p className="text-slate-500">Administra los parámetros de tu sistema</p>
                         </div>
@@ -228,6 +232,7 @@ const Settings = () => {
 
                         {activeTab === 'tickets' && <TicketConfig />}
                         {activeTab === 'payments' && <PaymentMethodsConfig />}
+                        {activeTab === 'pos' && <POSConfig />}
 
                     </div>
                 </ScrollArea>

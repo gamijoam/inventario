@@ -8,7 +8,7 @@
       "version": "1.0.0",
       "restore": {
         "projectUniqueName": "C:\\Users\\gamijoam\\Documents\\inventario\\Invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj",
-        "projectName": "Invensoft_Windows_Bridge",
+        "projectName": "ConexionImpresora",
         "projectPath": "C:\\Users\\gamijoam\\Documents\\inventario\\Invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj",
         "packagesPath": "C:\\Users\\gamijoam\\.nuget\\packages\\",
         "outputPath": "C:\\Users\\gamijoam\\Documents\\inventario\\Invensoft_Windows_Bridge\\obj\\",
@@ -87,7 +87,7 @@
             "Microsoft.NETCore.App": {
               "privateAssets": "all"
             },
-            "Microsoft.WindowsDesktop.App.WPF": {
+            "Microsoft.WindowsDesktop.App": {
               "privateAssets": "none"
             }
           },

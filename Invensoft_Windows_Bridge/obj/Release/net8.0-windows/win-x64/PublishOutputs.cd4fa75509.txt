@@ -1,2 +1,2 @@
-C:\Users\gamijoam\Documents\inventario\Invensoft_Windows_Bridge\dist_v4\Invensoft_Windows_Bridge.pdb
-C:\Users\gamijoam\Documents\inventario\Invensoft_Windows_Bridge\dist_v4\Invensoft_Windows_Bridge.exe
+C:\Users\gamijoam\Documents\inventario\Invensoft_Windows_Bridge\dist_v4\Miinventariofacil_Impresion.pdb
+C:\Users\gamijoam\Documents\inventario\Invensoft_Windows_Bridge\dist_v4\Miinventariofacil_Impresion.exe

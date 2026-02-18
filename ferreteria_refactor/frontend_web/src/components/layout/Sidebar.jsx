@@ -12,6 +12,7 @@ import {
     CreditCard,
     Briefcase,
     Building2,
+    Monitor,
     Printer,
     Percent,
     ChevronLeft,
@@ -147,6 +148,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: Printer, label: 'Impresoras', path: '/settings?tab=tickets' },
                 { icon: CreditCard, label: 'Métodos de Pago', path: '/settings?tab=payments' },
                 { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
+                { icon: Monitor, label: 'Estación POS', path: '/settings?tab=pos' },
             ]
         }
     ];

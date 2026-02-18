@@ -101,6 +101,26 @@ def get_current_user_profile(
     This endpoint uses the HttpOnly cookie (or Authorization header) to identify the user.
     Perfect for frontend to fetch user data after login without knowing the user ID.
     """
+    tenant_id_str = str(current_user.tenant_id) if current_user.tenant_id else None
+    
+    # Resolving "public" or "schema" name if possible?
+    # No, for hardware bridge we might need the schema name OR the ID.
+    # The C# app likely needs the SCHEMA NAME if multi-tenant logic uses schemas?
+    # Wait, the user said "tenant seria comercialasiatico". That sounds like a SCHEMA name.
+    # current_user.tenant_id is an Int (Foreign Key). 
+    # We need the SCHEMA NAME probably?
+    # Let's check the User model to see what tenant_id refers to.
+    
+    # Assuming tenant_id in User model is FK to tenants table.
+    # I should fetch the Tenant object to get the schema_name if that's what's needed.
+    
+    tenant_schema = None
+    if current_user.tenant_id:
+         # Lazy load or query? 
+         # current_user.tenant is likely a relationship.
+         if hasattr(current_user, 'tenant') and current_user.tenant:
+             tenant_schema = current_user.tenant.schema_name
+    
     return {
         "id": current_user.id,
         "username": current_user.username,
@@ -111,7 +131,8 @@ def get_current_user_profile(
         "pin": current_user.pin,
         "preferences": current_user.preferences,
         "is_onboarding_completed": current_user.is_onboarding_completed,
-        "created_at": current_user.created_at
+        "created_at": current_user.created_at,
+        "tenant_id": tenant_schema # Return the SCHEMA NAME (e.g. comercialasiatico)
     }
 
 @router.post("/me/onboarding-completed")

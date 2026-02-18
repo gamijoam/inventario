@@ -10,12 +10,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("Invensoft_Windows_Bridge")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("ConexionImpresora")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6033038ba20b29b8aea02fb6b85ed1b62dbebb84")]
-[assembly: System.Reflection.AssemblyProductAttribute("Invensoft_Windows_Bridge")]
-[assembly: System.Reflection.AssemblyTitleAttribute("Invensoft_Windows_Bridge")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+22bb3b9e153a3c14a41c2fba9da323ad5a3501fd")]
+[assembly: System.Reflection.AssemblyProductAttribute("ConexionImpresora")]
+[assembly: System.Reflection.AssemblyTitleAttribute("ConexionImpresora")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 [assembly: System.Runtime.Versioning.TargetPlatformAttribute("Windows7.0")]
 [assembly: System.Runtime.Versioning.SupportedOSPlatformAttribute("Windows7.0")]

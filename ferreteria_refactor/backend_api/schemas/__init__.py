@@ -678,6 +678,7 @@ class UserRead(BaseModel):
     commission_percentage: Optional[Decimal] = Decimal("0.00")
     preferences: Optional[Dict[str, Any]] = {} # NEW
     is_onboarding_completed: bool = False # NEW
+    tenant_id: Optional[str] = None # NEW: Expose tenant_id to frontend
 
 
     class Config:

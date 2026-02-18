@@ -60,7 +60,7 @@ namespace Invensoft_Windows_Bridge.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"Print Error: {ex.Message}");
-                MessageBox.Show($"Error General de Impresión:\n{ex.Message}", "ErrorCrítico", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show($"Error General de Impresión:\n{ex.Message}", "ErrorCrítico", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
         }
@@ -102,13 +102,13 @@ namespace Invensoft_Windows_Bridge.Services
                 string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ticket_virtual_output.txt");
                 File.WriteAllText(path, sb.ToString());
                 
-                MessageBox.Show($"Ticket Virtual guardado en:\n{path}", "Impresión Virtual Exitosa", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show($"Ticket Virtual guardado en:\n{path}", "Impresión Virtual Exitosa", MessageBoxButton.OK, MessageBoxImage.Information);
                 return true;
             }
             catch (Exception ex) 
             {
                 Console.WriteLine($"Virtual Print Error: {ex.Message}");
-                MessageBox.Show($"Error guardando ticket virtual:\n{ex.Message}", "Error de Impresión", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show($"Error guardando ticket virtual:\n{ex.Message}", "Error de Impresión", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
         }
