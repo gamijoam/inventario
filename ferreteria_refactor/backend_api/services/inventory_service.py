@@ -308,7 +308,14 @@ class InventoryService:
             return {"valid": False, "message": "Serial no encontrado en inventario."}
         
         if instance.status != models.ProductInstanceStatus.AVAILABLE:
-            return {"valid": False, "message": f"Serial no disponible (Estado: {instance.status})"}
+            status_map = {
+                models.ProductInstanceStatus.SOLD: "Ya fue vendido",
+                models.ProductInstanceStatus.RMA: "Está en proceso de garantía (RMA)",
+                models.ProductInstanceStatus.TRANSIT: "Está en tránsito entre bodegas",
+                models.ProductInstanceStatus.DAMAGED: "Está marcado como dañado"
+            }
+            status_msg = status_map.get(instance.status, str(instance.status))
+            return {"valid": False, "message": f"Serial no disponible: {status_msg}"}
             
         return {"valid": True, "message": "Serial válido", "instance_id": instance.id}
 

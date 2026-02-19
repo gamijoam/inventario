@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Calendar, Trash2, Eye, Printer, AlertTriangle, X, FileText, ArrowRight, Filter, Download, MoreHorizontal, FileDown } from 'lucide-react';
+import { Search, Calendar, Trash2, Eye, Printer, AlertTriangle, X, FileText, ArrowRight, Filter, Download, MoreHorizontal, FileDown, ScanBarcode } from 'lucide-react';
 import apiClient from '../config/axios';
 import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
@@ -467,9 +467,9 @@ const SalesHistory = () => {
                                     <TableCell>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <span className="sr-only">Open menu</span>
-                                                    <MoreHorizontal className="h-4 w-4 text-slate-400" />
+                                                <Button variant="secondary" className="h-8 px-3 gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-sm transition-all hover:scale-105 active:scale-95">
+                                                    <span className="text-xs font-bold">Opciones</span>
+                                                    <MoreHorizontal className="h-3.5 w-3.5" />
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
@@ -528,7 +528,7 @@ const SalesHistory = () => {
                         </div>
 
                         {/* Content */}
-                        <ScrollArea className="flex-1 p-6">
+                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                 <Card className="shadow-sm">
                                     <CardContent className="p-4">
@@ -560,7 +560,32 @@ const SalesHistory = () => {
                                     <TableBody>
                                         {selectedSale.details?.map((detail, index) => (
                                             <TableRow key={index}>
-                                                <TableCell className="font-medium">{detail.product?.name || 'N/A'}</TableCell>
+                                                <TableCell className="font-medium">
+                                                    <div>
+                                                        <div className="text-sm font-bold text-slate-700">{detail.product?.name || 'Producto Desconocido'}</div>
+
+                                                        {/* Styled Serial Numbers */}
+                                                        {detail.instances && detail.instances.length > 0 && (
+                                                            <div className="mt-2 flex flex-col gap-1.5 p-2 bg-slate-50 rounded-lg border border-slate-100/80">
+                                                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 uppercase tracking-wider">
+                                                                    <ScanBarcode size={12} />
+                                                                    Seriales / IMEIs ({detail.instances.length})
+                                                                </div>
+                                                                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
+                                                                    {detail.instances.map((inst, idx) => (
+                                                                        <Badge
+                                                                            key={idx}
+                                                                            variant="secondary"
+                                                                            className="font-mono text-[10px] px-2 py-0.5 bg-white text-slate-600 border border-slate-200 shadow-sm hover:border-indigo-200 hover:text-indigo-600 transition-colors cursor-default"
+                                                                        >
+                                                                            {inst.product_instance?.serial_number || 'S/N'}
+                                                                        </Badge>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell className="text-center">{detail.quantity}</TableCell>
                                                 <TableCell className="text-right">${Number(detail.unit_price).toFixed(2)}</TableCell>
                                                 <TableCell className="text-right font-bold">${Number(detail.subtotal).toFixed(2)}</TableCell>
@@ -573,7 +598,7 @@ const SalesHistory = () => {
                                     <span className="font-black text-2xl text-indigo-600">${Number(selectedSale.total_amount).toFixed(2)}</span>
                                 </div>
                             </Card>
-                        </ScrollArea>
+                        </div>
 
                         {/* Footer */}
                         <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-3">
