@@ -9,7 +9,7 @@ from ..database.db import get_db
 from ..models import models
 from ..models.models import UserRole
 from .. import schemas
-from ..dependencies import has_role, cashier_or_admin
+from ..dependencies import has_role, cashier_or_admin, get_current_active_user
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from ..audit_utils import log_action
@@ -844,12 +844,11 @@ def delete_price_rule(rule_id: int, db: Session = Depends(get_db)):
     return {"status": "success"}
 
 @router.post("/sales/", dependencies=[Depends(cashier_or_admin)])
-def create_sale(sale_data: schemas.SaleCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def create_sale(sale_data: schemas.SaleCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
     from ..services.sales_service import SalesService
     
     # Delegate to Service (Now Sync)
-    # TODO: Get actual user_id from dependency
-    return SalesService.create_sale(db, sale_data, user_id=1, background_tasks=background_tasks)
+    return SalesService.create_sale(db, sale_data, user_id=current_user.id, background_tasks=background_tasks)
 
 # NEW: Get sale detail with items (for invoice detail view)
 @router.get("/sales/{sale_id}", response_model=schemas.SaleRead, dependencies=[Depends(cashier_or_admin)])

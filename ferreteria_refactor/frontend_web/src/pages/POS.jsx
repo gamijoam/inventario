@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart } from 'lucide-
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Layers, Settings as SettingsIcon } from 'lucide-react';
+import { Layers, Settings as SettingsIcon, Users } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { useCart } from '../context/CartContext';
@@ -93,6 +93,8 @@ const POS = () => {
     const [warehouses, setWarehouses] = useState([]);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
     const [salespeople, setSalespeople] = useState([]);
+    const [selectedSalespersonId, setSelectedSalespersonId] = useState(''); // NEW: Global Salesperson
+
     const [isLoading, setIsLoading] = useState(true);
 
     // Refs
@@ -388,16 +390,21 @@ const POS = () => {
             setSelectedProductForUnits(product);
         } else {
             addBaseProductToCart(product);
-            // focusAndSelectSearch(); 
         }
     };
 
     const addBaseProductToCart = (product) => {
-        addToCart(product, { name: 'Unidad', price_usd: parseFloat(product.price), factor: 1, is_base: true });
+        addToCart(product, {
+            name: 'Unidad',
+            price_usd: parseFloat(product.price),
+            factor: 1,
+            is_base: true,
+            salesperson_id: selectedSalespersonId || null // Apply Global Salesperson
+        });
     };
 
     const handleUnitSelect = (unit) => {
-        addToCart(selectedProductForUnits, unit);
+        addToCart(selectedProductForUnits, { ...unit, salesperson_id: selectedSalespersonId || null });
         setSelectedProductForUnits(null);
         focusSearch();
     }
@@ -413,7 +420,8 @@ const POS = () => {
                 is_base: true,
                 serial_numbers: [accSerial],
                 unit_id: `IMEI-${accSerial}`,
-                has_imei: true
+                has_imei: true,
+                salesperson_id: selectedSalespersonId || null
             };
             addToCart(selectedProductForSerialized, singleUnit);
         });
@@ -603,7 +611,7 @@ const POS = () => {
                         <Layers size={16} /> Órdenes
                     </Button>
 
-                    <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
+
 
                     <Button
                         variant="ghost"

@@ -66,6 +66,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         is_combo: false,
         has_imei: false,
         is_service: false,  // NEW: Service/Non-stock product flag
+        is_commissionable: false, // NEW: Commission flag
         warranty_duration: 0,
         warranty_unit: 'DAYS',
         warranty_notes: '',
@@ -139,7 +140,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                     exchange_rate_id: initialData.exchange_rate_id || null,
                     is_combo: initialData.is_combo || false,
                     has_imei: initialData.has_imei || false,
-                    is_service: initialData.is_service || false,  // NEW: Load service flag
+                    is_service: initialData.is_service || false,
+                    is_commissionable: initialData.is_commissionable || false, // NEW
                     warranty_duration: parseInt(initialData.warranty_duration) || 0,
                     warranty_unit: initialData.warranty_unit || 'DAYS',
                     warranty_notes: initialData.warranty_notes || '',
@@ -156,7 +158,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             } else {
                 setFormData({
                     name: '', sku: '', category_id: null, cost: 0, price: 0, stock: 0, min_stock: 5, location: '',
-                    margin: 0, unit_type: 'UNID', exchange_rate_id: null, is_combo: false, has_imei: false, is_service: false, units: [],
+                    margin: 0, unit_type: 'UNID', exchange_rate_id: null, is_combo: false, has_imei: false, is_service: false, is_commissionable: false, units: [],
                     combo_items: [], tax_rate: 0, warehouse_stocks: [], prices: {}, image_url: ''
                 });
             }
@@ -234,7 +236,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             profit_margin: formData.profit_margin ? parseFloat(formData.profit_margin) : null,
             discount_percentage: parseFloat(formData.discount_percentage) || 0,
             tax_rate: parseFloat(formData.tax_rate) || 0,
-            is_service: formData.is_service || false,  // NEW: Include service flag
+            is_service: formData.is_service || false,
+            is_commissionable: formData.is_commissionable || false, // NEW: Commission flag
             units: formData.units.map(u => ({
                 unit_name: u.unit_name,
                 conversion_factor: u.type === 'fraction' ? (u.user_input !== 0 ? 1 / parseFloat(u.user_input) : 0) : parseFloat(u.user_input),
@@ -425,7 +428,40 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     </div>
                                                 </div>
                                             )}
+
+                                            {/* Commission Toggle - Always visible */}
+                                            <div className={cn(
+                                                "flex items-center gap-4 p-4 rounded-xl transition-all border",
+                                                formData.is_commissionable
+                                                    ? "bg-green-50 border-green-200 ring-1 ring-green-500/10"
+                                                    : "bg-slate-50 border-slate-100 hover:border-slate-200"
+                                            )}>
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                                                    formData.is_commissionable ? "bg-green-600 text-white" : "bg-slate-200 text-slate-400"
+                                                )}>
+                                                    <DollarSign size={20} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label htmlFor="is_commissionable" className="text-sm font-bold text-slate-800 cursor-pointer">Aplica Comisión</Label>
+                                                        <input
+                                                            type="checkbox"
+                                                            id="is_commissionable"
+                                                            checked={formData.is_commissionable || false}
+                                                            onChange={(e) => setFormData({ ...formData, is_commissionable: e.target.checked })}
+                                                            className="sr-only peer"
+                                                        />
+                                                        <div
+                                                            onClick={() => setFormData(p => ({ ...p, is_commissionable: !p.is_commissionable }))}
+                                                            className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 peer-checked:after:translate-x-5"
+                                                        ></div>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500 mt-0.5">Al venderse generará comisión automática para el cajero.</p>
+                                                </div>
+                                            </div>
                                         </div>
+
                                     </div>
                                 </CardContent>
                             </Card>

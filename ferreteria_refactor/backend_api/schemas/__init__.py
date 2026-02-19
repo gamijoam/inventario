@@ -41,6 +41,7 @@ class ProductBase(BaseModel):
     is_combo: bool = Field(False, description="Indica si el producto es un combo/bundle")
     has_imei: bool = Field(False, description="Indica si el producto maneja seriales/IMEIs") # NEW
     is_service: bool = Field(False, description="Indica si es un servicio (no requiere stock)") # NEW
+    is_commissionable: bool = Field(False, description="Indica si genera comision al vendedor") # NEW
     is_active: Optional[bool] = True
     
     # Image Support
@@ -226,6 +227,7 @@ class ProductUpdate(BaseModel):
     is_combo: Optional[bool] = None  # NEW: Allow updating combo status
     has_imei: Optional[bool] = None # NEW: Allow updating serialized status
     is_service: Optional[bool] = None # NEW: Allow updating service status
+    is_commissionable: Optional[bool] = None # NEW: Commission flag
     is_active: Optional[bool] = None
     # Pricing System Fields - Added for updates
     profit_margin: Optional[Decimal] = None
@@ -255,6 +257,7 @@ class ProductRead(ProductBase):
     combo_items: List[ComboItemRead] = []  # NEW: Include combo items
     stocks: List[ProductStockRead] = [] # NEW: Include warehouse stocks
     has_imei: Optional[bool] = False # NEW: Include serialized status exposed to frontend
+    is_commissionable: Optional[bool] = False # NEW: Commission flag
     prices: List[ProductPriceRead] = [] # NEW: Multi-Price List
     
     class Config:

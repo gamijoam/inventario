@@ -175,6 +175,9 @@ class Product(Base):
     # NEW: Service/Non-Stock Product Flag
     is_service = Column(Boolean, default=False)  # True = no requiere seguimiento de stock
 
+    # NEW: Commission Flag
+    is_commissionable = Column(Boolean, default=False)  # True = genera comision al vendedor
+
     
     # Image Support
     image_url = Column(String(255), nullable=True)  # Relative path to product image
