@@ -86,6 +86,12 @@ def check_warranty_status(imei: str, db: Session = Depends(get_db)):
             
     is_within_warranty = days_elapsed <= warranty_limit_days
     
+    # 6. Determine Primary Currency of Sale (Simplified)
+    # We look at the first payment record to identify what currency they used
+    pm_curr = "USD"
+    if sale.payments:
+        pm_curr = sale.payments[0].currency or "USD"
+    
     status_str = "ACTIVE" if is_within_warranty else "EXPIRED"
     if policy and policy.type == "LIFETIME":
         msg = "Garantía de por Vida Activa"
@@ -100,7 +106,9 @@ def check_warranty_status(imei: str, db: Session = Depends(get_db)):
         "product_name": product.name,
         "days_elapsed": days_elapsed,
         "warranty_status": status_str,
-        "original_price": sale_detail.unit_price # Return strictly the unit price paid
+        "original_price": sale_detail.unit_price,
+        "net_price": sale_detail.subtotal / sale_detail.quantity,
+        "original_currency": pm_curr
     }
 
 
@@ -199,7 +207,9 @@ def process_rma_return(
         commission_reversed = True
 
     # 4. FINANCIAL / REFUND LOGIC
-    refund_amount = sale_detail.unit_price # Simple refund of what was paid
+    # CRITICAL FIX: Refund the NET amount paid (subtotal) instead of the gross unit_price
+    # If quantity > 1, we refund the proportional subtotal for 1 unit
+    refund_amount = sale_detail.subtotal / sale_detail.quantity
     
     # Create Return Record
     return_record = models.Return(
@@ -223,19 +233,24 @@ def process_rma_return(
     if payload.action == "REFUND":
         # Check active session
         active_session = db.query(models.CashSession).filter(
-            models.CashSession.user_id == current_user.id, 
             models.CashSession.status == "OPEN"
         ).first()
 
         if not active_session:
              raise HTTPException(status_code=400, detail="Debe tener una caja abierta para procesar el reembolso.")
         
+        # Calculate amount to record in the selected currency
+        amount_to_record = refund_amount
+        if payload.refund_currency != "USD":
+            amount_to_record = refund_amount * payload.exchange_rate
+
         # Create Cash Movement (Outflow)
         movement = models.CashMovement(
             session_id=active_session.id,
-            type="EXPENSE", # Treated as Expense/Return
-            amount=refund_amount,
-            currency="USD", # Defaulting to base currency for now
+            type="RETURN", # Explicit return type
+            amount=amount_to_record,
+            currency=payload.refund_currency,
+            exchange_rate=payload.exchange_rate,
             description=f"Reembolso por Garantía RMA: {payload.reason} (IMEI: {payload.imei})"
         )
         db.add(movement)

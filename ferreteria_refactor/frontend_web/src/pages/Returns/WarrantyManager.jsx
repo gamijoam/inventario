@@ -21,7 +21,40 @@ const WarrantyManager = () => {
     const [reason, setReason] = useState('');
     const [action, setAction] = useState('REFUND');
 
+    // Multi-Currency Selection
+    const [refundCurrency, setRefundCurrency] = useState('USD');
+    const [exchangeRate, setExchangeRate] = useState(0);
+    const [cashBalances, setCashBalances] = useState({ USD: 0, Bs: 0 });
+
     const inputRef = useRef(null);
+
+    // Sync exchange rate from config
+    useEffect(() => {
+        if (currencies && currencies.length > 0) {
+            const ves = currencies.find(c =>
+                c.currency_code === 'VES' ||
+                c.currency_symbol === 'Bs' ||
+                c.symbol === 'VES' ||
+                c.target_currency === 'Bs' // Safety fallback
+            );
+            if (ves) setExchangeRate(ves.rate);
+        }
+    }, [currencies]);
+
+    const fetchBalances = async () => {
+        try {
+            const [usdRes, bsRes] = await Promise.all([
+                apiClient.get('/cash/balance?currency=USD'),
+                apiClient.get('/cash/balance?currency=Bs')
+            ]);
+            setCashBalances({
+                USD: usdRes.data.available,
+                Bs: bsRes.data.available
+            });
+        } catch (error) {
+            console.error("Error fetching balances:", error);
+        }
+    };
 
     const handleCheck = async () => {
         if (!imei.trim()) return;
@@ -33,6 +66,12 @@ const WarrantyManager = () => {
 
             if (data.valid || data.warranty_status !== 'NOT_FOUND') {
                 setStep(2);
+                fetchBalances(); // Get fresh balances
+                // Auto-set refund currency to original if possible
+                if (data.original_currency) {
+                    setRefundCurrency(data.original_currency.toUpperCase() === 'BS' ? 'Bs' : 'USD');
+                }
+
                 if (data.warranty_status === 'EXPIRED') {
                     toast("Garantía Vencida", { icon: "⚠️" });
                 } else if (data.valid) {
@@ -62,7 +101,9 @@ const WarrantyManager = () => {
                 reason,
                 condition,
                 action,
-                notes: ""
+                notes: "",
+                refund_currency: refundCurrency,
+                exchange_rate: refundCurrency === 'USD' ? 1.0 : exchangeRate
             };
 
             const { data } = await apiClient.post('/rma/process', payload);
@@ -266,22 +307,102 @@ const WarrantyManager = () => {
                             <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
                                 <div className="flex justify-between items-center mb-1">
                                     <span className="text-xs font-bold text-indigo-400 uppercase">Monto a Reembolsar</span>
-                                    <span className="bg-white text-indigo-600 text-[10px] px-2 py-0.5 rounded font-bold border border-indigo-100">USD</span>
+                                    <div className="flex gap-1">
+                                        <button
+                                            onClick={() => setRefundCurrency('USD')}
+                                            className={clsx(
+                                                "text-[10px] px-2 py-0.5 rounded font-bold border transition-all",
+                                                refundCurrency === 'USD' ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-indigo-400 border-indigo-100"
+                                            )}
+                                        >
+                                            USD
+                                        </button>
+                                        <button
+                                            onClick={() => setRefundCurrency('Bs')}
+                                            className={clsx(
+                                                "text-[10px] px-2 py-0.5 rounded font-bold border transition-all",
+                                                refundCurrency === 'Bs' ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-indigo-400 border-indigo-100"
+                                            )}
+                                        >
+                                            BS
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="text-3xl font-black text-indigo-800">
-                                    ${Number(checkResult.original_price).toFixed(2)}
+                                <div className="flex items-baseline gap-2">
+                                    <div className="text-3xl font-black text-indigo-800">
+                                        {refundCurrency === 'USD' ? '$' : 'Bs. '}
+                                        {refundCurrency === 'USD'
+                                            ? Number(checkResult.net_price).toFixed(2)
+                                            : (Number(checkResult.net_price) * exchangeRate).toLocaleString()
+                                        }
+                                    </div>
+                                    {refundCurrency === 'Bs' && (
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-[10px] font-bold text-indigo-400 uppercase">Tasa de Cambio</span>
+                                            <div className="flex gap-2">
+                                                <select
+                                                    value={currencies.find(c => c.rate === exchangeRate)?.id || 'custom'}
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        if (val === 'custom') return;
+                                                        const selected = currencies.find(c => String(c.id) === val);
+                                                        if (selected) setExchangeRate(selected.rate);
+                                                    }}
+                                                    className="bg-white border border-indigo-200 rounded px-2 py-0.5 text-xs font-bold text-indigo-600 outline-none focus:border-indigo-500"
+                                                >
+                                                    {currencies.filter(c =>
+                                                        c.currency_code === 'VES' ||
+                                                        c.currency_symbol === 'Bs' ||
+                                                        c.symbol === 'VES'
+                                                    ).map(curr => (
+                                                        <option key={curr.id} value={curr.id}>
+                                                            {curr.name || curr.currency_code} ({curr.rate})
+                                                        </option>
+                                                    ))}
+                                                    <option value="custom">Manual...</option>
+                                                </select>
+                                                <input
+                                                    type="number"
+                                                    value={exchangeRate}
+                                                    onChange={e => setExchangeRate(Number(e.target.value))}
+                                                    className="w-16 bg-white border border-indigo-200 rounded px-2 py-0.5 text-xs font-bold text-indigo-600 outline-none focus:border-indigo-500"
+                                                    step="0.01"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                                <p className="text-xs text-indigo-400 mt-2 flex items-center gap-1">
-                                    <AlertTriangle size={12} />
-                                    Se debitará de la caja actual
-                                </p>
+
+                                <div className="mt-2 flex flex-col gap-1">
+                                    <p className="text-[10px] font-bold text-indigo-400 flex items-center justify-between">
+                                        <span>ORIGEN PAGO: <span className="text-indigo-600">{checkResult.original_currency || 'USD'}</span></span>
+                                        <span>DISPONIBLE: <span className={clsx(
+                                            "font-mono",
+                                            (refundCurrency === 'USD' ? cashBalances.USD : cashBalances.Bs) < (refundCurrency === 'USD' ? checkResult.net_price : checkResult.net_price * exchangeRate)
+                                                ? "text-rose-500" : "text-emerald-600"
+                                        )}>
+                                            {refundCurrency === 'USD' ? `$${cashBalances.USD.toFixed(2)}` : `Bs. ${cashBalances.Bs.toLocaleString()}`}
+                                        </span></span>
+                                    </p>
+
+                                    {(refundCurrency === 'USD' ? cashBalances.USD : cashBalances.Bs) < (refundCurrency === 'USD' ? checkResult.net_price : checkResult.net_price * exchangeRate) && (
+                                        <p className="text-[10px] bg-rose-500 text-white px-2 py-1 rounded font-bold flex items-center gap-1 animate-pulse">
+                                            <AlertTriangle size={10} />
+                                            SALDO INSUFICIENTE EN CAJA ({refundCurrency})
+                                        </p>
+                                    )}
+
+                                    <p className="text-[10px] text-indigo-400 font-bold opacity-75">
+                                        Se descontará de la caja física actual.
+                                    </p>
+                                </div>
                             </div>
 
                         </div>
 
                         <button
                             onClick={handleProcess}
-                            disabled={loading || !reason.trim()}
+                            disabled={loading || !reason.trim() || ((refundCurrency === 'USD' ? cashBalances.USD : cashBalances.Bs) < (refundCurrency === 'USD' ? checkResult.net_price : checkResult.net_price * exchangeRate))}
                             className="w-full py-4 mt-8 bg-slate-900 text-white rounded-xl font-bold text-lg hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2"
                         >
                             {loading ? <Package className="animate-spin" /> : <DollarSign />}

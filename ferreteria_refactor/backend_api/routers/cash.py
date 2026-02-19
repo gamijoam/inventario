@@ -284,7 +284,7 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
     
     movements_out = db.query(func.sum(models.CashMovement.amount)).filter(
         models.CashMovement.session_id == session.id,
-        models.CashMovement.type.in_(["EXPENSE", "WITHDRAWAL", "OUT", "CASH_ADVANCE"]),
+        models.CashMovement.type.in_(["EXPENSE", "WITHDRAWAL", "OUT", "CASH_ADVANCE", "RETURN"]),
         models.CashMovement.currency.in_(target_currencies)
     ).scalar() or Decimal("0.00")
     

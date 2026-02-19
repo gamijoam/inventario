@@ -22,7 +22,9 @@ class RMACheckResponse(BaseModel):
     product_name: Optional[str] = None
     days_elapsed: Optional[int] = None
     warranty_status: str # ACTIVE, EXPIRED, NOT_FOUND
-    original_price: Optional[Decimal] = None
+    original_price: Optional[Decimal] = None # Gross Price
+    net_price: Optional[Decimal] = None # Price after discounts
+    original_currency: Optional[str] = None # USD, Bs, etc.
     
 class RMAProcessRequest(BaseModel):
     imei: str
@@ -30,6 +32,8 @@ class RMAProcessRequest(BaseModel):
     condition: ItemCondition # GOOD (Resalable) or DAMAGED (Defective)
     action: RMAAction
     notes: Optional[str] = None
+    refund_currency: str = "USD"
+    exchange_rate: Decimal = Decimal("1.0")
 
 class RMAProcessResponse(BaseModel):
     status: str
