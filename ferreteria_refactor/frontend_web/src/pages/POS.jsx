@@ -230,7 +230,11 @@ const POS = () => {
         if (foundProduct) handleProductClick(foundProduct);
     };
 
-    useBarcodeScanner(handleGlobalScan, { minLength: 3, maxTimeBetweenKeys: 50, enabled: !pinModalOpen });
+    useBarcodeScanner(handleGlobalScan, {
+        minLength: 3,
+        maxTimeBetweenKeys: 50,
+        enabled: !pinModalOpen && !selectedProductForSerialized && !isPaymentOpen && !isSettingsOpen
+    });
 
 
     useEffect(() => {
@@ -256,16 +260,18 @@ const POS = () => {
                 }
                 setSelectedWarehouseId('all');
 
-                if (modules?.services) {
-                    try {
-                        const usersRes = await apiClient.get('/users');
-                        if (Array.isArray(usersRes.data)) {
-                            // Filter active users
-                            setSalespeople(usersRes.data.filter(u => u.is_active));
-                        }
-                    } catch (err) {
-                        console.error("Failed to load salespeople:", err);
+                // Always fetch salespeople for commissions
+                try {
+                    const usersRes = await apiClient.get('/users');
+                    if (Array.isArray(usersRes.data)) {
+                        setSalespeople(usersRes.data.filter(u => u.is_active));
                     }
+                } catch (err) {
+                    console.error("Failed to load salespeople:", err);
+                }
+
+                if (modules?.services) {
+                    // Other service-specific logic if any
                 }
             } catch (e) { console.error(e); }
             setIsLoading(false);
@@ -551,13 +557,14 @@ const POS = () => {
         }
     };
 
-    // Mobile View State unused in new layout via Tabs but keep for simple integration
-    const [activeTab, setActiveTab] = useState('CATALOG');
-
-
+    const handleUpdateItem = (itemId, quantity, extra = {}) => {
+        if (quantity !== undefined && quantity !== null) updateQuantity(itemId, quantity);
+        if (Object.keys(extra).length > 0) updateCartItem(itemId, extra);
+    };
 
     return (
         <div className="flex flex-col h-screen bg-slate-100 overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+
             {/* GLOBAL POS HEADER */}
             <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-20">
                 <div className="flex items-center gap-4">
@@ -705,7 +712,15 @@ const POS = () => {
                 {/* --- MODALS --- */}
                 <POSSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
                 <UnitSelectionModal isOpen={!!selectedProductForUnits} product={selectedProductForUnits} onClose={() => setSelectedProductForUnits(null)} onSelect={handleUnitSelect} />
-                <EditItemModal isOpen={!!selectedItemForEdit} item={selectedItemForEdit} onClose={() => setSelectedItemForEdit(null)} onUpdate={updateQuantity} onDelete={removeFromCart} />
+                <EditItemModal
+                    isOpen={!!selectedItemForEdit}
+                    item={selectedItemForEdit}
+                    onClose={() => setSelectedItemForEdit(null)}
+                    onUpdate={handleUpdateItem}
+                    onDelete={removeFromCart}
+                    salespeople={salespeople}
+                    priceLists={priceLists}
+                />
 
                 <PaymentModal
                     isOpen={isPaymentOpen}

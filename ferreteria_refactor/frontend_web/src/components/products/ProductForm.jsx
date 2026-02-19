@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
+import ProductPriceListManager from './ProductPriceListManager';
 import ProductUnitManager from './ProductUnitManager';
 import ComboManager from './ComboManager';
 import ProductImageUploader from './ProductImageUploader';
@@ -646,6 +647,21 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                             basePrice={formData.price}
                                             baseCost={formData.cost}
                                             exchangeRates={exchangeRates}
+                                        />
+                                    </CardContent>
+
+                                    {/* Price Lists Section */}
+                                    <div className="px-6 py-4 border-t border-slate-100 flex items-center gap-2 bg-slate-50/30">
+                                        <Tag size={18} className="text-emerald-500" />
+                                        <h4 className="text-sm font-bold text-slate-800">Listas de Precios Especiales</h4>
+                                    </div>
+                                    <CardContent className="p-6 pt-2">
+                                        <ProductPriceListManager
+                                            prices={formData.prices || []}
+                                            onPricesChange={(p) => setFormData(prev => ({ ...prev, prices: p }))}
+                                            priceLists={priceLists}
+                                            basePrice={formData.price}
+                                            onRefresh={fetchPriceLists}
                                         />
                                     </CardContent>
                                 </Card>

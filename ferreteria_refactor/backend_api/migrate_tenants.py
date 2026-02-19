@@ -80,6 +80,50 @@ def migrate_tenants():
             except Exception as e:
                 conn.rollback() # Reset transaction
                 print(f"   ⚠️ Error creating service_payments in {schema}: {e}")
+
+            # 3. Create Price Lists & Product Prices
+            try:
+                tables = inspector.get_table_names(schema=schema)
+                
+                # 3.1 Price Lists
+                if 'price_lists' not in tables:
+                    print(f"   ➕ Creating table {schema}.price_lists")
+                    conn.execute(text(f"""
+                        CREATE TABLE \"{schema}\".price_lists (
+                            id SERIAL PRIMARY KEY,
+                            name VARCHAR NOT NULL,
+                            requires_auth BOOLEAN DEFAULT FALSE,
+                            is_active BOOLEAN DEFAULT TRUE,
+                            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+                            CONSTRAINT \"uq_{safe_schema}_pl_name\" UNIQUE (name)
+                        )
+                    """))
+                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_pl_id\" ON \"{schema}\".price_lists (id)"))
+                    conn.commit()
+                else:
+                    print(f"   ✅ Table {schema}.price_lists already exists")
+
+                # 3.2 Product Prices
+                if 'product_prices' not in tables:
+                    print(f"   ➕ Creating table {schema}.product_prices")
+                    conn.execute(text(f"""
+                        CREATE TABLE \"{schema}\".product_prices (
+                            id SERIAL PRIMARY KEY,
+                            product_id INTEGER NOT NULL REFERENCES \"{schema}\".products(id),
+                            price_list_id INTEGER NOT NULL REFERENCES \"{schema}\".price_lists(id),
+                            price NUMERIC(18, 4) NOT NULL DEFAULT 0.0000
+                        )
+                    """))
+                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_pp_id\" ON \"{schema}\".product_prices (id)"))
+                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_pp_prod\" ON \"{schema}\".product_prices (product_id)"))
+                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_pp_list\" ON \"{schema}\".product_prices (price_list_id)"))
+                    conn.commit()
+                else:
+                    print(f"   ✅ Table {schema}.product_prices already exists")
+
+            except Exception as e:
+                conn.rollback()
+                print(f"   ⚠️ Error creating price_lists/product_prices in {schema}: {e}")
             
     print("\n🎉 All Tenants Migrated!")
 

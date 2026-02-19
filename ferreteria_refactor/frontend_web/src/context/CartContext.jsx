@@ -124,8 +124,10 @@ export const CartProvider = ({ children }) => {
 
     // Add Item Logic with multi-unit support and exchange rate hierarchy
     const addToCart = (product, unit) => {
-        // unit: { name, price_usd, factor, is_base, exchange_rate_id?, exchange_rate_name?, is_special_rate? }
-        const itemId = `${product.id}_${unit.name.replace(/\s+/g, '_')}`;
+        // unit: { name, price_usd, factor, is_base, exchange_rate_id?, exchange_rate_name?, is_special_rate?, unit_id? }
+        // CRITICAL FIX: Use unit.unit_id if available (e.g. for IMEI specific items)
+        const unitSuffix = unit.unit_id || unit.name;
+        const itemId = `${product.id}_${unitSuffix.replace(/\s+/g, '_')}`;
 
         setCart(prevCart => {
             const existingItem = prevCart.find(item => item.id === itemId);

@@ -162,25 +162,27 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
                     {scannedSerials.length > 0 && (
                         <div className="space-y-2">
                             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                Seriales Capturados
+                                Seriales Capturados ({scannedSerials.length})
                             </div>
-                            {scannedSerials.map((serial, idx) => (
-                                <div key={`${serial}-${idx}`} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-lg group hover:border-indigo-100 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                                            <Check size={14} strokeWidth={3} />
+                            <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                                {scannedSerials.map((serial, idx) => (
+                                    <div key={`${serial}-${idx}`} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-100 rounded-lg group hover:border-indigo-100 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
+                                                <Check size={14} strokeWidth={3} />
+                                            </div>
+                                            <span className="font-mono text-sm font-medium text-slate-700">{serial}</span>
                                         </div>
-                                        <span className="font-mono text-sm font-medium text-slate-700">{serial}</span>
+                                        <button
+                                            onClick={() => removeSerial(serial)}
+                                            className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={() => removeSerial(serial)}
-                                        className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                                        title="Eliminar"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -203,7 +205,7 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
                     </button>
                     <button
                         onClick={handleConfirm}
-                        disabled={scannedSerials.length !== quantity}
+                        disabled={quantity > 0 ? scannedSerials.length !== quantity : scannedSerials.length === 0}
                         className="
                             px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow-lg shadow-indigo-200
                             hover:bg-indigo-700 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all
@@ -211,7 +213,7 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
                             flex items-center gap-2 text-sm
                         "
                     >
-                        {scannedSerials.length !== quantity ? (
+                        {(quantity > 0 ? scannedSerials.length !== quantity : scannedSerials.length === 0) ? (
                             <>
                                 <AlertTriangle size={16} />
                                 Completa los seriales

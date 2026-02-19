@@ -133,9 +133,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
                 { icon: BarChart2, label: 'Antigüedad', path: '/credit/aging' },
                 { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
-                ...(effectiveModules?.services ? [
-                    { icon: DollarSign, label: 'Comisiones', path: '/hr/commissions' }
-                ] : []),
+                { icon: DollarSign, label: 'Comisiones', path: '/hr/commissions' },
                 { icon: BarChart2, label: 'Reportes Unificados', path: '/reports/unified' },
                 { icon: PieChart, label: 'Reportes Detallados', path: '/reports/detailed' },
             ]

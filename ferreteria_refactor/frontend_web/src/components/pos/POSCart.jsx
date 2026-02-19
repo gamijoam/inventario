@@ -144,7 +144,9 @@ const POSCart = ({
                                                         e.stopPropagation();
                                                         onUpdateQuantity(item.id, Math.max(0, item.quantity - 1));
                                                     }}
-                                                    className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white transition-all border-r border-slate-200"
+                                                    disabled={item.has_imei}
+                                                    className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white transition-all border-r border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    title={item.has_imei ? "Elimine el item para modificar seriales" : "Disminuir cantidad"}
                                                 >
                                                     <Minus size={12} strokeWidth={3} />
                                                 </button>
@@ -157,14 +159,17 @@ const POSCart = ({
                                                         const val = parseFloat(e.target.value);
                                                         if (!isNaN(val)) onUpdateQuantity(item.id, val);
                                                     }}
-                                                    className="w-12 text-center text-sm font-black text-slate-900 bg-transparent border-none focus:ring-0 tabular-nums"
+                                                    disabled={item.has_imei}
+                                                    className="w-12 text-center text-sm font-black text-slate-900 bg-transparent border-none focus:ring-0 tabular-nums disabled:text-slate-500"
                                                 />
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         onUpdateQuantity(item.id, item.quantity + 1);
                                                     }}
-                                                    className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white transition-all border-l border-slate-200"
+                                                    disabled={item.has_imei}
+                                                    className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white transition-all border-l border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    title={item.has_imei ? "Escanee otro serial para agregar" : "Aumentar cantidad"}
                                                 >
                                                     <Plus size={12} strokeWidth={3} />
                                                 </button>

@@ -309,7 +309,7 @@ const SerializedReception = () => {
                         </span>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                    <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar max-h-[calc(100vh-300px)]">
                         {scannedList.map((item, idx) => (
                             <div key={idx} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-lg shadow-sm animate-in fade-in slide-in-from-left-4 duration-200">
                                 <div className="flex items-center gap-3 overflow-hidden">
