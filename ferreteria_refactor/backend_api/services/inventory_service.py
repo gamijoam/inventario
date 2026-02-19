@@ -311,3 +311,37 @@ class InventoryService:
             return {"valid": False, "message": f"Serial no disponible (Estado: {instance.status})"}
             
         return {"valid": True, "message": "Serial válido", "instance_id": instance.id}
+
+    @staticmethod
+    def validate_imei_for_entry(db: Session, imei: str) -> Dict[str, Any]:
+        """
+        Checks if an IMEI already exists in the database (ANY status).
+        Used during reception significantly to prevent creating duplicates.
+        """
+        # Load instance with Product relationship to get name
+        instance = db.query(models.ProductInstance).options(
+            joinedload(models.ProductInstance.product)
+        ).filter(
+            models.ProductInstance.serial_number == imei
+        ).first()
+
+        if instance:
+            # Map status to Spanish
+            status_map = {
+                models.ProductInstanceStatus.AVAILABLE: "Disponible",
+                models.ProductInstanceStatus.SOLD: "Vendido",
+                models.ProductInstanceStatus.RMA: "En Garantía/RMA",
+                models.ProductInstanceStatus.TRANSIT: "En Tránsito",
+                models.ProductInstanceStatus.DAMAGED: "Dañado/Averiado"
+            }
+            status_text = status_map.get(instance.status, str(instance.status))
+            product_name = instance.product.name if instance.product else f"ID {instance.product_id}"
+
+            # Found duplicate
+            return {
+                "exists": True, 
+                "message": f"El serial '{imei}' ya existe. Pertenece al producto '{product_name}' y está en estado '{status_text}'.",
+                "product_id": instance.product_id
+            }
+        
+        return {"exists": False, "message": "Serial nuevo"}

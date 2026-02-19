@@ -258,3 +258,12 @@ def validate_imei(product_id: int, imei: str, db: Session = Depends(get_db)):
     Check if an IMEI is valid and available for a given product.
     """
     return InventoryService.validate_imei_availability(db, product_id, imei)
+
+@router.get("/validate-entry")
+def validate_imei_for_entry(imei: str, db: Session = Depends(get_db)):
+    """
+    Check if an IMEI is ALREADY in the database.
+    Used for Reception (Entry) to prevent duplicates.
+    Returns: {"exists": bool, "message": str}
+    """
+    return InventoryService.validate_imei_for_entry(db, imei)

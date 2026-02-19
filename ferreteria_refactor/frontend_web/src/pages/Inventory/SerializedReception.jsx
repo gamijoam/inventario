@@ -77,7 +77,7 @@ const SerializedReception = () => {
         }
     };
 
-    const addImei = () => {
+    const addImei = async () => {
         if (!selectedProduct) {
             toast.error("Primero selecciona un producto");
             return;
@@ -86,11 +86,25 @@ const SerializedReception = () => {
         const code = imeiInput.trim().toUpperCase();
         if (!code) return;
 
-        // Check duplicates in current list
+        // Check duplicates in current list (Local)
         if (scannedList.includes(code)) {
             toast.error('Este IMEI ya está en la lista de ingreso actual');
             setImeiInput('');
             return;
+        }
+
+        // Check duplicates in Database (Backend)
+        try {
+            const res = await apiClient.get(`/inventory/validate-entry?imei=${code}`);
+            if (res.data.exists) {
+                toast.error(res.data.message || 'El IMEI ya existe en la base de datos');
+                // Play error sound?
+                return;
+            }
+        } catch (error) {
+            console.error("Error validando IMEI:", error);
+            toast.error("Error de conexión validando IMEI");
+            return; // Fail safe
         }
 
         // Add to list
