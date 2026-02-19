@@ -687,19 +687,23 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                     </CardContent>
 
                                     {/* Price Lists Section */}
-                                    <div className="px-6 py-4 border-t border-slate-100 flex items-center gap-2 bg-slate-50/30">
-                                        <Tag size={18} className="text-emerald-500" />
-                                        <h4 className="text-sm font-bold text-slate-800">Listas de Precios Especiales</h4>
-                                    </div>
-                                    <CardContent className="p-6 pt-2">
-                                        <ProductPriceListManager
-                                            prices={formData.prices || []}
-                                            onPricesChange={(p) => setFormData(prev => ({ ...prev, prices: p }))}
-                                            priceLists={priceLists}
-                                            basePrice={formData.price}
-                                            onRefresh={fetchPriceLists}
-                                        />
-                                    </CardContent>
+                                    {modules?.services && (
+                                        <>
+                                            <div className="px-6 py-4 border-t border-slate-100 flex items-center gap-2 bg-slate-50/30">
+                                                <Tag size={18} className="text-emerald-500" />
+                                                <h4 className="text-sm font-bold text-slate-800">Listas de Precios Especiales</h4>
+                                            </div>
+                                            <CardContent className="p-6 pt-2">
+                                                <ProductPriceListManager
+                                                    prices={formData.prices || []}
+                                                    onPricesChange={(p) => setFormData(prev => ({ ...prev, prices: p }))}
+                                                    priceLists={priceLists}
+                                                    basePrice={formData.price}
+                                                    onRefresh={fetchPriceLists}
+                                                />
+                                            </CardContent>
+                                        </>
+                                    )}
                                 </Card>
 
                                 <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">

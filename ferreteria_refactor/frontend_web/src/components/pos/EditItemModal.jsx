@@ -25,7 +25,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
     const [priceListId, setPriceListId] = useState(null);
     const [price, setPrice] = useState(0);
 
-    const { currencies } = useConfig();
+    const { currencies, modules } = useConfig();
 
     // Get unique active currencies (deduplicate by currency_code)
     const getUniqueCurrencies = () => {
@@ -321,46 +321,48 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
                 )}
 
                 {/* Price List Selector */}
-                <div className="mb-6 space-y-1.5">
-                    <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
-                        <Tag size={12} />
-                        Lista de Precio
-                    </Label>
-                    <div className="grid grid-cols-1 gap-2">
-                        {/* Base Price option */}
-                        <button
-                            onClick={() => handlePriceListChange('default')}
-                            className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${!priceListId
-                                ? 'border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500'
-                                : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'
-                                }`}
-                        >
-                            <span>Precio Base</span>
-                            {!priceListId && <span className="text-[10px] font-black bg-blue-500 text-white px-2 py-0.5 rounded-full">ACTIVO</span>}
-                        </button>
-                        {/* Other price lists */}
-                        {priceLists.map(l => (
+                {modules?.services && (
+                    <div className="mb-6 space-y-1.5">
+                        <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                            <Tag size={12} />
+                            Lista de Precio
+                        </Label>
+                        <div className="grid grid-cols-1 gap-2">
+                            {/* Base Price option */}
                             <button
-                                key={l.id}
-                                onClick={() => handlePriceListChange(l.id.toString())}
-                                className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${priceListId === l.id
-                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500'
+                                onClick={() => handlePriceListChange('default')}
+                                className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${!priceListId
+                                    ? 'border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500'
                                     : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'
                                     }`}
                             >
-                                <span>{l.name}</span>
-                                <span className="flex items-center gap-1.5">
-                                    {l.requires_auth && (
-                                        <span className="text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                            🔒 PIN
-                                        </span>
-                                    )}
-                                    {priceListId === l.id && <span className="text-[10px] font-black bg-indigo-500 text-white px-2 py-0.5 rounded-full">ACTIVO</span>}
-                                </span>
+                                <span>Precio Base</span>
+                                {!priceListId && <span className="text-[10px] font-black bg-blue-500 text-white px-2 py-0.5 rounded-full">ACTIVO</span>}
                             </button>
-                        ))}
+                            {/* Other price lists */}
+                            {priceLists.map(l => (
+                                <button
+                                    key={l.id}
+                                    onClick={() => handlePriceListChange(l.id.toString())}
+                                    className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${priceListId === l.id
+                                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500'
+                                        : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                >
+                                    <span>{l.name}</span>
+                                    <span className="flex items-center gap-1.5">
+                                        {l.requires_auth && (
+                                            <span className="text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                                🔒 PIN
+                                            </span>
+                                        )}
+                                        {priceListId === l.id && <span className="text-[10px] font-black bg-indigo-500 text-white px-2 py-0.5 rounded-full">ACTIVO</span>}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Actions */}
                 <div className="flex gap-3">
