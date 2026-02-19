@@ -453,8 +453,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 <Input
                                                     type="number"
                                                     name="cost"
-                                                    value={formData.cost}
+                                                    value={formData.cost || ''}
                                                     onChange={handleInputChange}
+                                                    onFocus={(e) => e.target.select()}
                                                     step="0.01"
                                                     className="pl-8 h-11 text-lg font-bold text-slate-700 border-slate-200 bg-slate-50/30 focus:bg-white"
                                                     placeholder="0.00"
@@ -471,6 +472,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     name="profit_margin"
                                                     value={formData.profit_margin || ''}
                                                     onChange={handleInputChange}
+                                                    onFocus={(e) => e.target.select()}
                                                     step="0.01"
                                                     className={cn(
                                                         "h-11 text-center text-lg font-extrabold pr-8 border-slate-200 transition-colors",
@@ -496,8 +498,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 <Input
                                                     type="number"
                                                     name="price"
-                                                    value={formData.price}
+                                                    value={formData.price || ''}
                                                     onChange={handleInputChange}
+                                                    onFocus={(e) => e.target.select()}
                                                     step="0.01"
                                                     className={cn(
                                                         "pl-10 h-14 text-3xl font-black transition-all text-right border-2",
@@ -537,8 +540,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                 </CardContent>
                             </Card>
 
-                            {/* SECTION 3: INVENTORY & STOCK (Collapsible) */}
-                            {!formData.is_service && (
+                            {/* SECTION 3: INVENTORY & STOCK (Collapsible) - Hidden for Services AND Serialized Products */}
+                            {!formData.is_service && !formData.has_imei && (
                                 <Card className="border-slate-200 shadow-sm bg-white overflow-hidden animate-in zoom-in-95 duration-200">
                                     <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
                                         <div className="flex items-center gap-2">

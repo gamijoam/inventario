@@ -38,8 +38,8 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
             return;
         }
 
-        // Validation 2: Limit reached
-        if (scannedSerials.length >= quantity) {
+        // Validation 2: Limit reached (Only if quantity is set > 0)
+        if (quantity > 0 && scannedSerials.length >= quantity) {
             toast.error(`Ya has escaneado los ${quantity} seriales requeridos`);
             setSerialInput('');
             return;
@@ -73,7 +73,12 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
     };
 
     const handleConfirm = () => {
-        if (scannedSerials.length !== quantity) {
+        if (scannedSerials.length === 0) {
+            toast.error("Debe escanear al menos un serial");
+            return;
+        }
+
+        if (quantity > 0 && scannedSerials.length !== quantity) {
             toast.error(`Faltan seriales. Requeridos: ${quantity}, Escaneados: ${scannedSerials.length}`);
             return;
         }
@@ -87,8 +92,8 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
 
     if (!isOpen || !product) return null;
 
-    const remaining = quantity - scannedSerials.length;
-    const progress = (scannedSerials.length / quantity) * 100;
+    const remaining = quantity > 0 ? quantity - scannedSerials.length : 1; // Always open if unlimited
+    const progress = quantity > 0 ? (scannedSerials.length / quantity) * 100 : 100;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm transition-opacity">
@@ -108,17 +113,17 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
                 {/* Body */}
                 <div className="p-6 flex-1 overflow-y-auto">
 
-                    {/* Progress Bar */}
+                    {/* Progress Bar (Conditional) */}
                     <div className="mb-6">
                         <div className="flex justify-between text-xs font-bold text-slate-500 mb-1.5">
-                            <span>Progreso</span>
-                            <span className={remaining === 0 ? "text-green-600" : "text-indigo-600"}>
-                                {scannedSerials.length} / {quantity}
+                            <span>{quantity > 0 ? 'Progreso' : 'Seriales Capturados'}</span>
+                            <span className={quantity > 0 && remaining === 0 ? "text-green-600" : "text-indigo-600"}>
+                                {quantity > 0 ? `${scannedSerials.length} / ${quantity}` : scannedSerials.length}
                             </span>
                         </div>
                         <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                             <div
-                                className={`h-full transition-all duration-300 ${remaining === 0 ? 'bg-green-500' : 'bg-indigo-500'}`}
+                                className={`h-full transition-all duration-300 ${quantity > 0 && remaining === 0 ? 'bg-green-500' : 'bg-indigo-500'}`}
                                 style={{ width: `${progress}%` }}
                             />
                         </div>
