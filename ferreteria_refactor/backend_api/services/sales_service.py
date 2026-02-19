@@ -740,10 +740,7 @@ class SalesService:
         Generates Z Report (Corte de Caja) Payload
         """
         # Fetch Session with loaded relationships
-        session = db.query(models.CashSession).options(
-            joinedload(models.CashSession.currencies),
-            joinedload(models.CashSession.user)
-        ).filter(models.CashSession.id == session_id).first()
+        session = db.query(models.CashSession).filter(models.CashSession.id == session_id).first()
         
         if not session:
             return None

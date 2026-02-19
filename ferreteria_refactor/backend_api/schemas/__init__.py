@@ -678,7 +678,7 @@ class UserRead(BaseModel):
     commission_percentage: Optional[Decimal] = Decimal("0.00")
     preferences: Optional[Dict[str, Any]] = {} # NEW
     is_onboarding_completed: bool = False # NEW
-    tenant_id: Optional[str] = None # NEW: Expose tenant_id to frontend
+    tenant_id: Optional[int] = None # NEW: Expose tenant_id as int (ID) to frontend
 
 
     class Config:
@@ -1079,6 +1079,24 @@ class ServicePriority(str, Enum):
     HIGH = "HIGH"
     URGENT = "URGENT"
 
+class ServicePaymentRead(BaseModel):
+    id: int
+    amount: Decimal
+    currency: str
+    payment_method: str
+    reference: Optional[str] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Service Payment Create Schema (Nested in Order Create or standalone)
+class ServicePaymentCreate(BaseModel):
+    amount: Decimal
+    currency: str = "USD"
+    payment_method: str = "Efectivo"
+    reference: Optional[str] = None
+
 class ServiceOrderBase(BaseModel):
     customer_id: int
     technician_id: Optional[int] = None
@@ -1114,6 +1132,8 @@ class ServiceOrderUpdate(BaseModel):
 class ServiceOrderCreate(ServiceOrderBase):
     # NEW: Support Multi-Item creation
     items: List[ServiceOrderDetailCreate] = []
+    # NEW: Support Initial Payment (Abono)
+    payments: List[ServicePaymentCreate] = []
 
     @validator('problem_description')
     def validate_tech_fields(cls, v, values):
@@ -1125,14 +1145,7 @@ class ServiceOrderCreate(ServiceOrderBase):
                  raise ValueError('La descripción del problema es obligatoria para reparaciones.')
         return v
         
-    @validator('serial_imei')
-    def validate_imei(cls, v, values):
-        service_type = values.get('service_type', ServiceType.REPAIR)
-        if service_type == ServiceType.REPAIR:
-             if not v:
-                 # Strictly required for REPAIR by business rule
-                 raise ValueError('El Serial/IMEI es obligatorio para reparaciones técnicas.')
-        return v
+
 
 class ServiceOrderRead(ServiceOrderBase):
     id: int
@@ -1144,6 +1157,7 @@ class ServiceOrderRead(ServiceOrderBase):
     customer: Optional[CustomerRead] = None
     technician: Optional[UserRead] = None
     details: List[ServiceOrderDetailRead] = []
+    payments: List[ServicePaymentRead] = []
 
     class Config:
         from_attributes = True
@@ -1170,6 +1184,8 @@ class CommissionLogRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
 
 class CommissionSummaryRead(BaseModel):
     user_id: int

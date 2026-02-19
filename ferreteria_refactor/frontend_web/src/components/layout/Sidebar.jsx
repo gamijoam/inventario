@@ -56,13 +56,17 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const { startTour } = useAppTour();
     const [isTourModalOpen, setIsTourModalOpen] = useState(false);
 
+    // FORCE ENABLE MODULES IN DEV/LOCAL for testing
+    const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+    const effectiveModules = isLocal ? { ...modules, services: true } : modules;
+
     const menuStructure = [
         {
             type: 'single',
             item: { icon: LayoutDashboard, label: 'Resumen', path: '/' }
         },
         // RESTAURANT MODULE
-        ...(modules?.restaurant ? [{
+        ...(effectiveModules?.restaurant ? [{
             type: 'group',
             label: 'Restaurante',
             icon: Utensils,
@@ -75,16 +79,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             ]
         }] : []),
         // SERVICE & LAUNDRY MODULES
-        ...((modules?.services || modules?.laundry) ? [{
+        ...((effectiveModules?.services || effectiveModules?.laundry) ? [{
             type: 'group',
-            label: modules?.services ? 'Servicios' : 'Lavandería',
-            icon: modules?.services ? Wrench : Smartphone,
+            label: effectiveModules?.services ? 'Servicios' : 'Lavandería',
+            icon: effectiveModules?.services ? Wrench : Smartphone,
             items: [
-                ...(modules?.services ? [
+                ...(effectiveModules?.services ? [
                     { icon: FileText, label: 'Taller', path: '/services/list' },
                     { icon: Plus, label: 'Nueva Recepción', path: '/services/reception' }
                 ] : []),
-                ...(modules?.laundry ? [
+                ...(effectiveModules?.laundry ? [
                     { icon: Smartphone, label: 'Tablero Lavandería', path: '/laundry' },
                 ] : []),
             ]
@@ -98,7 +102,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: FileText, label: 'Historial', path: '/sales-history' },
                 { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
                 { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
-                ...(modules?.services ? [
+                ...(effectiveModules?.services ? [
                     { icon: ShieldCheck, label: 'Garantías', path: '/rma/warranty' }
                 ] : []),
                 { icon: Users, label: 'Clientes', path: '/customers' },
@@ -129,7 +133,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
                 { icon: BarChart2, label: 'Antigüedad', path: '/credit/aging' },
                 { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
-                ...(modules?.services ? [
+                ...(effectiveModules?.services ? [
                     { icon: DollarSign, label: 'Comisiones', path: '/hr/commissions' }
                 ] : []),
                 { icon: BarChart2, label: 'Reportes Unificados', path: '/reports/unified' },

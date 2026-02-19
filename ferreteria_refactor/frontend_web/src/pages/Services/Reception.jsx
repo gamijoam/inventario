@@ -6,6 +6,7 @@ import {
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import DashboardLayout from '../../layouts/DashboardLayout';
+import QuickCustomerModal from '../../components/pos/QuickCustomerModal';
 
 const DEVICE_TYPES = [
     { id: 'SMARTPHONE', label: 'Celular', icon: Smartphone },
@@ -23,6 +24,9 @@ const Reception = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [showResults, setShowResults] = useState(false);
+
+    // Quick Customer Modal
+    const [isQuickCustomerModalOpen, setIsQuickCustomerModalOpen] = useState(false);
 
     // Form Data
     const [formData, setFormData] = useState({
@@ -67,6 +71,12 @@ const Reception = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const [paymentData, setPaymentData] = useState({
+        amount: '',
+        payment_method: 'Efectivo',
+        reference: ''
+    });
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!selectedCustomer) {
@@ -78,11 +88,24 @@ const Reception = () => {
             return;
         }
 
+        // Validation for Smartphone (Optional now)
+        // if (formData.device_type === 'SMARTPHONE' && !formData.serial_imei) {
+        //    toast.error('El IMEI es obligatorio para celulares.');
+        //    return;
+        // }
+
         setLoading(true);
         try {
             const payload = {
                 customer_id: selectedCustomer.id,
-                ...formData
+                ...formData,
+                items: [], // Future: Add cart items in reception
+                payments: paymentData.amount ? [{
+                    amount: parseFloat(paymentData.amount),
+                    payment_method: paymentData.payment_method,
+                    reference: paymentData.reference,
+                    currency: "USD"
+                }] : []
             };
 
             const res = await apiClient.post('/services/orders', payload);
@@ -106,6 +129,7 @@ const Reception = () => {
                 physical_condition: '',
                 diagnosis_notes: '',
             });
+            setPaymentData({ amount: '', payment_method: 'Efectivo', reference: '' });
             setSelectedCustomer(null);
             setSearchTerm('');
 
@@ -144,7 +168,16 @@ const Reception = () => {
                         </h2>
 
                         <div className="relative">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Buscar Cliente *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1 flex justify-between items-center">
+                                <span>Buscar Cliente *</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsQuickCustomerModalOpen(true)}
+                                    className="text-xs bg-indigo-50 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-100 font-bold flex items-center gap-1"
+                                >
+                                    <Plus size={14} /> Nuevo
+                                </button>
+                            </label>
                             <div className="relative">
                                 <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                                 <input
@@ -308,6 +341,54 @@ const Reception = () => {
                                 </div>
                             </div>
 
+                            {/* SECCIÓN ABONO INICIAL (NEW) */}
+                            <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                                <h3 className="font-semibold text-emerald-800 flex items-center gap-2 mb-3">
+                                    <span className="bg-emerald-200 text-emerald-800 text-xs px-2 py-0.5 rounded-full">$</span>
+                                    Abono Inicial (Opcional)
+                                </h3>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-emerald-900 mb-1">Monto ($)</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={paymentData.amount}
+                                            onChange={(e) => setPaymentData(prev => ({ ...prev, amount: e.target.value }))}
+                                            className="w-full p-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-emerald-900 mb-1">Método</label>
+                                        <select
+                                            value={paymentData.payment_method}
+                                            onChange={(e) => setPaymentData(prev => ({ ...prev, payment_method: e.target.value }))}
+                                            className="w-full p-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                                        >
+                                            <option value="Efectivo">Efectivo Divisa ($)</option>
+                                            <option value="Efectivo Bs">Efectivo Bolívares (Bs)</option>
+                                            <option value="Punto de Venta">Punto de Venta (Bs)</option>
+                                            <option value="Pago Móvil">Pago Móvil (Bs)</option>
+                                            <option value="Zelle">Zelle / Transferencia ($)</option>
+                                            <option value="Biopago">Biopago (Bs)</option>
+                                        </select>
+                                    </div>
+                                    {['Pago Móvil', 'Zelle', 'Transferencia'].includes(paymentData.payment_method) && (
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-sm font-medium text-emerald-900 mb-1">Referencia</label>
+                                            <input
+                                                value={paymentData.reference}
+                                                onChange={(e) => setPaymentData(prev => ({ ...prev, reference: e.target.value }))}
+                                                className="w-full p-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                                                placeholder="Número de referencia..."
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             <div className="border-t pt-6 mt-6 flex justify-end">
                                 <button
                                     type="submit"
@@ -328,6 +409,12 @@ const Reception = () => {
                 </div>
 
             </form>
+
+            <QuickCustomerModal
+                isOpen={isQuickCustomerModalOpen}
+                onClose={() => setIsQuickCustomerModalOpen(false)}
+                onSuccess={handleCustomerSelect}
+            />
         </div>
     );
 };

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from typing import List, Dict, Optional
 from datetime import datetime, date
 from decimal import Decimal
@@ -9,6 +9,7 @@ from ..database.db import get_db
 from ..dependencies import get_current_active_user
 from ..models import models
 from ..websocket.manager import manager
+from ..tenant_context import get_tenant_schema
 from .. import schemas
 
 logger = logging.getLogger(__name__)
@@ -805,6 +806,15 @@ async def close_cash_session(
 
     # Broadcast cash session closed event
     from ..services.sales_service import SalesService
+    
+    # SAFETY: Re-assert search path after commit just in case connection was reset
+    try:
+        current_schema = get_tenant_schema()
+        if current_schema and current_schema != "public":
+             db.execute(text(f'SET search_path TO "{current_schema}", public'))
+    except Exception as e:
+        logger.error(f"⚠️ Failed to re-assert search path: {e}")
+
     z_report_payload = SalesService.generate_z_report_payload(db, session_id)
 
     try:

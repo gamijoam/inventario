@@ -34,9 +34,16 @@ Base = declarative_base()
 def receive_checkout(dbapi_connection, connection_record, connection_proxy):
     cursor = dbapi_connection.cursor()
     try:
-        cursor.execute("SET search_path TO public")
+        # 🔒 SECURITY: Apply Tenant Context on every connection checkout
+        # This handles cases where Session releases connection after commit() 
+        # and checks out a new one for subsequent queries (lazy loads, refreshes).
+        schema = get_tenant_schema()
+        if schema and schema != "public":
+            cursor.execute(f'SET search_path TO "{schema}", public')
+        else:
+            cursor.execute("SET search_path TO public")
     except Exception as e:
-        print(f"❌ Error resetting search_path on checkout: {e}")
+        print(f"❌ Error setting search_path on checkout: {e}")
     finally:
         cursor.close()
 

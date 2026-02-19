@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, DollarSign, Calculator, Check, AlertTriangle } from 'lucide-react';
+import { Package, DollarSign, Calculator, Check, AlertTriangle, CheckCircle } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { formatCurrency } from '../../../utils/currency';
 import { toast } from 'react-hot-toast';
@@ -53,24 +53,32 @@ const ServiceDeliveryModal = ({ order, onClose, onDeliver, onPaymentRequest }) =
 
     // Logic: Treat as "Non-Laundry" (Standard Delivery) IF it is already paid
     // This allows the user to just confirm delivery without re-calc
+
+    const calculatePending = () => {
+        const total = calculateTotal();
+        const paid = order.payments?.reduce((sum, p) => sum + parseFloat(p.amount), 0) || 0;
+        return Math.max(0, total - paid);
+    }
+
+    const pending = calculatePending();
     const showPaymentUI = isLaundry && !isPaid;
 
     const handleConfirm = () => {
-        if (showPaymentUI) {
+        if (showPaymentUI && pending > 0.01) {
             if (!selectedProduct) {
                 toast.error("Seleccione un producto de referencia (tarifa)");
                 return;
             }
-            // Trigger Payment Flow with calculated item
+            // Trigger Payment Flow with PENDING BALANCE
             onPaymentRequest({
                 product_id: selectedProduct.id,
-                description: `Servicio Lavado (${weight} Kg) - ${order.order_metadata?.washing_type}`,
-                quantity: parseFloat(weight),
-                unit_price: parseFloat(pricePerKg),
+                description: `Servicio Lavado (${weight} Kg) - Balance Pendiente`,
+                quantity: 1, // Logic change: 1 unit of "Pending Balance"
+                unit_price: parseFloat(pending),
                 is_manual: false
             });
         } else {
-            // Standard Delivery (Change status)
+            // Standard Delivery (Change status) - Fully Paid or Not Laundry
             onDeliver();
         }
     };
@@ -145,9 +153,26 @@ const ServiceDeliveryModal = ({ order, onClose, onDeliver, onPaymentRequest }) =
                                 </div>
                             </div>
 
-                            <div className="flex justify-between items-center border-t pt-4">
-                                <span className="text-gray-500 font-medium">Total a Pagar</span>
-                                <span className="text-3xl font-bold text-green-600">{formatCurrency(calculateTotal())}</span>
+                            {/* BALANCE SUMMARY */}
+                            <div className="space-y-2 border-t pt-4">
+                                <div className="flex justify-between items-center text-sm text-gray-600">
+                                    <span>Total Servicio:</span>
+                                    <span>{formatCurrency(calculateTotal())}</span>
+                                </div>
+
+                                {order.payments && order.payments.length > 0 && (
+                                    <div className="flex justify-between items-center text-sm text-emerald-600 font-medium bg-emerald-50 px-2 py-1 rounded">
+                                        <span>(-) Abonos Realizados:</span>
+                                        <span>{formatCurrency(order.payments.reduce((sum, p) => sum + parseFloat(p.amount), 0))}</span>
+                                    </div>
+                                )}
+
+                                <div className="flex justify-between items-center pt-2 border-t border-dashed">
+                                    <span className="text-gray-800 font-bold">Resta por Pagar:</span>
+                                    <span className="text-3xl font-bold text-blue-600">
+                                        {formatCurrency(Math.max(0, calculateTotal() - (order.payments?.reduce((sum, p) => sum + parseFloat(p.amount), 0) || 0)))}
+                                    </span>
+                                </div>
                             </div>
                         </>
                     ) : (
@@ -173,7 +198,7 @@ const ServiceDeliveryModal = ({ order, onClose, onDeliver, onPaymentRequest }) =
                         onClick={handleConfirm}
                         className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl text-lg shadow-lg shadow-blue-200 transition-all active:scale-95 flex justify-center items-center gap-2"
                     >
-                        {showPaymentUI ? (
+                        {showPaymentUI && pending > 0.01 ? (
                             <>
                                 <DollarSign size={20} /> Proceder al Pago
                             </>

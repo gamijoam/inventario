@@ -27,6 +27,25 @@ set /p VERSION="Ingresa sufijo de version (ej: 1, fix-login, o presiona enter pa
 if "%VERSION%"=="" (set TAG=%PREFIX%-%DATETAG%) else (set TAG=%PREFIX%-%VERSION%)
 
 echo.
+:: --- MODO DE CONSTRUCCION (.dockerignore) ---
+echo.
+echo ================================================
+echo      SELECCIONAR MODO DE CONSTRUCCION
+echo ================================================
+echo 1) FAST MODE (Recomendado): Solo codigo, ignora .exe, .iso, bridges (Rapido)
+echo 2) FULL MODE: Incluye TODO (Invensoft Bridge, Hardware Bridge, .exe)
+echo.
+set /p BUILD_MODE="Elige modo (1 o 2) [Default 1]: "
+
+if "%BUILD_MODE%"=="2" (
+    echo [MODO] FULL MODE SELECCIONADO - Se incluiran binarios.
+    copy /Y .dockerignore.full .dockerignore
+) else (
+    echo [MODO] FAST MODE SELECCIONADO - Se ignoraran binarios pesados.
+    copy /Y .dockerignore.fast .dockerignore
+)
+
+echo.
 echo [CONFIRMACION] Se usara el TAG: %TAG%
 echo [CONFIRMACION] API URL: %API_URL%
 pause

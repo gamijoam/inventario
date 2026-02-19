@@ -115,13 +115,33 @@ const ServiceImportModal = ({ isOpen, onClose, onSelect }) => {
                                 {order.details && (
                                     <div className="mt-3 pt-3 border-t border-slate-50">
                                         <p className="text-xs text-slate-400 font-medium uppercase mb-1">Items ({order.details.length})</p>
-                                        <div className="flex flex-wrap gap-1">
+                                        <div className="flex flex-wrap gap-1 mb-2">
                                             {order.details.map((item, idx) => (
                                                 <span key={idx} className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-600 truncate max-w-[150px]">
                                                     {item.description || item.product?.name || "Item"}
                                                 </span>
                                             ))}
                                         </div>
+
+                                        {(() => {
+                                            // Calculate Totals for Preview
+                                            const total = order.details.reduce((acc, item) => acc + (parseFloat(item.unit_price) * parseFloat(item.quantity)), 0);
+                                            const prepaid = order.payments ? order.payments.reduce((acc, p) => acc + parseFloat(p.amount), 0) : 0;
+                                            const due = total - prepaid;
+
+                                            return (
+                                                <div className="bg-slate-50 rounded-lg p-2 text-xs flex justify-between items-center mt-2">
+                                                    <div>
+                                                        <span className="block text-slate-500">Total: ${total.toFixed(2)}</span>
+                                                        {prepaid > 0 && <span className="block text-emerald-600">Abonado: -${prepaid.toFixed(2)}</span>}
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="block text-slate-400 text-[10px]">A Pagar</span>
+                                                        <span className="font-bold text-lg text-slate-800">${due.toFixed(2)}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 )}
                             </div>

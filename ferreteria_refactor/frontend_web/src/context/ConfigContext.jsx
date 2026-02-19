@@ -137,7 +137,14 @@ export const ConfigProvider = ({ children }) => {
                 }
             }
 
-            // ... (Exchange rates logic) ...
+            // 4. Fetch Exchange Rates
+            try {
+                const ratesResponse = await apiClient.get('/config/exchange-rates?is_active=true');
+                console.log('💱 Exchange Rates Loaded:', ratesResponse.data);
+                setCurrencies(ratesResponse.data);
+            } catch (e) {
+                console.warn("Could not load exchange rates:", e);
+            }
 
         } catch (err) {
             console.error("Critical Config Error", err);

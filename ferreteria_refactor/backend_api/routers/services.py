@@ -15,23 +15,36 @@ router = APIRouter(
     tags=["services"]
 )
 
+# 🔒 SECURITY DEPENDENCY: Ensure user has tenant context
+# NOTE: We use current_user.tenant_id (from schema name or string ID)
+
 @router.post("/orders", response_model=schemas.ServiceOrderRead)
-def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = Depends(get_db)):
+def create_service_order(
+    order_data: schemas.ServiceOrderCreate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Create a new service order with auto-generated Ticket Number"""
     try:
-        # 1. Determine Prefix based on Service Type
+        # 1. Determine Tenant Context
+        # Uses the schema_name string stored in user.tenant_id (or tenant.schema_name)
+        # We'll rely on the user.tenant_id attribute we fixed earlier.
+        tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+        
+        # 2. Determine Prefix based on Service Type
         prefix = "SRV"
         if order_data.service_type == models.ServiceType.LAUNDRY:
             prefix = "LAV"
 
-        # 2. Generate Ticket Number
+        # 3. Generate Ticket Number (Scoped by Tenant!)
+        # Filter by tenant_id to allow same ticket numbers in different tenants
         last_order = db.query(models.ServiceOrder)\
+            .filter(models.ServiceOrder.tenant_id == tenant_id)\
             .filter(models.ServiceOrder.ticket_number.like(f"{prefix}-%"))\
             .order_by(desc(models.ServiceOrder.id)).first()
         
         if last_order and last_order.ticket_number:
             try:
-                # Extract number from "XXX-0001"
                 last_num = int(last_order.ticket_number.split("-")[1])
                 new_num = last_num + 1
             except:
@@ -41,9 +54,10 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
             
         ticket_number = f"{prefix}-{new_num:05d}"
         
-        # 3. Create Order
+        # 4. Create Order
         new_order = models.ServiceOrder(
             ticket_number=ticket_number,
+            tenant_id=tenant_id, # 🔒 Tenant Isolation
             customer_id=order_data.customer_id,
             technician_id=order_data.technician_id,
             status=models.ServiceOrderStatus.RECEIVED,
@@ -64,18 +78,16 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
         )
         
         db.add(new_order)
-        db.flush() # Get ID
+        db.flush() # Get ID for details and payments
 
-        # 4. Process Items (Cart)
+        # 5. Process Items (Cart)
         if order_data.items:
             for item in order_data.items:
-                # Logic for Manual vs Product Item
                 if item.product_id:
                     # PRODUCT ITEM
                     product = db.query(models.Product).get(item.product_id)
                     if not product:
-                        continue # Skip invalid products? Or raise generic error?
-                        
+                        continue
                     description = product.name
                     cost = product.cost_price
                     is_manual = False
@@ -97,21 +109,31 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
                     technician_id=item.technician_id or new_order.technician_id 
                 )
                 db.add(new_detail)
+        
+        # 6. Process Initial Payments (Abonos) - NEW!
+        if order_data.payments:
+            for p in order_data.payments:
+                new_payment = models.ServicePayment(
+                    tenant_id=tenant_id,
+                    service_order_id=new_order.id,
+                    amount=p.amount,
+                    currency=p.currency,
+                    payment_method=p.payment_method,
+                    reference=p.reference
+                )
+                db.add(new_payment)
 
-        # 🔒 SECURITY: Eager Load relations BEFORE commit while schema is active (v44)
-        captured_id = new_order.id
+        # 🔒 Commit and Refresh
+        db.commit()
+
+        # 7. Eager Load for Response
         final_order = db.query(models.ServiceOrder).options(
             joinedload(models.ServiceOrder.customer),
             joinedload(models.ServiceOrder.technician),
-            joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product)
-        ).filter(models.ServiceOrder.id == captured_id).first()
+            joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
+            joinedload(models.ServiceOrder.payments) # Include payments in response
+        ).filter(models.ServiceOrder.id == new_order.id).first()
 
-        if not final_order:
-            raise HTTPException(status_code=500, detail="Error re-loading order pre-commit")
-
-        db.commit()
-
-        # Force serialization while data is in memory
         return schemas.ServiceOrderRead.model_validate(final_order)
         
     except Exception as e:
@@ -121,9 +143,20 @@ def create_service_order(order_data: schemas.ServiceOrderCreate, db: Session = D
         raise HTTPException(status_code=500, detail=f"Error en servidor al crear orden: {str(e)}")
 
 @router.delete("/orders/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_service_order(order_id: int, db: Session = Depends(get_db)):
+def delete_service_order(
+    order_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Delete a service order if it's not processed/paid"""
-    order = db.query(models.ServiceOrder).get(order_id)
+    # 🔒 Multi-Tenant Filter
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    
+    order = db.query(models.ServiceOrder).filter(
+        models.ServiceOrder.id == order_id,
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+    
     if not order:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
@@ -138,10 +171,15 @@ def get_service_orders(
     status: Optional[str] = None,
     customer_id: Optional[int] = None,
     service_type: Optional[str] = None,
-    db: Session = Depends(get_db)
+    search: Optional[str] = None, # NEW: Search term
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """List service orders with filters"""
-    query = db.query(models.ServiceOrder)
+    # 🔒 Multi-Tenant Filter
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    
+    query = db.query(models.ServiceOrder).filter(models.ServiceOrder.tenant_id == tenant_id)
     
     if status:
         query = query.filter(models.ServiceOrder.status == status)
@@ -151,16 +189,37 @@ def get_service_orders(
     
     if customer_id:
         query = query.filter(models.ServiceOrder.customer_id == customer_id)
-        
+       
+    if search:
+        search_term = f"%{search}%"
+        query = query.join(models.Customer).filter(
+            (models.ServiceOrder.ticket_number.ilike(search_term)) |
+            (models.Customer.name.ilike(search_term)) |
+            (models.ServiceOrder.serial_imei.ilike(search_term))
+        )
+
     # Order by newest first
     query = query.order_by(desc(models.ServiceOrder.created_at))
     
     return query.offset(skip).limit(limit).all()
 
 @router.get("/orders/{order_id}", response_model=schemas.ServiceOrderRead)
-def get_service_order(order_id: int, db: Session = Depends(get_db)):
+def get_service_order(
+    order_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get service order details"""
-    order = db.query(models.ServiceOrder).get(order_id)
+    # 🔒 Multi-Tenant Filter
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    
+    order = db.query(models.ServiceOrder).options(
+        joinedload(models.ServiceOrder.payments)
+    ).filter(
+        models.ServiceOrder.id == order_id, 
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+    
     if not order:
         raise HTTPException(status_code=404, detail="Service Order not found")
     return order
@@ -169,10 +228,18 @@ def get_service_order(order_id: int, db: Session = Depends(get_db)):
 def add_service_order_item(
     order_id: int, 
     item_data: schemas.ServiceOrderDetailCreate, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """Add a product/service/spare part to the service order"""
-    order = db.query(models.ServiceOrder).get(order_id)
+    # 🔒 Multi-Tenant Check
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    
+    order = db.query(models.ServiceOrder).filter(
+        models.ServiceOrder.id == order_id, 
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+    
     if not order:
         raise HTTPException(status_code=404, detail="Service Order not found")
         
@@ -207,16 +274,27 @@ def add_service_order_item(
     db.add(new_detail)
     db.commit()
     
-    return db.query(models.ServiceOrder).get(order_id)
+    # Reload with payments and details
+    return db.query(models.ServiceOrder).options(
+         joinedload(models.ServiceOrder.details),
+         joinedload(models.ServiceOrder.payments)
+    ).get(order_id)
 
 @router.delete("/orders/{order_id}/items/{item_id}", response_model=schemas.ServiceOrderRead)
 def delete_service_order_item(
     order_id: int,
     item_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """Remove an item from the service order"""
-    order = db.query(models.ServiceOrder).get(order_id)
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    
+    order = db.query(models.ServiceOrder).filter(
+        models.ServiceOrder.id == order_id, 
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+    
     if not order:
         raise HTTPException(status_code=404, detail="Service Order not found")
         
@@ -226,11 +304,15 @@ def delete_service_order_item(
     ).first()
     
     if not item:
-        raise HTTPException(status_code=404, detail="Item not found in this order")
+        raise HTTPException(status_code=404, detail="Item not found")
         
     db.delete(item)
     db.commit()
-    return order
+    
+    return db.query(models.ServiceOrder).options(
+         joinedload(models.ServiceOrder.details),
+         joinedload(models.ServiceOrder.payments)
+    ).get(order_id)
 
 @router.patch("/orders/{order_id}/status", response_model=schemas.ServiceOrderRead)
 def update_service_order_status(
@@ -240,7 +322,13 @@ def update_service_order_status(
     current_user: models.User = Depends(get_current_active_user)
 ):
     """Update order status, diagnosis notes, and metadata"""
-    order = db.query(models.ServiceOrder).get(order_id)
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    
+    order = db.query(models.ServiceOrder).filter(
+        models.ServiceOrder.id == order_id, 
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+    
     if not order:
         raise HTTPException(status_code=404, detail="Service Order not found")
         
@@ -254,7 +342,7 @@ def update_service_order_status(
                 )
         
         if update_data.status not in models.ServiceOrderStatus.__members__:
-             raise HTTPException(status_code=400, detail=f"Invalid status. Options: {list(models.ServiceOrderStatus.__members__.keys())}")
+             raise HTTPException(status_code=400, detail=f"Invalid status")
         order.status = models.ServiceOrderStatus[update_data.status]
     
     if update_data.diagnosis_notes:
@@ -272,16 +360,14 @@ def update_service_order_status(
     if update_data.priority:
         order.priority = update_data.priority
         
-    # Eager Load for status update response BEFORE commit (v44)
+    # Eager Load for status update response BEFORE commit
     final_order = db.query(models.ServiceOrder).options(
         joinedload(models.ServiceOrder.customer),
         joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details)
+        joinedload(models.ServiceOrder.details),
+        joinedload(models.ServiceOrder.payments)
     ).filter(models.ServiceOrder.id == order_id).first()
     
-    if not final_order:
-        raise HTTPException(status_code=404, detail="Service Order not found after update")
-
     db.commit()
     
     return schemas.ServiceOrderRead.model_validate(final_order)
@@ -289,19 +375,36 @@ def update_service_order_status(
 from ..services.service_checkout_service import ServiceCheckoutService
 
 @router.get("/orders/status/ready", response_model=List[schemas.ServiceOrderRead])
-def get_ready_service_orders(db: Session = Depends(get_db)):
+def get_ready_service_orders(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get all service orders ready for checkout/delivery"""
-    return db.query(models.ServiceOrder).filter(models.ServiceOrder.status == models.ServiceOrderStatus.READY).all()
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    
+    return db.query(models.ServiceOrder)\
+        .options(joinedload(models.ServiceOrder.payments))\
+        .filter(
+            models.ServiceOrder.status == models.ServiceOrderStatus.READY,
+            models.ServiceOrder.tenant_id == tenant_id
+        ).all()
 
 @router.post("/orders/{order_id}/checkout")
 def checkout_service_order(
     order_id: int, 
     payment_data: schemas.ServiceCheckoutPayment,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     """
     Convert a Service Order into a Sale (Process Payment).
     """
-    user_id = 1 
-    sale = ServiceCheckoutService.convert_order_to_sale(db, order_id, payment_data, user_id)
+    # Verify Tenant ownership implicitly in convert_order_to_sale or here
+    # Better here to fail fast
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    order = db.query(models.ServiceOrder).filter(models.ServiceOrder.id == order_id, models.ServiceOrder.tenant_id == tenant_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+        
+    sale = ServiceCheckoutService.convert_order_to_sale(db, order_id, payment_data, current_user.id)
     return {"status": "success", "sale_id": sale.id, "ticket_number": sale.id}

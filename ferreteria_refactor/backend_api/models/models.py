@@ -930,6 +930,7 @@ class ServiceOrder(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     ticket_number = Column(String, unique=True, index=True, nullable=False) # SRV-0001
+    tenant_id = Column(String, index=True, nullable=True) # Multi-tenant isolation
     
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     technician_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Assigned Technician
@@ -962,9 +963,27 @@ class ServiceOrder(Base):
     customer = relationship("Customer")
     technician = relationship("User", foreign_keys=[technician_id])
     details = relationship("ServiceOrderDetail", back_populates="service_order", cascade="all, delete-orphan")
+    payments = relationship("ServicePayment", back_populates="service_order", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ServiceOrder(ticket='{self.ticket_number}', type='{self.service_type}', status='{self.status}')>"
+
+class ServicePayment(Base):
+    __tablename__ = "service_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(String, index=True, nullable=True) # Multi-tenant isolation
+    service_order_id = Column(Integer, ForeignKey("service_orders.id"), nullable=False)
+    amount = Column(Numeric(18, 4), nullable=False)
+    currency = Column(String, default="USD")
+    payment_method = Column(String, default="Efectivo")
+    reference = Column(String, nullable=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    
+    service_order = relationship("ServiceOrder", back_populates="payments")
+
+    def __repr__(self):
+        return f"<ServicePayment(order={self.service_order_id}, amount={self.amount})>"
 
 class ServiceOrderDetail(Base):
     """

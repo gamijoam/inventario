@@ -27,7 +27,9 @@ const QuickCustomerModal = ({ isOpen, onClose, onSuccess }) => {
             const payload = {
                 ...formData,
                 email: '', // Optional
-                type: 'Person' // Default
+                type: 'Person', // Default
+                credit_limit: 100.00, // Default Credit Request
+                payment_term_days: 15
             };
 
             const response = await apiClient.post('/customers/', payload);
