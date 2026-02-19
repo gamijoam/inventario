@@ -57,15 +57,38 @@ def update_price_list(
     price_list = db.query(models.PriceList).filter(models.PriceList.id == list_id).first()
     if not price_list:
         raise HTTPException(status_code=404, detail="Price list not found")
-    
-    # Check name duplicate if changing name
-    if list_data.name != price_list.name:
-         existing = db.query(models.PriceList).filter(models.PriceList.name == list_data.name).first()
-         if existing:
-             raise HTTPException(status_code=400, detail="Name already in use")
 
-    
+    if list_data.name != price_list.name:
+        existing = db.query(models.PriceList).filter(models.PriceList.name == list_data.name).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Name already in use")
+
+    price_list.name = list_data.name
+    price_list.requires_auth = list_data.requires_auth
+    price_list.is_active = list_data.is_active
     db.commit()
+    db.refresh(price_list)
+    return price_list
+
+@router.patch("/{list_id}", response_model=schemas.PriceListRead)
+def patch_price_list(
+    list_id: int,
+    list_data: dict,
+    db: Session = Depends(get_db)
+):
+    price_list = db.query(models.PriceList).filter(models.PriceList.id == list_id).first()
+    if not price_list:
+        raise HTTPException(status_code=404, detail="Price list not found")
+
+    if "requires_auth" in list_data:
+        price_list.requires_auth = bool(list_data["requires_auth"])
+    if "is_active" in list_data:
+        price_list.is_active = bool(list_data["is_active"])
+    if "name" in list_data:
+        price_list.name = list_data["name"]
+
+    db.commit()
+    db.refresh(price_list)
     return price_list
 
 @router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT)

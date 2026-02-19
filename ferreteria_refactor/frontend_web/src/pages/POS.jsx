@@ -531,6 +531,15 @@ const POS = () => {
 
     // NEW: Price List Logic
     const handlePriceListSelect = (list, item) => {
+        // null list = revert to base price
+        if (!list) {
+            const itemProduct = catalog.find(p => p.id === item.product_id);
+            const basePrice = itemProduct ? parseFloat(itemProduct.price) : item.unit_price_usd;
+            updateCartItem(item.id, { unit_price_usd: basePrice, price_list_id: null, auth_user_id: null });
+            toast.success('Precio revertido al precio base');
+            return;
+        }
+
         const itemProduct = catalog.find(p => p.id === item.product_id);
         let newPrice = null;
         if (itemProduct && itemProduct.prices) {
@@ -726,8 +735,8 @@ const POS = () => {
                     onClose={() => setSelectedItemForEdit(null)}
                     onUpdate={handleUpdateItem}
                     onDelete={removeFromCart}
-                    salespeople={salespeople}
                     priceLists={priceLists}
+                    onPriceListSelect={handlePriceListSelect}
                 />
 
                 <PaymentModal

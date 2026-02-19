@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Save, X, DollarSign, Hash } from 'lucide-react';
+import { Trash2, Save, X, DollarSign, Hash, Tag } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Label } from '../ui/label';
 import { useConfig } from '../../context/ConfigContext';
 
@@ -17,13 +16,12 @@ const formatLocalCurrency = (amount, decimals = 2) => {
     }
 };
 
-const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, salespeople = [], priceLists = [] }) => {
+const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists = [], onPriceListSelect }) => {
     const [quantity, setQuantity] = useState(1);
-    const [quantityInput, setQuantityInput] = useState('1'); // String for input
-    const [saleMode, setSaleMode] = useState('quantity'); // 'quantity' | 'amount'
-    const [amountInput, setAmountInput] = useState(''); // User input as string
-    const [selectedCurrency, setSelectedCurrency] = useState('VES'); // Default to VES
-    const [salespersonId, setSalespersonId] = useState(null);
+    const [quantityInput, setQuantityInput] = useState('1');
+    const [saleMode, setSaleMode] = useState('quantity');
+    const [amountInput, setAmountInput] = useState('');
+    const [selectedCurrency, setSelectedCurrency] = useState('VES');
     const [priceListId, setPriceListId] = useState(null);
     const [price, setPrice] = useState(0);
 
@@ -85,32 +83,32 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, salespeople 
             setAmountInput(amountInCurrency.toFixed(2));
             setSaleMode('quantity'); // Always start in quantity mode
 
-            setSalespersonId(item.salesperson_id || null);
             setPriceListId(item.price_list_id || null);
             setPrice(item.unit_price_usd || 0);
         }
     }, [item, selectedCurrency]);
 
-    // Handle Price List Change
-    const handlePriceListChange = (listId) => {
-        setPriceListId(listId);
-        if (listId === 'default') {
-            // Revert to base price (how to get base price? maybe item.original_price or we search catalog)
-            // For now, assume item has base_price attached or we just don't change price if returning to default?
-            // Actually, handlePriceListSelect in POS.jsx did lookup. 
-            // Here we might need to lookup price in priceLists.
-            // But we don't have the product's price list entries here!
-            // We only have the `priceLists` definitions!
-
-            // If we want to update price based on list, we need the product's prices.
-            // item is a cart item, it might NOT have the full product info with prices.
-            // This is a limitation. POS.jsx had `handlePriceListSelect` which looked up in Catalog.
-            // We should use that logic or pass `product` to this modal.
-            // item.product_id exists.
+    // Handle Price List Change - delegates to POS-level logic which handles price lookup + PIN auth
+    const handlePriceListChange = (listIdStr) => {
+        if (listIdStr === 'default') {
+            setPriceListId(null);
+            // Revert to base unit price
+            if (onPriceListSelect) {
+                onPriceListSelect(null, item);
+            }
+            return;
+        }
+        const listId = parseInt(listIdStr);
+        const list = priceLists.find(l => l.id === listId);
+        if (!list) return;
+        if (onPriceListSelect) {
+            // POS handles price lookup, PIN auth, and cart update
+            // We close the modal so POS PIN modal can appear on top
+            onClose();
+            onPriceListSelect(list, item);
         } else {
-            // If we can't look up price here, maybe we just pass listId and let POS update price?
-            // But user expects to see new price immediately.
-            // We can pass `onUpdate` with just listId, and POS updates it.
+            // Fallback: just update the price_list_id without price change
+            setPriceListId(listId);
         }
     };
 
@@ -322,37 +320,45 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, salespeople 
                     </div>
                 )}
 
-                {/* Actions */}
-                {/* Extra Options: Salesperson & Price List */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-slate-500 uppercase">Vendedor</Label>
-                        <Select value={salespersonId?.toString() || "default"} onValueChange={(v) => setSalespersonId(v === "default" ? null : parseInt(v))}>
-                            <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Sin asignar" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="default">-- Nadie --</SelectItem>
-                                {salespeople.map(s => (
-                                    <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <Label className="text-xs font-bold text-slate-500 uppercase">Lista de Precio</Label>
-                        <Select value={priceListId?.toString() || "default"} onValueChange={handlePriceListChange}>
-                            <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Precio Base" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="default">Precio Base</SelectItem>
-                                {priceLists.map(l => (
-                                    <SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                {/* Price List Selector */}
+                <div className="mb-6 space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                        <Tag size={12} />
+                        Lista de Precio
+                    </Label>
+                    <div className="grid grid-cols-1 gap-2">
+                        {/* Base Price option */}
+                        <button
+                            onClick={() => handlePriceListChange('default')}
+                            className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${!priceListId
+                                ? 'border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500'
+                                : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'
+                                }`}
+                        >
+                            <span>Precio Base</span>
+                            {!priceListId && <span className="text-[10px] font-black bg-blue-500 text-white px-2 py-0.5 rounded-full">ACTIVO</span>}
+                        </button>
+                        {/* Other price lists */}
+                        {priceLists.map(l => (
+                            <button
+                                key={l.id}
+                                onClick={() => handlePriceListChange(l.id.toString())}
+                                className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm font-bold transition-all ${priceListId === l.id
+                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700 ring-1 ring-indigo-500'
+                                    : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                <span>{l.name}</span>
+                                <span className="flex items-center gap-1.5">
+                                    {l.requires_auth && (
+                                        <span className="text-[9px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                            🔒 PIN
+                                        </span>
+                                    )}
+                                    {priceListId === l.id && <span className="text-[10px] font-black bg-indigo-500 text-white px-2 py-0.5 rounded-full">ACTIVO</span>}
+                                </span>
+                            </button>
+                        ))}
                     </div>
                 </div>
 
@@ -367,10 +373,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, salespeople 
                     </Button>
                     <Button
                         onClick={() => {
-                            onUpdate(item.id, quantity, {
-                                salesperson_id: salespersonId,
-                                price_list_id: priceListId === 'default' ? null : priceListId
-                            });
+                            onUpdate(item.id, quantity);
                             onClose();
                         }}
                         className="flex-[2] h-12 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:-translate-y-1 transition-all"

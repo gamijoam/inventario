@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Dict, Any
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException, UploadFile
 import json
 from decimal import Decimal
