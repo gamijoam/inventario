@@ -63,19 +63,20 @@ def get_current_user(
     
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        email: str = payload.get("sub")
+        
+        if email is None:
             print("⛔ Auth Failed: Token payload missing 'sub'")
             raise credentials_exception
     except JWTError as e:
         print(f"⛔ JWT Validation Error: {e}")
-        # Removed SECRET_KEY logging for security
-        print(f"   - Algorithm: {settings.ALGORITHM}")
         raise credentials_exception
         
-    user = db.query(User).filter(User.username == username).first()
+    # FETCH USER (Globally Unique by Email)
+    user = db.query(User).filter(User.email == email).first()
+        
     if user is None:
-        print(f"⛔ Auth Failed: User '{username}' not found in DB.")
+        print(f"⛔ Auth Failed: User with email '{email}' not found in DB.")
         raise credentials_exception
 
     # TENANT VALIDATION: Ensure user belongs to the current context
@@ -89,7 +90,7 @@ def get_current_user(
         tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
         if tenant:
             if user.tenant_id != tenant.id and not user.is_superuser:
-                print(f"⛔ Tenant Mismatch: User {username} does not belong to tenant '{current_schema}'")
+                print(f"⛔ Tenant Mismatch: User {email} does not belong to tenant '{current_schema}'")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="You do not have access to this company"
@@ -97,7 +98,7 @@ def get_current_user(
     else:
         # We are in public context, usually only for Superadmins
         if user.tenant_id is not None and not user.is_superuser:
-            print(f"⛔ Context Mismatch: Tenant user {username} trying to access public context")
+            print(f"⛔ Context Mismatch: Tenant user {email} trying to access public context")
             # We don't raise 403 here because it might be a valid user just at the wrong URL
             # But let's be strict for security
             raise HTTPException(
@@ -105,7 +106,7 @@ def get_current_user(
                 detail="Please login via your company URL"
             )
 
-    print(f"✅ Auth Success: User '{username}' authenticated for context '{current_schema}'.")
+    print(f"✅ Auth Success: User '{email}' authenticated for context '{current_schema}'.")
     return user
 
 def get_current_active_user(current_user: Annotated[User, Depends(get_current_user)]):

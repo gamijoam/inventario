@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Package, AlertCircle, CheckCircle, XCircle, DollarSign, ArrowLeft, RefreshCw, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, Package, AlertCircle, CheckCircle, XCircle, DollarSign, ArrowLeft, RefreshCw, X, ShieldCheck, CornerDownLeft } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { useConfig } from '../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
@@ -174,6 +175,24 @@ const ReturnsManager = () => {
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Tabs Navigation */}
+            <div className="flex gap-4 mb-6 border-b border-slate-200 px-1 flex-shrink-0">
+                <Link
+                    to="/returns"
+                    className="pb-3 px-4 text-indigo-600 border-b-2 border-indigo-600 font-bold flex items-center gap-2 transition-all"
+                >
+                    <CornerDownLeft size={18} />
+                    Devoluciones
+                </Link>
+                <Link
+                    to="/rma/warranty"
+                    className="pb-3 px-4 text-slate-400 hover:text-slate-600 font-bold flex items-center gap-2 transition-all hover:border-b-2 hover:border-slate-300"
+                >
+                    <ShieldCheck size={18} />
+                    Gestión de Garantía
+                </Link>
             </div>
 
             <div className="flex-1 flex overflow-hidden gap-6">

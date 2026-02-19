@@ -194,6 +194,10 @@ def fix_password_emergency(email: str = "rodriguezisaac876@gmail.com", db: Sessi
         user.password_hash = new_hash
         user.is_active = True
         user.is_superuser = True
+        
+        # 🔑 FIX: Make sure this user is Global (no tenant) so they can login to SaaS Panel
+        user.tenant_id = None 
+        
         db.commit()
         
         print(f"✅ EMERGENCY RESET: Password for {email} -> admin123")
@@ -227,14 +231,18 @@ async def login_for_access_token(
     
     # PRIORITY 2: Subdomain Parsing
     if not tenant_slug:
-        parts = host.split('.')
-        if "localhost" in host:
-            if len(parts) == 2 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
-                tenant_slug = parts[0]
+        # Prevent IP addresses (e.g. 127.0.0.1) from being parsed as subdomains
+        if host.replace('.', '').isnumeric():
+            tenant_slug = None
         else:
-            reserved = ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]
-            if len(parts) >= 3 and parts[0] not in reserved:
-                tenant_slug = parts[0]
+            parts = host.split('.')
+            if "localhost" in host:
+                if len(parts) == 2 and parts[0] not in ["www", "api", "app", "dashboard", "admin"]:
+                    tenant_slug = parts[0]
+            else:
+                reserved = ["www", "api", "app", "dashboard", "admin", "saas", "backoffice"]
+                if len(parts) >= 3 and parts[0] not in reserved:
+                    tenant_slug = parts[0]
 
     current_tenant_id = None
     if tenant_slug and tenant_slug != "public":
@@ -245,12 +253,26 @@ async def login_for_access_token(
         else:
             print(f"⚠️ [AUTH] Tenant slug '{tenant_slug}' not found, falling back to public")
 
-    # 2. User Lookup
-    user = db.query(models.User).filter(
+    # 2. User Lookup (Tenant-Aware)
+    # We first try to find the user in the specific tenant context
+    # This prevents picking the Global Admin when a Tenant Admin uses the same username "admin"
+    user_query = db.query(models.User).filter(
         (models.User.username == form_data.username) | (models.User.email == form_data.username)
-    ).first()
+    )
+    
+    if current_tenant_id:
+        # Try finding the user belonging to THIS tenant first
+        user = user_query.filter(models.User.tenant_id == current_tenant_id).first()
+        
+        # If not found, fallback to Global Superuser (who can access any tenant)
+        if not user:
+            user = user_query.filter(models.User.tenant_id.is_(None)).filter(models.User.is_superuser.is_(True)).first()
+    else:
+        # We are in public/system context, only find global users
+        user = user_query.filter(models.User.tenant_id.is_(None)).first()
     
     if not user:
+        print(f"⛔ Auth Block: User '{form_data.username}' not found in context '{tenant_slug}'")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -309,8 +331,16 @@ async def login_for_access_token(
         raise HTTPException(status_code=400, detail="Inactive user")
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    # Use EMAIL as the unique identifier (sub) since it's globally unique
+    # This prevents ambiguity between users with same username in different tenants
+    token_data = {
+        "sub": user.email, 
+        "role": user.role.value
+    }
+    
     access_token = create_access_token(
-        data={"sub": user.username, "role": user.role.value}, # Role in claims
+        data=token_data,
         expires_delta=access_token_expires
     )
     

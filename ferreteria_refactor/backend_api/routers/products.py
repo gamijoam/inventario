@@ -245,6 +245,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
             "stock": response_data["stock"],
             "is_combo": response_data["is_combo"],
             "exchange_rate_id": response_data["exchange_rate_id"],
+            "warranty_policy_id": int(db_product.warranty_policy_id) if db_product.warranty_policy_id else None,
             "units": response_data["units"],
             "combo_items": response_data["combo_items"]
         }
@@ -437,6 +438,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
         "barcode": db_product.sku,
         "exchange_rate_id": db_product.exchange_rate_id,
         "tax_rate": float(db_product.tax_rate) if db_product.tax_rate else 0.0,
+        "warranty_policy_id": int(db_product.warranty_policy_id) if db_product.warranty_policy_id else None,
         
         # Manually serialize lists
         "units": [

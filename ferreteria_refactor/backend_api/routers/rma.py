@@ -62,12 +62,35 @@ def check_warranty_status(imei: str, db: Session = Depends(get_db)):
     delta = now - sale_date
     days_elapsed = delta.days
     
-    # 5. Determine Eligibility (Hardcoded 90 days for now, or use warranty_end_date if set)
-    warranty_limit = 90
-    is_within_warranty = days_elapsed <= warranty_limit
+    # 5. Determine Eligibility from Warranty Policy or Legacy fields
+    warranty_limit_days = 0
+    policy = product.warranty_policy
+    
+    if policy and policy.is_active:
+        if policy.type == "LIFETIME":
+            warranty_limit_days = 99999 # Effectively infinite
+        elif policy.type == "DAYS":
+            warranty_limit_days = policy.duration
+        elif policy.type == "MONTHS":
+            warranty_limit_days = policy.duration * 30
+        elif policy.type == "YEARS":
+            warranty_limit_days = policy.duration * 365
+    else:
+        # Fallback to legacy fields if policy not assigned
+        if product.warranty_unit == models.WarrantyUnit.DAYS:
+            warranty_limit_days = product.warranty_duration or 0
+        elif product.warranty_unit == models.WarrantyUnit.MONTHS:
+            warranty_limit_days = (product.warranty_duration or 0) * 30
+        else:
+            warranty_limit_days = 90 # Hardcoded default for items without data
+            
+    is_within_warranty = days_elapsed <= warranty_limit_days
     
     status_str = "ACTIVE" if is_within_warranty else "EXPIRED"
-    msg = "Garantía Activa" if is_within_warranty else f"Garantía Vencida (hace {days_elapsed - warranty_limit} días)"
+    if policy and policy.type == "LIFETIME":
+        msg = "Garantía de por Vida Activa"
+    else:
+        msg = "Garantía Activa" if is_within_warranty else f"Garantía Vencida (hace {days_elapsed - warranty_limit_days} días)"
 
     return {
         "valid": True, # Valid as in "Found and Sold", logic about accepting expired is up to frontend/manager

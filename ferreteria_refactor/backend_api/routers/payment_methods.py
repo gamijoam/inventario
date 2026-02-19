@@ -35,6 +35,13 @@ class PaymentMethodResponse(PaymentMethodBase):
 @router.get("", response_model=List[PaymentMethodResponse], include_in_schema=False)
 def get_payment_methods(db: Session = Depends(get_db)):
     """Get all payment methods"""
+    # SECURITY: Check Tenant Context
+    from ..tenant_context import get_tenant_schema
+    current_schema = get_tenant_schema()
+    
+    if current_schema == 'public':
+        return []
+
     return db.query(models.PaymentMethod).all()
 
 @router.post("/", response_model=PaymentMethodResponse)

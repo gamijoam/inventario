@@ -40,6 +40,7 @@ import ExternalTransferOut from './pages/Inventory/Transfers/ExternalTransferOut
 
 import ExternalTransferIn from './pages/Inventory/Transfers/ExternalTransferIn';
 import SerializedReception from './pages/Inventory/SerializedReception';
+import WarrantyPolicies from './pages/WarrantyPolicies'; // NEW: Warranty Policies
 
 import AccountsReceivable from './pages/Credit/AccountsReceivable';
 import AgingReport from './pages/Credit/AgingReport';
@@ -212,6 +213,11 @@ function App() {
                               <Route path="/inventory" element={
                                 <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                   <Inventory />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/warranty-policies" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <WarrantyPolicies />
                                 </ProtectedRoute>
                               } />
                               <Route path="/warehouses" element={

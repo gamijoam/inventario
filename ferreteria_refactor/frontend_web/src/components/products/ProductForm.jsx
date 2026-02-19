@@ -51,6 +51,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     // We still need local state for priceLists as parent doesn't have it.
 
     const [priceLists, setPriceLists] = useState([]);
+    const [policies, setPolicies] = useState([]); // NEW: Warranty Policies
     const [formData, setFormData] = useState({
         name: '',
         sku: '',
@@ -67,9 +68,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         has_imei: false,
         is_service: false,  // NEW: Service/Non-stock product flag
         is_commissionable: false, // NEW: Commission flag
-        warranty_duration: 0,
-        warranty_unit: 'DAYS',
-        warranty_notes: '',
+        warranty_policy_id: null, // NEW: Linked Policy
         profit_margin: null,
         discount_percentage: 0,
         is_discount_active: false,
@@ -96,6 +95,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                 try {
                     await Promise.all([
                         fetchPriceLists(),
+                        fetchPolicies(), // NEW
                         fetchDefaultTaxRate()
                     ]);
                 } catch (error) {
@@ -142,9 +142,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                     has_imei: initialData.has_imei || false,
                     is_service: initialData.is_service || false,
                     is_commissionable: initialData.is_commissionable || false, // NEW
-                    warranty_duration: parseInt(initialData.warranty_duration) || 0,
-                    warranty_unit: initialData.warranty_unit || 'DAYS',
-                    warranty_notes: initialData.warranty_notes || '',
+                    warranty_policy_id: initialData.warranty_policy_id || null, // NEW
                     profit_margin: initialData.profit_margin ? parseFloat(initialData.profit_margin) : null,
                     discount_percentage: parseFloat(initialData.discount_percentage) || 0,
                     is_discount_active: initialData.is_discount_active || false,
@@ -205,6 +203,15 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         }
     };
 
+    const fetchPolicies = async () => {
+        try {
+            const { data } = await apiClient.get('/warranties/policies');
+            setPolicies(data.filter(p => p.is_active));
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     const fetchDefaultTaxRate = async () => {
         if (!initialData) {
             try {
@@ -232,7 +239,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             stock: parseFloat(formData.stock) || 0,
             min_stock: parseFloat(formData.min_stock) || 0,
             exchange_rate_id: formData.exchange_rate_id ? parseInt(formData.exchange_rate_id) : null,
-            warranty_duration: parseInt(formData.warranty_duration) || 0,
+            warranty_policy_id: formData.warranty_policy_id ? parseInt(formData.warranty_policy_id) : null,
             profit_margin: formData.profit_margin ? parseFloat(formData.profit_margin) : null,
             discount_percentage: parseFloat(formData.discount_percentage) || 0,
             tax_rate: parseFloat(formData.tax_rate) || 0,
@@ -716,6 +723,39 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                             comboItems={formData.combo_items}
                                             onItemsChange={(i) => setFormData(p => ({ ...p, combo_items: i }))}
                                         />
+                                    </CardContent>
+                                </Card>
+
+                                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
+                                    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/30">
+                                        <ShieldCheck size={18} className="text-indigo-500" />
+                                        <h4 className="text-sm font-bold text-slate-800">Política de Garantía</h4>
+                                    </div>
+                                    <CardContent className="p-6">
+                                        <div className="space-y-4">
+                                            <div className="space-y-2">
+                                                <Label>Vincular Política de Garantía</Label>
+                                                <Select
+                                                    value={formData.warranty_policy_id?.toString()}
+                                                    onValueChange={(val) => setFormData({ ...formData, warranty_policy_id: val === 'null' ? null : val })}
+                                                >
+                                                    <SelectTrigger className="h-11 border-slate-200">
+                                                        <SelectValue placeholder="Sin garantía (u omitida)" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="null">-- Ninguna / Según Factura --</SelectItem>
+                                                        {policies.map(p => (
+                                                            <SelectItem key={p.id} value={p.id.toString()}>
+                                                                {p.name} ({p.type === 'LIFETIME' ? 'De por vida' : `${p.duration} ${p.type}`})
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <p className="text-xs text-slate-500">
+                                                Esta política se reflejará al momento de la venta y permitirá gestionar reclamos de forma automática.
+                                            </p>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </div>

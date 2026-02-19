@@ -44,6 +44,7 @@ from .routers.rma import router as rma_router
 from .routers.price_lists import router as price_lists_router
 from .routers.warehouses import router as warehouses_router
 from .routers.transfers import router as transfers_router
+from .routers.warranties import router as warranties_router # NEW: Warranty System
 from .routers.admin import router as admin_router  # NEW: Admin panel
 from .routers.support_client import router as support_client_router
 from .routers.support_admin import router as support_admin_router
@@ -200,6 +201,7 @@ v1_router.include_router(commissions_router, tags=["Comisiones"])
 v1_router.include_router(rma_router, tags=["Garantías RMA"])
 v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
 v1_router.include_router(cloud_router, tags=["Cloud Configuration"])
+v1_router.include_router(warranties_router, tags=["Garantías"])
 from .routers.admin import router as admin_router  # NEW: Superuser admin endpoints
 from .routers.admin_tasks import router as admin_tasks_router # NEW: Admin Tasks
 from .routers.support_client import router as support_client_router
@@ -317,8 +319,17 @@ def startup_event():
     print(f"[INFO] Directorio Media verificado: {BASE_MEDIA_DIR}")
     
     # Run Alembic migrations
-    print("[INFO] Iniciando migraciones de Alembic...")
+    print("[INFO] Iniciando migraciones de Alembic (Public Schema)...")
     run_migrations()
+    
+    # NEW: Run Tenant Migrations automatically
+    print("[INFO] Propagando cambios a esquemas de Tenants...")
+    try:
+        from .migrate_tenants import migrate_tenants
+        migrate_tenants()
+        print("[INFO] ✅ Migración de tenants completada.")
+    except Exception as e:
+        print(f"[ERROR] ⚠️ Error en migración de tenants: {e}")
     
     # FALLBACK: Create tables if they don't exist (for development/first run)
     # This ensures the app works even if migrations fail or DB is in inconsistent state

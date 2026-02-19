@@ -3,15 +3,14 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    print("❌ DATABASE_URL not found")
-    exit(1)
 
-engine = create_engine(DATABASE_URL)
-
-def migrate_tenants():
-    inspector = inspect(engine)
+def migrate_tenants(db_engine=None):
+    if not db_engine:
+        from .config import settings
+        from .database.db import engine as default_engine
+        db_engine = default_engine
+        
+    inspector = inspect(db_engine)
     all_schemas = inspector.get_schema_names()
     
     # Filter for tenant schemas (exclude system and public)
@@ -20,7 +19,7 @@ def migrate_tenants():
     
     print(f"🌍 Found Schemas: {tenant_schemas}")
 
-    with engine.connect() as conn:
+    with db_engine.connect() as conn:
         for schema in tenant_schemas:
             print(f"\n🚜 Migrating Schema: {schema}...")
             # Sanitize schema name for index names (Postgres identifiers shouldn't have hyphens without check)
@@ -125,7 +124,78 @@ def migrate_tenants():
                 conn.rollback()
                 print(f"   ⚠️ Error creating price_lists/product_prices in {schema}: {e}")
             
+            # 4. WARRANTY SYSTEM MIGRATION
+            try:
+                tables = inspector.get_table_names(schema=schema)
+                
+                # 4.1 Create Warranty Policies
+                if 'warranty_policies' not in tables:
+                    print(f"   ➕ Creating table {schema}.warranty_policies")
+                    conn.execute(text(f"""
+                        CREATE TABLE \"{schema}\".warranty_policies (
+                            id SERIAL PRIMARY KEY,
+                            tenant_id INTEGER NOT NULL REFERENCES public.tenants(id),
+                            name VARCHAR NOT NULL,
+                            type VARCHAR NOT NULL,
+                            duration INTEGER,
+                            description TEXT,
+                            is_default BOOLEAN DEFAULT FALSE,
+                            is_active BOOLEAN DEFAULT TRUE,
+                            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+                            updated_at TIMESTAMP WITHOUT TIME ZONE
+                        )
+                    """))
+                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_wp_id\" ON \"{schema}\".warranty_policies (id)"))
+                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_wp_tenant\" ON \"{schema}\".warranty_policies (tenant_id)"))
+                    conn.commit()
+                else:
+                    print(f"   ✅ Table {schema}.warranty_policies already exists")
+                
+                # 4.2 Create Warranty Claims
+                if 'warranty_claims' not in tables:
+                    print(f"   ➕ Creating table {schema}.warranty_claims")
+                    conn.execute(text(f"""
+                        CREATE TABLE \"{schema}\".warranty_claims (
+                            id SERIAL PRIMARY KEY,
+                            tenant_id INTEGER NOT NULL REFERENCES public.tenants(id),
+                            sale_item_id INTEGER NOT NULL,
+                            customer_id INTEGER NOT NULL,
+                            policy_snapshot JSONB,
+                            status VARCHAR DEFAULT 'PENDING',
+                            reason TEXT NOT NULL,
+                            diagnosis TEXT,
+                            resolution_type VARCHAR,
+                            resolution_notes TEXT,
+                            claimed_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+                            resolved_at TIMESTAMP WITHOUT TIME ZONE
+                        )
+                    """))
+                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_wc_id\" ON \"{schema}\".warranty_claims (id)"))
+                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_wc_tenant\" ON \"{schema}\".warranty_claims (tenant_id)"))
+                    conn.commit()
+                else:
+                    print(f"   ✅ Table {schema}.warranty_claims already exists")
+
+                # 4.3 Add warranty_policy_id to products
+                cols = inspector.get_columns('products', schema=schema)
+                col_names = [c['name'] for c in cols]
+                if 'warranty_policy_id' not in col_names:
+                    print(f"   ➕ Adding warranty_policy_id column to {schema}.products")
+                    conn.execute(text(f"ALTER TABLE \"{schema}\".products ADD COLUMN warranty_policy_id INTEGER REFERENCES \"{schema}\".warranty_policies(id)"))
+                    conn.commit()
+                else:
+                    print(f"   ✅ warranty_policy_id already exists in {schema}.products")
+
+            except Exception as e:
+                conn.rollback()
+                print(f"   ⚠️ Error migrating Warranty System in {schema}: {e}")
+
     print("\n🎉 All Tenants Migrated!")
 
 if __name__ == "__main__":
-    migrate_tenants()
+    DATABASE_URL = os.getenv("DATABASE_URL")
+    if not DATABASE_URL:
+        print("❌ DATABASE_URL not found. Please set it in .env or environment.")
+    else:
+        engine = create_engine(DATABASE_URL)
+        migrate_tenants(engine)

@@ -62,6 +62,9 @@ class ProductBase(BaseModel):
     warranty_duration: Optional[int] = Field(0, description="Duración de la garantía", example=30)
     warranty_unit: Optional[WarrantyUnit] = Field(WarrantyUnit.DAYS, description="Unidad de tiempo (DAYS/MONTHS/YEARS)", example="DAYS")
     warranty_notes: Optional[str] = Field(None, description="Notas de garantía", example="Solo defectos de fábrica")
+    
+    # New Warranty System (Policy Link)
+    warranty_policy_id: Optional[int] = Field(None, description="ID de la política de garantía asignada")
 
 # Exchange Rate Schemas
 class ExchangeRateBase(BaseModel):
@@ -1215,3 +1218,19 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str = Field(..., min_length=6)
+
+# ========================
+# Warranty Schemas
+# ========================
+from .warranty import (
+    WarrantyType,
+    ResolutionType,
+    ClaimStatus,
+    WarrantyPolicyBase,
+    WarrantyPolicyCreate,
+    WarrantyPolicyRead,
+    WarrantyClaimBase,
+    WarrantyClaimCreate,
+    WarrantyClaimUpdate,
+    WarrantyClaimRead
+)

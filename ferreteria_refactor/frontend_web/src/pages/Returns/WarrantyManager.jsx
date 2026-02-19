@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, RotateCcw, CheckCircle, XCircle, AlertTriangle, ShieldCheck, ShieldAlert, DollarSign, Package } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Search, RotateCcw, CheckCircle, XCircle, AlertTriangle, ShieldCheck, ShieldAlert, DollarSign, Package, CornerDownLeft } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
@@ -97,6 +98,24 @@ const WarrantyManager = () => {
                     Gestión de Garantías (RMA)
                 </h1>
                 <p className="text-slate-500 font-medium ml-8">Procesar devoluciones de equipos serializados</p>
+            </div>
+
+            {/* Tabs Navigation */}
+            <div className="flex gap-4 mb-6 border-b border-slate-200 px-1 flex-shrink-0 max-w-6xl mx-auto w-full">
+                <Link
+                    to="/returns"
+                    className="pb-3 px-4 text-slate-400 hover:text-slate-600 font-bold flex items-center gap-2 transition-all hover:border-b-2 hover:border-slate-300"
+                >
+                    <CornerDownLeft size={18} />
+                    Devoluciones
+                </Link>
+                <Link
+                    to="/rma/warranty"
+                    className="pb-3 px-4 text-indigo-600 border-b-2 border-indigo-600 font-bold flex items-center gap-2 transition-all"
+                >
+                    <ShieldCheck size={18} />
+                    Gestión de Garantía
+                </Link>
             </div>
 
             <div className="flex-1 flex gap-8 max-w-6xl mx-auto w-full">

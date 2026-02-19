@@ -218,6 +218,10 @@ class Product(Base):
     # NEW: Multiple Price Lists Support
     prices = relationship("ProductPrice", back_populates="product", cascade="all, delete-orphan")
 
+    # NEW: Warranty Policy Link
+    warranty_policy_id = Column(Integer, ForeignKey("warranty_policies.id"), nullable=True)
+    warranty_policy = relationship("WarrantyPolicy", back_populates="products")
+
     def __repr__(self):
         return f"<Product(name='{self.name}', is_box={self.is_box}, is_combo={self.is_combo}, factor={self.conversion_factor})>"
 
@@ -892,6 +896,57 @@ class TransferDetail(Base):
 
     def __repr__(self):
         return f"<TransferDetail(t={self.transfer_id}, p={self.product_id}, q={self.quantity})>"
+
+class WarrantyPolicy(Base):
+    __tablename__ = "warranty_policies"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("public.tenants.id"), nullable=False)
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=False) # DAYS, MONTHS, YEARS, LIFETIME
+    duration = Column(Integer, nullable=True) # Null for LIFETIME
+    description = Column(Text, nullable=True)
+    is_default = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, onupdate=datetime.datetime.now)
+    
+    products = relationship("Product", back_populates="warranty_policy")
+    
+    def __repr__(self):
+        return f"<WarrantyPolicy(name='{self.name}', type='{self.type}', duration={self.duration})>"
+
+class WarrantyClaim(Base):
+    __tablename__ = "warranty_claims"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("public.tenants.id"), nullable=False)
+    
+    # We link to SaleDetail to know EXACTLY what item was claimed
+    # But since SaleDetail might be archived or complex, we store ID.
+    # ideally we should have a relationship.
+    sale_item_id = Column(Integer, nullable=False) # ID of SaleDetail
+    customer_id = Column(Integer, nullable=False)
+    
+    policy_snapshot = Column(JSON, nullable=True) # What was the policy at that time?
+    
+    status = Column(String, default="PENDING") # PENDING, APPROVED, REJECTED, COMPLETED
+    reason = Column(Text, nullable=False)
+    diagnosis = Column(Text, nullable=True)
+    
+    resolution_type = Column(String, nullable=True) # REFUND, REPLACE, REPAIR, CREDIT
+    resolution_notes = Column(Text, nullable=True)
+    
+    claimed_at = Column(DateTime, default=get_venezuela_now)
+    resolved_at = Column(DateTime, nullable=True)
+    
+    # Relationships (optional, need imports if we want strong links)
+    # sale_item = relationship("SaleDetail") 
+    # customer = relationship("Customer")
+    
+    def __repr__(self):
+        return f"<WarrantyClaim(id={self.id}, status='{self.status}')>"
 
 
 
