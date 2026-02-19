@@ -7,6 +7,7 @@ import ProductMobileCard from '../components/products/ProductMobileCard';
 import BulkProductActions from '../components/products/BulkProductActions';
 import InventoryValuationCard from '../components/products/InventoryValuationCard';
 import ProductThumbnail from '../components/products/ProductThumbnail';
+import ProductInstancesModal from '../components/products/ProductInstancesModal';
 import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import apiClient from '../config/axios';
@@ -39,10 +40,12 @@ const formatStock = (stock) => {
 };
 
 const Products = () => {
-    const { getActiveCurrencies, convertProductPrice } = useConfig();
+    const { getActiveCurrencies, convertProductPrice, modules } = useConfig();
     const { subscribe } = useWebSocket();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [isInstancesModalOpen, setIsInstancesModalOpen] = useState(false);
+    const [selectedProductForInstances, setSelectedProductForInstances] = useState(null);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [products, setProducts] = useState([]);
@@ -372,6 +375,17 @@ const Products = () => {
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
                                                     <DropdownMenuLabel className="text-xs uppercase text-slate-400 tracking-widest">Opciones</DropdownMenuLabel>
+                                                    {product.has_imei && modules.services && (
+                                                        <DropdownMenuItem
+                                                            onClick={() => { setSelectedProductForInstances(product); setIsInstancesModalOpen(true); }}
+                                                            className="py-2.5 rounded-lg cursor-pointer font-medium text-slate-700 hover:text-indigo-600 hover:bg-indigo-50"
+                                                        >
+                                                            <div className="flex items-center w-full">
+                                                                <div className="w-8 flex justify-center"><Search size={16} /></div>
+                                                                <span>Ver Seriales / IMEIs</span>
+                                                            </div>
+                                                        </DropdownMenuItem>
+                                                    )}
                                                     <DropdownMenuItem onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }} className="py-2.5 rounded-lg cursor-pointer">
                                                         <Pencil size={16} className="mr-3 text-indigo-500" />
                                                         <span className="font-bold">Editar</span>
@@ -414,6 +428,12 @@ const Products = () => {
                         await fetchProducts(); setIsModalOpen(false); setSelectedProduct(null);
                     } catch (e) { console.error(e); alert(e.response?.data?.detail || "Error"); }
                 }}
+            />
+
+            <ProductInstancesModal
+                isOpen={isInstancesModalOpen}
+                onClose={() => { setIsInstancesModalOpen(false); setSelectedProductForInstances(null); }}
+                product={selectedProductForInstances}
             />
         </div>
     );

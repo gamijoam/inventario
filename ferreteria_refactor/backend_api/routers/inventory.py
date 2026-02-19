@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Dict, Any
 from ..database.db import get_db
 from ..models import models
@@ -267,3 +267,17 @@ def validate_imei_for_entry(imei: str, db: Session = Depends(get_db)):
     Returns: {"exists": bool, "message": str}
     """
     return InventoryService.validate_imei_for_entry(db, imei)
+
+@router.get("/product/{product_id}/instances")
+def get_product_instances(product_id: int, db: Session = Depends(get_db)):
+    """
+    Get all serialized instances (IMEIs) for a specific product.
+    Includes status, warehouse, and dates.
+    """
+    instances = db.query(models.ProductInstance).options(
+        joinedload(models.ProductInstance.warehouse)
+    ).filter(
+        models.ProductInstance.product_id == product_id
+    ).order_by(models.ProductInstance.status, models.ProductInstance.created_at.desc()).all()
+
+    return instances
