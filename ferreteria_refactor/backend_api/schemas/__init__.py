@@ -1157,6 +1157,7 @@ class ServiceOrderUpdate(BaseModel):
     order_metadata: Optional[Dict[str, Any]] = None
     technician_id: Optional[int] = None
     priority: Optional[ServicePriority] = None
+    admin_pin: Optional[str] = None # For reversing delivered status
 
 class ServiceOrderCreate(ServiceOrderBase):
     # NEW: Support Multi-Item creation

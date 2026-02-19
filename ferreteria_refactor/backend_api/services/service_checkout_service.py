@@ -220,8 +220,14 @@ class ServiceCheckoutService:
                  # Should not ideally happen if balance > 0 in POS
                  pass
 
-            # 6. Update Order Status
+            # 6. Update Order Status & Metadata
             order.status = models.ServiceOrderStatus.DELIVERED
+            
+            # 🆕 Mark as PAID in metadata to prevent double billing even if reverted
+            metadata = dict(order.order_metadata or {})
+            metadata["payment_status"] = "PAID"
+            order.order_metadata = metadata
+            
             order.updated_at = datetime.now()
             
             db.commit()

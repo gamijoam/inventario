@@ -69,9 +69,9 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
 
     useEffect(() => {
         if (item) {
-            const qty = item.quantity;
+            const qty = Number(item.quantity || 0);
             setQuantity(qty);
-            setQuantityInput(parseFloat(qty.toFixed(3)).toString()); // Format to 3 decimals
+            setQuantityInput(parseFloat(qty.toFixed(3)).toString());
 
             // Calculate initial amount based on quantity
             const initialAmount = qty * item.unit_price_usd;
@@ -161,7 +161,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
 
         // Convert to selected currency
         const displayAmount = convertFromUSD(amountUSD, selectedCurrency);
-        setAmountInput(displayAmount.toFixed(2));
+        setAmountInput(Number(displayAmount || 0).toFixed(2));
     };
 
     const handleCurrencyChange = (newCurrency) => {
@@ -170,7 +170,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
         const newAmount = convertFromUSD(currentAmountUSD, newCurrency);
 
         setSelectedCurrency(newCurrency);
-        setAmountInput(newAmount.toFixed(2));
+        setAmountInput(Number(newAmount || 0).toFixed(2));
     };
 
     if (!isOpen || !item) return null;

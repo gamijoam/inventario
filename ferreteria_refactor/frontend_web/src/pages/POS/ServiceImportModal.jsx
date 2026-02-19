@@ -132,12 +132,12 @@ const ServiceImportModal = ({ isOpen, onClose, onSelect }) => {
                                             return (
                                                 <div className="bg-slate-50 rounded-lg p-2 text-xs flex justify-between items-center mt-2">
                                                     <div>
-                                                        <span className="block text-slate-500">Total: ${total.toFixed(2)}</span>
-                                                        {prepaid > 0 && <span className="block text-emerald-600">Abonado: -${prepaid.toFixed(2)}</span>}
+                                                        <span className="block text-slate-500">Total: ${Number(total || 0).toFixed(2)}</span>
+                                                        {prepaid > 0 && <span className="block text-emerald-600">Abonado: -${Number(prepaid || 0).toFixed(2)}</span>}
                                                     </div>
                                                     <div className="text-right">
                                                         <span className="block text-slate-400 text-[10px]">A Pagar</span>
-                                                        <span className="font-bold text-lg text-slate-800">${due.toFixed(2)}</span>
+                                                        <span className="font-bold text-lg text-slate-800">${Number(due || 0).toFixed(2)}</span>
                                                     </div>
                                                 </div>
                                             );

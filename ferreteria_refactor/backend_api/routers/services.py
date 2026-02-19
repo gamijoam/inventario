@@ -333,12 +333,24 @@ def update_service_order_status(
         raise HTTPException(status_code=404, detail="Service Order not found")
         
     if update_data.status:
-        # 🔒 AUTHORIZATION: Only admins can revert DELIVERED orders
-        if order.status == models.ServiceOrderStatus.DELIVERED:
-            if current_user.role != models.UserRole.ADMIN:
+        # 🔒 AUTHORIZATION: Reverting DELIVERED orders requires Admin privileges or PIN
+        if order.status == models.ServiceOrderStatus.DELIVERED and update_data.status != "DELIVERED":
+            is_authorized = current_user.role == models.UserRole.ADMIN
+            
+            if not is_authorized and update_data.admin_pin:
+                # Check if PIN belongs to ANY active admin
+                admin_user = db.query(models.User).filter(
+                    models.User.role == models.UserRole.ADMIN,
+                    models.User.pin == update_data.admin_pin,
+                    models.User.is_active == True
+                ).first()
+                if admin_user:
+                    is_authorized = True
+            
+            if not is_authorized:
                 raise HTTPException(
                     status_code=403, 
-                    detail="Solo administradores pueden revertir órdenes entregadas"
+                    detail="Se requiere PIN de Administrador para revertir una orden entregada"
                 )
         
         if update_data.status not in models.ServiceOrderStatus.__members__:
@@ -382,12 +394,16 @@ def get_ready_service_orders(
     """Get all service orders ready for checkout/delivery"""
     tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
     
-    return db.query(models.ServiceOrder)\
+    # We filter in Python to handle JSON metadata checking easily or use cast/JSON logic in SQL
+    # But since it's a small list, Python filter is safer across DB types
+    orders = db.query(models.ServiceOrder)\
         .options(joinedload(models.ServiceOrder.payments))\
         .filter(
             models.ServiceOrder.status == models.ServiceOrderStatus.READY,
             models.ServiceOrder.tenant_id == tenant_id
         ).all()
+    
+    return [o for o in orders if (o.order_metadata or {}).get("payment_status") != "PAID"]
 
 @router.post("/orders/{order_id}/checkout")
 def checkout_service_order(
@@ -405,6 +421,10 @@ def checkout_service_order(
     order = db.query(models.ServiceOrder).filter(models.ServiceOrder.id == order_id, models.ServiceOrder.tenant_id == tenant_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
+    
+    # 🔒 Double Billing Prevention
+    if (order.order_metadata or {}).get("payment_status") == "PAID":
+        raise HTTPException(status_code=400, detail="Esta orden ya ha sido pagada y facturada anteriormente.")
         
     sale = ServiceCheckoutService.convert_order_to_sale(db, order_id, payment_data, current_user.id)
     return {"status": "success", "sale_id": sale.id, "ticket_number": sale.id}

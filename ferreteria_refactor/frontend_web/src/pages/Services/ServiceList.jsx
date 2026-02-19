@@ -17,6 +17,16 @@ const STATUS_COLORS = {
     CANCELLED: 'bg-red-100 text-red-800',
 };
 
+const STATUS_LABELS = {
+    RECEIVED: 'Recibido',
+    DIAGNOSING: 'En Diagnóstico',
+    APPROVED: 'Ppto. Aprobado',
+    IN_PROGRESS: 'Reparando',
+    READY: 'Listo',
+    DELIVERED: 'Entregado',
+    CANCELLED: 'Anulado',
+};
+
 const ServiceList = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
@@ -84,13 +94,13 @@ const ServiceList = () => {
                                 ? 'ring-2 ring-offset-1 ring-blue-500 ' + STATUS_COLORS[status]
                                 : 'bg-white text-gray-600 hover:bg-gray-50 border'}`}
                     >
-                        {status}
+                        {STATUS_LABELS[status]}
                     </button>
                 ))}
             </div>
 
             {/* List */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
                 {loading ? (
                     <div className="p-8 text-center text-gray-500">Cargando...</div>
                 ) : orders.length === 0 ? (
@@ -100,7 +110,7 @@ const ServiceList = () => {
                         <p className="text-gray-500">Intente cambiar el filtro o cree una nueva orden.</p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-gray-100 overflow-y-auto max-h-[calc(100vh-280px)] custom-scrollbar">
                         {orders.map(order => {
                             const isLaundry = order.service_type === 'LAUNDRY';
                             const meta = order.order_metadata || {};
@@ -124,7 +134,7 @@ const ServiceList = () => {
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className="font-bold text-gray-900">{order.ticket_number}</span>
                                                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${STATUS_COLORS[order.status]}`}>
-                                                        {order.status}
+                                                        {STATUS_LABELS[order.status]}
                                                     </span>
                                                     {isLaundry && (
                                                         <span className="bg-teal-100 text-teal-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">

@@ -17,8 +17,18 @@ const STATUS_COLORS = {
     APPROVED: 'bg-blue-100 text-blue-800',
     IN_PROGRESS: 'bg-purple-100 text-purple-800',
     READY: 'bg-green-100 text-green-800',
-    DELIVERED: 'bg-teal-100 text-teal-800',
+    DELIVERED: 'bg-teal-100 text-teal-800 border-teal-200',
     CANCELLED: 'bg-red-100 text-red-800',
+};
+
+const STATUS_LABELS = {
+    RECEIVED: 'Recibido',
+    DIAGNOSING: 'En Diagnóstico',
+    APPROVED: 'Ppto. Aprobado',
+    IN_PROGRESS: 'En Reparación',
+    READY: 'Listo para Entrega',
+    DELIVERED: 'Entregado ✅',
+    CANCELLED: 'Anulado ❌',
 };
 
 const ServiceManager = () => {
@@ -98,16 +108,16 @@ const ServiceManager = () => {
     }, [productSearchTerm]);
 
     // Actions
-    const handleUpdateStatus = async (newStatus) => {
+    const handleUpdateStatus = async (newStatus, pin = null) => {
         try {
             await apiClient.patch(`/services/orders/${id}/status`, {
                 status: newStatus,
-                diagnosis_notes: diagnosisNotes
+                diagnosis_notes: diagnosisNotes,
+                admin_pin: pin
             });
-            toast.success(`Estado actualizado a ${newStatus}`);
+            toast.success(`Estado actualizado a ${STATUS_LABELS[newStatus]}`);
             fetchOrder();
         } catch (error) {
-            // Show backend error message if available
             const errorMessage = error.response?.data?.detail || "Error al actualizar estado";
             toast.error(errorMessage);
         }
@@ -200,11 +210,18 @@ const ServiceManager = () => {
     const interceptStatusChange = (newStatus) => {
         console.log('🔵 BUTTON CLICKED:', newStatus, 'Current:', order.status);
 
+        // Security reversal: Reverting from DELIVERED to something else
+        if (order.status === 'DELIVERED' && newStatus !== 'DELIVERED') {
+            const pin = window.prompt("⚠️ Esta orden ya fue ENTREGADA. Ingrese PIN de Administrador para revertir:");
+            if (pin === null) return; // Cancelled
+            handleUpdateStatus(newStatus, pin);
+            return;
+        }
+
         // Only open delivery modal when CHANGING TO delivered (not when already delivered)
         if (newStatus === 'DELIVERED' && order.status !== 'DELIVERED') {
             setShowDeliveryModal(true);
         } else {
-            // Direct status change - backend will validate authorization
             handleUpdateStatus(newStatus);
         }
     };
@@ -213,7 +230,7 @@ const ServiceManager = () => {
     if (!order) return <div>Orden no encontrada</div>;
 
     return (
-        <div className="h-[calc(100vh-theme(spacing.32))] flex flex-col pb-20 md:pb-0">
+        <div className="min-h-screen bg-slate-50 p-4 md:p-6">
             {/* HEADER */}
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-4">
@@ -223,8 +240,8 @@ const ServiceManager = () => {
                     <div>
                         <h1 className="text-2xl font-bold flex items-center gap-2">
                             Orden #{order.ticket_number}
-                            <span className={`text-xs px-2 py-1 rounded-full ${STATUS_COLORS[order.status]}`}>
-                                {order.status}
+                            <span className={`text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wider ${STATUS_COLORS[order.status]}`}>
+                                {STATUS_LABELS[order.status]}
                             </span>
                             {order.order_metadata?.payment_status === 'PAID' && (
                                 <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold flex items-center gap-1">
@@ -242,7 +259,7 @@ const ServiceManager = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-12 gap-6 h-full overflow-hidden md:grid-cols-12 grid-cols-1">
+            <div className="grid grid-cols-12 gap-6">
 
                 {/* LEFT COLUMN: INFO (Read Only) */}
                 <div className={`bg-white p-4 rounded-xl shadow-sm border border-gray-200 overflow-y-auto md:col-span-3 col-span-12 ${activeTab === 'INFO' ? 'block' : 'hidden md:block'}`}>
@@ -312,7 +329,7 @@ const ServiceManager = () => {
                 </div>
 
                 {/* CENTER COLUMN: WORKSPACE */}
-                <div className={`flex flex-col gap-6 overflow-hidden md:col-span-6 col-span-12 ${activeTab === 'WORK' ? 'flex' : 'hidden md:flex'}`}>
+                <div className={`flex flex-col gap-6 md:col-span-6 col-span-12 ${activeTab === 'WORK' ? 'flex' : 'hidden md:flex'}`}>
 
                     {/* Diagnosis Section */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-shrink-0">
@@ -329,7 +346,7 @@ const ServiceManager = () => {
                     </div>
 
                     {/* Items / Parts Section */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col min-h-[300px]">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-semibold text-gray-800">Repuestos y Mano de Obra</h3>
                             <button
@@ -518,10 +535,17 @@ const ServiceManager = () => {
                     </div>
                 </div>
 
-                <div className={`space-y-4 md:col-span-3 col-span-12 ${activeTab === 'ACTIONS' ? 'block' : 'hidden md:block'}`}>
+                <div className={`space-y-4 md:col-span-3 col-span-12 h-full overflow-y-auto pb-10 pr-1 ${activeTab === 'ACTIONS' ? 'block' : 'hidden md:block'}`}>
                     {/* Status Card */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                        <h3 className="font-semibold text-gray-800 mb-4">Estado del Servicio</h3>
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-orange-200 shadow-orange-50">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-semibold text-gray-800">Estado del Servicio</h3>
+                            {order.order_metadata?.payment_status === 'PAID' && (
+                                <span className="bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse shadow-sm">
+                                    PAGADA
+                                </span>
+                            )}
+                        </div>
 
                         {/* Authorization Warning */}
                         {order.status === 'DELIVERED' && user?.role !== 'ADMIN' && (
@@ -541,14 +565,14 @@ const ServiceManager = () => {
                                         <button
                                             key={statusStep}
                                             onClick={() => interceptStatusChange(statusStep)}
-                                            className={`w-full py-3 px-4 rounded-lg text-left text-sm font-medium transition-all flex justify-between items-center
+                                            className={`w-full py-3 px-4 rounded-lg text-left text-sm font-bold transition-all flex justify-between items-center
                                     ${isCurrentStatus
-                                                    ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                                                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                                    ? 'bg-slate-900 text-white shadow-md transform scale-105'
+                                                    : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-gray-700'
                                                 }`}
                                         >
-                                            {statusStep.replace('_', ' ')}
-                                            {isCurrentStatus && <CheckCircle size={16} />}
+                                            {STATUS_LABELS[statusStep]}
+                                            {isCurrentStatus && <CheckCircle size={16} className="text-emerald-400" />}
                                         </button>
                                     );
                                 })}
