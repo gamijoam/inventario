@@ -3,10 +3,12 @@ import { Link } from 'react-router-dom';
 import { Search, Package, AlertCircle, CheckCircle, XCircle, DollarSign, ArrowLeft, RefreshCw, X, ShieldCheck, CornerDownLeft } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { useConfig } from '../../context/ConfigContext';
+import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
 
 const ReturnsManager = () => {
+    const { user } = useAuth();
     const { currencies } = useConfig();
     const [step, setStep] = useState(1); // 1: Search, 2: Select Items
     const [searchQuery, setSearchQuery] = useState('');
@@ -186,13 +188,15 @@ const ReturnsManager = () => {
                     <CornerDownLeft size={18} />
                     Devoluciones
                 </Link>
-                <Link
-                    to="/rma/warranty"
-                    className="pb-3 px-4 text-slate-400 hover:text-slate-600 font-bold flex items-center gap-2 transition-all hover:border-b-2 hover:border-slate-300"
-                >
-                    <ShieldCheck size={18} />
-                    Gestión de Garantía
-                </Link>
+                {user?.role === 'ADMIN' && (
+                    <Link
+                        to="/rma/warranty"
+                        className="pb-3 px-4 text-slate-400 hover:text-slate-600 font-bold flex items-center gap-2 transition-all hover:border-b-2 hover:border-slate-300"
+                    >
+                        <ShieldCheck size={18} />
+                        Gestión de Garantía
+                    </Link>
+                )}
             </div>
 
             <div className="flex-1 flex overflow-hidden gap-6">

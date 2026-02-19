@@ -5,9 +5,11 @@ import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
 import { useConfig } from '../../context/ConfigContext';
+import { useAuth } from '../../context/AuthContext';
 
 const WarrantyManager = () => {
     // State
+    const { user } = useAuth();
     const { currencies } = useConfig();
     const [imei, setImei] = useState('');
     const [loading, setLoading] = useState(false);
@@ -109,13 +111,15 @@ const WarrantyManager = () => {
                     <CornerDownLeft size={18} />
                     Devoluciones
                 </Link>
-                <Link
-                    to="/rma/warranty"
-                    className="pb-3 px-4 text-indigo-600 border-b-2 border-indigo-600 font-bold flex items-center gap-2 transition-all"
-                >
-                    <ShieldCheck size={18} />
-                    Gestión de Garantía
-                </Link>
+                {user?.role === 'ADMIN' && (
+                    <Link
+                        to="/rma/warranty"
+                        className="pb-3 px-4 text-indigo-600 border-b-2 border-indigo-600 font-bold flex items-center gap-2 transition-all"
+                    >
+                        <ShieldCheck size={18} />
+                        Gestión de Garantía
+                    </Link>
+                )}
             </div>
 
             <div className="flex-1 flex gap-8 max-w-6xl mx-auto w-full">

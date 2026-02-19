@@ -216,7 +216,7 @@ function App() {
                                 </ProtectedRoute>
                               } />
                               <Route path="/warranty-policies" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN']}>
                                   <WarrantyPolicies />
                                 </ProtectedRoute>
                               } />
@@ -315,12 +315,12 @@ function App() {
                                 </ProtectedRoute>
                               } />
                               <Route path="/returns" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN']}>
                                   <ReturnsManager />
                                 </ProtectedRoute>
                               } />
                               <Route path="/rma/warranty" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                <ProtectedRoute roles={['ADMIN']}>
                                   <WarrantyManager />
                                 </ProtectedRoute>
                               } />

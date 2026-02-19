@@ -102,7 +102,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: FileText, label: 'Historial', path: '/sales-history' },
                 { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
                 { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
-                { icon: ShieldCheck, label: 'Garantías', path: '/rma/warranty' },
+                ...(user?.role === 'ADMIN' ? [
+                    { icon: ShieldCheck, label: 'Garantías', path: '/rma/warranty' }
+                ] : []),
                 { icon: Users, label: 'Clientes', path: '/customers' },
             ]
         },
@@ -113,7 +115,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             items: [
                 { icon: Package, label: 'Productos', path: '/products' },
                 { icon: Tags, label: 'Categorías', path: '/categories' },
-                { icon: ShieldCheck, label: 'Políticas de G.', path: '/warranty-policies' },
+                ...(user?.role === 'ADMIN' ? [
+                    { icon: ShieldCheck, label: 'Políticas de G.', path: '/warranty-policies' }
+                ] : []),
                 { icon: Archive, label: 'Movimientos', path: '/inventory' },
                 { icon: Warehouse, label: 'Almacenes', path: '/warehouses' },
                 { icon: ArrowRightLeft, label: 'Traslados', path: '/transfers' },
