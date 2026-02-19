@@ -342,6 +342,7 @@ const Reception = () => {
                             </div>
 
                             {/* SECCIÓN ABONO INICIAL (NEW) */}
+                            {/* SECCIÓN ABONO INICIAL (OCULTO TEMPORALMENTE)
                             <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
                                 <h3 className="font-semibold text-emerald-800 flex items-center gap-2 mb-3">
                                     <span className="bg-emerald-200 text-emerald-800 text-xs px-2 py-0.5 rounded-full">$</span>
@@ -388,6 +389,7 @@ const Reception = () => {
                                     )}
                                 </div>
                             </div>
+                            */}
 
                             <div className="border-t pt-6 mt-6 flex justify-end">
                                 <button

@@ -461,6 +461,32 @@ const POS = () => {
             addedCount++;
         });
 
+        // 🆕 DEDUCT PAYMENTS (ABONOS)
+        if (order.payments && order.payments.length > 0) {
+            const totalPaid = order.payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+
+            if (totalPaid > 0) {
+                const creditProduct = {
+                    id: `CREDIT_${order.id}`,
+                    name: "Abono / Anticipo",
+                    price: -Math.abs(totalPaid), // Negative Price
+                    stock: 9999,
+                    is_service_mock: true,
+                    image_url: null
+                };
+
+                const creditUnit = {
+                    name: 'Nota Crédito',
+                    price_usd: -Math.abs(totalPaid),
+                    factor: 1,
+                    is_base: true
+                };
+
+                addToCart(creditProduct, creditUnit);
+                addedCount++;
+            }
+        }
+
         toast.success(`Orden ${order.ticket_number} cargada (${addedCount} items)`);
     };
 
@@ -559,6 +585,15 @@ const POS = () => {
                         className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
                     >
                         <Banknote size={16} /> Avance
+                    </Button>
+
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsServiceImportOpen(true)}
+                        className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
+                    >
+                        <Layers size={16} /> Órdenes
                     </Button>
 
                     <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>

@@ -278,7 +278,12 @@ def get_dashboard_cashflow(db: Session = Depends(get_db)):
         models.SalePayment.currency,
         func.sum(models.SalePayment.amount).label('total')
     ).join(models.Sale).filter(
-        models.Sale.date >= open_sessions[0].start_time  # Since first session opened
+        models.Sale.date >= open_sessions[0].start_time,  # Since first session opened
+        # CRITICAL FIX: Only include payments made within the session window.
+        # This handles "Abonos" correctly:
+        # - If Abono was made TODAY (after session start), it's included.
+        # - If Abono was made YESTERDAY, its payment_date < session_start, so it's EXCLUDED.
+        models.SalePayment.payment_date >= open_sessions[0].start_time
     )
     
     sales_by_currency = sales_query.group_by(models.SalePayment.currency).all()
