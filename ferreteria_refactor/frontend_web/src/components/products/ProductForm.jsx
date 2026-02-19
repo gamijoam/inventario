@@ -390,6 +390,40 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     <p className="text-[11px] text-slate-500 mt-0.5">No descontará stock ni requiere gestión de almacenes.</p>
                                                 </div>
                                             </div>
+
+                                            {/* Serial/IMEI Toggle - Only if Services Module is Active */}
+                                            {modules.services && (
+                                                <div className={cn(
+                                                    "flex items-center gap-4 p-4 rounded-xl transition-all border",
+                                                    formData.has_imei
+                                                        ? "bg-blue-50 border-blue-200 ring-1 ring-blue-500/10"
+                                                        : "bg-slate-50 border-slate-100 hover:border-slate-200"
+                                                )}>
+                                                    <div className={cn(
+                                                        "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                                                        formData.has_imei ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-400"
+                                                    )}>
+                                                        <ScanBarcode size={20} />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between">
+                                                            <Label htmlFor="has_imei" className="text-sm font-bold text-slate-800 cursor-pointer">Maneja Seriales / IMEI</Label>
+                                                            <input
+                                                                type="checkbox"
+                                                                id="has_imei"
+                                                                checked={formData.has_imei || false}
+                                                                onChange={(e) => setFormData({ ...formData, has_imei: e.target.checked })}
+                                                                className="sr-only peer"
+                                                            />
+                                                            <div
+                                                                onClick={() => setFormData(p => ({ ...p, has_imei: !p.has_imei }))}
+                                                                className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 peer-checked:after:translate-x-5"
+                                                            ></div>
+                                                        </div>
+                                                        <p className="text-[11px] text-slate-500 mt-0.5">Requiere registrar serial único al vender o comprar.</p>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </CardContent>
