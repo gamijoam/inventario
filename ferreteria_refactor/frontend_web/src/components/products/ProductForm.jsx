@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode } from 'lucide-react';
+import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductPriceListManager from './ProductPriceListManager';
 import ProductUnitManager from './ProductUnitManager';
 import ComboManager from './ComboManager';
 import ProductImageUploader from './ProductImageUploader';
+import DiscountRulesManager from './DiscountRulesManager';
 import { cn } from '../../lib/utils';
 import BarcodeScannerComponent from '../common/BarcodeScanner';
 import {
@@ -289,6 +290,11 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                         <TabsList className="w-full justify-start h-10 bg-transparent p-0 gap-8">
                             <TabsTrigger value="main" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all">GENERAL</TabsTrigger>
                             <TabsTrigger value="advanced" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all">AVANZADO</TabsTrigger>
+                            {initialData?.id && (
+                                <TabsTrigger value="precios" className="data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:text-amber-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all flex items-center gap-1.5">
+                                    <Zap size={12} />PRECIOS POR VOLUMEN
+                                </TabsTrigger>
+                            )}
                         </TabsList>
                     </div>
 
@@ -760,6 +766,27 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                 </Card>
                             </div>
                         </TabsContent>
+
+                        {/* PRECIOS POR VOLUMEN TAB */}
+                        {initialData?.id && (
+                            <TabsContent value="precios" className="mt-0 space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="rounded-xl border border-amber-200 bg-white overflow-hidden shadow-sm">
+                                    <div className="px-6 py-4 border-b border-amber-100 flex items-center gap-2 bg-amber-50/40">
+                                        <Zap size={18} className="text-amber-500" />
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-800">Reglas de Descuento por Volumen</h4>
+                                            <p className="text-xs text-slate-500">Se aplican automaticamente en el POS según la cantidad comprada</p>
+                                        </div>
+                                    </div>
+                                    <div className="p-6">
+                                        <DiscountRulesManager
+                                            productId={initialData.id}
+                                            initialRules={initialData.discount_rules || []}
+                                        />
+                                    </div>
+                                </div>
+                            </TabsContent>
+                        )}
                     </div>
                 </Tabs>
             </SheetContent>

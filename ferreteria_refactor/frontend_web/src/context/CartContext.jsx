@@ -6,6 +6,7 @@ const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
     const [cart, setCart] = useState([]);
+    const [cartDiscount, setCartDiscount] = useState({ type: 'percent', value: 0, active: false }); // Feature 1
     const { currencies: exchangeRates } = useConfig();
 
     // Auto-update cart items when exchange rates change
@@ -196,7 +197,11 @@ export const CartProvider = ({ children }) => {
                     updated_at: product.updated_at || null,
                     // NEW: Serialized Inventory Support
                     serial_numbers: unit.serial_numbers || [],
-                    has_imei: unit.has_imei || false
+                    has_imei: unit.has_imei || false,
+                    // NEW: Product Location
+                    location: product.location || null,
+                    // Feature 2: Store discount rules on cart item for auto-apply
+                    discount_rules: product.discount_rules || [],
                 };
 
                 console.log('   newItem created:', newItem);
@@ -235,17 +240,60 @@ export const CartProvider = ({ children }) => {
         }));
     };
 
-    const clearCart = () => setCart([]);
+    const clearCart = () => {
+        setCart([]);
+        setCartDiscount({ type: 'percent', value: 0, active: false }); // Reset discount on clear
+    };
+
+    // Helper: find best applicable discount rule (highest min_qty ≤ current qty)
+    const applyQuantityDiscountRule = (item, qty) => {
+        const rules = item.discount_rules;
+        if (!rules || rules.length === 0) return {};
+
+        const activeRules = rules.filter(r => r.is_active && parseFloat(r.min_quantity) <= qty);
+        if (activeRules.length === 0) {
+            // No rule applies — restore original price if a rule was applied before
+            if (item._qty_rule_applied) {
+                return {
+                    unit_price_usd: item.original_price_usd || item.unit_price_usd,
+                    is_discount_active: false,
+                    discount_percentage: 0,
+                    _qty_rule_applied: false,
+                };
+            }
+            return {};
+        }
+
+        // Get the rule with the highest min_quantity that is still ≤ qty
+        const bestRule = activeRules.reduce((best, r) =>
+            parseFloat(r.min_quantity) > parseFloat(best.min_quantity) ? r : best
+        );
+
+        const basePrice = item.original_price_usd || item.unit_price_usd;
+        const discountedPrice = basePrice * (1 - parseFloat(bestRule.discount_percentage) / 100);
+
+        return {
+            original_price_usd: basePrice,
+            unit_price_usd: discountedPrice,
+            is_discount_active: true,
+            discount_percentage: parseFloat(bestRule.discount_percentage),
+            _qty_rule_applied: true,
+            _qty_rule_id: bestRule.id,
+        };
+    };
 
     // Helper to purely update the list and recalculate subtotals
     const updateItemQuantityInList = (list, itemId, qty) => {
         return list.map(item => {
             if (item.id === itemId) {
-                const subUsd = item.unit_price_usd * qty;
+                const ruleUpdates = applyQuantityDiscountRule(item, qty);
+                const effectivePrice = ruleUpdates.unit_price_usd ?? item.unit_price_usd;
+                const subUsd = effectivePrice * qty;
                 const subBs = subUsd * item.exchange_rate;
 
                 return {
                     ...item,
+                    ...ruleUpdates,
                     quantity: qty,
                     subtotal_usd: subUsd,
                     subtotal_bs: subBs
@@ -261,30 +309,23 @@ export const CartProvider = ({ children }) => {
 
         // Calculate totals for ALL active currencies
         if (exchangeRates && exchangeRates.length > 0) {
-            // Get all unique active currency codes
             const activeCurrencies = [...new Set(
                 exchangeRates
                     .filter(r => r.is_active)
                     .map(r => r.currency_code)
             )];
 
-            // Initialize totals for each currency
             activeCurrencies.forEach(currCode => {
                 totalsPerCurrency[currCode] = 0;
             });
 
-            // Calculate total for each currency
             cart.forEach(item => {
                 const itemTotalUSD = item.subtotal_usd;
 
-                // Convert to each active currency
                 activeCurrencies.forEach(currCode => {
-                    // Find the exchange rate for this currency
-                    // Use the item's specific rate if it matches this currency, otherwise use default
-                    let rateToUse = 1; // Default for USD
+                    let rateToUse = 1;
 
                     if (currCode !== 'USD') {
-                        // Check if item has a special rate for this currency
                         const itemRate = exchangeRates.find(r =>
                             r.id === item.exchange_rate_id &&
                             r.currency_code === currCode
@@ -293,7 +334,6 @@ export const CartProvider = ({ children }) => {
                         if (itemRate) {
                             rateToUse = itemRate.rate;
                         } else {
-                            // Use default rate for this currency
                             const defaultRate = exchangeRates.find(r =>
                                 r.currency_code === currCode &&
                                 r.is_default &&
@@ -308,12 +348,40 @@ export const CartProvider = ({ children }) => {
             });
         }
 
+        const rawUSD = cart.reduce((acc, item) => acc + item.subtotal_usd, 0);
+        const rawBs = cart.reduce((acc, item) => acc + (item.subtotal_bs || 0), 0);
+
+        // --- Apply global cart discount ---
+        let discountUSD = 0;
+        if (cartDiscount.active && cartDiscount.value > 0) {
+            if (cartDiscount.type === 'percent') {
+                discountUSD = rawUSD * (cartDiscount.value / 100);
+            } else { // 'fixed'
+                discountUSD = Math.min(cartDiscount.value, rawUSD);
+            }
+        }
+
+        // Calculate the Bs equivalent of the discount using item-weighted average rate
+        const avgRate = rawUSD > 0 ? rawBs / rawUSD : 1;
+        const discountBs = discountUSD * avgRate;
+
+        // Apply to byCurrency totals as well
+        const discountedByCurrency = {};
+        Object.keys(totalsPerCurrency).forEach(curr => {
+            const rate = curr === 'USD' ? 1 : avgRate;
+            discountedByCurrency[curr] = Math.max(0, totalsPerCurrency[curr] - discountUSD * rate);
+        });
+
         return {
-            usd: cart.reduce((acc, item) => acc + item.subtotal_usd, 0),
-            bs: cart.reduce((acc, item) => acc + (item.subtotal_bs || 0), 0),
-            byCurrency: totalsPerCurrency
+            usd: Math.max(0, rawUSD - discountUSD),
+            bs: Math.max(0, rawBs - discountBs),
+            byCurrency: discountedByCurrency,
+            rawUSD,
+            rawBs,
+            discountUSD,
+            discountBs,
         };
-    }, [cart, exchangeRates]);
+    }, [cart, exchangeRates, cartDiscount]);
 
     return (
         <CartContext.Provider value={{
@@ -321,12 +389,18 @@ export const CartProvider = ({ children }) => {
             addToCart,
             removeFromCart,
             updateQuantity,
-            updateCartItem, // NEW
+            updateCartItem,
             clearCart,
             totalUSD: totals.usd,
             totalBs: totals.bs,
             totalsByCurrency: totals.byCurrency,
-            exchangeRates  // Expose for other components if needed
+            rawTotalUSD: totals.rawUSD,
+            rawTotalBs: totals.rawBs,
+            discountUSD: totals.discountUSD,
+            discountBs: totals.discountBs,
+            cartDiscount,
+            setCartDiscount,
+            exchangeRates
         }}>
             {children}
         </CartContext.Provider>

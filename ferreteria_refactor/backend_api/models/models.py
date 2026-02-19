@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric, Text, DateTime, Enum, JSON, UniqueConstraint
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..database.db import Base
 import datetime
@@ -218,12 +219,28 @@ class Product(Base):
     # NEW: Multiple Price Lists Support
     prices = relationship("ProductPrice", back_populates="product", cascade="all, delete-orphan")
 
+    # NEW: Quantity-Based Discount Rules
+    discount_rules = relationship("DiscountRule", back_populates="product", cascade="all, delete-orphan")
+
     # NEW: Warranty Policy Link
     warranty_policy_id = Column(Integer, ForeignKey("warranty_policies.id"), nullable=True)
     warranty_policy = relationship("WarrantyPolicy", back_populates="products")
 
     def __repr__(self):
         return f"<Product(name='{self.name}', is_box={self.is_box}, is_combo={self.is_combo}, factor={self.conversion_factor})>"
+
+# NEW: Quantity-Based Discount Rules (Feature 2)
+class DiscountRule(Base):
+    __tablename__ = "discount_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    min_quantity = Column(Numeric(12, 3), nullable=False)
+    discount_percentage = Column(Numeric(5, 2), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    product = relationship("Product", back_populates="discount_rules")
 
 class ProductUnit(Base):
     __tablename__ = "product_units"

@@ -190,6 +190,31 @@ def migrate_tenants(db_engine=None):
                 conn.rollback()
                 print(f"   ⚠️ Error migrating Warranty System in {schema}: {e}")
 
+            # 5. Create Discount Rules (Feature 2: Quantity-based discounts)
+            try:
+                tables = inspector.get_table_names(schema=schema)
+                if 'discount_rules' not in tables:
+                    print(f"   ➕ Creating table {schema}.discount_rules")
+                    conn.execute(text(f"""
+                        CREATE TABLE "{schema}".discount_rules (
+                            id SERIAL PRIMARY KEY,
+                            product_id INTEGER NOT NULL REFERENCES "{schema}".products(id) ON DELETE CASCADE,
+                            min_quantity NUMERIC(12, 3) NOT NULL,
+                            discount_percentage NUMERIC(5, 2) NOT NULL,
+                            is_active BOOLEAN DEFAULT TRUE NOT NULL,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+                        )
+                    """))
+                    conn.execute(text(f'CREATE INDEX "ix_{safe_schema}_dr_id" ON "{schema}".discount_rules (id)'))
+                    conn.execute(text(f'CREATE INDEX "ix_{safe_schema}_dr_product" ON "{schema}".discount_rules (product_id)'))
+                    conn.commit()
+                else:
+                    print(f"   ✅ Table {schema}.discount_rules already exists")
+
+            except Exception as e:
+                conn.rollback()
+                print(f"   ⚠️ Error creating discount_rules in {schema}: {e}")
+
     print("\n🎉 All Tenants Migrated!")
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, AlertTriangle, Layers, RotateCcw, User } from 'lucide-react';
+import { Package, AlertTriangle, Layers, RotateCcw, User, MapPin } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import ProductThumbnail from '../products/ProductThumbnail';
 
@@ -104,6 +104,13 @@ const ProductCard = ({
                     {product.name}
                 </h3>
 
+                {/* Location Badge */}
+                {product.location && (
+                    <div className="flex items-center gap-1 text-slate-400 group-hover:text-indigo-500 transition-colors">
+                        <MapPin size={9} className="flex-shrink-0" />
+                        <span className="text-[9px] font-bold truncate" title={product.location}>{product.location}</span>
+                    </div>
+                )}
                 {/* Price Display Redesign */}
                 <div className="mt-auto pt-3 border-t border-slate-50 flex flex-col gap-1">
                     {/* Primary Price (USD) - Blue */}

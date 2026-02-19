@@ -60,7 +60,8 @@ def read_products(
             joinedload(models.Product.stocks), 
             joinedload(models.Product.prices),
             joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
-            joinedload(models.Product.price_rules)
+            joinedload(models.Product.price_rules),
+            joinedload(models.Product.discount_rules)  # Feature 2: Load quantity discount rules
         ).filter(models.Product.is_active == True)
         
         # FILTER: Warehouse
@@ -1065,5 +1066,84 @@ def bulk_create_products(products: List[schemas.ProductCreate], db: Session = De
     return result
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Feature 2: Quantity-Based Discount Rules
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/{product_id}/discount-rules", response_model=List[schemas.DiscountRuleRead])
+def get_discount_rules(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    return db.query(models.DiscountRule).filter(
+        models.DiscountRule.product_id == product_id
+    ).order_by(models.DiscountRule.min_quantity).all()
 
 
+@router.post("/{product_id}/discount-rules", response_model=schemas.DiscountRuleRead, status_code=201)
+def create_discount_rule(
+    product_id: int,
+    data: schemas.DiscountRuleBase,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(has_role([models.UserRole.ADMIN, models.UserRole.WAREHOUSE]))
+):
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    rule = models.DiscountRule(
+        product_id=product_id,
+        min_quantity=data.min_quantity,
+        discount_percentage=data.discount_percentage,
+        is_active=data.is_active
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.put("/{product_id}/discount-rules/{rule_id}", response_model=schemas.DiscountRuleRead)
+def update_discount_rule(
+    product_id: int,
+    rule_id: int,
+    data: schemas.DiscountRuleUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(has_role([models.UserRole.ADMIN, models.UserRole.WAREHOUSE]))
+):
+    rule = db.query(models.DiscountRule).filter(
+        models.DiscountRule.id == rule_id,
+        models.DiscountRule.product_id == product_id
+    ).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Regla no encontrada")
+    if data.min_quantity is not None:
+        rule.min_quantity = data.min_quantity
+    if data.discount_percentage is not None:
+        rule.discount_percentage = data.discount_percentage
+    if data.is_active is not None:
+        rule.is_active = data.is_active
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.delete("/{product_id}/discount-rules/{rule_id}", status_code=204)
+def delete_discount_rule(
+    product_id: int,
+    rule_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(has_role([models.UserRole.ADMIN, models.UserRole.WAREHOUSE]))
+):
+    rule = db.query(models.DiscountRule).filter(
+        models.DiscountRule.id == rule_id,
+        models.DiscountRule.product_id == product_id
+    ).first()
+    if not rule:
+        raise HTTPException(status_code=404, detail="Regla no encontrada")
+    db.delete(rule)
+    db.commit()
+    return None

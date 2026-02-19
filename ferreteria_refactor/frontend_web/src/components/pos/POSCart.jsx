@@ -1,4 +1,5 @@
-import { Trash2, ShoppingCart, CreditCard, Minus, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { Trash2, ShoppingCart, CreditCard, Minus, Plus, MapPin, Tag, X, Percent, DollarSign } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -10,6 +11,7 @@ import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 import { useConfig } from '../../context/ConfigContext';
+import { useCart } from '../../context/CartContext';
 
 const formatLocalCurrency = (amount) => {
     try {
@@ -36,11 +38,33 @@ const POSCart = ({
 }) => {
 
     const { business } = useConfig();
+    const { cartDiscount, setCartDiscount, discountUSD, discountBs, rawTotalUSD } = useCart();
+
+    // Discount Panel state
+    const [showDiscountPanel, setShowDiscountPanel] = useState(false);
+    const [discountInput, setDiscountInput] = useState('');
+    const [discountType, setDiscountType] = useState('percent'); // 'percent' | 'fixed'
 
     // Calculate Taxes dynamically based on business config
     const taxRate = parseFloat(business?.default_tax_rate || 0);
     const subtotalUSD = totals.totalUSD / (1 + (taxRate / 100));
     const taxAmountUSD = totals.totalUSD - subtotalUSD;
+
+    const handleApplyDiscount = () => {
+        const val = parseFloat(discountInput);
+        if (isNaN(val) || val <= 0) return;
+        if (discountType === 'percent' && val > 100) return;
+        setCartDiscount({ type: discountType, value: val, active: true });
+        setShowDiscountPanel(false);
+    };
+
+    const handleRemoveDiscount = () => {
+        setCartDiscount({ type: 'percent', value: 0, active: false });
+        setDiscountInput('');
+        setShowDiscountPanel(false);
+    };
+
+    const hasDiscount = cartDiscount.active && cartDiscount.value > 0;
 
     return (
         <div className="flex flex-col h-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
@@ -61,17 +85,112 @@ const POSCart = ({
                         </p>
                     </div>
                 </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onClearCart}
-                    className="h-9 w-9 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                    title="Limpiar Carrito"
-                    disabled={cartItems.length === 0}
-                >
-                    <Trash2 size={18} />
-                </Button>
+                <div className="flex items-center gap-1">
+                    {/* Discount Button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setShowDiscountPanel(v => !v)}
+                        className={cn(
+                            "h-9 w-9 rounded-xl transition-all",
+                            hasDiscount
+                                ? "bg-rose-500 text-white hover:bg-rose-600 shadow-md shadow-rose-200"
+                                : "text-slate-300 hover:text-rose-500 hover:bg-rose-50"
+                        )}
+                        title={hasDiscount ? `Descuento: ${cartDiscount.type === 'percent' ? cartDiscount.value + '%' : '$' + cartDiscount.value}` : "Aplicar Descuento"}
+                        disabled={cartItems.length === 0}
+                    >
+                        <Tag size={16} />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={onClearCart}
+                        className="h-9 w-9 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                        title="Limpiar Carrito"
+                        disabled={cartItems.length === 0}
+                    >
+                        <Trash2 size={18} />
+                    </Button>
+                </div>
             </div>
+
+            {/* Discount Panel - Inline Dropdown */}
+            {showDiscountPanel && (
+                <div className="border-b border-rose-100 bg-rose-50/60 px-4 py-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-black text-rose-700 uppercase tracking-widest flex items-center gap-1.5">
+                            <Tag size={12} />
+                            Descuento en Factura
+                        </p>
+                        <button onClick={() => setShowDiscountPanel(false)} className="text-rose-400 hover:text-rose-700 transition-colors">
+                            <X size={14} />
+                        </button>
+                    </div>
+
+                    {/* Type Toggle */}
+                    <div className="flex rounded-xl overflow-hidden border border-rose-200 w-full">
+                        <button
+                            onClick={() => setDiscountType('percent')}
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-black transition-all",
+                                discountType === 'percent'
+                                    ? "bg-rose-500 text-white"
+                                    : "bg-white text-rose-400 hover:bg-rose-50"
+                            )}
+                        >
+                            <Percent size={11} /> Porcentaje
+                        </button>
+                        <button
+                            onClick={() => setDiscountType('fixed')}
+                            className={cn(
+                                "flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-black transition-all",
+                                discountType === 'fixed'
+                                    ? "bg-rose-500 text-white"
+                                    : "bg-white text-rose-400 hover:bg-rose-50"
+                            )}
+                        >
+                            <DollarSign size={11} /> Monto Fijo
+                        </button>
+                    </div>
+
+                    {/* Input */}
+                    <div className="flex gap-2">
+                        <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400 text-xs font-black">
+                                {discountType === 'percent' ? '%' : '$'}
+                            </span>
+                            <input
+                                type="number"
+                                min="0"
+                                max={discountType === 'percent' ? 100 : undefined}
+                                value={discountInput}
+                                onChange={e => setDiscountInput(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleApplyDiscount()}
+                                placeholder={discountType === 'percent' ? '0 – 100' : '0.00'}
+                                autoFocus
+                                className="w-full pl-8 pr-3 py-2 rounded-xl border-2 border-rose-200 bg-white text-sm font-black text-slate-800 focus:border-rose-400 focus:ring-4 focus:ring-rose-100 outline-none transition-all"
+                            />
+                        </div>
+                        <button
+                            onClick={handleApplyDiscount}
+                            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black rounded-xl transition-all active:scale-95 shadow-md"
+                        >
+                            Aplicar
+                        </button>
+                    </div>
+
+                    {/* Remove current discount */}
+                    {hasDiscount && (
+                        <button
+                            onClick={handleRemoveDiscount}
+                            className="w-full text-[10px] font-black text-rose-500 hover:text-rose-700 underline text-center transition-colors"
+                        >
+                            Quitar descuento actual
+                        </button>
+                    )}
+                </div>
+            )}
 
             {/* Cart Items List */}
             <div className="flex-1 overflow-hidden relative bg-slate-50/20">
@@ -121,6 +240,12 @@ const POSCart = ({
                                                         </span>
                                                     )}
                                                 </div>
+                                                {item.location && (
+                                                    <div className="flex items-center gap-1 mt-1">
+                                                        <MapPin size={9} className="text-slate-400 flex-shrink-0" />
+                                                        <span className="text-[9px] font-bold text-slate-400 truncate">{item.location}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="text-right flex flex-col items-end">
                                                 <div className="text-sm font-black text-blue-600 tabular-nums">
@@ -195,8 +320,8 @@ const POSCart = ({
                 )}
             </div>
 
-            {/* Footer Totals - Elegant & Clear */}
-            <div className="bg-white border-t border-slate-100 p-6 space-y-6 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10">
+            {/* Footer Totals */}
+            <div className="bg-white border-t border-slate-100 p-6 space-y-4 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10">
                 <div className="space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Subtotal Neto</span>
@@ -210,10 +335,23 @@ const POSCart = ({
                             {anchorCurrency.symbol}{formatLocalCurrency(taxAmountUSD)}
                         </span>
                     </div>
+
+                    {/* Discount Row */}
+                    {hasDiscount && discountUSD > 0 && (
+                        <div className="flex justify-between items-center text-[10px] font-black text-rose-600 uppercase tracking-widest animate-in slide-in-from-top-1 duration-200">
+                            <span className="flex items-center gap-1">
+                                <Tag size={10} />
+                                Descuento ({cartDiscount.type === 'percent' ? cartDiscount.value + '%' : 'Fijo'})
+                            </span>
+                            <span className="tabular-nums">
+                                −{anchorCurrency.symbol}{formatLocalCurrency(discountUSD)}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="pt-4 border-t border-slate-100">
-                    <div className="flex justify-between items-end mb-6">
+                    <div className="flex justify-between items-end mb-5">
                         <div className="flex flex-col">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total a Recibir</span>
                             <div className="flex items-baseline gap-1 animate-in slide-in-from-left-2 duration-500">

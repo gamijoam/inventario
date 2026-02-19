@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2 } from 'lucide-react';
+import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import { useWebSocket } from '../../context/WebSocketContext';
 import apiClient from '../../config/axios';
@@ -25,7 +25,7 @@ const formatLocalCurrency = (amount) => {
     }
 };
 
-const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null }) => {
+const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null, discountUSD = 0, cartDiscount = null }) => {
     const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
     const allCurrencies = [{ id: 'base', symbol: 'USD', name: 'Dólar', rate: 1, is_anchor: true }, ...getActiveCurrencies()];
@@ -237,7 +237,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 customer_id: selectedCustomer ? selectedCustomer.id : null,
                 warehouse_id: (!warehouseId || warehouseId === 'all') ? null : warehouseId,
                 quote_id: quoteId || null,
-                notes: ""
+                notes: "",
+                total_discount_usd: discountUSD || 0,
+                cart_discount_type: cartDiscount?.type || null,
+                cart_discount_value: cartDiscount?.value || 0
             };
 
             let response;
@@ -325,6 +328,15 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 {formatLocalCurrency(totalUSD)}
                             </span>
                         </div>
+                        {discountUSD > 0 && (
+                            <div className="flex items-center gap-1.5 mt-2 bg-rose-500/20 border border-rose-500/30 rounded-lg px-3 py-1.5 text-rose-300">
+                                <Tag size={11} />
+                                <span className="text-[10px] font-black uppercase tracking-wider">
+                                    Descuento {cartDiscount?.type === 'percent' ? `(${cartDiscount.value}%)` : '(Fijo)'}
+                                </span>
+                                <span className="ml-auto text-[11px] font-black font-mono">−${formatLocalCurrency(discountUSD)}</span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Total in Bs Display - UPDATED to use Default Rate */}

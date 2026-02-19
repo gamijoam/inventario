@@ -43,7 +43,7 @@ const formatStock = (stock) => {
 
 const POS = () => {
     const { user } = useAuth();
-    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates } = useCart();
+    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
     const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
@@ -751,6 +751,8 @@ const POS = () => {
                     initialCustomer={quoteCustomer}
                     quoteId={activeQuoteId}
                     customSubmit={activeServiceOrderId ? handleServiceCheckoutSubmit : null}
+                    discountUSD={discountUSD || 0}
+                    cartDiscount={cartDiscount}
                 />
 
                 <PinAuthModal isOpen={pinModalOpen} onClose={() => { setPinModalOpen(false); setPendingPriceUpdate(null); setActivePricePopover(null); }} onSuccess={handlePinSuccess} title="Autorización Requerida" message="Ingrese PIN de supervisor." />

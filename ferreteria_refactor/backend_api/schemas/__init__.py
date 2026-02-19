@@ -118,7 +118,28 @@ class ProductUnitRead(ProductUnitBase):
     class Config:
         from_attributes = True
 
-# Combo/Bundle Schemas
+# --- Quantity-Based Discount Rule Schemas (Feature 2) ---
+class DiscountRuleBase(BaseModel):
+    min_quantity: Decimal = Field(..., description="Cantidad mínima para activar el descuento", ge=0)
+    discount_percentage: Decimal = Field(..., description="Porcentaje de descuento", ge=0, le=100)
+    is_active: bool = Field(True)
+
+class DiscountRuleCreate(DiscountRuleBase):
+    product_id: int
+
+class DiscountRuleUpdate(BaseModel):
+    min_quantity: Optional[Decimal] = None
+    discount_percentage: Optional[Decimal] = None
+    is_active: Optional[bool] = None
+
+class DiscountRuleRead(DiscountRuleBase):
+    id: int
+    product_id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 class ComboItemBase(BaseModel):
     child_product_id: int = Field(..., description="ID del producto componente", example=5)
     quantity: Decimal = Field(..., description="Cantidad del componente en el combo", gt=0, example="2.000")
@@ -262,6 +283,7 @@ class ProductRead(ProductBase):
     has_imei: Optional[bool] = False # NEW: Include serialized status exposed to frontend
     is_commissionable: Optional[bool] = False # NEW: Commission flag
     prices: List[ProductPriceRead] = [] # NEW: Multi-Price List
+    discount_rules: List[DiscountRuleRead] = []  # Feature 2: Quantity-based rules
     
     class Config:
         from_attributes = True
