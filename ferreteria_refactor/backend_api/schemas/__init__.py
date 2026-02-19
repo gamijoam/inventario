@@ -364,6 +364,28 @@ class SalePaymentRead(BaseModel):
     class Config:
         from_attributes = True
 
+# NEW: Product Instance Schema
+class ProductInstanceRead(BaseModel):
+    id: int
+    product_id: int
+    warehouse_id: int
+    serial_number: str
+    status: str
+
+    class Config:
+        from_attributes = True
+
+# NEW: Sale Detail Instance Schema
+class SaleDetailInstanceRead(BaseModel):
+    id: int
+    sale_detail_id: int
+    product_instance_id: int
+    product_instance: Optional[ProductInstanceRead] = None
+    warranty_expiration_date: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 # NEW: Sale Detail Read Schema (for invoice detail view)
 class SaleDetailRead(BaseModel):
     id: int
@@ -378,6 +400,7 @@ class SaleDetailRead(BaseModel):
     unit_id: Optional[int] = None  # NEW: Which presentation was sold
     product: Optional['ProductRead'] = None  # Include product info
     unit: Optional['ProductUnitRead'] = None  # NEW: Include unit/presentation info
+    instances: List[SaleDetailInstanceRead] = [] # NEW: Serialized items
     
     # Warranty Snapshot
     warranty_expiration_date: Optional[datetime] = None

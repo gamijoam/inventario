@@ -528,8 +528,8 @@ const SalesHistory = () => {
                         </div>
 
                         {/* Content */}
-                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 flex-shrink-0">
                                 <Card className="shadow-sm">
                                     <CardContent className="p-4">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Cliente</p>
@@ -547,57 +547,67 @@ const SalesHistory = () => {
                                 </Card>
                             </div>
 
-                            <Card className="shadow-none border border-slate-200 overflow-hidden mb-6">
-                                <Table>
-                                    <TableHeader className="bg-slate-50">
-                                        <TableRow>
-                                            <TableHead>Producto</TableHead>
-                                            <TableHead className="text-center">Cant.</TableHead>
-                                            <TableHead className="text-right">Precio</TableHead>
-                                            <TableHead className="text-right">Total</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {selectedSale.details?.map((detail, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell className="font-medium">
-                                                    <div>
-                                                        <div className="text-sm font-bold text-slate-700">{detail.product?.name || 'Producto Desconocido'}</div>
-
-                                                        {/* Styled Serial Numbers */}
-                                                        {detail.instances && detail.instances.length > 0 && (
-                                                            <div className="mt-2 flex flex-col gap-1.5 p-2 bg-slate-50 rounded-lg border border-slate-100/80">
-                                                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-500 uppercase tracking-wider">
-                                                                    <ScanBarcode size={12} />
-                                                                    Seriales / IMEIs ({detail.instances.length})
-                                                                </div>
-                                                                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1 custom-scrollbar">
-                                                                    {detail.instances.map((inst, idx) => (
-                                                                        <Badge
-                                                                            key={idx}
-                                                                            variant="secondary"
-                                                                            className="font-mono text-[10px] px-2 py-0.5 bg-white text-slate-600 border border-slate-200 shadow-sm hover:border-indigo-200 hover:text-indigo-600 transition-colors cursor-default"
-                                                                        >
-                                                                            {inst.product_instance?.serial_number || 'S/N'}
-                                                                        </Badge>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-center">{detail.quantity}</TableCell>
-                                                <TableCell className="text-right">${Number(detail.unit_price).toFixed(2)}</TableCell>
-                                                <TableCell className="text-right font-bold">${Number(detail.subtotal).toFixed(2)}</TableCell>
+                            <div className="flex-1 shadow-none border border-slate-200 overflow-hidden flex flex-col min-h-0 bg-white rounded-xl">
+                                <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                                    <Table>
+                                        <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                                            <TableRow>
+                                                <TableHead className="py-3">Producto</TableHead>
+                                                <TableHead className="text-center py-3">Cant.</TableHead>
+                                                <TableHead className="text-right py-3">Precio</TableHead>
+                                                <TableHead className="text-right py-3">Total</TableHead>
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end items-center gap-4">
-                                    <span className="font-bold text-slate-500 uppercase tracking-wider text-xs">Total Venta</span>
-                                    <span className="font-black text-2xl text-indigo-600">${Number(selectedSale.total_amount).toFixed(2)}</span>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {selectedSale.details?.map((detail, index) => (
+                                                <TableRow key={index} className="group/row">
+                                                    <TableCell className="font-medium py-4">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="text-sm font-bold text-slate-700 group-hover/row:text-indigo-600 transition-colors">
+                                                                {detail.product?.name || 'Producto Desconocido'}
+                                                            </div>
+
+                                                            {/* Styled Serial Numbers - More prominent now */}
+                                                            {detail.instances && detail.instances.length > 0 && (
+                                                                <div className="mt-2 flex flex-col gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200/60 shadow-inner">
+                                                                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                                                                        <div className="p-1 bg-indigo-100 text-indigo-600 rounded">
+                                                                            <ScanBarcode size={10} />
+                                                                        </div>
+                                                                        Seriales / IMEIs ({detail.instances.length})
+                                                                    </div>
+                                                                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
+                                                                        {detail.instances.map((inst, idx) => (
+                                                                            <Badge
+                                                                                key={idx}
+                                                                                variant="secondary"
+                                                                                className="font-mono text-[11px] px-2.5 py-1 bg-white text-indigo-700 border-indigo-100 border shadow-sm hover:border-indigo-300 hover:bg-indigo-50 transition-all cursor-default font-bold"
+                                                                            >
+                                                                                {inst.product_instance?.serial_number || 'S/N'}
+                                                                            </Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-bold text-slate-600">{detail.quantity}</TableCell>
+                                                    <TableCell className="text-right text-slate-600">
+                                                        ${Number(detail.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-black text-slate-900">
+                                                        ${Number(detail.subtotal).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 </div>
-                            </Card>
+                                <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end items-center gap-4 flex-shrink-0">
+                                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Total Venta</span>
+                                    <span className="font-black text-3xl text-indigo-600 tracking-tight">${Number(selectedSale.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Footer */}

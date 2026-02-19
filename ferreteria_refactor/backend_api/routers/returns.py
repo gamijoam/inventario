@@ -69,7 +69,7 @@ def search_sales(
         print(f"ERROR IN SEARCH_SALES: {str(e)}\n{trace}")
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)} | {trace}")
 
-@router.get("/sales/{sale_id}")
+@router.get("/sales/{sale_id}", response_model=schemas.SaleRead)
 def get_sale_for_return(sale_id: int, db: Session = Depends(get_db)):
     """Get sale details for processing return"""
     sale = db.query(models.Sale).options(
