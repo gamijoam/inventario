@@ -511,7 +511,7 @@ def impersonate_tenant(
     # 3. Generate Short-Lived Token
     expiration = timedelta(minutes=15) # Short lived for security
     access_token = create_access_token(
-        data={"sub": target_user.username, "role": target_user.role.value, "impersonated_by": current_user.username},
+        data={"sub": target_user.email, "role": target_user.role.value, "impersonated_by": current_user.username},
         expires_delta=expiration
     )
     

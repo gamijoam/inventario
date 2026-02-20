@@ -142,13 +142,13 @@ async def exchange_token(
     from jose import jwt, JWTError
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        email: str = payload.get("sub")
+        if email is None:
              raise HTTPException(401, "Invalid token")
     except JWTError:
         raise HTTPException(401, "Invalid token")
         
-    user = db.query(models.User).filter(models.User.username == username).first()
+    user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
          raise HTTPException(401, "User not found")
          
@@ -160,7 +160,7 @@ async def exchange_token(
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     new_access_token = create_access_token(
-        data={"sub": user.username, "role": user.role.value, "impersonated": True},
+        data={"sub": user.email, "role": user.role.value, "impersonated": True},
         expires_delta=access_token_expires
     )
     
