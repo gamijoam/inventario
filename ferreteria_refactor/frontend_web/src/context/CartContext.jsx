@@ -353,11 +353,23 @@ export const CartProvider = ({ children }) => {
 
         // --- Apply global cart discount ---
         let discountUSD = 0;
-        if (cartDiscount.active && cartDiscount.value > 0) {
+        if (cartDiscount?.active && cartDiscount.value > 0) {
             if (cartDiscount.type === 'percent') {
                 discountUSD = rawUSD * (cartDiscount.value / 100);
-            } else { // 'fixed'
+            } else if (cartDiscount.type === 'fixed' || cartDiscount.type === 'fixed_usd') { // 'fixed' is backward compat
                 discountUSD = Math.min(cartDiscount.value, rawUSD);
+            } else if (cartDiscount.type === 'fixed_bs') {
+                // Find default VES rate
+                const defaultRate = exchangeRates.find(r => r.currency_code === 'VES' && r.is_default && r.is_active)?.rate || 1;
+                const valueInUSD = cartDiscount.value / defaultRate;
+                discountUSD = Math.min(valueInUSD, rawUSD);
+            } else if (cartDiscount.type === 'target') {
+                // Discount is the difference between original Total and the target
+                discountUSD = Math.max(0, rawUSD - cartDiscount.value);
+            } else if (cartDiscount.type === 'target_bs') {
+                const defaultRate = exchangeRates.find(r => r.currency_code === 'VES' && r.is_default && r.is_active)?.rate || 1;
+                const targetInUSD = cartDiscount.value / defaultRate;
+                discountUSD = Math.max(0, rawUSD - targetInUSD);
             }
         }
 

@@ -88,6 +88,11 @@ def push_sales(sales_batch: List[schemas.SaleCreate], db: Session = Depends(get_
                 # user_id=1, # REMOVED: Model does not have user_id column yet.
                 notes=sale_data.notes,
                 
+                # Cart Global Discount
+                total_discount_usd=sale_data.total_discount_usd,
+                cart_discount_type=sale_data.cart_discount_type,
+                discount_auth_user_id=sale_data.discount_auth_user_id,
+                
                 # HYBRID FIELDS
                 unique_uuid=sale_data.unique_uuid,
                 sync_status='SYNCED', # It's now safe in the cloud

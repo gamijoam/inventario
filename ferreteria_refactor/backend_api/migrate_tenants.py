@@ -215,6 +215,68 @@ def migrate_tenants(db_engine=None):
                 conn.rollback()
                 print(f"   ⚠️ Error creating discount_rules in {schema}: {e}")
 
+            # 6. Add cart discount columns to Sales
+            try:
+                cols = inspector.get_columns('sales', schema=schema)
+                col_names = [c['name'] for c in cols]
+                
+                if 'total_discount_usd' not in col_names:
+                    print(f"   ➕ Adding total_discount_usd column to {schema}.sales")
+                    conn.execute(text(f"ALTER TABLE \"{schema}\".sales ADD COLUMN total_discount_usd NUMERIC(18, 4) DEFAULT 0.0000"))
+                    conn.commit()
+                else:
+                    print(f"   ✅ total_discount_usd already exists in {schema}.sales")
+                    
+                if 'cart_discount_type' not in col_names:
+                    print(f"   ➕ Adding cart_discount_type column to {schema}.sales")
+                    conn.execute(text(f"ALTER TABLE \"{schema}\".sales ADD COLUMN cart_discount_type VARCHAR"))
+                    conn.commit()
+                else:
+                    print(f"   ✅ cart_discount_type already exists in {schema}.sales")
+                    
+                if 'discount_auth_user_id' not in col_names:
+                    print(f"   ➕ Adding discount_auth_user_id column to {schema}.sales")
+                    conn.execute(text(f"ALTER TABLE \"{schema}\".sales ADD COLUMN discount_auth_user_id INTEGER REFERENCES public.users(id)"))
+                    conn.commit()
+                else:
+                    print(f"   ✅ discount_auth_user_id already exists in {schema}.sales")
+
+            except Exception as e:
+                conn.rollback()
+                print(f"   ⚠️ Error modifying sales in {schema}: {e}")
+
+    # Also apply Sales discount columns to public schema
+    print(f"\n🚜 Migrating Schema: public...")
+    with db_engine.connect() as conn:
+        try:
+            cols = inspector.get_columns('sales', schema='public')
+            col_names = [c['name'] for c in cols]
+            
+            if 'total_discount_usd' not in col_names:
+                print(f"   ➕ Adding total_discount_usd column to public.sales")
+                conn.execute(text(f"ALTER TABLE public.sales ADD COLUMN total_discount_usd NUMERIC(18, 4) DEFAULT 0.0000"))
+                conn.commit()
+            else:
+                print(f"   ✅ total_discount_usd already exists in public.sales")
+                
+            if 'cart_discount_type' not in col_names:
+                print(f"   ➕ Adding cart_discount_type column to public.sales")
+                conn.execute(text(f"ALTER TABLE public.sales ADD COLUMN cart_discount_type VARCHAR"))
+                conn.commit()
+            else:
+                print(f"   ✅ cart_discount_type already exists in public.sales")
+                
+            if 'discount_auth_user_id' not in col_names:
+                print(f"   ➕ Adding discount_auth_user_id column to public.sales")
+                conn.execute(text(f"ALTER TABLE public.sales ADD COLUMN discount_auth_user_id INTEGER REFERENCES public.users(id)"))
+                conn.commit()
+            else:
+                print(f"   ✅ discount_auth_user_id already exists in public.sales")
+
+        except Exception as e:
+            conn.rollback()
+            print(f"   ⚠️ Error modifying sales in public: {e}")
+
     print("\n🎉 All Tenants Migrated!")
 
 if __name__ == "__main__":

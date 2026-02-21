@@ -12,6 +12,7 @@ namespace Invensoft_Windows_Bridge.Services
         public string Host { get; set; } = "ws://localhost:8000";
         public string PrinterName { get; set; } = "POS-58"; // Default
         public string PrinterMode { get; set; } = "WINDOWS"; // WINDOWS or VIRTUAL
+        public int PaperWidth { get; set; } = 58; // 58 or 80
     }
 
     public static class SettingsManager

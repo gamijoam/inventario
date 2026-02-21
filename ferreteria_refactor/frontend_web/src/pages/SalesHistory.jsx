@@ -603,9 +603,28 @@ const SalesHistory = () => {
                                         </TableBody>
                                     </Table>
                                 </div>
-                                <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end items-center gap-4 flex-shrink-0">
-                                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Total Venta</span>
-                                    <span className="font-black text-3xl text-indigo-600 tracking-tight">${Number(selectedSale.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                <div className="bg-slate-50 p-4 border-t border-slate-200 flex flex-col items-end gap-2 flex-shrink-0">
+                                    {selectedSale?.total_discount_usd > 0 && (
+                                        <div className="flex justify-between items-center w-full max-w-[200px] text-rose-500">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold uppercase tracking-wider text-[10px]">
+                                                    Descuento {selectedSale?.cart_discount_type === 'percent' ? '(%)' : (selectedSale?.cart_discount_type === 'fixed_bs' ? '(Bs)' : '(Fijo)')}
+                                                </span>
+                                                {selectedSale?.cart_discount_type === 'fixed_bs' && selectedSale?.exchange_rate_used && (
+                                                    <span className="text-[9px] text-rose-400 font-medium tracking-tight -mt-0.5">
+                                                        Bs. {Number(selectedSale.total_discount_usd * selectedSale.exchange_rate_used).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="font-bold text-sm">
+                                                -${Number(selectedSale.total_discount_usd).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center w-full max-w-[200px]">
+                                        <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Total Venta</span>
+                                        <span className="font-black text-3xl text-indigo-600 tracking-tight">${Number(selectedSale.total_amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

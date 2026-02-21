@@ -151,6 +151,11 @@ class SalesService:
                 exchange_rate_used=sale_data.exchange_rate,
                 total_amount_bs=total_bs,
                 
+                # Cart Global Discount
+                total_discount_usd=sale_data.total_discount_usd,
+                cart_discount_type=sale_data.cart_discount_type,
+                discount_auth_user_id=sale_data.discount_auth_user_id,
+                
                 # Change Handling
                 change_amount=sale_data.change_amount,
                 change_currency=sale_data.change_currency,

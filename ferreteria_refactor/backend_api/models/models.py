@@ -326,6 +326,11 @@ class Sale(Base):
     exchange_rate_used = Column(Numeric(14, 4), default=1.0000) # Rate at time of sale
     total_amount_bs = Column(Numeric(18, 4), nullable=True) # Amount in Bs if applicable
     
+    # Cart Global Discount
+    total_discount_usd = Column(Numeric(18, 4), default=0.0000)
+    cart_discount_type = Column(String, nullable=True) # 'percent', 'fixed', 'fixed_bs', 'target'
+    discount_auth_user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
+    
     # Change / Vuelto Logic
     change_amount = Column(Numeric(18, 4), default=0.0000) # Amount returned to customer
     change_currency = Column(String(3), default='VES') # Currency of the change (usually VES)

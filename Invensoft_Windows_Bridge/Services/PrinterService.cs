@@ -26,7 +26,7 @@ namespace Invensoft_Windows_Bridge.Services
         private static readonly byte[] CMD_BOLD_ON = { 0x1b, 0x45, 0x01 };
         private static readonly byte[] CMD_BOLD_OFF = { 0x1b, 0x45, 0x00 };
 
-        public async Task<bool> ExecutePrintAsync(string printerName, string templateStr, JObject contextData, string printerMode = "WINDOWS")
+        public async Task<bool> ExecutePrintAsync(string printerName, string templateStr, JObject contextData, string printerMode = "WINDOWS", int paperWidth = 58)
         {
             try
             {
@@ -48,11 +48,11 @@ namespace Invensoft_Windows_Bridge.Services
                 // --- VIRTUAL MODE CHECK ---
                 if (printerMode.ToUpper() == "VIRTUAL")
                 {
-                    return ExecuteVirtualPrint(renderedText);
+                    return ExecuteVirtualPrint(renderedText, paperWidth);
                 }
 
                 // 2. Parse Tags and Build Byte Array
-                byte[] rawData = BuildEscPosData(renderedText);
+                byte[] rawData = BuildEscPosData(renderedText, paperWidth);
                 
                 // 3. Send to Windows Spooler
                 return RawPrinterHelper.SendBytesToPrinter(printerName, rawData);
@@ -65,23 +65,24 @@ namespace Invensoft_Windows_Bridge.Services
             }
         }
 
-        private bool ExecuteVirtualPrint(string renderedText)
+        private bool ExecuteVirtualPrint(string renderedText, int paperWidth)
         {
             try
             {
                 var sb = new StringBuilder();
-                int width = 48;
-                sb.AppendLine("--- INICIO TICKET VIRTUAL ---");
+                // Map mm to characters: 58mm ~ 32 chars, 80mm ~ 42-48 chars (using 48 as safe max)
+                int widthChars = (paperWidth >= 80) ? 48 : 32;
+                
+                sb.AppendLine($"--- INICIO TICKET VIRTUAL ({paperWidth}mm) ---");
                 
                 string[] lines = renderedText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
                 foreach (var lineRaw in lines)
                 {
                     string content = lineRaw.Trim();
-                    if (string.IsNullOrEmpty(content)) continue;
-
+                    
                     if (content.Contains("<cut>"))
                     {
-                        sb.AppendLine(new string('-', width) + " [CORTE] " + new string('-', width));
+                        sb.AppendLine(new string('-', widthChars) + " [CORTE] " + new string('-', widthChars));
                         content = content.Replace("<cut>", "");
                     }
 
@@ -94,6 +95,10 @@ namespace Invensoft_Windows_Bridge.Services
                     if (!string.IsNullOrWhiteSpace(content))
                     {
                         sb.AppendLine(content);
+                    }
+                    else if (lineRaw.Length > 0)
+                    {
+                        sb.AppendLine("");
                     }
                 }
                 sb.AppendLine("--- FIN TICKET VIRTUAL ---");
@@ -137,7 +142,7 @@ namespace Invensoft_Windows_Bridge.Services
             return null;
         }
 
-        private byte[] BuildEscPosData(string renderedText)
+        private byte[] BuildEscPosData(string renderedText, int paperWidth)
         {
             List<byte> buffer = new List<byte>();
             

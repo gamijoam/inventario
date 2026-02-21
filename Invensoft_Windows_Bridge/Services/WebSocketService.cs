@@ -165,7 +165,7 @@ namespace Invensoft_Windows_Bridge.Services
                         // Map target if needed, for now just use default printer from config
                         string printerName = _config.PrinterName;
 
-                        bool success = await _printerService.ExecutePrintAsync(printerName, template, context, _config.PrinterMode);
+                        bool success = await _printerService.ExecutePrintAsync(printerName, template, context, _config.PrinterMode, _config.PaperWidth);
                         
                         if (success) NotifyStatus($"✅ Impresión correcta ({DateTime.Now:HH:mm:ss})");
                         else NotifyStatus($"❌ Error al imprimir ({DateTime.Now:HH:mm:ss})");

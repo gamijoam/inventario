@@ -240,7 +240,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 notes: "",
                 total_discount_usd: discountUSD || 0,
                 cart_discount_type: cartDiscount?.type || null,
-                cart_discount_value: cartDiscount?.value || 0
+                cart_discount_value: cartDiscount?.value || 0,
+                discount_auth_user_id: cartDiscount?.auth_user_id || null
             };
 
             let response;

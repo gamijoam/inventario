@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2, ShoppingCart, CreditCard, Minus, Plus, MapPin, Tag, X, Percent, DollarSign } from 'lucide-react';
+import { Trash2, ShoppingCart, CreditCard, Minus, Plus, MapPin, Tag, X, Percent, DollarSign, ShieldCheck } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -9,6 +9,8 @@ import ProductThumbnail from '../products/ProductThumbnail';
 import { cn } from '../../lib/utils';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import PinAuthModal from '../common/PinAuthModal';
+import { toast } from 'react-hot-toast';
 
 import { useConfig } from '../../context/ConfigContext';
 import { useCart } from '../../context/CartContext';
@@ -38,12 +40,16 @@ const POSCart = ({
 }) => {
 
     const { business } = useConfig();
-    const { cartDiscount, setCartDiscount, discountUSD, discountBs, rawTotalUSD } = useCart();
+    const { cartDiscount, setCartDiscount, discountUSD, discountBs, rawTotalUSD, rawBs } = useCart();
 
     // Discount Panel state
     const [showDiscountPanel, setShowDiscountPanel] = useState(false);
     const [discountInput, setDiscountInput] = useState('');
-    const [discountType, setDiscountType] = useState('percent'); // 'percent' | 'fixed'
+    const [discountType, setDiscountType] = useState('percent'); // 'percent' | 'fixed' | 'fixed_bs' | 'target' | 'target_bs'
+
+    // PIN Auth State
+    const [showPinModal, setShowPinModal] = useState(false);
+    const [pendingDiscount, setPendingDiscount] = useState(null);
 
     // Calculate Taxes dynamically based on business config
     const taxRate = parseFloat(business?.default_tax_rate || 0);
@@ -54,8 +60,32 @@ const POSCart = ({
         const val = parseFloat(discountInput);
         if (isNaN(val) || val <= 0) return;
         if (discountType === 'percent' && val > 100) return;
-        setCartDiscount({ type: discountType, value: val, active: true });
-        setShowDiscountPanel(false);
+        if (discountType === 'target' && val >= rawTotalUSD) {
+            // Assuming 'toast' is available globally or imported
+            // If not, replace with console.error or similar
+            toast.error("El monto final debe ser menor al total original");
+            return;
+        }
+        if (discountType === 'target_bs') {
+            if (val >= rawBs) { // Using rawBs as per instruction
+                // Assuming 'toast' is available globally or imported
+                toast.error("El monto final en Bs debe ser menor al total original");
+                return;
+            }
+        }
+
+        // Instead of applying directly, stage it and ask for PIN
+        setPendingDiscount({ type: discountType, value: val, active: true });
+        setShowPinModal(true);
+    };
+
+    const confirmApplyDiscount = (supervisorId) => {
+        if (pendingDiscount) {
+            setCartDiscount({ ...pendingDiscount, auth_user_id: supervisorId });
+            setShowDiscountPanel(false);
+            setPendingDiscount(null);
+            setDiscountInput('');
+        }
     };
 
     const handleRemoveDiscount = () => {
@@ -64,49 +94,53 @@ const POSCart = ({
         setShowDiscountPanel(false);
     };
 
-    const hasDiscount = cartDiscount.active && cartDiscount.value > 0;
+    const hasDiscount = cartDiscount?.active;
 
     return (
-        <div className="flex flex-col h-full bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="flex flex-col h-full bg-white relative">
+
+            {/* Added PIN Modal */}
+            <PinAuthModal
+                isOpen={showPinModal}
+                onClose={() => { setShowPinModal(false); setPendingDiscount(null); }}
+                onSuccess={confirmApplyDiscount}
+                title="Autorizar Descuento"
+                message="Este descuento modificará el total de la factura. Requiere autorización de un administrador."
+            />
 
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+            <div className="px-4 py-3 border-b border-slate-200 bg-white flex justify-between items-center flex-shrink-0 z-10 shadow-sm">
                 <div className="flex items-center gap-2">
-                    <div className="p-2 bg-blue-100 rounded-xl text-blue-600 shadow-sm transition-transform active:scale-125 duration-300">
-                        <ShoppingCart size={18} strokeWidth={2.5} className={cn(cartItems.length > 0 && "animate-in zoom-in-50 duration-300")} />
-                    </div>
-                    <div>
-                        <h2 className="text-sm font-black text-slate-800 uppercase tracking-tighter">Orden de Venta</h2>
-                        <p className={cn(
-                            "text-[10px] font-bold uppercase tracking-wider transition-all",
-                            cartItems.length > 0 ? "text-blue-600 scale-105 origin-left" : "text-slate-400"
-                        )}>
-                            {cartItems.length} {cartItems.length === 1 ? 'producto' : 'productos'}
-                        </p>
-                    </div>
+                    <h2 className="font-black text-slate-800 tracking-tight flex items-center gap-2">
+                        <ShoppingCart className="text-blue-500" size={20} />
+                        CARRITO
+                    </h2>
+                    <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-200/50 px-2 font-bold tracking-widest text-[10px]">
+                        {cartItems.length}
+                    </Badge>
                 </div>
-                <div className="flex items-center gap-1">
-                    {/* Discount Button */}
+                <div className="flex items-center gap-1.5">
+                    {/* NEW: Global Discount Button */}
                     <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="icon"
                         onClick={() => setShowDiscountPanel(v => !v)}
                         className={cn(
-                            "h-9 w-9 rounded-xl transition-all",
-                            hasDiscount
-                                ? "bg-rose-500 text-white hover:bg-rose-600 shadow-md shadow-rose-200"
-                                : "text-slate-300 hover:text-rose-500 hover:bg-rose-50"
+                            "h-9 w-9 rounded-xl transition-all font-bold border",
+                            cartDiscount?.active
+                                ? "bg-rose-500 text-white border-rose-600 hover:bg-rose-600 shadow-md shadow-rose-200"
+                                : "bg-white text-slate-600 border-slate-200 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm"
                         )}
-                        title={hasDiscount ? `Descuento: ${cartDiscount.type === 'percent' ? cartDiscount.value + '%' : '$' + cartDiscount.value}` : "Aplicar Descuento"}
+                        title={cartDiscount?.active ? `Descuento: ${cartDiscount.type === 'percent' ? cartDiscount.value + '%' : (cartDiscount.type === 'fixed_bs' ? 'Bs' : '$') + cartDiscount.value}` : "Aplicar Descuento"}
                         disabled={cartItems.length === 0}
                     >
                         <Tag size={16} />
                     </Button>
                     <Button
-                        variant="ghost"
+                        variant="secondary"
                         size="icon"
                         onClick={onClearCart}
-                        className="h-9 w-9 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                        className="h-9 w-9 bg-white text-slate-600 border border-slate-200 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 rounded-xl transition-all shadow-sm ml-1"
                         title="Limpiar Carrito"
                         disabled={cartItems.length === 0}
                     >
@@ -129,28 +163,63 @@ const POSCart = ({
                     </div>
 
                     {/* Type Toggle */}
-                    <div className="flex rounded-xl overflow-hidden border border-rose-200 w-full">
+                    <div className="flex rounded-xl overflow-hidden border border-rose-200 w-full mb-3 shadow-sm bg-white flex-wrap sm:flex-nowrap">
                         <button
                             onClick={() => setDiscountType('percent')}
                             className={cn(
-                                "flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-black transition-all",
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
                                 discountType === 'percent'
-                                    ? "bg-rose-500 text-white"
-                                    : "bg-white text-rose-400 hover:bg-rose-50"
+                                    ? "bg-rose-500 text-white shadow-inner"
+                                    : "bg-white text-rose-400 hover:bg-rose-50 border-r border-b sm:border-b-0 border-rose-100"
                             )}
                         >
-                            <Percent size={11} /> Porcentaje
+                            <Percent size={11} /> %
                         </button>
                         <button
                             onClick={() => setDiscountType('fixed')}
                             className={cn(
-                                "flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-black transition-all",
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
                                 discountType === 'fixed'
-                                    ? "bg-rose-500 text-white"
-                                    : "bg-white text-rose-400 hover:bg-rose-50"
+                                    ? "bg-rose-500 text-white shadow-inner"
+                                    : "bg-white text-rose-400 hover:bg-rose-50 border-r border-b sm:border-b-0 border-rose-100"
                             )}
                         >
-                            <DollarSign size={11} /> Monto Fijo
+                            <DollarSign size={11} /> USD
+                        </button>
+                        <button
+                            onClick={() => setDiscountType('fixed_bs')}
+                            className={cn(
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
+                                discountType === 'fixed_bs'
+                                    ? "bg-rose-500 text-white shadow-inner"
+                                    : "bg-white text-rose-400 hover:bg-rose-50 border-r sm:border-r-0 border-b sm:border-b-0 border-rose-100"
+                            )}
+                        >
+                            <span className="font-serif italic text-[11px] mr-[-2px]">Bs</span> Fijo
+                        </button>
+                        <button
+                            onClick={() => setDiscountType('target')}
+                            className={cn(
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
+                                discountType === 'target'
+                                    ? "bg-indigo-500 text-white shadow-inner"
+                                    : "bg-indigo-50 text-indigo-400 hover:bg-indigo-100 border-r border-indigo-200"
+                            )}
+                            title="Monto Final Deseado (USD)"
+                        >
+                            Final $
+                        </button>
+                        <button
+                            onClick={() => setDiscountType('target_bs')}
+                            className={cn(
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
+                                discountType === 'target_bs'
+                                    ? "bg-indigo-500 text-white shadow-inner"
+                                    : "bg-indigo-50 text-indigo-400 hover:bg-indigo-100"
+                            )}
+                            title="Monto Final Deseado (Bs)"
+                        >
+                            Final Bs
                         </button>
                     </div>
 
@@ -158,7 +227,7 @@ const POSCart = ({
                     <div className="flex gap-2">
                         <div className="relative flex-1">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-400 text-xs font-black">
-                                {discountType === 'percent' ? '%' : '$'}
+                                {discountType === 'percent' ? '%' : (discountType === 'fixed_bs' || discountType === 'target_bs' ? 'Bs' : '$')}
                             </span>
                             <input
                                 type="number"
@@ -167,26 +236,28 @@ const POSCart = ({
                                 value={discountInput}
                                 onChange={e => setDiscountInput(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleApplyDiscount()}
-                                placeholder={discountType === 'percent' ? '0 – 100' : '0.00'}
+                                placeholder={discountType === 'percent' ? '0 – 100' : (discountType === 'target' || discountType === 'target_bs' ? 'Monto final a cobrar' : '0.00')}
                                 autoFocus
                                 className="w-full pl-8 pr-3 py-2 rounded-xl border-2 border-rose-200 bg-white text-sm font-black text-slate-800 focus:border-rose-400 focus:ring-4 focus:ring-rose-100 outline-none transition-all"
                             />
                         </div>
                         <button
                             onClick={handleApplyDiscount}
-                            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black rounded-xl transition-all active:scale-95 shadow-md"
+                            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black rounded-xl transition-all active:scale-95 shadow-md flex items-center gap-1.5"
                         >
+                            <ShieldCheck size={14} />
                             Aplicar
                         </button>
                     </div>
 
                     {/* Remove current discount */}
-                    {hasDiscount && (
+                    {cartDiscount?.active && (
                         <button
                             onClick={handleRemoveDiscount}
-                            className="w-full text-[10px] font-black text-rose-500 hover:text-rose-700 underline text-center transition-colors"
+                            className="w-full text-[10px] font-black text-rose-500 hover:text-rose-700 transition-colors bg-rose-100/50 py-1.5 rounded-lg border border-rose-100 flex items-center justify-center gap-1"
                         >
-                            Quitar descuento actual
+                            <X size={12} />
+                            Quitar descuento activo
                         </button>
                     )}
                 </div>
@@ -341,7 +412,7 @@ const POSCart = ({
                         <div className="flex justify-between items-center text-[10px] font-black text-rose-600 uppercase tracking-widest animate-in slide-in-from-top-1 duration-200">
                             <span className="flex items-center gap-1">
                                 <Tag size={10} />
-                                Descuento ({cartDiscount.type === 'percent' ? cartDiscount.value + '%' : 'Fijo'})
+                                Desc ({cartDiscount.type === 'percent' ? cartDiscount.value + '%' : (cartDiscount.type === 'fixed_bs' ? 'Bs Fijo' : 'Fijo')})
                             </span>
                             <span className="tabular-nums">
                                 −{anchorCurrency.symbol}{formatLocalCurrency(discountUSD)}

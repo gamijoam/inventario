@@ -81,6 +81,16 @@ namespace Invensoft_Windows_Bridge
             chkVirtualMode.IsChecked = (_config.PrinterMode == "VIRTUAL");
             txtPrinter.IsEnabled = !chkVirtualMode.IsChecked.Value;
 
+            // Set Paper Width ComboBox
+            foreach (System.Windows.Controls.ComboBoxItem item in cmbPaperWidth.Items)
+            {
+                if (int.TryParse(item.Tag?.ToString(), out int width) && width == _config.PaperWidth)
+                {
+                    item.IsSelected = true;
+                    break;
+                }
+            }
+
             CheckAutoStartStatus();
             
             if (SettingsManager.IsConfigured())
@@ -201,6 +211,12 @@ namespace Invensoft_Windows_Bridge
             _config.AuthToken = txtTokenBox.Password.Trim();
             _config.PrinterName = txtPrinter.Text.Trim();
             _config.PrinterMode = (chkVirtualMode.IsChecked == true) ? "VIRTUAL" : "WINDOWS";
+            
+            if (cmbPaperWidth.SelectedItem is System.Windows.Controls.ComboBoxItem selectedItem && 
+                int.TryParse(selectedItem.Tag?.ToString(), out int pWidth))
+            {
+                _config.PaperWidth = pWidth;
+            }
             
             SettingsManager.Save(_config);
             

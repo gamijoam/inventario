@@ -1,8 +1,0 @@
-{
-    "template": "<center><bold>TEST</bold></center>\n<cut>",
-    "context": {
-        "business": {
-            "name": "Test Business"
-        }
-    }
-}

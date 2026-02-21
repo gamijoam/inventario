@@ -327,6 +327,12 @@ class SaleCreate(BaseModel):
     total_amount: Decimal = Field(..., description="Monto total de la venta en USD", gt=0, example="150.50")
     # NEW: Multi-currency Source of Truth
     total_amount_bs: Decimal = Field(..., description="Monto total en VES calculado por Frontend (respetando anclajes)", ge=0)
+    
+    # Cart Global Discount
+    total_discount_usd: Optional[Decimal] = Field(Decimal("0.00"), description="Monto total descontado en USD para todo el carrito")
+    cart_discount_type: Optional[str] = Field(None, description="Tipo de descuento global aplicado (percent, fixed, fixed_bs, target)")
+    discount_auth_user_id: Optional[int] = Field(None, description="ID del administrador que autorizó el descuento")
+    
     change_amount: Decimal = Field(Decimal("0.00"), description="Monto del vuelto entregado", ge=0)
     change_currency: str = Field("VES", description="Moneda del vuelto (VES/USD)")
     
@@ -365,6 +371,11 @@ class ServiceCheckoutPayment(BaseModel):
     
     warehouse_id: Optional[int] = None 
     unique_uuid: Optional[str] = None # Support idempotency if needed
+    
+    # Cart Global Discount (Optional for Service, but needed to match frontend payload structure)
+    total_discount_usd: Optional[Decimal] = Decimal("0.00")
+    cart_discount_type: Optional[str] = None
+    discount_auth_user_id: Optional[int] = None
     
     # NEW
     reference: Optional[str] = None
@@ -441,6 +452,11 @@ class SaleRead(BaseModel):
     date: datetime
     total_amount: Decimal
     total_amount_bs: Decimal = Decimal("0.00")
+    
+    total_discount_usd: Decimal = Decimal("0.00")
+    cart_discount_type: Optional[str] = None
+    discount_auth_user_id: Optional[int] = None
+    
     change_amount: Decimal = Decimal("0.00")
     change_currency: str = "VES"
     
