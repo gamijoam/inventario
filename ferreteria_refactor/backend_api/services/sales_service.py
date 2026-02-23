@@ -804,30 +804,30 @@ class SalesService:
 <center>
 <bold>{{ business.name }}</bold>
 {{ business.document_id }}
-================================
+{{ separator_equal }}
 <bold>REPORTE Z - CORTE DE CAJA</bold>
-================================
+{{ separator_equal }}
 </center>
 Sesion: #{{ session.id }}
 Cajero: {{ session.user }}
 Apertura: {{ session.start_time }}
 Cierre:   {{ session.end_time }}
-================================
+{{ separator_equal }}
 <bold>RESUMEN DE PAGOS</bold>
-================================
+{{ separator_equal }}
 {% for pay in session.payments_detail %}
 {{ pay.method }}
 {% if pay.has_usd %}   USD: ${{ "%.2f"|format(pay.usd) }}{% endif %}
 {% if pay.has_bs %}   Bs:  {{ "%.2f"|format(pay.bs) }}{% endif %}
 {% endfor %}
-================================
+{{ separator_equal }}
 <bold>FONDOS INICIALES</bold>
-================================
+{{ separator_equal }}
 USD:  ${{ "%.2f"|format(session.initial_usd) }}
 Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
-================================
+{{ separator_equal }}
 <bold>ARQUEO DE CAJA (TOTALES)</bold>
-================================
+{{ separator_equal }}
 <bold>DOLARES ($)</bold>
   Esperado:  ${{ "%.2f"|format(session.total_expected_usd) }}
   Reportado: ${{ "%.2f"|format(session.total_reported_usd) }}
@@ -837,7 +837,7 @@ Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
   Esperado:  Bs {{ "%.2f"|format(session.total_expected_bs) }}
   Reportado: Bs {{ "%.2f"|format(session.total_reported_bs) }}
   Diferencia: {{ "%+.2f"|format(session.diff_bs) }}
-================================
+{{ separator_equal }}
 <center>
 <bold>FIN DEL REPORTE</bold>
 </center>

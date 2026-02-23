@@ -18,16 +18,16 @@ MESA: {{ table_name }}
 MESERO: {{ waiter_name }}
 HORA: {{ time }}
 PEDIDO #: {{ order_id }}
-------------------------------------------------
+{{ separator_dash }}
 <bold>CANT  PRODUCTO</bold>
-------------------------------------------------
+{{ separator_dash }}
 {% for item in items %}
 <bold>{{ item.quantity }} x {{ item.product_name }}</bold>
 {% if item.notes %}
    (NOTA: {{ item.notes }})
 {% endif %}
 {% endfor %}
-------------------------------------------------
+{{ separator_dash }}
 <cut>
 """
         context = {
@@ -64,21 +64,21 @@ PEDIDO #: {{ order_id }}
 <center>
 * NO FISCAL *
 </center>
-------------------------------------------------
+{{ separator_dash }}
 MESA: {{ table_name }}
 FECHA: {{ date }}
-------------------------------------------------
+{{ separator_dash }}
 CANT  DESCRIPCION          PRECIO    TOTAL
-------------------------------------------------
+{{ separator_dash }}
 {% for item in items %}
 {{ item.quantity }} {{ item.product_name }}
       {{ item.unit_price }}      {{ item.subtotal }}
 {% endfor %}
-------------------------------------------------
+{{ separator_dash }}
 <right>
 <bold>TOTAL: {{ total }}</bold>
 </right>
-------------------------------------------------
+{{ separator_dash }}
 <center>
 PROPINA NO INCLUIDA
 ¡GRACIAS POR SU VISITA!

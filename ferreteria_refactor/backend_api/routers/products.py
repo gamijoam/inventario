@@ -883,35 +883,46 @@ def print_sale_endpoint(sale_id: int, db: Session = Depends(get_db)):
 @router.post("/print/remote", dependencies=[Depends(cashier_or_admin)])
 async def print_remote(
     request: schemas.RemotePrintRequest,
+    current_user: models.User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
     Send print command to Hardware Bridge via WebSocket
-    
-    Args:
-        request: RemotePrintRequest with client_id and sale_id
-    
-    Returns:
-        Success/failure status
+    Strictly isolated by current_user's tenant_id.
     """
     from ..services.sales_service import SalesService
+    from ..tenant_context import get_tenant_schema
     from ..services.websocket_manager import manager
     
-    # Dynamic Tenant Lookup
-    print(f"🔍 [DEBUG] Print Request for Client ID: '{request.client_id}'")
-    tenant_id = manager.find_client_tenant(request.client_id)
-    print(f"🔍 [DEBUG] Tenant Lookup Result: '{tenant_id}'")
+    # We use the schema name (e.g. "prueba3") as the universal identifier for this business.
+    # The bridge registers securely under this tag.
+    tenant_id = get_tenant_schema()
+    print(f"📡 [PRINT] Remote request: Client '{request.client_id}' for Tenant Context '{tenant_id}'")
     
-    if not tenant_id:
-        # Debug: List all connected clients across all tenants
-        all_clients = []
-        for t_id, clients in manager.active_connections.items():
-            all_clients.extend([f"{c} (en {t_id})" for c in clients.keys()])
-            
-        print(f"❌ [DEBUG] Active Connections: {manager.active_connections}")
+    # CHECK: Ensure client is actually connected under THIS tenant
+    if tenant_id not in manager.active_connections:
+        # Dump exactly what is in memory to see the mismatch
+        print(f"❌ [PRINT DEBUG] Active Tenants in Memory: {list(manager.active_connections.keys())}")
         raise HTTPException(
             status_code=503,
-            detail=f"Bridge V2: '{request.client_id}' no conectado. Disponibles: {all_clients}. Verifique config."
+            detail=f"Ninguna impresora conectada para la empresa '{tenant_id}'. Verifique el puente."
+        )
+
+    # Fuzzy matching for client_id to prevent Case-Sensitivity or Trailing spaces bugs
+    target_client_id = request.client_id.strip().lower()
+    actual_client_id = None
+    
+    for connected_client in manager.active_connections[tenant_id].keys():
+        if connected_client.strip().lower() == target_client_id:
+            actual_client_id = connected_client
+            break
+
+    if not actual_client_id:
+        print(f"❌ [PRINT DEBUG] Active Clients in '{tenant_id}': {list(manager.active_connections[tenant_id].keys())}")
+        print(f"❌ [PRINT] Client '{request.client_id}' NOT connected for Tenant '{tenant_id}'")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Impresora '{request.client_id}' no está conectada. Verifique el puente en su computadora."
         )
 
     # Get print payload
@@ -927,17 +938,17 @@ async def print_remote(
         "payload": payload
     }
     
-    success = await manager.send_to_client(message, request.client_id, tenant_id)
+    success = await manager.send_to_client(message, actual_client_id, tenant_id)
     
     if not success:
         raise HTTPException(
             status_code=500,
-            detail=f"Error enviando comando de impresión a '{request.client_id}'"
+            detail=f"Error enviando comando de impresión a '{actual_client_id}'"
         )
     
     return {
         "status": "success",
-        "message": f"Comando de impresión enviado a {request.client_id}",
+        "message": f"Comando de impresión enviado a {actual_client_id}",
         "sale_id": request.sale_id
     }
 
@@ -948,20 +959,37 @@ class RemotePrintPayloadRequest(BaseModel):
 @router.post("/print/remote/payload", dependencies=[Depends(cashier_or_admin)])
 async def print_remote_payload(
     request: RemotePrintPayloadRequest,
+    current_user: models.User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
     Send raw print payload to Hardware Bridge via WebSocket
+    Strictly isolated by current_user's tenant_id.
     """
     from ..services.websocket_manager import manager
+    from ..tenant_context import get_tenant_schema
     
-    # Dynamic Tenant Lookup
-    tenant_id = manager.find_client_tenant(request.client_id)
+    tenant_id = get_tenant_schema()
     
-    if not tenant_id:
+    if tenant_id not in manager.active_connections:
         raise HTTPException(
             status_code=503,
-            detail=f"Hardware Bridge '{request.client_id}' no está conectado."
+            detail=f"Ninguna impresora conectada para la empresa '{tenant_id}'."
+        )
+
+    # Fuzzy matching for client_id
+    target_client_id = request.client_id.strip().lower()
+    actual_client_id = None
+    
+    for connected_client in manager.active_connections[tenant_id].keys():
+        if connected_client.strip().lower() == target_client_id:
+            actual_client_id = connected_client
+            break
+
+    if not actual_client_id:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Impresora '{request.client_id}' no está conectada."
         )
 
     # Send to Hardware Bridge via WebSocket
@@ -970,7 +998,7 @@ async def print_remote_payload(
         "payload": request.payload
     }
     
-    success = await manager.send_to_client(message, request.client_id, tenant_id)
+    success = await manager.send_to_client(message, actual_client_id, tenant_id)
     
     if not success:
         raise HTTPException(

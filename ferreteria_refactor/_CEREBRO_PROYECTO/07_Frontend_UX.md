@@ -18,7 +18,13 @@ Detalles de la arquitectura visual y experiencia de usuario de la plataforma.
 *   **Real-time Notifications**: Alertas visuales vía WebSockets cuando llega un pago móvil o se desconecta una impresora.
 *   **Offline Mode Indicator**: Notifica al usuario si su conexión es lenta o inexistente antes de intentar procesar una venta.
 
-## 4. Tecnologías Core
+## 4. Diseño de Catálogo (UI/UX)
+Para maximizar la conversión en el POS, se han implementado patrones visuales avanzados:
+*   **Full-Frame Imagery**: El uso de `object-cover` en contenedores de `360px` asegura que el producto sea el protagonista visual.
+*   **Legibilidad Adaptativa**: El sistema de `line-clamp-3` permite hasta 3 líneas de descripción, asegurando que nombres técnicos complejos nunca queden truncados.
+*   **Feedback Táctil**: Las tarjetas responden visualmente al hover y al tacto, mejorando la experiencia en tablets y móviles.
+
+## 5. Tecnologías Core
 *   **React + Vite**: Para una carga casi instantánea.
 *   **Tailwind CSS**: Estilizado moderno y mantenible.
 *   **React Context API**: Gestión de estados sin la complejidad de Redux.

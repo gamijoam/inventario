@@ -37,15 +37,15 @@ def format_money(amount: float, symbol: str = "$") -> str:
 
 def get_classic_template() -> str:
     """
-    Template optimized for 58mm thermal printers (32 chars width)
-    Columns: CANT(3) | DESC(16) | TOTAL(9)
+    Template optimized for 58mm (32 chars) and 80mm (48 chars) thermal printers.
+    Uses dynamic separators and adaptive columns.
     """
-    return """================================
+    return """{{ separator_equal }}
 {{ business.name }}
 {{ business.address }}
 RIF: {{ business.document_id }}
 Tel: {{ business.phone }}
-================================
+{{ separator_equal }}
 Fecha: {{ sale.date }}
 Ticket: #{{ sale.id }}
 Cliente: {{ if sale.customer }}{{ sale.customer.name }}{{ else }}Consumidor Final{{ end }}
@@ -56,31 +56,31 @@ DOC: {{ sale.customer.id_number }}
 *** A CREDITO ***
 Vence: {{ sale.due_date }}
 {{ end }}
-================================
-CNT DESCRIPCION      TOTAL
---------------------------------
+{{ separator_equal }}
+CNT DESCRIPCION{{ if chars_width > 32 }}                  {{ else }}      {{ end }}TOTAL
+{{ separator_dash }}
 {{ for item in sale.products }}
-{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 16 | string.pad_right 16 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
+{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 (chars_width - 16) | string.pad_right (chars_width - 16) }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
 {{ if item.discount_percentage > 0 }}
     Desc {{ item.discount_percentage | math.round 0 }}%
 {{ end }}
 {{ end }}
-================================
+{{ separator_equal }}
 SUBTOTAL:       {{ currency_symbol }}{{ sale.total | math.format "F2" | string.pad_left 9 }}
 {{ if sale.discount > 0 }}
 DESCUENTO:     -{{ currency_symbol }}{{ sale.discount | math.format "F2" | string.pad_left 9 }}
 {{ end }}
 TOTAL A PAGAR:  {{ currency_symbol }}{{ sale.total | math.format "F2" | string.pad_left 9 }}
-================================
+{{ separator_equal }}
 PAGOS:
 {{ for p in sale.payments }}
 {{ p.method | string.slice 0 20 | string.pad_right 20 }} {{ p.currency }}{{ p.amount | math.format "F2" | string.pad_left 7 }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
---------------------------------
+{{ separator_dash }}
 VUELTO:         {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" | string.pad_left 9 }}
 {{ end }}
-================================
+{{ separator_equal }}
     Gracias por su compra
     
 {{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
@@ -94,9 +94,9 @@ def get_modern_template() -> str:
     return """
        {{ business.name }}
    {{ business.address }}
-----------------------------------
+{{ separator_dash }}
    TICKET DE VENTA #{{ sale.id }}
-----------------------------------
+{{ separator_dash }}
 {{ sale.date }}
 
 CLIENTE: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 22 }}{{ else }}CLIENTE GENERAL{{ end }}
@@ -105,26 +105,26 @@ DOC: {{ sale.customer.id_number }}
 {{ end }}
 
 ITEMS
-----------------------------------
+{{ separator_dash }}
 {{ for item in sale.products }}
-{{ item.product.name | string.slice 0 30 }}
+{{ item.product.name | string.slice 0 (chars_width - 2) }}
 {{ item.quantity | math.round 0 }} x {{ currency_symbol }}{{ item.unit_price | math.format "F2" }}{{ if item.discount_percentage > 0 }} (-{{ item.discount_percentage | math.round 0 }}%){{ end }}
                   TOTAL: {{ currency_symbol }}{{ item.subtotal | math.format "F2" }}
 {{ end }}
-----------------------------------
+{{ separator_dash }}
 SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
 {{ if sale.discount > 0 }}
 DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
 {{ end }}
 TOTAL:    {{ currency_symbol }}{{ sale.total | math.format "F2" }}
-----------------------------------
+{{ separator_dash }}
 {{ for p in sale.payments }}
 PAGO: {{ p.method | string.slice 0 12 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
 VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
 {{ end }}
-----------------------------------
+{{ separator_dash }}
 {{ if sale.is_credit }}
 *** CUENTA POR COBRAR ***
 Saldo: {{ currency_symbol }}{{ sale.balance | math.format "F2" }}
@@ -141,21 +141,21 @@ def get_detailed_template() -> str:
     """
     Detailed template with SKU codes
     """
-    return """================================
+    return """{{ separator_equal }}
 {{ business.name }}
 {{ business.document_id }}
---------------------------------
+{{ separator_dash }}
 Venta: #{{ sale.id }}
 Fecha: {{ sale.date }}
-Cliente: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 22 }}{{ else }}Consumidor Final{{ end }}
+Cliente: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 (chars_width - 8) }}{{ else }}Consumidor Final{{ end }}
 {{ if sale.customer && sale.customer.id_number }}
 Doc: {{ sale.customer.id_number }}
 {{ end }}
---------------------------------
-CNT DESCRIPCION      TOTAL
---------------------------------
+{{ separator_dash }}
+CNT DESCRIPCION{{ if chars_width > 32 }}                  {{ else }}      {{ end }}TOTAL
+{{ separator_dash }}
 {{ for item in sale.products }}
-{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 16 | string.pad_right 16 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
+{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 (chars_width - 16) | string.pad_right (chars_width - 16) }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
 {{ if item.product.sku }}
     SKU: {{ item.product.sku }}
 {{ end }}
@@ -163,13 +163,13 @@ CNT DESCRIPCION      TOTAL
     {{ currency_symbol }}{{ item.unit_price | math.format "F2" }} c/u
 {{ end }}
 {{ end }}
-================================
+{{ separator_equal }}
 SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
 {{ if sale.discount > 0 }}
 DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
 {{ end }}
 TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
-================================
+{{ separator_equal }}
 PAGOS DETALLADOS:
 {{ for p in sale.payments }}
 {{ p.method | string.slice 0 20 | string.pad_right 20 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
@@ -177,7 +177,7 @@ PAGOS DETALLADOS:
 {{ if sale.change_amount > 0 }}
 VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
 {{ end }}
-================================
+{{ separator_equal }}
 {{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
 <cut>
 """

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ConexionImpresora")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+342d1fa1d26fb8b834949390b584aee2b54fc95e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+76604640a1c3fe8b180c4f5b72c81282b4a301bb")]
 [assembly: System.Reflection.AssemblyProductAttribute("ConexionImpresora")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ConexionImpresora")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

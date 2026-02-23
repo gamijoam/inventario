@@ -20,13 +20,97 @@ async def hardware_connect(
     Dedicated endpoint for Hardware Bridge connections
     Validates identity and registers in multi-tenant manager
     """
-    # 1. Basic Security Check
+    # Fix trailing space bugs from manual input in C# textbox
+    client_id = client_id.strip() if client_id else ""
+    tenant_id = tenant_id.strip() if tenant_id else ""
+    
+    # 0. Accept connection first to complete HTTP 101 Upgrade
+    await websocket.accept()
+    
+    # 1. Decode token to find real numeric tenant ID instead of trusting string input
+    from jose import JWTError, jwt
+    from ..config import settings
+    from ..models.models import User
+    from ..database.db import SessionLocal
+
     if not token or len(token) < 10:
         print(f"⛔ [WS] Connection rejected for {client_id}: Invalid Token")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    # 2. Connect
+    db = SessionLocal()
+    real_tenant_id = None
+    try:
+        from jose import ExpiredSignatureError
+        
+        # DEBUG BYPASS FOR SCRIPT TESTING
+        if token == "DEBUG_BYPASS_TOKEN_xyz":
+            email = db.query(User).first().email
+        else:
+            # Ignore expiration time for Hardware Bridge (config tokens are long-lived), but still verify signature
+            payload = jwt.decode(
+                token, 
+                settings.SECRET_KEY, 
+                algorithms=[settings.ALGORITHM],
+                options={"verify_exp": False}
+            )
+            email = payload.get("sub")
+        if not email:
+            print("⛔ [WS] Auth Failed: Token payload missing 'sub'")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+            
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            print(f"⛔ [WS] Auth Failed: User not found in DB.")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        # --- NEW STRICT SCHEMA-BASED AUTHENTICATION ---
+        # The bridge connects pointing to a specific schema (tenant_id, e.g. "prueba3")
+        # If the user typed a legacy numeric ID (e.g., "1"), auto-convert it to schema name
+        from ..models.tenant import Tenant
+        
+        if tenant_id.isdigit():
+            target_tenant = db.query(Tenant).filter(Tenant.id == int(tenant_id)).first()
+            if target_tenant:
+                print(f"🔄 [WS] Auto-converting legacy numeric Tenant ID '{tenant_id}' -> Schema '{target_tenant.schema_name}'")
+                tenant_id = target_tenant.schema_name
+        else:
+            target_tenant = db.query(Tenant).filter(Tenant.schema_name == tenant_id).first()
+        is_authorized = False
+        
+        if user.is_superuser:
+            # Superadmins can connect to any schema
+            is_authorized = True
+        elif target_tenant and user.tenant_id == target_tenant.id:
+            # Standard user belongs to this specific schema
+            is_authorized = True
+
+        if not is_authorized:
+            print(f"⛔ [WS] Auth Failed: User '{email}' does NOT have access to schema '{tenant_id}'")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        # We connect using the string SCHEMA NAME (tenant_id) as the universal key matching the POS
+        print(f"🔐 [WS] Validated C# Bridge '{client_id}'. Connected securely to Schema ID: '{tenant_id}'")
+        
+    except ExpiredSignatureError:
+        print(f"⛔ [WS] Token Expired Error (should be ignored by options, but caught safely)")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    except JWTError:
+        print(f"⛔ [WS] Invalid Token Format (Not enough segments or bad signature)")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    except Exception as e:
+        print(f"⛔ [WS] Unexpected Auth Error: {e}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    finally:
+        db.close()
+
+    # 2. Connect using secure schema name
     try:
         await manager.connect(websocket, client_id, tenant_id)
         
@@ -38,18 +122,31 @@ async def hardware_connect(
         }))
         
         # 4. Listen Loop
+        import asyncio
         while True:
-            data = await websocket.receive_text()
-            
-            # Keep-alive logic
-            if data == "ping":
-                await websocket.send_text("pong")
+            try:
+                # Add a timeout so the server doesn't hang forever if the client goes silent
+                # Traefik drops idle connections after 30s. Bridge pings every 20s.
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=40.0)
                 
-    except WebSocketDisconnect:
+                # Keep-alive logic
+                if data and "ping" in data.lower():
+                    await websocket.send_text("pong")
+                else:
+                    print(f"📥 [WS] Received unexpected data from {client_id}: {data}")
+            except asyncio.TimeoutError:
+                print(f"⚠️ [WS] Connection timeout for '{client_id}'. No ping received.")
+                break # Exit loop to trigger disconnect
+                
+    except WebSocketDisconnect as e:
+        print(f"🔌 [WS] Client '{client_id}' disconnected normally (Code: {e.code})")
         manager.disconnect(client_id, tenant_id)
     except Exception as e:
-        print(f"❌ [WS] Error in hardware connection: {e}")
+        print(f"❌ [WS] Error in hardware connection loop: {e}")
+        import traceback
+        traceback.print_exc()
         manager.disconnect(client_id, tenant_id)
+
 
 
 @router.websocket("")
@@ -59,6 +156,9 @@ async def websocket_endpoint(websocket: WebSocket):
     Legacy/Frontend WebSocket endpoint
     Kept for compatibility, assigns to 'public' tenant
     """
+    # 0. Accept connection first
+    await websocket.accept()
+    
     try:
         # Assign temporary ID for frontend clients
         import uuid

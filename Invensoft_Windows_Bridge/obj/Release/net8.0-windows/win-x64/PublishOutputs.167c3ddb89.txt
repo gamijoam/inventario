@@ -1,0 +1,2 @@
+C:\Users\gamijoam\Documents\inventario\invensoft_Windows_Bridge\dist_v5\ConexionImpresora.pdb
+C:\Users\gamijoam\Documents\inventario\invensoft_Windows_Bridge\dist_v5\ConexionImpresora.exe

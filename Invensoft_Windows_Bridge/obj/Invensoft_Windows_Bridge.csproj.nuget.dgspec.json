@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\gamijoam\\Documents\\inventario\\Invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj": {}
+    "C:\\Users\\gamijoam\\Documents\\inventario\\invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj": {}
   },
   "projects": {
-    "C:\\Users\\gamijoam\\Documents\\inventario\\Invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj": {
+    "C:\\Users\\gamijoam\\Documents\\inventario\\invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\gamijoam\\Documents\\inventario\\Invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj",
+        "projectUniqueName": "C:\\Users\\gamijoam\\Documents\\inventario\\invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj",
         "projectName": "ConexionImpresora",
-        "projectPath": "C:\\Users\\gamijoam\\Documents\\inventario\\Invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj",
+        "projectPath": "C:\\Users\\gamijoam\\Documents\\inventario\\invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj",
         "packagesPath": "C:\\Users\\gamijoam\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\gamijoam\\Documents\\inventario\\Invensoft_Windows_Bridge\\obj\\",
+        "outputPath": "C:\\Users\\gamijoam\\Documents\\inventario\\invensoft_Windows_Bridge\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\gamijoam\\AppData\\Roaming\\NuGet\\NuGet.Config"

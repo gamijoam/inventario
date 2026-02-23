@@ -30,11 +30,14 @@ const ProductImage = ({ src, alt, className, iconSize = 24, updatedAt }) => {
     const fullUrl = isAbsolute ? src : `${API_ROOT_URL}${src}`;
     const finalUrl = getVersionedUrl(fullUrl);
 
+    // Final class logic
+    const imgClass = `${className || ''} ${className?.includes('object-') ? '' : 'object-cover'}`.trim();
+
     return (
         <img
             src={finalUrl}
             alt={alt || "Producto"}
-            className={`${className} object-cover`}
+            className={imgClass}
             onError={() => setError(true)}
             loading="lazy"
         />

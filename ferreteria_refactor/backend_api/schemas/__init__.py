@@ -475,7 +475,7 @@ class SaleRead(BaseModel):
     unique_uuid: Optional[str] = None
     is_offline_sale: bool = False
 
-    @validator('total_amount_bs', 'change_amount', pre=True, always=True)
+    @validator('total_amount_bs', 'change_amount', 'total_discount_usd', pre=True, always=True)
     def validate_decimals(cls, v):
         if v is None:
             return Decimal("0.00")

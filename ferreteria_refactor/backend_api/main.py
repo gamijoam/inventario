@@ -50,7 +50,6 @@ from .routers.support_client import router as support_client_router
 from .routers.support_admin import router as support_admin_router
 from .audit_utils import log_action
 from .models.models import UserRole
-from .routers.hardware_bridge import router as hardware_bridge_router  # WebSocket router
 from .middleware.license_guard import LicenseGuardMiddleware
 
 app = FastAPI(
@@ -191,7 +190,6 @@ v1_router.include_router(audit_router, tags=["Auditoría"])
 v1_router.include_router(system_router, tags=["Sistema y Licencias"])
 v1_router.include_router(credits_router, tags=["Créditos y Cobranzas"])
 v1_router.include_router(payment_methods_router, tags=["Métodos de Pago"])
-v1_router.include_router(hardware_bridge_router, tags=["Hardware Bridge"])
 v1_router.include_router(sync_router, tags=["Sincronización Híbrida"])
 v1_router.include_router(sync_local_router, tags=["Sincronización Local"])
 v1_router.include_router(warehouses_router, tags=["Almacenes"])

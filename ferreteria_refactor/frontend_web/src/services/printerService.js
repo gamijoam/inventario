@@ -53,18 +53,18 @@ const printerService = {
 
             // Enhanced error messages
             if (error.response?.status === 503) {
-                // Show specific Backend Error if available (Bridge V2)
+                // Return exact backend error message if provided
                 const detail = error.response?.data?.detail;
-                if (detail && detail.includes("Bridge V2")) {
+                if (detail) {
                     throw new Error(detail);
                 }
 
+                // Fallback generic error
                 throw new Error(
-                    `Hardware Bridge no está conectado.\n\n` +
-                    `Verifique que:\n` +
-                    `1. BridgeInvensoft.exe esté ejecutándose\n` +
-                    `2. config.ini tenga: nombre_caja = ${HARDWARE_CLIENT_ID}\n\n` +
-                    `Si el ID es incorrecto, abra la consola del navegador y ejecute:\n` +
+                    `Invensoft Bridge no está conectado.\n\n` +
+                    `El sistema web está buscando una impresora con el ID: "${HARDWARE_CLIENT_ID}".\n` +
+                    `Verifique que la aplicación puente esté abierta y configurada con el mismo "Client ID".\n\n` +
+                    `Si necesita cambiar el ID en la web, presione F12, vaya a Consola y escriba:\n` +
                     `resetPrinterConfig()`
                 );
             } else if (error.response?.status === 500) {

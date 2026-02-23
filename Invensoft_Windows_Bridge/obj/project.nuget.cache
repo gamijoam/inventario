@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "yKzvWpHtRgY=",
+  "dgSpecHash": "aChZVKD/HUM=",
   "success": true,
-  "projectFilePath": "C:\\Users\\gamijoam\\Documents\\inventario\\Invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj",
+  "projectFilePath": "C:\\Users\\gamijoam\\Documents\\inventario\\invensoft_Windows_Bridge\\Invensoft_Windows_Bridge.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\gamijoam\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.23\\microsoft.net.illink.tasks.8.0.23.nupkg.sha512",
     "C:\\Users\\gamijoam\\.nuget\\packages\\newtonsoft.json\\13.0.4\\newtonsoft.json.13.0.4.nupkg.sha512",

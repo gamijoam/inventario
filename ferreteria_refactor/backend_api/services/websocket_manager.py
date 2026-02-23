@@ -14,8 +14,7 @@ class ConnectionManager:
         self.active_connections: Dict[str, Dict[str, WebSocket]] = {}
     
     async def connect(self, websocket: WebSocket, client_id: str, tenant_id: str):
-        """Accept and register a new WebSocket connection"""
-        await websocket.accept()
+        """Register a new WebSocket connection (must be accepted by router first)"""
         
         if tenant_id not in self.active_connections:
             self.active_connections[tenant_id] = {}
@@ -52,9 +51,17 @@ class ConnectionManager:
         try:
             websocket = self.active_connections[tenant_id][client_id]
             print(f"📤 [WS] Sending to {client_id} (Tenant: {tenant_id})...")
-            await websocket.send_json(message)
+            
+            # Use a timeout to prevent hanging on zombified sockets
+            import asyncio
+            await asyncio.wait_for(websocket.send_json(message), timeout=5.0)
+            
             print(f"✅ [WS] Sent to {client_id}: {message.get('type', 'unknown')}")
             return True
+        except asyncio.TimeoutError:
+            print(f"❌ [WS] Timeout while sending to {client_id}. Socket is likely dead.")
+            self.disconnect(client_id, tenant_id)
+            return False
         except Exception as e:
             print(f"❌ [WS] Error sending to {client_id}: {e}")
             import traceback

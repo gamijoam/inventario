@@ -39,7 +39,7 @@ const ProductCard = ({
             onClick={handleClick}
             className={`
                 group relative flex flex-col justify-between bg-white rounded-2xl cursor-pointer transition-all duration-300
-                border h-full min-h-[220px] overflow-hidden
+                border h-full min-h-[360px] overflow-hidden
                 ${isSelected
                     ? 'ring-4 ring-blue-500/20 shadow-2xl border-blue-500 -translate-y-2'
                     : 'border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-blue-200'
@@ -47,13 +47,13 @@ const ProductCard = ({
                 ${isAnimating ? 'ring-4 ring-blue-500/40 scale-95' : ''}
             `}
         >
-            {/* Image Section - Cleaner & More Premium */}
-            <div className="relative h-32 bg-gradient-to-b from-slate-50 to-white overflow-hidden p-4 flex items-center justify-center">
+            {/* Image Section - Redesigned for better aspect ratio */}
+            <div className="relative h-40 bg-slate-50 overflow-hidden flex items-center justify-center border-b border-slate-100">
                 <ProductThumbnail
                     imageUrl={product.image_url}
                     productName={product.name}
                     size="lg"
-                    className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-110"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                     updatedAt={product.updated_at}
                 />
 
@@ -85,7 +85,7 @@ const ProductCard = ({
             </div>
 
             {/* Content Section */}
-            <div className="p-4 flex-1 flex flex-col gap-2">
+            <div className="p-3 flex-1 flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
                     <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-1 rounded-md tracking-widest uppercase border border-slate-200/50 truncate max-w-[90px]">
                         {product.sku || 'N/A'}
@@ -100,7 +100,7 @@ const ProductCard = ({
                     )}
                 </div>
 
-                <h3 className="font-bold text-slate-800 text-sm leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors min-h-[2.5rem]" title={product.name}>
+                <h3 className="font-bold text-slate-800 text-sm leading-tight line-clamp-3 group-hover:text-blue-600 transition-colors min-h-[3.2rem]" title={product.name}>
                     {product.name}
                 </h3>
 
@@ -112,9 +112,9 @@ const ProductCard = ({
                     </div>
                 )}
                 {/* Price Display Redesign */}
-                <div className="mt-auto pt-3 border-t border-slate-50 flex flex-col gap-1">
+                <div className="mt-auto pt-2 border-t border-slate-50 flex flex-col gap-0.5">
                     {/* Primary Price (USD) - Blue */}
-                    <div className="flex justify-between items-center group/price">
+                    <div className="flex justify-between items-center px-1">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Precio $</span>
                         <div className="flex items-baseline gap-0.5 text-blue-600">
                             <span className="text-xs font-black">$</span>
@@ -125,8 +125,8 @@ const ProductCard = ({
                     </div>
 
                     {/* Secondary Price (VES) - Green */}
-                    <div className="flex justify-between items-center bg-emerald-50/50 rounded-lg px-2 py-1 border border-emerald-100/50 group/bs">
-                        <span className="text-[10px] font-bold text-emerald-600/70 uppercase">Precio Bs</span>
+                    <div className="flex justify-between items-center bg-emerald-50/40 rounded-lg px-2 py-0.5 border border-emerald-100/30">
+                        <span className="text-[9px] font-bold text-emerald-600/70 uppercase">Precio Bs</span>
                         <div className="flex items-baseline gap-0.5 text-emerald-500">
                             <span className="text-[10px] font-black">Bs</span>
                             <span className="text-sm font-black tracking-tight">

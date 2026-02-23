@@ -1,4 +1,4 @@
-# Docker Ignore - Sistema de Ferretería (FULL MODE)
+# Docker Ignore - Sistema de Ferretería (FAST MODE)
 
 # 1. Configuración y Secretos
 **/.env
@@ -42,19 +42,19 @@ htmlcov/
 *.log
 docker-compose.override.yml
 
-# 8. Archivos Grandes y Binarios (INCLUIDOS EN FULL MODE)
-# Invensoft_Windows_Bridge/
-# hardware_bridge/
-# desktop_app/
+# 8. Archivos Grandes y Binarios (OPTIMIZACIÓN)
+Invensoft_Windows_Bridge/
+hardware_bridge/
+desktop_app/
 _archive/
 _herramientas_dev/
-# migration_guide.pdf
-# *.exe
-# *.dll
-# *.iso
-# *.apk
-# *.msi
-# *.zip
-# *.rar
+migration_guide.pdf
+*.exe
+*.dll
+*.iso
+*.apk
+*.msi
+*.zip
+*.rar
 ferreteria.db
 sql_app.db

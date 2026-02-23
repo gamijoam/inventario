@@ -39,6 +39,13 @@ namespace Invensoft_Windows_Bridge.Services
                 {
                     scriptObject.Add(prop.Name, ConvertJTokenToObject(prop.Value));
                 }
+
+                // --- INJECT DYNAMIC FORMATTING VARIABLES ---
+                int charsWidth = (paperWidth >= 80) ? 48 : 32;
+                scriptObject.Add("chars_width", charsWidth);
+                scriptObject.Add("separator_equal", new string('=', charsWidth));
+                scriptObject.Add("separator_dash", new string('-', charsWidth));
+                scriptObject.Add("paper_width_mm", paperWidth);
                 
                 var context = new TemplateContext();
                 context.PushGlobal(scriptObject);

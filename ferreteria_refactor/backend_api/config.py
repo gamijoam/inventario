@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = "temporary_key_for_build"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440 # 24 hours
     
     # Modules
     MODULE_RESTAURANT_ENABLED: bool = False

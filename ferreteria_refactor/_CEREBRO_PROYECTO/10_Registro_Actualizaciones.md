@@ -34,7 +34,23 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 - **Cambios Técnicos**:
   - **Configuración Dinámica**: Se agregó la propiedad `PaperWidth` al modelo de configuración local.
   - **Interfaz de Usuario**: Inclusión de un selector de ancho de papel en el panel de `Configuración Manual` de la aplicación C#.
-  - **Adaptación de Formato**: La lógica de renderizado en `PrinterService.cs` ahora ajusta dinámicamente el ancho de los separadores y el contenido en el **Modo Virtual**.
+  - **Adaptación de Formato**: La lógica de renderizado en `PrinterService.cs` y las plantillas en el backend ahora ajustan dinámicamente el ancho de los separadores y el contenido según el papel (58mm vs 80mm).
   - **Distribución**: Generación de un nuevo binario `ConexionImpresora.exe` distribuido automáticamente a la carpeta de descargas del Frontend.
-- **Modelos de Datos Afectados (Local)**:
   - `bridge_config.json`: Nueva clave `"PaperWidth"` persistente.
+
+### 2. Estabilización de Sesiones (Fix "Kick-out")
+**Descripción**: Corrección del cierre de sesión inesperado mediante la extensión de vida de los tokens de acceso.
+- **Cambios Técnicos**:
+  - **Vida del Token**: Se aumentó `ACCESS_TOKEN_EXPIRE_MINUTES` de 30 a **1440 minutos** (24 horas).
+  - **Sincronización de Cookies**: El campo `max_age` de las cookies HttpOnly ahora refleja la nueva duración de la sesión.
+  - **UX**: Eliminación de redirecciones intrusivas al login durante transacciones largas.
+
+### 3. POS: Optimización Visual y Legibilidad
+**Descripción**: Rediseño de la interfaz de venta para mejorar la presentación de productos y evitar recortes de texto.
+- **Cambios Técnicos**:
+  - **Componente de Imagen**: Se flexibilizó `ProductImage.jsx` para permitir ajustes de aspecto dinámicos sin sobrescribir estilos de contenedor.
+  - **Tarjeta de Producto**: 
+    - Aumento de altura mínima de `220px` a **`360px`** en `ProductCard.jsx`.
+    - Área de imagen expandida a `h-40` con escala interactiva en hover.
+    - Soporte para nombres de artículos de hasta **3 líneas** (`line-clamp-3`).
+    - Compactación de la sección de precios para maximizar el espacio de descripción.
