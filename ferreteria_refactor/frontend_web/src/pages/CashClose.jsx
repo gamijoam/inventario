@@ -4,12 +4,12 @@ import { useConfig } from '../context/ConfigContext';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardCheck, DollarSign, AlertCircle, TrendingUp, CreditCard } from 'lucide-react';
 import apiClient from '../config/axios';
+import printerService from '../services/printerService';
 
 const CashClose = () => {
     const { isSessionOpen, session, closeSession } = useCash();
     const { getActiveCurrencies } = useConfig();
     const navigate = useNavigate();
-
     const [sessionData, setSessionData] = useState(null);
     const [physicalCounts, setPhysicalCounts] = useState({});
     const [notes, setNotes] = useState('');
@@ -67,6 +67,8 @@ const CashClose = () => {
         transfers_by_currency = {},
         expenses_usd = 0,
         expenses_bs = 0,
+        returns_usd = 0,
+        returns_bs = 0,
         cash_advances_usd = 0,
         cash_advances_bs = 0
     } = details;
@@ -98,22 +100,7 @@ const CashClose = () => {
 
             const success = await closeSession(closeData);
             if (success) {
-                // AUTO-PRINT Z-REPORT
-                try {
-                    const response = await apiClient.get(`/cash/sessions/${session.id}/z-report-payload`);
-                    const bridgeUrl = 'http://localhost:5001/print';
-                    await fetch(bridgeUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(response.data)
-                    });
-                    console.log('✅ Z-Report sent to printer');
-                } catch (error) {
-                    console.error('Error auto-printing Z-Report:', error);
-                    // Don't block navigation on print failure
-                }
-
-                alert("Caja Cerrada Exitosamente. Reporte Z enviado a impresora.");
+                alert("Caja Cerrada Exitosamente. Reporte Z enviado a impresora automáticamente.");
                 navigate('/');
             }
         }
@@ -174,15 +161,7 @@ const CashClose = () => {
                                         />
                                     </div>
 
-                                    {diff !== null && (
-                                        <div className={`text-sm font-medium ${Math.abs(diff) < 0.01 ? 'text-green-600' :
-                                            diff > 0 ? 'text-blue-600' : 'text-red-600'
-                                            }`}>
-                                            Diferencia: {diff > 0 ? '+' : ''}{diff.toFixed(2)}
-                                            {Math.abs(diff) < 0.01 ? ' ✓ Cuadra' :
-                                                diff > 0 ? ' (Sobra)' : ' (Falta)'}
-                                        </div>
-                                    )}
+
                                 </div>
                             );
                         })}
@@ -220,11 +199,26 @@ const CashClose = () => {
                             </div>
                             <div className="flex justify-between text-sm mb-1">
                                 <span className="text-gray-600">USD</span>
-                                <span className="font-bold text-gray-800">${Number(expenses_usd).toFixed(2)}</span>
+                                <span className="font-bold text-gray-800">${Number(expenses_usd || 0).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-600">Bolívares</span>
-                                <span className="font-bold text-gray-800">Bs {Number(expenses_bs).toFixed(2)}</span>
+                                <span className="font-bold text-gray-800">Bs {Number(expenses_bs || 0).toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        {/* Returns / Refunds Section */}
+                        <div className="border border-orange-100 bg-orange-50/50 rounded-lg p-3 mt-4">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="font-bold text-orange-800 text-sm uppercase">Devoluciones / Reembolsos</span>
+                            </div>
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-600">USD</span>
+                                <span className="font-bold text-gray-800">${Number(returns_usd || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Bolívares</span>
+                                <span className="font-bold text-gray-800">Bs {Number(returns_bs || 0).toFixed(2)}</span>
                             </div>
                         </div>
                     </div>

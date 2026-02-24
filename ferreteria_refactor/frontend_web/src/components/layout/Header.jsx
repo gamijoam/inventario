@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useCash } from '../../context/CashContext';
 import { useState } from 'react';
 import { cn } from '../../utils/cn';
 
@@ -11,6 +12,7 @@ export default function Header() {
     const { currencies } = useConfig();
     const { user, logout } = useAuth();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+    const { isSessionOpen, session } = useCash();
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
 
@@ -48,6 +50,22 @@ export default function Header() {
 
                 {/* Quick Actions Panel */}
                 <div className="flex items-center gap-1 border-r border-slate-200 pr-4 mr-1">
+                    {/* Cash Session Status Indicator */}
+                    <div className={cn(
+                        "hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold transition-all select-none mr-2 shadow-sm",
+                        isSessionOpen
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                            : "bg-rose-50 border-rose-200 text-rose-700"
+                    )}
+                        title={isSessionOpen ? `Turno Iniciado: ${session?.opened_at ? new Date(session.opened_at).toLocaleTimeString() : ''}` : "La caja registradora está cerrada"}
+                    >
+                        <div className={cn(
+                            "w-2 h-2 rounded-full",
+                            isSessionOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
+                        )}></div>
+                        {isSessionOpen ? "Caja Abierta" : "Caja Cerrada"}
+                    </div>
+
                     <Link to="/pos" className="hidden md:flex items-center gap-2 px-3 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0">
                         <ShoppingCart size={16} />
                         <span className="text-sm font-bold">Vender</span>
@@ -58,17 +76,25 @@ export default function Header() {
                 <div className="relative">
                     <button
                         onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
-                        className="relative p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-full transition-all group"
+                        className={cn(
+                            "relative p-2.5 rounded-full transition-all group focus:outline-none focus:ring-2 focus:ring-indigo-500",
+                            unreadCount > 0
+                                ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                                : "bg-slate-100 text-slate-600 hover:text-indigo-700 hover:bg-slate-200"
+                        )}
                     >
-                        <Bell size={20} className="group-hover:rotate-12 transition-transform" />
+                        <Bell size={24} className={cn(
+                            "transition-transform",
+                            unreadCount > 0 ? "animate-pulse" : "group-hover:rotate-12"
+                        )} />
                         {unreadCount > 0 && (
-                            <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 rounded-full border-2 border-white text-[10px] flex items-center justify-center font-black text-white shadow-sm animate-bounce">
+                            <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 rounded-full border-2 border-white text-[10px] flex items-center justify-center font-black text-white shadow-md animate-bounce">
                                 {unreadCount > 9 ? '9+' : unreadCount}
                             </span>
                         )}
                         {/* Static indicator dot for subtle alert */}
                         {unreadCount === 0 && (
-                            <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-500/20 rounded-full"></span>
+                            <span className="absolute top-1 right-1 w-2 h-2 bg-slate-300 rounded-full border-2 border-white"></span>
                         )}
                     </button>
 

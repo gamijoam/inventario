@@ -50,6 +50,8 @@ const CashClosingModal = ({ isOpen, onClose }) => {
         }
     }, [isOpen]);
 
+
+
     const fetchSessionDetails = async () => {
         if (!session?.id) return;
         setLoadingDetails(true);
@@ -157,26 +159,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                         {/* LEFT COLUMN: AUDIT (7 cols) - PURE WHITE */}
                         <div className="lg:col-span-7 p-6 lg:p-8 space-y-8 bg-white">
 
-                            {/* Summary Status Header - SOLID COLORS for Contrast */}
-                            <div className={`p-5 rounded-2xl border flex items-center justify-between transition-colors ${isBalanced ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
-                                <div className="flex items-center gap-4">
-                                    <div className={`p-3 rounded-full shadow-sm bg-white ${isBalanced ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                        {isBalanced ? <CheckCircle size={28} strokeWidth={2.5} /> : <AlertTriangle size={28} strokeWidth={2.5} />}
-                                    </div>
-                                    <div>
-                                        <div className={`text-lg font-black tracking-tight leading-none ${isBalanced ? 'text-emerald-900' : 'text-rose-900'}`}>
-                                            {isBalanced ? 'CAJA CUADRADA' : 'DESCUADRE DETECTADO'}
-                                        </div>
-                                        <div className={`text-sm font-bold mt-1 ${isBalanced ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                            {isBalanced ? 'Todo coincide perfectamente' : 'Diferencia en conteo de caja'}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="text-right pl-4 border-l border-slate-200/50">
-                                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Ventas Totales</div>
-                                    <div className="text-2xl font-mono font-bold text-slate-900 tracking-tight">${Number(sales_total).toFixed(2)}</div>
-                                </div>
-                            </div>
+
 
                             <div className="space-y-6">
                                 <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -202,13 +185,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                                                         </div>
                                                     </div>
 
-                                                    {/* Badge Diff */}
-                                                    {data.hasValue && (
-                                                        <div className={`px-4 py-2 rounded-xl border font-bold text-sm flex items-center gap-2 shadow-sm ${data.diffColor}`}>
-                                                            {data.isMatch ? 'Exacto' : (data.diff > 0 ? `+${Number(data.diff).toFixed(2)}` : Number(data.diff).toFixed(2))}
-                                                            {data.isMatch ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
-                                                        </div>
-                                                    )}
+                                                    {/* Badge Diff Removed */}
                                                 </div>
 
                                                 <div className="bg-white p-4 rounded-b-2xl border-t border-slate-100 flex items-center gap-3">
@@ -224,9 +201,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                                                             step="0.01"
                                                             value={counts[data.symbol] || ''}
                                                             onChange={(e) => setCounts({ ...counts, [data.symbol]: e.target.value })}
-                                                            className={`w-full h-11 pl-10 pr-4 bg-white rounded-lg border-2 font-mono text-lg font-bold outline-none transition-all shadow-sm text-slate-900 ${!data.hasValue ? 'border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10' :
-                                                                    data.isMatch ? 'border-emerald-300 text-emerald-700' : 'border-rose-300 text-rose-700'
-                                                                }`}
+                                                            className={`w-full h-11 pl-10 pr-4 bg-white rounded-lg border-2 font-mono text-lg font-bold outline-none transition-all shadow-sm text-slate-900 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 border-slate-200`}
                                                             placeholder="0.00"
                                                         />
                                                     </div>
@@ -352,7 +327,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                         </Button>
                         <Button
                             size="lg"
-                            className={`flex-1 lg:flex-none h-12 px-8 font-bold shadow-lg flex items-center gap-2 transition-all text-white ${isBalanced ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200' : 'bg-rose-600 hover:bg-rose-700 shadow-rose-200'}`}
+                            className="flex-1 lg:flex-none h-12 px-8 font-bold shadow-lg flex items-center gap-2 transition-all text-white bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"
                             onClick={handleSubmit}
                             disabled={isSubmitting || loadingDetails}
                         >

@@ -49,7 +49,7 @@ const ReturnsManager = () => {
 
         setLoading(true);
         try {
-            const response = await apiClient.get(`/returns/sales/search?q=${searchQuery}`);
+            const response = await apiClient.get(`/returns/sales/search?q=${searchQuery}&status=COMPLETED`);
             setSearchResults(response.data);
             if (response.data.length === 0) {
                 toast.error(`No se encontraron ventas con "${searchQuery}"`);
@@ -110,8 +110,8 @@ const ReturnsManager = () => {
 
     const getRefundAmount = () => {
         const total = calculateTotal();
-        if (refundCurrency === 'USD') return total;
-        return total * exchangeRate;
+        if (refundCurrency === 'USD') return Number(total);
+        return Number(total) * Number(exchangeRate);
     };
 
     const handleProcessReturn = async () => {
@@ -120,7 +120,7 @@ const ReturnsManager = () => {
         if (itemsToReturn.length === 0) return toast.error('Seleccione al menos un producto');
         if (!cashSessionOpen) return toast.error('Caja cerrada: No se puede procesar');
 
-        if (!window.confirm(`¿Confirmar devolución por ${refundCurrency} ${getRefundAmount().toFixed(2)}?`)) return;
+        if (!window.confirm(`¿Confirmar devolución por ${refundCurrency} ${Number(getRefundAmount()).toFixed(2)}?`)) return;
 
         setLoading(true);
         try {
@@ -246,7 +246,7 @@ const ReturnsManager = () => {
                                                 <td className="p-4 font-bold text-slate-800">#{sale.id}</td>
                                                 <td className="p-4 text-slate-600">{new Date(sale.date).toLocaleDateString()}</td>
                                                 <td className="p-4 text-slate-600 font-medium">{sale.customer?.name || 'Cliente General'}</td>
-                                                <td className="p-4 text-right font-black text-slate-800">${Number(sale.total_amount).toFixed(2)}</td>
+                                                <td className="p-4 text-right font-black text-slate-800">${Number(sale.total_amount || 0).toFixed(2)}</td>
                                                 <td className="p-4 text-right">
                                                     <button
                                                         onClick={() => handleSelectSale(sale)}
@@ -339,7 +339,7 @@ const ReturnsManager = () => {
                                                     </div>
                                                 </td>
                                                 <td className="p-4 text-right font-black text-slate-800">
-                                                    ${item.subtotal.toFixed(2)}
+                                                    ${Number(item.subtotal || 0).toFixed(2)}
                                                 </td>
                                             </tr>
                                         ))}
@@ -371,38 +371,55 @@ const ReturnsManager = () => {
                                 <div className="space-y-6 flex-1">
                                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                                         <p className="text-slate-500 text-xs font-bold uppercase mb-1">Total USD</p>
-                                        <p className="text-3xl font-black text-slate-800">${calculateTotal().toFixed(2)}</p>
+                                        <p className="text-3xl font-black text-slate-800">${Number(calculateTotal() || 0).toFixed(2)}</p>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 mb-2 uppercase">Moneda de Reembolso</label>
-                                        <select
-                                            value={refundCurrency}
-                                            onChange={(e) => {
-                                                const selectedSymbol = e.target.value;
-                                                setRefundCurrency(selectedSymbol);
-                                                const currency = currencies.find(c => c.symbol === selectedSymbol);
-                                                if (currency) setExchangeRate(currency.rate || 1.0);
-                                            }}
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-indigo-500"
-                                        >
-                                            {currencies.map(currency => (
-                                                <option key={currency.id} value={currency.symbol}>{currency.symbol} - {currency.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                    {/* Refund Info Component */}
+                                    <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex flex-col gap-2">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-sm font-bold text-indigo-500 uppercase">Moneda de Reembolso</span>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setRefundCurrency('USD');
+                                                        setExchangeRate(1.0);
+                                                    }}
+                                                    className={clsx(
+                                                        "text-xs px-4 py-1.5 rounded-lg font-black border-2 transition-all",
+                                                        refundCurrency === 'USD' ? "bg-indigo-600 text-white border-indigo-600 shadow-md scale-105" : "bg-white text-indigo-400 border-indigo-100 hover:bg-slate-50"
+                                                    )}
+                                                >
+                                                    💵 USD
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const ves = currencies.find(c => c.currency_code === 'VES' || c.symbol === 'Bs' || c.symbol === 'VES');
+                                                        setRefundCurrency(ves ? ves.symbol : 'Bs');
+                                                        setExchangeRate(ves ? ves.rate : 1.0);
+                                                    }}
+                                                    className={clsx(
+                                                        "text-xs px-4 py-1.5 rounded-lg font-black border-2 transition-all",
+                                                        (refundCurrency === 'Bs' || refundCurrency === 'VES') ? "bg-indigo-600 text-white border-indigo-600 shadow-md scale-105" : "bg-white text-indigo-400 border-indigo-100 hover:bg-slate-50"
+                                                    )}
+                                                >
+                                                    🇻🇪 BS
+                                                </button>
+                                            </div>
+                                        </div>
 
-                                    {refundCurrency !== 'USD' && (
-                                        <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-                                            <p className="text-indigo-600 text-xs font-bold uppercase mb-1">A Reembolsar</p>
-                                            <p className="text-2xl font-black text-indigo-700">
-                                                {refundCurrency} {getRefundAmount().toFixed(2)}
-                                            </p>
-                                            <p className="text-indigo-400 text-xs font-medium mt-1">
-                                                Tasa: {exchangeRate.toFixed(2)}
+                                        <div className="flex items-baseline gap-2">
+                                            <p className="text-3xl font-black text-indigo-800">
+                                                {refundCurrency === 'USD' ? '$' : 'Bs. '}
+                                                {Number(getRefundAmount() || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </p>
                                         </div>
-                                    )}
+
+                                        {(refundCurrency === 'Bs' || refundCurrency === 'VES') && (
+                                            <p className="text-indigo-400 text-xs font-medium mt-1">
+                                                Tasa Usada: {Number(exchangeRate || 1).toFixed(2)}
+                                            </p>
+                                        )}
+                                    </div>
 
                                     <div className="flex justify-between items-center px-2 py-3 border-t border-slate-100 mt-4">
                                         <span className="text-slate-500 font-medium">Items</span>

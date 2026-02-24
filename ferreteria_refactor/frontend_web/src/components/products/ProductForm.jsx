@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap } from 'lucide-react';
+import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductPriceListManager from './ProductPriceListManager';
@@ -83,6 +83,10 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
     const [isScanning, setIsScanning] = useState(false);
 
+    // Category dropdown specific state
+    const [isCategoryOpen, setIsCategoryOpen] = useState(false);
+    const [categorySearchTerm, setCategorySearchTerm] = useState('');
+
     const handleScanResult = (code) => {
         setFormData(prev => ({ ...prev, sku: code }));
         setIsScanning(false);
@@ -161,6 +165,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                     combo_items: [], tax_rate: 0, warehouse_stocks: [], prices: {}, image_url: ''
                 });
             }
+            // Reset dropdown searches when opened
+            setCategorySearchTerm('');
+            setIsCategoryOpen(false);
         }
     }, [isOpen, initialData]);
 
@@ -358,21 +365,81 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                         )}
                                                     </div>
                                                 </div>
-                                                <div className="space-y-1.5">
+                                                <div className="space-y-1.5 relative">
                                                     <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Categoría</Label>
-                                                    <Select
-                                                        value={formData.category_id?.toString()}
-                                                        onValueChange={(val) => setFormData({ ...formData, category_id: val })}
+
+                                                    {/* Custom Searchable Dropdown Button */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+                                                        className="w-full h-11 px-3 text-left border rounded-md bg-slate-50/30 border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"
                                                     >
-                                                        <SelectTrigger className="h-11 border-slate-200 bg-slate-50/30 focus:bg-white">
-                                                            <SelectValue placeholder="Seleccionar categoría..." />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {categories.map(c => (
-                                                                <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                        <span className={formData.category_id ? "text-slate-900" : "text-slate-500"}>
+                                                            {formData.category_id
+                                                                ? categories.find(c => c.id.toString() === formData.category_id?.toString())?.name || 'Seleccionado'
+                                                                : 'Seleccionar categoría...'}
+                                                        </span>
+                                                        <ChevronDown size={14} className="opacity-50" />
+                                                    </button>
+
+                                                    {/* Searchable Dropdown Menu */}
+                                                    {isCategoryOpen && (
+                                                        <>
+                                                            <div
+                                                                className="fixed inset-0 z-40"
+                                                                onClick={() => setIsCategoryOpen(false)}
+                                                            />
+                                                            <div className="absolute top-16 left-0 w-full z-50 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                                                                <div className="p-2 border-b border-slate-100 sticky top-0 bg-white">
+                                                                    <div className="relative">
+                                                                        <Search size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+                                                                        <Input
+                                                                            autoFocus
+                                                                            placeholder="Buscar categoría..."
+                                                                            className="h-9 pl-8 text-sm bg-slate-50/50"
+                                                                            value={categorySearchTerm}
+                                                                            onChange={(e) => setCategorySearchTerm(e.target.value)}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
+                                                                    <div
+                                                                        className="flex items-center px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md cursor-pointer transition-colors"
+                                                                        onClick={() => {
+                                                                            setFormData({ ...formData, category_id: null });
+                                                                            setIsCategoryOpen(false);
+                                                                        }}
+                                                                    >
+                                                                        -- Sin Categoría --
+                                                                    </div>
+                                                                    {categories
+                                                                        .filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase()))
+                                                                        .map(c => {
+                                                                            const isSelected = formData.category_id?.toString() === c.id.toString();
+                                                                            return (
+                                                                                <div
+                                                                                    key={c.id}
+                                                                                    className={cn(
+                                                                                        "flex items-center justify-between px-3 py-2 text-sm rounded-md cursor-pointer transition-colors font-medium",
+                                                                                        isSelected ? "bg-indigo-50 text-indigo-700" : "text-slate-700 hover:bg-slate-100"
+                                                                                    )}
+                                                                                    onClick={() => {
+                                                                                        setFormData({ ...formData, category_id: c.id.toString() });
+                                                                                        setIsCategoryOpen(false);
+                                                                                    }}
+                                                                                >
+                                                                                    {c.name}
+                                                                                    {isSelected && <Check size={14} className="text-indigo-600" />}
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    {categories.filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase())).length === 0 && (
+                                                                        <div className="p-3 text-center text-sm text-slate-400 italic">No se encontraron resultados</div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
 

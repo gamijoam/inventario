@@ -332,8 +332,8 @@ const WarrantyManager = () => {
                                     <div className="text-3xl font-black text-indigo-800">
                                         {refundCurrency === 'USD' ? '$' : 'Bs. '}
                                         {refundCurrency === 'USD'
-                                            ? Number(checkResult.net_price).toFixed(2)
-                                            : (Number(checkResult.net_price) * exchangeRate).toLocaleString()
+                                            ? Number(checkResult.net_price || 0).toFixed(2)
+                                            : (Number(checkResult.net_price || 0) * Number(exchangeRate || 1)).toLocaleString()
                                         }
                                     </div>
                                     {refundCurrency === 'Bs' && (
@@ -381,7 +381,7 @@ const WarrantyManager = () => {
                                             (refundCurrency === 'USD' ? cashBalances.USD : cashBalances.Bs) < (refundCurrency === 'USD' ? checkResult.net_price : checkResult.net_price * exchangeRate)
                                                 ? "text-rose-500" : "text-emerald-600"
                                         )}>
-                                            {refundCurrency === 'USD' ? `$${cashBalances.USD.toFixed(2)}` : `Bs. ${cashBalances.Bs.toLocaleString()}`}
+                                            {refundCurrency === 'USD' ? `$${Number(cashBalances.USD || 0).toFixed(2)}` : `Bs. ${Number(cashBalances.Bs || 0).toLocaleString()}`}
                                         </span></span>
                                     </p>
 

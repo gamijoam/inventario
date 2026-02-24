@@ -203,6 +203,8 @@ def process_return(return_data: schemas.ReturnCreate, db: Session = Depends(get_
     new_return.total_refunded = total_refund
     
     # CRITICAL: Update balance_pending for credit sales
+    actual_cash_refund = total_refund
+    
     if sale.is_credit and sale.balance_pending is not None:
         # Reduce debt by refund amount
         old_balance = sale.balance_pending
@@ -211,21 +213,24 @@ def process_return(return_data: schemas.ReturnCreate, db: Session = Depends(get_
         # Ensure balance doesn't go negative
         if new_balance < 0:
             new_balance = 0
-        
+            
         sale.balance_pending = new_balance
+        debt_reduced = old_balance - new_balance
+        actual_cash_refund = total_refund - debt_reduced
         
         # Mark as paid if balance is zero or negative
         if new_balance <= 0.01:
             sale.paid = True
         
         print(f"💳 Credit sale return: Reduced balance from ${old_balance:.2f} to ${new_balance:.2f}, Paid: {sale.paid}")
+        print(f"💵 Actual cash to refund (after debt offset): ${actual_cash_refund:.2f}")
     
     # Cash Impact (Refund)
     session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
-    if session:
-        amount_to_record = total_refund
+    if session and actual_cash_refund > 0:
+        amount_to_record = actual_cash_refund
         if return_data.refund_currency == "Bs":
-            amount_to_record = total_refund * return_data.exchange_rate
+            amount_to_record = actual_cash_refund * return_data.exchange_rate
         
         cash_movement = models.CashMovement(
             session_id=session.id,

@@ -11,7 +11,7 @@ from ..websocket.events import WebSocketEvents
 import asyncio
 import asyncio
 import uuid
-from ..template_presets import get_classic_template # Added for Scriban fallback
+from ..template_presets import get_classic_58_template # Added for Scriban fallback
 
 # DUPLICATED HELPER due to circular import risks if we try to import from routers
 def run_broadcast(event: str, data: dict):
@@ -717,14 +717,14 @@ class SalesService:
              # to prevent the "Unexpected token" error in the Bridge.
              if "{%" in template:
                  print(f"[WARNING] Detected Legacy Jinja2 Template for Sale {sale_id}. Falling back to Scriban Classic Preset.")
-                 template = get_classic_template()
+                 template = get_classic_58_template()
                  
              # HOTFIX: Ensure sale.items -> sale.products replacement here just in case (legacy data)
              if "sale.items" in template:
                  template = template.replace("sale.items", "sale.products")
         else:
             # Fallback to code-defined Scriban template
-            template = get_classic_template()
+            template = get_classic_58_template()
         return {
             "status": "ready",
             "template": template,
@@ -769,8 +769,8 @@ class SalesService:
              if usd_amt > 0 or bs_amt > 0:
                  payments_detail.append({
                      "method": method,
-                     "usd": usd_amt,
-                     "bs": bs_amt,
+                     "usd": f"{usd_amt:,.2f}",
+                     "bs": f"{bs_amt:,.2f}",
                      "has_usd": usd_amt > 0,
                      "has_bs": bs_amt > 0
                  })
@@ -786,16 +786,16 @@ class SalesService:
                 "user": session.user.full_name if session.user else "Usuario",
                 "start_time": session.start_time.strftime("%d/%m/%Y %H:%M"),
                 "end_time": session.end_time.strftime("%d/%m/%Y %H:%M") if session.end_time else "N/A",
-                "initial_usd": float(session.initial_cash or 0),
-                "initial_bs": float(session.initial_cash_bs or 0),
-                "sales_usd": float(session.final_cash_expected or 0) - float(session.initial_cash or 0), # Approx
-                "sales_bs": float(session.final_cash_expected_bs or 0) - float(session.initial_cash_bs or 0), # Approx
-                "total_expected_usd": float(session.final_cash_expected or 0),
-                "total_expected_bs": float(session.final_cash_expected_bs or 0),
-                "total_reported_usd": float(session.final_cash_reported or 0),
-                "total_reported_bs": float(session.final_cash_reported_bs or 0),
-                "diff_usd": float(session.difference or 0),
-                "diff_bs": float(session.difference_bs or 0),
+                "initial_usd": f"{float(session.initial_cash or 0):,.2f}",
+                "initial_bs": f"{float(session.initial_cash_bs or 0):,.2f}",
+                "sales_usd": f"{(float(session.final_cash_expected or 0) - float(session.initial_cash or 0)):,.2f}",
+                "sales_bs": f"{(float(session.final_cash_expected_bs or 0) - float(session.initial_cash_bs or 0)):,.2f}",
+                "total_expected_usd": f"{float(session.final_cash_expected or 0):,.2f}",
+                "total_expected_bs": f"{float(session.final_cash_expected_bs or 0):,.2f}",
+                "total_reported_usd": f"{float(session.final_cash_reported or 0):,.2f}",
+                "total_reported_bs": f"{float(session.final_cash_reported_bs or 0):,.2f}",
+                "diff_usd": f"{float(session.difference or 0):+,.2f}",
+                "diff_bs": f"{float(session.difference_bs or 0):+,.2f}",
                 "payments_detail": payments_detail # NEW FIELD
             }
         }
@@ -815,28 +815,28 @@ Cierre:   {{ session.end_time }}
 {{ separator_equal }}
 <bold>RESUMEN DE PAGOS</bold>
 {{ separator_equal }}
-{% for pay in session.payments_detail %}
+{{ for pay in session.payments_detail }}
 {{ pay.method }}
-{% if pay.has_usd %}   USD: ${{ "%.2f"|format(pay.usd) }}{% endif %}
-{% if pay.has_bs %}   Bs:  {{ "%.2f"|format(pay.bs) }}{% endif %}
-{% endfor %}
+{{ if pay.has_usd }}   USD: ${{ pay.usd }}{{ end }}
+{{ if pay.has_bs }}   Bs:  {{ pay.bs }}{{ end }}
+{{ end }}
 {{ separator_equal }}
 <bold>FONDOS INICIALES</bold>
 {{ separator_equal }}
-USD:  ${{ "%.2f"|format(session.initial_usd) }}
-Bs:   Bs {{ "%.2f"|format(session.initial_bs) }}
+USD:  ${{ session.initial_usd }}
+Bs:   Bs {{ session.initial_bs }}
 {{ separator_equal }}
 <bold>ARQUEO DE CAJA (TOTALES)</bold>
 {{ separator_equal }}
 <bold>DOLARES ($)</bold>
-  Esperado:  ${{ "%.2f"|format(session.total_expected_usd) }}
-  Reportado: ${{ "%.2f"|format(session.total_reported_usd) }}
-  Diferencia: {{ "%+.2f"|format(session.diff_usd) }}
+  Esperado:  ${{ session.total_expected_usd }}
+  Reportado: ${{ session.total_reported_usd }}
+  Diferencia: {{ session.diff_usd }}
 
 <bold>BOLIVARES (Bs)</bold>
-  Esperado:  Bs {{ "%.2f"|format(session.total_expected_bs) }}
-  Reportado: Bs {{ "%.2f"|format(session.total_reported_bs) }}
-  Diferencia: {{ "%+.2f"|format(session.diff_bs) }}
+  Esperado:  Bs {{ session.total_expected_bs }}
+  Reportado: Bs {{ session.total_reported_bs }}
+  Diferencia: {{ session.diff_bs }}
 {{ separator_equal }}
 <center>
 <bold>FIN DEL REPORTE</bold>

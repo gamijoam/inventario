@@ -628,8 +628,9 @@ def create_system_message(
     current_user: User = Depends(get_current_superuser),
     background_tasks: BackgroundTasks = None
 ):
-    from ..websocket.manager import manager
+    from ..services.websocket_manager import manager
     from ..websocket.events import WebSocketEvents
+    from datetime import datetime
 
     db_message = SystemMessage(**message.model_dump())
     db.add(db_message)
@@ -649,17 +650,23 @@ def create_system_message(
             "is_active": db_message.is_active
         }
         
+        payload = {
+            "type": WebSocketEvents.SYSTEM_NOTIFICATION,
+            "data": msg_data,
+            "timestamp": datetime.now().isoformat()
+        }
+        
         if background_tasks:
-            background_tasks.add_task(manager.broadcast, WebSocketEvents.SYSTEM_NOTIFICATION, msg_data)
+            background_tasks.add_task(manager.broadcast_all, payload)
         else:
             # Fallback for scripts/tests
             import asyncio
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    loop.create_task(manager.broadcast(WebSocketEvents.SYSTEM_NOTIFICATION, msg_data))
+                    loop.create_task(manager.broadcast_all(payload))
                 else:
-                    loop.run_until_complete(manager.broadcast(WebSocketEvents.SYSTEM_NOTIFICATION, msg_data))
+                    loop.run_until_complete(manager.broadcast_all(payload))
             except Exception:
                 pass
             

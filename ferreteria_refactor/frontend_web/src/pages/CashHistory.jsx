@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { pdf } from '@react-pdf/renderer';
 import ZReportPDF from '../components/pdf/ZReportPDF';
 import apiClient from '../config/axios';
+import printerService from '../services/printerService';
 import clsx from 'clsx';
 
 const CashHistory = () => {
@@ -172,12 +173,7 @@ const CashHistory = () => {
         const toastId = toast.loading('Enviando a impresora...');
         try {
             const response = await apiClient.get(`/cash/sessions/${sessionId}/z-report-payload`);
-            const bridgeUrl = 'http://localhost:5001/print';
-            await fetch(bridgeUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(response.data)
-            });
+            await printerService.printRaw(response.data);
             toast.success('✅ Reporte Z enviado a impresora', { id: toastId });
         } catch (error) {
             console.error('Error reprinting Z-Report:', error);

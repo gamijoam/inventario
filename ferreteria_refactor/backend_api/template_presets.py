@@ -35,206 +35,353 @@ def format_money(amount: float, symbol: str = "$") -> str:
 # TICKET TEMPLATES (58mm = ~32 characters)
 # ============================================
 
-def get_classic_template() -> str:
-    """
-    Template optimized for 58mm (32 chars) and 80mm (48 chars) thermal printers.
-    Uses dynamic separators and adaptive columns.
-    """
-    return """{{ separator_equal }}
-{{ business.name }}
+def get_classic_58_template() -> str:
+    return """================================
+<center>
+<bold>{{ business.name }}</bold>
 {{ business.address }}
 RIF: {{ business.document_id }}
 Tel: {{ business.phone }}
-{{ separator_equal }}
+</center>
+================================
 Fecha: {{ sale.date }}
 Ticket: #{{ sale.id }}
-Cliente: {{ if sale.customer }}{{ sale.customer.name }}{{ else }}Consumidor Final{{ end }}
-{{ if sale.customer && sale.customer.id_number }}
-DOC: {{ sale.customer.id_number }}
-{{ end }}
+Cli: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 20 }}{{ else }}Consumidor Final{{ end }}
+{{ if sale.customer && sale.customer.id_number }}DOC: {{ sale.customer.id_number }}{{ end }}
 {{ if sale.is_credit }}
-*** A CREDITO ***
-Vence: {{ sale.due_date }}
+<center>*** A CREDITO ***</center>
 {{ end }}
-{{ separator_equal }}
-CNT DESCRIPCION{{ if chars_width > 32 }}                  {{ else }}      {{ end }}TOTAL
-{{ separator_dash }}
+================================
+CANT PRODUCTO              TOTAL
+--------------------------------
 {{ for item in sale.products }}
-{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 (chars_width - 16) | string.pad_right (chars_width - 16) }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
-{{ if item.discount_percentage > 0 }}
-    Desc {{ item.discount_percentage | math.round 0 }}%
+{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 16 | string.pad_right 16 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
+{{ if item.discount_percentage > 0 }}    Desc {{ item.discount_percentage | math.round 0 }}%{{ end }}
 {{ end }}
-{{ end }}
-{{ separator_equal }}
-SUBTOTAL:       {{ currency_symbol }}{{ sale.total | math.format "F2" | string.pad_left 9 }}
+================================
+<right>
+SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
 {{ if sale.discount > 0 }}
-DESCUENTO:     -{{ currency_symbol }}{{ sale.discount | math.format "F2" | string.pad_left 9 }}
+DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
 {{ end }}
-TOTAL A PAGAR:  {{ currency_symbol }}{{ sale.total | math.format "F2" | string.pad_left 9 }}
-{{ separator_equal }}
+<bold>TOTAL A PAGAR: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold>
+</right>
+================================
 PAGOS:
 {{ for p in sale.payments }}
-{{ p.method | string.slice 0 20 | string.pad_right 20 }} {{ p.currency }}{{ p.amount | math.format "F2" | string.pad_left 7 }}
+{{ p.method | string.slice 0 15 | string.pad_right 15 }} {{ p.currency }}{{ p.amount | math.format "F2" | string.pad_left 7 }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
-{{ separator_dash }}
-VUELTO:         {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" | string.pad_left 9 }}
+--------------------------------
+<right>
+VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
+</right>
 {{ end }}
-{{ separator_equal }}
-    Gracias por su compra
-    
+================================
+<center>
+Gracias por su compra
 {{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
+</center>
 <cut>
 """
 
-def get_modern_template() -> str:
-    """
-    Modern template with clean alignment
-    """
-    return """
-       {{ business.name }}
-   {{ business.address }}
-{{ separator_dash }}
-   TICKET DE VENTA #{{ sale.id }}
-{{ separator_dash }}
-{{ sale.date }}
-
-CLIENTE: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 22 }}{{ else }}CLIENTE GENERAL{{ end }}
-{{ if sale.customer && sale.customer.id_number }}
-DOC: {{ sale.customer.id_number }}
+def get_classic_80_template() -> str:
+    return """================================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================================
+Fecha: {{ sale.date }}
+Ticket: #{{ sale.id }}
+Cli: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 35 }}{{ else }}Consumidor Final{{ end }}
+{{ if sale.customer && sale.customer.id_number }}DOC: {{ sale.customer.id_number }}{{ end }}
+{{ if sale.is_credit }}
+<center>*** A CREDITO ***</center>
 {{ end }}
+================================================
+CANT DESCRIPCION                           TOTAL
+------------------------------------------------
+{{ for item in sale.products }}
+{{ item.quantity | math.round 0 | string.pad_right 4 }} {{ item.product.name | string.slice 0 30 | string.pad_right 30 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 8 }}
+{{ if item.discount_percentage > 0 }}     Desc {{ item.discount_percentage | math.round 0 }}%{{ end }}
+{{ end }}
+================================================
+<right>
+SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
+{{ if sale.discount > 0 }}
+DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
+{{ end }}
+<bold>TOTAL A PAGAR: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold>
+</right>
+================================================
+PAGOS:
+{{ for p in sale.payments }}
+{{ p.method | string.slice 0 25 | string.pad_right 25 }} {{ p.currency }}{{ p.amount | math.format "F2" | string.pad_left 9 }}
+{{ end }}
+{{ if sale.change_amount > 0 }}
+------------------------------------------------
+<right>
+VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
+</right>
+{{ end }}
+================================================
+<center>
+Gracias por su compra
+{{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
+</center>
+<cut>
+"""
+
+
+def get_modern_58_template() -> str:
+    return """<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+--------------------------------
+TICKET DE VENTA #{{ sale.id }}
+--------------------------------
+</center>
+Fecha: {{ sale.date }}
+Cliente: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 20 }}{{ else }}Público General{{ end }}
 
 ITEMS
-{{ separator_dash }}
+--------------------------------
 {{ for item in sale.products }}
-{{ item.product.name | string.slice 0 (chars_width - 2) }}
-{{ item.quantity | math.round 0 }} x {{ currency_symbol }}{{ item.unit_price | math.format "F2" }}{{ if item.discount_percentage > 0 }} (-{{ item.discount_percentage | math.round 0 }}%){{ end }}
-                  TOTAL: {{ currency_symbol }}{{ item.subtotal | math.format "F2" }}
+{{ item.product.name | string.slice 0 32 }}
+{{ item.quantity | math.round 0 }} x {{ currency_symbol }}{{ item.unit_price | math.format "F2" }}
+<right>{{ currency_symbol }}{{ item.subtotal | math.format "F2" }}</right>
 {{ end }}
-{{ separator_dash }}
+--------------------------------
+<right>
 SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
 {{ if sale.discount > 0 }}
-DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
+DESC: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
 {{ end }}
-TOTAL:    {{ currency_symbol }}{{ sale.total | math.format "F2" }}
-{{ separator_dash }}
+<bold>TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold>
+</right>
+--------------------------------
 {{ for p in sale.payments }}
-PAGO: {{ p.method | string.slice 0 12 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
+PAGO: {{ p.method | string.slice 0 10 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
+<right>
 VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
+</right>
 {{ end }}
-{{ separator_dash }}
-{{ if sale.is_credit }}
-*** CUENTA POR COBRAR ***
-Saldo: {{ currency_symbol }}{{ sale.balance | math.format "F2" }}
-{{ else }}
-*** PAGADO ***
-{{ end }}
-
+--------------------------------
+<center>
+{{ if sale.is_credit }}*** CUENTA POR COBRAR ***{{ else }}*** PAGADO ***{{ end }}
 {{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
-      ¡VUELVA PRONTO!
+¡VUELVA PRONTO!
+</center>
 <cut>
 """
 
-def get_detailed_template() -> str:
-    """
-    Detailed template with SKU codes
-    """
-    return """{{ separator_equal }}
-{{ business.name }}
-{{ business.document_id }}
-{{ separator_dash }}
+def get_modern_80_template() -> str:
+    return """<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+------------------------------------------------
+TICKET DE VENTA #{{ sale.id }}
+------------------------------------------------
+</center>
+Fecha: {{ sale.date }}
+Cliente: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 35 }}{{ else }}Público General{{ end }}
+
+ITEMS
+------------------------------------------------
+{{ for item in sale.products }}
+{{ item.product.name | string.slice 0 48 }}
+{{ item.quantity | math.round 0 }} x {{ currency_symbol }}{{ item.unit_price | math.format "F2" }}
+<right>{{ currency_symbol }}{{ item.subtotal | math.format "F2" }}</right>
+{{ end }}
+------------------------------------------------
+<right>
+SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
+{{ if sale.discount > 0 }}
+DESC: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
+{{ end }}
+<bold>TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold>
+</right>
+------------------------------------------------
+{{ for p in sale.payments }}
+PAGO: {{ p.method | string.slice 0 20 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
+{{ end }}
+{{ if sale.change_amount > 0 }}
+<right>
+VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
+</right>
+{{ end }}
+------------------------------------------------
+<center>
+{{ if sale.is_credit }}*** CUENTA POR COBRAR ***{{ else }}*** PAGADO ***{{ end }}
+{{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
+¡VUELVA PRONTO!
+</center>
+<cut>
+"""
+
+
+def get_detailed_58_template() -> str:
+    return """================================
+<center>{{ business.name }}
+{{ business.document_id }}</center>
+--------------------------------
 Venta: #{{ sale.id }}
 Fecha: {{ sale.date }}
-Cliente: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 (chars_width - 8) }}{{ else }}Consumidor Final{{ end }}
-{{ if sale.customer && sale.customer.id_number }}
-Doc: {{ sale.customer.id_number }}
-{{ end }}
-{{ separator_dash }}
-CNT DESCRIPCION{{ if chars_width > 32 }}                  {{ else }}      {{ end }}TOTAL
-{{ separator_dash }}
+Cli: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 25 }}{{ else }}Consumidor Final{{ end }}
+--------------------------------
+CNT DESCRIPCION            TOTAL
+--------------------------------
 {{ for item in sale.products }}
-{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 (chars_width - 16) | string.pad_right (chars_width - 16) }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
-{{ if item.product.sku }}
-    SKU: {{ item.product.sku }}
+{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 16 | string.pad_right 16 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
+{{ if item.product.sku }}    SKU: {{ item.product.sku }}{{ end }}
+{{ if item.quantity != 1.0 }}    {{ currency_symbol }}{{ item.unit_price | math.format "F2" }} c/u{{ end }}
 {{ end }}
-{{ if item.quantity != 1.0 }}
-    {{ currency_symbol }}{{ item.unit_price | math.format "F2" }} c/u
-{{ end }}
-{{ end }}
-{{ separator_equal }}
+================================
+<right>
 SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
-{{ if sale.discount > 0 }}
-DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
-{{ end }}
-TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
-{{ separator_equal }}
+{{ if sale.discount > 0 }}DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}{{ end }}
+<bold>TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold>
+</right>
+================================
 PAGOS DETALLADOS:
 {{ for p in sale.payments }}
-{{ p.method | string.slice 0 20 | string.pad_right 20 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
+{{ p.method | string.slice 0 15 | string.pad_right 15 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
+<right>
 VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
+</right>
 {{ end }}
-{{ separator_equal }}
-{{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
+================================
 <cut>
 """
 
-def get_minimal_template() -> str:
-    """
-    Minimal template to save paper
-    """
-    return """{{ business.name }}
-Ticket #{{ sale.id }}
-{{ sale.date }}
-Cli: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 22 }}{{ else }}Consumidor Final{{ end }}
---------------------------------
+def get_detailed_80_template() -> str:
+    return """================================================
+<center>{{ business.name }}
+{{ business.document_id }}</center>
+------------------------------------------------
+Venta: #{{ sale.id }}
+Fecha: {{ sale.date }}
+Cliente: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 35 }}{{ else }}Consumidor Final{{ end }}
+{{ if sale.customer && sale.customer.id_number }}Doc: {{ sale.customer.id_number }}{{ end }}
+------------------------------------------------
+CANT DESCRIPCION                           TOTAL
+------------------------------------------------
 {{ for item in sale.products }}
-{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 15 | string.pad_right 15 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
+{{ item.quantity | math.round 0 | string.pad_right 4 }} {{ item.product.name | string.slice 0 30 | string.pad_right 30 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 8 }}
+{{ if item.product.sku }}     SKU: {{ item.product.sku }}{{ end }}
+{{ if item.quantity != 1.0 }}     {{ currency_symbol }}{{ item.unit_price | math.format "F2" }} c/u{{ end }}
 {{ end }}
---------------------------------
-{{ if sale.discount > 0 }}
-Sub: {{ currency_symbol }}{{ (sale.total + sale.discount) | math.format "F2" }}
-Dsc: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
-{{ end }}
-TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
---------------------------------
+================================================
+<right>
+SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
+{{ if sale.discount > 0 }}DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}{{ end }}
+<bold>TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold>
+</right>
+================================================
+PAGOS DETALLADOS:
 {{ for p in sale.payments }}
-{{ p.method | string.slice 0 15 }}: {{ p.currency }}{{ p.amount | math.format "F2" }}
+{{ p.method | string.slice 0 25 | string.pad_right 25 }} {{ p.currency }}{{ p.amount | math.format "F2" | string.pad_left 9 }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
-Vuelto: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
+<right>
+VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
+</right>
 {{ end }}
+================================================
 <cut>
 """
+
+def get_minimal_58_template() -> str:
+    return """<bold>{{ business.name }}</bold>
+#{{ sale.id }} | {{ sale.date }}
+Cli: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 25 }}{{ else }}Público{{ end }}
+--------------------------------
+{{ for item in sale.products }}
+{{ item.quantity | math.round 0 | string.pad_right 2 }}x {{ item.product.name | string.slice 0 16 | string.pad_right 16 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" }}
+{{ end }}
+--------------------------------
+<bold>TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold>
+<cut>
+"""
+
+def get_minimal_80_template() -> str:
+    return """<bold>{{ business.name }}</bold>
+Ticket #{{ sale.id }} | Fecha: {{ sale.date }}
+Cliente: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 35 }}{{ else }}Público General{{ end }}
+------------------------------------------------
+{{ for item in sale.products }}
+{{ item.quantity | math.round 0 | string.pad_right 3 }}x {{ item.product.name | string.slice 0 30 | string.pad_right 30 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 9 }}
+{{ end }}
+------------------------------------------------
+<right><bold>TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold></right>
+<cut>
+"""
+
 
 def get_all_presets() -> List[Dict[str, str]]:
     return [
         {
-            "id": "classic",
+            "id": "classic_58",
             "name": "Clásico",
-            "description": "Formato estándar con columnas alineadas (58mm)",
-            "template": get_classic_template()
+            "paper_width": 58,
+            "description": "Formato estándar alineado para 58mm",
+            "template": get_classic_58_template()
         },
         {
-            "id": "modern",
+            "id": "classic_80",
+            "name": "Clásico Ancho",
+            "paper_width": 80,
+            "description": "Formato expandido para facturación 80mm",
+            "template": get_classic_80_template()
+        },
+        {
+            "id": "modern_58",
             "name": "Moderno", 
-            "description": "Diseño limpio y centrado",
-            "template": get_modern_template()
+            "paper_width": 58,
+            "description": "Diseño limpio y centrado para 58mm",
+            "template": get_modern_58_template()
         },
         {
-            "id": "detailed",
+            "id": "modern_80",
+            "name": "Moderno Ancho", 
+            "paper_width": 80,
+            "description": "Diseño espacioso y centrado para 80mm",
+            "template": get_modern_80_template()
+        },
+        {
+            "id": "detailed_58",
             "name": "Detallado",
-            "description": "Incluye códigos SKU y detalles",
-            "template": get_detailed_template()
+            "paper_width": 58,
+            "description": "Incluye códigos SKU (58mm)",
+            "template": get_detailed_58_template()
         },
         {
-            "id": "minimal",
-            "name": "Minimalista",
-            "description": "Ahorra papel, solo información esencial",
-            "template": get_minimal_template()
+            "id": "detailed_80",
+            "name": "Detallado Ancho",
+            "paper_width": 80,
+            "description": "Muestra códigos SKU e Info extendida (80mm)",
+            "template": get_detailed_80_template()
+        },
+        {
+            "id": "minimal_58",
+            "name": "Ecológico",
+            "paper_width": 58,
+            "description": "Ahorra extremo de papel",
+            "template": get_minimal_58_template()
+        },
+        {
+            "id": "minimal_80",
+            "name": "Ecológico Ancho",
+            "paper_width": 80,
+            "description": "Impresión sin márgenes en 80mm",
+            "template": get_minimal_80_template()
         }
     ]
 

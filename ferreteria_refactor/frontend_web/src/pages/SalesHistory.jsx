@@ -12,6 +12,7 @@ import { twMerge } from 'tailwind-merge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
+import printerService from '../services/printerService';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
@@ -184,21 +185,11 @@ const SalesHistory = () => {
 
     const handleReprint = async (sale) => {
         try {
-            // Get print payload from backend
-            const response = await apiClient.get(`/returns/sales/${sale.id}/print-payload`);
-
-            // Send to hardware bridge via WebSocket or HTTP
-            const bridgeUrl = 'http://localhost:5001/print';
-            await fetch(bridgeUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(response.data)
-            });
-
-            alert('✅ Ticket enviado a impresora');
+            await printerService.printTicket(sale.id);
+            alert('✅ Ticket enviado a impresora exitosamente');
         } catch (error) {
             console.error('Error reprinting:', error);
-            alert('❌ Error al reimprimir. Verifica que el Hardware Bridge esté activo.');
+            alert(`❌ Error al reimprimir:\n${error.message}`);
         }
     };
 

@@ -90,6 +90,14 @@ class ConnectionManager:
             except Exception:
                 self.disconnect(client_id, tenant_id)
 
+    async def broadcast_all(self, message: dict):
+        """Send message to ALL clients across ALL tenants (Global Broadcast)"""
+        for tenant_id, clients in list(self.active_connections.items()):
+            for client_id, websocket in list(clients.items()):
+                try:
+                    await websocket.send_json(message)
+                except Exception:
+                    self.disconnect(client_id, tenant_id)
 
 # Global instance
 manager = ConnectionManager()

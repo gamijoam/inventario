@@ -479,10 +479,12 @@ def get_session_details(
 
 
     # Calculate Movements
-    # Calculate Movements
-    # Separate Expenses from Cash Advances
-    expenses_usd = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "RETURN"] and m.currency == "USD"), Decimal("0.00"))
-    expenses_bs = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "RETURN"] and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
+    # Separate Expenses from Cash Advances and Returns
+    expenses_usd = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and m.currency == "USD"), Decimal("0.00"))
+    expenses_bs = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
+    
+    returns_usd = sum((m.amount for m in movements if m.type == "RETURN" and m.currency == "USD"), Decimal("0.00"))
+    returns_bs = sum((m.amount for m in movements if m.type == "RETURN" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
     
     cash_advances_usd = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and m.currency == "USD"), Decimal("0.00"))
     cash_advances_bs = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
@@ -495,8 +497,8 @@ def get_session_details(
     cash_by_currency = {}  # Track cash sales by currency
     
     for method_name in sales_by_method:
-        # Flexible check: if "efectivo" or "cash" is in the name (case-insensitive)
-        if "efectivo" in method_name.lower() or "cash" in method_name.lower():
+        # Flexible check: if "efectivo", "cash" or "divisa" is in the name (case-insensitive)
+        if "efectivo" in method_name.lower() or "cash" in method_name.lower() or "divisa" in method_name.lower():
             for curr, amt in sales_by_method[method_name].items():
                 if curr not in cash_by_currency:
                     cash_by_currency[curr] = Decimal("0.00")
@@ -522,9 +524,9 @@ def get_session_details(
         models.Sale.change_currency.in_(["Bs", "VES", "VEF"])
     ).scalar() or Decimal("0.00")
 
-    # Expenses AND Cash Advances reduce expected cash
-    expected_usd = session.initial_cash + cash_sales_usd + deposits_usd - expenses_usd - cash_advances_usd - total_change_usd
-    expected_bs = session.initial_cash_bs + cash_sales_bs + deposits_bs - expenses_bs - cash_advances_bs - total_change_bs
+    # Expenses, Returns AND Cash Advances reduce expected cash
+    expected_usd = session.initial_cash + cash_sales_usd + deposits_usd - expenses_usd - returns_usd - cash_advances_usd - total_change_usd
+    expected_bs = session.initial_cash_bs + cash_sales_bs + deposits_bs - expenses_bs - returns_bs - cash_advances_bs - total_change_bs
     
     final_reported_usd = session.final_cash_reported or Decimal("0.00")
     final_reported_bs = session.final_cash_reported_bs or Decimal("0.00")
@@ -543,7 +545,7 @@ def get_session_details(
     
     # 1. Sales Transfers
     for method, currencies in sales_by_method.items():
-        is_cash = "efectivo" in method.lower() or "cash" in method.lower()
+        is_cash = "efectivo" in method.lower() or "cash" in method.lower() or "divisa" in method.lower()
         if not is_cash:  # Exclude cash
             for curr, amt in currencies.items():
                 if amt > 0:
@@ -589,6 +591,8 @@ def get_session_details(
             "transfers_by_currency": transfers_by_currency, # NEW: Consolidated transfers (Sales + Cash Advances)
             "expenses_usd": expenses_usd,
             "expenses_bs": expenses_bs,
+            "returns_usd": returns_usd,       # NEW: Separated Refunds
+            "returns_bs": returns_bs,         # NEW: Separated Refunds
             "cash_advances_usd": cash_advances_usd,
             "cash_advances_bs": cash_advances_bs,
             "deposits_usd": deposits_usd,
@@ -637,7 +641,7 @@ async def close_cash_session(
     
     # Process payments
     for p in payments:
-        if "efectivo" in p.payment_method.lower() or "cash" in p.payment_method.lower():
+        if "efectivo" in p.payment_method.lower() or "cash" in p.payment_method.lower() or "divisa" in p.payment_method.lower():
             curr = p.currency or "USD"
             # Normalize currency symbols
             if curr.upper() in ["BS", "VES", "VEF"]:
@@ -650,7 +654,7 @@ async def close_cash_session(
     # 1.5 Process Debt Payments (Abonos)
     debt_payments = db.query(models.Payment).filter(models.Payment.session_id == session.id).all()
     for dp in debt_payments:
-        if "efectivo" in dp.payment_method.lower() or "cash" in dp.payment_method.lower():
+        if "efectivo" in dp.payment_method.lower() or "cash" in dp.payment_method.lower() or "divisa" in dp.payment_method.lower():
             curr = dp.currency or "USD"
             if curr.upper() in ["BS", "VES", "VEF"]:
                 curr = "Bs"

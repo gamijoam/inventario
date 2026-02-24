@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 
 const TicketConfig = () => {
     const [activeTab, setActiveTab] = useState('gallery'); // 'gallery' or 'editor'
+    const [selectedWidth, setSelectedWidth] = useState(58); // 58 or 80
     const [template, setTemplate] = useState('');
     const [presets, setPresets] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -123,6 +124,8 @@ TOTAL:       {{ sale.total }}
         }
     };
 
+    const filteredPresets = presets.filter(p => p.paper_width === selectedWidth || (!p.paper_width && selectedWidth === 58));
+
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 md:p-6 max-w-7xl mx-auto min-h-[600px] flex flex-col">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
@@ -166,48 +169,96 @@ TOTAL:       {{ sale.total }}
                 <div className="flex-1 overflow-hidden flex flex-col">
                     {/* GALLERY VIEW */}
                     {activeTab === 'gallery' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-y-auto custom-scrollbar p-1">
-                            {presets.map(preset => (
-                                <div key={preset.id} className="border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-indigo-200 transition-all bg-white flex flex-col group">
-                                    <div className="p-5 flex-grow border-b border-slate-100">
-                                        <h3 className="font-bold text-lg text-slate-800">{preset.name}</h3>
-                                        <p className="text-xs text-slate-500 mt-1 mb-4 font-medium">{preset.description}</p>
+                        <div className="flex flex-col h-full overflow-hidden">
+                            {/* Width Selector */}
+                            <div className="flex justify-center mb-6">
+                                <div className="inline-flex bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                                    <button
+                                        onClick={() => setSelectedWidth(58)}
+                                        className={clsx(
+                                            "px-6 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                            selectedWidth === 58
+                                                ? "bg-white text-emerald-600 shadow-sm border border-emerald-100/50"
+                                                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                                        )}
+                                    >
+                                        Impresoras 58mm (Estándar)
+                                    </button>
+                                    <button
+                                        onClick={() => setSelectedWidth(80)}
+                                        className={clsx(
+                                            "px-6 py-2.5 rounded-lg text-sm font-bold transition-all",
+                                            selectedWidth === 80
+                                                ? "bg-white text-indigo-600 shadow-sm border border-indigo-100/50"
+                                                : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"
+                                        )}
+                                    >
+                                        Impresoras 80mm (Anchas)
+                                    </button>
+                                </div>
+                            </div>
 
-                                        {/* Visual Preview */}
-                                        <div className="border border-slate-100 p-4 text-[10px] font-mono bg-slate-50 text-slate-700 h-48 overflow-hidden relative select-none shadow-inner rounded-xl leading-tight opacity-80 group-hover:opacity-100 transition-opacity">
-                                            <div className="absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-slate-50 pointer-events-none"></div>
-                                            {/* Simulate Render */}
-                                            <div style={{ whiteSpace: 'pre-wrap' }}>
-                                                {preset.template
-                                                    .replace(/{{ business.name }}/g, "MI FERRETERÍA")
-                                                    .replace(/{{ business.address }}/g, "Calle 1, Local 1")
-                                                    .replace(/{{ business.document_id }}/g, "J-12345678")
-                                                    .replace(/{{ business.phone }}/g, "0414-1234567")
-                                                    .replace(/{{ sale.date }}/g, "19/12/2025")
-                                                    .replace(/{{ sale.id }}/g, "1001")
-                                                    .replace(/{{ sale.customer.name.*}}/g, "Juan Pérez")
-                                                    .replace(/{% if sale.is_credit %}[\s\S]*?{% endif %}/g, "") // Hide conditional blocks for preview simplicity
-                                                    .replace(/{% for item in sale.products %}[\s\S]*?{% endfor %}/g,
-                                                        "1.0 x Cemento Gris\n       $12.00 = $12.00\n2.0 x Cabilla 1/2\n       $5.00 = $10.00"
-                                                    )
-                                                    .replace(/{{ sale.total }}/g, "$22.00")
-                                                    .replace(/{{ "\$%.2f"\|format\(sale.total\) }}/g, "$22.00")
-                                                    .replace(/{{ "\$%.2f"\|format\(item.unit_price\) }}/g, "$12.00")
-                                                    .replace(/{{ "\$%.2f"\|format\(item.subtotal\) }}/g, "$12.00")
-                                                }
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 overflow-y-auto custom-scrollbar p-1 pb-4">
+                                {filteredPresets.map(preset => (
+                                    <div key={preset.id} className="border border-slate-200 rounded-2xl overflow-hidden hover:shadow-lg hover:border-indigo-200 transition-all bg-white flex flex-col group h-full">
+                                        <div className="p-5 flex-grow border-b border-slate-100 flex flex-col">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h3 className="font-bold text-lg text-slate-800 leading-tight">{preset.name}</h3>
+                                                <span className={clsx(
+                                                    "text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0",
+                                                    preset.paper_width === 80 ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"
+                                                )}>{preset.paper_width || 58}mm</span>
+                                            </div>
+                                            <p className="text-xs text-slate-500 mb-4 font-medium line-clamp-2">{preset.description}</p>
+
+                                            {/* Visual Preview */}
+                                            <div className="mt-auto bg-slate-100 rounded-xl p-3 flex justify-center items-center shadow-inner h-56">
+                                                <div className={clsx(
+                                                    "bg-white border border-slate-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.1)] p-3 text-[9px] sm:text-[10px] font-mono text-slate-700 h-full overflow-hidden relative select-none leading-tight transition-all",
+                                                    preset.paper_width === 80 ? "w-full" : "w-3/4"
+                                                )}>
+                                                    <div className="absolute inset-0 z-10 bg-gradient-to-b from-transparent via-transparent to-white pointer-events-none"></div>
+                                                    {/* Simulate Render */}
+                                                    <div style={{ whiteSpace: 'pre-wrap' }}>
+                                                        {preset.template
+                                                            .replace(/{{ business.name }}/g, "MI FERRETERÍA")
+                                                            .replace(/{{ business.address }}/g, "Calle 1, Local 1")
+                                                            .replace(/{{ business.document_id }}/g, "J-12345678")
+                                                            .replace(/{{ business.phone }}/g, "0414-1234567")
+                                                            .replace(/{{ sale.date }}/g, "19/12/2025")
+                                                            .replace(/{{ sale.id }}/g, "1001")
+                                                            .replace(/{{ sale.customer.name.*}}/g, "Juan Pérez")
+                                                            .replace(/{{ if sale.customer && sale.customer.id_number }}.*?{{ end }}/gs, "DOC: V-12345678\n")
+                                                            .replace(/{{ if sale.is_credit }}.*?{{ end }}/gs, "") // Hide conditional blocks for preview simplicity
+                                                            .replace(/<center>/g, " ".repeat(preset.paper_width === 80 ? 15 : 6)) // Fake center
+                                                            .replace(/<\/center>/g, "")
+                                                            .replace(/<right>/g, " ".repeat(preset.paper_width === 80 ? 25 : 10)) // Fake right
+                                                            .replace(/<\/right>/g, "")
+                                                            .replace(/<bold>/g, "")
+                                                            .replace(/<\/bold>/g, "")
+                                                            .replace(/<cut>/g, "")
+                                                            .replace(/{{ for item in sale.products }}.*?{{ end }}/gs,
+                                                                preset.paper_width === 80 ?
+                                                                    "2 Cemento Gris                   $12.00\n1 Cabilla 1/2                    $5.00" :
+                                                                    "2 Cemento Gris      $12.00\n1 Cabilla 1/2        $5.00"
+                                                            )
+                                                            .replace(/{{ sale.total }}/g, "$22.00")
+                                                        }
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
+                                        <div className="p-4 bg-slate-50 mt-auto shrink-0">
+                                            <button
+                                                onClick={() => handleApplyPreset(preset.id)}
+                                                className="w-full py-2.5 bg-white border border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white font-bold transition-all shadow-sm active:scale-95"
+                                            >
+                                                Aplicar Plantilla
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="p-4 bg-slate-50 mt-auto">
-                                        <button
-                                            onClick={() => handleApplyPreset(preset.id)}
-                                            className="w-full py-2.5 bg-white border border-indigo-200 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white font-bold transition-all shadow-sm active:scale-95"
-                                        >
-                                            Aplicar Plantilla
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     )}
 
