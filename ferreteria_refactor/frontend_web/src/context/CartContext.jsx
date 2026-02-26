@@ -202,6 +202,9 @@ export const CartProvider = ({ children }) => {
                     location: product.location || null,
                     // Feature 2: Store discount rules on cart item for auto-apply
                     discount_rules: product.discount_rules || [],
+                    // NEW: Barbershop Service properties
+                    is_barbershop_service: product.is_barbershop_service || false,
+                    employee_id: unit.employee_id || null, // Can be pre-assigned
                 };
 
                 console.log('   newItem created:', newItem);

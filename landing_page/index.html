@@ -352,13 +352,53 @@
                     <input type="text" id="companyName" required placeholder="Ej: Ferretería El Sol">
                 </div>
                 <div class="form-group">
-                    <label>Tipo de Negocio</label>
-                    <select id="planType" required>
-                        <option value="FERRETERIA">Ferretería / Repuestos</option>
-                        <option value="RESTAURANT">Restaurante / Cafetería</option>
-                        <option value="LAUNDRY">Lavandería</option>
-                        <option value="SERVICES">Servicios Técnicos</option>
-                    </select>
+                    <label>Tipo de Negocio / Rubro</label>
+                    <input type="text" id="planType" list="rubrosList" required placeholder="Ej: Bodega, Ferretería, Barbería...">
+                    <datalist id="rubrosList">
+                        <!-- Retail / Hardware -->
+                        <option value="Ferretería">
+                        <option value="Venta de Repuestos">
+                        <option value="Bodega / Abasto">
+                        <option value="Mini Market">
+                        <option value="Supermercado">
+                        <option value="Farmacia">
+                        <option value="Tienda de Pinturas">
+                        <option value="Tienda de Electrónica">
+                        <option value="Tienda de Ropa / Calzado">
+                        <option value="Papelería">
+                        <option value="Librería">
+                        <option value="Quincalla">
+                        
+                        <!-- Restaurant -->
+                        <option value="Restaurante">
+                        <option value="Cafetería">
+                        <option value="Panadería">
+                        <option value="Pizzería">
+                        <option value="Venta de Comida Rápida">
+                        <option value="Heladería">
+                        
+                        <!-- Services -->
+                        <option value="Servicios Técnicos">
+                        <option value="Taller Mecánico">
+                        <option value="Taller de Electrónica">
+                        <option value="Servicio de Refrigeración">
+                        
+                        <!-- Laundry -->
+                        <option value="Lavandería">
+                        <option value="Tintorería">
+                        
+                        <!-- Barbershop -->
+                        <option value="Barbería">
+                        <option value="Peluquería">
+                        <option value="Salón de Belleza">
+                        <option value="Spa / Estética">
+                        
+                        <!-- Others -->
+                        <option value="Gimnasio">
+                        <option value="Consultorio Médico">
+                        <option value="Agencia de Viajes">
+                        <option value="Otro">
+                    </datalist>
                 </div>
                 <div class="form-group">
                     <label>Email</label>

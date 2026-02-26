@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getTenants, deleteTenant, updateTenantStatus, updateTenant, impersonateTenant } from '../api/tenants';
 import type { Tenant } from '../types/tenant';
-import { Plus, Search, Building, Trash2, Edit, Utensils, Shirt, Zap, ShoppingBag, Key } from 'lucide-react';
+import { Plus, Search, Building, Trash2, Edit, Utensils, Shirt, Zap, ShoppingBag, Key, Scissors } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import CreateTenantModal from '../components/CreateTenantModal';
@@ -293,6 +293,16 @@ const Tenants: React.FC = () => {
                                                     title="Módulo Servicios"
                                                 >
                                                     <Zap size={18} />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleModuleToggle(tenant.id, 'has_barbershop_module', !tenant.has_barbershop_module)}
+                                                    className={`p-2 rounded-lg transition-all duration-200 border ${tenant.has_barbershop_module
+                                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:border-emerald-300 shadow-sm'
+                                                        : 'bg-white border-dashed border-gray-300 text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
+                                                    title="Módulo Barbería / Salón"
+                                                >
+                                                    <Scissors size={18} />
                                                 </button>
                                             </div>
                                         </td>

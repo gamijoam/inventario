@@ -24,10 +24,10 @@ class RegisterRequest(BaseModel):
     company_name: str
     email: EmailStr
     password: str
-    business_type: Optional[PlanType] = None  # Removed default to detect selection
+    business_type: Optional[str] = None  # Flexible string from the new list
     
     # Backward compatibility: handle plan_type if sent
-    plan_type: Optional[PlanType] = None
+    plan_type: Optional[str] = None
     
     @validator('company_name')
     def name_must_be_valid(cls, v):

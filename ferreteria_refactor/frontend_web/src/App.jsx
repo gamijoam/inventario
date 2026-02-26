@@ -71,6 +71,11 @@ import ServiceManager from './pages/Services/ServiceManager'; // NEW: Service Ma
 import ServiceList from './pages/Services/ServiceList'; // NEW: Service List
 import CommissionPayout from './pages/HumanResources/CommissionPayout'; // NEW: Commission Payout
 
+// Barbershop Module
+import BarbershopDashboard from './pages/Barbershop/BarbershopDashboard';
+import EmployeeManager from './pages/Barbershop/EmployeeManager';
+import CommissionsReport from './pages/Barbershop/CommissionsReport';
+
 // Laundry Module
 import LaundryDashboard from './pages/Laundry/LaundryDashboard';
 import LaundryForm from './pages/Laundry/LaundryForm';
@@ -347,6 +352,18 @@ function App() {
                                 </ProtectedRoute>
                               } />
 
+                              {/* Barbershop Module */}
+                              <Route path="/barbershop/employees" element={
+                                <ProtectedRoute roles={['ADMIN', 'MANAGER']}>
+                                  <EmployeeManager />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/barbershop/commissions" element={
+                                <ProtectedRoute roles={['ADMIN', 'MANAGER']}>
+                                  <CommissionsReport />
+                                </ProtectedRoute>
+                              } />
+
                               {/* Restaurant Module - Phase 1 */}
                               <Route path="/restaurant/tables" element={
                                 <ProtectedRoute>
@@ -412,6 +429,23 @@ function App() {
                                   <LaundryTicket />
                                 </ProtectedRoute>
                               } />
+
+                              {/* Barbershop Routes - Unified Section */}
+                              <Route path="/barbershop" element={
+                                <ProtectedRoute>
+                                  <BarbershopDashboard />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/barbershop/employees" element={
+                                <ProtectedRoute>
+                                  <EmployeeManager />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/barbershop/commissions" element={
+                                <ProtectedRoute>
+                                  <CommissionsReport />
+                                </ProtectedRoute>
+                              } />
                             </Route>
                           </Route>
 
@@ -427,7 +461,7 @@ function App() {
           </AutoSyncProvider>
         </AppWithCloudConfig>
       </AuthProvider>
-    </CloudConfigProvider>
+    </CloudConfigProvider >
   );
 }
 

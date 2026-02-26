@@ -449,6 +449,33 @@ class SalesService:
                 db.add(detail)
                 db.flush() # Need ID for CommissionLog
 
+                # =====================================================================
+                # BARBERSHOP / SALON COMMISSION ENGINE
+                # =====================================================================
+                if getattr(item, 'employee_id', None):
+                    employee = db.query(models.Employee).filter(models.Employee.id == item.employee_id).first()
+                    if employee:
+                        calc_comm = Decimal("0.00")
+                        
+                        # Apply hybrid rules
+                        if product.commission_amount and product.commission_amount > 0:
+                            calc_comm = product.commission_amount * item.quantity
+                        elif product.commission_percentage and product.commission_percentage > 0:
+                            calc_comm = subtotal * (product.commission_percentage / Decimal("100.00"))
+                        else:
+                            calc_comm = subtotal * (employee.base_commission_percentage / Decimal("100.00"))
+                        
+                        if calc_comm > 0:
+                            commission = models.Commission(
+                                tenant_id=employee.tenant_id,
+                                employee_id=employee.id,
+                                sale_item_id=detail.id,
+                                base_amount=subtotal,
+                                calculated_commission=calc_comm,
+                                status="PENDING"
+                            )
+                            db.add(commission)
+
                 # NEW: Link Instances to SaleDetail
                 if sold_instances:
                     for instance in sold_instances:

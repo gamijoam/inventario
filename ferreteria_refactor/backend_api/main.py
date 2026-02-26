@@ -42,6 +42,7 @@ from .routers.services import router as services_router
 from .routers.commissions import router as commissions_router
 from .routers.rma import router as rma_router
 from .routers.price_lists import router as price_lists_router
+from .routers.employees import router as employees_router
 from .routers.warehouses import router as warehouses_router
 from .routers.transfers import router as transfers_router
 from .routers.warranties import router as warranties_router # NEW: Warranty System
@@ -198,6 +199,7 @@ v1_router.include_router(services_router, tags=["Servicios Técnicos"])
 v1_router.include_router(commissions_router, tags=["Comisiones"])
 v1_router.include_router(rma_router, tags=["Garantías RMA"])
 v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
+v1_router.include_router(employees_router, tags=["Barbería y Empleados"])
 v1_router.include_router(cloud_router, tags=["Cloud Configuration"])
 v1_router.include_router(warranties_router, tags=["Garantías"])
 from .routers.admin import router as admin_router  # NEW: Superuser admin endpoints

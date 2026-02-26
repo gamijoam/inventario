@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Save, X, DollarSign, Hash, Tag } from 'lucide-react';
+import { Trash2, Save, X, DollarSign, Hash, Tag, Users } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { useConfig } from '../../context/ConfigContext';
+import apiClient from '../../config/axios';
 
 const formatLocalCurrency = (amount, decimals = 2) => {
     try {
@@ -24,6 +25,11 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
     const [selectedCurrency, setSelectedCurrency] = useState('VES');
     const [priceListId, setPriceListId] = useState(null);
     const [price, setPrice] = useState(0);
+
+    // NEW: Employee (Barber/Stylist) Selection
+    const [employees, setEmployees] = useState([]);
+    const [employeeId, setEmployeeId] = useState('');
+    const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
 
     const { currencies, modules } = useConfig();
 
@@ -85,8 +91,23 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
 
             setPriceListId(item.price_list_id || null);
             setPrice(item.unit_price_usd || 0);
+            setEmployeeId(item.employee_id || '');
+
+            // Fetch employees if it's a barbershop service
+            if (item.is_barbershop_service && modules?.barbershop) {
+                setIsLoadingEmployees(true);
+                apiClient.get('/employees')
+                    .then(res => {
+                        if (Array.isArray(res.data)) {
+                            // Filter active barbers/stylists and set to state
+                            setEmployees(res.data.filter(emp => emp.is_active));
+                        }
+                    })
+                    .catch(err => console.error('Failed to load barbers:', err))
+                    .finally(() => setIsLoadingEmployees(false));
+            }
         }
-    }, [item, selectedCurrency]);
+    }, [item, selectedCurrency, modules]);
 
     // Handle Price List Change - delegates to POS-level logic which handles price lookup + PIN auth
     const handlePriceListChange = (listIdStr) => {
@@ -364,6 +385,30 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
                     </div>
                 )}
 
+                {/* Barber / Stylist Selector */}
+                {(modules?.barbershop && item.is_barbershop_service) && (
+                    <div className="mb-6 space-y-2 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                        <Label className="text-sm font-bold text-emerald-800 flex items-center gap-2">
+                            <Users size={16} />
+                            Asignar Empleado (Comisión)
+                        </Label>
+                        <select
+                            value={employeeId}
+                            onChange={(e) => setEmployeeId(e.target.value)}
+                            className="w-full text-sm rounded-xl border-emerald-200 bg-white px-3 py-2 text-slate-800 focus:border-emerald-500 focus:ring-emerald-500 disabled:opacity-50"
+                            disabled={isLoadingEmployees}
+                        >
+                            <option value="">-- Sin Asignar --</option>
+                            {employees.map(emp => (
+                                <option key={emp.id} value={emp.id}>{emp.name}</option>
+                            ))}
+                        </select>
+                        <p className="text-[10px] text-emerald-600 font-medium">
+                            Selecciona al trabajador que recibirá comisión por este servicio.
+                        </p>
+                    </div>
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-3">
                     <Button
@@ -375,7 +420,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
                     </Button>
                     <Button
                         onClick={() => {
-                            onUpdate(item.id, quantity);
+                            onUpdate(item.id, quantity, { employee_id: employeeId || null });
                             onClose();
                         }}
                         className="flex-[2] h-12 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:-translate-y-1 transition-all"

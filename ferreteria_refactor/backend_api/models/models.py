@@ -179,6 +179,11 @@ class Product(Base):
     # NEW: Commission Flag
     is_commissionable = Column(Boolean, default=False)  # True = genera comision al vendedor
 
+    # NEW: Barbershop / Salon Module
+    is_barbershop_service = Column(Boolean, default=False)
+    commission_amount = Column(Numeric(18, 4), nullable=True) # Fixed amount overrides employee base
+    commission_percentage = Column(Numeric(5, 2), nullable=True) # Percentage overrides employee base
+
     
     # Image Support
     image_url = Column(String(255), nullable=True)  # Relative path to product image
@@ -1094,3 +1099,41 @@ class ServiceOrderDetail(Base):
 
     def __repr__(self):
         return f"<ServiceOrderDetail(order={self.service_order_id}, product={self.product_id})>"
+
+# ==========================================
+# BARBERSHOP & SALON MODULE
+# ==========================================
+
+class Employee(Base):
+    __tablename__ = "employees"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, index=True, nullable=False) # For cross-schema safety/routing if needed
+    name = Column(String, nullable=False, index=True)
+    document_id = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    status = Column(String, default="ACTIVE") # ACTIVE, INACTIVE
+    base_commission_percentage = Column(Numeric(5, 2), default=50.00) # Base % earned per service if explicit rule isn't set
+    created_at = Column(DateTime, default=get_venezuela_now)
+    
+    # Relationships
+    commissions = relationship("Commission", back_populates="employee")
+
+class Commission(Base):
+    __tablename__ = "commissions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, index=True, nullable=False)
+    employee_id = Column(Integer, ForeignKey("employees.id"), index=True, nullable=False)
+    sale_item_id = Column(Integer, ForeignKey("sale_details.id"), index=True, nullable=False)
+    
+    # Calculation Auditing
+    base_amount = Column(Numeric(18, 4), nullable=False) # Total cost of the service sold
+    calculated_commission = Column(Numeric(18, 4), nullable=False) # The payout amount to the employee
+    
+    status = Column(String, default="PENDING") # PENDING, PAID, CANCELLED
+    created_at = Column(DateTime, default=get_venezuela_now)
+    
+    # Relationships
+    employee = relationship("Employee", back_populates="commissions")
+    sale_item = relationship("SaleDetail", foreign_keys=[sale_item_id])

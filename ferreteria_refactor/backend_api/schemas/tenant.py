@@ -39,6 +39,7 @@ class TenantUpdate(BaseModel):
     has_laundry_module: Optional[bool] = None
     has_hardware_module: Optional[bool] = None
     has_services_module: Optional[bool] = None
+    has_barbershop_module: Optional[bool] = None
 
     @field_validator('domain')
     @classmethod
@@ -56,6 +57,7 @@ class TenantOut(TenantBase):
     has_laundry_module: bool = False
     has_hardware_module: bool = False
     has_services_module: bool = False
+    has_barbershop_module: bool = False
 
     # Optional computed fields
     user_count: Optional[int] = None

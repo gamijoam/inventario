@@ -299,6 +299,7 @@ class SaleDetailCreate(BaseModel):
     discount_type: str = "NONE"  # NONE, PERCENT, FIXED
     tax_rate: Decimal = Decimal("0.00")
     salesperson_id: Optional[int] = None # NEW: Granular commission support
+    employee_id: Optional[int] = None # NEW: Barbershop Service Commission Target
     serial_numbers: Optional[List[str]] = Field(None, description="Lista de seriales para productos serializados") # NEW
     price_list_id: Optional[int] = None # NEW: Price List Validation
     auth_user_id: Optional[int] = None # NEW: Supervisor Auth for Price List
@@ -760,6 +761,7 @@ class DiscoveryRequest(BaseModel):
 
 class DiscoveryResponse(BaseModel):
     redirect_url: str
+    tenant_id: str
     tenant_name: Optional[str] = None
 
 # Business Configuration Schemas

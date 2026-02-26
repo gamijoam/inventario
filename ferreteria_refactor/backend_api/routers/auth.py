@@ -44,6 +44,7 @@ async def discover_tenant(
     
     return {
         "redirect_url": redirect_url,
+        "tenant_id": tenant.schema_name,
         "tenant_name": tenant.name
     }
 

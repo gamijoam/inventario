@@ -40,7 +40,8 @@ import {
     ShieldCheck,
     X,
     HelpCircle,
-    LifeBuoy
+    LifeBuoy,
+    Scissors
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -58,7 +59,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
     // FORCE ENABLE MODULES IN DEV/LOCAL for testing
     const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
-    const effectiveModules = isLocal ? { ...modules, services: true } : modules;
+    const effectiveModules = isLocal ? { ...modules, services: true, barbershop: true } : modules;
 
     const menuStructure = [
         {
@@ -92,6 +93,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                     { icon: Smartphone, label: 'Tablero Lavandería', path: '/laundry' },
                 ] : []),
             ]
+        }] : []),
+        // BARBERSHOP MODULE
+        ...(effectiveModules?.barbershop ? [{
+            type: 'single',
+            item: {
+                icon: Scissors,
+                label: 'Barbería / Salón',
+                path: '/barbershop'
+            }
         }] : []),
         {
             type: 'group',

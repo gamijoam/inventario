@@ -30,6 +30,7 @@ import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
 import POSSettingsModal from '../components/pos/POSSettingsModal';
 import PinAuthModal from '../components/common/PinAuthModal';
+import EmployeeSelectionModal from '../components/pos/EmployeeSelectionModal';
 import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes';
 
 import apiClient from '../config/axios';
@@ -86,6 +87,8 @@ const POS = () => {
     const [activeServiceOrderId, setActiveServiceOrderId] = useState(null);
     const [serviceOrderTicket, setServiceOrderTicket] = useState(null);
     const [selectedProductForSerialized, setSelectedProductForSerialized] = useState(null);
+    const [selectedProductForEmployee, setSelectedProductForEmployee] = useState(null);
+    const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
 
     // Data State
     const [catalog, setCatalog] = useState([]);
@@ -93,6 +96,7 @@ const POS = () => {
     const [warehouses, setWarehouses] = useState([]);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
     const [salespeople, setSalespeople] = useState([]);
+    const [employees, setEmployees] = useState([]);
     const [selectedSalespersonId, setSelectedSalespersonId] = useState(''); // NEW: Global Salesperson
 
     const [isLoading, setIsLoading] = useState(true);
@@ -262,14 +266,20 @@ const POS = () => {
                 }
                 setSelectedWarehouseId('all');
 
-                // Always fetch salespeople for commissions
                 try {
-                    const usersRes = await apiClient.get('/users');
+                    const [usersRes, employeesRes] = await Promise.all([
+                        apiClient.get('/users'),
+                        apiClient.get('/employees/')
+                    ]);
+
                     if (Array.isArray(usersRes.data)) {
                         setSalespeople(usersRes.data.filter(u => u.is_active));
                     }
+                    if (Array.isArray(employeesRes.data)) {
+                        setEmployees(employeesRes.data.filter(e => e.status === 'ACTIVE'));
+                    }
                 } catch (err) {
-                    console.error("Failed to load salespeople:", err);
+                    console.error("Failed to load staff/employees:", err);
                 }
 
                 if (modules?.services) {
@@ -381,6 +391,14 @@ const POS = () => {
 
     const handleProductClick = (product) => {
         // setSearchTerm(''); // REMOVED: Keep search term
+
+        // NEW: Barbershop Service check
+        if (product.is_barbershop_service) {
+            setSelectedProductForEmployee(product);
+            setIsEmployeeModalOpen(true);
+            return;
+        }
+
         if (product.has_imei) {
             setSelectedProductForSerialized(product);
             return;
@@ -391,6 +409,27 @@ const POS = () => {
         } else {
             addBaseProductToCart(product);
         }
+    };
+
+    const handleEmployeeSelect = (employee) => {
+        if (!selectedProductForEmployee) return;
+
+        const product = selectedProductForEmployee;
+
+        // Add to cart with the selected employee
+        addToCart(product, {
+            name: 'Servicio',
+            price_usd: parseFloat(product.price),
+            factor: 1,
+            is_base: true,
+            employee_id: employee.id,
+            salesperson_id: selectedSalespersonId || null
+        });
+
+        setSelectedProductForEmployee(null);
+        setIsEmployeeModalOpen(false);
+
+        toast.success(`Asignado a: ${employee.name}`);
     };
 
     const addBaseProductToCart = (product) => {
@@ -737,6 +776,13 @@ const POS = () => {
                     onDelete={removeFromCart}
                     priceLists={priceLists}
                     onPriceListSelect={handlePriceListSelect}
+                />
+
+                <EmployeeSelectionModal
+                    isOpen={isEmployeeModalOpen}
+                    onClose={() => setIsEmployeeModalOpen(false)}
+                    employees={employees}
+                    onSelect={handleEmployeeSelect}
                 />
 
                 <PaymentModal

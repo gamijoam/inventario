@@ -53,13 +53,44 @@ class TenantService:
             if existing:
                 raise ValueError(f"El ID de empresa '{schema_name}' ya existe. Por favor elija otro.")
             
-            # Determine Config based on Plan
+            # --- INTELIGENCIA DE SEGMENTACIÓN (Rubro -> Módulos) ---
+            rubro_seleccionado = (plan_type or "Ferretería").upper()
+            
+            # Mapeo de Rubros a Módulos Internos
+            # Default: Todo es Retail (Ferretería) a menos que se especifique lo contrario
+            m_hardware = True
+            m_restaurant = False
+            m_laundry = False
+            m_services = False
+            m_barbershop = False
+            
+            # Segmentación por Palabras Clave
+            # Restaurant
+            if any(k in rubro_seleccionado for k in ["RESTAURANT", "COMIDA", "PIZZA", "CAFÉ", "CAFETERIA", "HELADO", "PANADER"]):
+                m_restaurant = True
+                m_hardware = False # Restaurantes usualmente no necesitan el módulo de ferretería puro
+            
+            # Laundry
+            if any(k in rubro_seleccionado for k in ["LAVANDER", "TINTORER"]):
+                m_laundry = True
+                m_hardware = False
+            
+            # Services / Technical
+            if any(k in rubro_seleccionado for k in ["TALLER", "SERVICIO", "REPARAC", "ELECTRÓNICA"]):
+                m_services = True
+            
+            # Barbershop / Beauty
+            if any(k in rubro_seleccionado for k in ["BARBER", "PELUQUER", "BELLEZA", "ESTÉTICA", "SPA"]):
+                m_barbershop = True
+            
+            # Configuration dictionary for JSON config
             config = {
                 "modules": {
-                    "restaurant": (plan_type.upper() == "RESTAURANT"),
-                    "laundry": (plan_type.upper() == "LAUNDRY"),
-                    "services": (plan_type.upper() == "SERVICES"),
-                    "ferreteria": (plan_type.upper() == "FERRETERIA")
+                    "restaurant": m_restaurant,
+                    "laundry": m_laundry,
+                    "services": m_services,
+                    "barbershop": m_barbershop,
+                    "ferreteria": m_hardware
                 }
             }
             
@@ -69,10 +100,12 @@ class TenantService:
                 schema_name=schema_name, 
                 domain=None, 
                 config=config,
-                has_restaurant_module=config["modules"]["restaurant"],
-                has_laundry_module=config["modules"]["laundry"],
-                has_services_module=config["modules"]["services"],
-                has_hardware_module=config["modules"]["ferreteria"]
+                business_type=plan_type or "Ferretería", # Store exact label
+                has_restaurant_module=m_restaurant,
+                has_laundry_module=m_laundry,
+                has_services_module=m_services,
+                has_barbershop_module=m_barbershop,
+                has_hardware_module=m_hardware
             )
             db.add(new_tenant)
             

@@ -352,8 +352,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 messageArea.className = "message success";
                 messageArea.style.display = "block";
 
+                // Save tenant context (crucial for localhost)
+                localStorage.setItem('selected_tenant', data.tenant_id);
+
                 setTimeout(() => {
-                    window.location.href = data.redirect_url;
+                    const currentHost = window.location.hostname.replace(/^www\./, '');
+                    let finalUrl;
+
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        // On localhost, redirect to the app dev server
+                        finalUrl = 'http://localhost:5173/login';
+                    } else {
+                        // In production, use the URL provided by the backend
+                        finalUrl = data.redirect_url;
+                    }
+
+                    window.location.href = finalUrl;
                 }, 1000);
 
             } catch (err) {

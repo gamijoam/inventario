@@ -17,6 +17,7 @@ export interface Tenant {
     has_laundry_module: boolean;
     has_hardware_module: boolean;
     has_services_module: boolean;
+    has_barbershop_module: boolean;
 }
 
 export interface TenantListResponse {
@@ -49,4 +50,5 @@ export interface UpdateTenantDTO {
     has_laundry_module?: boolean;
     has_hardware_module?: boolean;
     has_services_module?: boolean;
+    has_barbershop_module?: boolean;
 }

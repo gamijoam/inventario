@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2, ShoppingCart, CreditCard, Minus, Plus, MapPin, Tag, X, Percent, DollarSign, ShieldCheck } from 'lucide-react';
+import { Trash2, ShoppingCart, CreditCard, Minus, Plus, MapPin, Tag, X, Percent, DollarSign, ShieldCheck, Users } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -315,6 +315,20 @@ const POSCart = ({
                                                     <div className="flex items-center gap-1 mt-1">
                                                         <MapPin size={9} className="text-slate-400 flex-shrink-0" />
                                                         <span className="text-[9px] font-bold text-slate-400 truncate">{item.location}</span>
+                                                    </div>
+                                                )}
+                                                {/* NEW: Barber assignment indicator */}
+                                                {item.is_barbershop_service && (
+                                                    <div className={cn(
+                                                        "flex items-center gap-1 mt-1.5 px-1.5 py-0.5 rounded-md border w-max",
+                                                        item.employee_id
+                                                            ? "bg-emerald-50 border-emerald-200 text-emerald-600"
+                                                            : "bg-rose-50 border-rose-200 text-rose-600 animate-pulse"
+                                                    )}>
+                                                        <Users size={9} className="flex-shrink-0" />
+                                                        <span className="text-[9px] font-bold">
+                                                            {item.employee_id ? "✅ Empleado Asignado" : "⚠️ Clic para asignar empleado"}
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>

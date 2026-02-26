@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown } from 'lucide-react';
+import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown, Scissors } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductPriceListManager from './ProductPriceListManager';
@@ -68,6 +68,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         is_combo: false,
         has_imei: false,
         is_service: false,  // NEW: Service/Non-stock product flag
+        is_barbershop_service: false,
+        commission_amount: '',
+        commission_percentage: '',
         is_commissionable: false, // NEW: Commission flag
         warranty_policy_id: null, // NEW: Linked Policy
         profit_margin: null,
@@ -146,6 +149,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                     is_combo: initialData.is_combo || false,
                     has_imei: initialData.has_imei || false,
                     is_service: initialData.is_service || false,
+                    is_barbershop_service: initialData.is_barbershop_service || false,
+                    commission_amount: initialData.commission_amount || '',
+                    commission_percentage: initialData.commission_percentage || '',
                     is_commissionable: initialData.is_commissionable || false, // NEW
                     warranty_policy_id: initialData.warranty_policy_id || null, // NEW
                     profit_margin: initialData.profit_margin ? parseFloat(initialData.profit_margin) : null,
@@ -161,7 +167,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             } else {
                 setFormData({
                     name: '', sku: '', category_id: null, cost: 0, price: 0, stock: 0, min_stock: 5, location: '',
-                    margin: 0, unit_type: 'UNID', exchange_rate_id: null, is_combo: false, has_imei: false, is_service: false, is_commissionable: false, units: [],
+                    margin: 0, unit_type: 'UNID', exchange_rate_id: null, is_combo: false, has_imei: false, is_service: false, is_barbershop_service: false, commission_amount: '', commission_percentage: '', is_commissionable: false, units: [],
                     combo_items: [], tax_rate: 0, warehouse_stocks: [], prices: {}, image_url: ''
                 });
             }
@@ -252,6 +258,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             discount_percentage: parseFloat(formData.discount_percentage) || 0,
             tax_rate: parseFloat(formData.tax_rate) || 0,
             is_service: formData.is_service || false,
+            is_barbershop_service: formData.is_barbershop_service || false,
+            commission_amount: formData.commission_amount ? parseFloat(formData.commission_amount) : null,
+            commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
             is_commissionable: formData.is_commissionable || false, // NEW: Commission flag
             units: formData.units.map(u => ({
                 unit_name: u.unit_name,
@@ -474,6 +483,61 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     <p className="text-[11px] text-slate-500 mt-0.5">No descontará stock ni requiere gestión de almacenes.</p>
                                                 </div>
                                             </div>
+
+                                            {/* Barbershop Service Options (Only if Service & Barbershop Module active) */}
+                                            {(formData.is_service && modules?.barbershop) && (
+                                                <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2 mt-4 inline-block w-full">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                                                <Scissors size={18} />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-sm font-bold text-slate-800">Servicio de Barbería / Salón</Label>
+                                                                <p className="text-[11px] text-slate-500 mt-0.5">Habilita asignar este servicio a un profesional en el POS.</p>
+                                                            </div>
+                                                        </div>
+                                                        <div
+                                                            onClick={() => setFormData(p => ({ ...p, is_barbershop_service: !p.is_barbershop_service }))}
+                                                            className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600 peer-checked:after:translate-x-5"
+                                                            style={{ backgroundColor: formData.is_barbershop_service ? '#10b981' : '' }}
+                                                        ></div>
+                                                    </div>
+
+                                                    {formData.is_barbershop_service && (
+                                                        <div className="grid grid-cols-2 gap-4 mt-2">
+                                                            <div>
+                                                                <Label className="text-xs text-slate-600 font-medium mb-1 inline-block">Comisión Fija ($)</Label>
+                                                                <div className="relative">
+                                                                    <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                                                                    <Input
+                                                                        type="number"
+                                                                        className="pl-9 h-9 text-sm"
+                                                                        placeholder="Ej. 10.00"
+                                                                        value={formData.commission_amount}
+                                                                        onChange={e => setFormData({ ...formData, commission_amount: e.target.value })}
+                                                                    />
+                                                                </div>
+                                                                <p className="text-[10px] text-slate-400 mt-1">Opcional. Tiene prioridad sobre %.</p>
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-xs text-slate-600 font-medium mb-1 inline-block">Comisión Porcentaje (%)</Label>
+                                                                <div className="relative">
+                                                                    <Input
+                                                                        type="number"
+                                                                        className="pr-8 h-9 text-sm"
+                                                                        placeholder="Ej. 40"
+                                                                        value={formData.commission_percentage}
+                                                                        onChange={e => setFormData({ ...formData, commission_percentage: e.target.value })}
+                                                                    />
+                                                                    <span className="absolute right-3 top-2 text-slate-400 font-medium text-sm">%</span>
+                                                                </div>
+                                                                <p className="text-[10px] text-slate-400 mt-1">Opcional. Ignora % base del empleado.</p>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
 
                                             {/* Serial/IMEI Toggle - Only if Services Module is Active */}
                                             {modules.services && (
