@@ -72,15 +72,19 @@ class OrderItemRead(BaseModel):
         from_attributes = True
 
 class OrderCreate(BaseModel):
-    table_id: int
-    waiter_id: Optional[int] = None # Opcional, puede asignarse automáticamente al usuario actual
+    table_id: Optional[int] = None # Optional for Takeout
+    waiter_id: Optional[int] = None
+    is_takeout: bool = False
+    customer_name: Optional[str] = None
     items: List[OrderItemCreate] = []
 
 class OrderRead(BaseModel):
     id: int
-    table_id: int
+    table_id: Optional[int]
     waiter_id: Optional[int]
     status: OrderStatus
+    is_takeout: bool = False
+    customer_name: Optional[str] = None
     total_amount: Decimal
     created_at: datetime
     items: List[OrderItemRead] = []

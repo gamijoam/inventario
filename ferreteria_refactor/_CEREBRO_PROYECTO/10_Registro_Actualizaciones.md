@@ -54,3 +54,24 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
     - Área de imagen expandida a `h-40` con escala interactiva en hover.
     - Soporte para nombres de artículos de hasta **3 líneas** (`line-clamp-3`).
     - Compactación de la sección de precios para maximizar el espacio de descripción.
+
+## [2026-02-26] - Módulo Restaurante (Takeout) y Estabilidad SaaS
+
+### 1. Restaurante: Soporte para Modo "Para Llevar" (Takeout)
+**Descripción**: Implementación integral de órdenes sin mesa y optimización del flujo de cocina.
+- **Cambios Técnicos**:
+  - **Backend**: Creación del endpoint `/open_takeout` y adaptación de `/checkout` para manejar órdenes sin `table_id`.
+  - **KDS**: Implementación de etiquetas visuales distintivas en la Pantalla de Cocina para identificar servicios de Takeout.
+  - **Flujo POS**: Integración de captura opcional del nombre del cliente para órdenes externas.
+- **Modelos de Datos Afectados (PostgreSQL)**:
+  - `RestaurantOrder` (MODIFICADO): Columnas `is_takeout` (Boolean) y `customer_name` (String) añadidas; `table_id` ahora es **Nullable**.
+  - Migración auditada de timestamps (`created_at`, `updated_at`).
+
+### 2. Infraestructura: Propagación de Esquemas y HashRouter
+**Descripción**: Automatización de la integridad de datos en el VPS y corrección de navegación.
+- **Cambios Técnicos**:
+  - **Migración Inteligente**: Actualización de `migrate_tenants.py` para propagar automáticamente cambios de esquema a todos los esquemas PostgreSQL de inquilinos durante el inicio (Startup Event).
+  - **Navigation Fix**: Ajuste de rutas en correos de recuperación de contraseña y redirecciones de descubrimiento para compatibilidad con `HashRouter` (Inyección de `#` en URLs).
+- **Archivos Afectados**:
+  - `migrate_tenants.py`: Lógica de alteración de tablas distribuida.
+  - `auth.py`, `email_utils.py`: Corrección de generadores de URL.

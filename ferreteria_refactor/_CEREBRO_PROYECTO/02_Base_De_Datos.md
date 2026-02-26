@@ -81,6 +81,18 @@ class Kardex(Base):
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
 ```
 
+### D. Restaurante (Mesas y Órdenes)
+```python
+class RestaurantOrder(Base):
+    __tablename__ = "restaurant_orders"
+    id = Column(Integer, primary_key=True)
+    table_id = Column(Integer, ForeignKey("restaurant_tables.id"), nullable=True) # NULL para Takeout
+    is_takeout = Column(Boolean, default=False)
+    customer_name = Column(String, nullable=True)
+    status = Column(String, default="OPEN") # OPEN, CLOSED, CANCELLED
+    created_at = Column(DateTime, server_default=func.now())
+```
+
 ## 4. Índices y Optimización de Consultas
 
 *   **Índices Compuestos**: Mejoran el rendimiento en consultas de stock por almacén.

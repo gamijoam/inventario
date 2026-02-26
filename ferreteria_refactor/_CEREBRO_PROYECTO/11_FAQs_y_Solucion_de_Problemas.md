@@ -37,5 +37,6 @@ Guía de resolución de conflictos comunes en el uso y administración de **Mi I
 *   **Causa**: El proceso de migración de esquemas (`migrate_tenants.py`) tardó demasiado al arrancar el contenedor.
 *   **Solución**: Reiniciar el contenedor de API y verificar la carga del servidor Postgres.
 
-### Error 403 Forbidden
-*   Tu `UserRole` no tiene permisos para esa acción. Por ejemplo, un `WAITER` intentando cerrar la caja o un `KITCHEN` intentando editar precios de productos.
+### Error 404 al abrir enlaces directos (HashRouter)
+*   **Causa**: El frontend utiliza `HashRouter`, por lo que todas las rutas deben pasar por el punto de entrada principal seguido de `#`. Si un enlace (ej. recuperación de clave) no incluye el `#`, el servidor web intentará buscar un archivo físico y fallará.
+*   **Solución**: Asegurarse de que las URLs sigan el formato `https://mi-dominio.com/#/ruta`. El backend ha sido actualizado para generar estos enlaces automáticamente.

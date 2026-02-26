@@ -34,6 +34,12 @@ const restaurantService = {
         return response.data;
     },
 
+    openTakeout: async (customerName = null) => {
+        const params = customerName ? { customer_name: customerName } : {};
+        const response = await axiosInstance.post(`/restaurant/orders/open-takeout`, null, { params });
+        return response.data;
+    },
+
     getCurrentOrder: async (tableId) => {
         const response = await axiosInstance.get(`/restaurant/orders/${tableId}/current`);
         return response.data;

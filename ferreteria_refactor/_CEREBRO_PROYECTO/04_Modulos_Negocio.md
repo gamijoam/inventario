@@ -16,12 +16,11 @@
 *   **Órdenes de Servicio**: Gestión de prendas, tipos de lavado y estados de entrega.
 *   **Metadata Flexible**: Captura de detalles específicos de la orden de lavado.
 
-### D. Restaurante (Módulo en Desarrollo / PENDIENTE)
-> [!NOTE]
-> El módulo de restaurante se encuentra actualmente en fase de desarrollo. Incluirá:
-> *   Mapa de mesas interactivo.
-> *   Gestión de comandas para cocina.
-> *   Recetas con descuento automático de insumos del inventario.
+### D. Restaurante (Gestión de Salón y Takeout)
+*   **Mapa de Mesas**: Interfaz interactiva de alta fidelidad para el control visual del salón.
+*   **Modo Para Llevar (Takeout)**: Soporte nativo para órdenes sin mesa con registro de nombre del cliente y visualización prioritaria.
+*   **Comandas (KDS)**: Pantalla de cocina inteligente que diferencia visualmente tipos de servicio y gestiona tiempos de preparación.
+*   **Gestión Multimoneda**: Cierre de cuentas con pagos mixtos y conversión automática de tasas.
 
 ## 2. Gestión Financiera (Cashiering)
 

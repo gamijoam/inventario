@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from typing import List, Optional
 from datetime import datetime
+from decimal import Decimal
 
 from ....database.db import get_db
 from ....dependencies import get_current_active_user, require_restaurant_module
@@ -61,6 +62,24 @@ def open_table(table_id: int, db: Session = Depends(get_db), current_user = Depe
     
     db.commit()
     db.expunge(new_order)
+    return new_order
+
+@router.post("/open-takeout", response_model=OrderRead)
+def open_takeout(customer_name: Optional[str] = None, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
+    """
+    Abrir un pedido PARA LLEVAR (sin mesa).
+    """
+    new_order = RestaurantOrder(
+        table_id=None,
+        waiter_id=current_user.id,
+        is_takeout=True,
+        customer_name=customer_name,
+        status=OrderStatusDB.PENDING,
+        total_amount=0
+    )
+    db.add(new_order)
+    db.commit()
+    db.refresh(new_order)
     return new_order
 
 @router.get("/{table_id}/current", response_model=OrderRead)
@@ -306,22 +325,25 @@ def checkout_order(
         pass 
     
     sale_create = schemas.SaleCreate(
-        customer_id=checkout_data.client_id, # Optional customer
-        is_credit=False, # Restaurant usually immediate payment
-        exchange_rate=1.0, # Placeholder, SalesService calculates/uses payment rates
+        customer_id=checkout_data.client_id, 
+        is_credit=False, 
+        exchange_rate=Decimal(str(checkout_data.exchange_rate or 1.0)),
         currency=checkout_data.currency,
         items=sale_items,
         payments=[
             schemas.SalePaymentCreate(
-                amount=p.amount,
+                amount=Decimal(str(p.amount)),
                 currency=p.currency,
                 payment_method=p.payment_method,
-                exchange_rate=p.exchange_rate
+                exchange_rate=Decimal(str(p.exchange_rate or 1.0))
             ) for p in checkout_data.payments
         ],
-        total_amount=float(order.total_amount), # Expected total
-        payment_method=checkout_data.payment_method, # Main method
-        notes=f"Restaurant Order #{order.id} - Table {order.table_id}"
+        total_amount=Decimal(str(order.total_amount)), 
+        total_amount_bs=Decimal(str(checkout_data.total_amount_bs or 0.0)),
+        change_amount=Decimal(str(checkout_data.change_amount or 0.0)),
+        change_currency=checkout_data.change_currency or "VES",
+        payment_method=checkout_data.payment_method, 
+        notes=f"Restaurant Order #{order.id} - {'Table ' + str(order.table_id) if order.table_id else 'PARA LLEVAR'}"
     )
 
     # 3. Llamar al Servicio de Ventas (Reutilización de Lógica)
@@ -345,10 +367,11 @@ def checkout_order(
     order.sale_id = new_sale_id
     order.updated_at = datetime.now()
     
-    # Liberar Mesa
-    table = db.query(RestaurantTable).filter(RestaurantTable.id == order.table_id).first()
-    if table:
-        table.status = TableStatusDB.AVAILABLE
+    # Liberar Mesa (si aplica)
+    if order.table_id:
+        table = db.query(RestaurantTable).filter(RestaurantTable.id == order.table_id).first()
+        if table:
+            table.status = TableStatusDB.AVAILABLE
         
     db.commit()
     
@@ -397,6 +420,9 @@ def move_order(order_id: int, move_data: OrderMove, db: Session = Depends(get_db
     order = db.query(RestaurantOrder).filter(RestaurantOrder.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    
+    if order.is_takeout:
+        raise HTTPException(status_code=400, detail="Cannot move a takeout order to a table (use a table-based order instead)")
     
     # 2. Validar Mesa Destino
     target_table = db.query(RestaurantTable).filter(RestaurantTable.id == move_data.target_table_id).first()

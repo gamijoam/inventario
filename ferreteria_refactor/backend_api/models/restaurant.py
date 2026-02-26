@@ -54,8 +54,11 @@ class RestaurantOrder(Base):
     __tablename__ = "restaurant_orders"
 
     id = Column(Integer, primary_key=True, index=True)
-    table_id = Column(Integer, ForeignKey("restaurant_tables.id"), nullable=False)
+    table_id = Column(Integer, ForeignKey("restaurant_tables.id"), nullable=True) # Nullable for Takeout
     waiter_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Who opened/attends the table
+    
+    is_takeout = Column(Boolean, default=False)
+    customer_name = Column(String, nullable=True) # For identifying takeout orders
     
     status = Column(Enum(OrderStatusDB), default=OrderStatusDB.PENDING)
     total_amount = Column(Numeric(12, 2), default=0.00)
@@ -72,7 +75,7 @@ class RestaurantOrder(Base):
     items = relationship("RestaurantOrderItem", back_populates="order", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<RestaurantOrder(id={self.id}, table={self.table_id}, status='{self.status}')>"
+        return f"<RestaurantOrder(id={self.id}, table={self.table_id}, is_takeout={self.is_takeout}, customer_name='{self.customer_name}')>"
 
 class RestaurantOrderItem(Base):
     __tablename__ = "restaurant_order_items"

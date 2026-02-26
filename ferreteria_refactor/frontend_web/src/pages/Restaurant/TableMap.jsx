@@ -74,6 +74,14 @@ const TableMap = () => {
                         <RefreshCw size={20} />
                     </button>
 
+                    <button
+                        onClick={() => setSelectedTable({ id: null, name: 'LLEVAR', is_takeout: true, status: 'AVAILABLE' })}
+                        className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg shadow hover:bg-orange-700 transition w-full sm:w-auto justify-center"
+                    >
+                        <Plus size={18} />
+                        <span>Para Llevar</span>
+                    </button>
+
                     <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition w-full sm:w-auto justify-center">
                         <Plus size={18} />
                         <span className="hidden sm:inline">Nueva Mesa</span>

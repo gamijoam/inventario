@@ -16,9 +16,8 @@ def send_reset_password_email(email_to: str, token: str):
         logger.error(f"❌ {error_msg}")
         raise ValueError(error_msg)
 
-    subject = f"Recuperación de Contraseña - {settings.EMAILS_FROM_NAME}"
-    # Aseguramos que el link use FRONTEND_URL configurado
-    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    # Aseguramos que el link use FRONTEND_URL configurado y respete el HashRouter
+    reset_link = f"{settings.FRONTEND_URL}/#/reset-password?token={token}"
     
     html_content = f"""
     <html>

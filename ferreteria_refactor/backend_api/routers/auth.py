@@ -39,8 +39,8 @@ async def discover_tenant(
          raise HTTPException(404, "Empresa no encontrada para este usuario.")
     
     # 3. Build Redirect URL
-    # Format: https://{slug}.{app_domain}/login
-    redirect_url = f"{settings.PROTOCOL}://{tenant.schema_name}.{settings.APP_DOMAIN}/login"
+    # Format: https://{slug}.{app_domain}/#/login
+    redirect_url = f"{settings.PROTOCOL}://{tenant.schema_name}.{settings.APP_DOMAIN}/#/login"
     
     return {
         "redirect_url": redirect_url,

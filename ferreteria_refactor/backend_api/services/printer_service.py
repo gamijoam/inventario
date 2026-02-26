@@ -31,7 +31,7 @@ PEDIDO #: {{ order_id }}
 <cut>
 """
         context = {
-            "table_name": order.table.name if order.table else "??",
+            "table_name": order.table.name if order.table else (f"LLEVAR ({order.customer_name})" if order.customer_name else "PARA LLEVAR"),
             "waiter_name": order.waiter.username if order.waiter else "Mesero",
             "time": datetime.now().strftime("%H:%M"),
             "order_id": order.id,
@@ -89,7 +89,7 @@ PROPINA NO INCLUIDA
         total = sum(item.subtotal for item in order.items if item.status != 'CANCELLED')
         
         context = {
-            "table_name": order.table.name if order.table else "??",
+            "table_name": order.table.name if order.table else (f"LLEVAR ({order.customer_name})" if order.customer_name else "PARA LLEVAR"),
             "date": datetime.now().strftime("%d/%m/%Y %H:%M"),
             "items": [
                 {

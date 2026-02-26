@@ -92,7 +92,13 @@ const KitchenDisplay = () => {
                             <div className={`p-3 flex justify-between items-center ${isUrgent(order.created_at) ? 'bg-red-900/50' : 'bg-gray-750 border-b border-gray-700'
                                 }`}>
                                 <div>
-                                    <h3 className="text-xl font-bold text-white">Mesa {order.table_id}</h3>
+                                    <h3 className="text-xl font-bold text-white">
+                                        {order.is_takeout ? (
+                                            <span className="text-orange-400">PARA LLEVAR {order.customer_name ? `(${order.customer_name})` : ''}</span>
+                                        ) : (
+                                            `Mesa ${order.table_id}`
+                                        )}
+                                    </h3>
                                     <span className="text-xs text-gray-400">Orden #{order.id}</span>
                                 </div>
                                 <div className="text-right">

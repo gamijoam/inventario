@@ -245,6 +245,48 @@ def migrate_tenants(db_engine=None):
                 conn.rollback()
                 print(f"   ⚠️ Error modifying sales in {schema}: {e}")
 
+            # 7. Add Takeout Support to Restaurant Orders
+            try:
+                tables = inspector.get_table_names(schema=schema)
+                if 'restaurant_orders' in tables:
+                    cols = inspector.get_columns('restaurant_orders', schema=schema)
+                    col_names = [c['name'] for c in cols]
+                    
+                    # 7.1 Make table_id nullable
+                    for col in cols:
+                        if col['name'] == 'table_id' and not col['nullable']:
+                            print(f"   🔧 Making {schema}.restaurant_orders.table_id nullable")
+                            conn.execute(text(f"ALTER TABLE \"{schema}\".restaurant_orders ALTER COLUMN table_id DROP NOT NULL"))
+                    
+                    # 7.2 Add is_takeout
+                    if 'is_takeout' not in col_names:
+                        print(f"   ➕ Adding is_takeout column to {schema}.restaurant_orders")
+                        conn.execute(text(f"ALTER TABLE \"{schema}\".restaurant_orders ADD COLUMN is_takeout BOOLEAN DEFAULT FALSE"))
+                        conn.execute(text(f"UPDATE \"{schema}\".restaurant_orders SET is_takeout = FALSE"))
+                        conn.execute(text(f"ALTER TABLE \"{schema}\".restaurant_orders ALTER COLUMN is_takeout SET NOT NULL"))
+
+                    # 7.3 Add customer_name
+                    if 'customer_name' not in col_names:
+                        print(f"   ➕ Adding customer_name column to {schema}.restaurant_orders")
+                        conn.execute(text(f"ALTER TABLE \"{schema}\".restaurant_orders ADD COLUMN customer_name VARCHAR"))
+
+                    # 7.4 Add created_at / updated_at
+                    if 'created_at' not in col_names:
+                        print(f"   ➕ Adding created_at column to {schema}.restaurant_orders")
+                        conn.execute(text(f"ALTER TABLE \"{schema}\".restaurant_orders ADD COLUMN created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()"))
+                    
+                    if 'updated_at' not in col_names:
+                        print(f"   ➕ Adding updated_at column to {schema}.restaurant_orders")
+                        conn.execute(text(f"ALTER TABLE \"{schema}\".restaurant_orders ADD COLUMN updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()"))
+                    
+                    conn.commit()
+                else:
+                    print(f"   ℹ️ Table {schema}.restaurant_orders not found, skipping takeout migration.")
+
+            except Exception as e:
+                conn.rollback()
+                print(f"   ⚠️ Error modifying restaurant_orders in {schema}: {e}")
+
     # Also apply Sales discount columns to public schema
     print(f"\n🚜 Migrating Schema: public...")
     with db_engine.connect() as conn:

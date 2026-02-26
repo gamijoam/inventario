@@ -28,6 +28,7 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
+    const [customerName, setCustomerName] = useState(table.customer_name || '');
 
     // Menu State
     const [menuSections, setMenuSections] = useState([]);
@@ -44,8 +45,14 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
     const loadCurrentOrder = async () => {
         setLoadingOrder(true);
         try {
-            const data = await restaurantService.getCurrentOrder(table.id);
-            setOrder(data);
+            // If it's a takeout order, we might need a different way to get it if we don't have table.id
+            // BUT, if we just opened it, we already have the order object.
+            // If we are reopening the modal for a 'LLEVAR' table, we need its order id.
+            if (table.id) {
+                const data = await restaurantService.getCurrentOrder(table.id);
+                setOrder(data);
+                if (data.customer_name) setCustomerName(data.customer_name);
+            }
         } catch (error) {
             console.error("Error loading order:", error);
         } finally {
@@ -74,15 +81,19 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
 
     const handleOpenTable = async () => {
         try {
-            await restaurantService.openTable(table.id);
+            let data;
+            if (table.is_takeout) {
+                data = await restaurantService.openTakeout(customerName);
+            } else {
+                await restaurantService.openTable(table.id);
+                data = await restaurantService.getCurrentOrder(table.id);
+            }
+
             onUpdate(); // Refresh parent map
-            // Reload local state to show search interface immediately
-            const data = await restaurantService.getCurrentOrder(table.id);
             setOrder(data);
-            // Manually update local table prop for UI consistency if parent takes time
-            table.status = 'OCCUPIED';
+            if (!table.is_takeout) table.status = 'OCCUPIED';
         } catch (error) {
-            alert("Error al abrir la mesa: " + error.message);
+            alert("Error al abrir el pedido: " + error.message);
         }
     };
 
@@ -134,9 +145,13 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
             // Transform payload if necessary to match what backend expects for "RestaurantCheckout" schema
             // frontend PaymentModal sends { payments: [...], total_amount: ..., client_id: ... }
             const checkoutData = {
-                payment_method: paymentPayload.payment_method || "Efectivo", // Main method or fallback
+                payment_method: paymentPayload.payment_method || "Efectivo",
                 currency: paymentPayload.currency || "USD",
-                client_id: paymentPayload.client_id || paymentPayload.customer_id || null, // Handle key variations
+                client_id: paymentPayload.client_id || paymentPayload.customer_id || null,
+                exchange_rate: parseFloat(paymentPayload.exchange_rate || 1),
+                total_amount_bs: parseFloat(paymentPayload.total_amount_bs || 0),
+                change_amount: parseFloat(paymentPayload.change_amount || 0),
+                change_currency: paymentPayload.change_currency || "VES",
                 payments: paymentPayload.payments.map(p => ({
                     amount: parseFloat(p.amount),
                     currency: p.currency === "$" ? "USD" : p.currency,
@@ -224,17 +239,33 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                 <div className="flex-1 overflow-y-auto p-4 space-y-6">
 
                     {/* STATE: FREE -> OPEN TABLE */}
-                    {table.status === 'AVAILABLE' && (
+                    {table.status === 'AVAILABLE' && !order && (
                         <div className="flex flex-col items-center justify-center h-64 space-y-4">
                             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center shadow-inner">
                                 <ChefHat size={40} className="text-green-600" />
                             </div>
-                            <h3 className="text-lg font-medium text-gray-700">La mesa está disponible</h3>
+                            <h3 className="text-lg font-medium text-gray-700">
+                                {table.is_takeout ? 'Nuevo Pedido Para Llevar' : 'La mesa está disponible'}
+                            </h3>
+
+                            {table.is_takeout && (
+                                <div className="w-full max-w-xs">
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">Nombre del Cliente (Opcional)</label>
+                                    <input
+                                        type="text"
+                                        value={customerName}
+                                        onChange={e => setCustomerName(e.target.value)}
+                                        placeholder="Ej: Juan Perez"
+                                        className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
+                                </div>
+                            )}
+
                             <button
                                 onClick={handleOpenTable}
-                                className="px-8 py-3 bg-green-600 text-white rounded-xl font-bold shadow-lg hover:bg-green-700 transition transform hover:scale-105"
+                                className={`px-8 py-3 ${table.is_takeout ? 'bg-orange-600 hover:bg-orange-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded-xl font-bold shadow-lg transition transform hover:scale-105`}
                             >
-                                Abrir Mesa
+                                {table.is_takeout ? 'Iniciar Pedido' : 'Abrir Mesa'}
                             </button>
                         </div>
                     )}

@@ -43,8 +43,8 @@ La arquitectura de datos utiliza un patrón **Híbrido de Schema-per-Tenant**:
 El contenedor de FastAPI sigue un flujo estricto al arrancar:
 1.  Verificación de conectividad a la base de datos Postgres.
 2.  Migración del esquema `public` (Tablas globales y usuarios) vía Alembic.
-3.  Ejecución del script `migrate_tenants.py`, el cual realiza una migración iterativa de todos los esquemas de clientes activos para asegurar que tengan la última estructura de tablas.
-4.  Lanzamiento del servidor de aplicaciones (Uvicorn/Gunicorn) con workers optimizados.
+4.  Ejecución del script `migrate_tenants.py`: Realiza una migración iterativa de todos los esquemas de clientes activos. Este proceso asegura que las actualizaciones de esquema realizadas en desarrollo se propaguen a todos los inquilinos automáticamente al iniciar el servidor en el VPS.
+5.  Lanzamiento del servidor de aplicaciones (Uvicorn/Gunicorn) con workers optimizados.
 
 ## 5. Configuración Crítica (.env)
 
