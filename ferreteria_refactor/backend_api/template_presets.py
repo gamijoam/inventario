@@ -221,6 +221,10 @@ VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
 {{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
 ¡VUELVA PRONTO!
 </center>
+
+
+
+
 <cut>
 """
 
@@ -295,6 +299,10 @@ VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
 </right>
 {{ end }}
 ================================================
+
+
+
+
 <cut>
 """
 
@@ -321,6 +329,10 @@ Cliente: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 35 }}{{ el
 {{ end }}
 ------------------------------------------------
 <right><bold>TOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold></right>
+
+
+
+
 <cut>
 """
 
@@ -384,6 +396,115 @@ def get_all_presets() -> List[Dict[str, str]]:
             "template": get_minimal_80_template()
         }
     ]
+
+# ============================================
+# LAUNDRY / LAVANDERIA TEMPLATES
+# Context uses "order" key
+# ============================================
+
+def get_laundry_58_template() -> str:
+    return """================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================
+<center>
+<bold>ORDEN DE LAVANDERIA</bold>
+<bold>Ticket: {{ order.ticket_number }}</bold>
+</center>
+Fecha: {{ order.date }}
+================================
+CLIENTE
+--------------------------------
+Nombre: {{ order.customer.name | string.slice 0 28 }}
+{{ if order.customer.phone }}Tel: {{ order.customer.phone }}{{ end }}
+================================
+ITEMS
+--------------------------------
+{{ for item in order.items }}
+{{ item.quantity | math.round 0 | string.pad_right 2 }}x {{ item.description | string.slice 0 18 | string.pad_right 18 }} ${{ item.subtotal | math.format "F2" | string.pad_left 5 }}
+{{ if item.observations }}   Nota: {{ item.observations | string.slice 0 26 }}{{ end }}
+{{ end }}
+================================
+<right>
+<bold>TOTAL: ${{ order.total | math.format "F2" }}</bold>
+</right>
+================================
+Piezas: {{ order.pieces }}
+Bolsa/ID: {{ order.bag_color }}
+{{ if order.priority == "URGENT" }}
+<center><bold>*** URGENTE ***</bold></center>
+{{ end }}
+{{ if order.diagnosis_notes }}
+Nota: {{ order.diagnosis_notes | string.slice 0 28 }}
+{{ end }}
+================================
+<center>
+Conserve este ticket para retirar.
+¡Gracias por su preferencia!
+</center>
+
+
+
+
+<cut>
+"""
+
+
+def get_laundry_80_template() -> str:
+    return """================================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================================
+<center>
+<bold>ORDEN DE LAVANDERIA</bold>
+<bold>Ticket: {{ order.ticket_number }}</bold>
+</center>
+Fecha: {{ order.date }}
+================================================
+DATOS DEL CLIENTE
+------------------------------------------------
+Nombre: {{ order.customer.name | string.slice 0 38 }}
+{{ if order.customer.phone }}Telefono: {{ order.customer.phone }}{{ end }}
+{{ if order.customer.id_number }}Doc: {{ order.customer.id_number }}{{ end }}
+================================================
+CANT DESCRIPCION                           TOTAL
+------------------------------------------------
+{{ for item in order.items }}
+{{ item.quantity | math.round 0 | string.pad_right 4 }} {{ item.description | string.slice 0 30 | string.pad_right 30 }} ${{ item.subtotal | math.format "F2" | string.pad_left 8 }}
+{{ if item.observations }}     Nota: {{ item.observations | string.slice 0 38 }}{{ end }}
+{{ end }}
+================================================
+<right>
+<bold>TOTAL ESTIMADO: ${{ order.total | math.format "F2" }}</bold>
+</right>
+================================================
+Piezas: {{ order.pieces }}    |    Bolsa/ID: {{ order.bag_color }}
+{{ if order.priority == "URGENT" }}
+<center><bold>*** ORDEN URGENTE ***</bold></center>
+{{ end }}
+{{ if order.diagnosis_notes }}
+Observaciones: {{ order.diagnosis_notes | string.slice 0 44 }}
+{{ end }}
+================================================
+<center>
+Conserve este ticket para retirar su ropa.
+¡Gracias por su preferencia!
+</center>
+
+
+
+
+<cut>
+"""
+
 
 def get_preset_by_id(preset_id: str) -> Dict[str, str]:
     presets = get_all_presets()

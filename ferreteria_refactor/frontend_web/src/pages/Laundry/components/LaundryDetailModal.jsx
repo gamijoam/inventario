@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
     X, Package, User, Clock, CheckCircle,
     ArrowRight, DollarSign, AlertTriangle,
-    Printer, Plus, Trash2, ArrowLeft, Search, Shirt, Pencil
+    Printer, Plus, Trash2, ArrowLeft, Search, Shirt, Pencil, Zap
 } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import PaymentModal from '../../../components/pos/PaymentModal';
+import printerService from '../../../services/printerService';
 
 const STATUS_STEPS = [
     { id: 'RECEIVED', label: 'Recibido' },
@@ -18,6 +19,7 @@ const STATUS_STEPS = [
 const LaundryDetailModal = ({ orderId, onClose }) => {
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [thermalMenuOpen, setThermalMenuOpen] = useState(false);
 
     // Payment State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -210,6 +212,21 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
         window.open(`#/laundry/ticket/${orderId}`, '_blank', 'width=400,height=600');
     };
 
+    const handleThermalPrint = async (width) => {
+        setThermalMenuOpen(false);
+        const loadingToast = toast.loading(`Enviando a impresora térmica (${width}mm)...`);
+        try {
+            const { data: payload } = await apiClient.get(`/services/orders/${orderId}/print/thermal?width=${width}`);
+            await printerService.printRaw(payload);
+            toast.dismiss(loadingToast);
+            toast.success(`Orden enviada a térmica (${width}mm)`);
+        } catch (error) {
+            toast.dismiss(loadingToast);
+            console.error("Thermal Print Error:", error);
+            toast.error(error.message || "Error: Bridge no conectado o impresora no disponible");
+        }
+    };
+
     if (loading || !order) return null;
 
     const totalAmount = order.details?.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unit_price)), 0) || 0;
@@ -235,9 +252,35 @@ const LaundryDetailModal = ({ orderId, onClose }) => {
                             </p>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={handlePrintTicket} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Imprimir Ticket">
+                            <button onClick={handlePrintTicket} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Imprimir Ticket (hoja normal)">
                                 <Printer size={20} />
                             </button>
+                            {/* Botón de impresión térmica con selector 58mm/80mm */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setThermalMenuOpen(prev => !prev)}
+                                    className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                    title="Imprimir en térmica (Bridge)"
+                                >
+                                    <Zap size={20} />
+                                </button>
+                                {thermalMenuOpen && (
+                                    <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden w-28">
+                                        <button
+                                            onClick={() => handleThermalPrint('58')}
+                                            className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors flex items-center gap-2"
+                                        >
+                                            <Zap size={12} /> 58mm
+                                        </button>
+                                        <button
+                                            onClick={() => handleThermalPrint('80')}
+                                            className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors flex items-center gap-2 border-t border-slate-100"
+                                        >
+                                            <Zap size={12} /> 80mm
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                             <div className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center border ${order.status === 'DELIVERED' ? 'bg-teal-100 text-teal-700 border-teal-200' : 'bg-blue-100 text-blue-700 border-blue-200'}`}>
                                 {order.status === 'DELIVERED' ? 'ENTREGADO' : STATUS_STEPS.find(s => s.id === order.status)?.label || order.status}
                             </div>

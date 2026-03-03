@@ -5,6 +5,7 @@ from ..models import models
 from ..database.db import get_db
 from ..dependencies import get_current_active_user
 from ..utils.time_utils import get_venezuela_now
+from ..template_presets import get_laundry_58_template, get_laundry_80_template
 from typing import List, Optional, Dict, Any
 from sqlalchemy import desc
 from enum import Enum
@@ -428,3 +429,88 @@ def checkout_service_order(
         
     sale = ServiceCheckoutService.convert_order_to_sale(db, order_id, payment_data, current_user.id)
     return {"status": "success", "sale_id": sale.id, "ticket_number": sale.id}
+
+
+@router.get("/orders/{order_id}/print/thermal")
+def get_laundry_thermal_payload(
+    order_id: int,
+    width: str = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Generate a thermal print payload (template + context) for a laundry/service order.
+    The frontend sends this payload to the Hardware Bridge via printerService.printRaw().
+    Optional ?width=58 or ?width=80 — falls back to business config paper_width.
+    """
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+
+    order = db.query(models.ServiceOrder).options(
+        joinedload(models.ServiceOrder.customer),
+        joinedload(models.ServiceOrder.details),
+    ).filter(
+        models.ServiceOrder.id == order_id,
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+
+    # Business config (same pattern as sales_service)
+    business_config = {}
+    configs = db.query(models.BusinessConfig).all()
+    for config in configs:
+        business_config[config.key] = config.value
+
+    # Calculate total from details
+    total = sum(
+        float(item.quantity) * float(item.unit_price)
+        for item in (order.details or [])
+    )
+
+    metadata = order.order_metadata or {}
+
+    context = {
+        "business": {
+            "name": business_config.get("business_name", "MI NEGOCIO"),
+            "document_id": business_config.get("business_doc", ""),
+            "address": business_config.get("business_address", ""),
+            "phone": business_config.get("business_phone", ""),
+        },
+        "order": {
+            "ticket_number": order.ticket_number or str(order.id),
+            "date": order.created_at.strftime("%d/%m/%Y %H:%M") if order.created_at else "",
+            "customer": {
+                "name": order.customer.name if order.customer else "Sin cliente",
+                "phone": order.customer.phone if order.customer else "",
+                "id_number": order.customer.id_number if order.customer else "",
+            },
+            "items": [
+                {
+                    "description": detail.description or "",
+                    "quantity": float(detail.quantity),
+                    "unit_price": float(detail.unit_price),
+                    "subtotal": float(detail.quantity) * float(detail.unit_price),
+                    "observations": detail.observations or "",
+                    "is_manual": bool(detail.is_manual) if hasattr(detail, "is_manual") else False,
+                }
+                for detail in (order.details or [])
+            ],
+            "total": total,
+            "pieces": metadata.get("pieces", 0),
+            "bag_color": metadata.get("bag_color", "---"),
+            "priority": order.priority or "NORMAL",
+            "diagnosis_notes": order.diagnosis_notes or "",
+        },
+    }
+
+    # Template selection: explicit param > business config > default 58mm
+    effective_width = width if width in ("58", "80") else business_config.get("paper_width", "58")
+    template = get_laundry_80_template() if effective_width == "80" else get_laundry_58_template()
+
+    return {
+        "status": "ready",
+        "template": template,
+        "context": context,
+    }
+

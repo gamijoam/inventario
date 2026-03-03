@@ -133,7 +133,7 @@ def update_quote(quote_id: int, quote_data: schemas.QuoteCreate, db: Session = D
 
 
 @router.get("/{quote_id}/print/thermal")
-def get_quote_thermal_payload(quote_id: int, db: Session = Depends(get_db)):
+def get_quote_thermal_payload(quote_id: int, width: str = None, db: Session = Depends(get_db)):
     """
     Generate a thermal print payload (template + context) for a quote.
     The frontend sends this payload to the Hardware Bridge via printerService.printRaw().
@@ -193,9 +193,9 @@ def get_quote_thermal_payload(quote_id: int, db: Session = Depends(get_db)):
         "currency_symbol": currency_symbol,
     }
 
-    # Choose template based on configured paper width
-    paper_width = business_config.get("paper_width", "58")
-    template = get_quote_80_template() if paper_width == "80" else get_quote_58_template()
+    # Choose template: explicit ?width= param takes priority, then business config
+    effective_width = width if width in ("58", "80") else business_config.get("paper_width", "58")
+    template = get_quote_80_template() if effective_width == "80" else get_quote_58_template()
 
     return {
         "status": "ready",

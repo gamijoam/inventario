@@ -16,6 +16,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
     const [filteredQuotes, setFilteredQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [thermalMenuId, setThermalMenuId] = useState(null); // id de la cotización con dropdown abierto
 
     const { currencies } = useConfig();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
@@ -194,19 +195,25 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
         }
     };
 
-    const handleThermalPrint = async (quote, e) => {
+    const handleThermalPrint = async (quote, width, e) => {
         e.stopPropagation();
-        const loadingToast = toast.loading("Enviando a impresora térmica...");
+        setThermalMenuId(null);
+        const loadingToast = toast.loading(`Enviando a impresora térmica (${width}mm)...`);
         try {
-            const { data: payload } = await apiClient.get(`/quotes/${quote.id}/print/thermal`);
+            const { data: payload } = await apiClient.get(`/quotes/${quote.id}/print/thermal?width=${width}`);
             await printerService.printRaw(payload);
             toast.dismiss(loadingToast);
-            toast.success("Cotización enviada a la impresora térmica");
+            toast.success(`Cotización enviada a térmica (${width}mm)`);
         } catch (error) {
             toast.dismiss(loadingToast);
             console.error("Thermal Print Error:", error);
             toast.error(error.message || "Error: Bridge no conectado o impresora no disponible");
         }
+    };
+
+    const toggleThermalMenu = (quoteId, e) => {
+        e.stopPropagation();
+        setThermalMenuId(prev => (prev === quoteId ? null : quoteId));
     };
 
     const getStatusBadge = (status) => {
@@ -333,13 +340,32 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                                         >
                                             <Printer size={18} />
                                         </button>
-                                        <button
-                                            onClick={(e) => handleThermalPrint(quote, e)}
-                                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                                            title="Imprimir en térmica (Bridge)"
-                                        >
-                                            <Zap size={18} />
-                                        </button>
+                                        {/* Botón térmica con dropdown 58mm/80mm */}
+                                        <div className="relative">
+                                            <button
+                                                onClick={(e) => toggleThermalMenu(quote.id, e)}
+                                                className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                title="Imprimir en térmica (Bridge)"
+                                            >
+                                                <Zap size={18} />
+                                            </button>
+                                            {thermalMenuId === quote.id && (
+                                                <div className="absolute bottom-full left-0 mb-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden w-28">
+                                                    <button
+                                                        onClick={(e) => handleThermalPrint(quote, '58', e)}
+                                                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors flex items-center gap-2"
+                                                    >
+                                                        <Zap size={12} /> 58mm
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => handleThermalPrint(quote, '80', e)}
+                                                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:bg-amber-50 hover:text-amber-700 transition-colors flex items-center gap-2 border-t border-slate-100"
+                                                    >
+                                                        <Zap size={12} /> 80mm
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); onEdit && onEdit(quote.id); }}
                                             className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
