@@ -5,6 +5,7 @@ from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from sqlalchemy.orm import joinedload
+from ..template_presets import get_quote_58_template, get_quote_80_template
 
 router = APIRouter(
     prefix="/quotes",
@@ -129,6 +130,78 @@ def update_quote(quote_id: int, quote_data: schemas.QuoteCreate, db: Session = D
     db.commit()
     # db.refresh(db_quote)
     return response_data
+
+
+@router.get("/{quote_id}/print/thermal")
+def get_quote_thermal_payload(quote_id: int, db: Session = Depends(get_db)):
+    """
+    Generate a thermal print payload (template + context) for a quote.
+    The frontend sends this payload to the Hardware Bridge via printerService.printRaw().
+    Uses the same pattern as SalesService.get_sale_print_payload().
+    """
+    # Load quote with all relations
+    quote = db.query(models.Quote)\
+        .options(
+            joinedload(models.Quote.customer),
+            joinedload(models.Quote.details).joinedload(models.QuoteDetail.product)
+        )\
+        .filter(models.Quote.id == quote_id).first()
+
+    if not quote:
+        raise HTTPException(status_code=404, detail="Quote not found")
+
+    # Get business config (same as sales_service pattern)
+    business_config = {}
+    configs = db.query(models.BusinessConfig).all()
+    for config in configs:
+        business_config[config.key] = config.value
+
+    # Quotes are always in anchor currency (USD)
+    currency_symbol = "$"
+
+    # Build context
+    context = {
+        "business": {
+            "name": business_config.get("business_name", "MI NEGOCIO"),
+            "document_id": business_config.get("business_doc", ""),
+            "address": business_config.get("business_address", ""),
+            "phone": business_config.get("business_phone", ""),
+        },
+        "quote": {
+            "id": quote.id,
+            "date": quote.date.strftime("%d/%m/%Y %H:%M") if quote.date else "",
+            "customer": {
+                "name": quote.customer.name if quote.customer else None,
+                "id_number": quote.customer.id_number if quote.customer else None,
+                "phone": quote.customer.phone if quote.customer else None,
+            } if quote.customer else None,
+            "items": [
+                {
+                    "product": {
+                        "name": detail.product.name if detail.product else "Producto",
+                        "sku": detail.product.sku if detail.product else "",
+                    },
+                    "quantity": float(detail.quantity),
+                    "unit_price": float(detail.unit_price),
+                    "subtotal": float(detail.subtotal),
+                }
+                for detail in (quote.details or [])
+            ],
+            "total": float(quote.total_amount),
+            "notes": quote.notes or "",
+        },
+        "currency_symbol": currency_symbol,
+    }
+
+    # Choose template based on configured paper width
+    paper_width = business_config.get("paper_width", "58")
+    template = get_quote_80_template() if paper_width == "80" else get_quote_58_template()
+
+    return {
+        "status": "ready",
+        "template": template,
+        "context": context,
+    }
 
 
 @router.delete("/{quote_id}")

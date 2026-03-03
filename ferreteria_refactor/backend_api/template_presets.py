@@ -391,3 +391,84 @@ def get_preset_by_id(preset_id: str) -> Dict[str, str]:
         if p["id"] == preset_id:
             return p
     return None
+
+
+# ============================================
+# QUOTE / COTIZACION TEMPLATES
+# Context uses "quote" key instead of "sale"
+# ============================================
+
+def get_quote_58_template() -> str:
+    return """================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================
+<center>
+<bold>COTIZACION #{{ quote.id }}</bold>
+</center>
+Fecha: {{ quote.date }}
+Cli: {{ if quote.customer }}{{ quote.customer.name | string.slice 0 20 }}{{ else }}Cliente General{{ end }}
+{{ if quote.customer && quote.customer.id_number }}DOC: {{ quote.customer.id_number }}{{ end }}
+================================
+CANT PRODUCTO              TOTAL
+--------------------------------
+{{ for item in quote.items }}
+{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 16 | string.pad_right 16 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
+{{ end }}
+================================
+<right>
+<bold>TOTAL: {{ currency_symbol }}{{ quote.total | math.format "F2" }}</bold>
+</right>
+================================
+{{ if quote.notes }}
+Nota: {{ quote.notes | string.slice 0 28 }}
+================================
+{{ end }}
+<center>
+* Documento no fiscal *
+¡Gracias por preferirnos!
+</center>
+<cut>
+"""
+
+
+def get_quote_80_template() -> str:
+    return """================================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================================
+<center>
+<bold>COTIZACION #{{ quote.id }}</bold>
+</center>
+Fecha: {{ quote.date }}
+Cli: {{ if quote.customer }}{{ quote.customer.name | string.slice 0 35 }}{{ else }}Cliente General{{ end }}
+{{ if quote.customer && quote.customer.id_number }}DOC: {{ quote.customer.id_number }}{{ end }}
+================================================
+CANT DESCRIPCION                           TOTAL
+------------------------------------------------
+{{ for item in quote.items }}
+{{ item.quantity | math.round 0 | string.pad_right 4 }} {{ item.product.name | string.slice 0 30 | string.pad_right 30 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 8 }}
+{{ end }}
+================================================
+<right>
+<bold>TOTAL: {{ currency_symbol }}{{ quote.total | math.format "F2" }}</bold>
+</right>
+================================================
+{{ if quote.notes }}
+Nota: {{ quote.notes | string.slice 0 42 }}
+================================================
+{{ end }}
+<center>
+* Documento no fiscal *
+¡Gracias por preferirnos!
+</center>
+<cut>
+"""

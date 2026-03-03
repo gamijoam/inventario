@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
     FileText, Calendar, User, DollarSign, ArrowRight, Trash2, Printer,
-    RefreshCcw, AlertCircle, CheckCircle, Clock, Search, Edit
+    RefreshCcw, AlertCircle, CheckCircle, Clock, Search, Edit, Zap
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { useConfig } from '../../context/ConfigContext';
 import { API_BASE_URL } from '../../config/constants';
 import clsx from 'clsx';
+import printerService from '../../services/printerService';
 
 
 const QuoteList = ({ onCreateNew, onEdit }) => {
@@ -193,6 +194,21 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
         }
     };
 
+    const handleThermalPrint = async (quote, e) => {
+        e.stopPropagation();
+        const loadingToast = toast.loading("Enviando a impresora térmica...");
+        try {
+            const { data: payload } = await apiClient.get(`/quotes/${quote.id}/print/thermal`);
+            await printerService.printRaw(payload);
+            toast.dismiss(loadingToast);
+            toast.success("Cotización enviada a la impresora térmica");
+        } catch (error) {
+            toast.dismiss(loadingToast);
+            console.error("Thermal Print Error:", error);
+            toast.error(error.message || "Error: Bridge no conectado o impresora no disponible");
+        }
+    };
+
     const getStatusBadge = (status) => {
         switch (status) {
             case 'CONVERTED':
@@ -313,9 +329,16 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                                         <button
                                             onClick={(e) => handlePrint(quote, e)}
                                             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                            title="Imprimir"
+                                            title="Imprimir (hoja normal)"
                                         >
                                             <Printer size={18} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => handleThermalPrint(quote, e)}
+                                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                            title="Imprimir en térmica (Bridge)"
+                                        >
+                                            <Zap size={18} />
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); onEdit && onEdit(quote.id); }}
