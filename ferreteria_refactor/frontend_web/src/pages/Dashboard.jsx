@@ -212,6 +212,7 @@ const Dashboard = () => {
     const [profitData, setProfitData] = useState(null);
     const [recentSales, setRecentSales] = useState([]);
     const [chartData, setChartData] = useState([]);
+    const [creditsSummary, setCreditsSummary] = useState(null);
 
     // Fetch dashboard data
     const fetchDashboardData = async (showToast = false) => {
@@ -224,15 +225,17 @@ const Dashboard = () => {
                 String(d.getMonth() + 1).padStart(2, '0') + '-' +
                 String(d.getDate()).padStart(2, '0');
 
-            const [sales, profit, transactions] = await Promise.all([
+            const [sales, profit, transactions, credits] = await Promise.all([
                 unifiedReportService.getSalesSummary({ start_date: today, end_date: today }),
                 unifiedReportService.getProfitability({ start_date: today, end_date: today }),
-                unifiedReportService.getRecentTransactions(10)
+                unifiedReportService.getRecentTransactions(10),
+                unifiedReportService.getCreditsSummary().catch(() => null)
             ]);
 
             setSalesSummary(sales);
             setProfitData(profit);
             setRecentSales(Array.isArray(transactions) ? transactions : []);
+            setCreditsSummary(credits);
 
             // Generate chart data for last 7 days
             const chartPromises = [];
@@ -326,7 +329,7 @@ const Dashboard = () => {
             </div>
 
             {/* 2. KPI Grid (Vercel Style) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <KPICard
                     title="Ingresos Hoy (Neto)"
                     value={<MultiCurrencyDisplay amountUSD={salesSummary?.total_revenue || 0} showRate={false} placeholderIfZero />}
@@ -338,6 +341,11 @@ const Dashboard = () => {
                     icon={TrendingUp}
                     trend="up"
                     trendValue="12.5%"
+                />
+                <KPICard
+                    title="Créditos Pendientes"
+                    value={<MultiCurrencyDisplay amountUSD={creditsSummary?.total_pending_usd || 0} showRate={false} placeholderIfZero />}
+                    icon={AlertCircle}
                 />
                 <KPICard
                     title="Artículos Vendidos (Neto)"
@@ -432,10 +440,15 @@ const Dashboard = () => {
                             <div>
                                 <p className="text-xs text-blue-600 font-black uppercase tracking-widest mb-1">Monto Pendiente</p>
                                 <div className="text-2xl font-black text-blue-700 leading-none">
-                                    ${recentSales.reduce((acc, s) => acc + (s.is_credit && !s.paid ? Number(s.total_amount || 0) : 0), 0).toFixed(2)}
+                                    ${(creditsSummary?.total_pending_usd || 0).toFixed(2)}
                                 </div>
+                                {creditsSummary?.total_pending_bs > 0 && (
+                                    <p className="text-xs text-blue-500 font-bold mt-0.5">
+                                        Bs. {creditsSummary.total_pending_bs.toFixed(2)}
+                                    </p>
+                                )}
                                 <p className="text-[10px] text-blue-500 font-bold mt-1 uppercase">
-                                    {recentSales.filter(s => s.is_credit && !s.paid).length} facturas activas
+                                    {creditsSummary?.pending_count || 0} facturas activas
                                 </p>
                             </div>
                             <div className="h-12 w-12 bg-white rounded-xl flex items-center justify-center border border-blue-100 shadow-sm text-blue-500 group-hover/ar:scale-110 transition-transform">

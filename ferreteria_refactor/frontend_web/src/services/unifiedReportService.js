@@ -46,6 +46,12 @@ const unifiedReportService = {
         return response.data; // Returns Blob
     },
 
+    // Credits / Accounts Receivable
+    getCreditsSummary: async () => {
+        const response = await apiClient.get('/reports/credits/summary');
+        return response.data;
+    },
+
     // Recent Transactions - Now uses real sales endpoint
     getRecentTransactions: async (limit = 10) => {
         try {

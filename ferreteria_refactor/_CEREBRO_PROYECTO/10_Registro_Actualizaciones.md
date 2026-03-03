@@ -2,6 +2,35 @@
 
 Este documento actúa como la bitácora oficial de cambios de **Mi Inventario Fácil**, permitiendo una trazabilidad técnica de las mejoras, correcciones y refactorizaciones realizadas en el ecosistema.
 
+## [2026-03-03] - Créditos en Dashboard y Correcciones de Integridad
+
+### 1. Dashboard: Resumen Global de Créditos Pendientes
+**Descripción**: Integración de cuentas por cobrar en el resumen general del dashboard con datos reales y actualizados.
+- **Cambios Técnicos**:
+  - **Nuevo Endpoint**: `GET /reports/credits/summary` — consulta global (sin filtro de fecha) de todas las ventas a crédito pendientes (`is_credit=True, paid=False, balance_pending > 0`). Retorna `total_pending_usd`, `total_pending_bs`, `pending_count` y `exchange_rate`.
+  - **KPI Card**: Nuevo indicador "Créditos Pendientes" en la grilla de KPIs del dashboard (5 columnas) con soporte multimoneda.
+  - **Widget Cuentas por Cobrar**: Actualizado para usar datos del endpoint real en vez de calcular desde las últimas 10 transacciones (que era impreciso). Ahora muestra monto en USD, equivalente en Bs y conteo exacto de facturas activas.
+  - **Actualización en Tiempo Real**: Los créditos se actualizan automáticamente cuando se registra un pago o nueva venta vía WebSocket (`sale:created`).
+- **Archivos Afectados**:
+  - `backend_api/routers/reports.py`: Endpoint `/reports/credits/summary`.
+  - `frontend_web/src/services/unifiedReportService.js`: Método `getCreditsSummary()`.
+  - `frontend_web/src/pages/Dashboard.jsx`: KPI card + widget actualizado.
+
+### 2. Fix: Dashboard Mostraba Ingresos Inflados por Créditos
+**Descripción**: El KPI "Ingresos Hoy" sumaba ventas a crédito no cobradas, inflando los números reales.
+- **Cambios Técnicos**:
+  - **Separación de Ingresos**: `total_revenue` ahora solo incluye dinero efectivamente cobrado. Los créditos pendientes se reportan por separado en `pending_credit` y `pending_credit_bs`.
+  - **Ganancia Real**: `realized_profit` ya excluía créditos, pero `total_revenue` no lo hacía — corregido.
+- **Archivos Afectados**:
+  - `backend_api/routers/reports.py`: Lógica de `get_sales_summary()`.
+
+### 3. Fix: Servicios Aparecían en Alertas de Stock Bajo
+**Descripción**: Productos marcados como servicio (`is_service=True`) con stock=0 generaban alertas de inventario falsos.
+- **Cambios Técnicos**:
+  - Filtros adicionales en `/reports/low-stock`: `is_service == False` y `is_active == True`.
+- **Archivos Afectados**:
+  - `backend_api/routers/reports.py`: Endpoint `get_low_stock_products()`.
+
 ## [2026-02-20] - Refactor de Seguridad y Módulo de Servicios
 
 ### 1. Hardware Bridge: Seguridad y Multi-tenancy
@@ -75,3 +104,78 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 - **Archivos Afectados**:
   - `migrate_tenants.py`: Lógica de alteración de tablas distribuida.
   - `auth.py`, `email_utils.py`: Corrección de generadores de URL.
+
+## [2026-02-24] - Módulo de Barbería / Salón de Belleza
+
+### 1. Barbería: Infraestructura Multi-Tenant (Fases 1-2)
+**Descripción**: Implementación completa del módulo de barbería con gestión de empleados, comisiones y dashboard.
+- **Cambios Técnicos**:
+  - **Modelos DB**: Tablas `employees` y `commissions` integradas en esquema multitenant.
+  - **Endpoints API**: CRUD completo en `/api/v1/employees` y comisiones en `/api/v1/employees/commissions`.
+  - **SaaS Panel**: Flag `has_barbershop_module` con toggle de activación por empresa (ícono de Tijeras).
+  - **Frontend**: Dashboard unificado en `/barbershop`, selector de íconos Lucide-React, sidebar inteligente.
+  - **Migración Automática**: Script `migrate_barbershop.py` para propagar columnas del módulo a todos los tenants.
+- **Archivos Afectados**:
+  - `backend_api/routers/employees.py`, `backend_api/models/models.py`, `backend_api/migrate_barbershop.py`.
+  - `frontend_web/src/pages/Barbershop/`, `frontend_web/src/components/layout/Sidebar.jsx`.
+
+## [2026-02-26] - Segmentación por Rubros y Estabilidad SaaS
+
+### 1. Sistema de Segmentación Inteligente de Rubros
+**Descripción**: Automatización de la configuración de módulos basada en el tipo de negocio seleccionado al registrarse.
+- **Cambios Técnicos**:
+  - **Detección por Palabras Clave**: `TenantService.create_tenant()` analiza el rubro seleccionado y activa automáticamente los módulos correspondientes.
+  - **Modelo Tenant Expandido**: Nuevas columnas `business_type`, `has_restaurant_module`, `has_laundry_module`, `has_hardware_module`, `has_services_module`, `has_barbershop_module`.
+  - **Panel SaaS**: Vista enriquecida con filtros por rubro y togglees de módulos por empresa.
+- **Archivos Afectados**:
+  - `backend_api/services/tenant_service.py`, `backend_api/models/tenant.py`.
+  - `saas_admin/src/pages/TenantDetail.jsx`.
+
+### 2. Correcciones de Estabilidad
+- **Discovery Fix**: Corrección del endpoint `/auth/discovery` para manejar casos edge de usuarios sin tenant.
+- **Session Fix**: Estabilización de cookies HttpOnly y tokens en entornos de producción con HTTPS.
+- **DB Repair**: Función `repair_public_schema()` para recuperación automática de `alembic_version` y columnas faltantes.
+
+## [2026-02-27] - Rediseño Completo del Módulo Restaurante (Fases 1-5)
+
+### 1. Restaurante: Arquitectura Completa (5 Fases)
+**Descripción**: Rediseño integral del módulo de restaurante, desde la base de datos hasta el frontend.
+- **Fase 1: Modelos y Endpoints Base**
+  - Modelos: `RestaurantTable`, `RestaurantOrder`, `RestaurantOrderItem`.
+  - Endpoints CRUD para mesas y órdenes.
+  - Frontend: Mapa interactivo de mesas con auto-refresh.
+
+- **Fase 2: Takeout (Para Llevar)**
+  - Columnas `is_takeout` y `customer_name` en `RestaurantOrder`.
+  - Endpoint `/open_takeout` para órdenes sin mesa.
+  - KDS con diferenciación visual de Takeout.
+
+- **Fase 3: Menú Digital**
+  - Modelos: `RestaurantMenuSection`, `RestaurantMenuItem`.
+  - Endpoints CRUD para gestión de menú con secciones, alias y precios override.
+
+- **Fase 4: Checkout y Vinculación con Ventas**
+  - Integración de cierre de cuenta con `SalesService.create_sale()`.
+  - Soporte multimoneda y métodos de pago mixtos.
+  - Vinculación `sale_id` en `RestaurantOrder`.
+
+- **Fase 5: Escandallo (Recetas) y Deducción de Inventario**
+  - Modelo: `RestaurantRecipe` (plato → ingredientes con cantidades).
+  - Lógica centralizada en `SalesService.create_sale()`: si existe receta, se deducen ingredientes; si no, se deduce el producto directamente.
+  - Eliminación de lógica redundante de deducción en `orders.py`.
+
+- **Archivos Afectados**:
+  - `backend_api/models/restaurant.py`, `backend_api/schemas/restaurant.py`.
+  - `backend_api/routers/modules/restaurant/tables.py`, `orders.py`, `menu.py`.
+  - `backend_api/services/sales_service.py`.
+  - `frontend_web/src/pages/Restaurant/TableMap.jsx`, `KitchenDisplay.jsx`.
+
+### 2. Eliminación de SQLite y Estabilización PostgreSQL
+**Descripción**: Limpieza total de código SQLite y simplificación del cambio de esquema.
+- **Cambios Técnicos**:
+  - **`db.py`**: Eliminadas todas las variables `IS_SQLITE`, `IS_POSTGRES`, event listener `on_connect` (ATTACH DATABASE), y checks condicionales de dialecto. El pool y `get_db()` son ahora 100% PostgreSQL.
+  - **`tenant_service.py`**: Eliminados todos los `if "sqlite" not in ...` guards. `CREATE SCHEMA`, `SET search_path` y seeding ahora se ejecutan directamente sin verificación de dialecto.
+  - **Diagnóstico Mejorado**: `RuntimeError` en `get_db()` ahora incluye el mensaje exacto de la excepción de PostgreSQL para facilitar debugging.
+- **Archivos Afectados**:
+  - `backend_api/database/db.py`, `backend_api/services/tenant_service.py`.
+
