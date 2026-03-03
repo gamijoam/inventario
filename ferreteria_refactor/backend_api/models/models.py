@@ -358,12 +358,15 @@ class Sale(Base):
     is_offline_sale = Column(Boolean, default=False)
     
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True) # Linked warehouse
+    # Cash register session this sale was made in (for multi-register support)
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=True)
 
     details = relationship("SaleDetail", back_populates="sale")
     customer = relationship("Customer", back_populates="sales")
     payments = relationship("SalePayment", back_populates="sale", lazy="joined")
     returns = relationship("Return", back_populates="sale")
     warehouse = relationship("Warehouse")
+    cash_session = relationship("CashSession", foreign_keys=[session_id])
 
     @property
     def status(self):
@@ -431,11 +434,30 @@ class SaleDetail(Base):
     def __repr__(self):
         return f"<SaleDetail(product='{self.product_id}', qty={self.quantity}, tax={self.tax_rate})>"
 
+class CashRegister(Base):
+    """Represents a physical cash register terminal (e.g. 'Caja 1', 'Caja 2')."""
+    __tablename__ = "cash_registers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)           # e.g. "Caja 1", "Caja Central"
+    code = Column(String(20), nullable=False, unique=True)  # e.g. "C01", "C02"
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    sessions = relationship("CashSession", back_populates="register")
+
+    def __repr__(self):
+        return f"<CashRegister(id={self.id}, code='{self.code}', name='{self.name}')>"
+
+
 class CashSession(Base):
     __tablename__ = "cash_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
+    # Multi-register support: which cash register this session belongs to
+    register_id = Column(Integer, ForeignKey("cash_registers.id"), nullable=True)
     start_time = Column(DateTime, default=get_venezuela_now)
     end_time = Column(DateTime, nullable=True)
     initial_cash = Column(Numeric(18, 4), default=0.0000)
@@ -451,9 +473,10 @@ class CashSession(Base):
     movements = relationship("CashMovement", back_populates="session")
     currencies = relationship("CashSessionCurrency", back_populates="session", cascade="all, delete-orphan")
     user = relationship("User", foreign_keys=[user_id])
+    register = relationship("CashRegister", back_populates="sessions")
 
     def __repr__(self):
-        return f"<CashSession(id={self.id}, status='{self.status}')>"
+        return f"<CashSession(id={self.id}, status='{self.status}', register_id={self.register_id})>"
 
 class CashSessionCurrency(Base):
     __tablename__ = "cash_session_currencies"

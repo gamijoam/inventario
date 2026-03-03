@@ -66,8 +66,11 @@ app.add_middleware(
     allow_origins=[
         # --- LOCAL DEVELOPMENT ---
         "http://localhost:5173",
+        "http://localhost:5174",         # SaaS Admin Panel
+        "http://localhost:5175",         # Landing Page / Extra dev server
         "http://localhost:8000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
         "http://127.0.0.1:8000",
         
         # --- MOBILE APPS (Capacitor/Native) ---
@@ -250,6 +253,71 @@ def health_check():
     """Simple health check endpoint for connectivity testing"""
     return {"status": "ok", "service": "ferreteria-api"}
 
+# --- REPARACIÓN DIRECTA DE ESQUEMA (Bypass Alembic) ---
+def repair_public_schema():
+    """
+    Reparación directa via SQL crudo. Ejecuta ANTES de Alembic para asegurar
+    que el esquema público está en un estado mínimamente funcional.
+    
+    Esto soluciona el problema de que alembic_version fue borrada por una
+    migración anterior, impidiendo que Alembic funcione.
+    """
+    from sqlalchemy import text
+    
+    with engine.connect() as conn:
+        # 1. Asegurar que alembic_version existe
+        result = conn.execute(text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'alembic_version'
+            )
+        """))
+        alembic_table_exists = result.scalar()
+        
+        if not alembic_table_exists:
+            print("[REPAIR] 🔧 Recreando tabla alembic_version...")
+            conn.execute(text("""
+                CREATE TABLE public.alembic_version (
+                    version_num VARCHAR(32) NOT NULL,
+                    CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+                )
+            """))
+            # Stamp con la última revisión conocida para que Alembic no intente re-ejecutar todo
+            conn.execute(text("""
+                INSERT INTO public.alembic_version (version_num) VALUES ('e2f1a9b2d3c4')
+            """))
+            print("[REPAIR] ✅ alembic_version recreada y estampada con última revisión.")
+        
+        # 2. Añadir columnas faltantes a public.tenants
+        columns_to_add = [
+            ("business_type", "VARCHAR"),
+            ("has_restaurant_module", "BOOLEAN DEFAULT FALSE"),
+            ("has_laundry_module", "BOOLEAN DEFAULT FALSE"),
+            ("has_hardware_module", "BOOLEAN DEFAULT FALSE"),
+            ("has_services_module", "BOOLEAN DEFAULT FALSE"),
+            ("has_barbershop_module", "BOOLEAN DEFAULT FALSE"),
+        ]
+        
+        for col_name, col_type in columns_to_add:
+            result = conn.execute(text(f"""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'tenants' 
+                    AND column_name = '{col_name}'
+                )
+            """))
+            exists = result.scalar()
+            
+            if not exists:
+                print(f"[REPAIR] 🔧 Añadiendo columna {col_name} a public.tenants...")
+                conn.execute(text(f"ALTER TABLE public.tenants ADD COLUMN {col_name} {col_type}"))
+                print(f"[REPAIR] ✅ Columna {col_name} añadida.")
+        
+        conn.commit()
+        print("[REPAIR] ✅ Reparación de esquema público completada.")
+
 # --- LOGICA DE INICIALIZACION ---
 def run_migrations():
     """
@@ -318,6 +386,14 @@ def startup_event():
     os.makedirs(BASE_MEDIA_DIR, exist_ok=True)
     print(f"[INFO] Directorio Media verificado: {BASE_MEDIA_DIR}")
     
+    # ===== PRE-ALEMBIC REPAIR: Fix schema directly via SQL =====
+    print("[INFO] Verificando integridad del esquema público (Reparación directa)...")
+    try:
+        repair_public_schema()
+        print("[INFO] ✅ Esquema público verificado/reparado.")
+    except Exception as e:
+        print(f"[WARN] Error en reparación directa de esquema: {e}")
+    
     # Run Alembic migrations
     print("[INFO] Iniciando migraciones de Alembic (Public Schema)...")
     run_migrations()
@@ -330,6 +406,24 @@ def startup_event():
         print("[INFO] ✅ Migración de tenants completada.")
     except Exception as e:
         print(f"[ERROR] ⚠️ Error en migración de tenants: {e}")
+    
+    # NEW: Run Barbershop Module Migrations (adds is_commissionable, is_barbershop_service, etc.)
+    print("[INFO] Propagando módulo de Barbería a esquemas de Tenants...")
+    try:
+        from .migrate_barbershop import migrate_barbershop
+        migrate_barbershop(engine)
+        print("[INFO] ✅ Migración de barbería completada.")
+    except Exception as e:
+        print(f"[ERROR] ⚠️ Error en migración de barbería: {e}")
+
+    # NEW: Run Multi-Cash-Register Migrations
+    print("[INFO] Propagando soporte de Multicajas...")
+    try:
+        from .migrate_multicaja import migrate_multicaja
+        migrate_multicaja(engine)
+        print("[INFO] ✅ Migración de multicajas completada.")
+    except Exception as e:
+        print(f"[ERROR] ⚠️ Error en migración de multicajas: {e}")
     
     # FALLBACK: Create tables if they don't exist (for development/first run)
     # This ensures the app works even if migrations fail or DB is in inconsistent state

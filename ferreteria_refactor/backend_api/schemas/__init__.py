@@ -347,6 +347,7 @@ class SaleCreate(BaseModel):
     is_offline_sale: bool = Field(False, description="Flag si la venta vino de sync")
     warehouse_id: Optional[int] = Field(None, description="ID del almacén de salida") # NEW: Multi-warehouse support
     quote_id: Optional[int] = Field(None, description="ID de la cotización origen (si aplica)") # NEW: Quote Link
+    session_id: Optional[int] = Field(None, description="ID de la sesión de caja activa (multi-caja)")
 
     class Config:
         from_attributes = True
@@ -600,7 +601,30 @@ class CashMovementRead(CashMovementCreate):
     class Config:
         from_attributes = True
 
-# Cash Session Schemas
+# ===== CASH REGISTER SCHEMAS =====
+
+class CashRegisterCreate(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+
+class CashRegisterUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class CashRegisterRead(BaseModel):
+    id: int
+    name: str
+    code: str
+    description: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# ===== CASH SESSION SCHEMAS =====
 class CashSessionCurrencyCreate(BaseModel):
     currency_symbol: str
     initial_amount: Decimal
@@ -620,6 +644,7 @@ class CashSessionCreate(BaseModel):
     initial_cash: Decimal = Decimal("0.00")
     initial_cash_bs: Decimal = Decimal("0.00")
     currencies: List[CashSessionCurrencyCreate] = []
+    register_id: Optional[int] = None  # Which cash register to open. Uses default if omitted.
 
 class CurrencyClose(BaseModel):
     currency_symbol: str
@@ -640,6 +665,8 @@ class CashSessionRead(BaseModel):
     final_cash_reported_bs: Optional[Decimal]
     final_cash_expected: Optional[Decimal]
     status: str
+    register_id: Optional[int] = None
+    register: Optional[CashRegisterRead] = None
     user: Optional['UserRead'] = None  # Include user details
     movements: List[CashMovementRead] = []
     currencies: List[CashSessionCurrencyRead] = []

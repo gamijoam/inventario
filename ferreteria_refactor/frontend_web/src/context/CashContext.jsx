@@ -11,10 +11,28 @@ export const CashProvider = ({ children }) => {
     const [isSessionOpen, setIsSessionOpen] = useState(false);
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
+    // Multi-register support
+    const [registers, setRegisters] = useState([]);
+    const [activeRegister, setActiveRegister] = useState(null); // Register selected for this terminal
     const { subscribe } = useWebSocket();
 
     // Get Auth Context to prevent race conditions
-    const { isAuthenticated, user } = useAuth(); // Assuming useAuth is available/imported
+    const { isAuthenticated, user } = useAuth();
+
+    const fetchRegisters = async () => {
+        try {
+            const res = await apiClient.get('/cash/registers/status');
+            const list = Array.isArray(res.data) ? res.data : [];
+            setRegisters(list);
+            // Auto-set activeRegister if only one exists
+            if (list.length === 1) setActiveRegister(list[0]);
+            return list;
+        } catch (e) {
+            console.warn('Could not fetch registers:', e);
+            setRegisters([]);
+            return [];
+        }
+    };
 
     const checkStatus = async (retryCount = 0) => {
         // Prevent checking if not authenticated yet
@@ -81,6 +99,7 @@ export const CashProvider = ({ children }) => {
 
     useEffect(() => {
         if (isAuthenticated) {
+            fetchRegisters();
             checkStatus();
         } else {
             setLoading(false); // Stop loading if not auth
@@ -90,6 +109,7 @@ export const CashProvider = ({ children }) => {
         const unsubOpen = subscribe('cash_session:opened', (data) => {
             console.log('💵 Session Opened Real-time:', data);
             setIsSessionOpen(true);
+            fetchRegisters();
             checkStatus();
         });
 
@@ -97,6 +117,7 @@ export const CashProvider = ({ children }) => {
             console.log('💵 Session Closed Real-time:', data);
             setIsSessionOpen(false);
             setSession(null);
+            fetchRegisters();
 
             // AUTO-PRINT Z REPORT
             if (data.print_payload) {
@@ -176,7 +197,12 @@ export const CashProvider = ({ children }) => {
             loading,
             openSession,
             closeSession,
-            refreshStatus: checkStatus
+            refreshStatus: checkStatus,
+            // Multi-register
+            registers,
+            activeRegister,
+            setActiveRegister,
+            fetchRegisters,
         }}>
             {children}
         </CashContext.Provider>

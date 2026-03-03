@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, text
 from typing import List, Dict, Optional
@@ -19,6 +19,105 @@ router = APIRouter(
     tags=["Caja"]
 )
 
+# ============================================================
+#  CASH REGISTERS (Cajas físicas / terminales)
+# ============================================================
+
+@router.get("/registers", response_model=List[schemas.CashRegisterRead])
+def list_cash_registers(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Lista todas las cajas registradoras activas del tenant."""
+    return db.query(models.CashRegister).filter(
+        models.CashRegister.is_active == True
+    ).order_by(models.CashRegister.id).all()
+
+
+@router.post("/registers", response_model=schemas.CashRegisterRead)
+def create_cash_register(
+    data: schemas.CashRegisterCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Crea una nueva caja registradora."""
+    existing = db.query(models.CashRegister).filter(
+        models.CashRegister.code == data.code
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Ya existe una caja con el código '{data.code}'")
+
+    register = models.CashRegister(
+        name=data.name,
+        code=data.code.upper(),
+        description=data.description,
+        is_active=True
+    )
+    db.add(register)
+    db.commit()
+    db.refresh(register)
+    return register
+
+
+@router.put("/registers/{register_id}", response_model=schemas.CashRegisterRead)
+def update_cash_register(
+    register_id: int,
+    data: schemas.CashRegisterUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Actualiza nombre, descripción o estado activo de una caja."""
+    register = db.query(models.CashRegister).filter(
+        models.CashRegister.id == register_id
+    ).first()
+    if not register:
+        raise HTTPException(status_code=404, detail="Caja no encontrada")
+
+    if data.name is not None:
+        register.name = data.name
+    if data.description is not None:
+        register.description = data.description
+    if data.is_active is not None:
+        register.is_active = data.is_active
+
+    db.commit()
+    db.refresh(register)
+    return register
+
+
+@router.get("/registers/status", response_model=List[dict])
+def get_registers_status(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Devuelve el estado de todas las cajas activas: si están OPEN o CLOSED
+    y quién las tiene abiertas. Útil para el selector de caja en apertura.
+    """
+    registers = db.query(models.CashRegister).filter(
+        models.CashRegister.is_active == True
+    ).order_by(models.CashRegister.id).all()
+
+    result = []
+    for reg in registers:
+        open_session = db.query(models.CashSession).filter(
+            models.CashSession.register_id == reg.id,
+            models.CashSession.status == "OPEN"
+        ).options(joinedload(models.CashSession.user)).first()
+
+        result.append({
+            "id": reg.id,
+            "name": reg.name,
+            "code": reg.code,
+            "description": reg.description,
+            "is_active": reg.is_active,
+            "session_status": "OPEN" if open_session else "CLOSED",
+            "session_id": open_session.id if open_session else None,
+            "opened_by": open_session.user.username if open_session and open_session.user else None,
+            "opened_at": open_session.start_time.isoformat() if open_session else None,
+        })
+    return result
+
 @router.post("/sessions/open", response_model=schemas.CashSessionRead)
 async def open_cash_session(
     initial_cash: schemas.CashSessionCreate, 
@@ -27,18 +126,39 @@ async def open_cash_session(
 ):
     print(f"💰 [CASH] Attempting to open session. User: {current_user.username}")
     print(f"   - Payload: {initial_cash}")
-    
-    # Check if there's ANY open session (global, not per-user)
+
+    # Resolve which register to open
+    if initial_cash.register_id:
+        register = db.query(models.CashRegister).filter(
+            models.CashRegister.id == initial_cash.register_id,
+            models.CashRegister.is_active == True
+        ).first()
+        if not register:
+            raise HTTPException(status_code=404, detail="Caja registradora no encontrada o inactiva")
+    else:
+        # Default to first active register (backward compat)
+        register = db.query(models.CashRegister).filter(
+            models.CashRegister.is_active == True
+        ).order_by(models.CashRegister.id).first()
+        if not register:
+            raise HTTPException(status_code=400, detail="No hay cajas configuradas. Crea una caja primero.")
+
+    # Check if this specific register already has an open session
     active_session = db.query(models.CashSession).filter(
+        models.CashSession.register_id == register.id,
         models.CashSession.status == "OPEN"
     ).first()
 
     if active_session:
-        raise HTTPException(status_code=400, detail="Ya hay una caja abierta en el sistema")
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{register.name}' ya está abierta (sesión #{active_session.id})"
+        )
 
     try:
         new_session = models.CashSession(
             user_id=current_user.id,
+            register_id=register.id,
             start_time=datetime.now(),
             initial_cash=initial_cash.initial_cash,
             initial_cash_bs=initial_cash.initial_cash_bs,
@@ -89,21 +209,32 @@ async def open_cash_session(
         response_model = {
              "id": captured_id,
              "user_id": current_user.id,
+             "register_id": register.id,
+             "register": {
+                 "id": register.id,
+                 "name": register.name,
+                 "code": register.code,
+                 "description": register.description,
+                 "is_active": register.is_active,
+                 "created_at": register.created_at
+             },
              "start_time": captured_start_time,
-             "end_time": None, # Required field, can be None
+             "end_time": None,
              "status": "OPEN",
              "initial_cash": initial_cash.initial_cash,
              "initial_cash_bs": initial_cash.initial_cash_bs,
              "final_cash_reported": None,
              "final_cash_reported_bs": None,
              "final_cash_expected": None,
-             "currencies": currencies_response 
+             "currencies": currencies_response
         }
-        
+
         # Broadcast cash session opened event
         try:
             await manager.broadcast("cash_session:opened", {
                 "session_id": captured_id,
+                "register_id": register.id,
+                "register_name": register.name,
                 "initial_cash": captured_initial_cash,
                 "initial_cash_bs": captured_initial_cash_bs,
                 "start_time": captured_start_time.isoformat()
@@ -147,20 +278,27 @@ async def open_cash_session(
 
 @router.get("/sessions/current", response_model=Optional[schemas.CashSessionRead])
 def get_current_session(
+    register_id: Optional[int] = Query(None, description="ID de la caja. Si se omite, retorna cualquier sesión abierta (compatibilidad)."),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    # Get ANY open session (global, not per-user)
-    print(f"💰 [DEBUG] Checking for OPEN session in DB...")
-    session = db.query(models.CashSession).filter(
-        models.CashSession.status == "OPEN"
-    ).first()
+    """
+    Retorna la sesión abierta.
+    - Si se pasa register_id: retorna la sesión abierta de ESA caja.
+    - Si no se pasa: retorna la primera sesión abierta (backward compat para mono-caja).
+    """
+    print(f"💰 [DEBUG] Checking for OPEN session. register_id={register_id}")
+    query = db.query(models.CashSession).filter(models.CashSession.status == "OPEN")
+
+    if register_id is not None:
+        query = query.filter(models.CashSession.register_id == register_id)
+
+    session = query.options(joinedload(models.CashSession.register)).first()
     print(f"💰 [DEBUG] Found session: {session.id if session else 'None'}")
 
     if not session:
-        # Return None (200 OK) instead of 404 to avoid frontend console errors
         return None
-    
+
     return session
 
 # ... (Previous code remains, skipping to close_cash_session)

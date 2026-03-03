@@ -5,6 +5,7 @@ from fastapi import HTTPException, BackgroundTasks
 from decimal import Decimal
 import requests
 from ..models import models
+from ..models.restaurant import RestaurantRecipe
 from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
@@ -82,9 +83,20 @@ class SalesService:
                     )
             
             # 0. Check for Open Cash Session (Enforce Business Logic)
-            open_session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
+            # If sale_data has a session_id hint (from multi-register frontend), use it directly.
+            # Otherwise fall back to "any open session" for backward compat.
+            open_session = None
+            if hasattr(sale_data, 'session_id') and sale_data.session_id:
+                open_session = db.query(models.CashSession).filter(
+                    models.CashSession.id == sale_data.session_id,
+                    models.CashSession.status == "OPEN"
+                ).first()
             if not open_session:
-                 raise HTTPException(status_code=400, detail="No hay una caja abierta. Debe abrir caja para realizar ventas.")
+                open_session = db.query(models.CashSession).filter(
+                    models.CashSession.status == "OPEN"
+                ).first()
+            if not open_session:
+                raise HTTPException(status_code=400, detail="No hay una caja abierta. Debe abrir caja para realizar ventas.")
 
             # 0.5. Determine Source Warehouse
             warehouse_id = sale_data.warehouse_id
@@ -163,12 +175,13 @@ class SalesService:
                 notes=sale_data.notes,
                 due_date=due_date,
                 balance_pending=balance_pending,
-                warehouse_id=warehouse_id, 
-                
+                warehouse_id=warehouse_id,
+                session_id=open_session.id,  # Link sale to its cash session
+
                 # Hybrid / Offline Logic
-                sync_status="PENDING", 
-                is_offline_sale=True, 
-                unique_uuid=str(uuid.uuid4()) 
+                sync_status="PENDING",
+                is_offline_sale=True,
+                unique_uuid=str(uuid.uuid4())
             )
             db.add(new_sale)
             db.flush() # Get ID
@@ -245,8 +258,6 @@ class SalesService:
                      factor = Decimal(str(item.conversion_factor)) if item.conversion_factor else Decimal("1.0")
                      effective_price = base_price * factor
                      
-                     print(f"[SECURITY] Overriding price for {product.name}. Frontend: {item.unit_price} -> DB: {base_price} x {factor} = {effective_price}")
-                     
                      # Update item object for subtotal calc below
                      item.unit_price = effective_price # Update for storage in SaleDetail
                      
@@ -266,8 +277,62 @@ class SalesService:
                 elif product.category and ('SERVICIO' in product.category.name.upper() or 'LAVANDERIA' in product.category.name.upper() or 'LAUNDRY' in product.category.name.upper()):
                      is_service = True
 
-                # NEW: COMBO LOGIC - Check if product is a combo
-                if product.is_combo:
+                # NEW: RECIPE LOGIC (ESCANDALLO) - Check if product has a restaurant recipe
+                recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product.id).all()
+                
+                if recipes:
+                    # It has a recipe! Deduct ingredients instead of the dish itself
+                    for recipe_item in recipes:
+                        ingredient = db.query(models.Product).filter(models.Product.id == recipe_item.ingredient_id).with_for_update().first()
+                        if not ingredient:
+                            continue
+                        
+                        qty_to_deduct = Decimal(str(item.quantity)) * Decimal(str(recipe_item.quantity))
+                        
+                        # Check and deduct from WAREHOUSE
+                        ing_stock = db.query(models.ProductStock).filter(
+                            models.ProductStock.product_id == ingredient.id,
+                            models.ProductStock.warehouse_id == warehouse_id
+                        ).first()
+                        
+                        if not ing_stock:
+                            ing_stock = models.ProductStock(product_id=ingredient.id, warehouse_id=warehouse_id, quantity=0)
+                            db.add(ing_stock)
+                        
+                        # Validate stock (ingredients usually MUST have stock)
+                        available_qty = ing_stock.quantity
+                        if available_qty < qty_to_deduct:
+                            wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Stock insuficiente para ingrediente '{ingredient.name}' en '{wh_name}'. Necesario: {qty_to_deduct}, Disponible: {available_qty}"
+                            )
+                        
+                        ing_stock.quantity -= qty_to_deduct
+                        ingredient.stock -= qty_to_deduct # Update legacy total
+                        
+                        # Register Kardex for Ingredient
+                        db.add(models.Kardex(
+                            product_id=ingredient.id,
+                            movement_type="SALE",
+                            quantity=-qty_to_deduct,
+                            balance_after=ingredient.stock,
+                            description=f"Venta via Receta: {product.name} (Venta #{new_sale_id})"
+                        ))
+                        
+                        # Collect info for ingredient update
+                        updated_products_info.append({
+                            "id": ingredient.id,
+                            "name": ingredient.name,
+                            "price": float(ingredient.price),
+                            "stock": float(ingredient.stock),
+                            "exchange_rate_id": ingredient.exchange_rate_id
+                        })
+                    
+                    # IMPORTANT: Once recipe is processed, we DO NOT deduct the dish itself 
+                    # as its "stock" is usually irrelevant in a restaurant.
+                    pass 
+                elif product.is_combo:
                      # COMBO: Deduct stock from child components in specific warehouse
                     if not product.combo_items:
                         raise HTTPException(

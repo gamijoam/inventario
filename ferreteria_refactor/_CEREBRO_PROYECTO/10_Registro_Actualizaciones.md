@@ -2,6 +2,19 @@
 
 Este documento actúa como la bitácora oficial de cambios de **Mi Inventario Fácil**, permitiendo una trazabilidad técnica de las mejoras, correcciones y refactorizaciones realizadas en el ecosistema.
 
+## [2026-03-03] - Soporte de Múltiples Cajas (Multi-Cash-Register)
+
+### 1. Sistema de Multicajas
+**Descripción**: Arquitectura completa para múltiples cajas simultáneas. Terminales físicas (`CashRegister`), validación por caja, vinculación de ventas a sesión, migración automática idempotente.
+
+- **Modelo**: `CashRegister` + FK `register_id` en `CashSession` + FK `session_id` en `Sale`.
+- **Constraint DB**: partial unique index `WHERE status='OPEN'` — 1 sesión por caja garantizada a nivel BD.
+- **Migración**: `migrate_multicaja.py` — auto-ejecuta en startup, seed "Caja Principal", backfill sesiones existentes.
+- **Endpoints**: `GET/POST/PUT /cash/registers`, `GET /cash/registers/status`.
+- **Frontend**: `CashOpeningModal` en 2 pasos (selector de caja → montos). `CashContext` expone registers.
+- **Rama**: `feature/multi-cash-register`
+- **Archivos**: `models.py`, `schemas/__init__.py`, `migrate_multicaja.py`, `main.py`, `cash.py`, `sales_service.py`, `CashContext.jsx`, `CashOpeningModal.jsx`.
+
 ## [2026-03-03] - Créditos en Dashboard y Correcciones de Integridad
 
 ### 1. Dashboard: Resumen Global de Créditos Pendientes
