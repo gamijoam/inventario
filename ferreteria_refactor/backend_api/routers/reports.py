@@ -450,7 +450,13 @@ def get_sales_summary(
     
     total_revenue = Decimal(0)
     total_revenue_bs = Decimal(0)
-    
+    # Ingresos reales cobrados (excluye créditos pendientes de pago)
+    collected_revenue = Decimal(0)
+    collected_revenue_bs = Decimal(0)
+    # Créditos emitidos pero no cobrados
+    pending_credit_revenue = Decimal(0)
+    pending_credit_revenue_bs = Decimal(0)
+
     for s in sales:
         # Robust Amount Casting
         amount = s.total_amount
@@ -458,37 +464,45 @@ def get_sales_summary(
             amount = Decimal(0)
         elif not isinstance(amount, Decimal):
             amount = Decimal(str(amount))
-            
-        total_revenue += amount
-        
+
         # Robust BS Calculation
         if s.total_amount_bs is not None:
             bs_amount = s.total_amount_bs
             if not isinstance(bs_amount, Decimal):
                 bs_amount = Decimal(str(bs_amount))
-            total_revenue_bs += bs_amount
         else:
             rate = s.exchange_rate_used
             if rate is None:
                 rate = Decimal("1.0")
             elif not isinstance(rate, Decimal):
                 rate = Decimal(str(rate))
-            
-            total_revenue_bs += (amount * rate)
-            
+            bs_amount = amount * rate
+
+        # Acumulados brutos (todas las ventas)
+        total_revenue += amount
+        total_revenue_bs += bs_amount
+
+        # Separar: cobrado vs crédito pendiente
+        if s.is_credit and not s.paid:
+            pending_credit_revenue += amount
+            pending_credit_revenue_bs += bs_amount
+        else:
+            collected_revenue += amount
+            collected_revenue_bs += bs_amount
+
     total_transactions = len(sales)
-    
+
     # Count by payment method
     cash_sales = Decimal(0)
     credit_sales = Decimal(0)
-    
+
     for s in sales:
         amount = s.total_amount
         if amount is None:
             amount = Decimal(0)
         elif not isinstance(amount, Decimal):
             amount = Decimal(str(amount))
-            
+
         if s.payment_method == "Efectivo":
             cash_sales += amount
         elif s.payment_method == "Credito":
@@ -533,30 +547,36 @@ def get_sales_summary(
     # Financial results
     gross_revenue = total_revenue
     gross_revenue_bs = total_revenue_bs
-    
-    # Net results (Revenue - Refunds)
+
+    # Net results (Revenue - Refunds) — incluye todas las ventas
     net_revenue = gross_revenue - total_refunded
     net_revenue_bs = gross_revenue_bs - total_refunded_bs
-    
+
+    # Collected net = solo dinero cobrado (excluye créditos pendientes) - devoluciones
+    collected_net = collected_revenue - total_refunded
+    collected_net_bs = collected_revenue_bs - total_refunded_bs
+
     # Net items (Items Sold - Items Returned)
     net_items_sold = total_items - total_returned_items
-    
+
     # Net Transactions (Sales Count - Returns Count)
     net_transactions = total_transactions - len(returns)
 
     avg_ticket = gross_revenue / total_transactions if total_transactions > 0 else Decimal(0)
-    
+
     return {
-        "total_revenue": float(net_revenue), # Net (User Preferred)
-        "total_revenue_bs": float(net_revenue_bs),
-        "gross_revenue": float(gross_revenue), 
+        "total_revenue": float(collected_net),  # Ingresos reales cobrados (sin créditos pendientes)
+        "total_revenue_bs": float(collected_net_bs),
+        "gross_revenue": float(gross_revenue),  # Bruto (todas las ventas)
         "gross_revenue_bs": float(gross_revenue_bs),
-        "total_ves": float(net_revenue_bs), 
-        "total_transactions": total_transactions, # Gross count
-        "net_transactions": net_transactions, # Net count (User Preferred)
+        "total_ves": float(collected_net_bs),
+        "total_transactions": total_transactions,
+        "net_transactions": net_transactions,
         "cash_sales": float(cash_sales),
         "credit_sales": float(credit_sales),
-        "total_items_sold": float(net_items_sold), # Net Items (User Preferred)
+        "pending_credit": float(pending_credit_revenue),  # Créditos aún no cobrados
+        "pending_credit_bs": float(pending_credit_revenue_bs),
+        "total_items_sold": float(net_items_sold),
         "gross_items_sold": float(total_items),
         "total_returned_items": float(total_returned_items),
         "total_refunded": float(total_refunded),
@@ -720,8 +740,12 @@ def get_customer_debt_report(db: Session = Depends(get_db)):
 
 @router.get("/low-stock")
 def get_low_stock_products(threshold: int = 5, db: Session = Depends(get_db)):
-    """Products with stock <= threshold"""
-    products = db.query(models.Product).filter(models.Product.stock <= threshold).all()
+    """Products with stock <= threshold (excludes services that don't track inventory)"""
+    products = db.query(models.Product).filter(
+        models.Product.stock <= threshold,
+        models.Product.is_service == False,
+        models.Product.is_active == True
+    ).all()
     return products
 
 @router.get("/inventory-valuation")
