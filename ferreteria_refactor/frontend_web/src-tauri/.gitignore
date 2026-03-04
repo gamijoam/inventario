@@ -1,0 +1,5 @@
+# Rust build output — puede pesar GB, no va al repo
+target/
+
+# Tauri generated binaries
+gen/

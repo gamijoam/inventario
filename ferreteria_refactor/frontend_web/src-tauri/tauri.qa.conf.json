@@ -1,0 +1,14 @@
+{
+  "productName": "Invensoft QA",
+  "identifier": "com.miinventariofacil.invensoft.qa",
+  "build": {
+    "beforeBuildCommand": "npm run build:qa"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Invensoft QA — Mi Inventario Fácil"
+      }
+    ]
+  }
+}
