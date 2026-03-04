@@ -51,12 +51,14 @@ def create_cash_register(
         name=data.name,
         code=data.code.upper(),
         description=data.description,
-        is_active=True
+        is_active=True,
+        hardware_client_id=data.hardware_client_id or None
     )
     db.add(register)
     db.commit()
-    # Re-query instead of refresh to avoid search_path loss in multi-tenant
-    return db.query(models.CashRegister).filter(models.CashRegister.code == data.code.upper()).first()
+    # expire_on_commit=False (see db.py) → register keeps all attributes after commit;
+    # return it directly to avoid any search_path / re-query race in multi-tenant.
+    return register
 
 
 @router.put("/registers/{register_id}", response_model=schemas.CashRegisterRead)
@@ -77,6 +79,8 @@ def update_cash_register(
         register.name = data.name
     if data.description is not None:
         register.description = data.description
+    if data.hardware_client_id is not None:
+        register.hardware_client_id = data.hardware_client_id or None
     if data.is_active is not None:
         if data.is_active is False:
             open_session = db.query(models.CashSession).filter(
@@ -91,8 +95,8 @@ def update_cash_register(
         register.is_active = data.is_active
 
     db.commit()
-    # Re-query instead of refresh to avoid search_path loss in multi-tenant
-    return db.query(models.CashRegister).filter(models.CashRegister.id == register_id).first()
+    # expire_on_commit=False (see db.py) → register keeps all updated attributes after commit
+    return register
 
 
 @router.get("/registers/status", response_model=List[dict])
