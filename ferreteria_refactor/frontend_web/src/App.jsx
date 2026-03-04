@@ -8,6 +8,12 @@ import ResetPassword from './pages/ResetPassword';
 import Unauthorized from './pages/Unauthorized';
 // NEW: Mobile Welcome Screen
 import MobileWelcome from './pages/MobileWelcome';
+// Desktop Setup Screen (Tauri)
+import DesktopSetup from './pages/DesktopSetup';
+
+// Detectar si la app corre dentro de Tauri (escritorio)
+// window.__TAURI_INTERNALS__ es inyectado por Tauri en todos sus contextos
+const IS_TAURI = typeof window !== 'undefined' && typeof window.__TAURI_INTERNALS__ !== 'undefined';
 
 import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
@@ -127,6 +133,21 @@ function App() {
           // Valid config or already at welcome screen
           setIsReady(true);
         }
+      } else if (IS_TAURI) {
+        // ── TAURI DESKTOP ──────────────────────────────────────
+        // El app de escritorio necesita saber a qué tenant conectarse.
+        // Si no hay selected_tenant en localStorage, mostrar setup.
+        const tenantSlug  = localStorage.getItem('selected_tenant');
+        const currentHash = window.location.hash;
+
+        if (!tenantSlug && !currentHash.includes('desktop-setup')) {
+          console.log('🖥️ Tauri: No tenant configured. Redirecting to desktop setup...');
+          window.location.replace('/#/desktop-setup');
+          setIsReady(true);
+          return;
+        }
+
+        setIsReady(true);
       } else {
         // Web always ready
         setIsReady(true);
@@ -165,8 +186,11 @@ function App() {
                           <Route path="/forgot-password" element={<ForgotPassword />} />
                           <Route path="/reset-password" element={<ResetPassword />} />
 
-                          {/* NEW: Mobile Welcome (Tenant Setup) */}
+                          {/* Mobile Welcome (Tenant Setup — Capacitor) */}
                           <Route path="/mobile-welcome" element={<MobileWelcome />} />
+
+                          {/* Desktop Setup (Tenant Setup — Tauri) */}
+                          <Route path="/desktop-setup" element={<DesktopSetup />} />
 
                           {/* Mobile Waiter Routes */}
                           <Route path="/mobile/login" element={<WaiterLogin />} />
