@@ -55,8 +55,8 @@ def create_cash_register(
     )
     db.add(register)
     db.commit()
-    db.refresh(register)
-    return register
+    # Re-query instead of refresh to avoid search_path loss in multi-tenant
+    return db.query(models.CashRegister).filter(models.CashRegister.code == data.code.upper()).first()
 
 
 @router.put("/registers/{register_id}", response_model=schemas.CashRegisterRead)
@@ -81,8 +81,8 @@ def update_cash_register(
         register.is_active = data.is_active
 
     db.commit()
-    db.refresh(register)
-    return register
+    # Re-query instead of refresh to avoid search_path loss in multi-tenant
+    return db.query(models.CashRegister).filter(models.CashRegister.id == register_id).first()
 
 
 @router.get("/registers/status", response_model=List[dict])
