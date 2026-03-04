@@ -57,13 +57,16 @@ export default function Header() {
                             ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                             : "bg-rose-50 border-rose-200 text-rose-700"
                     )}
-                        title={isSessionOpen ? `Turno Iniciado: ${session?.opened_at ? new Date(session.opened_at).toLocaleTimeString() : ''}` : "La caja registradora está cerrada"}
+                        title={isSessionOpen ? `Turno Iniciado: ${session?.start_time ? new Date(session.start_time).toLocaleTimeString() : ''}${session?.register ? ` · ${session.register.code}` : ''}` : "La caja registradora está cerrada"}
                     >
                         <div className={cn(
                             "w-2 h-2 rounded-full",
                             isSessionOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500"
                         )}></div>
-                        {isSessionOpen ? "Caja Abierta" : "Caja Cerrada"}
+                        {isSessionOpen
+                            ? `${session?.register?.code ? `${session.register.code} · ` : ''}Abierta`
+                            : "Caja Cerrada"
+                        }
                     </div>
 
                     <Link to="/pos" className="hidden md:flex items-center gap-2 px-3 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0">

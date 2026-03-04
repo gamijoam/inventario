@@ -288,22 +288,27 @@ async def open_cash_session(
 
 @router.get("/sessions/current", response_model=Optional[schemas.CashSessionRead])
 def get_current_session(
-    register_id: Optional[int] = Query(None, description="ID de la caja. Si se omite, retorna cualquier sesión abierta (compatibilidad)."),
+    register_id: Optional[int] = Query(None, description="ID de la caja. Si se omite retorna la sesión del usuario actual."),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """
-    Retorna la sesión abierta.
-    - Si se pasa register_id: retorna la sesión abierta de ESA caja.
-    - Si no se pasa: retorna la primera sesión abierta (backward compat para mono-caja).
+    Retorna la sesión abierta del usuario autenticado.
+    Multi-caja: cada cajero solo ve SU propia sesión, no la de otros usuarios.
     """
-    print(f"💰 [DEBUG] Checking for OPEN session. register_id={register_id}")
-    query = db.query(models.CashSession).filter(models.CashSession.status == "OPEN")
+    print(f"💰 [DEBUG] Checking for OPEN session. user={current_user.username}, register_id={register_id}")
+    query = db.query(models.CashSession).filter(
+        models.CashSession.status == "OPEN",
+        models.CashSession.user_id == current_user.id  # Solo la sesión de ESTE usuario
+    )
 
     if register_id is not None:
         query = query.filter(models.CashSession.register_id == register_id)
 
-    session = query.options(joinedload(models.CashSession.register)).first()
+    session = query.options(
+        joinedload(models.CashSession.register),
+        joinedload(models.CashSession.currencies),
+    ).first()
     print(f"💰 [DEBUG] Found session: {session.id if session else 'None'}")
 
     if not session:

@@ -674,9 +674,11 @@ class CashSessionRead(BaseModel):
     final_cash_reported_bs: Optional[Decimal]
     final_cash_expected: Optional[Decimal]
     status: str
+    user_id: Optional[int] = None      # Who opened this session
     register_id: Optional[int] = None
     register: Optional[CashRegisterRead] = None
-    user: Optional['UserRead'] = None  # Include user details
+    # NOTE: 'user' removed — forward-ref to UserRead caused 500 on ORM serialization.
+    # Use user_id + a separate query if needed.
     movements: List[CashMovementRead] = []
     currencies: List[CashSessionCurrencyRead] = []
 
