@@ -2,6 +2,7 @@
   "productName": "Invensoft QA",
   "identifier": "com.miinventariofacil.invensoft.qa",
   "build": {
+    "beforeDevCommand": "npm run dev -- --mode qa",
     "beforeBuildCommand": "npm run build:qa"
   },
   "app": {

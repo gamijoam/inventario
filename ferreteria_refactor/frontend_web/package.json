@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
+    "tauri:dev:qa": "tauri dev --config src-tauri/tauri.qa.conf.json",
     "tauri:build": "tauri build",
     "tauri:build:qa": "tauri build --config src-tauri/tauri.qa.conf.json",
     "tauri:icon": "tauri icon"
