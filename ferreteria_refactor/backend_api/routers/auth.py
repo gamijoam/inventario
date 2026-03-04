@@ -249,6 +249,13 @@ async def login_for_access_token(
     if tenant_slug and tenant_slug != "public":
         tenant = db.query(Tenant).filter(Tenant.schema_name == tenant_slug).first()
         if tenant:
+            # ❌ BLOQUEO: Empresa suspendida/desactivada
+            if not tenant.is_active:
+                print(f"🔒 [AUTH] Blocked: Tenant '{tenant.schema_name}' is INACTIVE")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Esta empresa está suspendida. Contacta a soporte para renovar tu suscripción."
+                )
             current_tenant_id = tenant.id
             print(f"🔐 [AUTH] Context: Tenant '{tenant.name}' (ID: {tenant.id})")
         else:
