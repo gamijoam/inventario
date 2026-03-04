@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Edit2, Power, MonitorCheck, MonitorOff,
-    RefreshCw, Clock, User, Hash, CheckCircle2, XCircle
+    RefreshCw, Clock, User, Hash, CheckCircle2, XCircle, AlertTriangle
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -25,7 +25,7 @@ const StatusBadge = ({ status }) => {
 };
 
 // ─── Register Card ────────────────────────────────────────────────────────────
-const RegisterCard = ({ register, onEdit, onToggle }) => {
+const RegisterCard = ({ register, onEdit, onToggle, onForceClose }) => {
     const isOpen = register.session_status === 'OPEN';
 
     const formatTime = (isoStr) => {
@@ -81,40 +81,55 @@ const RegisterCard = ({ register, onEdit, onToggle }) => {
             </div>
 
             {/* Actions */}
-            {!register.isDefault && (
-                <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-700">
-                    <button
-                        onClick={() => onEdit(register)}
-                        disabled={isOpen}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400
-                                   hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
-                                   rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={isOpen ? 'Cierra la caja antes de editar' : 'Editar'}
-                    >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Editar
-                    </button>
-                    <button
-                        onClick={() => onToggle(register)}
-                        disabled={isOpen}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors
-                                    disabled:opacity-40 disabled:cursor-not-allowed ${
-                            register.is_active
-                                ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                                : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
-                        }`}
-                        title={isOpen ? 'Cierra la caja antes de desactivar' : (register.is_active ? 'Desactivar' : 'Activar')}
-                    >
-                        <Power className="w-3.5 h-3.5" />
-                        {register.is_active ? 'Desactivar' : 'Activar'}
-                    </button>
+            <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-2 flex-wrap">
+                    {!register.isDefault && (
+                        <>
+                            <button
+                                onClick={() => onEdit(register)}
+                                disabled={isOpen}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400
+                                           hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20
+                                           rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={isOpen ? 'Cierra la caja antes de editar' : 'Editar'}
+                            >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                Editar
+                            </button>
+                            <button
+                                onClick={() => onToggle(register)}
+                                disabled={isOpen}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors
+                                            disabled:opacity-40 disabled:cursor-not-allowed ${
+                                    register.is_active
+                                        ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                                        : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                                }`}
+                                title={isOpen ? 'Cierra la caja antes de desactivar' : (register.is_active ? 'Desactivar' : 'Activar')}
+                            >
+                                <Power className="w-3.5 h-3.5" />
+                                {register.is_active ? 'Desactivar' : 'Activar'}
+                            </button>
+                        </>
+                    )}
+                    {register.isDefault && !isOpen && (
+                        <span className="text-xs text-gray-400 dark:text-gray-500 italic">Caja principal del sistema</span>
+                    )}
+                    {/* Force-close button: shown when OPEN (admin safety valve for orphaned sessions) */}
+                    {isOpen && (
+                        <button
+                            onClick={() => onForceClose(register)}
+                            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium
+                                       text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20
+                                       rounded-lg transition-colors"
+                            title="Forzar cierre de sesión bloqueada (solo admin)"
+                        >
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Forzar cierre
+                        </button>
+                    )}
                 </div>
-            )}
-            {register.isDefault && (
-                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700">
-                    <span className="text-xs text-gray-400 dark:text-gray-500 italic">Caja principal del sistema</span>
-                </div>
-            )}
+            </div>
         </div>
     );
 };
@@ -331,6 +346,23 @@ const CashRegistersPage = () => {
         }
     };
 
+    const handleForceClose = async (register) => {
+        const openedBy = register.opened_by ? `abierta por: ${register.opened_by}` : 'sin usuario activo';
+        if (!window.confirm(
+            `⚠️ Forzar cierre de sesión en "${register.name}"?\n\n` +
+            `Sesión ${openedBy}.\n\n` +
+            `Usar solo si la sesión está bloqueada sin cajero activo.\n` +
+            `El cajero deberá abrir una nueva sesión cuando regrese.`
+        )) return;
+        try {
+            await apiClient.post(`/cash/registers/${register.id}/force-close-session`);
+            toast.success(`✅ Sesión de ${register.name} liberada`);
+            fetchRegisters(true);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al forzar cierre');
+        }
+    };
+
     const openSessions = registers.filter(r => r.session_status === 'OPEN').length;
     const totalActive = registers.filter(r => r.is_active).length;
 
@@ -427,6 +459,7 @@ const CashRegistersPage = () => {
                             register={register}
                             onEdit={(r) => { setEditing(r); setModalOpen(true); }}
                             onToggle={handleToggleActive}
+                            onForceClose={handleForceClose}
                         />
                     ))}
                 </div>
@@ -440,6 +473,7 @@ const CashRegistersPage = () => {
                     <li>Al abrir caja desde el POS, el sistema mostrará un selector de caja disponible.</li>
                     <li>No se puede editar ni desactivar una caja que tenga una sesión abierta.</li>
                     <li>La "Caja Principal" (C01) es creada automáticamente y no puede eliminarse.</li>
+                    <li>Si una caja queda bloqueada sin cajero activo, usa <strong>Forzar cierre</strong> para liberarla (solo admins).</li>
                 </ul>
             </div>
 

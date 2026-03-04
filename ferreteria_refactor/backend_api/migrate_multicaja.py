@@ -115,6 +115,28 @@ def migrate_multicaja(db_engine=None):
                 print(f"   ⚠️  Error adding register_id to cash_sessions in {schema}: {e}")
 
             # ----------------------------------------------------------------
+            # 3.5. Close legacy OPEN sessions that have no register_id yet
+            #      These were opened before multi-register support was added.
+            #      If we backfill them to C01 while OPEN they block Caja 1.
+            #      Idempotent: only affects sessions with register_id IS NULL.
+            # ----------------------------------------------------------------
+            try:
+                result = conn.execute(text(f"""
+                    UPDATE "{schema}".cash_sessions
+                    SET status = 'CLOSED', end_time = NOW()
+                    WHERE status = 'OPEN'
+                    AND register_id IS NULL
+                """))
+                closed = result.rowcount
+                if closed > 0:
+                    print(f"   🔒 Closed {closed} legacy OPEN session(s) (no register_id) in {schema}")
+                    print(f"      ℹ️  Cashiers must re-open their sessions after this upgrade.")
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                print(f"   ⚠️  Error closing legacy sessions in {schema}: {e}")
+
+            # ----------------------------------------------------------------
             # 4. Backfill: existing sessions → default register (id=1)
             # ----------------------------------------------------------------
             try:

@@ -99,6 +99,40 @@ def update_cash_register(
     return register
 
 
+@router.post("/registers/{register_id}/force-close-session")
+def force_close_register_session(
+    register_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Admin: Force-close an orphaned OPEN session on a register.
+    Use when a session is stuck (e.g. after a server restart or migration).
+    """
+    if current_user.role not in ["ADMIN"] and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="Solo administradores pueden forzar el cierre de sesiones")
+
+    register = db.query(models.CashRegister).filter(
+        models.CashRegister.id == register_id
+    ).first()
+    if not register:
+        raise HTTPException(status_code=404, detail="Caja no encontrada")
+
+    open_session = db.query(models.CashSession).filter(
+        models.CashSession.register_id == register_id,
+        models.CashSession.status == "OPEN"
+    ).first()
+
+    if not open_session:
+        raise HTTPException(status_code=404, detail="No hay sesión abierta en esta caja")
+
+    open_session.status = "CLOSED"
+    open_session.end_time = datetime.now()
+    db.commit()
+
+    return {"detail": f"Sesión #{open_session.id} de '{register.name}' cerrada forzosamente."}
+
+
 @router.get("/registers/status", response_model=List[dict])
 def get_registers_status(
     db: Session = Depends(get_db),
