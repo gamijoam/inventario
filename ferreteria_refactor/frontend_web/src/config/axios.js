@@ -135,7 +135,12 @@ apiClient.interceptors.response.use(
             // Silently log the error without showing toast
             console.warn('⚠️ 403 Forbidden:', error.config.url);
         } else if (!status) {
-            // Network Error
+            // Network Error — always log which URL is failing so we can diagnose
+            console.error(
+                `🌐 [Network Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+                `| code: ${error.code || 'N/A'}`,
+                `| silent: ${!!error.config?._silentNetworkError}`
+            );
             // Skip toast if the caller opted out (e.g. CashContext has its own retry/error logic)
             if (!error.config?._silentNetworkError) {
                 const now = Date.now();

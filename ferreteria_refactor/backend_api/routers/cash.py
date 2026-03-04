@@ -172,8 +172,8 @@ async def open_cash_session(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
-    print(f"💰 [CASH] Attempting to open session. User: {current_user.username}")
-    print(f"   - Payload: {initial_cash}")
+    print(f"💰 [CASH] POST /sessions/open - User: {current_user.username} (id={current_user.id})")
+    print(f"   - Payload: register_id={initial_cash.register_id}, initial_cash={initial_cash.initial_cash}, currencies={[c.currency_symbol for c in initial_cash.currencies]}")
 
     # Resolve which register to open
     if initial_cash.register_id:
@@ -182,6 +182,7 @@ async def open_cash_session(
             models.CashRegister.is_active == True
         ).first()
         if not register:
+            print(f"❌ [CASH] Register id={initial_cash.register_id} not found or inactive")
             raise HTTPException(status_code=404, detail="Caja registradora no encontrada o inactiva")
     else:
         # Default to first active register (backward compat)
@@ -189,7 +190,10 @@ async def open_cash_session(
             models.CashRegister.is_active == True
         ).order_by(models.CashRegister.id).first()
         if not register:
+            print(f"❌ [CASH] No active registers found in tenant")
             raise HTTPException(status_code=400, detail="No hay cajas configuradas. Crea una caja primero.")
+
+    print(f"   - Register resolved: id={register.id}, name='{register.name}', hw_client='{register.hardware_client_id}'")
 
     # Check if this specific register already has an open session
     active_session = db.query(models.CashSession).filter(
@@ -198,10 +202,12 @@ async def open_cash_session(
     ).first()
 
     if active_session:
+        print(f"⚠️ [CASH] Register '{register.name}' already has OPEN session #{active_session.id}")
         raise HTTPException(
             status_code=400,
             detail=f"'{register.name}' ya está abierta (sesión #{active_session.id})"
         )
+    print(f"   - Register is FREE to open ✅")
 
     try:
         new_session = models.CashSession(
@@ -215,10 +221,11 @@ async def open_cash_session(
         db.add(new_session)
         # FLUSH ONLY: This triggers ID generation but keeps the transaction OPEN
         # This keeps us within the same atomic block and search_path context.
+        print(f"   - Flushing new session to DB...")
         db.flush()
-        
+
         new_session_id = new_session.id
-        print(f"💰 Session Created with ID: {new_session_id}")
+        print(f"💰 [CASH] Session flushed with ID: {new_session_id}")
         
         # Initialize currencies
         currencies_response = []
@@ -250,8 +257,12 @@ async def open_cash_session(
         captured_initial_cash_bs = float(new_session.initial_cash_bs or 0)
         
         # Final Commit
+        print(f"   - Committing session #{new_session_id} with {len(currencies_response)} currencies...")
         db.commit()
+        print(f"✅ [CASH] Commit OK for session #{new_session_id}")
         
+        print(f"💰 [CASH] Commit OK. Rebuilding response for session #{captured_id}...")
+
         # Manually reconstruct the object for return using CAPTURED variables
         # Must match schemas.CashSessionRead STRICTLY
         response_model = {
@@ -264,7 +275,8 @@ async def open_cash_session(
                  "code": register.code,
                  "description": register.description,
                  "is_active": register.is_active,
-                 "created_at": register.created_at
+                 "created_at": register.created_at,
+                 "hardware_client_id": register.hardware_client_id  # Required by CashRegisterRead schema
              },
              "start_time": captured_start_time,
              "end_time": None,
@@ -276,6 +288,7 @@ async def open_cash_session(
              "final_cash_expected": None,
              "currencies": currencies_response
         }
+        print(f"💰 [CASH] Response dict ready. register.hardware_client_id={register.hardware_client_id!r}")
 
         # Broadcast cash session opened event
         try:
@@ -294,9 +307,10 @@ async def open_cash_session(
     
     except Exception as e:
         import traceback
-        print(f"🔥 CRASH OPENING SESSION: {e}")
+        print(f"🔥 [CASH] CRASH OPENING SESSION for user={current_user.username}: {type(e).__name__}: {e}")
         traceback.print_exc()
         db.rollback()
+        print(f"   - DB rollback done after crash")
         # Clean up the session we just created to avoid zombie OPEN sessions
         try:
             if new_session and new_session.id:
