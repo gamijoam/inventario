@@ -2,6 +2,32 @@
 
 Este documento actúa como la bitácora oficial de cambios de **Mi Inventario Fácil**, permitiendo una trazabilidad técnica de las mejoras, correcciones y refactorizaciones realizadas en el ecosistema.
 
+## [2026-03-03] - Visibilidad de Cajas en Toda la Plataforma
+
+### Fix: Bug `db.refresh()` en CashRegister endpoints (multi-tenant)
+- `POST /cash/registers` y `PUT /cash/registers/{id}` fallaban con `InvalidRequestError` al hacer `db.refresh()` después del commit porque SQLAlchemy pierde el `search_path` del tenant. Corregido usando re-query por ID/code.
+
+### Reporte Z (cierre de caja)
+- `sales_service.generate_z_report_payload()` ahora carga el `register` con joinedload
+- El contexto incluye `session.register_name` y `session.register_code`
+- El template imprime: `Caja: C01 - Caja Principal` justo después de `Sesion:`
+
+### Historial de Caja (`GET /cash/sessions/history`)
+- Endpoint ahora hace `joinedload(CashSession.register)`
+- Respuesta incluye campo `register: {id, name, code}` por sesión
+- `CashHistory.jsx` muestra badge azul con código de caja y nombre de registro en cada sesión
+
+### Historial de Ventas (`GET /returns/sales/search`)
+- Endpoint hace joinedload de `Sale → cash_session → user` y `Sale → cash_session → register`
+- Respuesta enriquecida con `cashier_name`, `register_name`, `register_code` por venta
+- `SalesHistory.jsx` muestra columna **Cajero / Caja** con nombre del cajero y badge de caja
+
+### Cotizaciones: rastrear usuario creador
+- Modelo `Quote` recibe campo `user_id` (FK nullable a `public.users`)
+- `migrate_multicaja.py` paso 7: `ALTER TABLE quotes ADD COLUMN user_id IF NOT EXISTS`
+- `quotes.py` router ahora requiere autenticación y guarda `current_user.id` al crear
+- `QuoteRead` schema incluye `user_id: Optional[int]`
+
 ## [2026-03-03] - Página de Gestión de Cajas + Fix Tenant Seed
 
 ### Nuevo: `CashRegistersPage.jsx`

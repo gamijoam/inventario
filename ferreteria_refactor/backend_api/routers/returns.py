@@ -12,7 +12,7 @@ router = APIRouter(
     tags=["returns"]
 )
 
-@router.get("/sales/search", response_model=List[schemas.SaleRead])
+@router.get("/sales/search")
 def search_sales(
     q: Optional[str] = None,
     limit: int = 100,
@@ -27,7 +27,9 @@ def search_sales(
         query = db.query(models.Sale).options(
             joinedload(models.Sale.customer),
             joinedload(models.Sale.payments),
-            joinedload(models.Sale.returns)
+            joinedload(models.Sale.returns),
+            joinedload(models.Sale.cash_session).joinedload(models.CashSession.user),
+            joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
         )
         
         # Text Search
@@ -62,7 +64,23 @@ def search_sales(
             query = query.filter(models.Sale.date <= end_dt)
         
         results = query.order_by(models.Sale.date.desc()).limit(limit).all()
-        return results
+
+        # Build enriched response with cashier + register info
+        output = []
+        for sale in results:
+            sale_dict = schemas.SaleRead.from_orm(sale).dict()
+            sale_dict["cashier_name"] = None
+            sale_dict["register_name"] = None
+            sale_dict["register_code"] = None
+            if sale.cash_session:
+                sale_dict["cashier_name"] = (
+                    sale.cash_session.user.full_name or sale.cash_session.user.username
+                ) if sale.cash_session.user else None
+                if sale.cash_session.register:
+                    sale_dict["register_name"] = sale.cash_session.register.name
+                    sale_dict["register_code"] = sale.cash_session.register.code
+            output.append(sale_dict)
+        return output
     except Exception as e:
         import traceback
         trace = traceback.format_exc()

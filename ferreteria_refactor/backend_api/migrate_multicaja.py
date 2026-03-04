@@ -185,6 +185,27 @@ def migrate_multicaja(db_engine=None):
                 conn.rollback()
                 print(f"   ⚠️  Error adding session_id to sales in {schema}: {e}")
 
+            # ----------------------------------------------------------------
+            # 7. Add user_id to quotes (track who created each quote)
+            # ----------------------------------------------------------------
+            try:
+                cols = inspector.get_columns('quotes', schema=schema)
+                col_names = [c['name'] for c in cols]
+
+                if 'user_id' not in col_names:
+                    print(f"   ➕ Adding user_id to {schema}.quotes")
+                    conn.execute(text(f"""
+                        ALTER TABLE "{schema}".quotes
+                        ADD COLUMN user_id INTEGER
+                        REFERENCES public.users(id)
+                    """))
+                    conn.commit()
+                else:
+                    print(f"   ✅ user_id already in {schema}.quotes")
+            except Exception as e:
+                conn.rollback()
+                print(f"   ⚠️  Error adding user_id to quotes in {schema}: {e}")
+
     print("\n🎉 Multicaja Migration Completed!")
 
 

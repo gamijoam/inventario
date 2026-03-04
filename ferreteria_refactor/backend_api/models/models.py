@@ -689,12 +689,14 @@ class Quote(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
     date = Column(DateTime, default=get_venezuela_now)
     total_amount = Column(Numeric(18, 4), nullable=False)
     status = Column(String, default="PENDING")  # PENDING, CONVERTED, EXPIRED
     notes = Column(Text, nullable=True)
 
     customer = relationship("Customer")
+    user = relationship("User", foreign_keys=[user_id])
     details = relationship("QuoteDetail", back_populates="quote")
 
     def __repr__(self):

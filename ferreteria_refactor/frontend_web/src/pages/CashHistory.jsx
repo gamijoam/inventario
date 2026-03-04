@@ -322,9 +322,19 @@ const CashHistory = () => {
                                                 <span className={clsx("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider", isClosed ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
                                                     {isClosed ? 'Cerrada' : 'Abierta'}
                                                 </span>
+                                                {session.register && (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-wider">
+                                                        {session.register.code}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-4 text-xs font-medium text-slate-500">
                                                 <span className="flex items-center gap-1"><User size={12} /> {session.user?.full_name || session.user?.username}</span>
+                                                {session.register && (
+                                                    <span className="flex items-center gap-1 text-blue-600">
+                                                        <FileText size={12} /> {session.register.name}
+                                                    </span>
+                                                )}
                                                 <span className="flex items-center gap-1"><Clock size={12} /> {formatDate(session.opened_at || session.start_time)}</span>
                                             </div>
                                         </div>

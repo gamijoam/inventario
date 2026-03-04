@@ -556,6 +556,7 @@ class QuoteRead(BaseModel):
     id: int
     date: datetime
     customer_id: Optional[int]
+    user_id: Optional[int] = None
     total_amount: Decimal
     status: str = "PENDING"
     notes: Optional[str]

@@ -385,6 +385,7 @@ const SalesHistory = () => {
                             <TableHead className="w-[100px] font-bold text-slate-500 uppercase text-xs tracking-wider">Folio</TableHead>
                             <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider">Fecha</TableHead>
                             <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider">Cliente</TableHead>
+                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider">Cajero / Caja</TableHead>
                             <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider text-right">Total</TableHead>
                             <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider text-center">Estado</TableHead>
                             <TableHead className="w-[50px]"></TableHead>
@@ -393,13 +394,13 @@ const SalesHistory = () => {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-32 text-center text-slate-400 font-medium animate-pulse">
+                                <TableCell colSpan={7} className="h-32 text-center text-slate-400 font-medium animate-pulse">
                                     Cargando datos...
                                 </TableCell>
                             </TableRow>
                         ) : filteredSales.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-32 text-center text-slate-400 font-medium">
+                                <TableCell colSpan={7} className="h-32 text-center text-slate-400 font-medium">
                                     No se encontraron ventas
                                 </TableCell>
                             </TableRow>
@@ -432,6 +433,20 @@ const SalesHistory = () => {
                                                     </span>
                                                 )}
                                             </div>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-col gap-0.5">
+                                            {sale.cashier_name ? (
+                                                <span className="text-xs font-semibold text-slate-700">{sale.cashier_name}</span>
+                                            ) : (
+                                                <span className="text-xs text-slate-400">—</span>
+                                            )}
+                                            {sale.register_name && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded w-fit">
+                                                    {sale.register_code} · {sale.register_name}
+                                                </span>
+                                            )}
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right">

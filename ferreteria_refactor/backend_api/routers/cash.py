@@ -457,7 +457,8 @@ def get_sessions_history(
     
     query = db.query(models.CashSession).options(
         joinedload(models.CashSession.currencies),
-        joinedload(models.CashSession.user)
+        joinedload(models.CashSession.user),
+        joinedload(models.CashSession.register)
     )
     
     # Apply date filters if provided
@@ -515,6 +516,11 @@ def get_sessions_history(
                 "username": session.user.username,
                 "full_name": session.user.full_name
             } if session.user else None,
+            "register": {
+                "id": session.register.id,
+                "name": session.register.name,
+                "code": session.register.code
+            } if session.register else None,
             "currencies": [
                 {
                     "id": curr.id,

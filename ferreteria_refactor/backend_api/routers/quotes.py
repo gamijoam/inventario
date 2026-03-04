@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from sqlalchemy.orm import joinedload
 from ..template_presets import get_quote_58_template, get_quote_80_template
+from ..dependencies import get_current_active_user
 
 router = APIRouter(
     prefix="/quotes",
@@ -13,10 +14,15 @@ router = APIRouter(
 )
 
 @router.post("", response_model=schemas.QuoteRead)
-def create_quote(quote_data: schemas.QuoteCreate, db: Session = Depends(get_db)):
+def create_quote(
+    quote_data: schemas.QuoteCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     # Create Header
     new_quote = models.Quote(
         customer_id=quote_data.customer_id,
+        user_id=current_user.id,
         total_amount=quote_data.total_amount,
         notes=quote_data.notes
     )
@@ -42,11 +48,11 @@ def create_quote(quote_data: schemas.QuoteCreate, db: Session = Depends(get_db))
     response_data = {
         "id": new_quote.id,
         "customer_id": new_quote.customer_id,
+        "user_id": new_quote.user_id,
         "total_amount": new_quote.total_amount,
         "notes": new_quote.notes,
         "date": new_quote.date,
         "status": new_quote.status
-        # Note: QuoteRead usually just Header info. If details are needed, they are usually separate.
     }
     
     return response_data

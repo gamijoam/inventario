@@ -828,8 +828,12 @@ class SalesService:
         """
         Generates Z Report (Corte de Caja) Payload
         """
-        # Fetch Session with loaded relationships
-        session = db.query(models.CashSession).filter(models.CashSession.id == session_id).first()
+        # Fetch Session with loaded relationships (including register for Z-Report)
+        from sqlalchemy.orm import joinedload as _jl
+        session = db.query(models.CashSession).options(
+            _jl(models.CashSession.user),
+            _jl(models.CashSession.register)
+        ).filter(models.CashSession.id == session_id).first()
         
         if not session:
             return None
@@ -876,6 +880,8 @@ class SalesService:
             "session": {
                 "id": session.id,
                 "user": session.user.full_name if session.user else "Usuario",
+                "register_name": session.register.name if session.register else "Caja Principal",
+                "register_code": session.register.code if session.register else "C01",
                 "start_time": session.start_time.strftime("%d/%m/%Y %H:%M"),
                 "end_time": session.end_time.strftime("%d/%m/%Y %H:%M") if session.end_time else "N/A",
                 "initial_usd": f"{float(session.initial_cash or 0):,.2f}",
@@ -901,6 +907,7 @@ class SalesService:
 {{ separator_equal }}
 </center>
 Sesion: #{{ session.id }}
+Caja:   {{ session.register_code }} - {{ session.register_name }}
 Cajero: {{ session.user }}
 Apertura: {{ session.start_time }}
 Cierre:   {{ session.end_time }}
