@@ -42,7 +42,8 @@ export const CashProvider = ({ children }) => {
         if (retryCount === 0) setLoading(true); // Only set loading on first attempt to avoid flicker on retries
 
         try {
-            const response = await apiClient.get('/cash/sessions/current');
+            // _silentNetworkError: true → interceptor no muestra toast; CashContext gestiona sus propios reintentos
+            const response = await apiClient.get('/cash/sessions/current', { _silentNetworkError: true });
 
             if (!response.data) {
                 // Handle 200 OK with null/empty body -> No active session

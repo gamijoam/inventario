@@ -135,11 +135,14 @@ apiClient.interceptors.response.use(
             // Silently log the error without showing toast
             console.warn('⚠️ 403 Forbidden:', error.config.url);
         } else if (!status) {
-            // Network Error — debounced to avoid spam on retries (e.g. CashContext retry loop)
-            const now = Date.now();
-            if (now - lastNetworkErrorTime > DEBOUNCE_NETWORK_MS) {
-                toast.error('Error de conexión con el servidor.');
-                lastNetworkErrorTime = now;
+            // Network Error
+            // Skip toast if the caller opted out (e.g. CashContext has its own retry/error logic)
+            if (!error.config?._silentNetworkError) {
+                const now = Date.now();
+                if (now - lastNetworkErrorTime > DEBOUNCE_NETWORK_MS) {
+                    toast.error('Error de conexión con el servidor.');
+                    lastNetworkErrorTime = now;
+                }
             }
         }
 
