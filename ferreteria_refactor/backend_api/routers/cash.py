@@ -78,6 +78,16 @@ def update_cash_register(
     if data.description is not None:
         register.description = data.description
     if data.is_active is not None:
+        if data.is_active is False:
+            open_session = db.query(models.CashSession).filter(
+                models.CashSession.register_id == register_id,
+                models.CashSession.status == "OPEN"
+            ).first()
+            if open_session:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"No se puede desactivar '{register.name}': tiene una sesión abierta. Cierra la caja primero."
+                )
         register.is_active = data.is_active
 
     db.commit()

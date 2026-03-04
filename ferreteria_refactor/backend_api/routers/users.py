@@ -36,11 +36,14 @@ def create_user(
             detail="Only administrators can create new users"
         )
 
-    # Check if email exists globally (only if provided)
+    # Check if email exists within the same tenant (only if provided)
     if user_data.email:
-        existing = db.query(models.User).filter(models.User.email == user_data.email).first()
+        existing = db.query(models.User).filter(
+            models.User.email == user_data.email,
+            models.User.tenant_id == current_user.tenant_id
+        ).first()
         if existing:
-            raise HTTPException(status_code=400, detail="User with this email already exists")
+            raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo en tu empresa")
     
     # Check if username exists within the tenant
     existing_username = db.query(models.User).filter(

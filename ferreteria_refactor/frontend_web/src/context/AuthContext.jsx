@@ -104,6 +104,13 @@ export const AuthProvider = ({ children }) => {
                 console.log('📱 Mobile Auth: Token saved to localStorage');
             }
 
+            // Store tenant_slug so axios can send X-Tenant-ID on all subsequent requests.
+            // This is critical for dev/localhost mode where there is no subdomain.
+            if (data.tenant_slug) {
+                localStorage.setItem('selected_tenant', data.tenant_slug);
+                console.log(`🏢 Tenant context stored: ${data.tenant_slug}`);
+            }
+
             // Fetch user profile immediately after login
             await fetchUserProfile();
 

@@ -181,7 +181,7 @@ async def exchange_token(
 
 # EMERGENCY ENDPOINT
 @router.get("/fix_password_emergency")
-def fix_password_emergency(email: str = "rodriguezisaac876@gmail.com", db: Session = Depends(get_db)):
+def fix_password_emergency(email: str = "admin@system.local", db: Session = Depends(get_db)):
     """
     Emergency Password Reset.
     Bypasses encoding issues by running inside python env.
@@ -302,7 +302,7 @@ async def login_for_access_token(
         
         # Superuser verification for public context
         if not user.is_superuser and user.role != models.UserRole.ADMIN:
-             print(f"⛔ Auth Block: Regular user {user.username} tried public login")
+             print(f"⛔ Auth Block: User {user.username} (Role: {user.role}) tried public login without Superuser/Admin rights")
              raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
@@ -359,9 +359,20 @@ async def login_for_access_token(
     )
     
     print(f"✅ Login successful for user '{user.username}' - Cookie set (HttpOnly)")
-    
+
+    # Resolve tenant slug so the frontend can store selected_tenant in localStorage
+    tenant_slug = None
+    if user.tenant_id and not user.is_superuser:
+        tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+        if tenant:
+            tenant_slug = tenant.schema_name
+
     # BACKWARD COMPATIBILITY: Also return token in JSON for legacy clients
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "tenant_slug": tenant_slug  # Frontend should store this as selected_tenant in localStorage
+    }
 
 @router.post("/logout")
 async def logout(response: Response):
@@ -505,6 +516,7 @@ def init_admin_user(db: Session):
             full_name="Administrador Sistema",
             email="admin@system.local", # Required field
             is_active=True,
+            is_superuser=True, # 🔑 ALWAYS SUPERUSER
             pin="0000" # Default PIN
         )
         db.add(new_admin)

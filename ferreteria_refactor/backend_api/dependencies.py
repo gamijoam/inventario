@@ -1,10 +1,10 @@
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List, Annotated, Optional
 
-from .database.db import get_db
 from .database.db import get_db
 from .config import settings, Settings
 from .models.models import User, UserRole
@@ -98,13 +98,22 @@ def get_current_user(
     else:
         # We are in public context, usually only for Superadmins
         if user.tenant_id is not None and not user.is_superuser:
-            print(f"⛔ Context Mismatch: Tenant user {email} trying to access public context")
-            # We don't raise 403 here because it might be a valid user just at the wrong URL
-            # But let's be strict for security
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, 
-                detail="Please login via your company URL"
-            )
+            # Auto-resolve: the user belongs to a tenant but X-Tenant-ID was not sent
+            # (e.g. dev mode on localhost without localStorage, or mobile without stored tenant)
+            # Instead of blocking, switch the DB session to their correct schema.
+            from .models.tenant import Tenant
+            tenant = db.query(Tenant).filter(Tenant.id == user.tenant_id).first()
+            if tenant:
+                print(f"🔄 Auto-resolving tenant context for '{email}': switching to '{tenant.schema_name}'")
+                from .tenant_context import set_tenant_schema
+                set_tenant_schema(tenant.schema_name)
+                db.execute(text(f'SET search_path TO "{tenant.schema_name}", public'))
+            else:
+                print(f"⛔ Context Mismatch: Tenant user {email} has no valid tenant record")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Please login via your company URL"
+                )
 
     print(f"✅ Auth Success: User '{email}' authenticated for context '{current_schema}'.")
     return user
