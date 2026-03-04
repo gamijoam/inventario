@@ -267,9 +267,12 @@ const POS = () => {
                 setSelectedWarehouseId('all');
 
                 try {
+                    // _silent403 + _silentNetworkError: these are optional background calls
+                    // (salesperson dropdown / barbershop employees). POS works without them.
+                    // The catch block already handles errors silently, so no toast needed.
                     const [usersRes, employeesRes] = await Promise.all([
-                        apiClient.get('/users'),
-                        apiClient.get('/employees/')
+                        apiClient.get('/users', { _silent403: true, _silentNetworkError: true }),
+                        apiClient.get('/employees/', { _silent403: true, _silentNetworkError: true })
                     ]);
 
                     if (Array.isArray(usersRes.data)) {

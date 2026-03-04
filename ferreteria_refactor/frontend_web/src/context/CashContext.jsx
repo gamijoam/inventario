@@ -21,7 +21,12 @@ export const CashProvider = ({ children }) => {
 
     const fetchRegisters = async () => {
         try {
-            const res = await apiClient.get('/cash/registers/status');
+            // _silentNetworkError + _silent403: CashContext handles its own errors;
+            // avoid duplicate toasts from the interceptor for this background poll.
+            const res = await apiClient.get('/cash/registers/status', {
+                _silentNetworkError: true,
+                _silent403: true,
+            });
             const list = Array.isArray(res.data) ? res.data : [];
             setRegisters(list);
             // Auto-set activeRegister if only one exists

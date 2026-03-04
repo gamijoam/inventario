@@ -126,14 +126,20 @@ apiClient.interceptors.response.use(
             }
             // For auth routes or public pages, let the component handle the error
         } else if (status === 403) {
-            // Forbidden - Debounce to prevent multiple toasts
-            const now = Date.now();
-            if (now - last403Time > DEBOUNCE_403_MS) {
-                toast.error('No tienes permisos para algunas acciones.');
-                last403Time = now;
+            // Always log the URL + detail so we can diagnose in DevTools
+            console.warn(
+                `⛔ 403 Forbidden: ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+                `| detail: ${error.response?.data?.detail || 'N/A'}`,
+                `| silent: ${!!error.config?._silent403}`
+            );
+            // Skip toast if the caller already handles this error silently
+            if (!error.config?._silent403) {
+                const now = Date.now();
+                if (now - last403Time > DEBOUNCE_403_MS) {
+                    toast.error('No tienes permisos para algunas acciones.');
+                    last403Time = now;
+                }
             }
-            // Silently log the error without showing toast
-            console.warn('⚠️ 403 Forbidden:', error.config.url);
         } else if (!status) {
             // Network Error — always log which URL is failing so we can diagnose
             console.error(
