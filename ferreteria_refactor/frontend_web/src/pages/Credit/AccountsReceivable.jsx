@@ -598,6 +598,14 @@ const AccountsReceivable = () => {
                                                     <div className="text-xs text-slate-400 flex flex-col gap-0.5 mt-1">
                                                         <span>Emisión: {new Date(invoice.date).toLocaleDateString()}</span>
                                                         <span>Vence: {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'N/A'}</span>
+                                                        {invoice.cashier_name && (
+                                                            <span className="text-indigo-500 font-medium">{invoice.cashier_name}</span>
+                                                        )}
+                                                        {invoice.register_name && (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded w-fit mt-0.5">
+                                                                {invoice.register_code} · {invoice.register_name}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="p-4 text-right font-medium text-slate-500">

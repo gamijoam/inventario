@@ -552,6 +552,13 @@ class QuoteDetailRead(BaseModel):
     class Config:
         from_attributes = True
 
+class QuoteCreatorInfo(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+    class Config:
+        from_attributes = True
+
 class QuoteRead(BaseModel):
     id: int
     date: datetime
@@ -561,6 +568,7 @@ class QuoteRead(BaseModel):
     status: str = "PENDING"
     notes: Optional[str]
     customer: Optional[CustomerRead] = None
+    user: Optional[QuoteCreatorInfo] = None
     details: List[QuoteDetailRead] = [] # Include details for counts in list view
 
     class Config:

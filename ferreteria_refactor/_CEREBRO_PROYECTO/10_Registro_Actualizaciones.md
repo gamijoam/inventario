@@ -2,6 +2,21 @@
 
 Este documento actúa como la bitácora oficial de cambios de **Mi Inventario Fácil**, permitiendo una trazabilidad técnica de las mejoras, correcciones y refactorizaciones realizadas en el ecosistema.
 
+## [2026-03-03] - Visibilidad Completa: Cajero/Caja en CxC y Cotizaciones
+
+### Cotizaciones
+- `quotes.py` → `GET /quotes` ahora hace joinedload del `user` (creador)
+- `schemas/__init__.py` → nuevo schema `QuoteCreatorInfo` (id, username, full_name); `QuoteRead` incluye `user: Optional[QuoteCreatorInfo]`
+- `QuoteList.jsx` → badge indigo con el nombre del creador en cada tarjeta de cotización
+
+### Cuentas por Cobrar (CxC)
+- `products.py` → `GET /products/credits` ahora hace joinedload de `cash_session → user` y `cash_session → register`
+- La respuesta incluye `cashier_name`, `register_name`, `register_code` por factura de crédito
+- `AccountsReceivable.jsx` → celda Detalles muestra cajero en indigo + badge azul de caja
+
+### CxP (Cuentas por Pagar)
+- No aplica filtro de caja: las órdenes de compra no pasan por caja registradora sino por el módulo de compras/almacén
+
 ## [2026-03-03] - Visibilidad de Cajas en Toda la Plataforma
 
 ### Fix: Bug `db.refresh()` en CashRegister endpoints (multi-tenant)

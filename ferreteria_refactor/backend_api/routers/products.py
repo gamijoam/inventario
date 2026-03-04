@@ -648,17 +648,35 @@ def get_credit_sales(db: Session = Depends(get_db)):
     Get all credit sales (invoices) for Accounts Receivable.
     Used by the CxC module.
     Returns both Pending and Paid to allow history filtering on frontend.
+    Includes cashier_name, register_name, register_code from the cash session.
     """
-    query = db.query(models.Sale).filter(
+    sales = db.query(models.Sale).filter(
         models.Sale.is_credit == True
     ).options(
         joinedload(models.Sale.customer),
         joinedload(models.Sale.payments),
         joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
-        joinedload(models.Sale.returns)
-    ).order_by(models.Sale.due_date.asc())
-    
-    return query.all()
+        joinedload(models.Sale.returns),
+        joinedload(models.Sale.cash_session).joinedload(models.CashSession.user),
+        joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
+    ).order_by(models.Sale.due_date.asc()).all()
+
+    result = []
+    for sale in sales:
+        sale_dict = schemas.SaleRead.from_orm(sale).dict()
+        sale_dict["cashier_name"] = None
+        sale_dict["register_name"] = None
+        sale_dict["register_code"] = None
+        if sale.cash_session:
+            if sale.cash_session.user:
+                sale_dict["cashier_name"] = (
+                    sale.cash_session.user.full_name or sale.cash_session.user.username
+                )
+            if sale.cash_session.register:
+                sale_dict["register_name"] = sale.cash_session.register.name
+                sale_dict["register_code"] = sale.cash_session.register.code
+        result.append(sale_dict)
+    return result
 
 @router.get("/sales/", dependencies=[Depends(cashier_or_admin)])
 def get_all_sales(

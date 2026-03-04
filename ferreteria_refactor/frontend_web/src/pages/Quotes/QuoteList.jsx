@@ -310,10 +310,15 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                                                 {quote.customer?.name || "Cliente General"}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500 ml-8">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-slate-500 ml-8 flex-wrap">
                                             <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                                                 {(quote.details?.length || quote.items?.length || 0)} items
                                             </span>
+                                            {quote.user && (
+                                                <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100 font-semibold" title="Creado por">
+                                                    {quote.user.full_name || quote.user.username}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
 

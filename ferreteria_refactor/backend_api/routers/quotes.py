@@ -59,10 +59,11 @@ def create_quote(
 
 @router.get("", response_model=List[schemas.QuoteRead])
 def read_quotes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    # Optimize query to load customer
+    # Optimize query to load customer and user (creator)
     return db.query(models.Quote)\
         .options(
             joinedload(models.Quote.customer),
+            joinedload(models.Quote.user),
             joinedload(models.Quote.details)
         )\
         .order_by(models.Quote.date.desc())\
