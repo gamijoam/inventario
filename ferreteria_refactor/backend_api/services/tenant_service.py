@@ -110,21 +110,16 @@ class TenantService:
             db.add(new_tenant)
             
             # 3. Create Schema (Postgres Only) - ATOMIC STEP
-            if "sqlite" in str(settings.DATABASE_URL):
-                 logger.warning("⚠️  [SQLite] Skipping CREATE SCHEMA.")
-            else:
-                try:
-                    logger.info(f"🏗️  Executing: CREATE SCHEMA \"{schema_name}\"")
-                    db.execute(text(f'CREATE SCHEMA "{schema_name}"'))
-                    logger.info(f"✅ Schema '{schema_name}' created.")
-                except Exception as se:
-                    logger.error(f"❌ FATAL ERROR: Failed to create schema '{schema_name}': {se}")
-                    # Don't raise immediately if it exists, maybe we are retrying? case-by-case
-                    # But for new registration, it should be clean.
-                    if "already exists" in str(se):
-                         logger.warning(f"Schema {schema_name} already exists, continuing to provisioning...")
-                    else:
-                         raise RuntimeError(f"No se pudo crear el esquema de base de datos: {str(se)}")
+            try:
+                logger.info(f"🏗️  Executing: CREATE SCHEMA \"{schema_name}\"")
+                db.execute(text(f'CREATE SCHEMA "{schema_name}"'))
+                logger.info(f"✅ Schema '{schema_name}' created.")
+            except Exception as se:
+                logger.error(f"❌ FATAL ERROR: Failed to create schema '{schema_name}': {se}")
+                if "already exists" in str(se):
+                     logger.warning(f"Schema {schema_name} already exists, continuing to provisioning...")
+                else:
+                     raise RuntimeError(f"No se pudo crear el esquema de base de datos: {str(se)}")
 
             # 3.1 Create Media Directory for Tenant
             try:
@@ -146,11 +141,10 @@ class TenantService:
             
             # 5. Schema Reflection (Create Tables) - REPLACING ALEMBIC
             logger.info(f"🏗️ Provisioning tables via Schema Reflection in {schema_name}...")
-            if "sqlite" not in str(settings.DATABASE_URL):
-                with engine.connect() as conn:
-                    with conn.begin():
-                        conn.execute(text(f'SET search_path TO "{schema_name}"'))
-                        Base.metadata.create_all(conn)
+            with engine.connect() as conn:
+                with conn.begin():
+                    conn.execute(text(f'SET search_path TO "{schema_name}"'))
+                    Base.metadata.create_all(conn)
             logger.info(f"✅ Tables provisioned in: {schema_name}")
 
             # 6. Seed Admin User & Data
@@ -159,6 +153,7 @@ class TenantService:
             TenantService.seed_payment_methods(schema_name)
             TenantService.seed_currencies(schema_name)
             TenantService.seed_tenant_warehouse(schema_name)
+            TenantService.seed_cash_register(schema_name)
 
             return {
                 "status": "success",
@@ -184,9 +179,8 @@ class TenantService:
         db = SessionLocal()
         try:
             # Set Schema for Postgres
-            if "sqlite" not in str(settings.DATABASE_URL):
-                # We need public for the User table, but we set search_path to ensure visibility if needed
-                db.execute(text(f'SET search_path TO "{schema_name}", public'))
+            # We need public for the User table, but we set search_path to ensure visibility if needed
+            db.execute(text(f'SET search_path TO "{schema_name}", public'))
                 
             # Check if admin exists FOR THIS TENANT
             # User table is shared (public schema), so we MUST filter by tenant_id
@@ -230,8 +224,7 @@ class TenantService:
         logger.info(f"💱 Seeding Exchange Rates for: {schema_name}")
         db = SessionLocal()
         try:
-            if "sqlite" not in str(settings.DATABASE_URL):
-                db.execute(text(f'SET search_path TO "{schema_name}", public'))
+            db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             if db.query(ExchangeRate).first():
                 logger.info("skipped, already seeded")
@@ -264,8 +257,7 @@ class TenantService:
         logger.info(f"💳 Seeding Payment Methods for: {schema_name}")
         db = SessionLocal()
         try:
-            if "sqlite" not in str(settings.DATABASE_URL):
-                db.execute(text(f'SET search_path TO "{schema_name}", public'))
+            db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             if db.query(PaymentMethod).first():
                 logger.info("skipped, already seeded")
@@ -296,8 +288,7 @@ class TenantService:
         logger.info(f"🏭 Seeding Default Warehouse for: {schema_name}")
         db = SessionLocal()
         try:
-            if "sqlite" not in str(settings.DATABASE_URL):
-                db.execute(text(f'SET search_path TO "{schema_name}", public'))
+            db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             # Check if any warehouse exists
             if db.query(Warehouse).count() > 0:
@@ -328,8 +319,7 @@ class TenantService:
         logger.info(f"💵 Seeding Currencies for: {schema_name}")
         db = SessionLocal()
         try:
-            if "sqlite" not in str(settings.DATABASE_URL):
-                db.execute(text(f'SET search_path TO "{schema_name}", public'))
+            db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             if db.query(Currency).count() > 0:
                  logger.info("skipped, currencies already exist")
@@ -350,6 +340,36 @@ class TenantService:
             
         except Exception as e:
             logger.error(f"❌ Error seeding currencies: {e}")
+            db.rollback()
+        finally:
+            db.close()
+
+    @staticmethod
+    def seed_cash_register(schema_name: str):
+        """Seed default main cash register 'Caja Principal' for new tenant"""
+        from ..models.models import CashRegister
+
+        logger.info(f"🏪 Seeding Default Cash Register for: {schema_name}")
+        db = SessionLocal()
+        try:
+            db.execute(text(f'SET search_path TO "{schema_name}", public'))
+
+            if db.query(CashRegister).count() > 0:
+                logger.info("skipped, cash register already exists")
+                return
+
+            default_register = CashRegister(
+                name="Caja Principal",
+                code="C01",
+                description="Caja predeterminada del sistema",
+                is_active=True
+            )
+            db.add(default_register)
+            db.commit()
+            logger.info("✅ Default Cash Register 'Caja Principal' created.")
+
+        except Exception as e:
+            logger.error(f"❌ Error seeding cash register: {e}")
             db.rollback()
         finally:
             db.close()

@@ -2,6 +2,22 @@
 
 Este documento actúa como la bitácora oficial de cambios de **Mi Inventario Fácil**, permitiendo una trazabilidad técnica de las mejoras, correcciones y refactorizaciones realizadas en el ecosistema.
 
+## [2026-03-03] - Página de Gestión de Cajas + Fix Tenant Seed
+
+### Nuevo: `CashRegistersPage.jsx`
+- Página en `/cash-registers` (solo ADMIN) bajo Finanzas → Gestión de Cajas.
+- Muestra todas las cajas activas en cards con estado en tiempo real (Abierta/Cerrada, quién la tiene, desde cuándo).
+- Métricas resumen: Total activas, Abiertas ahora, Cerradas.
+- Crear nueva caja (nombre, código, descripción).
+- Editar nombre/descripción (solo si está cerrada).
+- Activar/Desactivar caja (solo si está cerrada). La Caja Principal (C01) está protegida.
+- Auto-refresh cada 30 segundos.
+
+### Fix: `tenant_service.py` — Gap en creación de nuevos tenants
+- Antes: nuevos tenants creados en runtime no recibían "Caja Principal" hasta el próximo restart del servidor.
+- Ahora: `seed_cash_register(schema_name)` se llama en el seed chain de `create_tenant()`, igual que warehouse, currencies, etc.
+- Idempotente: si ya existe una caja, se salta el seed.
+
 ## [2026-03-03] - Soporte de Múltiples Cajas (Multi-Cash-Register)
 
 ### 1. Sistema de Multicajas

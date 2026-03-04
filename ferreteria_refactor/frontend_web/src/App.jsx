@@ -47,6 +47,7 @@ import AgingReport from './pages/Credit/AgingReport';
 import ClientLedger from './pages/Credit/ClientLedger';
 import UsersManager from './pages/Users/UsersManager';
 import CashHistory from './pages/CashHistory';
+import CashRegistersPage from './pages/CashRegisters/CashRegistersPage';
 import AuditLogs from './pages/AuditLogs';
 import Help from './pages/Help';
 import TableMap from './pages/Restaurant/TableMap';
@@ -260,6 +261,11 @@ function App() {
                               <Route path="/cash-history" element={
                                 <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <CashHistory />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/cash-registers" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <CashRegistersPage />
                                 </ProtectedRoute>
                               } />
                               <Route path="/customers" element={

@@ -14,6 +14,7 @@ import {
     Building2,
     Monitor,
     Printer,
+    LayoutGrid,
     Percent,
     ChevronLeft,
     ChevronRight,
@@ -59,7 +60,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
     // FORCE ENABLE MODULES IN DEV/LOCAL for testing
     const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
-    const effectiveModules = isLocal ? { ...modules, services: true, barbershop: true } : modules;
+    const effectiveModules = isLocal ? { ...modules, services: true, barbershop: true, restaurant: true } : modules;
 
     const menuStructure = [
         {
@@ -143,6 +144,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: Briefcase, label: 'Compras', path: '/purchases' },
                 { icon: Truck, label: 'Proveedores', path: '/suppliers' },
                 { icon: RefreshCcw, label: 'Corte de Caja', path: '/cash-history' },
+                { icon: LayoutGrid, label: 'Gestión de Cajas', path: '/cash-registers' },
                 { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
                 { icon: BarChart2, label: 'Antigüedad', path: '/credit/aging' },
                 { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
