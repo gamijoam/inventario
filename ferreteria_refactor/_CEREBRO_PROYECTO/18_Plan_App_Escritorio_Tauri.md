@@ -38,14 +38,43 @@ La aplicación actualmente es 100% web (SaaS). Varios clientes POS necesitan:
 **Decisión:** Tauri. Las máquinas POS son frecuentemente low-end (4–8 GB RAM).
 WebView2 ya viene instalado en Windows 10/11 (no se empaqueta).
 
-### Stack resultante
+### Stack resultante — Arquitectura LOCAL con PostgreSQL
 
 ```
-App Tauri (.exe)
-  ├── Frontend: React 19 + Vite (sin cambios)
-  ├── Rust core: tauri, tauri-plugin-updater, tauri-plugin-shell
-  └── Se conecta al backend FastAPI en la nube (sin cambios)
+Invensoft.exe (instalador NSIS)
+  ├── invensoft.exe              ← Tauri + WebView2 (UI React)
+  ├── invensoft-backend.exe      ← FastAPI sidecar (PyInstaller)
+  │     └── usa backend_api (sin cambios) con config de desktop
+  ├── pgsql/                     ← PostgreSQL 15 portable
+  │     ├── bin/postgres.exe
+  │     └── data/                ← datos del cliente (local)
+  └── AppData/Local/Invensoft/
+        ├── license.lic          ← licencia activada
+        └── secret.key           ← JWT signing key persistente
+
+Flujo de arranque:
+  Tauri inicia
+    → lib.rs lanza invensoft-backend.exe (sidecar)
+    → backend detecta PostgreSQL, crea schema, corre migraciones
+    → React carga → IS_TAURI=true → verifica licencia en localStorage
+    → Sin licencia → LicenseActivation screen
+    → Licencia válida → Login → Dashboard (todo local, offline)
+
+Axios en Tauri:
+  baseURL = http://127.0.0.1:8000/api/v1/   ← backend local
+  X-Tenant-ID = desktop_local                ← fijo, sin subdomain
 ```
+
+**Por qué PostgreSQL local y no SQLite:**
+- Cero cambios en los modelos/queries existentes
+- Schemas, JSONB, arrays — todo soportado nativamente
+- Si el cliente crece, migración a SaaS es PostgreSQL → PostgreSQL
+- Posibilita multi-PC en LAN (varios equipos comparten la misma DB local)
+
+**Carpeta `desktop_backend/`:**
+- No duplica código — importa `backend_api` directamente
+- Solo sobreescribe: config (URL local), middleware (tenant fijo), startup (init DB)
+- `run.py` es el entry point compilado con PyInstaller
 
 ---
 

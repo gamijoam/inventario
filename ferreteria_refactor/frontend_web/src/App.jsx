@@ -8,8 +8,8 @@ import ResetPassword from './pages/ResetPassword';
 import Unauthorized from './pages/Unauthorized';
 // NEW: Mobile Welcome Screen
 import MobileWelcome from './pages/MobileWelcome';
-// Desktop Setup Screen (Tauri)
-import DesktopSetup from './pages/DesktopSetup';
+// Desktop License Activation Screen (Tauri)
+import LicenseActivation from './pages/LicenseActivation';
 
 // Detectar si la app corre dentro de Tauri (escritorio)
 // window.__TAURI_INTERNALS__ es inyectado por Tauri en todos sus contextos
@@ -134,23 +134,26 @@ function App() {
           setIsReady(true);
         }
       } else if (IS_TAURI) {
-        // ── TAURI DESKTOP ──────────────────────────────────────
-        // El app de escritorio necesita saber a qué tenant conectarse.
-        // Si no hay selected_tenant en localStorage, mostrar setup.
-        const tenantSlug  = localStorage.getItem('selected_tenant');
+        // ── TAURI DESKTOP ─────────────────────────────────────────
+        // El backend es local (localhost:8000, tenant fijo 'desktop_local').
+        // Solo necesitamos verificar que la licencia está activada.
+        const licenseKey  = localStorage.getItem('desktop_license');
+        const licenseExp  = localStorage.getItem('desktop_license_exp');
         const currentHash = window.location.hash;
 
-        // Sin tenant → ir a configuración
-        if (!tenantSlug && !currentHash.includes('desktop-setup')) {
-          console.log('🖥️ Tauri: No tenant configured. Redirecting to desktop setup...');
-          window.location.replace('/#/desktop-setup');
+        const licenseValid = licenseKey && licenseExp && new Date(licenseExp) > new Date();
+
+        // Sin licencia válida → pantalla de activación
+        if (!licenseValid && !currentHash.includes('license-activation')) {
+          console.log('🖥️ Tauri: No license found. Redirecting to license activation...');
+          window.location.replace('/#/license-activation');
           setIsReady(true);
           return;
         }
 
-        // Con tenant pero en pantalla de setup → ir al login
-        if (tenantSlug && currentHash.includes('desktop-setup')) {
-          console.log('🖥️ Tauri: Tenant already configured. Redirecting to login...');
+        // Con licencia pero en pantalla de activación → ir al dashboard
+        if (licenseValid && currentHash.includes('license-activation')) {
+          console.log('🖥️ Tauri: License valid. Redirecting to app...');
           window.location.replace('/#/login');
           setIsReady(true);
           return;
@@ -198,8 +201,8 @@ function App() {
                           {/* Mobile Welcome (Tenant Setup — Capacitor) */}
                           <Route path="/mobile-welcome" element={<MobileWelcome />} />
 
-                          {/* Desktop Setup (Tenant Setup — Tauri) */}
-                          <Route path="/desktop-setup" element={<DesktopSetup />} />
+                          {/* Desktop License Activation (Tauri — primer arranque) */}
+                          <Route path="/license-activation" element={<LicenseActivation />} />
 
                           {/* Mobile Waiter Routes */}
                           <Route path="/mobile/login" element={<WaiterLogin />} />
