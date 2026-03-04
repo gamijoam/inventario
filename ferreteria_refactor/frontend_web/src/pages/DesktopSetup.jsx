@@ -25,8 +25,11 @@ const DesktopSetup = () => {
 
     // ──────────────────────────────────────────────
     // Detectar si ya hay un tenant configurado
+    // Usar useState para que se actualice al desvincular
     // ──────────────────────────────────────────────
-    const currentTenant = localStorage.getItem('selected_tenant');
+    const [currentTenant, setCurrentTenant] = useState(
+        () => localStorage.getItem('selected_tenant')
+    );
 
     // ──────────────────────────────────────────────
     // Resolver la API base para la verificación
@@ -91,9 +94,9 @@ const DesktopSetup = () => {
                 toast.success(`¡Empresa "${cleanSlug}" configurada!`);
 
                 setTimeout(() => {
-                    // Recargar para que App.jsx re-detecte el tenant
-                    window.location.href = '/#/login';
-                    window.location.reload();
+                    // navigate() mantiene el tenant en localStorage;
+                    // el interceptor de axios lo leerá automáticamente en cada request.
+                    navigate('/login');
                 }, 1000);
             } else {
                 throw new Error('El servidor respondió pero no pudo verificar la empresa.');
@@ -119,6 +122,7 @@ const DesktopSetup = () => {
     // ──────────────────────────────────────────────
     const handleReset = () => {
         localStorage.removeItem('selected_tenant');
+        setCurrentTenant(null);
         setSlug('');
         setStep('idle');
         toast('Empresa desvinculada. Configura una nueva.', { icon: '🔄' });

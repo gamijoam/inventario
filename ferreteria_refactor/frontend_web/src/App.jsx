@@ -140,9 +140,18 @@ function App() {
         const tenantSlug  = localStorage.getItem('selected_tenant');
         const currentHash = window.location.hash;
 
+        // Sin tenant → ir a configuración
         if (!tenantSlug && !currentHash.includes('desktop-setup')) {
           console.log('🖥️ Tauri: No tenant configured. Redirecting to desktop setup...');
           window.location.replace('/#/desktop-setup');
+          setIsReady(true);
+          return;
+        }
+
+        // Con tenant pero en pantalla de setup → ir al login
+        if (tenantSlug && currentHash.includes('desktop-setup')) {
+          console.log('🖥️ Tauri: Tenant already configured. Redirecting to login...');
+          window.location.replace('/#/login');
           setIsReady(true);
           return;
         }
