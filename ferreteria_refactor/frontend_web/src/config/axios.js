@@ -91,6 +91,10 @@ apiClient.interceptors.request.use(
 let last403Time = 0;
 const DEBOUNCE_403_MS = 2000; // Only show one 403 toast every 2 seconds
 
+// Debounce mechanism for network errors to prevent toast spam on retries
+let lastNetworkErrorTime = 0;
+const DEBOUNCE_NETWORK_MS = 3000; // Only show one network-error toast every 3 seconds
+
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
@@ -131,8 +135,12 @@ apiClient.interceptors.response.use(
             // Silently log the error without showing toast
             console.warn('⚠️ 403 Forbidden:', error.config.url);
         } else if (!status) {
-            // Network Error
-            toast.error('Error de conexión con el servidor.');
+            // Network Error — debounced to avoid spam on retries (e.g. CashContext retry loop)
+            const now = Date.now();
+            if (now - lastNetworkErrorTime > DEBOUNCE_NETWORK_MS) {
+                toast.error('Error de conexión con el servidor.');
+                lastNetworkErrorTime = now;
+            }
         }
 
         return Promise.reject(error);

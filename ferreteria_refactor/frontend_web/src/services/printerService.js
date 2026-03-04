@@ -29,10 +29,9 @@ window.resetPrinterConfig = function () {
     alert('Configuración de impresora eliminada. Recargue la página para configurar nuevamente.');
 };
 
-// Get client ID (will prompt on first use)
-const HARDWARE_CLIENT_ID = getHardwareClientId();
-
-console.log(`🖨️ Hardware Bridge Client ID: ${HARDWARE_CLIENT_ID}`);
+// NOTE: Do NOT cache HARDWARE_CLIENT_ID at module load time.
+// CashContext updates localStorage after session open, so we must read it fresh on every call.
+// Use getHardwareClientId() directly inside each function.
 
 const printerService = {
     /**
@@ -40,10 +39,12 @@ const printerService = {
      * @param {number} saleId - The ID of the sale to print
      */
     printTicket: async (saleId) => {
+        const clientId = getHardwareClientId(); // Read fresh from localStorage on each call
+        console.log(`🖨️ printTicket — Client ID: ${clientId}`);
         try {
             // Send print command to backend, which forwards to Hardware Bridge via WebSocket
             const response = await apiClient.post(`/products/print/remote`, {
-                client_id: HARDWARE_CLIENT_ID,
+                client_id: clientId,
                 sale_id: saleId
             });
 
@@ -62,7 +63,7 @@ const printerService = {
                 // Fallback generic error
                 throw new Error(
                     `Invensoft Bridge no está conectado.\n\n` +
-                    `El sistema web está buscando una impresora con el ID: "${HARDWARE_CLIENT_ID}".\n` +
+                    `El sistema web está buscando una impresora con el ID: "${clientId}".\n` +
                     `Verifique que la aplicación puente esté abierta y configurada con el mismo "Client ID".\n\n` +
                     `Si necesita cambiar el ID en la web, presione F12, vaya a Consola y escriba:\n` +
                     `resetPrinterConfig()`
@@ -82,9 +83,10 @@ const printerService = {
      * @param {Object} payload - The print payload { template, context, status }
      */
     printRaw: async (payload) => {
+        const clientId = getHardwareClientId(); // Read fresh from localStorage on each call
         try {
             const response = await apiClient.post(`/products/print/remote/payload`, {
-                client_id: HARDWARE_CLIENT_ID,
+                client_id: clientId,
                 payload: payload
             });
             return response.data;
@@ -99,9 +101,9 @@ const printerService = {
     },
 
     /**
-     * Get current configured client ID
+     * Get current configured client ID (reads fresh from localStorage)
      */
-    getClientId: () => HARDWARE_CLIENT_ID,
+    getClientId: () => getHardwareClientId(),
 
     /**
      * Reconfigure client ID

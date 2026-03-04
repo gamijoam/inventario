@@ -121,15 +121,15 @@ const RegisterCard = ({ register, onEdit, onToggle }) => {
 
 // ─── Form Modal ───────────────────────────────────────────────────────────────
 const RegisterModal = ({ isOpen, onClose, onSave, editing }) => {
-    const [form, setForm] = useState({ name: '', code: '', description: '' });
+    const [form, setForm] = useState({ name: '', code: '', description: '', hardware_client_id: '' });
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState({});
 
     useEffect(() => {
         if (editing) {
-            setForm({ name: editing.name, code: editing.code, description: editing.description || '' });
+            setForm({ name: editing.name, code: editing.code, description: editing.description || '', hardware_client_id: editing.hardware_client_id || '' });
         } else {
-            setForm({ name: '', code: '', description: '' });
+            setForm({ name: '', code: '', description: '', hardware_client_id: '' });
         }
         setErrors({});
     }, [editing, isOpen]);
@@ -227,6 +227,24 @@ const RegisterModal = ({ isOpen, onClose, onSave, editing }) => {
                         />
                     </div>
 
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            ID Impresora <span className="text-gray-400 font-normal">(opcional)</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={form.hardware_client_id}
+                            onChange={e => setForm(f => ({ ...f, hardware_client_id: e.target.value }))}
+                            placeholder="Ej: caja-1, caja-2, impresora-norte"
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm
+                                       bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400
+                                       focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                            Debe coincidir con el "Client ID" configurado en el programa Invensoft Bridge de esta estación.
+                        </p>
+                    </div>
+
                     <div className="flex gap-3 pt-2">
                         <button
                             type="button"
@@ -294,7 +312,8 @@ const CashRegistersPage = () => {
     const handleEdit = async (formData) => {
         await apiClient.put(`/cash/registers/${editing.id}`, {
             name: formData.name,
-            description: formData.description
+            description: formData.description,
+            hardware_client_id: formData.hardware_client_id || null
         });
         toast.success('Caja actualizada');
         fetchRegisters(true);

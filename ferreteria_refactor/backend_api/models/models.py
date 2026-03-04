@@ -444,6 +444,9 @@ class CashRegister(Base):
     description = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=get_venezuela_now)
+    # Hardware Bridge client ID — matches the "Client ID" configured in Windows Bridge app.
+    # Used to route print jobs to the correct printer for each physical register.
+    hardware_client_id = Column(String, nullable=True, default=None)
 
     sessions = relationship("CashSession", back_populates="register")
 

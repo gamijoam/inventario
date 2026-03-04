@@ -206,6 +206,26 @@ def migrate_multicaja(db_engine=None):
                 conn.rollback()
                 print(f"   ⚠️  Error adding user_id to quotes in {schema}: {e}")
 
+            # ----------------------------------------------------------------
+            # 8. Add hardware_client_id to cash_registers
+            # ----------------------------------------------------------------
+            try:
+                cols = inspector.get_columns('cash_registers', schema=schema)
+                col_names = [c['name'] for c in cols]
+
+                if 'hardware_client_id' not in col_names:
+                    print(f"   ➕ Adding hardware_client_id to {schema}.cash_registers")
+                    conn.execute(text(f"""
+                        ALTER TABLE "{schema}".cash_registers
+                        ADD COLUMN hardware_client_id VARCHAR
+                    """))
+                    conn.commit()
+                else:
+                    print(f"   ✅ hardware_client_id already in {schema}.cash_registers")
+            except Exception as e:
+                conn.rollback()
+                print(f"   ⚠️  Error adding hardware_client_id to cash_registers in {schema}: {e}")
+
     print("\n🎉 Multicaja Migration Completed!")
 
 

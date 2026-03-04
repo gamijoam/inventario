@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_, text
+from sqlalchemy import func, or_, and_, text
 from typing import List, Dict, Optional
 from datetime import datetime, date
 from decimal import Decimal
@@ -419,8 +419,15 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
     cash_sales = db.query(func.sum(models.SalePayment.amount)).\
         join(models.Sale).\
         filter(
-            models.Sale.date >= session.start_time,
-            models.Sale.date <= (session.end_time or datetime.now()),
+            # New: isolate by session_id; fallback to date range for old sales without session_id
+            or_(
+                models.Sale.session_id == session.id,
+                and_(
+                    models.Sale.session_id.is_(None),
+                    models.Sale.date >= session.start_time,
+                    models.Sale.date <= (session.end_time or datetime.now()),
+                )
+            ),
             or_(
                 models.SalePayment.payment_method.ilike("%efectivo%"),
                 models.SalePayment.payment_method.ilike("%cash%")
@@ -447,11 +454,15 @@ def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
     target_change_currencies = target_currencies
     
     cash_change = db.query(func.sum(models.Sale.change_amount)).filter(
-        models.Sale.date >= session.start_time,
-        models.Sale.date <= (session.end_time or datetime.now()),
+        or_(
+            models.Sale.session_id == session.id,
+            and_(
+                models.Sale.session_id.is_(None),
+                models.Sale.date >= session.start_time,
+                models.Sale.date <= (session.end_time or datetime.now()),
+            )
+        ),
         models.Sale.change_currency.in_(target_change_currencies),
-        # Ensure we only count change for sales that had a cash payment? 
-        # Actually usually change implies cash interaction, so we deduct it from cash drawer.
         models.Sale.change_amount > 0
     ).scalar() or Decimal("0.00")
 
@@ -567,9 +578,14 @@ def get_session_details(
 
     # 1. Calculate Sales Totals
     sales_query = db.query(models.SalePayment).join(models.Sale).filter(
-        models.Sale.date >= session.start_time,
-        models.Sale.date <= (session.end_time or datetime.now()),
-        # Filter by user if we tracked user per sale
+        or_(
+            models.Sale.session_id == session.id,
+            and_(
+                models.Sale.session_id.is_(None),
+                models.Sale.date >= session.start_time,
+                models.Sale.date <= (session.end_time or datetime.now()),
+            )
+        )
     )
     
     # 2. Get Movements
@@ -672,14 +688,18 @@ def get_session_details(
     # Calculate Change (Vuelto) totals
     
     total_change_usd = db.query(func.sum(models.Sale.change_amount)).filter(
-        models.Sale.date >= session.start_time,
-        models.Sale.date <= (session.end_time or datetime.now()),
+        or_(
+            models.Sale.session_id == session.id,
+            and_(models.Sale.session_id.is_(None), models.Sale.date >= session.start_time, models.Sale.date <= (session.end_time or datetime.now()))
+        ),
         models.Sale.change_currency == "USD"
     ).scalar() or Decimal("0.00")
 
     total_change_bs = db.query(func.sum(models.Sale.change_amount)).filter(
-        models.Sale.date >= session.start_time,
-        models.Sale.date <= (session.end_time or datetime.now()),
+        or_(
+            models.Sale.session_id == session.id,
+            and_(models.Sale.session_id.is_(None), models.Sale.date >= session.start_time, models.Sale.date <= (session.end_time or datetime.now()))
+        ),
         models.Sale.change_currency.in_(["Bs", "VES", "VEF"])
     ).scalar() or Decimal("0.00")
 
@@ -731,8 +751,10 @@ def get_session_details(
     
     # Calculate credit sales (only unpaid ones)
     credit_sales = db.query(models.Sale).filter(
-        models.Sale.date >= session.start_time,
-        models.Sale.date <= (session.end_time or datetime.now()),
+        or_(
+            models.Sale.session_id == session.id,
+            and_(models.Sale.session_id.is_(None), models.Sale.date >= session.start_time, models.Sale.date <= (session.end_time or datetime.now()))
+        ),
         models.Sale.is_credit == True,
         models.Sale.balance_pending > 0  # Only unpaid credits
     ).all()
@@ -782,10 +804,15 @@ async def close_cash_session(
     if session.status == "CLOSED":
         raise HTTPException(status_code=400, detail="La sesión ya está cerrada")
 
-    # Re-calculate expected totals to save them
+    # Re-calculate expected totals to save them (isolated by session_id for new sessions)
     sales_query = db.query(models.SalePayment).join(models.Sale).filter(
-        models.Sale.date >= session.start_time,
-        # models.Sale.date <= datetime.now() 
+        or_(
+            models.Sale.session_id == session.id,
+            and_(
+                models.Sale.session_id.is_(None),
+                models.Sale.date >= session.start_time,
+            )
+        )
     )
     payments = sales_query.all()
     movements = db.query(models.CashMovement).filter(models.CashMovement.session_id == session.id).all()
@@ -825,7 +852,10 @@ async def close_cash_session(
     # Process Change (Vuelto)
     change_by_currency = {}
     sales_for_change = db.query(models.Sale.change_amount, models.Sale.change_currency).filter(
-        models.Sale.date >= session.start_time,
+        or_(
+            models.Sale.session_id == session.id,
+            and_(models.Sale.session_id.is_(None), models.Sale.date >= session.start_time)
+        ),
         models.Sale.change_amount > 0
     ).all()
     

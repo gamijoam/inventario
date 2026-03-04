@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import { useWebSocket } from '../../context/WebSocketContext';
+import { useCash } from '../../context/CashContext';
 import apiClient from '../../config/axios';
 import toast from 'react-hot-toast';
 import { Button } from '../ui/button';
@@ -28,6 +29,7 @@ const formatLocalCurrency = (amount) => {
 const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null, discountUSD = 0, cartDiscount = null }) => {
     const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
+    const { session } = useCash();
     const allCurrencies = [{ id: 'base', symbol: 'USD', name: 'Dólar', rate: 1, is_anchor: true }, ...getActiveCurrencies()];
 
     // Deduplicate currencies by symbol (to avoid double Bs if multiple rates exist)
@@ -242,7 +244,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 total_discount_usd: discountUSD || 0,
                 cart_discount_type: cartDiscount?.type || null,
                 cart_discount_value: cartDiscount?.value || 0,
-                discount_auth_user_id: cartDiscount?.auth_user_id || null
+                discount_auth_user_id: cartDiscount?.auth_user_id || null,
+                session_id: session?.id || null  // Multi-register: link sale to the open session
             };
 
             let response;

@@ -53,6 +53,12 @@ export const CashProvider = ({ children }) => {
                 console.log('✅ Cash session check successful:', response.data);
                 setIsSessionOpen(true);
                 setSession(response.data);
+                // Sync hardware_client_id so printerService routes to the correct printer
+                const hwId = response.data?.register?.hardware_client_id;
+                if (hwId) {
+                    localStorage.setItem('hardware_client_id', hwId);
+                    console.log(`🖨️ Printer ID synced from register: ${hwId}`);
+                }
             }
         } catch (error) {
             // If 401 Unauthorized, token might be invalid (server restarted)
@@ -142,6 +148,12 @@ export const CashProvider = ({ children }) => {
             const response = await apiClient.post('/cash/sessions/open', sessionData);
             setIsSessionOpen(true);
             setSession(response.data);
+            // Sync hardware_client_id for per-register printer routing on session open
+            const hwId = response.data?.register?.hardware_client_id;
+            if (hwId) {
+                localStorage.setItem('hardware_client_id', hwId);
+                console.log(`🖨️ Printer ID set for this register: ${hwId}`);
+            }
             return true;
         } catch (error) {
             console.error('Error opening session:', error);

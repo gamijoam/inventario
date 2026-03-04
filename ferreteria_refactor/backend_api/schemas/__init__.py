@@ -616,11 +616,13 @@ class CashRegisterCreate(BaseModel):
     name: str
     code: str
     description: Optional[str] = None
+    hardware_client_id: Optional[str] = None
 
 class CashRegisterUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    hardware_client_id: Optional[str] = None
 
 class CashRegisterRead(BaseModel):
     id: int
@@ -629,6 +631,7 @@ class CashRegisterRead(BaseModel):
     description: Optional[str] = None
     is_active: bool
     created_at: datetime
+    hardware_client_id: Optional[str] = None
 
     class Config:
         from_attributes = True
