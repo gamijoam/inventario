@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -44,7 +44,7 @@ const formatStock = (stock) => {
 
 const POS = () => {
     const { user } = useAuth();
-    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount } = useCart();
+    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
     const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
@@ -152,6 +152,15 @@ const POS = () => {
             if (searchInputRef.current) {
                 searchInputRef.current.focus();
             }
+        }
+    });
+
+    // F6: Pausar venta
+    useHotkeys('f6', (e) => {
+        e.preventDefault();
+        if (cart.length > 0 && !heldCart) holdCart();
+        else if (heldCart) {
+            if (cart.length === 0 || confirm('¿Reemplazar el carrito actual con la venta pausada?')) resumeHeldCart();
         }
     });
 
@@ -662,7 +671,18 @@ const POS = () => {
                         <Layers size={16} /> Órdenes
                     </Button>
 
-
+                    {/* Pausar venta — solo visible si hay items y no hay venta pausada */}
+                    {cart.length > 0 && !heldCart && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={holdCart}
+                            className="hidden md:flex gap-2 font-bold text-amber-600 border-amber-300 hover:bg-amber-50 hover:border-amber-400"
+                            title="Pausar esta venta y atender otro cliente (F6)"
+                        >
+                            <PauseCircle size={16} /> Pausar venta
+                        </Button>
+                    )}
 
                     <Button
                         variant="ghost"
@@ -690,6 +710,41 @@ const POS = () => {
                     </Button>
                 </div>
             </div>
+
+            {/* BANNER VENTA PAUSADA */}
+            {heldCart && (
+                <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between shrink-0 z-10">
+                    <div className="flex items-center gap-2 text-amber-700 text-sm font-semibold">
+                        <PauseCircle size={16} className="shrink-0" />
+                        <span>
+                            Venta pausada a las {new Date(heldCart.pausedAt).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
+                            {' · '}{heldCart.items.length} {heldCart.items.length === 1 ? 'ítem' : 'ítems'}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                                if (cart.length > 0 && !confirm('¿Reemplazar el carrito actual con la venta pausada?')) return;
+                                resumeHeldCart();
+                            }}
+                            className="text-amber-700 border-amber-300 hover:bg-amber-100 font-bold gap-1 h-7 text-xs"
+                        >
+                            <PlayCircle size={13} /> Retomar
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => { if (confirm('¿Descartar la venta pausada?')) discardHeldCart(); }}
+                            className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-7 text-xs"
+                        >
+                            Descartar
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-4 p-4">
                 {/* SECCIÓN IZQUIERDA: CATÁLOGO */}
                 <div className="flex-1 min-w-0 h-full">

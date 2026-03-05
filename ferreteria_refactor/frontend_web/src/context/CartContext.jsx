@@ -7,6 +7,7 @@ const CartContext = createContext();
 export const CartProvider = ({ children }) => {
     const [cart, setCart] = useState([]);
     const [cartDiscount, setCartDiscount] = useState({ type: 'percent', value: 0, active: false }); // Feature 1
+    const [heldCart, setHeldCart] = useState(null); // Venta pausada: { items, cartDiscount, pausedAt }
     const { currencies: exchangeRates } = useConfig();
 
     // Auto-update cart items when exchange rates change
@@ -398,6 +399,23 @@ export const CartProvider = ({ children }) => {
         };
     }, [cart, exchangeRates, cartDiscount]);
 
+    // ── Hold Sale (Venta en pausa) ───────────────────────────────────────────
+    const holdCart = () => {
+        if (cart.length === 0) return;
+        setHeldCart({ items: [...cart], cartDiscount: { ...cartDiscount }, pausedAt: new Date().toISOString() });
+        setCart([]);
+        setCartDiscount({ type: 'percent', value: 0, active: false });
+    };
+
+    const resumeHeldCart = () => {
+        if (!heldCart) return;
+        setCart(heldCart.items);
+        setCartDiscount(heldCart.cartDiscount);
+        setHeldCart(null);
+    };
+
+    const discardHeldCart = () => setHeldCart(null);
+
     return (
         <CartContext.Provider value={{
             cart,
@@ -415,7 +433,11 @@ export const CartProvider = ({ children }) => {
             discountBs: totals.discountBs,
             cartDiscount,
             setCartDiscount,
-            exchangeRates
+            exchangeRates,
+            heldCart,
+            holdCart,
+            resumeHeldCart,
+            discardHeldCart,
         }}>
             {children}
         </CartContext.Provider>
