@@ -77,7 +77,7 @@ services:
   # SAAS ADMIN (admin.qa.miinventariofacil.com)
   # ----------------------------------------
   saas_admin:
-    image: gamijoam/ferreteria-saas:qa-version-320
+    image: gamijoam/ferreteria-admin-panel:qa-version-320
     container_name: saas_admin_qa
     restart: always
     labels:
