@@ -1,7 +1,7 @@
 # 18 — Plan: App de Escritorio con Tauri
 
-> **Estado:** Activo — decisiones cerradas ✅
-> **Fecha:** 2026-03-04
+> **Estado:** Fase 1 + Backend local COMPLETADOS ✅ | Fase 2 en progreso
+> **Actualizado:** 2026-03-05 (antes: 2026-03-04)
 > **Branch:** `feature/tauri-desktop`
 > **Ver también:** `19_Sistema_Licencias.md`
 
@@ -98,29 +98,35 @@ DESPUÉS (Fase 3+):
 
 ## 4. Plan de Implementación por Fases
 
-### Fase 1 — Wrapper básico funcional
+### Fase 1 — Wrapper básico funcional ✅ COMPLETADO
 **Estimado:** 1–2 días
 **Objetivo:** Generar un `.exe` instalable que cargue la app web.
 
 **Tareas:**
-- [ ] Instalar Tauri CLI y dependencias Rust en el proyecto Vite
-- [ ] Crear `src-tauri/` con configuración mínima (`tauri.conf.json`)
-- [ ] Configurar ventana: título, ícono, tamaño mínimo (1024×768)
-- [ ] El `webviewUrl` apunta al backend QA o Prod según build
-- [ ] Probar generación del instalador `.exe` (NSIS)
-- [ ] Validar que el frontend funciona idéntico dentro de Tauri
+- [x] Instalar Tauri CLI y dependencias Rust en el proyecto Vite
+- [x] Crear `src-tauri/` con configuración mínima (`tauri.conf.json`)
+- [x] Configurar ventana: título, ícono, tamaño mínimo (1024×768)
+- [x] Backend local FastAPI como sidecar (PyInstaller)
+- [x] `desktop_backend/` — importa `backend_api`, sobreescribe config/middleware/startup
+- [x] DB local PostgreSQL, schema `desktop_local`, migraciones Alembic automáticas
+- [x] Seeding automático (métodos de pago, monedas, almacén, caja, tasas de cambio)
+- [x] `build_desktop_exe.bat` — pipeline completo para generar instalador NSIS
 
-**Archivos nuevos:**
+**Archivos creados:**
 ```
 ferreteria_refactor/
   frontend_web/
-    src-tauri/          ← nuevo
-      src/
-        main.rs
-        lib.rs
+    src-tauri/          ✅
+      src/main.rs, lib.rs
       tauri.conf.json
       Cargo.toml
-      icons/
+  desktop_backend/
+    main.py, run.py, entry.py ✅
+    startup.py (con seeding) ✅
+    middleware.py, config.py ✅
+    invensoft_backend.spec ✅
+  build_desktop_exe.bat ✅
+  iniciar_backend.bat ✅
 ```
 
 ---

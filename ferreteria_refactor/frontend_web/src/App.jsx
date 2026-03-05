@@ -103,6 +103,29 @@ function App() {
   const [isReady, setIsReady] = React.useState(false);
   const [loadingMsg, setLoadingMsg]   = React.useState('Iniciando...');
   const [loadingError, setLoadingError] = React.useState(null);
+  // Tauri sin licencia: renderiza SOLO la pantalla de activación,
+  // sin montar ningún provider (AuthContext, WebSocket, Config, etc.)
+  const [tauriPreLicense, setTauriPreLicense] = React.useState(false);
+
+  // ── Check periódico de licencia (solo Tauri) ────────────────────────────────
+  // Verifica cada 5 minutos si la licencia sigue vigente.
+  // Si vence mientras la app está abierta, redirige a /license-activation.
+  React.useEffect(() => {
+    if (!IS_TAURI || !isReady) return;
+
+    const checkLicense = () => {
+      const key = localStorage.getItem('desktop_license');
+      const exp = localStorage.getItem('desktop_license_exp');
+      const valid = key && exp && new Date(exp) > new Date();
+      if (!valid) {
+        console.warn('[Tauri] ⏰ Licencia vencida/eliminada → /license-activation');
+        window.location.replace('/#/license-activation');
+      }
+    };
+
+    const interval = setInterval(checkLicense, 5 * 60 * 1000); // cada 5 min
+    return () => clearInterval(interval);
+  }, [isReady]);
 
   React.useEffect(() => {
     const initApp = async () => {
@@ -155,10 +178,12 @@ function App() {
         const licenseValid = licenseKey && licenseExp && new Date(licenseExp) > new Date();
 
         // 1. Sin licencia → pantalla de activación (no necesita backend)
-        if (!licenseValid && !currentHash.includes('license-activation')) {
-          console.log('[Tauri] Sin licencia → /license-activation');
-          window.location.replace('/#/license-activation');
-          setIsReady(true);
+        // ⚠️ Usamos tauriPreLicense=true en lugar de isReady=true para que
+        //    NO se monten los providers (AuthContext, WebSocket, Config, etc.)
+        //    que intentarían conectarse a 127.0.0.1:8000 (backend no listo).
+        if (!licenseValid) {
+          console.log('[Tauri] Sin licencia → /license-activation (modo pre-license)');
+          setTauriPreLicense(true);
           return;
         }
 
@@ -216,8 +241,8 @@ function App() {
           return;
         }
 
-        // Licencia en pantalla de activación (aún no validada)
-        setIsReady(true);
+        // (no debería llegar aquí — tauriPreLicense cubre el caso sin licencia)
+        setTauriPreLicense(true);
       } else {
         // Web always ready
         setIsReady(true);
@@ -226,6 +251,21 @@ function App() {
 
     initApp();
   }, []);
+
+  // ── Tauri sin licencia: render mínimo SIN providers ─────────────────────────
+  // Evita que AuthContext, WebSocket, Config, etc. intenten conectar al backend
+  // local antes de que el usuario haya activado la licencia.
+  if (tauriPreLicense) {
+    return (
+      <Router>
+        <Toaster position="top-right" />
+        <Routes>
+          <Route path="/license-activation" element={<LicenseActivation />} />
+          <Route path="*" element={<Navigate to="/license-activation" replace />} />
+        </Routes>
+      </Router>
+    );
+  }
 
   if (!isReady) {
     // ── Error: backend no respondió (solo Tauri) ──────────────────────────────

@@ -24,7 +24,8 @@ import {
 import toast from 'react-hot-toast';
 
 // URL del servidor de licencias (siempre el VPS, nunca localhost)
-const LICENSE_SERVER = 'https://api.miinventariofacil.com';
+// Inyectado desde .env.development / .env.qa / .env.production vía Vite
+const LICENSE_SERVER = import.meta.env.VITE_LICENSE_SERVER || 'https://api-qa.miinventariofacil.com';
 
 // Clave en localStorage donde guardamos el estado de la licencia
 const LICENSE_KEY = 'desktop_license';

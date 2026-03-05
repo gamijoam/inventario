@@ -43,6 +43,9 @@ htmlcov/
 docker-compose.override.yml
 
 # 8. Archivos Grandes y Binarios (OPTIMIZACIÓN)
+# Tauri — artefactos Rust de compilación (pueden superar 5 GB)
+**/src-tauri/target/
+**/src-tauri/binaries/
 Invensoft_Windows_Bridge/
 hardware_bridge/
 desktop_app/

@@ -8,5 +8,7 @@ README.md
 capacitor.config.json
 android
 ios
+# Tauri (app de escritorio — no va en Docker/VPS)
+src-tauri
 *.log
 .vite

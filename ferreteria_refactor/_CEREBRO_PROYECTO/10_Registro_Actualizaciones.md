@@ -2,6 +2,53 @@
 
 Este documento actúa como la bitácora oficial de cambios de **Mi Inventario Fácil**, permitiendo una trazabilidad técnica de las mejoras, correcciones y refactorizaciones realizadas en el ecosistema.
 
+---
+
+## [2026-03-05] — App Desktop Tauri: Backend local funcional + Licencias + Build pipeline
+**Branch:** `feature/tauri-desktop` | **Commits:** `fb60a79`, `47d1a80`, `4122f97`
+
+### feat(tauri): Desktop backend funcional con DB local y seeding
+- **`desktop_backend/startup.py`** — `_seed_default_data()` crea automáticamente en `desktop_local`:
+  tasas de cambio (BCV/Paralelo), métodos de pago (5), monedas (USD/VES/COP),
+  almacén "Almacen1", caja "Caja Principal/C01". Idempotente.
+- **`desktop_backend/startup.py`** — `_ensure_desktop_tenant()` ahora activa todos los módulos
+  (`has_restaurant_module`, `has_laundry_module`, etc.) al crear o actualizar el tenant desktop.
+- **`frontend_web/src/App.jsx`** — Retry loop de 60 segundos en modo Tauri: la app espera
+  confirmación de `GET /api/v1/desktop/info` antes de montar los React Providers.
+  Elimina los toasts "error del servidor" al arranque. Muestra pantalla de error si el
+  backend no responde en 60s con botón "Reintentar".
+- **`iniciar_backend.bat`** — Script doble-click para arrancar el backend Python en desarrollo.
+- **`frontend_web/src/pages/LicenseActivation.jsx`** — Botón "Saltar licencia" solo en
+  `import.meta.env.DEV` que guarda `DEV-0000-0000-0000` con expiración de 5 años.
+
+### feat(restaurant): Mejoras módulo restaurante y móvil
+- `frontend_web/src/pages/Restaurant/` — mejoras en TableMap, KitchenDisplay, MenuManager, OrderModal
+- `frontend_web/src/pages/Mobile/` — mejoras en MobileOrderTaker, MobileTableGrid, WaiterLogin
+- `backend_api/routers/modules/restaurant/orders.py` — mejoras en lógica de órdenes
+- Documentación: `16_Modulo_Restaurante.md` creado con arquitectura completa del módulo
+
+### feat(desktop): Sistema de licencias + PyInstaller build pipeline
+- **`backend_api/models/desktop_license.py`** — Modelo `DesktopLicense` en `public.desktop_licenses`
+  Campos: `license_key` (XXXX-XXXX-XXXX-XXXX), `plan_name`, flags de módulos,
+  `max_devices`, `activations_count`, `expires_at` (null = perpetua), `is_active`, info del cliente
+- **`alembic/versions/0fbdc2b894af_add_desktop_licenses_table.py`** — Migración crea la tabla
+- **`backend_api/routers/desktop_licenses.py`** — Router con:
+  - `POST /api/v1/desktop/license/activate` — endpoint **público** (sin auth)
+  - `GET/POST/PUT/DELETE /api/v1/desktop/licenses` — CRUD para superadmin
+- **`backend_api/main.py`** — Registra `desktop_licenses_router`
+- **`desktop_backend/entry.py`** — Entry point PyInstaller (sin `__name__` guard, maneja `sys._MEIPASS`)
+- **`desktop_backend/invensoft_backend.spec`** — Spec PyInstaller con hiddenimports completos
+- **`build_desktop_exe.bat`** — Pipeline completo: PyInstaller → copy .exe → inject externalBin →
+  `npm run tauri:build` → restaurar `tauri.conf.json`. Genera instalador NSIS.
+
+### Pendiente (próxima fase)
+- UI en SaaS Admin para gestionar licencias desktop (crear, ver activaciones, desactivar)
+- DesktopFirstRun: agregar campos empresa/RIF en primer arranque
+- Test real de `build_desktop_exe.bat` (pendiente correr en máquina con Rust + MSVC)
+- Sidebar desktop: ocultar opciones cloud-only en modo Tauri
+
+---
+
 ## [2026-03-03] - Visibilidad Completa: Cajero/Caja en CxC y Cotizaciones
 
 ### Cotizaciones

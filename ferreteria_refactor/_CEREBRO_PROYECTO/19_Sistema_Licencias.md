@@ -1,7 +1,7 @@
 # 19 — Sistema de Licencias y Suscripciones
 
-> **Estado:** Diseño aprobado — pendiente implementación
-> **Fecha:** 2026-03-04
+> **Estado:** Backend implementado ✅ | SaaS Admin UI pendiente 🔄
+> **Actualizado:** 2026-03-05 (antes: 2026-03-04)
 > **Aplica a:** Web SaaS + App Desktop Tauri
 > **Branch:** `feature/tauri-desktop`
 
@@ -366,19 +366,40 @@ Pantalla de bloqueo. No se puede usar la app.
 
 ## 7. Fases de Implementación
 
-| Fase | Qué incluye | Dónde | Estimado |
-|------|------------|-------|---------|
-| **A** | Fix login bug (tenant.is_active) ✅ HECHO | Backend | 30 min |
-| **B** | Campos license en modelo Tenant + migración | Backend | 2h |
-| **C** | APScheduler auto-expiración diaria | Backend | 2h |
-| **D** | Endpoints `/desktop/license/*` | Backend | 4h |
-| **E** | Tabla `desktop_licenses` | Backend | 1h |
-| **F** | Panel licencias en SaaS Admin | Frontend saas_admin | 4h |
-| **G** | Validación offline en Tauri (Rust) | Tauri | 4h |
-| **H** | Pantallas de bloqueo en React | Frontend | 2h |
+| Fase | Qué incluye | Dónde | Estado |
+|------|------------|-------|--------|
+| **A** | Fix login bug (tenant.is_active) | Backend | ✅ HECHO |
+| **D** | Endpoints `/desktop/license/*` (activar + CRUD admin) | Backend | ✅ HECHO |
+| **E** | Tabla `public.desktop_licenses` + modelo + migración | Backend | ✅ HECHO |
+| **B** | Campos license en modelo Tenant + migración | Backend | 🔄 Pendiente |
+| **C** | APScheduler auto-expiración diaria | Backend | 🔄 Pendiente |
+| **F** | Panel licencias en SaaS Admin (UI) | saas_admin | 🔄 **PRÓXIMO** |
+| **G** | Validación offline en Tauri (Rust, key embebida) | Tauri | 🔄 Pendiente |
+| **H** | Pantallas trial/vencimiento en React | Frontend | 🔄 Pendiente |
 
-**Total estimado:** ~20 horas
-**Fases B–E** se implementan en `feature/tauri-desktop` junto con la app.
+### Implementación real (2026-03-05) — vs diseño original
+
+El diseño original especificaba device_id + JWT RS256. La implementación fase 1 usó
+un enfoque más simple y operacional de inmediato:
+
+**Lo que se implementó:**
+- Licencias con formato `XXXX-XXXX-XXXX-XXXX` generadas por el admin
+- Tabla `public.desktop_licenses` con: `license_key` (unique), `plan_name`,
+  flags de módulos por licencia, `max_devices`, `activations_count`, `expires_at`
+- Activación: POST sin auth → valida key, retorna módulos habilitados
+- Admin CRUD completo protegido con `get_current_superuser`
+
+**Diferencias respecto al diseño:**
+- No usa device_id (simplificado para fase 1)
+- No usa JWT RS256 para el `.lic` (usa localStorage en la app)
+- Offline: 7 días de gracia vía `localStorage` (`desktop_license_exp`)
+- Los módulos se leen de la respuesta del servidor (preparado para fase 2)
+
+**Archivos creados:**
+- `backend_api/models/desktop_license.py` — Modelo `DesktopLicense`
+- `backend_api/routers/desktop_licenses.py` — Router con activación y CRUD
+- `alembic/versions/0fbdc2b894af_add_desktop_licenses_table.py` — Migración
+- `frontend_web/src/pages/LicenseActivation.jsx` — UI de activación + bypass DEV
 
 ---
 
