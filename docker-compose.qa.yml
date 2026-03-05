@@ -64,6 +64,7 @@ services:
       - "traefik.http.routers.backend-qa.rule=Host(`api-qa.miinventariofacil.com`)"
       - "traefik.http.routers.backend-qa.entrypoints=websecure"
       - "traefik.http.routers.backend-qa.tls.certresolver=myresolver"
+      - "traefik.http.routers.backend-qa.priority=200"
     networks:
       - ferreteria_qa_net
     volumes:
@@ -73,7 +74,7 @@ services:
         condition: service_healthy
 
   # ----------------------------------------
-  # SAAS ADMIN (saas-qa.miinventariofacil.com)
+  # SAAS ADMIN (admin.qa.miinventariofacil.com)
   # ----------------------------------------
   saas_admin:
     image: gamijoam/ferreteria-saas:qa-version-320
@@ -81,9 +82,10 @@ services:
     restart: always
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.saas-qa.rule=Host(`saas-qa.miinventariofacil.com`)"
+      - "traefik.http.routers.saas-qa.rule=Host(`admin.qa.miinventariofacil.com`)"
       - "traefik.http.routers.saas-qa.entrypoints=websecure"
       - "traefik.http.routers.saas-qa.tls.certresolver=myresolver"
+      - "traefik.http.routers.saas-qa.priority=200"
     networks:
       - ferreteria_qa_net
 
