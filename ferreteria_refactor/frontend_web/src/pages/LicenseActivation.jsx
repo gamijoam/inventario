@@ -272,6 +272,25 @@ const LicenseActivation = () => {
                                     Continuar sin conexión
                                 </button>
                             )}
+
+                            {/* Bypass solo en modo desarrollo (Vite dev server) */}
+                            {import.meta.env.DEV && (
+                                <button
+                                    onClick={() => {
+                                        const exp = new Date();
+                                        exp.setFullYear(exp.getFullYear() + 5);
+                                        localStorage.setItem(LICENSE_KEY, 'DEV-0000-0000-0000');
+                                        localStorage.setItem(LICENSE_EXP, exp.toISOString());
+                                        setStep('success');
+                                        setTimeout(() => navigate('/login'), 800);
+                                    }}
+                                    className="mt-2 w-full py-2 rounded-xl text-yellow-500/70 hover:text-yellow-400
+                                        text-xs border border-yellow-900/40 hover:border-yellow-700/60 transition-colors
+                                        flex items-center justify-center gap-1"
+                                >
+                                    🛠 Modo Desarrollo — Saltar licencia
+                                </button>
+                            )}
                         </>
                     )}
                 </div>

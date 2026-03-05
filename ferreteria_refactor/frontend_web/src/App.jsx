@@ -8,8 +8,9 @@ import ResetPassword from './pages/ResetPassword';
 import Unauthorized from './pages/Unauthorized';
 // NEW: Mobile Welcome Screen
 import MobileWelcome from './pages/MobileWelcome';
-// Desktop License Activation Screen (Tauri)
+// Desktop screens (Tauri)
 import LicenseActivation from './pages/LicenseActivation';
+import DesktopFirstRun   from './pages/DesktopFirstRun';
 
 // Detectar si la app corre dentro de Tauri (escritorio)
 // window.__TAURI_INTERNALS__ es inyectado por Tauri en todos sus contextos
@@ -100,6 +101,8 @@ function App() {
   // We MUST wait for checking the API URL before rendering ANY provider
   // otherwise CloudConfigProvider or AuthProvider will try to connect and fail.
   const [isReady, setIsReady] = React.useState(false);
+  const [loadingMsg, setLoadingMsg]   = React.useState('Iniciando...');
+  const [loadingError, setLoadingError] = React.useState(null);
 
   React.useEffect(() => {
     const initApp = async () => {
@@ -135,30 +138,85 @@ function App() {
         }
       } else if (IS_TAURI) {
         // ── TAURI DESKTOP ─────────────────────────────────────────
-        // El backend es local (localhost:8000, tenant fijo 'desktop_local').
-        // Solo necesitamos verificar que la licencia está activada.
+        // El backend es local (127.0.0.1:8000, tenant fijo 'desktop_local').
+        // Flujo:
+        //   1. Sin licencia → /license-activation  (no requiere backend)
+        //   2. Con licencia → ESPERAR al backend con reintentos (hasta 60s)
+        //   3. Backend listo + first_run → /desktop-first-run
+        //   4. Backend listo + usuarios  → /login  (normal)
+        //
+        // ⚠️ NO ponemos setIsReady(true) hasta que el backend esté OK.
+        //    Así evitamos que los providers (CashContext, ConfigContext, etc.)
+        //    hagan llamadas API que fallen y muestren "error del servidor".
         const licenseKey  = localStorage.getItem('desktop_license');
         const licenseExp  = localStorage.getItem('desktop_license_exp');
         const currentHash = window.location.hash;
 
         const licenseValid = licenseKey && licenseExp && new Date(licenseExp) > new Date();
 
-        // Sin licencia válida → pantalla de activación
+        // 1. Sin licencia → pantalla de activación (no necesita backend)
         if (!licenseValid && !currentHash.includes('license-activation')) {
-          console.log('🖥️ Tauri: No license found. Redirecting to license activation...');
+          console.log('[Tauri] Sin licencia → /license-activation');
           window.location.replace('/#/license-activation');
           setIsReady(true);
           return;
         }
 
-        // Con licencia pero en pantalla de activación → ir al dashboard
-        if (licenseValid && currentHash.includes('license-activation')) {
-          console.log('🖥️ Tauri: License valid. Redirecting to app...');
-          window.location.replace('/#/login');
+        // 2. Con licencia válida: ESPERAR al backend con reintentos
+        if (licenseValid) {
+          setLoadingMsg('Conectando con el servidor local...');
+
+          const TIMEOUT_MS = 60_000; // máx 60 segundos
+          const POLL_MS    = 1_500;  // reintentar cada 1.5s
+          const startTs    = Date.now();
+          let   desktopInfo = null;
+
+          while (Date.now() - startTs < TIMEOUT_MS) {
+            try {
+              const res = await fetch(
+                'http://127.0.0.1:8000/api/v1/desktop/info',
+                { signal: AbortSignal.timeout(2000) }
+              );
+              if (res.ok) {
+                desktopInfo = await res.json();
+                break;
+              }
+            } catch { /* backend no listo todavía, seguir reintentando */ }
+
+            const elapsed = Math.round((Date.now() - startTs) / 1000);
+            if (elapsed > 4) {
+              setLoadingMsg(`Esperando servidor local... (${elapsed}s)`);
+            }
+            await new Promise(r => setTimeout(r, POLL_MS));
+          }
+
+          // Timeout: el backend nunca respondió
+          if (!desktopInfo) {
+            setLoadingError(
+              'No se pudo conectar al servidor local después de 60 segundos.\n\n' +
+              'Asegúrate de que el backend de Invensoft está corriendo:\n' +
+              '  → Ejecuta "iniciar_backend.bat" y vuelve a intentarlo.'
+            );
+            setIsReady(true);
+            return;
+          }
+
+          console.log('[Tauri] ✅ Backend listo:', desktopInfo);
+
+          // Redirigir según estado
+          if (desktopInfo.first_run && !currentHash.includes('desktop-first-run')) {
+            console.log('[Tauri] Primer arranque → /desktop-first-run');
+            window.location.replace('/#/desktop-first-run');
+          } else if (currentHash.includes('license-activation')) {
+            console.log('[Tauri] Licencia válida → /login');
+            window.location.replace('/#/login');
+          }
+
           setIsReady(true);
           return;
         }
 
+        // Licencia en pantalla de activación (aún no validada)
         setIsReady(true);
       } else {
         // Web always ready
@@ -170,11 +228,36 @@ function App() {
   }, []);
 
   if (!isReady) {
+    // ── Error: backend no respondió (solo Tauri) ──────────────────────────────
+    if (loadingError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-900 p-6">
+          <div className="text-center max-w-sm">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-900/40 mb-4">
+              <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-semibold text-white mb-2">Error de conexión</h2>
+            <p className="text-gray-400 text-sm mb-6 whitespace-pre-line">{loadingError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Loading spinner ───────────────────────────────────────────────────────
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+      <div className={`min-h-screen flex items-center justify-center ${IS_TAURI ? 'bg-gray-900' : 'bg-slate-100'}`}>
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-slate-500 font-medium animate-pulse">Iniciando App...</p>
+          <div className={`w-12 h-12 border-4 border-t-transparent rounded-full animate-spin ${IS_TAURI ? 'border-blue-500' : 'border-indigo-600'}`}></div>
+          <p className={`font-medium animate-pulse ${IS_TAURI ? 'text-gray-300' : 'text-slate-500'}`}>{loadingMsg}</p>
         </div>
       </div>
     );
@@ -201,8 +284,9 @@ function App() {
                           {/* Mobile Welcome (Tenant Setup — Capacitor) */}
                           <Route path="/mobile-welcome" element={<MobileWelcome />} />
 
-                          {/* Desktop License Activation (Tauri — primer arranque) */}
+                          {/* Desktop — Tauri */}
                           <Route path="/license-activation" element={<LicenseActivation />} />
+                          <Route path="/desktop-first-run"  element={<DesktopFirstRun />} />
 
                           {/* Mobile Waiter Routes */}
                           <Route path="/mobile/login" element={<WaiterLogin />} />

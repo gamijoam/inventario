@@ -45,8 +45,6 @@
         "installMode": "perMachine"
       }
     },
-    "externalBin": [
-      "binaries/invensoft-backend"
-    ]
+    "externalBin": []
   }
 }

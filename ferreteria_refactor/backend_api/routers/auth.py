@@ -320,18 +320,20 @@ async def login_for_access_token(
         if not verify_password(form_data.password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
+                detail="Credenciales incorrectas",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+    except HTTPException:
+        raise  # Re-lanzar HTTPException tal cual (contraseña incorrecta)
     except Exception as e:
-        # If hash is invalid/unknown (e.g. from old system), treat as auth failure
+        # Solo llega aquí si el hash está corrupto o en formato desconocido
         print(f"❌ AUTH ERROR: verify_password failed: {e}")
         import traceback
         traceback.print_exc()
-        
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password (Security Update Required)",
+            detail="Error de autenticación. Contacta al administrador.",
             headers={"WWW-Authenticate": "Bearer"},
         )
         

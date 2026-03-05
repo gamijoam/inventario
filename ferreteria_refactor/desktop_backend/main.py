@@ -20,6 +20,13 @@ import time
 import traceback
 from pathlib import Path
 
+# Forzar UTF-8 en Windows para evitar UnicodeEncodeError con emojis
+os.environ.setdefault("PYTHONUTF8", "1")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 1: Configurar variables de entorno ANTES de importar backend_api
 # ─────────────────────────────────────────────────────────────────────────────
@@ -55,11 +62,12 @@ if _FERRETERIA_DIR not in sys.path:
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 3: Importar FastAPI y módulos de backend_api
 # ─────────────────────────────────────────────────────────────────────────────
-from fastapi import FastAPI, APIRouter, Request
+from fastapi import FastAPI, APIRouter, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from pydantic import BaseModel as PydanticBaseModel
 
 # Routers del backend existente (sin modificar)
 from backend_api.routers.products       import router as products_router
@@ -96,7 +104,8 @@ from backend_api.config import settings
 
 # Middleware y startup propios del desktop
 from .middleware import DesktopTenantMiddleware
-from .startup   import initialize_desktop, IS_FIRST_RUN
+from .startup   import initialize_desktop
+from . import startup as _startup
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PASO 4: Crear la app FastAPI
@@ -213,7 +222,7 @@ def health_check():
         "status": "ok",
         "service": "invensoft-desktop",
         "schema": DESKTOP_SCHEMA,
-        "first_run": IS_FIRST_RUN,
+        "first_run": _startup.IS_FIRST_RUN,
     }
 
 
@@ -223,6 +232,79 @@ def desktop_info():
     return {
         "mode": "desktop",
         "schema": DESKTOP_SCHEMA,
-        "first_run": IS_FIRST_RUN,
+        "first_run": _startup.IS_FIRST_RUN,
         "version": "1.0.0",
     }
+
+
+class FirstAdminRequest(PydanticBaseModel):
+    full_name: str
+    username: str
+    password: str
+
+
+@app.post("/api/v1/desktop/setup/admin")
+def create_first_admin(data: FirstAdminRequest):
+    """
+    Crea el primer usuario administrador en el primer arranque.
+    Solo funciona si no hay ningún usuario en desktop_local.
+    """
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.orm import sessionmaker
+    from passlib.context import CryptContext
+    from backend_api.models.models import User, UserRole
+    from backend_api.utils.time_utils import get_venezuela_now
+
+    if not _startup.IS_FIRST_RUN:
+        raise HTTPException(status_code=403, detail="El setup ya fue completado")
+
+    engine = create_engine(
+        DESKTOP_DATABASE_URL,
+        connect_args={"client_encoding": "utf8"},
+        pool_pre_ping=True,
+    )
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    try:
+        # Doble chequeo: verificar que no existan usuarios
+        db.execute(text(f'SET search_path TO "{DESKTOP_SCHEMA}", public'))
+        existing = db.query(User).count()
+        if existing > 0:
+            raise HTTPException(status_code=403, detail="Ya existen usuarios en el sistema")
+
+        # Obtener tenant_id
+        tenant_row = db.execute(
+            text("SELECT id FROM public.tenants WHERE schema_name = :s"),
+            {"s": DESKTOP_SCHEMA}
+        ).fetchone()
+        tenant_id = tenant_row[0] if tenant_row else None
+
+        # Crear admin (email auto-generado: no se usa para nada en desktop)
+        pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        admin = User(
+            username=data.username,
+            password_hash=pwd_ctx.hash(data.password),
+            email=f"{data.username}@desktop.local",
+            role=UserRole.ADMIN,
+            full_name=data.full_name,
+            is_active=True,
+            tenant_id=tenant_id,
+            created_at=get_venezuela_now(),
+        )
+        db.add(admin)
+        db.commit()
+
+        # Marcar que ya no es primer arranque
+        _startup.IS_FIRST_RUN = False
+
+        return {"status": "ok", "message": "Administrador creado exitosamente", "username": data.username}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al crear administrador: {str(e)}")
+    finally:
+        db.close()
+        engine.dispose()
