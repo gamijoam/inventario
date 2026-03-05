@@ -61,7 +61,7 @@ def open_table(table_id: int, db: Session = Depends(get_db), current_user = Depe
     table.status = TableStatusDB.OCCUPIED
     
     db.commit()
-    db.expunge(new_order)
+    db.refresh(new_order)
     return new_order
 
 @router.post("/open-takeout", response_model=OrderRead)
@@ -159,7 +159,7 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreate], background_t
         
     order.updated_at = datetime.now()
     db.commit()
-    db.expunge(order)
+    db.refresh(order)
     
     # TRIGGER KITCHEN PRINT
     try:
@@ -197,8 +197,10 @@ def get_pending_kitchen_orders(db: Session = Depends(get_db)):
         orders = db.query(RestaurantOrder).filter(
             RestaurantOrder.items.any(
                 RestaurantOrderItem.status.in_([
-                    OrderItemStatusDB.PENDING, 
-                    OrderItemStatusDB.PREPARING
+                    OrderItemStatusDB.PENDING,
+                    OrderItemStatusDB.SENT,
+                    OrderItemStatusDB.PREPARING,
+                    OrderItemStatusDB.READY
                 ])
             ),
             RestaurantOrder.status.notin_([OrderStatusDB.PAID, OrderStatusDB.CANCELLED])
@@ -274,32 +276,7 @@ def checkout_order(
         if not item.product:
              continue 
         
-        # --- RECIPE INVENTORY LOGIC (ESCANDALLO) ---
-        try:
-            # 1. Check if this product is a Dish with a Recipe
-            recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == item.product_id).all()
-            
-            if recipes:
-                # It has a recipe! Deduct ingredients.
-                for recipe_item in recipes:
-                    # Assuming recipe_item.ingredient is loaded or we fetch it
-                    # We need to fetch the ingredient product to update its stock
-                    ingredient = db.query(Product).filter(Product.id == recipe_item.ingredient_id).first()
-                    if ingredient:
-                        try:
-                            # Safely handle potential None/Decimal types
-                            qty_needed = float(recipe_item.quantity or 0)
-                            qty_sold = float(item.quantity or 0)
-                            total_needed = qty_needed * qty_sold
-                            
-                            current_stock = float(ingredient.stock or 0)
-                            ingredient.stock = current_stock - total_needed
-                            db.add(ingredient)
-                        except Exception as e:
-                            print(f"[ERROR] Error calculating recipe deduction for {ingredient.name}: {e}")
-                # NOTE: The Dish itself (item.product) will still be processed by SalesService.
-        except Exception as e:
-            print(f"[ERROR] Critical Recipe Logic Failed: {e}")
+        # SalesService now handles Recipe/Escandallo inventory deduction automatically
         
         sale_items.append(schemas.SaleDetailCreate(
             product_id=item.product_id,

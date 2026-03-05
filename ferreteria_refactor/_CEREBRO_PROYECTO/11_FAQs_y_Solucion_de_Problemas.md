@@ -40,3 +40,27 @@ Guía de resolución de conflictos comunes en el uso y administración de **Mi I
 ### Error 404 al abrir enlaces directos (HashRouter)
 *   **Causa**: El frontend utiliza `HashRouter`, por lo que todas las rutas deben pasar por el punto de entrada principal seguido de `#`. Si un enlace (ej. recuperación de clave) no incluye el `#`, el servidor web intentará buscar un archivo físico y fallará.
 *   **Solución**: Asegurarse de que las URLs sigan el formato `https://mi-dominio.com/#/ruta`. El backend ha sido actualizado para generar estos enlaces automáticamente.
+
+## 5. Problemas del Módulo Restaurante
+
+### "El stock no se deduce al cerrar una cuenta del restaurante"
+*   **Escandallo (Receta)**: Verifica que el plato tenga una receta definida en `restaurant_recipes`. Si no hay receta, el sistema intentará deducir el producto directamente (que puede ser un "plato" no almacenable).
+*   **Lógica Centralizada**: La deducción ocurre SOLO en `SalesService.create_sale()`, NO en `orders.py`. Si se modificó el router de órdenes, la deducción podría haberse roto.
+
+### "Error: Could not switch to tenant schema"
+*   **Causa**: PostgreSQL no puede ejecutar `SET search_path TO "nombre_esquema"`. Puede ser que el esquema no exista, la conexión esté corrupta, o haya un problema de permisos.
+*   **Diagnóstico**: A partir de la última actualización, el mensaje de error incluye el detalle exacto de PostgreSQL (ej: `schema "xxx" does not exist` o `permission denied`).
+*   **Solución**: Verificar que el esquema del tenant exista con: `SELECT schema_name FROM information_schema.schemata;`
+
+### "La pantalla de cocina (KDS) no muestra nuevas órdenes"
+*   **Auto-Refresh**: El KDS se actualiza automáticamente cada pocos segundos. Si no muestra datos, verificar conectividad de red.
+*   **Status Filter**: El KDS solo muestra órdenes con ítems en estados activos (`PENDING`, `SENT`, `PREPARING`, `READY`). Si todos los ítems están en `SERVED` o `CANCELLED`, la orden no aparecerá.
+
+## 6. Problemas de Base de Datos
+
+### "Error: alembic_version table not found"
+*   **Reparación Automática**: La función `repair_public_schema()` en `main.py` la recrea automáticamente durante el startup. Si persiste, verificar permisos del usuario de PostgreSQL.
+
+### "Error: Column xxx does not exist in tenants"
+*   **Reparación Automática**: `repair_public_schema()` agrega automáticamente columnas faltantes (`business_type`, `has_restaurant_module`, etc.) a `public.tenants` durante el startup.
+

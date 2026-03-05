@@ -67,13 +67,20 @@ api.interceptors.response.use(
     },
     (error) => {
         if (error.response && error.response.status === 401) {
-            // Clear session
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            // IMPORTANT: Do NOT intercept 401 from auth endpoints (login, debug_login, etc.)
+            // Those 401s are intentional (wrong credentials) and should be handled by the login form.
+            const requestUrl = error.config?.url || '';
+            const isAuthEndpoint = requestUrl.includes('/auth/');
 
-            // Redirect to login if not already there
-            if (!window.location.pathname.includes('/login')) {
-                window.location.href = '/login';
+            if (!isAuthEndpoint) {
+                // Clear session only for non-auth 401s (expired token, invalid session)
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+
+                // Redirect to login if not already there
+                if (!window.location.pathname.includes('/login')) {
+                    window.location.href = '/login';
+                }
             }
         }
         return Promise.reject(error);

@@ -43,6 +43,10 @@ def migrate_barbershop(db_engine):
                 cols = inspector.get_columns('products', schema=schema)
                 col_names = [c['name'] for c in cols]
                 
+                if 'is_commissionable' not in col_names:
+                    print(f"   ➕ Adding is_commissionable to {schema}.products")
+                    conn.execute(text(f"ALTER TABLE \"{schema}\".products ADD COLUMN is_commissionable BOOLEAN DEFAULT FALSE"))
+
                 if 'is_barbershop_service' not in col_names:
                     print(f"   ➕ Adding is_barbershop_service to {schema}.products")
                     conn.execute(text(f"ALTER TABLE \"{schema}\".products ADD COLUMN is_barbershop_service BOOLEAN DEFAULT FALSE"))

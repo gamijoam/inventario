@@ -85,8 +85,4 @@ def downgrade() -> None:
         batch_op.create_foreign_key(batch_op.f('admin_tasks_created_by_id_fkey'), 'users', ['created_by_id'], ['id'])
         batch_op.drop_index(batch_op.f('ix_public_admin_tasks_id'))
 
-    op.create_table('alembic_version',
-    sa.Column('version_num', sa.VARCHAR(length=32), autoincrement=False, nullable=False),
-    sa.PrimaryKeyConstraint('version_num', name=op.f('alembic_version_pkc'))
-    )
     # ### end Alembic commands ###

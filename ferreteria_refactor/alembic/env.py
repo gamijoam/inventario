@@ -158,7 +158,7 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             render_as_batch=True,
             version_table=version_table,
-            version_table_schema=target_schema if target_schema != "public" else "public", # Explicitly set public schema
+            version_table_schema=target_schema if target_schema != "public" else None, # Use None for public to avoid explicit prefixing
             include_object=include_object,
             compare_type=True,
             compare_server_default=True

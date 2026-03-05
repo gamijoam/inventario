@@ -50,7 +50,7 @@ const WaiterLogin = () => {
             // I'll try to just reload page or navigate if context picks up token on mount.
 
             // Navigation
-            window.location.href = '/mobile/tables';
+            window.location.href = '/#/mobile/tables';
 
         } catch (error) {
             console.error(error);

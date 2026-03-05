@@ -1,25 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import restaurantService from '../../services/restaurantService';
-import { RefreshCw, Plus } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, Edit2, X, Users, Clock } from 'lucide-react';
 import OrderModal from './components/OrderModal';
+import { toast } from 'react-hot-toast';
 
 const TableMap = () => {
     const [tables, setTables] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedZone, setSelectedZone] = useState('ALL');
     const [zones, setZones] = useState([]);
+    const [selectedTable, setSelectedTable] = useState(null);
+
+    // New Table Modal
+    const [showNewTableModal, setShowNewTableModal] = useState(false);
+    const [newTable, setNewTable] = useState({ name: '', zone: 'Principal', capacity: 4 });
+    const [saving, setSaving] = useState(false);
+
+    // Edit/Delete
+    const [editingTable, setEditingTable] = useState(null);
 
     const fetchTables = async () => {
         setLoading(true);
         try {
             const data = await restaurantService.getTables();
             setTables(data);
-
-            // Extract unique zones
             const uniqueZones = [...new Set(data.map(t => t.zone))];
             setZones(uniqueZones);
         } catch (error) {
             console.error("Error fetching tables:", error);
+            toast.error("Error cargando mesas");
         } finally {
             setLoading(false);
         }
@@ -27,9 +36,9 @@ const TableMap = () => {
 
     useEffect(() => {
         fetchTables();
+        const interval = setInterval(fetchTables, 10000); // Auto-refresh every 10s
+        return () => clearInterval(interval);
     }, []);
-
-    const [selectedTable, setSelectedTable] = useState(null);
 
     const handleTableClick = (table) => {
         setSelectedTable(table);
@@ -40,17 +49,86 @@ const TableMap = () => {
     };
 
     const handleUpdateMap = () => {
-        // Refresh tables to show new status (e.g. Red for occupied)
         fetchTables();
+    };
+
+    // ===== CREATE TABLE =====
+    const handleCreateTable = async (e) => {
+        e.preventDefault();
+        if (!newTable.name.trim()) {
+            toast.error("El nombre de la mesa es obligatorio");
+            return;
+        }
+        setSaving(true);
+        try {
+            await restaurantService.createTable(newTable);
+            toast.success(`Mesa "${newTable.name}" creada`);
+            setNewTable({ name: '', zone: newTable.zone, capacity: 4 });
+            setShowNewTableModal(false);
+            fetchTables();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.detail || "Error creando mesa");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // ===== DELETE TABLE =====
+    const handleDeleteTable = async (e, tableId) => {
+        e.stopPropagation();
+        if (!window.confirm('¿Seguro que deseas eliminar esta mesa?')) return;
+        try {
+            await restaurantService.deleteTable(tableId);
+            toast.success("Mesa eliminada");
+            fetchTables();
+        } catch (error) {
+            toast.error("Error eliminando mesa");
+        }
     };
 
     const getStatusColor = (status) => {
         switch (status) {
-            case 'AVAILABLE': return 'bg-green-100 border-green-500 text-green-800 hover:bg-green-200';
-            case 'OCCUPIED': return 'bg-red-100 border-red-500 text-red-800 hover:bg-red-200';
-            case 'RESERVED': return 'bg-yellow-100 border-yellow-500 text-yellow-800 hover:bg-yellow-200';
-            case 'CLEANING': return 'bg-blue-100 border-blue-500 text-blue-800 hover:bg-blue-200';
-            default: return 'bg-gray-100 border-gray-400 text-gray-800';
+            case 'AVAILABLE': return {
+                bg: 'bg-gradient-to-br from-emerald-50 to-green-100',
+                border: 'border-emerald-400',
+                text: 'text-emerald-700',
+                badge: 'bg-emerald-500',
+                label: 'Disponible',
+                icon: '🟢'
+            };
+            case 'OCCUPIED': return {
+                bg: 'bg-gradient-to-br from-red-50 to-rose-100',
+                border: 'border-red-400',
+                text: 'text-red-700',
+                badge: 'bg-red-500',
+                label: 'Ocupada',
+                icon: '🔴'
+            };
+            case 'RESERVED': return {
+                bg: 'bg-gradient-to-br from-amber-50 to-yellow-100',
+                border: 'border-amber-400',
+                text: 'text-amber-700',
+                badge: 'bg-amber-500',
+                label: 'Reservada',
+                icon: '🟡'
+            };
+            case 'CLEANING': return {
+                bg: 'bg-gradient-to-br from-blue-50 to-sky-100',
+                border: 'border-blue-400',
+                text: 'text-blue-700',
+                badge: 'bg-blue-500',
+                label: 'Limpieza',
+                icon: '🔵'
+            };
+            default: return {
+                bg: 'bg-gray-100',
+                border: 'border-gray-300',
+                text: 'text-gray-600',
+                badge: 'bg-gray-400',
+                label: status,
+                icon: '⚪'
+            };
         }
     };
 
@@ -59,32 +137,39 @@ const TableMap = () => {
         : tables.filter(t => t.zone === selectedZone);
 
     return (
-        <div className="p-6 h-screen flex flex-col bg-gray-50">
+        <div className="p-6 h-screen flex flex-col bg-slate-50">
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    🍽️ Mapa de Mesas
-                </h1>
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                        🍽️ Mapa de Mesas
+                    </h1>
+                    <p className="text-sm text-slate-500 mt-1">
+                        {tables.filter(t => t.status === 'OCCUPIED').length} ocupada(s) de {tables.length} total
+                    </p>
+                </div>
                 <div className="flex gap-2">
                     <button
                         onClick={fetchTables}
-                        className="p-2 rounded bg-white border border-gray-300 shadow-sm hover:bg-gray-50 text-gray-600 transition-colors"
+                        className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-sm hover:bg-slate-50 text-slate-500 transition-colors"
                         title="Actualizar"
                     >
-                        <RefreshCw size={20} />
+                        <RefreshCw size={18} />
                     </button>
 
                     <button
                         onClick={() => setSelectedTable({ id: null, name: 'LLEVAR', is_takeout: true, status: 'AVAILABLE' })}
-                        className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg shadow hover:bg-orange-700 transition w-full sm:w-auto justify-center"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white rounded-lg shadow-sm hover:bg-orange-600 transition font-medium text-sm"
                     >
-                        <Plus size={18} />
-                        <span>Para Llevar</span>
+                        🥡 Para Llevar
                     </button>
 
-                    <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition w-full sm:w-auto justify-center">
+                    <button
+                        onClick={() => setShowNewTableModal(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition font-medium text-sm"
+                    >
                         <Plus size={18} />
-                        <span className="hidden sm:inline">Nueva Mesa</span>
+                        Nueva Mesa
                     </button>
                 </div>
             </div>
@@ -93,64 +178,188 @@ const TableMap = () => {
             <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
                 <button
                     onClick={() => setSelectedZone('ALL')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${selectedZone === 'ALL'
-                        ? 'bg-gray-800 text-white shadow-md'
-                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                    className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedZone === 'ALL'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                         }`}
                 >
-                    Todas las Zonas
+                    Todas las Zonas ({tables.length})
                 </button>
                 {zones.map(zone => (
                     <button
                         key={zone}
                         onClick={() => setSelectedZone(zone)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${selectedZone === zone
-                            ? 'bg-gray-800 text-white shadow-md'
-                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+                        className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${selectedZone === zone
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                             }`}
                     >
-                        {zone}
+                        {zone} ({tables.filter(t => t.zone === zone).length})
                     </button>
                 ))}
+            </div>
+
+            {/* Status Legend */}
+            <div className="flex gap-4 mb-4 text-xs text-slate-500">
+                <span className="flex items-center gap-1">🟢 Disponible</span>
+                <span className="flex items-center gap-1">🔴 Ocupada</span>
+                <span className="flex items-center gap-1">🟡 Reservada</span>
+                <span className="flex items-center gap-1">🔵 Limpieza</span>
             </div>
 
             {/* Grid */}
             {loading ? (
                 <div className="flex-1 flex justify-center items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                 </div>
             ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 overflow-y-auto pb-20">
-                    {filteredTables.map(table => (
-                        <div
-                            key={table.id}
-                            onClick={() => handleTableClick(table)}
-                            className={`
-                aspect-square rounded-2xl border-2 flex flex-col justify-center items-center cursor-pointer shadow-sm transition-all transform hover:scale-105 hover:shadow-md
-                ${getStatusColor(table.status)}
-              `}
-                        >
-                            <span className="text-3xl font-bold mb-1">{table.name}</span>
-                            <span className="text-xs uppercase font-semibold opacity-75">{table.status}</span>
-                            <div className="mt-2 text-xs flex items-center opacity-60">
-                                👤 {table.capacity}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 overflow-y-auto pb-20">
+                    {filteredTables.map(table => {
+                        const status = getStatusColor(table.status);
+                        return (
+                            <div
+                                key={table.id}
+                                onClick={() => handleTableClick(table)}
+                                className={`
+                                    relative rounded-2xl border-2 p-5 cursor-pointer shadow-sm
+                                    transition-all transform hover:scale-[1.03] hover:shadow-lg
+                                    ${status.bg} ${status.border}
+                                    min-h-[140px] flex flex-col justify-between
+                                `}
+                            >
+                                {/* Delete button (top-right) */}
+                                <button
+                                    onClick={(e) => handleDeleteTable(e, table.id)}
+                                    className="absolute top-2 right-2 p-1 rounded-full bg-white/70 text-slate-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                    title="Eliminar Mesa"
+                                    style={{ opacity: undefined }}
+                                    onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                                    onMouseLeave={(e) => e.currentTarget.style.opacity = ''}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+
+                                <div className="text-center">
+                                    <span className="text-3xl font-bold mb-1 block">{table.name}</span>
+                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${status.text} bg-white/60`}>
+                                        {status.icon} {status.label}
+                                    </span>
+                                </div>
+
+                                <div className="flex justify-between items-end mt-3">
+                                    <div className="flex items-center gap-1 text-xs text-slate-500">
+                                        <Users size={12} />
+                                        {table.capacity}
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 uppercase tracking-wider">{table.zone}</span>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {filteredTables.length === 0 && (
-                        <div className="col-span-full py-12 text-center text-gray-400">
-                            No hay mesas en esta zona.
+                        <div className="col-span-full py-16 text-center">
+                            <p className="text-6xl mb-4">🍽️</p>
+                            <p className="text-slate-400 text-lg">No hay mesas en esta zona.</p>
+                            <button
+                                onClick={() => setShowNewTableModal(true)}
+                                className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium"
+                            >
+                                Crear Primera Mesa
+                            </button>
                         </div>
                     )}
                 </div>
             )}
+
+            {/* Order Modal */}
             {selectedTable && (
                 <OrderModal
                     table={selectedTable}
                     onClose={handleCloseModal}
                     onUpdate={handleUpdateMap}
                 />
+            )}
+
+            {/* NEW TABLE MODAL */}
+            {showNewTableModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <div className="bg-indigo-600 text-white px-6 py-4 flex justify-between items-center">
+                            <h2 className="text-lg font-bold">Nueva Mesa</h2>
+                            <button onClick={() => setShowNewTableModal(false)} className="p-1 hover:bg-white/20 rounded-lg transition">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleCreateTable} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre *</label>
+                                <input
+                                    type="text"
+                                    value={newTable.name}
+                                    onChange={(e) => setNewTable(prev => ({ ...prev, name: e.target.value }))}
+                                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-lg"
+                                    placeholder="Ej: Mesa 1, Barra 3"
+                                    autoFocus
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Zona</label>
+                                <input
+                                    type="text"
+                                    value={newTable.zone}
+                                    onChange={(e) => setNewTable(prev => ({ ...prev, zone: e.target.value }))}
+                                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                                    placeholder="Ej: Terraza, Salón Principal"
+                                    list="zone-suggestions"
+                                />
+                                <datalist id="zone-suggestions">
+                                    {zones.map(z => (
+                                        <option key={z} value={z} />
+                                    ))}
+                                    <option value="Principal" />
+                                    <option value="Terraza" />
+                                    <option value="Barra" />
+                                    <option value="VIP" />
+                                </datalist>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Capacidad</label>
+                                <div className="flex items-center gap-3">
+                                    {[2, 4, 6, 8, 10].map(cap => (
+                                        <button
+                                            key={cap}
+                                            type="button"
+                                            onClick={() => setNewTable(prev => ({ ...prev, capacity: cap }))}
+                                            className={`w-12 h-12 rounded-xl font-bold text-lg transition-all ${newTable.capacity === cap
+                                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                                }`}
+                                        >
+                                            {cap}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewTableModal(false)}
+                                    className="flex-1 p-3 border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-50 transition font-medium"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="flex-1 p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-medium disabled:opacity-50"
+                                >
+                                    {saving ? 'Creando...' : 'Crear Mesa'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             )}
         </div>
     );
