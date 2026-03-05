@@ -4,6 +4,42 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-05] — Limpieza Tauri + Fix routing QA + SaaS Admin funcional
+**Branch:** `feature/tauri-desktop` | **Commits:** `a1feb74`, `4fd78ce`, `17b9a17`, `affea8f`, `73a5b95`
+
+### feat: Eliminación completa de la feature Tauri Desktop
+Se tomó la decisión de abandonar la app de escritorio. Se removió todo el código específico de Tauri conservando todos los cambios valiosos (restaurante, barbería, móvil, etc.).
+
+**Archivos eliminados:**
+- `frontend_web/src-tauri/` (Tauri config, Rust sources, 75+ icons)
+- `desktop_backend/` (FastAPI local, PyInstaller spec, middleware, startup)
+- `frontend_web/src/pages/LicenseActivation|DesktopFirstRun|DesktopSetup.jsx`
+- `backend_api/models/desktop_license.py` + `routers/desktop_licenses.py`
+- `alembic/versions/0fbdc2b894af` (migración desktop_licenses — nunca ejecutada en prod)
+- `saas_admin/pages/DesktopLicenses` + modales + `api/desktopLicenses.ts`
+- `build_desktop_exe.bat`, `iniciar_backend.bat`
+
+**Archivos limpiados:**
+- `App.jsx` — sin `IS_TAURI`, sin `tauriPreLicense`, sin retry loop, startup normal
+- `backend_api/main.py` — sin `desktop_licenses_router`
+- `saas_admin/App.tsx` y `DashboardLayout.tsx` — sin rutas/nav de licencias desktop
+
+### fix(qa): SaaS Admin panel accesible en admin-qa.miinventariofacil.com
+- **Problema 1:** Imagen Docker incorrecta: `ferreteria-saas` → `ferreteria-admin-panel`
+  (el script `deploy_images.bat` usa `ferreteria-admin-panel` como nombre)
+- **Problema 2:** Dominio incorrecto: `admin.qa.*` → `admin-qa.miinventariofacil.com`
+  (patrón correcto: `{servicio}-qa.miinventariofacil.com`, igual que `api-qa`)
+- **Problema 3 (previo):** Priority Traefik para evitar que wildcard frontend capture requests
+  de dominios específicos (priority=200 en backend y saas_admin)
+- **Resultado:** `https://admin-qa.miinventariofacil.com/login` funciona correctamente
+
+### chore(docker): docker-compose.qa.yml creado
+- Stack QA completo: traefik + frontend + backend + saas_admin + db
+- Dominios QA: `*.qa.miinventariofacil.com` (frontend), `api-qa.*`, `admin-qa.*`
+- `.dockerignore.fast` y `.dockerignore.full` actualizados para excluir `src-tauri/target/`
+
+---
+
 ## [2026-03-05] — App Desktop Tauri: Backend local funcional + Licencias + Build pipeline
 **Branch:** `feature/tauri-desktop` | **Commits:** `fb60a79`, `47d1a80`, `4122f97`
 
