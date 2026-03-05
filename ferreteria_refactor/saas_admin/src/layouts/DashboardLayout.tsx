@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, LogOut, Megaphone, LifeBuoy, CheckSquare, HardDrive, Monitor } from 'lucide-react';
+import { LayoutDashboard, Building2, LogOut, Megaphone, LifeBuoy, CheckSquare, HardDrive } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const DashboardLayout: React.FC = () => {
@@ -14,7 +14,6 @@ const DashboardLayout: React.FC = () => {
         { name: 'Recordatorios', href: '/dashboard/reminders', icon: CheckSquare },
         { name: 'Mensajes', href: '/dashboard/messages', icon: Megaphone },
         { name: 'Respaldos', href: '/dashboard/backups', icon: HardDrive },
-        { name: 'Licencias Desktop', href: '/dashboard/licenses', icon: Monitor },
     ];
 
     const isActive = (path: string) => {
