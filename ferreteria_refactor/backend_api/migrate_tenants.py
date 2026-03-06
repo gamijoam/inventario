@@ -24,32 +24,107 @@ def migrate_tenants(db_engine=None):
             print(f"\n🚜 Migrating Schema: {schema}...")
             # Sanitize schema name for index names (Postgres identifiers shouldn't have hyphens without check)
             safe_schema = schema.replace("-", "_")
-            
-            # 1. Add tenant_id to Service Orders
-            try:
-                # Check if column exists
-                cols = inspector.get_columns('service_orders', schema=schema)
-                col_names = [c['name'] for c in cols]
-                
-                if 'tenant_id' not in col_names:
-                    print(f"   ➕ Adding tenant_id column to {schema}.service_orders")
-                    conn.execute(text(f"ALTER TABLE \"{schema}\".service_orders ADD COLUMN tenant_id VARCHAR"))
-                    # Quote index name and use safe schema
-                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_srv_tenant\" ON \"{schema}\".service_orders (tenant_id)"))
-                    
-                    # Backfill? Optional.
-                    conn.execute(text(f"UPDATE \"{schema}\".service_orders SET tenant_id = '{schema}'"))
-                else:
-                    print(f"   ✅ tenant_id already exists in {schema}.service_orders")
 
-                # 1.5 Make serial_imei nullable
-                print(f"   🔧 Altering serial_imei to nullable in {schema}.service_orders")
-                conn.execute(text(f"ALTER TABLE \"{schema}\".service_orders ALTER COLUMN serial_imei DROP NOT NULL"))
-                
-                conn.commit() # Commit success
+            # 0. CREATE SERVICE MODULE TABLES IF MISSING
+            # ─────────────────────────────────────────────────────────────────────
+            # These tables are NOT created by Alembic (which only targets public schema).
+            # This block ensures they exist in every tenant schema.
+            # ─────────────────────────────────────────────────────────────────────
+            try:
+                tables = inspector.get_table_names(schema=schema)
+
+                # 0.1 service_orders
+                if 'service_orders' not in tables:
+                    print(f"   ➕ Creating table {schema}.service_orders")
+                    conn.execute(text(f"""
+                        CREATE TABLE IF NOT EXISTS \"{schema}\".service_orders (
+                            id                  SERIAL PRIMARY KEY,
+                            ticket_number       VARCHAR,
+                            tenant_id           VARCHAR,
+                            customer_id         INTEGER REFERENCES \"{schema}\".customers(id),
+                            technician_id       INTEGER REFERENCES public.users(id),
+                            status              VARCHAR DEFAULT 'RECEIVED',
+                            service_type        VARCHAR DEFAULT 'REPAIR',
+                            priority            VARCHAR DEFAULT 'NORMAL',
+                            device_type         VARCHAR,
+                            brand               VARCHAR,
+                            model               VARCHAR,
+                            serial_imei         VARCHAR,
+                            passcode_pattern    VARCHAR,
+                            problem_description TEXT,
+                            physical_condition  TEXT,
+                            diagnosis_notes     TEXT,
+                            order_metadata      JSONB,
+                            created_at          TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+                            updated_at          TIMESTAMP WITHOUT TIME ZONE,
+                            estimated_delivery  TIMESTAMP WITHOUT TIME ZONE
+                        )
+                    """))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_so_id\"     ON \"{schema}\".service_orders (id)"))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_so_ticket\"  ON \"{schema}\".service_orders (ticket_number)"))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_so_tenant\"  ON \"{schema}\".service_orders (tenant_id)"))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_so_imei\"    ON \"{schema}\".service_orders (serial_imei)"))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_so_status\"  ON \"{schema}\".service_orders (status)"))
+                    conn.commit()
+                    print(f"   ✅ Table {schema}.service_orders created")
+                else:
+                    print(f"   ✅ Table {schema}.service_orders already exists")
+
+                # 0.2 service_order_details
+                tables = inspector.get_table_names(schema=schema)  # re-inspect after potential creation
+                if 'service_order_details' not in tables:
+                    print(f"   ➕ Creating table {schema}.service_order_details")
+                    conn.execute(text(f"""
+                        CREATE TABLE IF NOT EXISTS \"{schema}\".service_order_details (
+                            id               SERIAL PRIMARY KEY,
+                            service_order_id INTEGER NOT NULL REFERENCES \"{schema}\".service_orders(id),
+                            product_id       INTEGER REFERENCES \"{schema}\".products(id),
+                            description      VARCHAR,
+                            is_manual        BOOLEAN DEFAULT FALSE,
+                            observations     VARCHAR,
+                            quantity         NUMERIC(12, 3) DEFAULT 1.000,
+                            unit_price       NUMERIC(18, 4) DEFAULT 0.0000,
+                            cost             NUMERIC(18, 4) DEFAULT 0.0000,
+                            technician_id    INTEGER REFERENCES public.users(id),
+                            created_at       TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
+                        )
+                    """))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_sod_id\"    ON \"{schema}\".service_order_details (id)"))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_sod_order\" ON \"{schema}\".service_order_details (service_order_id)"))
+                    conn.commit()
+                    print(f"   ✅ Table {schema}.service_order_details created")
+                else:
+                    print(f"   ✅ Table {schema}.service_order_details already exists")
 
             except Exception as e:
-                conn.rollback() # Reset transaction on error
+                conn.rollback()
+                print(f"   ⚠️ Error creating service module tables in {schema}: {e}")
+
+            # 1. Add tenant_id to Service Orders (if table already existed without it)
+            try:
+                tables = inspector.get_table_names(schema=schema)
+                if 'service_orders' in tables:
+                    cols = inspector.get_columns('service_orders', schema=schema)
+                    col_names = [c['name'] for c in cols]
+
+                    if 'tenant_id' not in col_names:
+                        print(f"   ➕ Adding tenant_id column to {schema}.service_orders")
+                        conn.execute(text(f"ALTER TABLE \"{schema}\".service_orders ADD COLUMN tenant_id VARCHAR"))
+                        conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_srv_tenant\" ON \"{schema}\".service_orders (tenant_id)"))
+                        conn.execute(text(f"UPDATE \"{schema}\".service_orders SET tenant_id = '{schema}'"))
+                    else:
+                        print(f"   ✅ tenant_id already exists in {schema}.service_orders")
+
+                    # Make serial_imei nullable (safe to run even if already nullable)
+                    try:
+                        conn.execute(text(f"ALTER TABLE \"{schema}\".service_orders ALTER COLUMN serial_imei DROP NOT NULL"))
+                    except Exception:
+                        pass  # Already nullable, ignore
+
+                    conn.commit()
+
+            except Exception as e:
+                conn.rollback()
                 print(f"   ⚠️ Error modifying service_orders in {schema}: {e}")
 
             # 2. Create Service Payments
@@ -59,7 +134,7 @@ def migrate_tenants(db_engine=None):
                 if 'service_payments' not in tables:
                     print(f"   ➕ Creating table {schema}.service_payments")
                     conn.execute(text(f"""
-                        CREATE TABLE \"{schema}\".service_payments (
+                        CREATE TABLE IF NOT EXISTS \"{schema}\".service_payments (
                             id SERIAL PRIMARY KEY,
                             tenant_id VARCHAR,
                             service_order_id INTEGER NOT NULL REFERENCES \"{schema}\".service_orders(id),
@@ -70,14 +145,14 @@ def migrate_tenants(db_engine=None):
                             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()
                         )
                     """))
-                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_pay_id\" ON \"{schema}\".service_payments (id)"))
-                    conn.execute(text(f"CREATE INDEX \"ix_{safe_schema}_pay_tenant\" ON \"{schema}\".service_payments (tenant_id)"))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_pay_id\" ON \"{schema}\".service_payments (id)"))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_pay_tenant\" ON \"{schema}\".service_payments (tenant_id)"))
                     conn.commit()
                 else:
                     print(f"   ✅ Table {schema}.service_payments already exists")
 
             except Exception as e:
-                conn.rollback() # Reset transaction
+                conn.rollback()
                 print(f"   ⚠️ Error creating service_payments in {schema}: {e}")
 
             # 3. Create Price Lists & Product Prices
