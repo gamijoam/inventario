@@ -4,6 +4,37 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-05] — POS: Venta en pausa (Hold Sale)
+**Branch:** `feature/tauri-desktop` | **Commits:** `6aa8a6e`, `965cfa1`
+
+### feat(pos): Pausar y retomar ventas en el POS
+
+Permite al cajero congelar el carrito actual, atender a otro cliente y retomar la venta cuando el cliente regrese.
+
+**Decisión de diseño:** 100% frontend (estado React), sin backend ni migraciones. Solo 1 pausa simultánea. Se descarta si el cajero cierra sesión.
+
+**`CartContext.jsx`:**
+- `heldCart` state: `{ items, cartDiscount, pausedAt }` — guarda items Y el descuento aplicado
+- `holdCart()` — guarda carrito actual en `heldCart`, limpia el POS
+- `resumeHeldCart()` — restaura items y descuento exactamente como estaban
+- `discardHeldCart()` — elimina la pausa sin restaurar
+
+**`POS.jsx`:**
+- Botón **⏸ Pausar** siempre visible en el header (entre "Órdenes" y "Cerrar Caja"), desactivado con carrito vacío
+- Banner ámbar bajo el header cuando hay venta pausada: hora + cantidad ítems + [Retomar] + [Descartar]
+- Hotkey **F6**: pausa si hay items; retoma si ya hay pausa activa
+- Si al retomar el carrito actual tiene items, pide confirmación antes de reemplazar
+
+**Flujo:**
+```
+[POS con items] → clic "Pausar" / F6
+→ [POS limpio + banner ámbar "Venta pausada a las 14:32 · 3 ítems"]
+→ cajero atiende siguiente cliente normalmente
+→ clic "Retomar" / F6 → restaura carrito y descuento
+```
+
+---
+
 ## [2026-03-05] — Limpieza Tauri + Fix routing QA + SaaS Admin funcional
 **Branch:** `feature/tauri-desktop` | **Commits:** `a1feb74`, `4fd78ce`, `17b9a17`, `affea8f`, `73a5b95`
 
