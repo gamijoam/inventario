@@ -142,6 +142,7 @@ const Products = () => {
                     </div>
 
                     <Button
+                        id="tour-products-add-btn"
                         onClick={() => setIsModalOpen(true)}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-10 px-4"
                     >

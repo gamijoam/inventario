@@ -11,7 +11,7 @@ export default function OnboardingController() {
         if (user && user.is_onboarding_completed === false) {
             // Small timeout to ensure DOM elements are fully rendered
             const timer = setTimeout(() => {
-                startTour(async () => {
+                startTour('WELCOME', async () => {
                     // This callback runs when the tour ends (Close or Finish)
                     await markAsCompleted();
                 });

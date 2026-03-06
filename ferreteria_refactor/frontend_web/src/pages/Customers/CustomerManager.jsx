@@ -195,7 +195,7 @@ const CustomerManager = () => {
                     </h1>
                     <p className="text-slate-500 font-medium">Administra clientes, límites de crédito y estados de cuenta</p>
                 </div>
-                <Button onClick={handleCreateClick} className="shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all">
+                <Button id="tour-customers-add-btn" onClick={handleCreateClick} className="shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all">
                     <Plus size={20} className="mr-2" />
                     Nuevo Cliente
                 </Button>

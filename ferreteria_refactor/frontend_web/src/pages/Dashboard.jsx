@@ -294,7 +294,7 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto pb-10">
+        <div id="tour-dashboard-container" className="space-y-6 animate-in fade-in duration-500 max-w-7xl mx-auto pb-10">
 
             {/* 1. Header with Actions */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

@@ -199,7 +199,7 @@ const CashHistory = () => {
     };
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-slate-50 p-6 overflow-hidden">
+        <div id="tour-cash-container" className="h-[calc(100vh-64px)] flex flex-col bg-slate-50 p-6 overflow-hidden">
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 flex-shrink-0">
                 <div>

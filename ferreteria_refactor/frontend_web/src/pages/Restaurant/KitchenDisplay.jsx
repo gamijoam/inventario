@@ -143,7 +143,7 @@ const KitchenDisplay = () => {
     const totalReady = orders.reduce((s, o) => s + o.items.filter(i => i.status === 'READY').length, 0);
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+        <div id="tour-restaurant-kitchen" className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
             {/* Header */}
             <header className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center sticky top-0 z-10">
                 <div className="flex items-center gap-4">

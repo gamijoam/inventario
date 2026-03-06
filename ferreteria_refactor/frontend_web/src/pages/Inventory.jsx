@@ -83,6 +83,7 @@ const Inventory = () => {
                             Recepción
                         </Link>
                         <button
+                            id="tour-inventory-add-btn"
                             onClick={() => setIsSheetOpen(true)}
                             className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all font-bold text-sm flex items-center gap-2"
                         >

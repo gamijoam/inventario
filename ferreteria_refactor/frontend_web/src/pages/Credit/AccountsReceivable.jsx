@@ -436,7 +436,7 @@ const AccountsReceivable = () => {
     ];
 
     return (
-        <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
+        <div id="tour-receivables-container" className="p-4 md:p-6 max-w-[1600px] mx-auto">
             <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">Cuentas por Cobrar (CxC)</h1>

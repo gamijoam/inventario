@@ -83,7 +83,7 @@ const Categories = () => {
                     </h1>
                     <p className="text-slate-500 text-sm mt-1">Organiza tu inventario en categorías y subcategorías.</p>
                 </div>
-                <Button onClick={openCreateModal}>
+                <Button id="tour-categories-add-btn" onClick={openCreateModal}>
                     <Plus size={18} />
                     Nueva Categoría
                 </Button>

@@ -28,6 +28,7 @@ const POSCatalog = ({
                 {/* Row 1: Search */}
                 {/* Row 1: Search */}
                 <SearchWithScanner
+                    id="tour-pos-search"
                     value={searchTerm}
                     onChange={(val) => onSearch(val)}
                     placeholder="Buscar productos por nombre o código..."

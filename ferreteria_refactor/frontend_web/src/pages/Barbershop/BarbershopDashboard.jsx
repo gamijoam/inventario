@@ -36,7 +36,7 @@ const BarbershopDashboard = () => {
     ];
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div id="tour-barbershop-container" className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row justify-between items-center text-center md:text-left">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-emerald-100 text-emerald-600 rounded-2xl shadow-sm">

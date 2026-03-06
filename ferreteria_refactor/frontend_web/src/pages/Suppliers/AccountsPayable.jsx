@@ -107,7 +107,7 @@ const AccountsPayable = () => {
     // Main view - Summary
     if (!selectedSupplier) {
         return (
-            <div className="overflow-y-auto bg-slate-50 p-4 md:p-6">
+            <div id="tour-payables-container" className="overflow-y-auto bg-slate-50 p-4 md:p-6">
                 <div className="mb-6">
                     <h1 className="text-xl md:text-2xl font-bold text-slate-800">Cuentas por Pagar</h1>
                     <p className="text-slate-500 font-medium">Gestión de deudas con proveedores</p>

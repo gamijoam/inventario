@@ -100,7 +100,7 @@ const Settings = () => {
 
     return (
 
-        <div className="flex h-[calc(100vh-theme(spacing.16))] bg-white overflow-hidden">
+        <div id="tour-settings-container" className="flex h-[calc(100vh-theme(spacing.16))] bg-white overflow-hidden">
             {/* Main Content */}
             <main className="flex-1 bg-slate-50/30 overflow-hidden flex flex-col">
                 <ScrollArea className="flex-1">

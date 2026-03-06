@@ -58,6 +58,7 @@ const Purchases = () => {
                     <p className="text-gray-600 text-sm">Gestión de compras y cuentas por pagar</p>
                 </div>
                 <button
+                    id="tour-purchases-add-btn"
                     onClick={() => navigate('/purchases/new')}
                     className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors text-sm whitespace-nowrap"
                 >

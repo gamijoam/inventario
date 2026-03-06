@@ -102,7 +102,7 @@ const Suppliers = () => {
                     </h1>
                     <p className="text-slate-500 font-medium mt-1">Gestión de proveedores, contactos y términos de crédito</p>
                 </div>
-                <Button onClick={handleCreate}>
+                <Button id="tour-suppliers-add-btn" onClick={handleCreate}>
                     <Plus size={20} className="mr-2" />
                     Nuevo Proveedor
                 </Button>

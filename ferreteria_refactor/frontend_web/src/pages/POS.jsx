@@ -631,7 +631,7 @@ const POS = () => {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-slate-100 overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div id="tour-pos-container" className="flex flex-col h-screen bg-slate-100 overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
 
             {/* GLOBAL POS HEADER */}
             <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-20">
@@ -674,6 +674,7 @@ const POS = () => {
                     {/* Pausar venta — siempre visible, desactivado sin items o con pausa activa */}
                     {!heldCart && (
                         <Button
+                            id="tour-pos-hold-btn"
                             variant="outline"
                             size="sm"
                             onClick={holdCart}
@@ -701,6 +702,7 @@ const POS = () => {
                     <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
                     <Button
+                        id="tour-pos-settings"
                         variant="ghost"
                         size="icon"
                         onClick={() => setIsSettingsOpen(true)}

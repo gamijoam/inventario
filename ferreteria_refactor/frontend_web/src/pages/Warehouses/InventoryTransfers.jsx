@@ -231,6 +231,7 @@ const InventoryTransfers = () => {
                         <p className="text-slate-500 font-medium">Historial y gestión de movimientos entre bodegas</p>
                     </div>
                     <button
+                        id="tour-transfers-add-btn"
                         onClick={() => setView('create')}
                         className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5"
                     >

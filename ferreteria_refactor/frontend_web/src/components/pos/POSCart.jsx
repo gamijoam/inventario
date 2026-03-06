@@ -97,7 +97,7 @@ const POSCart = ({
     const hasDiscount = cartDiscount?.active;
 
     return (
-        <div className="flex flex-col h-full bg-white relative">
+        <div id="tour-pos-cart" className="flex flex-col h-full bg-white relative">
 
             {/* Added PIN Modal */}
             <PinAuthModal
@@ -455,6 +455,7 @@ const POSCart = ({
                     </div>
 
                     <Button
+                        id="tour-pos-pay-btn"
                         size="lg"
                         className="w-full h-14 text-lg font-black bg-blue-600 hover:bg-blue-700 shadow-2xl shadow-blue-500/30 rounded-2xl transition-all hover:-translate-y-1 active:scale-[0.98] group"
                         onClick={onCheckout}

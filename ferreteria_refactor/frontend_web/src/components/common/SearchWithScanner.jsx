@@ -10,7 +10,8 @@ const SearchWithScanner = ({
     placeholder = "Buscar productos...",
     className,
     inputClassName,
-    autoFocus = false
+    autoFocus = false,
+    id
 }) => {
     const [isScanning, setIsScanning] = useState(false);
 
@@ -24,7 +25,7 @@ const SearchWithScanner = ({
     };
 
     return (
-        <div className={cn("relative w-full", className)}>
+        <div id={id} className={cn("relative w-full", className)}>
             <div className="relative flex items-center">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10">
                     <Search size={18} className="opacity-50" />

@@ -108,6 +108,7 @@ const WarehouseManager = () => {
                     <p className="text-slate-500 font-medium">Configura tus bodegas y sucursales</p>
                 </div>
                 <button
+                    id="tour-warehouses-add-btn"
                     onClick={() => handleOpenModal()}
                     className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 active:translate-y-0"
                 >

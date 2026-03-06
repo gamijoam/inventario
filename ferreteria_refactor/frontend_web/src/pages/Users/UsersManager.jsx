@@ -204,6 +204,7 @@ const UsersManager = () => {
                 </div>
 
                 <button
+                    id="tour-users-add-btn"
                     onClick={() => handleOpenModal('create')}
                     className="group flex items-center gap-2 bg-slate-900 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-xl shadow-slate-200 active:scale-95"
                 >

@@ -1,5 +1,5 @@
 # ETAPA 1: Construcción (Build)
-FROM node:22-alpine as build-stage
+FROM node:22-alpine AS build-stage
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN echo "VITE_API_URL set to: $VITE_API_URL"
 RUN npm run build
 
 # ETAPA 2: Producción (Nginx)
-FROM nginx:alpine as production-stage
+FROM nginx:alpine AS production-stage
 
 # Copiamos los archivos compilados de la etapa anterior a Nginx
 COPY --from=build-stage /app/dist /usr/share/nginx/html
