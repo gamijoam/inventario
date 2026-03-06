@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
     Users, Smartphone, Tablet, Monitor, Save,
-    Search, Plus, CheckCircle, AlertTriangle
+    Search, Plus, CheckCircle, AlertTriangle, Printer
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import QuickCustomerModal from '../../components/pos/QuickCustomerModal';
+import printerService from '../../services/printerService';
 
 const DEVICE_TYPES = [
     { id: 'SMARTPHONE', label: 'Celular', icon: Smartphone },
@@ -18,6 +19,7 @@ const DEVICE_TYPES = [
 const Reception = () => {
     const [loading, setLoading] = useState(false);
     const [ticketNumber, setTicketNumber] = useState(null);
+    const [lastOrderId, setLastOrderId] = useState(null);
 
     // Customer Search
     const [customers, setCustomers] = useState([]);
@@ -110,12 +112,16 @@ const Reception = () => {
 
             const res = await apiClient.post('/services/orders', payload);
             setTicketNumber(res.data.ticket_number);
+            setLastOrderId(res.data.id);
             toast.success(`Orden ${res.data.ticket_number} creada exitosamente!`);
 
-            // Optional: Prompt print
-            if (window.confirm(`Orden Creada: ${res.data.ticket_number}\n¿Desea imprimir el recibo de recepción?`)) {
-                // TODO: Call printer service
-                toast("Impresión enviada (Simulación)");
+            // Auto-print reception ticket
+            try {
+                const printRes = await apiClient.get(`/services/orders/${res.data.id}/print/thermal`);
+                await printerService.printRaw(printRes.data);
+            } catch (printErr) {
+                console.warn('Print error (non-blocking):', printErr);
+                toast('Sin impresora conectada — ticket no impreso', { icon: '🖨️' });
             }
 
             // Reset form
@@ -135,9 +141,20 @@ const Reception = () => {
 
         } catch (error) {
             console.error("Error creating order:", error);
-            toast.error('Error al crear la orden. Verifique los datos.');
+            toast.error(error.response?.data?.detail || 'Error al crear la orden. Verifique los datos.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleReprint = async (orderId) => {
+        if (!orderId) return;
+        try {
+            const printRes = await apiClient.get(`/services/orders/${orderId}/print/thermal`);
+            await printerService.printRaw(printRes.data);
+            toast.success('Ticket enviado a impresora');
+        } catch (err) {
+            toast.error('Error al reimprimir — verifique la impresora');
         }
     };
 
@@ -152,6 +169,14 @@ const Reception = () => {
                     <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-mono font-bold flex items-center gap-2">
                         <CheckCircle size={20} />
                         Último Ticket: {ticketNumber}
+                        <button
+                            type="button"
+                            onClick={() => handleReprint(lastOrderId)}
+                            title="Reimprimir ticket"
+                            className="ml-2 p-1.5 bg-green-200 hover:bg-green-300 rounded-md text-green-700 transition-colors"
+                        >
+                            <Printer size={14} />
+                        </button>
                     </div>
                 )}
             </div>

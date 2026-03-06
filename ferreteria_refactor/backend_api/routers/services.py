@@ -5,7 +5,10 @@ from ..models import models
 from ..database.db import get_db
 from ..dependencies import get_current_active_user
 from ..utils.time_utils import get_venezuela_now
-from ..template_presets import get_laundry_58_template, get_laundry_80_template
+from ..template_presets import (
+    get_laundry_58_template, get_laundry_80_template,
+    get_service_repair_58_template, get_service_repair_80_template,
+)
 from typing import List, Optional, Dict, Any
 from sqlalchemy import desc
 from enum import Enum
@@ -470,6 +473,31 @@ def get_laundry_thermal_payload(
 
     metadata = order.order_metadata or {}
 
+    # Lookup default warranty policy for this tenant (used in repair receipts)
+    warranty_context = None
+    try:
+        tid = int(tenant_id) if tenant_id and tenant_id != "public" else None
+        wp_query = db.query(models.WarrantyPolicy).filter(
+            models.WarrantyPolicy.is_default == True,
+            models.WarrantyPolicy.is_active == True
+        )
+        if tid:
+            wp_query = wp_query.filter(models.WarrantyPolicy.tenant_id == tid)
+        wp = wp_query.first()
+        if wp:
+            unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "De por vida"}
+            dur_text = (
+                f"{wp.duration} {unit_map.get(wp.type, wp.type)}"
+                if wp.duration else unit_map.get(wp.type, "")
+            )
+            warranty_context = {
+                "name": wp.name,
+                "duration_text": dur_text,
+                "description": wp.description or "",
+            }
+    except Exception:
+        pass
+
     context = {
         "business": {
             "name": business_config.get("business_name", "MI NEGOCIO"),
@@ -485,6 +513,14 @@ def get_laundry_thermal_payload(
                 "phone": order.customer.phone if order.customer else "",
                 "id_number": order.customer.id_number if order.customer else "",
             },
+            # Device info (repair orders)
+            "device_type": order.device_type or "",
+            "brand": order.brand or "",
+            "model": order.model or "",
+            "serial_imei": order.serial_imei or "",
+            "physical_condition": order.physical_condition or "",
+            "problem_description": order.problem_description or "",
+            # Items
             "items": [
                 {
                     "description": detail.description or "",
@@ -501,12 +537,20 @@ def get_laundry_thermal_payload(
             "bag_color": metadata.get("bag_color", "---"),
             "priority": order.priority or "NORMAL",
             "diagnosis_notes": order.diagnosis_notes or "",
+            # Warranty policy (default for this tenant)
+            "warranty": warranty_context,
         },
     }
 
-    # Template selection: explicit param > business config > default 58mm
+    # Template selection: repair vs laundry, then 58mm vs 80mm
     effective_width = width if width in ("58", "80") else business_config.get("paper_width", "58")
-    template = get_laundry_80_template() if effective_width == "80" else get_laundry_58_template()
+    is_repair = (
+        str(getattr(order, "service_type", "REPAIR")).upper() == "REPAIR"
+    )
+    if is_repair:
+        template = get_service_repair_80_template() if effective_width == "80" else get_service_repair_58_template()
+    else:
+        template = get_laundry_80_template() if effective_width == "80" else get_laundry_58_template()
 
     return {
         "status": "ready",

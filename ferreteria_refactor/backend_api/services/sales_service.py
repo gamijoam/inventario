@@ -641,9 +641,10 @@ class SalesService:
         Generate payload (template + context) for client-side printing.
         Includes currency symbol logic.
         """
-        # Get sale with all relationships
+        # Get sale with all relationships (includes IMEI instances and warranty policies)
         sale = db.query(models.Sale).options(
-            joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
+            joinedload(models.Sale.details).joinedload(models.SaleDetail.product).joinedload(models.Product.warranty_policy),
+            joinedload(models.Sale.details).joinedload(models.SaleDetail.instances).joinedload(models.SaleDetailInstance.product_instance),
             joinedload(models.Sale.customer),
             joinedload(models.Sale.payments)
         ).filter(models.Sale.id == sale_id).first()
@@ -706,7 +707,36 @@ class SalesService:
             
             # Determine display name (Use manual description if available, else product name)
             display_name = item.description if item.description else (item.product.name if item.product else "Producto")
-            
+
+            # IMEI / Serial numbers from SaleDetailInstance → ProductInstance
+            serials = []
+            try:
+                serials = [
+                    sdi.product_instance.serial_number
+                    for sdi in (item.instances or [])
+                    if sdi.product_instance and sdi.product_instance.serial_number
+                ]
+            except Exception:
+                pass
+
+            # Warranty info from product's linked WarrantyPolicy
+            warranty_info = None
+            try:
+                if item.product and getattr(item.product, 'warranty_policy', None):
+                    wp = item.product.warranty_policy
+                    unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "De por vida"}
+                    dur_text = (
+                        f"{wp.duration} {unit_map.get(wp.type, wp.type)}"
+                        if wp.duration else unit_map.get(wp.type, "")
+                    )
+                    warranty_info = {
+                        "name": wp.name,
+                        "duration_text": dur_text,
+                        "description": wp.description or "",
+                    }
+            except Exception:
+                pass
+
             formatted_items.append({
                 "product": {"name": display_name},
                 "quantity": float(item.quantity) if item.quantity % 1 != 0 else int(item.quantity),
@@ -714,11 +744,15 @@ class SalesService:
                 "unit_price": raw_price,
                 "subtotal": raw_total,
                 "unit_price_usd": float(item.unit_price),
-                
+
                 # New Formatted values
                 "formatted_price": fmt_money(raw_price, row_currency),
                 "formatted_total": fmt_money(raw_total, row_currency),
-                "discount_percentage": float(item.discount) if hasattr(item, 'discount_type') and item.discount_type == 'PERCENT' else 0.0
+                "discount_percentage": float(item.discount) if hasattr(item, 'discount_type') and item.discount_type == 'PERCENT' else 0.0,
+
+                # IMEI and Warranty (for serialized / phone products)
+                "serial_numbers": serials,
+                "warranty": warranty_info,
             })
 
         # Payments (Dynamic list)

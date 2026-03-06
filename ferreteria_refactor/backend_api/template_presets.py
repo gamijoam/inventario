@@ -57,6 +57,7 @@ CANT PRODUCTO              TOTAL
 {{ for item in sale.products }}
 {{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 16 | string.pad_right 16 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
 {{ if item.discount_percentage > 0 }}    Desc {{ item.discount_percentage | math.round 0 }}%{{ end }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}   IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 24 }}{{ end }}
 {{ end }}
 ================================
 <right>
@@ -78,6 +79,17 @@ VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
 </right>
 {{ end }}
 ================================
+{{ assign has_warranty = false }}
+{{ for item in sale.products }}{{ if item.warranty }}{{ assign has_warranty = true }}{{ end }}{{ end }}
+{{ if has_warranty }}
+GARANTIA
+--------------------------------
+{{ for item in sale.products }}{{ if item.warranty }}
+{{ item.product.name | string.slice 0 16 }}: {{ item.warranty.name | string.slice 0 13 }}
+Vigencia: {{ item.warranty.duration_text }}
+{{ end }}{{ end }}
+================================
+{{ end }}
 <center>
 Gracias por su compra
 {{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
@@ -107,6 +119,7 @@ CANT DESCRIPCION                           TOTAL
 {{ for item in sale.products }}
 {{ item.quantity | math.round 0 | string.pad_right 4 }} {{ item.product.name | string.slice 0 30 | string.pad_right 30 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 8 }}
 {{ if item.discount_percentage > 0 }}     Desc {{ item.discount_percentage | math.round 0 }}%{{ end }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}    IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 38 }}{{ end }}
 {{ end }}
 ================================================
 <right>
@@ -128,6 +141,17 @@ VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
 </right>
 {{ end }}
 ================================================
+{{ assign has_warranty = false }}
+{{ for item in sale.products }}{{ if item.warranty }}{{ assign has_warranty = true }}{{ end }}{{ end }}
+{{ if has_warranty }}
+GARANTIA
+------------------------------------------------
+{{ for item in sale.products }}{{ if item.warranty }}
+{{ item.product.name | string.slice 0 28 }}: {{ item.warranty.name | string.slice 0 18 }}
+Vigencia: {{ item.warranty.duration_text }}
+{{ end }}{{ end }}
+================================================
+{{ end }}
 <center>
 Gracias por su compra
 {{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
@@ -591,5 +615,123 @@ Nota: {{ quote.notes | string.slice 0 42 }}
 * Documento no fiscal *
 ¡Gracias por preferirnos!
 </center>
+<cut>
+"""
+
+
+# ============================================
+# SERVICE REPAIR / SERVICIO TÉCNICO TEMPLATES
+# Context uses "order" key (same endpoint as laundry but service_type=REPAIR)
+# ============================================
+
+def get_service_repair_58_template() -> str:
+    return """================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================
+<center>
+<bold>RECEPCION DE SERVICIO TECNICO</bold>
+<bold>Ticket: {{ order.ticket_number }}</bold>
+</center>
+Fecha: {{ order.date }}
+================================
+CLIENTE
+--------------------------------
+Nombre: {{ order.customer.name | string.slice 0 28 }}
+{{ if order.customer.phone }}Tel: {{ order.customer.phone }}{{ end }}
+{{ if order.customer.id_number }}Doc: {{ order.customer.id_number }}{{ end }}
+================================
+EQUIPO
+--------------------------------
+Tipo:   {{ order.device_type | string.slice 0 24 }}
+Marca:  {{ order.brand | string.slice 0 24 }}
+Modelo: {{ order.model | string.slice 0 24 }}
+{{ if order.serial_imei }}IMEI/Serial:
+{{ order.serial_imei | string.slice 0 30 }}{{ end }}
+================================
+PROBLEMA REPORTADO
+--------------------------------
+{{ order.problem_description | string.slice 0 90 }}
+{{ if order.physical_condition }}Cond: {{ order.physical_condition | string.slice 0 26 }}{{ end }}
+{{ if order.priority == "URGENT" }}
+<center><bold>*** URGENTE ***</bold></center>
+{{ end }}
+{{ if order.warranty }}
+================================
+GARANTIA DEL SERVICIO
+--------------------------------
+{{ order.warranty.name | string.slice 0 30 }}
+{{ if order.warranty.duration_text }}Vigencia: {{ order.warranty.duration_text }}{{ end }}
+{{ if order.warranty.description }}{{ order.warranty.description | string.slice 0 90 }}{{ end }}
+{{ end }}
+================================
+<center>
+Conserve este ticket para retirar
+su equipo. ¡Gracias por elegirnos!
+</center>
+
+
+
+
+<cut>
+"""
+
+
+def get_service_repair_80_template() -> str:
+    return """================================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================================
+<center>
+<bold>RECEPCION DE SERVICIO TECNICO</bold>
+<bold>Ticket: {{ order.ticket_number }}</bold>
+</center>
+Fecha: {{ order.date }}
+================================================
+DATOS DEL CLIENTE
+------------------------------------------------
+Nombre: {{ order.customer.name | string.slice 0 38 }}
+{{ if order.customer.phone }}Telefono: {{ order.customer.phone }}{{ end }}
+{{ if order.customer.id_number }}Documento: {{ order.customer.id_number }}{{ end }}
+================================================
+DATOS DEL EQUIPO
+------------------------------------------------
+Tipo:    {{ order.device_type | string.slice 0 38 }}
+Marca:   {{ order.brand | string.slice 0 38 }}
+Modelo:  {{ order.model | string.slice 0 38 }}
+{{ if order.serial_imei }}IMEI/Serial: {{ order.serial_imei | string.slice 0 34 }}{{ end }}
+================================================
+PROBLEMA REPORTADO
+------------------------------------------------
+{{ order.problem_description | string.slice 0 140 }}
+{{ if order.physical_condition }}Condicion: {{ order.physical_condition | string.slice 0 44 }}{{ end }}
+{{ if order.priority == "URGENT" }}
+<center><bold>*** ORDEN URGENTE ***</bold></center>
+{{ end }}
+{{ if order.warranty }}
+================================================
+GARANTIA DEL SERVICIO
+------------------------------------------------
+{{ order.warranty.name | string.slice 0 46 }}
+{{ if order.warranty.duration_text }}Vigencia: {{ order.warranty.duration_text }}{{ end }}
+{{ if order.warranty.description }}{{ order.warranty.description | string.slice 0 140 }}{{ end }}
+{{ end }}
+================================================
+<center>
+Conserve este ticket para retirar su equipo.
+¡Gracias por elegirnos!
+</center>
+
+
+
+
 <cut>
 """
