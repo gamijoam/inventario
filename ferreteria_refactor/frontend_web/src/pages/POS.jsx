@@ -671,16 +671,17 @@ const POS = () => {
                         <Layers size={16} /> Órdenes
                     </Button>
 
-                    {/* Pausar venta — solo visible si hay items y no hay venta pausada */}
-                    {cart.length > 0 && !heldCart && (
+                    {/* Pausar venta — siempre visible, desactivado sin items o con pausa activa */}
+                    {!heldCart && (
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={holdCart}
-                            className="hidden md:flex gap-2 font-bold text-amber-600 border-amber-300 hover:bg-amber-50 hover:border-amber-400"
-                            title="Pausar esta venta y atender otro cliente (F6)"
+                            disabled={cart.length === 0}
+                            className="hidden md:flex gap-2 font-bold text-amber-600 border-amber-300 hover:bg-amber-50 hover:border-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={cart.length === 0 ? 'Agrega productos para pausar la venta' : 'Pausar venta y atender otro cliente (F6)'}
                         >
-                            <PauseCircle size={16} /> Pausar venta
+                            <PauseCircle size={16} /> Pausar
                         </Button>
                     )}
 
