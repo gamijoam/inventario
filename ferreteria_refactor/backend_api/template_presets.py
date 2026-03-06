@@ -79,8 +79,8 @@ VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
 </right>
 {{ end }}
 ================================
-{{ assign has_warranty = false }}
-{{ for item in sale.products }}{{ if item.warranty }}{{ assign has_warranty = true }}{{ end }}{{ end }}
+{{ has_warranty = false }}
+{{ for item in sale.products }}{{ if item.warranty }}{{ has_warranty = true }}{{ end }}{{ end }}
 {{ if has_warranty }}
 GARANTIA
 --------------------------------
@@ -141,8 +141,8 @@ VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
 </right>
 {{ end }}
 ================================================
-{{ assign has_warranty = false }}
-{{ for item in sale.products }}{{ if item.warranty }}{{ assign has_warranty = true }}{{ end }}{{ end }}
+{{ has_warranty = false }}
+{{ for item in sale.products }}{{ if item.warranty }}{{ has_warranty = true }}{{ end }}{{ end }}
 {{ if has_warranty }}
 GARANTIA
 ------------------------------------------------
