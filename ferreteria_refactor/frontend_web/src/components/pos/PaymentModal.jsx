@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag } from 'lucide-react';
+import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag, Calendar } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { useCash } from '../../context/CashContext';
@@ -52,7 +52,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     useEffect(() => {
         if (isOpen) {
             // FIXED: Default to "Efectivo Bolívares (Bs)" as requested
-            setPayments([{ amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)' }]);
+            setPayments([{ amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)', payment_date: new Date().toISOString().split('T')[0] }]);
             setIsCreditSale(false);
 
             // Priority: Initial Customer > Null
@@ -134,7 +134,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const isComplete = remainingUSD <= 0.001;
 
     const addPaymentRow = () => {
-        setPayments([...payments, { amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)' }]);
+        setPayments([...payments, { amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)', payment_date: new Date().toISOString().split('T')[0] }]);
     };
 
     const removePaymentRow = (index) => {
@@ -218,6 +218,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         currency: p.currency === '$' ? 'USD' : p.currency,
                         payment_method: p.method,
                         reference: p.reference, // Pass reference to backend
+                        payment_date: p.payment_date || null, // Date when payment was made
                         // Force Default Rate for Bs payments to match valid USD calculation
                         exchange_rate: (p.currency === 'Bs' || p.currency === 'VES')
                             ? defaultBsRate
@@ -582,16 +583,25 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                     </div>
                                                 </div>
 
-                                                {/* Reference Input */}
+                                                {/* Reference + Date Inputs */}
                                                 {needsReference && (
-                                                    <div className="animate-in fade-in slide-in-from-top-1">
+                                                    <div className="animate-in fade-in slide-in-from-top-1 flex gap-2">
                                                         <Input
                                                             type="text"
                                                             placeholder="Referencia / # Transferencia"
-                                                            className="bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 placeholder:text-indigo-300 h-7 rounded-md"
+                                                            className="flex-1 bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 placeholder:text-indigo-300 h-7 rounded-md"
                                                             value={payment.reference || ''}
                                                             onChange={(e) => updatePayment(index, 'reference', e.target.value)}
                                                         />
+                                                        <div className="relative w-[140px] shrink-0">
+                                                            <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                                                            <Input
+                                                                type="date"
+                                                                className="bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 h-7 rounded-md pl-6 w-full"
+                                                                value={payment.payment_date || new Date().toISOString().split('T')[0]}
+                                                                onChange={(e) => updatePayment(index, 'payment_date', e.target.value)}
+                                                            />
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>

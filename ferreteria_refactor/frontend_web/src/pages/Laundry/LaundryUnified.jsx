@@ -13,6 +13,7 @@ import { useConfig } from '../../context/ConfigContext';
 import LaundryDetailModal from './components/LaundryDetailModal';
 import LaundryList from './components/LaundryList';
 import ServiceSelectorModal from './components/ServiceSelectorModal';
+import PinAuthModal from '../../components/common/PinAuthModal';
 
 // Status Columns for Kanban
 const COLUMNS = [
@@ -76,6 +77,12 @@ const LaundryUnified = () => {
     // Manual Item State
     const [isManualItem, setIsManualItem] = useState(false);
     const [manualDescription, setManualDescription] = useState('');
+
+    // Discount / Adjust Total State
+    const [showAdjustTotal, setShowAdjustTotal] = useState(false);
+    const [adjustedTotal, setAdjustedTotal] = useState('');
+    const [showPinModal, setShowPinModal] = useState(false);
+    const [discountApplied, setDiscountApplied] = useState(null); // { originalTotal, discountAmount, discountPercent, authUserId }
 
     // ==========================================
     // 1. DASHBOARD LOGIC
@@ -271,6 +278,51 @@ const LaundryUnified = () => {
         toast.success("Agregado");
     };
 
+    // --- ADJUST TOTAL (DISCOUNT) LOGIC ---
+    const cartTotal = cart.reduce((a, c) => a + (Number(c.quantity) * Number(c.unit_price)), 0);
+
+    const handleRequestAdjust = () => {
+        const newTotal = parseFloat(adjustedTotal);
+        if (isNaN(newTotal) || newTotal < 0) return toast.error("Monto inválido");
+        if (newTotal >= cartTotal) return toast.error("El monto debe ser menor al total actual");
+        // Requires admin PIN
+        setShowPinModal(true);
+    };
+
+    const handlePinSuccess = (authUserId) => {
+        const newTotal = parseFloat(adjustedTotal);
+        const discountAmount = cartTotal - newTotal;
+        const discountPercent = (discountAmount / cartTotal) * 100;
+
+        // Apply discount proportionally to each item
+        const updatedCart = cart.map(item => {
+            const itemTotal = Number(item.quantity) * Number(item.unit_price);
+            const itemShare = itemTotal / cartTotal;
+            const newItemTotal = newTotal * itemShare;
+            const newUnitPrice = newItemTotal / Number(item.quantity);
+            return { ...item, unit_price: Math.round(newUnitPrice * 100) / 100 };
+        });
+
+        setCart(updatedCart);
+        setDiscountApplied({
+            originalTotal: cartTotal,
+            discountAmount: Math.round(discountAmount * 100) / 100,
+            discountPercent: Math.round(discountPercent * 100) / 100,
+            authUserId
+        });
+        setShowAdjustTotal(false);
+        setAdjustedTotal('');
+        setShowPinModal(false);
+        toast.success(`Descuento de $${discountAmount.toFixed(2)} aplicado`);
+    };
+
+    const handleRemoveDiscount = () => {
+        // Restore original prices — user needs to re-add items
+        setDiscountApplied(null);
+        setCart([]);
+        toast('Descuento removido. Agregue los servicios nuevamente.', { icon: '↩️' });
+    };
+
     const handleCreateOrder = async () => {
         if (!selectedCustomer) return toast.error("Seleccione Cliente");
         if (cart.length === 0) return toast.error("Carrito vacío");
@@ -280,19 +332,28 @@ const LaundryUnified = () => {
             const payload = {
                 customer_id: selectedCustomer.id,
                 service_type: 'LAUNDRY',
-                priority: orderMetadata.priority,
+                priority: orderMetadata.priority || 'NORMAL',
                 order_metadata: {
                     bag_color: orderMetadata.bag_color || `LAV-${Date.now().toString().slice(-4)}`,
                     total_items: cart.length,
-                    pieces: cart.reduce((acc, i) => acc + (Number(i.pieces) || 0), 0)
+                    pieces: cart.reduce((acc, i) => acc + (Number(i.pieces) || 0), 0),
+                    ...(discountApplied ? {
+                        original_total: discountApplied.originalTotal,
+                        discount_amount: discountApplied.discountAmount,
+                        discount_percent: discountApplied.discountPercent,
+                        auth_user_id: discountApplied.authUserId
+                    } : {})
                 },
-                items: cart.map(item => ({
-                    product_id: item.product_id,
-                    description: item.description,
-                    observations: item.observations,
-                    quantity: item.quantity,
-                    unit_price: item.unit_price,
-                })),
+                items: cart.map(item => {
+                    const mapped = {
+                        description: item.description || 'Servicio',
+                        observations: item.observations || '',
+                        quantity: Number(item.quantity) || 1,
+                        unit_price: Number(item.unit_price) || 0,
+                    };
+                    if (item.product_id) mapped.product_id = item.product_id;
+                    return mapped;
+                }),
                 problem_description: `Orden Lavandería (${cart.length} ítems)`,
                 device_type: 'ROPA'
             };
@@ -304,18 +365,20 @@ const LaundryUnified = () => {
             // Refresh Dashboard
             setRefreshTrigger(p => p + 1);
 
-            // Reset Form (keep customer? optional. Let's reset for now)
+            // Reset Form
             setCart([]);
             setSelectedCustomer(null);
             setCustomerSearch('');
             setOrderMetadata({ bag_color: '', priority: 'NORMAL' });
+            setDiscountApplied(null);
 
             // Hide success message after 5s or manually
             setTimeout(() => setTicketNumber(null), 5000);
 
         } catch (error) {
-            console.error(error);
-            toast.error("Error al crear la orden");
+            console.error('Error creando orden:', error);
+            const detail = error.response?.data?.detail;
+            toast.error(detail || "Error al crear la orden");
         } finally {
             setFormLoading(false);
         }
@@ -328,7 +391,7 @@ const LaundryUnified = () => {
     const filteredOrders = getFilteredOrders();
 
     return (
-        <div className="flex flex-col md:flex-row h-[calc(100vh-70px)] overflow-hidden bg-slate-50 relative z-0 w-full pb-20 md:pb-0">
+        <div id="tour-services-container" className="flex flex-col md:flex-row h-[calc(100vh-70px)] overflow-hidden bg-slate-50 relative z-0 w-full pb-20 md:pb-0">
 
             {/* LEFT PANEL: DASHBOARD (65%) */}
             <div className={`flex-1 flex-col min-w-0 border-r border-slate-200 ${activeTab === 'DASHBOARD' ? 'flex' : 'hidden md:flex'}`}>
@@ -666,7 +729,7 @@ const LaundryUnified = () => {
                                         <div className="flex-1">
                                             <div className="text-sm font-bold text-slate-700">{item.description}</div>
                                             <div className="text-[10px] text-slate-400">
-                                                {item.weight_kg > 0 ? `${item.weight_kg} kg` : `${item.quantity} ud`} x ${item.unit_price}
+                                                {item.weight_kg > 0 ? `${item.weight_kg} kg` : `${item.quantity} ud`} x ${Number(item.unit_price).toFixed(2)}
                                             </div>
                                             {item.observations && (
                                                 <div className="mt-1 text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-block">
@@ -675,14 +738,76 @@ const LaundryUnified = () => {
                                             )}
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <span className="text-sm font-bold text-slate-800">${(item.quantity * item.unit_price).toFixed(2)}</span>
-                                            <button onClick={() => setCart(cart.filter(c => c.id !== item.id))} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
+                                            <span className="text-sm font-bold text-slate-800">${(Number(item.quantity) * Number(item.unit_price)).toFixed(2)}</span>
+                                            <button onClick={() => { setCart(cart.filter(c => c.id !== item.id)); setDiscountApplied(null); }} className="text-slate-300 hover:text-rose-500"><Trash2 size={14} /></button>
                                         </div>
                                     </div>
                                 ))}
-                                <div className="bg-slate-50 p-3 flex justify-between items-center border-t border-slate-100">
-                                    <span className="text-xs font-bold text-slate-500 uppercase">Total Estimado</span>
-                                    <span className="text-lg font-black text-indigo-700">${cart.reduce((a, c) => a + (c.quantity * c.unit_price), 0).toFixed(2)}</span>
+
+                                {/* Total + Discount Section */}
+                                <div className="bg-slate-50 p-3 border-t border-slate-100 space-y-2">
+                                    {discountApplied && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase line-through">Original</span>
+                                            <span className="text-sm text-slate-400 line-through">${discountApplied.originalTotal.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-slate-500 uppercase">Total Estimado</span>
+                                        <span className={`text-lg font-black ${discountApplied ? 'text-emerald-600' : 'text-indigo-700'}`}>
+                                            ${cartTotal.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    {discountApplied && (
+                                        <div className="flex justify-between items-center bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
+                                            <span className="text-[10px] font-bold text-emerald-700">Descuento ({discountApplied.discountPercent}%)</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-bold text-emerald-700">-${discountApplied.discountAmount.toFixed(2)}</span>
+                                                <button onClick={handleRemoveDiscount} className="text-emerald-400 hover:text-rose-500"><X size={12} /></button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Adjust Total Button */}
+                                    {!discountApplied && !showAdjustTotal && (
+                                        <button
+                                            onClick={() => setShowAdjustTotal(true)}
+                                            className="w-full text-[10px] font-bold text-indigo-500 hover:text-indigo-700 py-1 transition-colors"
+                                        >
+                                            <DollarSign size={12} className="inline mr-1" />
+                                            Ajustar Monto (Descuento)
+                                        </button>
+                                    )}
+
+                                    {/* Adjust Total Input */}
+                                    {showAdjustTotal && !discountApplied && (
+                                        <div className="flex gap-2 items-center animate-in fade-in slide-in-from-top-2">
+                                            <div className="relative flex-1">
+                                                <span className="absolute left-2 top-2 text-slate-400 text-sm">$</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="w-full pl-6 p-2 text-sm border border-indigo-200 rounded-lg font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                                                    placeholder={`Nuevo total (actual: ${cartTotal.toFixed(2)})`}
+                                                    value={adjustedTotal}
+                                                    onChange={e => setAdjustedTotal(e.target.value)}
+                                                    autoFocus
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={handleRequestAdjust}
+                                                className="px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+                                            >
+                                                Aplicar
+                                            </button>
+                                            <button
+                                                onClick={() => { setShowAdjustTotal(false); setAdjustedTotal(''); }}
+                                                className="p-2 text-slate-400 hover:text-slate-600"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -719,6 +844,15 @@ const LaundryUnified = () => {
                 onClose={() => setShowServiceSelector(false)}
                 onSelectService={handleProductSelect}
                 selectedServices={cart}
+            />
+
+            {/* PIN Auth Modal for discount */}
+            <PinAuthModal
+                isOpen={showPinModal}
+                onClose={() => { setShowPinModal(false); }}
+                onSuccess={handlePinSuccess}
+                title="Autorizar Descuento"
+                message={`Descuento de $${(cartTotal - parseFloat(adjustedTotal || 0)).toFixed(2)} requiere autorización de administrador.`}
             />
 
             {/* =====================================================================================

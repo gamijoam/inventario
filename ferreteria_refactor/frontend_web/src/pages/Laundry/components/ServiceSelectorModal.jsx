@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Grid3x3, Tag } from 'lucide-react';
+import { X, Search, Grid3x3, Tag, Plus, Check } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 
@@ -10,6 +10,11 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Quick category creation
+    const [showNewCategory, setShowNewCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [creatingCategory, setCreatingCategory] = useState(false);
 
     // Fetch categories on mount
     useEffect(() => {
@@ -68,6 +73,22 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
         setFilteredServices(filtered);
     };
 
+    const handleCreateCategory = async () => {
+        if (!newCategoryName.trim()) return toast.error('Ingrese nombre de categoría');
+        setCreatingCategory(true);
+        try {
+            await apiClient.post('/categories', { name: newCategoryName.trim(), description: '' });
+            toast.success(`Categoría "${newCategoryName.trim()}" creada`);
+            setNewCategoryName('');
+            setShowNewCategory(false);
+            fetchCategories();
+        } catch (error) {
+            toast.error(error.response?.data?.detail || 'Error al crear categoría');
+        } finally {
+            setCreatingCategory(false);
+        }
+    };
+
     const handleSelectService = (service) => {
         onSelectService(service);
         onClose();
@@ -118,10 +139,41 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
                     {/* Categories Sidebar - Desktop */}
                     <div className="hidden md:block w-64 border-r border-slate-200 overflow-y-auto bg-slate-50">
                         <div className="p-4">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
-                                <Tag size={14} />
-                                Categorías
-                            </h3>
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">
+                                    <Tag size={14} />
+                                    Categorías
+                                </h3>
+                                <button
+                                    onClick={() => setShowNewCategory(!showNewCategory)}
+                                    className={`p-1 rounded-md transition-colors ${showNewCategory ? 'bg-rose-100 text-rose-500' : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'}`}
+                                    title={showNewCategory ? 'Cancelar' : 'Nueva categoría'}
+                                >
+                                    {showNewCategory ? <X size={14} /> : <Plus size={14} />}
+                                </button>
+                            </div>
+
+                            {/* Quick Create Category Form */}
+                            {showNewCategory && (
+                                <div className="mb-3 p-2 bg-white rounded-lg border border-indigo-200 space-y-2 animate-in fade-in slide-in-from-top-2">
+                                    <input
+                                        className="w-full p-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        placeholder="Nombre de categoría..."
+                                        value={newCategoryName}
+                                        onChange={e => setNewCategoryName(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleCreateCategory()}
+                                        autoFocus
+                                    />
+                                    <button
+                                        onClick={handleCreateCategory}
+                                        disabled={creatingCategory}
+                                        className="w-full px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        {creatingCategory ? 'Creando...' : <><Check size={12} /> Crear Categoría</>}
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="space-y-1">
                                 <button
                                     onClick={() => setSelectedCategory(null)}
@@ -149,8 +201,8 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
                     </div>
 
                     {/* Categories Tabs - Mobile */}
-                    <div className="md:hidden border-b border-slate-200 overflow-x-auto">
-                        <div className="flex gap-2 p-3 min-w-max">
+                    <div className="md:hidden border-b border-slate-200">
+                        <div className="flex gap-2 p-3 min-w-max overflow-x-auto">
                             <button
                                 onClick={() => setSelectedCategory(null)}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === null
@@ -172,7 +224,36 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
                                     {cat.name}
                                 </button>
                             ))}
+                            <button
+                                onClick={() => setShowNewCategory(!showNewCategory)}
+                                className="px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap bg-indigo-100 text-indigo-600"
+                            >
+                                <Plus size={16} />
+                            </button>
                         </div>
+                        {/* Mobile quick create */}
+                        {showNewCategory && (
+                            <div className="px-3 pb-3 flex gap-2 animate-in fade-in slide-in-from-top-2">
+                                <input
+                                    className="flex-1 p-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    placeholder="Nombre de categoría..."
+                                    value={newCategoryName}
+                                    onChange={e => setNewCategoryName(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleCreateCategory()}
+                                    autoFocus
+                                />
+                                <button
+                                    onClick={handleCreateCategory}
+                                    disabled={creatingCategory}
+                                    className="px-3 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                    {creatingCategory ? '...' : <Check size={14} />}
+                                </button>
+                                <button onClick={() => { setShowNewCategory(false); setNewCategoryName(''); }} className="p-2 text-slate-400">
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Services Grid */}
