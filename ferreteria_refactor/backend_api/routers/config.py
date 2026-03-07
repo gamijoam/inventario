@@ -207,6 +207,83 @@ async def create_exchange_rate(
     return response_data
 
 
+# ========================================
+# BCV SCRAPING (Banco Central de Venezuela)
+# NOTE: must be defined BEFORE /{id} route or FastAPI will try to cast
+#       "bcv" as int and return a Pydantic validation error.
+# ========================================
+
+@router.get("/exchange-rates/bcv")
+def fetch_bcv_rates():
+    """
+    Scrape current official exchange rates from the BCV website.
+    Returns USD/VES and EUR/VES rates.
+    No auth required (read-only, public data).
+    """
+    import re
+
+    HEADERS = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "es-VE,es;q=0.9,en;q=0.5",
+        "Cache-Control": "no-cache",
+    }
+
+    try:
+        resp = requests.get(
+            "https://www.bcv.org.ve/",
+            headers=HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        html = resp.text
+    except requests.RequestException as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"No se pudo conectar al BCV: {str(e)}"
+        )
+
+    def extract_rate(currency_id: str):
+        """Find <div id='{currency_id}'>...<strong>45,8000</strong>..."""
+        pattern = (
+            r'id=["\']' + re.escape(currency_id) + r'["\'][^>]*>'
+            r'.*?<strong[^>]*>\s*([\d,\.]+)\s*</strong>'
+        )
+        m = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
+        if not m:
+            return None
+        raw = m.group(1).strip().replace(",", ".")
+        try:
+            return round(float(raw), 4)
+        except ValueError:
+            return None
+
+    usd_ves = extract_rate("dolar")
+    eur_ves = extract_rate("euro")
+
+    if usd_ves is None and eur_ves is None:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "No se pudieron extraer las tasas del BCV. "
+                "El sitio puede haber cambiado su estructura. "
+                "Intenta nuevamente más tarde."
+            ),
+        )
+
+    return {
+        "usd_ves": usd_ves,
+        "eur_ves": eur_ves,
+        "fetched_at": datetime.now().isoformat(),
+        "source": "Banco Central de Venezuela",
+        "url": "https://www.bcv.org.ve/",
+    }
+
+
 @router.get("/exchange-rates/{id}", response_model=schemas.ExchangeRateRead)
 def get_exchange_rate_by_id(id: int, db: Session = Depends(get_db)):
     """Get a specific exchange rate by ID"""
@@ -312,81 +389,6 @@ async def delete_exchange_rate(
     })
     
     return {"message": "Exchange rate deleted successfully"}
-
-
-# ========================================
-# BCV SCRAPING (Banco Central de Venezuela)
-# ========================================
-
-@router.get("/exchange-rates/bcv")
-def fetch_bcv_rates():
-    """
-    Scrape current official exchange rates from the BCV website.
-    Returns USD/VES and EUR/VES rates.
-    No auth required (read-only, public data).
-    """
-    import re
-
-    HEADERS = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "es-VE,es;q=0.9,en;q=0.5",
-        "Cache-Control": "no-cache",
-    }
-
-    try:
-        resp = requests.get(
-            "https://www.bcv.org.ve/",
-            headers=HEADERS,
-            timeout=15,
-        )
-        resp.raise_for_status()
-        html = resp.text
-    except requests.RequestException as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"No se pudo conectar al BCV: {str(e)}"
-        )
-
-    def extract_rate(currency_id: str) -> float | None:
-        """Find <div id='{currency_id}'>...<strong>45,8000</strong>..."""
-        pattern = (
-            r'id=["\']' + re.escape(currency_id) + r'["\'][^>]*>'
-            r'.*?<strong[^>]*>\s*([\d,\.]+)\s*</strong>'
-        )
-        m = re.search(pattern, html, re.DOTALL | re.IGNORECASE)
-        if not m:
-            return None
-        raw = m.group(1).strip().replace(",", ".")
-        try:
-            return round(float(raw), 4)
-        except ValueError:
-            return None
-
-    usd_ves = extract_rate("dolar")
-    eur_ves = extract_rate("euro")
-
-    if usd_ves is None and eur_ves is None:
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "No se pudieron extraer las tasas del BCV. "
-                "El sitio puede haber cambiado su estructura. "
-                "Intenta nuevamente más tarde."
-            ),
-        )
-
-    return {
-        "usd_ves": usd_ves,
-        "eur_ves": eur_ves,
-        "fetched_at": datetime.now().isoformat(),
-        "source": "Banco Central de Venezuela",
-        "url": "https://www.bcv.org.ve/",
-    }
 
 
 # ========================================
