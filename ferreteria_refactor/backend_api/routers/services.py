@@ -544,9 +544,10 @@ def get_laundry_thermal_payload(
 
     # Template selection: repair vs laundry, then 58mm vs 80mm
     effective_width = width if width in ("58", "80") else business_config.get("paper_width", "58")
-    is_repair = (
-        str(getattr(order, "service_type", "REPAIR")).upper() == "REPAIR"
-    )
+    # Use .value to safely get the string regardless of Python version behavior with str enums
+    _stype = order.service_type
+    service_type_str = (_stype.value if hasattr(_stype, "value") else str(_stype)).upper()
+    is_repair = service_type_str != "LAUNDRY"
     if is_repair:
         template = get_service_repair_80_template() if effective_width == "80" else get_service_repair_58_template()
     else:

@@ -100,6 +100,7 @@ const Reception = () => {
         try {
             const payload = {
                 customer_id: selectedCustomer.id,
+                service_type: 'REPAIR',
                 ...formData,
                 items: [], // Future: Add cart items in reception
                 payments: paymentData.amount ? [{
