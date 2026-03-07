@@ -641,13 +641,15 @@ def create_system_message(
     try:
         # Convert to dict for serialization
         msg_data = {
-            "id": db_message.id,
-            "title": db_message.title,
-            "content": db_message.content,
-            "level": db_message.level,
-            "starts_at": db_message.starts_at.isoformat() if db_message.starts_at else None,
-            "expires_at": db_message.expires_at.isoformat() if db_message.expires_at else None,
-            "is_active": db_message.is_active
+            "id":           db_message.id,
+            "title":        db_message.title,
+            "content":      db_message.content,
+            "level":        db_message.level,
+            "message_type": db_message.message_type or "banner",
+            "version_tag":  db_message.version_tag,
+            "starts_at":    db_message.starts_at.isoformat() if db_message.starts_at else None,
+            "expires_at":   db_message.expires_at.isoformat() if db_message.expires_at else None,
+            "is_active":    db_message.is_active,
         }
         
         payload = {
