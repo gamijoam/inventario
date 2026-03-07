@@ -96,6 +96,31 @@ def migrate_tenants(db_engine=None):
                 else:
                     print(f"   ✅ Table {schema}.service_order_details already exists")
 
+                # 0.3 warranty_policies (must exist before section 1 adds FK to service_orders)
+                tables = inspector.get_table_names(schema=schema)
+                if 'warranty_policies' not in tables:
+                    print(f"   ➕ Creating table {schema}.warranty_policies")
+                    conn.execute(text(f"""
+                        CREATE TABLE IF NOT EXISTS \"{schema}\".warranty_policies (
+                            id          SERIAL PRIMARY KEY,
+                            tenant_id   INTEGER NOT NULL REFERENCES public.tenants(id),
+                            name        VARCHAR NOT NULL,
+                            type        VARCHAR NOT NULL,
+                            duration    INTEGER,
+                            description TEXT,
+                            is_default  BOOLEAN DEFAULT FALSE,
+                            is_active   BOOLEAN DEFAULT TRUE,
+                            created_at  TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+                            updated_at  TIMESTAMP WITHOUT TIME ZONE
+                        )
+                    """))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_wp_id\"     ON \"{schema}\".warranty_policies (id)"))
+                    conn.execute(text(f"CREATE INDEX IF NOT EXISTS \"ix_{safe_schema}_wp_tenant\"  ON \"{schema}\".warranty_policies (tenant_id)"))
+                    conn.commit()
+                    print(f"   ✅ Table {schema}.warranty_policies created")
+                else:
+                    print(f"   ✅ Table {schema}.warranty_policies already exists")
+
             except Exception as e:
                 conn.rollback()
                 print(f"   ⚠️ Error creating service module tables in {schema}: {e}")
