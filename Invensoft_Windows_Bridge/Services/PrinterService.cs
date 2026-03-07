@@ -55,14 +55,15 @@ namespace Invensoft_Windows_Bridge.Services
                 // --- VIRTUAL MODE CHECK ---
                 if (printerMode.ToUpper() == "VIRTUAL")
                 {
-                    return ExecuteVirtualPrint(renderedText, paperWidth);
+                    return ExecuteVirtualPrint(renderedText, paperWidth, contextData);
                 }
 
                 // 2. Parse Tags and Build Byte Array
                 byte[] rawData = BuildEscPosData(renderedText, paperWidth);
-                
-                // 3. Send to Windows Spooler
-                return RawPrinterHelper.SendBytesToPrinter(printerName, rawData);
+
+                // 3. Send to Windows Spooler (dynamic job name for spooler history)
+                string docName = BuildDocName(contextData);
+                return RawPrinterHelper.SendBytesToPrinter(printerName, rawData, docName);
             }
             catch (Exception ex)
             {
@@ -72,55 +73,105 @@ namespace Invensoft_Windows_Bridge.Services
             }
         }
 
-        private bool ExecuteVirtualPrint(string renderedText, int paperWidth)
+        /// <summary>
+        /// Builds a human-readable document name from the print context.
+        /// Used both as the Windows spooler job name and as the virtual file name.
+        /// Examples: "Ticket_Venta_0001", "Orden_Servicio_123", "Ticket"
+        /// </summary>
+        private string BuildDocName(JObject contextData)
+        {
+            try
+            {
+                // Sale ticket  →  context has a "sale" object
+                var sale = contextData["sale"] as JObject;
+                if (sale != null)
+                {
+                    string num = sale["sale_number"]?.ToString()
+                              ?? sale["id"]?.ToString()
+                              ?? "";
+                    return string.IsNullOrEmpty(num) ? "Ticket_Venta" : $"Ticket_Venta_{num}";
+                }
+
+                // Service / repair order  →  context has an "order" object
+                var order = contextData["order"] as JObject;
+                if (order != null)
+                {
+                    string num = order["code"]?.ToString()
+                              ?? order["id"]?.ToString()
+                              ?? "";
+                    return string.IsNullOrEmpty(num) ? "Orden_Servicio" : $"Orden_Servicio_{num}";
+                }
+
+                // Laundry order
+                var laundry = contextData["laundry_order"] as JObject;
+                if (laundry != null)
+                {
+                    string num = laundry["id"]?.ToString() ?? "";
+                    return string.IsNullOrEmpty(num) ? "Orden_Lavanderia" : $"Orden_Lavanderia_{num}";
+                }
+            }
+            catch { /* fall through to default */ }
+
+            return "Invensoft_Ticket";
+        }
+
+        private bool ExecuteVirtualPrint(string renderedText, int paperWidth, JObject contextData)
         {
             try
             {
                 var sb = new StringBuilder();
-                // Map mm to characters: 58mm ~ 32 chars, 80mm ~ 42-48 chars (using 48 as safe max)
                 int widthChars = (paperWidth >= 80) ? 48 : 32;
-                
+
                 sb.AppendLine($"--- INICIO TICKET VIRTUAL ({paperWidth}mm) ---");
-                
+
                 string[] lines = renderedText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
                 foreach (var lineRaw in lines)
                 {
                     string content = lineRaw.Trim();
-                    
+
                     if (content.Contains("<cut>"))
                     {
                         sb.AppendLine(new string('-', widthChars) + " [CORTE] " + new string('-', widthChars));
                         content = content.Replace("<cut>", "");
                     }
 
-                    // Strip other tags for clean text view
                     content = content.Replace("<bold>", "").Replace("</bold>", "")
                                      .Replace("<center>", "").Replace("</center>", "")
                                      .Replace("<right>", "").Replace("</right>", "")
                                      .Replace("<left>", "").Replace("</left>", "");
-                    
+
                     if (!string.IsNullOrWhiteSpace(content))
-                    {
                         sb.AppendLine(content);
-                    }
                     else if (lineRaw.Length > 0)
-                    {
                         sb.AppendLine("");
-                    }
                 }
                 sb.AppendLine("--- FIN TICKET VIRTUAL ---");
 
-                // Save to Desktop for visibility
-                string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "ticket_virtual_output.txt");
+                // Build unique filename:  Ticket_Venta_0001_2026-03-06_143025.txt
+                string docLabel  = BuildDocName(contextData);
+                string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+                string fileName  = $"{docLabel}_{timestamp}.txt";
+                string path      = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                    fileName);
+
                 File.WriteAllText(path, sb.ToString());
-                
-                System.Windows.MessageBox.Show($"Ticket Virtual guardado en:\n{path}", "Impresión Virtual Exitosa", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                System.Windows.MessageBox.Show(
+                    $"Ticket guardado en:\n{path}",
+                    "Impresión Virtual Exitosa",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 return true;
             }
-            catch (Exception ex) 
+            catch (Exception ex)
             {
                 Console.WriteLine($"Virtual Print Error: {ex.Message}");
-                System.Windows.MessageBox.Show($"Error guardando ticket virtual:\n{ex.Message}", "Error de Impresión", MessageBoxButton.OK, MessageBoxImage.Error);
+                System.Windows.MessageBox.Show(
+                    $"Error guardando ticket virtual:\n{ex.Message}",
+                    "Error de Impresión",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
                 return false;
             }
         }
@@ -282,14 +333,14 @@ namespace Invensoft_Windows_Bridge.Services
         [DllImport("winspool.Drv", EntryPoint = "WritePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
         public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, Int32 dwCount, out Int32 dwWritten);
 
-        public static bool SendBytesToPrinter(string szPrinterName, byte[] pBytes)
+        public static bool SendBytesToPrinter(string szPrinterName, byte[] pBytes, string docName = "Invensoft Ticket")
         {
             Int32 dwError = 0, dwWritten = 0;
             IntPtr hPrinter = new IntPtr(0);
             DOCINFOA di = new DOCINFOA();
             bool bSuccess = false;
 
-            di.pDocName = "Invensoft Ticket";
+            di.pDocName = docName;
             di.pDataType = "RAW";
 
             if (OpenPrinter(szPrinterName.Normalize(), out hPrinter, IntPtr.Zero))
