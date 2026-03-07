@@ -110,7 +110,8 @@ const SerializedReception = () => {
         // Add to list
         setScannedList(prev => [...prev, code]);
         setImeiInput('');
-        toast.success(`Capturado: ${code}`);
+        // Use fixed ID so rapid scans replace the toast instead of stacking
+        toast.success(`✅ Capturado: ${code}`, { id: 'imei-scan', duration: 1500 });
     };
 
     const removeImei = (code) => {
