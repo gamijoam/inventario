@@ -785,10 +785,7 @@ ARTICULOS
 --------------------------------
 {{ for item in sale.products }}{{ item.product.name | string.slice 0 30 }}
   Cant: {{ item.quantity }}   Total: {{ item.formatted_total }}
-{{ if item.serial_numbers && item.serial_numbers.size > 0 }}  IMEI/Serial:
-  {{ item.serial_numbers | array.join ", " | string.slice 0 28 }}
-{{ end }}{{ if item.warranty }}  Garantia: {{ item.warranty.name | string.slice 0 20 }}
-  Vigencia: {{ item.warranty.duration_text }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}  IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 26 }}
 {{ end }}{{ end }}================================
 <bold>TOTAL: {{ sale.formatted_total }}</bold>
 {{ if sale.is_usd }}Ref Bs: {{ sale.formatted_total_ref }}
@@ -801,10 +798,26 @@ PAGO
 ================================
 <center>
 Gracias por su compra!
-Conserve su factura y ticket.
 </center>
-
-
+{{ has_warranty = false }}
+{{ for item in sale.products }}{{ if item.warranty }}{{ has_warranty = true }}{{ end }}{{ end }}
+{{ if has_warranty }}================================
+<center>
+<bold>** GARANTIA DE SU EQUIPO **</bold>
+</center>
+{{ for item in sale.products }}{{ if item.warranty }}--------------------------------
+<bold>{{ item.product.name | string.slice 0 30 }}</bold>
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}IMEI:    {{ item.serial_numbers | array.join ", " | string.slice 0 23 }}
+{{ end }}Tipo:    {{ item.warranty.name | string.slice 0 23 }}
+Tiempo:  {{ item.warranty.duration_text }}
+{{ if item.warranty.description }}{{ item.warranty.description | string.slice 0 120 }}
+{{ end }}{{ end }}{{ end }}--------------------------------
+<center>
+Presente este ticket y su
+cedula para reclamar.
+</center>
+================================
+{{ end }}
 
 
 <cut>
@@ -836,9 +849,7 @@ ARTICULOS VENDIDOS
 ------------------------------------------------
 {{ for item in sale.products }}{{ item.product.name | string.slice 0 44 }}
   Cantidad: {{ item.quantity }}          Total: {{ item.formatted_total }}
-{{ if item.serial_numbers && item.serial_numbers.size > 0 }}  IMEI/Serial: {{ item.serial_numbers | array.join ", " | string.slice 0 30 }}
-{{ end }}{{ if item.warranty }}  Garantia:  {{ item.warranty.name | string.slice 0 35 }}
-  Vigencia:  {{ item.warranty.duration_text }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}  IMEI/Serial: {{ item.serial_numbers | array.join ", " | string.slice 0 34 }}
 {{ end }}{{ end }}================================================
 <bold>TOTAL: {{ sale.formatted_total }}</bold>
 {{ if sale.is_usd }}Referencia Bs: {{ sale.formatted_total_ref }}
@@ -851,10 +862,29 @@ FORMA DE PAGO
 ================================================
 <center>
 Gracias por su compra!
-Conserve esta factura para reclamaciones.
 </center>
-
-
+{{ has_warranty = false }}
+{{ for item in sale.products }}{{ if item.warranty }}{{ has_warranty = true }}{{ end }}{{ end }}
+{{ if has_warranty }}================================================
+<center>
+<bold>*** GARANTIA DE SU EQUIPO ***</bold>
+</center>
+================================================
+{{ for item in sale.products }}{{ if item.warranty }}------------------------------------------------
+<bold>{{ item.product.name | string.slice 0 44 }}</bold>
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}IMEI/Serial: {{ item.serial_numbers | array.join ", " | string.slice 0 35 }}
+{{ end }}Tipo de garantia: {{ item.warranty.name | string.slice 0 30 }}
+Vigencia:         {{ item.warranty.duration_text }}
+{{ if item.warranty.description }}Condiciones:
+{{ item.warranty.description | string.slice 0 200 }}
+{{ end }}{{ end }}{{ end }}------------------------------------------------
+<center>
+Para reclamar su garantia presente
+este ticket y su cedula de identidad
+en nuestro establecimiento.
+</center>
+================================================
+{{ end }}
 
 
 <cut>

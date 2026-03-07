@@ -268,6 +268,7 @@ class ProductUpdate(BaseModel):
     warranty_duration: Optional[int] = None
     warranty_unit: Optional[str] = None
     warranty_notes: Optional[str] = None
+    warranty_policy_id: Optional[int] = None  # FIX: was missing → policy never saved on edit
     image_url: Optional[str] = None
 
     class Config:
