@@ -1,29 +1,39 @@
 import api from './axios';
 
+export type MessageLevel = 'info' | 'warning' | 'critical';
+export type MessageType  = 'banner' | 'announcement';
+
 export interface SystemMessage {
-    id: number;
-    title: string;
-    content: string;
-    level: 'info' | 'warning' | 'critical';
-    starts_at: string;
-    expires_at?: string;
-    is_active: boolean;
-    created_at: string;
+    id           : number;
+    title        : string;
+    content      : string;
+    level        : MessageLevel;
+    message_type : MessageType;
+    version_tag  ?: string;
+    starts_at    : string;
+    expires_at   ?: string;
+    is_active    : boolean;
+    created_at   : string;
 }
 
 export interface SystemMessageCreate {
-    title: string;
-    content: string;
-    level: 'info' | 'warning' | 'critical';
-    starts_at?: string;
-    expires_at?: string;
-    is_active?: boolean;
+    title        : string;
+    content      : string;
+    level        : MessageLevel;
+    message_type : MessageType;
+    version_tag  ?: string;
+    starts_at    ?: string;
+    expires_at   ?: string;
+    is_active    ?: boolean;
 }
 
 export interface SystemMessageUpdate {
-    title?: string;
-    content?: string;
-    is_active?: boolean;
+    title        ?: string;
+    content      ?: string;
+    level        ?: MessageLevel;
+    message_type ?: MessageType;
+    version_tag  ?: string;
+    is_active    ?: boolean;
 }
 
 export const getSystemMessages = async (): Promise<SystemMessage[]> => {

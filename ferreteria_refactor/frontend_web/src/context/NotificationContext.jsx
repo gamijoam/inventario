@@ -5,57 +5,66 @@ import { useWebSocket } from './WebSocketContext';
 const NotificationContext = createContext(null);
 
 export const NotificationProvider = ({ children }) => {
-    const [notifications, setNotifications] = useState([]);
-    const [unreadCount, setUnreadCount] = useState(0);
+    const [notifications,  setNotifications]  = useState([]);  // type: banner
+    const [announcements,  setAnnouncements]  = useState([]);  // type: announcement
+    const [unreadCount,    setUnreadCount]    = useState(0);
     const { subscribe } = useWebSocket();
 
     const fetchNotifications = useCallback(async () => {
         try {
             const response = await apiClient.get('/system/messages/active');
-            if (response.data) {
-                const fetchedNotifications = response.data;
+            if (!response.data) return;
 
-                // Merge with read status from localStorage
-                const readIds = JSON.parse(localStorage.getItem('read_notifications') || '[]');
-                const processed = fetchedNotifications.map(notification => ({
-                    ...notification,
-                    isRead: readIds.includes(notification.id)
-                }));
+            const all = response.data;
 
-                setNotifications(processed);
-                setUnreadCount(processed.filter(n => !n.isRead).length);
-            }
+            // ── Banners (existing behavior) ────────────────────────────────
+            const banners = all.filter(n => (n.message_type ?? 'banner') === 'banner');
+            const readIds = JSON.parse(localStorage.getItem('read_notifications') || '[]');
+            const processedBanners = banners.map(n => ({
+                ...n,
+                isRead: readIds.includes(n.id),
+            }));
+            setNotifications(processedBanners);
+            setUnreadCount(processedBanners.filter(n => !n.isRead).length);
+
+            // ── Announcements (new: centered modal) ────────────────────────
+            const msgs = all.filter(n => n.message_type === 'announcement');
+            setAnnouncements(msgs);
         } catch (error) {
-            console.error("Error fetching notifications:", error);
+            console.error('Error fetching notifications:', error);
         }
     }, []);
 
     useEffect(() => {
         fetchNotifications();
 
-        // Subscribe to real-time notifications
         const unsubscribe = subscribe('system:notification', (data) => {
-            setNotifications(prev => {
-                // Check if it already exists to avoid duplicates
-                if (prev.find(n => n.id === data.id)) return prev;
+            const type = data.message_type ?? 'banner';
 
-                const newNotifications = [{ ...data, isRead: false, isLive: true }, ...prev];
-                setUnreadCount(newNotifications.filter(n => !n.isRead).length);
-                return newNotifications;
-            });
+            if (type === 'announcement') {
+                setAnnouncements(prev => {
+                    if (prev.find(n => n.id === data.id)) return prev;
+                    return [{ ...data }, ...prev];
+                });
+            } else {
+                setNotifications(prev => {
+                    if (prev.find(n => n.id === data.id)) return prev;
+                    const updated = [{ ...data, isRead: false, isLive: true }, ...prev];
+                    setUnreadCount(updated.filter(n => !n.isRead).length);
+                    return updated;
+                });
+            }
         });
 
         return () => unsubscribe();
     }, [fetchNotifications, subscribe]);
 
+    // ── Banner helpers ─────────────────────────────────────────────────────────
     const markAsRead = (id) => {
         setNotifications(prev => {
             const updated = prev.map(n => n.id === id ? { ...n, isRead: true } : n);
-
-            // Persist to localStorage
             const readIds = updated.filter(n => n.isRead).map(n => n.id);
             localStorage.setItem('read_notifications', JSON.stringify(readIds));
-
             setUnreadCount(updated.filter(n => !n.isRead).length);
             return updated;
         });
@@ -64,20 +73,31 @@ export const NotificationProvider = ({ children }) => {
     const markAllAsRead = () => {
         setNotifications(prev => {
             const updated = prev.map(n => ({ ...n, isRead: true }));
-            const readIds = updated.map(n => n.id);
-            localStorage.setItem('read_notifications', JSON.stringify(readIds));
+            localStorage.setItem('read_notifications', JSON.stringify(updated.map(n => n.id)));
             setUnreadCount(0);
             return updated;
         });
     };
 
+    // ── Announcement helpers ───────────────────────────────────────────────────
+    // Called by AnnouncementModal after the user clicks "Entendido".
+    // Removes the item from state (localStorage flag already set by the modal).
+    const dismissAnnouncement = (id) => {
+        setAnnouncements(prev => prev.filter(a => a.id !== id));
+    };
+
     return (
         <NotificationContext.Provider value={{
+            // banners
             notifications,
             unreadCount,
             markAsRead,
             markAllAsRead,
-            refresh: fetchNotifications
+            // announcements
+            announcements,
+            dismissAnnouncement,
+            // shared
+            refresh: fetchNotifications,
         }}>
             {children}
         </NotificationContext.Provider>
