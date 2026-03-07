@@ -1,16 +1,20 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import requests
 from decimal import Decimal
 from datetime import datetime
+from pydantic import BaseModel
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from ..dependencies import admin_only
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
-from ..template_presets import get_all_presets, get_preset_by_id
+from ..template_presets import (
+    get_all_presets, get_preset_by_id,
+    get_services_sale_58_template, get_services_sale_80_template,
+)
 from ..config import settings
 
 router = APIRouter(
@@ -510,6 +514,74 @@ def apply_template_preset(
         "preset_id": preset_id,
         "preset_name": preset["name"]
     }
+
+class ServicesTicketPayload(BaseModel):
+    template_58: Optional[str] = None
+    template_80: Optional[str] = None
+
+
+@router.get("/services-ticket")
+def get_services_ticket_config(db: Session = Depends(get_db)):
+    """Get services-specific sale ticket templates (58mm and 80mm)."""
+    cfg = {
+        c.key: c.value
+        for c in db.query(models.BusinessConfig).filter(
+            models.BusinessConfig.key.in_([
+                "ticket_template_services_58",
+                "ticket_template_services_80",
+            ])
+        ).all()
+    }
+    return {
+        "template_58": cfg.get("ticket_template_services_58") or get_services_sale_58_template(),
+        "template_80": cfg.get("ticket_template_services_80") or get_services_sale_80_template(),
+    }
+
+
+@router.put("/services-ticket")
+def save_services_ticket_config(
+    payload: ServicesTicketPayload,
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only),
+):
+    """Save 58mm and/or 80mm services sale ticket templates."""
+    to_save = {}
+    if payload.template_58 is not None:
+        to_save["ticket_template_services_58"] = payload.template_58
+    if payload.template_80 is not None:
+        to_save["ticket_template_services_80"] = payload.template_80
+
+    for key, value in to_save.items():
+        config = db.query(models.BusinessConfig).get(key)
+        if config:
+            config.value = value
+        else:
+            db.add(models.BusinessConfig(key=key, value=value))
+    db.commit()
+    return {"status": "success", "saved_keys": list(to_save.keys())}
+
+
+@router.post("/services-ticket/apply/{preset_id}")
+def apply_services_ticket_preset(
+    preset_id: str,
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only),
+):
+    """Apply a services-category preset to the services ticket template."""
+    preset = get_preset_by_id(preset_id)
+    if not preset or preset.get("category") != "services":
+        raise HTTPException(status_code=404, detail="Preset de equipos no encontrado")
+
+    width = str(preset.get("paper_width", 58))
+    key = f"ticket_template_services_{width}"
+    config = db.query(models.BusinessConfig).get(key)
+    if config:
+        config.value = preset["template"]
+    else:
+        db.add(models.BusinessConfig(key=key, value=preset["template"]))
+    db.commit()
+    return {"status": "success", "preset_name": preset["name"], "key": key}
+
 
 @router.get("", response_model=List[schemas.BusinessConfigRead])
 def get_all_configs(db: Session = Depends(get_db)):

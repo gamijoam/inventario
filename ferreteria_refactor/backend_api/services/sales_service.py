@@ -12,7 +12,11 @@ from ..websocket.events import WebSocketEvents
 import asyncio
 import asyncio
 import uuid
-from ..template_presets import get_classic_58_template # Added for Scriban fallback
+from ..template_presets import (
+    get_classic_58_template,
+    get_services_sale_58_template,
+    get_services_sale_80_template,
+)
 
 # DUPLICATED HELPER due to circular import risks if we try to import from routers
 def run_broadcast(event: str, data: dict):
@@ -831,28 +835,39 @@ class SalesService:
             }
         }
         
-        # Use stored template or fallback to default
-        # Use stored template or fallback to default
+        # ── Template selection ─────────────────────────────────────
+        # 1. Load the general ticket_template from config
         template_config = db.query(models.BusinessConfig).get("ticket_template")
         template = ""
-        
+
         if template_config and template_config.value:
-             template = template_config.value
-             # HOTFIX FOR C# BRIDGE:
-             # The database might contain a Legacy Jinja2 template (with {% ... %}).
-             # The C# Bridge requires Scriban {{ ... }}.
-             # If we detect Jinja2 syntax, we MUST override it with the default Scriban template
-             # to prevent the "Unexpected token" error in the Bridge.
-             if "{%" in template:
-                 print(f"[WARNING] Detected Legacy Jinja2 Template for Sale {sale_id}. Falling back to Scriban Classic Preset.")
-                 template = get_classic_58_template()
-                 
-             # HOTFIX: Ensure sale.items -> sale.products replacement here just in case (legacy data)
-             if "sale.items" in template:
-                 template = template.replace("sale.items", "sale.products")
+            template = template_config.value
+            # HOTFIX: legacy Jinja2 templates break the C# Bridge (Scriban)
+            if "{%" in template:
+                print(f"[WARNING] Legacy Jinja2 template detected for Sale {sale_id}. Falling back to Scriban.")
+                template = get_classic_58_template()
+            # HOTFIX: rename old context key
+            if "sale.items" in template:
+                template = template.replace("sale.items", "sale.products")
         else:
-            # Fallback to code-defined Scriban template
             template = get_classic_58_template()
+
+        # 2. If any item has IMEI/serial numbers → use services-specific template
+        #    (priority: saved services config → built-in services preset)
+        has_serialized = any(item.get("serial_numbers") for item in formatted_items)
+        if has_serialized:
+            paper_width = business_config.get("paper_width", "58")
+            svc_key = f"ticket_template_services_{paper_width}"
+            svc_config = db.query(models.BusinessConfig).get(svc_key)
+            if svc_config and svc_config.value:
+                template = svc_config.value
+            else:
+                template = (
+                    get_services_sale_80_template()
+                    if paper_width == "80"
+                    else get_services_sale_58_template()
+                )
+        # ──────────────────────────────────────────────────────────
         return {
             "status": "ready",
             "template": template,

@@ -418,7 +418,24 @@ def get_all_presets() -> List[Dict[str, str]]:
             "paper_width": 80,
             "description": "Impresión sin márgenes en 80mm",
             "template": get_minimal_80_template()
-        }
+        },
+        # ── Servicios / Equipos Tecnológicos ──────────────────────────
+        {
+            "id": "services_sale_58",
+            "name": "Equipos Tec.",
+            "paper_width": 58,
+            "category": "services",
+            "description": "Muestra IMEI y garantía para venta de equipos (58mm)",
+            "template": get_services_sale_58_template()
+        },
+        {
+            "id": "services_sale_80",
+            "name": "Equipos Tec. Ancho",
+            "paper_width": 80,
+            "category": "services",
+            "description": "Muestra IMEI y garantía para venta de equipos (80mm)",
+            "template": get_services_sale_80_template()
+        },
     ]
 
 # ============================================
@@ -728,6 +745,113 @@ GARANTIA DEL SERVICIO
 <center>
 Conserve este ticket para retirar su equipo.
 ¡Gracias por elegirnos!
+</center>
+
+
+
+
+<cut>
+"""
+
+
+# ============================================
+# SERVICES SALE TEMPLATES (POS — Equipos Tec.)
+# Context: same as classic sale ("sale" key)
+# Auto-used when sale has serialized items (IMEI)
+# ============================================
+
+def get_services_sale_58_template() -> str:
+    return """================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================
+<center>
+<bold>VENTA - EQUIPO TECNOLOGICO</bold>
+<bold>Factura N\u00b0 {{ sale.id }}</bold>
+</center>
+Fecha: {{ sale.date }}
+================================
+CLIENTE
+--------------------------------
+{{ if sale.customer && sale.customer.name }}Nombre: {{ sale.customer.name | string.slice 0 26 }}
+{{ if sale.customer.id_number }}Doc:    {{ sale.customer.id_number }}{{ end }}
+{{ else }}Consumidor Final{{ end }}
+================================
+ARTICULOS
+--------------------------------
+{{ for item in sale.products }}{{ item.product.name | string.slice 0 30 }}
+  Cant: {{ item.quantity }}   Total: {{ item.formatted_total }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}  IMEI/Serial:
+  {{ item.serial_numbers | array.join ", " | string.slice 0 28 }}
+{{ end }}{{ if item.warranty }}  Garantia: {{ item.warranty.name | string.slice 0 20 }}
+  Vigencia: {{ item.warranty.duration_text }}
+{{ end }}{{ end }}================================
+<bold>TOTAL: {{ sale.formatted_total }}</bold>
+{{ if sale.is_usd }}Ref Bs: {{ sale.formatted_total_ref }}
+Tasa:   {{ sale.exchange_rate }} Bs/${{ end }}
+================================
+PAGO
+--------------------------------
+{{ for p in sale.payments }}{{ p.method }}: {{ p.formatted_amount }}
+{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}Cambio: {{ sale.formatted_change }}{{ end }}
+================================
+<center>
+Gracias por su compra!
+Conserve su factura y ticket.
+</center>
+
+
+
+
+<cut>
+"""
+
+
+def get_services_sale_80_template() -> str:
+    return """================================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================================
+<center>
+<bold>VENTA - EQUIPO TECNOLOGICO</bold>
+<bold>Factura N\u00b0 {{ sale.id }}</bold>
+</center>
+Fecha: {{ sale.date }}
+================================================
+DATOS DEL CLIENTE
+------------------------------------------------
+{{ if sale.customer && sale.customer.name }}Nombre:    {{ sale.customer.name | string.slice 0 38 }}
+{{ if sale.customer.id_number }}Documento: {{ sale.customer.id_number }}{{ end }}
+{{ else }}Consumidor Final{{ end }}
+================================================
+ARTICULOS VENDIDOS
+------------------------------------------------
+{{ for item in sale.products }}{{ item.product.name | string.slice 0 44 }}
+  Cantidad: {{ item.quantity }}          Total: {{ item.formatted_total }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}  IMEI/Serial: {{ item.serial_numbers | array.join ", " | string.slice 0 30 }}
+{{ end }}{{ if item.warranty }}  Garantia:  {{ item.warranty.name | string.slice 0 35 }}
+  Vigencia:  {{ item.warranty.duration_text }}
+{{ end }}{{ end }}================================================
+<bold>TOTAL: {{ sale.formatted_total }}</bold>
+{{ if sale.is_usd }}Referencia Bs: {{ sale.formatted_total_ref }}
+Tasa BCV:      {{ sale.exchange_rate }} Bs/${{ end }}
+================================================
+FORMA DE PAGO
+------------------------------------------------
+{{ for p in sale.payments }}{{ p.method | string.pad_right 20 }} {{ p.formatted_amount }}
+{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}Cambio entregado: {{ sale.formatted_change }}{{ end }}
+================================================
+<center>
+Gracias por su compra!
+Conserve esta factura para reclamaciones.
 </center>
 
 
