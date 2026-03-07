@@ -298,23 +298,45 @@ def repair_public_schema():
             ("has_services_module", "BOOLEAN DEFAULT FALSE"),
             ("has_barbershop_module", "BOOLEAN DEFAULT FALSE"),
         ]
-        
+
         for col_name, col_type in columns_to_add:
             result = conn.execute(text(f"""
                 SELECT EXISTS (
-                    SELECT FROM information_schema.columns 
-                    WHERE table_schema = 'public' 
-                    AND table_name = 'tenants' 
+                    SELECT FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                    AND table_name = 'tenants'
                     AND column_name = '{col_name}'
                 )
             """))
             exists = result.scalar()
-            
+
             if not exists:
                 print(f"[REPAIR] 🔧 Añadiendo columna {col_name} a public.tenants...")
                 conn.execute(text(f"ALTER TABLE public.tenants ADD COLUMN {col_name} {col_type}"))
                 print(f"[REPAIR] ✅ Columna {col_name} añadida.")
-        
+
+        # 3. Añadir columnas faltantes a public.system_messages (announcement modal)
+        sm_columns = [
+            ("message_type", "VARCHAR(20) NOT NULL DEFAULT 'banner'"),
+            ("version_tag",  "VARCHAR(20)"),
+        ]
+
+        for col_name, col_type in sm_columns:
+            result = conn.execute(text(f"""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_schema = 'public'
+                    AND table_name   = 'system_messages'
+                    AND column_name  = '{col_name}'
+                )
+            """))
+            if not result.scalar():
+                print(f"[REPAIR] 🔧 Añadiendo columna {col_name} a public.system_messages...")
+                conn.execute(text(
+                    f"ALTER TABLE public.system_messages ADD COLUMN {col_name} {col_type}"
+                ))
+                print(f"[REPAIR] ✅ Columna {col_name} añadida.")
+
         conn.commit()
         print("[REPAIR] ✅ Reparación de esquema público completada.")
 
