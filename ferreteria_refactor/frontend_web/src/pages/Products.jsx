@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-
-import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw, MoreHorizontal, FileDown, FileUp, ChevronDown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw, MoreHorizontal, FileDown, FileUp, ChevronDown, Barcode } from 'lucide-react';
 import SearchWithScanner from '../components/common/SearchWithScanner';
 import ProductForm from '../components/products/ProductForm';
 import ProductMobileCard from '../components/products/ProductMobileCard';
@@ -141,6 +141,15 @@ const Products = () => {
                         />
                     </div>
 
+                    {modules?.services && (
+                        <Link
+                            to="/inventory/serialized-reception"
+                            className="inline-flex items-center gap-2 h-10 px-4 bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 rounded-lg shadow-sm hover:shadow-md transition-all font-semibold text-sm whitespace-nowrap"
+                        >
+                            <Barcode size={16} />
+                            <span className="hidden sm:inline">Recepción</span>
+                        </Link>
+                    )}
                     <Button
                         id="tour-products-add-btn"
                         onClick={() => setIsModalOpen(true)}

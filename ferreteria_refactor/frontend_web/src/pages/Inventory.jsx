@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Archive, ArrowDownCircle, ArrowUpCircle, Filter, Search, Calendar, ChevronRight, Barcode } from 'lucide-react';
+import { Archive, ArrowDownCircle, ArrowUpCircle, Filter, Search, Calendar, ChevronRight } from 'lucide-react';
 import InventoryMovementSheet from '../components/inventory/InventoryMovementSheet';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
@@ -75,13 +74,6 @@ const Inventory = () => {
                         <p className="hidden md:block text-slate-500 text-sm mt-1">Historial completo de entradas y salidas (Kardex)</p>
                     </div>
                     <div className="flex gap-2">
-                        <Link
-                            to="/inventory/serialized-reception"
-                            className="hidden md:flex bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-4 py-2.5 rounded-xl shadow-sm hover:shadow-md transition-all font-bold text-sm items-center gap-2"
-                        >
-                            <Barcode size={18} />
-                            Recepción
-                        </Link>
                         <button
                             id="tour-inventory-add-btn"
                             onClick={() => setIsSheetOpen(true)}
