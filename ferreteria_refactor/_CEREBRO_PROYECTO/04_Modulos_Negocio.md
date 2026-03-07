@@ -28,6 +28,10 @@ Esta lógica reside en `TenantService.create_tenant()`.
 *   **Recepción y Diagnóstico**: Captura detallada de dispositivos (Marca, Modelo, IMEI/Serial, Estado Visual).
 *   **Abonos (Pagos Anticipados)**: Registro de pagos previos a la reparación que se descuentan automáticamente del total final en el POS.
 *   **Garantías RMA**: Sistema de garantías y devoluciones con estados de resolución.
+*   **Impresión de Ticket de Recepción**: Al crear una orden, se imprime automáticamente el ticket con datos del equipo (marca, modelo, IMEI, problema reportado). Si falla la impresora, aparece un toast informativo sin interrumpir el flujo. Botón "Reimprimir" disponible en la vista de éxito.
+*   **Política de Garantía en Tickets**: El ticket de recepción incluye automáticamente la política de garantía por defecto del tenant (nombre, vigencia, descripción).
+*   **IMEI en Recibo POS**: Al vender un teléfono serializado, el recibo muestra el IMEI bajo el nombre del producto y una sección `** GARANTIA DE SU EQUIPO **` al final con la vigencia de la garantía del producto.
+*   **Políticas de Garantía**: Modelo `WarrantyPolicy` con nombre, tipo (DAYS/MONTHS/YEARS/LIFETIME), duración, descripción, flag `is_default` y `is_active`. Se asocian a productos desde el formulario de edición (`warranty_policy_id`).
 
 ### C. Lavandería (Laundry)
 *   **Órdenes de Servicio**: Gestión de prendas, tipos de lavado y estados de entrega.
@@ -90,3 +94,4 @@ Cierre de turno  →  Reporte Z con nombre de caja
 *   **Moneda de Referencia**: USD como moneda ancla del sistema. Se gestiona mediante la tabla `currencies` con flag `is_anchor`.
 *   **Pagos Mixtos**: Flexibilidad total para cobrar una sola factura con diferentes métodos y monedas (Efectivo USD + Pago Móvil VES).
 *   **Tasas Disponibles**: BCV (Oficial), Paralelo (Mercado), Personalizada.
+*   **Tasa BCV Automática**: Botón "Consultar BCV" en `Configuración → Monedas`. Hace scraping de `bcv.org.ve` en tiempo real y muestra USD/VES y EUR/VES con un clic. Botón "Aplicar" por moneda para actualizar la tasa activa. Endpoint: `GET /api/v1/config/exchange-rates/bcv`.

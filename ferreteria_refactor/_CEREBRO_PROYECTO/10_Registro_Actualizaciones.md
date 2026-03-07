@@ -4,6 +4,143 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-06] — Modal de Novedades + Tasa BCV + Mejoras Servicios Técnicos
+**Branch:** `feature/tauri-desktop` | **Commits:** `5e4447e`, `63e1fc2`, `07b2e7b`, `ba23c9a`, `993405d`, `09e0c92`, `5e0ab8f`, `14b62a5`, `d4c5b35`, `defa5f7`
+
+### feat: Modal "¿Qué hay de nuevo?" — Sistema de Anuncios de Novedades
+
+Nuevo tipo de mensaje del sistema para anunciar funcionalidades a los clientes. Se diferencia del `GlobalBanner` existente (esquina superior) en que aparece como **modal centrado con backdrop blur**, una sola vez por usuario por mensaje.
+
+**Arquitectura:**
+- `message_type: 'banner' | 'announcement'` y `version_tag` añadidos a `public.system_messages`
+- Migración Alembic `c4e5f6a7b8c9` + `repair_public_schema()` en `main.py` como safety net
+- `NotificationContext.jsx` separa banners de anuncios en dos arrays independientes
+- `AnnouncementModal.jsx` (nuevo): modal con gradiente indigo/violeta, lista de features parseada desde el contenido y CTA "¡Entendido, a trabajar!"
+- `DashboardLayout.jsx`: incluye `<AnnouncementModal />` junto al `<GlobalBanner />`
+- SaaS Admin `SystemMessages.tsx`: selector visual de tipo (Banner vs Novedad), campo `version_tag`, hint de formato
+
+**Formato de contenido para lista de features:**
+```
+🔧 Título de la función | Descripción breve de la mejora
+📱 Otra función         | Su descripción aquí
+```
+Si el contenido no sigue este formato, se muestra como párrafo normal (retrocompatible).
+
+**Comportamiento:**
+- Aparece 600ms después de cargar el dashboard
+- Marcado como visto en `localStorage: announced_<id>` — no vuelve a aparecer
+- Clic fuera del modal o `[×]` también lo cierra
+- Broadcast WebSocket en tiempo real al publicar (payload ahora incluye `message_type`)
+
+**Bug fix:** El payload del WebSocket no incluía `message_type` → el frontend recibía `undefined` → fallback `?? 'banner'` → el anuncio aparecía en la esquina como banner. Corregido en `routers/admin.py`.
+
+**Archivos afectados:**
+- `alembic/versions/c4e5f6a7b8c9_add_message_type_to_system_messages.py` (nuevo)
+- `backend_api/models/system_messages.py`
+- `backend_api/schemas/system_messages.py`
+- `backend_api/routers/admin.py`
+- `backend_api/main.py` (`repair_public_schema`)
+- `frontend_web/src/components/common/AnnouncementModal.jsx` (nuevo)
+- `frontend_web/src/context/NotificationContext.jsx`
+- `frontend_web/src/layouts/DashboardLayout.jsx`
+- `saas_admin/src/api/systemMessages.ts`
+- `saas_admin/src/pages/SystemMessages.tsx`
+
+---
+
+### feat: Tasa BCV Automática — Web Scraping del Banco Central de Venezuela
+
+Nuevo endpoint que hace scraping de `bcv.org.ve` y devuelve las tasas oficiales USD/VES y EUR/VES con un solo clic desde la pantalla de configuración de monedas.
+
+**Backend — `routers/config.py`:**
+- `GET /api/v1/config/exchange-rates/bcv` — endpoint público (sin auth), scraping con `requests` + regex
+- Extrae las tasas de los elementos `<strong>` dentro de `#dolar` y `#euro`
+- `verify=False` + `urllib3.disable_warnings()` para VPS Docker sin bundle de CAs
+- **Posición crítica**: debe estar definido ANTES de `GET /exchange-rates/{id}`, o FastAPI intenta castear `"bcv"` como `int` y devuelve un error Pydantic que React no puede renderizar
+
+**Frontend — `CurrencyConfig.jsx`:**
+- Panel lateral "Tasa Oficial BCV" con botón "Consultar BCV"
+- Muestra USD y EUR con timestamp de consulta
+- Botón "Aplicar" por moneda — aplica la tasa al tipo por defecto del tab activo
+
+**Archivos afectados:**
+- `backend_api/routers/config.py`
+- `frontend_web/src/pages/Settings/CurrencyConfig.jsx`
+
+---
+
+### feat: Impresión de Órdenes de Servicio Técnico
+
+El endpoint `GET /services/orders/{id}/print/thermal` ahora genera tickets propios para reparaciones (antes usaba el template de lavandería).
+
+**Backend — `routers/services.py`:**
+- Contexto enriquecido: `device_type`, `brand`, `model`, `serial_imei`, `physical_condition`, `problem_description`
+- Consulta la `WarrantyPolicy` por defecto del tenant y la inyecta en `context["order"]["warranty"]`
+- Selección automática de template: si `service_type == REPAIR` usa `get_service_repair_58/80_template()`, si no usa el de lavandería
+
+**Backend — `template_presets.py`:**
+- Nuevos `get_service_repair_58_template()` y `get_service_repair_80_template()`
+- Sección dedicada `** GARANTIA DE SU EQUIPO **` al final del recibo (oculta si no hay garantía)
+
+**Frontend — `Reception.jsx`:**
+- Auto-impresión al crear orden: llama `GET /services/orders/{id}/print/thermal` y `printerService.printRaw()`
+- Toast `🖨️ Sin impresora conectada` si falla (sin interrumpir el flujo)
+- Botón "Reimprimir Ticket" en la sección de éxito
+- `lastOrderId` state para rastrear la última orden creada
+
+---
+
+### feat: IMEI y Garantía en Recibos POS de Teléfonos Serializados
+
+Al vender un producto con `has_imei=True`, el recibo ahora muestra el IMEI bajo el nombre del producto y una sección de garantía al final.
+
+**Backend — `services/sales_service.py` (`get_sale_print_payload`):**
+- Query enriquecida con `joinedload(SaleDetail.instances).joinedload(SaleDetailInstance.product_instance)` y `joinedload(SaleDetail.product).joinedload(Product.warranty_policy)`
+- Campo `serial_numbers: list[str]` por ítem (IMEIs de las instancias vendidas)
+- Campo `warranty: {name, duration_text, description}` por ítem (de `Product.warranty_policy`)
+
+**Backend — `template_presets.py`:**
+- Templates POS `get_services_sale_58/80_template()` actualizados
+- `IMEI: ...` debajo del nombre del producto (si tiene seriales)
+- Sección `** GARANTIA DE SU EQUIPO **` al final: agrupa todos los ítems con garantía
+
+---
+
+### fix: `warranty_policy_id` no se guardaba al editar un producto
+
+`ProductUpdate` en `schemas/__init__.py` no tenía el campo `warranty_policy_id`, por lo que el backend lo ignoraba silenciosamente.
+
+```python
+# schemas/__init__.py → ProductUpdate
+warranty_policy_id: Optional[int] = None  # campo añadido
+```
+
+---
+
+### fix: `warranty_policies` tabla faltante en esquemas tenant
+
+La migración de `migrate_tenants.py` intentaba añadir la FK `warranty_policy_id` en la sección 1 antes de que la tabla `warranty_policies` existiera (creada en sección 4). Corregido añadiendo el `CREATE TABLE IF NOT EXISTS warranty_policies` como paso 0.3 (antes de cualquier FK que la referencie).
+
+---
+
+### fix: Notificaciones apiladas en Recepción Serializada
+
+Al escanear IMEIs rápidamente, los toasts se apilaban creando ruido visual. Corregido usando ID fijo `{ id: 'imei-scan', duration: 1500 }` — cada nuevo toast reemplaza al anterior.
+
+---
+
+### ux: Botón "Recepción" movido a `/products`
+
+El acceso a Recepción Serializada se movió de `/#/inventory` a `/#/products` y ahora solo es visible cuando el módulo de servicios está activo (`modules?.services`).
+
+---
+
+### ux: Alerta de Stock Mínimo visible en productos IMEI
+
+Al editar/crear un producto con `has_imei=True`, la sección de inventario se ocultaba (correcto, ya que el stock se gestiona por unidades individuales), pero también ocultaba `min_stock`. Ahora aparece una card "Alerta de Stock Mínimo" dedicada con `min_stock` + `location` solo para productos IMEI.
+
+---
+
 ## [2026-03-05] — POS: Venta en pausa (Hold Sale)
 **Branch:** `feature/tauri-desktop` | **Commits:** `6aa8a6e`, `965cfa1`
 
