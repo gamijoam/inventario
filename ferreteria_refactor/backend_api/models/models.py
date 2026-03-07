@@ -1066,7 +1066,10 @@ class ServiceOrder(Base):
     
     # Flexible Data
     order_metadata = Column(JSON, nullable=True) # Bag color, weight, etc.
-    
+
+    # Warranty Policy (optional: overrides tenant default when printing)
+    warranty_policy_id = Column(Integer, ForeignKey("warranty_policies.id"), nullable=True)
+
     # Dates
     created_at = Column(DateTime, default=get_venezuela_now)
     updated_at = Column(DateTime, onupdate=datetime.datetime.now)
@@ -1075,6 +1078,7 @@ class ServiceOrder(Base):
     # Relationships
     customer = relationship("Customer")
     technician = relationship("User", foreign_keys=[technician_id])
+    warranty_policy = relationship("WarrantyPolicy", foreign_keys=[warranty_policy_id])
     details = relationship("ServiceOrderDetail", back_populates="service_order", cascade="all, delete-orphan")
     payments = relationship("ServicePayment", back_populates="service_order", cascade="all, delete-orphan")
 

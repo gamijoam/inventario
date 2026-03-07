@@ -121,6 +121,12 @@ def migrate_tenants(db_engine=None):
                     except Exception:
                         pass  # Already nullable, ignore
 
+                    if 'warranty_policy_id' not in col_names:
+                        print(f"   ➕ Adding warranty_policy_id column to {schema}.service_orders")
+                        conn.execute(text(f"ALTER TABLE \"{schema}\".service_orders ADD COLUMN warranty_policy_id INTEGER REFERENCES \"{schema}\".warranty_policies(id)"))
+                    else:
+                        print(f"   ✅ warranty_policy_id already exists in {schema}.service_orders")
+
                     conn.commit()
 
             except Exception as e:

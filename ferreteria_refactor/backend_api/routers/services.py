@@ -78,7 +78,8 @@ def create_service_order(
             diagnosis_notes=order_data.diagnosis_notes,
             estimated_delivery=order_data.estimated_delivery,
             order_metadata=order_data.order_metadata,
-            priority=order_data.priority
+            priority=order_data.priority,
+            warranty_policy_id=order_data.warranty_policy_id,
         )
         
         db.add(new_order)
@@ -451,6 +452,7 @@ def get_laundry_thermal_payload(
     order = db.query(models.ServiceOrder).options(
         joinedload(models.ServiceOrder.customer),
         joinedload(models.ServiceOrder.details),
+        joinedload(models.ServiceOrder.warranty_policy),
     ).filter(
         models.ServiceOrder.id == order_id,
         models.ServiceOrder.tenant_id == tenant_id
@@ -473,28 +475,36 @@ def get_laundry_thermal_payload(
 
     metadata = order.order_metadata or {}
 
-    # Lookup default warranty policy for this tenant (used in repair receipts)
+    # Warranty policy for repair receipts:
+    # Priority 1 → policy assigned to this specific order (warranty_policy_id)
+    # Priority 2 → tenant's default policy (is_default=True, is_active=True)
     warranty_context = None
-    try:
-        tid = int(tenant_id) if tenant_id and tenant_id != "public" else None
-        wp_query = db.query(models.WarrantyPolicy).filter(
-            models.WarrantyPolicy.is_default == True,
-            models.WarrantyPolicy.is_active == True
+    unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "De por vida"}
+
+    def _build_warranty_context(wp):
+        dur_text = (
+            f"{wp.duration} {unit_map.get(str(wp.type).split('.')[-1], str(wp.type))}"
+            if wp.duration else unit_map.get(str(wp.type).split('.')[-1], str(wp.type))
         )
-        if tid:
-            wp_query = wp_query.filter(models.WarrantyPolicy.tenant_id == tid)
-        wp = wp_query.first()
-        if wp:
-            unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "De por vida"}
-            dur_text = (
-                f"{wp.duration} {unit_map.get(wp.type, wp.type)}"
-                if wp.duration else unit_map.get(wp.type, "")
+        return {
+            "name": wp.name,
+            "duration_text": dur_text,
+            "description": wp.description or "",
+        }
+
+    try:
+        # 1) Use order-specific policy if set
+        if order.warranty_policy:
+            warranty_context = _build_warranty_context(order.warranty_policy)
+        else:
+            # 2) Fall back to tenant default
+            wp_query = db.query(models.WarrantyPolicy).filter(
+                models.WarrantyPolicy.is_default == True,
+                models.WarrantyPolicy.is_active == True,
             )
-            warranty_context = {
-                "name": wp.name,
-                "duration_text": dur_text,
-                "description": wp.description or "",
-            }
+            wp = wp_query.first()
+            if wp:
+                warranty_context = _build_warranty_context(wp)
     except Exception:
         pass
 

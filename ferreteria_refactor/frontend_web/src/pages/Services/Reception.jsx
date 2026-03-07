@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Users, Smartphone, Tablet, Monitor, Save,
-    Search, Plus, CheckCircle, AlertTriangle, Printer
+    Search, Plus, CheckCircle, AlertTriangle, Printer, ShieldCheck
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -20,6 +20,10 @@ const Reception = () => {
     const [loading, setLoading] = useState(false);
     const [ticketNumber, setTicketNumber] = useState(null);
     const [lastOrderId, setLastOrderId] = useState(null);
+
+    // Warranty Policies
+    const [warrantyPolicies, setWarrantyPolicies] = useState([]);
+    const [selectedWarrantyId, setSelectedWarrantyId] = useState(''); // '' = use tenant default
 
     // Customer Search
     const [customers, setCustomers] = useState([]);
@@ -41,6 +45,13 @@ const Reception = () => {
         physical_condition: '',
         diagnosis_notes: '',
     });
+
+    // Load Warranty Policies on mount
+    useEffect(() => {
+        apiClient.get('/warranties/policies')
+            .then(res => setWarrantyPolicies(res.data || []))
+            .catch(() => {}); // non-blocking
+    }, []);
 
     // Search Customers
     useEffect(() => {
@@ -102,6 +113,7 @@ const Reception = () => {
                 customer_id: selectedCustomer.id,
                 service_type: 'REPAIR',
                 ...formData,
+                warranty_policy_id: selectedWarrantyId ? parseInt(selectedWarrantyId) : null,
                 items: [], // Future: Add cart items in reception
                 payments: paymentData.amount ? [{
                     amount: parseFloat(paymentData.amount),
@@ -137,6 +149,7 @@ const Reception = () => {
                 diagnosis_notes: '',
             });
             setPaymentData({ amount: '', payment_method: 'Efectivo', reference: '' });
+            setSelectedWarrantyId('');
             setSelectedCustomer(null);
             setSearchTerm('');
 
@@ -416,6 +429,33 @@ const Reception = () => {
                                 </div>
                             </div>
                             */}
+
+                            {/* POLÍTICA DE GARANTÍA */}
+                            {warrantyPolicies.length > 0 && (
+                                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                    <label className="block text-sm font-semibold text-indigo-800 mb-2 flex items-center gap-2">
+                                        <ShieldCheck size={16} />
+                                        Política de Garantía del Servicio
+                                    </label>
+                                    <select
+                                        value={selectedWarrantyId}
+                                        onChange={(e) => setSelectedWarrantyId(e.target.value)}
+                                        className="w-full p-2.5 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none bg-white text-sm"
+                                    >
+                                        <option value="">— Usar política predeterminada —</option>
+                                        {warrantyPolicies.map(wp => (
+                                            <option key={wp.id} value={wp.id}>
+                                                {wp.name}
+                                                {wp.duration ? ` · ${wp.duration} ${wp.type === 'DAYS' ? 'días' : wp.type === 'MONTHS' ? 'meses' : wp.type === 'YEARS' ? 'años' : 'De por vida'}` : ''}
+                                                {wp.is_default ? ' ★ (predeterminada)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-indigo-600 mt-1">
+                                        Se imprimirá en el ticket de recepción del cliente.
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="border-t pt-6 mt-6 flex justify-end">
                                 <button

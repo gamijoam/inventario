@@ -1228,7 +1228,10 @@ class ServiceOrderBase(BaseModel):
     
     # Flexible Data
     order_metadata: Optional[Dict[str, Any]] = None
-    
+
+    # Warranty Policy (overrides tenant default; None = use default)
+    warranty_policy_id: Optional[int] = None
+
     # Optional on creation
     estimated_delivery: Optional[datetime] = None
 
