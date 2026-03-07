@@ -809,6 +809,46 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                     )}
                                 </Card>
                             )}
+
+                            {/* ALERTA DE STOCK para productos con IMEI (stock gestionado por seriales, pero mínimo sigue siendo útil) */}
+                            {!formData.is_service && formData.has_imei && (
+                                <Card className="border-rose-100 shadow-sm bg-white overflow-hidden animate-in zoom-in-95 duration-200">
+                                    <div className="px-6 py-4 border-b border-rose-100 flex items-center gap-2 bg-rose-50/40">
+                                        <div className="w-8 h-8 bg-rose-100 text-rose-600 rounded-lg flex items-center justify-center">
+                                            <Bell size={18} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-800">Alerta de Stock Mínimo</h4>
+                                            <p className="text-[10px] text-slate-500">El dashboard te alertará cuando las unidades disponibles caigan por debajo del límite.</p>
+                                        </div>
+                                    </div>
+                                    <CardContent className="p-6">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] uppercase tracking-wider text-rose-500 font-bold">Unidades mínimas</Label>
+                                                <Input
+                                                    type="number"
+                                                    name="min_stock"
+                                                    value={formData.min_stock}
+                                                    onChange={handleInputChange}
+                                                    min={0}
+                                                    className="h-10 text-center font-bold border-rose-100 bg-rose-50/30"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Ubicación Física</Label>
+                                                <Input
+                                                    name="location"
+                                                    value={formData.location}
+                                                    onChange={handleInputChange}
+                                                    placeholder="Vitrina A, Caja 3..."
+                                                    className="h-10"
+                                                />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
                         </TabsContent>
 
                         {/* ADVANCED TAB: Combined Units & Combos */}
