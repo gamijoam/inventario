@@ -58,12 +58,14 @@ export default function AnnouncementModal() {
     }, [announcements]);
 
     const handleClose = () => {
+        // Mark as seen IMMEDIATELY (sync) before the animation — prevents re-show
+        // if the tab closes or navigates during the 250ms closing animation.
+        if (current) {
+            localStorage.setItem(`announced_${current.id}`, 'true');
+            dismissAnnouncement(current.id);
+        }
         setClosing(true);
         setTimeout(() => {
-            if (current) {
-                localStorage.setItem(`announced_${current.id}`, 'true');
-                dismissAnnouncement(current.id);
-            }
             setVisible(false);
             setClosing(false);
             setCurrent(null);

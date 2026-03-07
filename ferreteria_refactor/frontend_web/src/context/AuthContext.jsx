@@ -139,9 +139,23 @@ export const AuthProvider = ({ children }) => {
             setUser(null);
             setIsAuthenticated(false);
 
-            // 🧹 PURGE STORAGE (But preserve API URL for Mobile)
-            const apiUrl = localStorage.getItem('api_url');
+            // 🧹 PURGE STORAGE (preserve API URL, tenant, and notification seen-flags)
+            const apiUrl        = localStorage.getItem('api_url');
             const selectedTenant = localStorage.getItem('selected_tenant');
+
+            // Preserve "seen" flags so announcements and banners don't repeat after re-login
+            const preserved = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (
+                    key &&
+                    (key.startsWith('announced_') ||       // AnnouncementModal seen
+                     key.startsWith('dismissed_popup_') || // GlobalBanner dismissed
+                     key === 'read_notifications')         // Notification read list
+                ) {
+                    preserved[key] = localStorage.getItem(key);
+                }
+            }
 
             localStorage.clear();
             sessionStorage.clear();
@@ -150,7 +164,10 @@ export const AuthProvider = ({ children }) => {
             if (apiUrl) localStorage.setItem('api_url', apiUrl);
             if (selectedTenant && !selectedTenant.includes('public')) localStorage.setItem('selected_tenant', selectedTenant);
 
-            console.log('🧹 Purged session, preserved API URL');
+            // Restore notification seen-flags
+            Object.entries(preserved).forEach(([k, v]) => localStorage.setItem(k, v));
+
+            console.log('🧹 Purged session, preserved API URL and notification flags');
         }
     };
 
