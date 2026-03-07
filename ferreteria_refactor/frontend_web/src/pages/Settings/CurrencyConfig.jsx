@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Coins, Star, Trash, RefreshCw, AlertCircle, Clock, Globe, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Coins, Star, Trash, RefreshCw, AlertCircle, Clock, Globe, ArrowRight, Landmark } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { useConfig } from '../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
@@ -23,6 +23,9 @@ const CurrencyConfig = () => {
     const [showAddRateModal, setShowAddRateModal] = useState(false);
     const [newRate, setNewRate] = useState({ name: '', rate: '', source: 'Manual' });
     const [processing, setProcessing] = useState(false);
+    const [bcvRates, setBcvRates] = useState(null);
+    const [bcvLoading, setBcvLoading] = useState(false);
+    const [bcvApplying, setBcvApplying] = useState(false);
 
     useEffect(() => {
         fetchExchangeRates();
@@ -92,6 +95,41 @@ const CurrencyConfig = () => {
         }
     };
 
+    const fetchBcvRates = async () => {
+        setBcvLoading(true);
+        try {
+            const res = await apiClient.get('/config/exchange-rates/bcv');
+            setBcvRates(res.data);
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'No se pudo consultar el BCV. Intenta más tarde.');
+        } finally {
+            setBcvLoading(false);
+        }
+    };
+
+    const handleApplyBcvRate = async (bcvValue, label) => {
+        if (!bcvValue) {
+            toast.error(`Tasa ${label} no disponible del BCV`);
+            return;
+        }
+        const targetRate = activeCurrencyRates.find(r => r.is_default) || activeCurrencyRates[0];
+        if (!targetRate) {
+            toast.error(`No hay tasas en ${selectedCurrency}. Crea una primero.`);
+            return;
+        }
+        setBcvApplying(true);
+        try {
+            await apiClient.put(`/config/exchange-rates/${targetRate.id}`, { rate: bcvValue });
+            await fetchExchangeRates();
+            refreshConfig();
+            toast.success(`✅ "${targetRate.name}" → ${bcvValue.toLocaleString('es-VE', { minimumFractionDigits: 4 })} ${selectedCurrency}`);
+        } catch {
+            toast.error('Error al aplicar la tasa');
+        } finally {
+            setBcvApplying(false);
+        }
+    };
+
     // Derived Logic
     const groupedRates = exchangeRates.reduce((acc, rate) => {
         if (!acc[rate.currency_code]) acc[rate.currency_code] = [];
@@ -149,30 +187,108 @@ const CurrencyConfig = () => {
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100 text-center">
-                            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-2">Valor actual</p>
+                    <CardContent className="space-y-5">
+                        {/* Tasa activa actual */}
+                        <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 text-center">
+                            <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-2">Valor activo</p>
                             <div className="flex items-center justify-center gap-3">
                                 <span className="text-3xl font-black text-slate-900">
                                     {defaultRate ? parseFloat(defaultRate.rate).toLocaleString('es-VE') : '---'}
                                 </span>
                                 <span className="text-sm font-bold text-slate-500">{selectedCurrency}</span>
                             </div>
-                            <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-indigo-600 font-bold bg-white py-2 rounded-lg shadow-sm">
+                            <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-indigo-600 font-bold bg-white py-2 rounded-lg shadow-sm">
                                 <Globe size={12} />
                                 Fuente: {defaultRate?.name || 'Ninguna'}
                             </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <div className="flex justify-between text-xs">
-                                <span className="text-slate-400 font-bold">Referencia</span>
-                                <span className="text-slate-700 font-black">1 USD</span>
+                        <div className="flex justify-between text-xs">
+                            <span className="text-slate-400 font-bold">Último cambio</span>
+                            <span className="text-slate-700 font-bold">{formatDate(defaultRate?.updated_at)}</span>
+                        </div>
+
+                        {/* ── Panel Tasa Automática BCV ── */}
+                        <div className="border border-amber-200 rounded-2xl overflow-hidden">
+                            <div className="px-4 py-3 flex items-center justify-between bg-amber-50 border-b border-amber-100">
+                                <div className="flex items-center gap-2">
+                                    <Landmark size={15} className="text-amber-600" />
+                                    <span className="text-xs font-black text-amber-800 uppercase tracking-wide">Tasa Automática BCV</span>
+                                </div>
+                                <button
+                                    onClick={fetchBcvRates}
+                                    disabled={bcvLoading}
+                                    title="Actualizar desde BCV"
+                                    className="p-1.5 rounded-lg bg-white text-amber-600 border border-amber-200 hover:bg-amber-100 transition-all disabled:opacity-40"
+                                >
+                                    <RefreshCw size={13} className={bcvLoading ? 'animate-spin' : ''} />
+                                </button>
                             </div>
-                            <div className="flex justify-between text-xs">
-                                <span className="text-slate-400 font-bold">Último cambio</span>
-                                <span className="text-slate-700 font-bold">{formatDate(defaultRate?.updated_at)}</span>
-                            </div>
+
+                            {bcvLoading ? (
+                                <div className="py-6 flex flex-col items-center gap-2">
+                                    <RefreshCw className="animate-spin text-amber-500" size={20} />
+                                    <p className="text-xs text-amber-700 font-bold">Consultando BCV…</p>
+                                </div>
+                            ) : bcvRates ? (
+                                <div className="p-3 space-y-2">
+                                    {/* USD/VES row */}
+                                    {bcvRates.usd_ves && (
+                                        <div className="flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-amber-100 shadow-sm">
+                                            <div>
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">💵 Dólar USD</span>
+                                                <span className="text-base font-black text-slate-900">
+                                                    {bcvRates.usd_ves.toLocaleString('es-VE', { minimumFractionDigits: 4 })}
+                                                </span>
+                                                <span className="text-xs text-slate-500 ml-1">Bs</span>
+                                            </div>
+                                            <button
+                                                onClick={() => handleApplyBcvRate(bcvRates.usd_ves, 'USD')}
+                                                disabled={bcvApplying}
+                                                className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-black px-3 py-1.5 rounded-lg transition-all shadow-sm"
+                                            >
+                                                Aplicar
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* EUR/VES row */}
+                                    {bcvRates.eur_ves && (
+                                        <div className="flex items-center justify-between bg-white rounded-xl px-3 py-2.5 border border-amber-100 shadow-sm">
+                                            <div>
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">💶 Euro EUR</span>
+                                                <span className="text-base font-black text-slate-900">
+                                                    {bcvRates.eur_ves.toLocaleString('es-VE', { minimumFractionDigits: 4 })}
+                                                </span>
+                                                <span className="text-xs text-slate-500 ml-1">Bs</span>
+                                            </div>
+                                            <button
+                                                onClick={() => handleApplyBcvRate(bcvRates.eur_ves, 'EUR')}
+                                                disabled={bcvApplying}
+                                                className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-black px-3 py-1.5 rounded-lg transition-all shadow-sm"
+                                            >
+                                                Aplicar
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    <p className="text-[10px] text-slate-400 text-center pt-1">
+                                        Consultado a las{' '}
+                                        {new Date(bcvRates.fetched_at).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' })}
+                                        {' '}· <a href="https://www.bcv.org.ve/" target="_blank" rel="noreferrer" className="underline hover:text-amber-600">bcv.org.ve</a>
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="py-5 px-4 flex flex-col items-center gap-3 text-center">
+                                    <p className="text-xs text-amber-700">Obtén las tasas oficiales del BCV en un clic.</p>
+                                    <button
+                                        onClick={fetchBcvRates}
+                                        className="bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-4 py-2 rounded-lg transition-all shadow-sm flex items-center gap-2"
+                                    >
+                                        <Landmark size={14} /> Consultar BCV
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                     <CardFooter className="pt-0">
@@ -180,7 +296,7 @@ const CurrencyConfig = () => {
                             onClick={() => setShowAddRateModal(true)}
                             className="w-full bg-slate-900 border border-slate-900 text-white rounded-xl py-3 text-sm font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
                         >
-                            <Plus size={18} /> Nueva Tasa
+                            <Plus size={18} /> Nueva Tasa Manual
                         </button>
                     </CardFooter>
                 </Card>
