@@ -221,6 +221,8 @@ def fetch_bcv_rates():
     No auth required (read-only, public data).
     """
     import re
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     HEADERS = {
         "User-Agent": (
@@ -238,6 +240,7 @@ def fetch_bcv_rates():
             "https://www.bcv.org.ve/",
             headers=HEADERS,
             timeout=15,
+            verify=False,   # VPS Docker containers may lack root CA bundle
         )
         resp.raise_for_status()
         html = resp.text
