@@ -26,8 +26,9 @@ async def discover_tenant(
     # 1. Look for user by email
     user = db.query(models.User).filter(models.User.email == email).first()
     
-    # 🔐 SECURITY CHECK: Never discover superadmins or users without a tenant
-    if not user or user.is_superuser or not user.tenant_id:
+    # 🔐 SECURITY CHECK: Never discover global superadmins (tenant_id=None) via email.
+    # Tenant admins with is_superuser=True but a tenant_id assigned are allowed.
+    if not user or not user.tenant_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No encontramos ninguna cuenta asociada a este correo electrónico."

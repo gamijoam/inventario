@@ -57,9 +57,9 @@ async def register_tenant(request: RegisterRequest):
         
         # Logical Mapping: Priority for business_type, then plan_type, then default to FERRETERIA
         if request.business_type:
-            final_plan = request.business_type.value
+            final_plan = request.business_type  # already a plain str
         elif request.plan_type:
-            final_plan = request.plan_type.value
+            final_plan = request.plan_type      # already a plain str
         else:
             final_plan = "FERRETERIA"
         
