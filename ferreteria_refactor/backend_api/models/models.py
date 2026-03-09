@@ -154,8 +154,6 @@ class Product(Base):
     min_stock = Column(Numeric(12, 3), default=5.000) # Low stock alert threshold
     is_active = Column(Boolean, default=True) # Logical delete
 
-    is_active = Column(Boolean, default=True) # Logical delete
-
     # Warranty Configuration
     warranty_duration = Column(Integer, default=0)
     warranty_unit = Column(Enum(WarrantyUnit), default=WarrantyUnit.DAYS)
@@ -278,7 +276,10 @@ class ComboItem(Base):
     Example: "Combo Emprendedor" contains "2x Cemento" + "1x Pala"
     """
     __tablename__ = "combo_items"
-    
+    __table_args__ = (
+        UniqueConstraint('parent_product_id', 'child_product_id', name='uq_combo_item_parent_child'),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     parent_product_id = Column(Integer, ForeignKey("products.id"), nullable=False)  # The combo product
     child_product_id = Column(Integer, ForeignKey("products.id"), nullable=False)   # The component product
