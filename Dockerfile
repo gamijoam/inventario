@@ -39,9 +39,15 @@ COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN sed -i 's/\r$//' /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
+# Create non-root user for security
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN chown -R appuser:appgroup /app
+
 # Env vars
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
+
+USER appuser
 
 # Use entrypoint script to run migrations before starting server
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

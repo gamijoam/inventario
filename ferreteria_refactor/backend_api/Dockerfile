@@ -23,6 +23,11 @@ ENV ENVIRONMENT=production
 # Expose port (FastAPI default)
 EXPOSE 8000
 
+# Create non-root user for security
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN chown -R appuser:appgroup /app
+USER appuser
+
 # CRITICAL: Change working directory to the parent folder so 'backend_api' is seen as a module
 WORKDIR /app/ferreteria_refactor
 

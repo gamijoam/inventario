@@ -13,6 +13,9 @@ COPY . /usr/share/nginx/html
 
 RUN find /usr/share/nginx/html -type f \( -name "*.html" -o -name "*.js" \) -exec sed -i "s|__API_URL_PLACEHOLDER__|$VITE_API_URL|g" {} +
 
+# Note: nginx master process requires root for port 80 binding.
+# Worker processes already run as non-root 'nginx' user via nginx.conf default.
+
 # Expose port
 EXPOSE 80
 

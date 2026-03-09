@@ -8,6 +8,8 @@ services:
     image: traefik:v2.11
     container_name: traefik_qa
     restart: always
+    mem_limit: 256m
+    cpus: 0.5
     command:
       - "--api.insecure=false"
       - "--providers.docker=true"
@@ -40,6 +42,8 @@ services:
     image: gamijoam/ferreteria-app:qa-version-320
     container_name: frontend_qa
     restart: always
+    mem_limit: 128m
+    cpus: 0.5
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend-qa.rule=HostRegexp(`{subdomain:[a-z0-9-]+}.qa.miinventariofacil.com`)"
@@ -57,6 +61,14 @@ services:
     image: gamijoam/ferreteria-backend:qa-version-320
     container_name: backend_qa
     restart: always
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     env_file:
       - .env.qa
     labels:
@@ -80,6 +92,8 @@ services:
     image: gamijoam/ferreteria-admin-panel:qa-version-320
     container_name: saas_admin_qa
     restart: always
+    mem_limit: 128m
+    cpus: 0.5
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.saas-qa.rule=Host(`admin-qa.miinventariofacil.com`)"
@@ -95,6 +109,8 @@ services:
     image: postgres:15-alpine
     container_name: db_qa
     restart: always
+    mem_limit: 1g
+    cpus: 1.0
     volumes:
       - postgres_data_qa:/var/lib/postgresql/data
     env_file:
