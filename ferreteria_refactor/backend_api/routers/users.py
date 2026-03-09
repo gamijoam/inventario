@@ -7,7 +7,7 @@ from ..database.db import get_db
 from ..models import models
 from typing import List
 from datetime import timedelta
-from ..security import verify_password, get_password_hash, create_access_token
+from ..security import verify_password, get_password_hash, create_access_token, pwd_context
 from ..config import settings
 from ..dependencies import get_current_active_user
 
@@ -352,11 +352,12 @@ def pin_login(payload: dict, db: Session = Depends(get_db)):
     if not pin:
         raise HTTPException(status_code=400, detail="PIN is required")
 
-    # Buscar usuarios con ese PIN (y activos)
-    users = db.query(models.User).filter(
-        models.User.pin == pin,
-        models.User.is_active == True
+    # Buscar usuarios activos y verificar PIN con bcrypt
+    active_users = db.query(models.User).filter(
+        models.User.is_active == True,
+        models.User.pin.isnot(None)
     ).all()
+    users = [u for u in active_users if u.pin and pwd_context.verify(pin, u.pin)]
 
     if not users:
         raise HTTPException(status_code=401, detail="Invalid PIN")
@@ -398,7 +399,7 @@ def verify_pin(user_id: int, pin: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    if user.pin == pin:
+    if user.pin and pwd_context.verify(pin, user.pin):
         return {"verified": True, "role": user.role.value if hasattr(user.role, 'value') else user.role}
     else:
         return {"verified": False}
@@ -418,10 +419,10 @@ def update_pin(user_id: int, pin_data: dict, db: Session = Depends(get_db)):
             detail="PIN must be 4-6 digits"
         )
     
-    # Update PIN
-    user.pin = pin
+    # Update PIN (store as bcrypt hash)
+    user.pin = get_password_hash(pin)
     db.commit()
-    
+
     return {
         "id": user.id,
         "username": user.username,
@@ -438,7 +439,7 @@ def update_own_pin(pin_data: dict, db: Session = Depends(get_db), current_user =
     if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
         raise HTTPException(status_code=400, detail="PIN must be 4-6 digits")
     
-    current_user.pin = pin
+    current_user.pin = get_password_hash(pin)
     db.commit()
-    
+
     return {"status": "success", "message": "PIN updated successfully"}

@@ -40,7 +40,7 @@ def pull_catalog(last_sync: datetime = None, db: Session = Depends(get_db)):
         "products": [schemas.ProductRead.from_orm(p) for p in products],
         "customers": [schemas.CustomerRead.from_orm(c) for c in customers],
         "exchange_rates": [schemas.ExchangeRateSync.from_orm(r) for r in rates],
-        "users": [{"id": u.id, "username": u.username, "role": u.role.value, "pin": u.pin} for u in users]
+        "users": [{"id": u.id, "username": u.username, "role": u.role.value, "pin_hash": u.pin} for u in users]
     }
     
     return response_data

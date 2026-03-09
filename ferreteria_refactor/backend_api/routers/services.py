@@ -4,6 +4,7 @@ from .. import schemas
 from ..models import models
 from ..database.db import get_db
 from ..dependencies import get_current_active_user
+from ..security import pwd_context
 from ..utils.time_utils import get_venezuela_now
 from ..template_presets import (
     get_laundry_58_template, get_laundry_80_template,
@@ -343,14 +344,16 @@ def update_service_order_status(
             is_authorized = current_user.role == models.UserRole.ADMIN
             
             if not is_authorized and update_data.admin_pin:
-                # Check if PIN belongs to ANY active admin
-                admin_user = db.query(models.User).filter(
+                # Check if PIN belongs to ANY active admin (verify against bcrypt hash)
+                admin_candidates = db.query(models.User).filter(
                     models.User.role == models.UserRole.ADMIN,
-                    models.User.pin == update_data.admin_pin,
-                    models.User.is_active == True
-                ).first()
-                if admin_user:
-                    is_authorized = True
+                    models.User.is_active == True,
+                    models.User.pin.isnot(None)
+                ).all()
+                for candidate in admin_candidates:
+                    if candidate.pin and pwd_context.verify(update_data.admin_pin, candidate.pin):
+                        is_authorized = True
+                        break
             
             if not is_authorized:
                 raise HTTPException(

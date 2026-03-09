@@ -49,7 +49,7 @@ def seed_data():
                     username=u["username"],
                     password_hash=get_password_hash(u["password"]),
                     role=u["role"],
-                    pin=u["pin_code"],
+                    pin=get_password_hash(u["pin_code"]),
                     is_active=True
                 )
                 db.add(user)
