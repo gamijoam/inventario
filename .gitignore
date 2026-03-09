@@ -6,6 +6,7 @@ __pycache__/
 .Python
 env/
 venv/
+.venv/
 .env.deploy
 ENV/
 build/
@@ -29,6 +30,7 @@ wheels/
 .env.local
 .env.*.local
 .env.*
+!.env.example
 *.env
 .env.prod
 .env.staging
