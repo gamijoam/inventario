@@ -155,7 +155,7 @@ def test_cierre_de_sesion_permite_nueva_apertura():
     assert can_open_new is True, (
         "Con la sesión anterior CLOSED, debe ser posible abrir una nueva sesión OPEN."
     )
-    mock_db.add.assert_called_once(), (
+    assert mock_db.add.call_count == 1, (
         "Se debe haber llamado a db.add() para persistir la nueva sesión."
     )
 
