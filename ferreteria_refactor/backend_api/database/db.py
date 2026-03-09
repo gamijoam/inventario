@@ -1,8 +1,24 @@
+import re
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from ..config import settings
 from ..tenant_context import get_tenant_schema
+
+_SAFE_SCHEMA_RE = re.compile(r'^[a-zA-Z0-9_]+$')
+
+def _validate_schema_name(schema: str) -> None:
+    """Raise ValueError if schema contains any character outside [a-zA-Z0-9_].
+
+    PostgreSQL SET search_path does not support bind parameters, so we
+    must whitelist the identifier before embedding it in SQL.  An invalid
+    name indicates either a misconfigured tenant or an injection attempt.
+    """
+    if not _SAFE_SCHEMA_RE.match(schema):
+        raise ValueError(
+            f"Invalid schema name '{schema}': only alphanumeric characters and "
+            "underscores are allowed."
+        )
 
 # Database Configuration
 DATABASE_URL = settings.DATABASE_URL
@@ -38,7 +54,16 @@ def get_db():
         if schema and schema != "public":
             # Inject Schema Search Path
             try:
+                # SECURITY: validate before embedding in SQL — SET search_path
+                # does not accept bind parameters in PostgreSQL, so we whitelist
+                # the identifier with a strict regex instead.
+                _validate_schema_name(schema)
                 db.execute(text(f'SET search_path TO "{schema}", public'))
+            except ValueError as e:
+                # Schema name failed whitelist validation — treat as fatal.
+                print(f"❌ Unsafe schema name rejected: {e}")
+                db.rollback()
+                raise RuntimeError(str(e)) from e
             except Exception as e:
                 print(f"❌ Error switching to schema '{schema}': {e}")
                 db.rollback()
