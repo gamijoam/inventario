@@ -58,9 +58,11 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const { startTour } = useAppTour();
     const [isTourModalOpen, setIsTourModalOpen] = useState(false);
 
-    // FORCE ENABLE MODULES IN DEV/LOCAL for testing
-    const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
-    const effectiveModules = isLocal ? { ...modules, services: true, barbershop: true, restaurant: true } : modules;
+    // En desarrollo, VITE_FORCE_ALL_MODULES=true (en .env.development) activa todos los módulos
+    // para poder probarlos sin depender de los feature flags reales del backend.
+    // En producción/QA la variable no existe y se usan los flags reales del tenant.
+    const forceAll = import.meta.env.VITE_FORCE_ALL_MODULES === 'true';
+    const effectiveModules = forceAll ? { ...modules, services: true, barbershop: true, restaurant: true } : modules;
 
     const menuStructure = [
         {
