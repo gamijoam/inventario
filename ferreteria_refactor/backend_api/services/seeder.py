@@ -7,6 +7,7 @@ from sqlalchemy import text
 from ..models.models import Category, Product, Customer, Sale, SaleDetail, Warehouse
 from ..models.tenant import Tenant
 from ..tenant_context import set_tenant_schema, reset_tenant_schema
+from ..database.db import _validate_schema_name
 from ..utils.time_utils import get_venezuela_now
 
 fake = Faker(['es_ES'])
@@ -46,6 +47,7 @@ def seed_tenant_data(db: Session, tenant_id: int):
 
     # 2. Set search path to tenant's schema
     # We must do this at the DB level for this specific session
+    _validate_schema_name(tenant.schema_name)
     db.execute(text(f'SET search_path TO "{tenant.schema_name}", public'))
     set_tenant_schema(tenant.schema_name)
     

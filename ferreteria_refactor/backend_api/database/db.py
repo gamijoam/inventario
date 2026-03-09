@@ -43,8 +43,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expi
 
 Base = declarative_base()
 
-Base = declarative_base()
-
 def get_db():
     db = SessionLocal()
     try:

@@ -9,7 +9,7 @@ import re
 from alembic import command
 from alembic.config import Config
 
-from ..database.db import get_db, engine, Base
+from ..database.db import get_db, engine, Base, _validate_schema_name
 from ..dependencies import get_current_superuser
 # Import ALL models to ensure they are registered in Base.metadata for reflection
 from ..models import models
@@ -79,6 +79,7 @@ def create_tenant(
         
         # 4. Create Schema DDL
         print(f"🏗️ Creating schema: {schema}")
+        _validate_schema_name(schema)
         db.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
         db.commit() 
         
@@ -91,6 +92,7 @@ def create_tenant(
                 # Force search_path to the new schema
                 # This ensures that "schema-less" tables (Product, Sale) are created IN THIS SCHEMA
                 # Tables with explicit schema="public" (User, Tenant) will be ignored by create_all because they exist.
+                _validate_schema_name(schema)
                 conn.execute(text(f'SET search_path TO "{schema}"'))
                 Base.metadata.create_all(conn)
                 
@@ -98,6 +100,7 @@ def create_tenant(
         
         # 6. Create Admin User in the NEW Tenant Schema
         # Switch search_path to the new tenant to insert user
+        _validate_schema_name(schema)
         db.execute(text(f'SET search_path TO "{schema}", public'))
         
         admin_user = User(
@@ -113,9 +116,6 @@ def create_tenant(
         db.add(admin_user)
         db.commit()
 
-        # 7. Seed Initial Tenant Data (Currencies, Payment Methods, Warehouse)
-        from ..utils.tenant_seeding import seed_tenant_data
-        
         # 7. Seed Initial Tenant Data (Currencies, Payment Methods, Warehouse)
         from ..utils.tenant_seeding import seed_tenant_data
         from ..database.db import SessionLocal
@@ -245,6 +245,7 @@ def create_tenant_user(
     
     try:
         # Switch to Tenant Schema
+        _validate_schema_name(schema)
         db.execute(text(f'SET search_path TO "{schema}", public'))
         
         # Check if username exists IN THAT SCHEMA

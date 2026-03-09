@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from ..models.models import Currency, PaymentMethod, Warehouse, ExchangeRate
+from ..database.db import _validate_schema_name
 
 def seed_tenant_data(db: Session, schema: str):
     """
@@ -11,6 +12,7 @@ def seed_tenant_data(db: Session, schema: str):
     
     try:
         # 1. Set Search Path to Tenant Schema
+        _validate_schema_name(schema)
         db.execute(text(f'SET search_path TO "{schema}", public'))
         
         # 2. Seed Currencies

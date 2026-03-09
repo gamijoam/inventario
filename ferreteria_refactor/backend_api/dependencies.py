@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List, Annotated, Optional
 
-from .database.db import get_db
+from .database.db import get_db, _validate_schema_name
 from .config import settings, Settings
 from .models.models import User, UserRole
 
@@ -107,6 +107,7 @@ def get_current_user(
                 print(f"🔄 Auto-resolving tenant context for '{email}': switching to '{tenant.schema_name}'")
                 from .tenant_context import set_tenant_schema
                 set_tenant_schema(tenant.schema_name)
+                _validate_schema_name(tenant.schema_name)
                 db.execute(text(f'SET search_path TO "{tenant.schema_name}", public'))
             else:
                 print(f"⛔ Context Mismatch: Tenant user {email} has no valid tenant record")

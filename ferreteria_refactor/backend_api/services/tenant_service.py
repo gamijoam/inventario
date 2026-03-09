@@ -6,7 +6,7 @@ from sqlalchemy import text
 from ..config import settings
 from ..models.tenant import Tenant
 from ..models.models import User, UserRole, Base # Import Base for reflection
-from ..database.db import SessionLocal, engine # Import shared engine
+from ..database.db import SessionLocal, engine, _validate_schema_name # Import shared engine
 from ..security import get_password_hash
 
 # Logger
@@ -143,6 +143,7 @@ class TenantService:
             logger.info(f"🏗️ Provisioning tables via Schema Reflection in {schema_name}...")
             with engine.connect() as conn:
                 with conn.begin():
+                    _validate_schema_name(schema_name)
                     conn.execute(text(f'SET search_path TO "{schema_name}"'))
                     Base.metadata.create_all(conn)
             logger.info(f"✅ Tables provisioned in: {schema_name}")
@@ -180,6 +181,7 @@ class TenantService:
         try:
             # Set Schema for Postgres
             # We need public for the User table, but we set search_path to ensure visibility if needed
+            _validate_schema_name(schema_name)
             db.execute(text(f'SET search_path TO "{schema_name}", public'))
                 
             # Check if admin exists FOR THIS TENANT
@@ -224,6 +226,7 @@ class TenantService:
         logger.info(f"💱 Seeding Exchange Rates for: {schema_name}")
         db = SessionLocal()
         try:
+            _validate_schema_name(schema_name)
             db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             if db.query(ExchangeRate).first():
@@ -257,6 +260,7 @@ class TenantService:
         logger.info(f"💳 Seeding Payment Methods for: {schema_name}")
         db = SessionLocal()
         try:
+            _validate_schema_name(schema_name)
             db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             if db.query(PaymentMethod).first():
@@ -288,6 +292,7 @@ class TenantService:
         logger.info(f"🏭 Seeding Default Warehouse for: {schema_name}")
         db = SessionLocal()
         try:
+            _validate_schema_name(schema_name)
             db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             # Check if any warehouse exists
@@ -319,6 +324,7 @@ class TenantService:
         logger.info(f"💵 Seeding Currencies for: {schema_name}")
         db = SessionLocal()
         try:
+            _validate_schema_name(schema_name)
             db.execute(text(f'SET search_path TO "{schema_name}", public'))
             
             if db.query(Currency).count() > 0:
@@ -352,6 +358,7 @@ class TenantService:
         logger.info(f"🏪 Seeding Default Cash Register for: {schema_name}")
         db = SessionLocal()
         try:
+            _validate_schema_name(schema_name)
             db.execute(text(f'SET search_path TO "{schema_name}", public'))
 
             if db.query(CashRegister).count() > 0:

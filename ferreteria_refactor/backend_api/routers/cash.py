@@ -5,7 +5,7 @@ from typing import List, Dict, Optional
 from datetime import datetime, date
 from decimal import Decimal
 import logging
-from ..database.db import get_db
+from ..database.db import get_db, _validate_schema_name
 from ..dependencies import get_current_active_user
 from ..models import models
 from ..websocket.manager import manager
@@ -1056,6 +1056,7 @@ async def close_cash_session(
     try:
         current_schema = get_tenant_schema()
         if current_schema and current_schema != "public":
+             _validate_schema_name(current_schema)
              db.execute(text(f'SET search_path TO "{current_schema}", public'))
     except Exception as e:
         logger.error(f"⚠️ Failed to re-assert search path: {e}")
