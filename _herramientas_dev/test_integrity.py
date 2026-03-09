@@ -5,8 +5,11 @@ print("🔍 Testing Imports...")
 
 try:
     print("1. Importing settings...")
-    # Mock settings if needed
-    os.environ["SECRET_KEY"] = "debug_key"
+    # Provide a dummy SECRET_KEY so Settings() does not raise a validation error
+    # during import-only testing. This value is NEVER used to sign real tokens.
+    # Do NOT copy this pattern into any production code path.
+    if "SECRET_KEY" not in os.environ:
+        os.environ["SECRET_KEY"] = "integrity-test-only-not-for-signing-" + "x" * 32
     
     print("2. Importing models...")
     from ferreteria_refactor.backend_api.models import models
