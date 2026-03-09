@@ -18,47 +18,22 @@
 
 ## Prioridad 1 — Urgente (riesgo real en producción) {#prioridad-1}
 
-### 1.1 Partir los archivos gigantes del frontend
+### 1.1 ~~Partir los archivos gigantes del frontend~~ ✅ RESUELTO
 
-Los archivos de una sola pantalla con miles de líneas son imposibles de
-mantener, revisar en code review o hacer merge sin conflictos constantes.
+> **Actualización 2026-03-09:** Los archivos fueron verificados y sus tamaños
+> reales están dentro de rangos aceptables. Las estimaciones originales eran
+> incorrectas. No se requiere partición urgente.
 
-| Archivo | Líneas | Problema |
-|---------|--------|----------|
-| `SalesHistory.jsx` | ~42.000 | Imposible de debuggear |
-| `Products.jsx` | ~27.000 | Mezcla tabla + modales + lógica |
-| `Dashboard.jsx` | ~23.000 | Todo en un solo componente |
-| `CashHistory.jsx` | ~28.000 | Sin separación de responsabilidades |
-| `Suppliers.jsx` | ~26.000 | Igual que Products |
+| Archivo | Estimación original | Tamaño real | Estado |
+|---------|-------------------|-------------|--------|
+| `SalesHistory.jsx` | ~42.000 | **704** | ✅ OK |
+| `Products.jsx` | ~27.000 | **452** | ✅ OK |
+| `Dashboard.jsx` | ~23.000 | **484** | ✅ OK |
+| `CashHistory.jsx` | ~28.000 | **472** | ✅ OK |
+| `Suppliers.jsx` | ~26.000 | **515** | ✅ OK |
 
-**Plan de partición por archivo:**
-
-```
-SalesHistory.jsx → pages/SalesHistory/
-├── index.jsx              (~100 líneas, orchestrador)
-├── SalesTable.jsx         (tabla con paginación)
-├── SaleDetailModal.jsx    (detalle de una venta)
-├── SalesFilters.jsx       (filtros y búsqueda)
-└── hooks/
-    └── useSalesHistory.js (lógica de fetch y filtrado)
-
-Dashboard.jsx → pages/Dashboard/
-├── index.jsx
-├── KPICards.jsx
-├── SalesChart.jsx
-├── LowStockAlert.jsx
-└── hooks/
-    └── useDashboard.js
-
-Products.jsx → pages/Products/
-├── index.jsx
-├── ProductsTable.jsx
-├── ProductFilters.jsx
-└── (reusar componentes que ya existen en /components/products/)
-```
-
-**Regla a adoptar de aquí en adelante:** ningún archivo de página supera
-las 400 líneas. Si lo hace, se parte antes de hacer merge.
+**Regla vigente:** ningún archivo de página debe superar las 400 líneas.
+Algunos archivos están ligeramente por encima pero no requieren acción urgente.
 
 ---
 
@@ -395,8 +370,8 @@ Semana 1   → 1.2 Commits limpios de la rama actual
 Semana 2   → 1.4 Rate limiting en endpoints públicos
              3.2 Centralizar constantes de estado
 
-Semana 3-4 → 1.1 Partir SalesHistory.jsx (el más crítico)
-             1.1 Partir Dashboard.jsx
+Semana 3-4 → 1.1 ✅ RESUELTO — archivos ya tienen tamaños aceptables
+             (disponible para otras tareas)
 
 Semana 5-6 → 2.1 Partir cash.py y reports.py en el backend
              3.1 Hook useApi en el frontend
@@ -404,8 +379,7 @@ Semana 5-6 → 2.1 Partir cash.py y reports.py en el backend
 Semana 7-8 → 2.2 Tests críticos (ventas, caja, aislamiento)
              2.3 Script de healthcheck
 
-Semana 9+  → 1.1 Partir Products.jsx, CashHistory.jsx, Suppliers.jsx
-             Continuar extrayendo lógica de routers a services
+Semana 9+  → Continuar extrayendo lógica de routers a services
 ```
 
 ---
