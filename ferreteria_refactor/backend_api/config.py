@@ -15,7 +15,10 @@ class Settings(BaseSettings):
     PROTOCOL: str = "https"
     
     # Security
-    SECRET_KEY: str = "temporary_key_for_build"
+    # IMPORTANT: No default value. The application will fail to start if SECRET_KEY
+    # is not set in the environment or .env file. Generate with:
+    #   python -c "import secrets; print(secrets.token_urlsafe(64))"
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440 # 24 hours
     

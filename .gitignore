@@ -24,10 +24,30 @@ wheels/
 .installed.cfg
 *.egg
 
-# Environment variables
+# Environment variables — NEVER commit secrets
 .env
 .env.local
 .env.*.local
+.env.*
+*.env
+.env.prod
+.env.staging
+.env.deploy
+
+# Backup files that may contain secrets
+*.bak
+
+# Cryptographic key material
+*.pem
+*.key
+*.p12
+*.pfx
+secret.key
+private_key.*
+
+# License files (contain signed JWT — treat as secrets)
+license.lic
+*.lic
 
 # Database files (local development)
 *.db
