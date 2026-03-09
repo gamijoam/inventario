@@ -1,6 +1,5 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import type { LoginCredentials } from '../types/auth'; // Type-only import
 import { Mail, Lock, Loader2 } from 'lucide-react';
@@ -8,7 +7,7 @@ import toast from 'react-hot-toast';
 
 const Login: React.FC = () => {
     const { login, isLoading } = useAuth();
-    const { register, handleSubmit, getValues, formState: { errors } } = useForm<LoginCredentials>();
+    const { register, handleSubmit, formState: { errors } } = useForm<LoginCredentials>();
 
     const onSubmit = async (data: LoginCredentials) => {
         try {
@@ -20,43 +19,6 @@ const Login: React.FC = () => {
         } catch (error) {
             console.error(error);
             toast.error('Credenciales inválidas. Intenta de nuevo.');
-        }
-    };
-
-    const handleDebugLogin = async () => {
-        const values = getValues();
-        if (!values.username || !values.password) {
-            toast.error("Por favor ingresa usuario y contraseña para probar");
-            return;
-        }
-
-        const toastId = toast.loading("Probando conexión...");
-        try {
-            console.log("Enviando debug a:", import.meta.env.VITE_API_URL + '/auth/debug_login');
-
-            // Send as Form Data (standard)
-            const params = new URLSearchParams();
-            params.append('username', values.username);
-            params.append('password', values.password);
-
-            const response = await api.post('/auth/debug_login', params, {
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-            });
-
-            console.log("Respuesta Debug:", response.data);
-            toast.dismiss(toastId);
-
-            const msg = JSON.stringify(response.data, null, 2);
-            alert("Resultado Debug:\n" + msg);
-
-        } catch (error: any) {
-            console.error("Debug Falló:", error);
-            toast.dismiss(toastId);
-            if (error.response) {
-                alert(`Error Backend (${error.response.status}):\n` + JSON.stringify(error.response.data, null, 2));
-            } else {
-                alert("Error de Red/CORS: " + error.message);
-            }
         }
     };
 
@@ -139,13 +101,6 @@ const Login: React.FC = () => {
                             )}
                         </button>
 
-                        <button
-                            type="button"
-                            onClick={handleDebugLogin}
-                            className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                        >
-                            🐞 Probar Conexión (Debug)
-                        </button>
                     </div>
                 </form>
             </div>

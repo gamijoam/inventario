@@ -67,7 +67,7 @@ api.interceptors.response.use(
     },
     (error) => {
         if (error.response && error.response.status === 401) {
-            // IMPORTANT: Do NOT intercept 401 from auth endpoints (login, debug_login, etc.)
+            // IMPORTANT: Do NOT intercept 401 from auth endpoints (login, etc.)
             // Those 401s are intentional (wrong credentials) and should be handled by the login form.
             const requestUrl = error.config?.url || '';
             const isAuthEndpoint = requestUrl.includes('/auth/');

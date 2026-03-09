@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBasic
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from .. import schemas
 from ..database.db import get_db
 from ..models import models
@@ -10,6 +11,10 @@ from datetime import timedelta
 from ..security import verify_password, get_password_hash, create_access_token, pwd_context
 from ..config import settings
 from ..dependencies import get_current_active_user
+
+
+class PinVerifyRequest(BaseModel):
+    pin: str
 
 
 router = APIRouter(
@@ -393,13 +398,13 @@ def pin_login(payload: dict, db: Session = Depends(get_db)):
     }
 
 @router.post("/verify-pin/{user_id}")
-def verify_pin(user_id: int, pin: str, db: Session = Depends(get_db)):
-    """Verify user PIN for authorization (e.g., discounts)"""
+def verify_pin(user_id: int, body: PinVerifyRequest, db: Session = Depends(get_db)):
+    """Verify user PIN for authorization (e.g., discounts). PIN must be sent in the JSON body."""
     user = db.query(models.User).get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    if user.pin and pwd_context.verify(pin, user.pin):
+
+    if user.pin and pwd_context.verify(body.pin, user.pin):
         return {"verified": True, "role": user.role.value if hasattr(user.role, 'value') else user.role}
     else:
         return {"verified": False}
