@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import SetPinModal from '../../components/users/SetPinModal';
 import { useConfig } from '../../context/ConfigContext';
 import userService from '../../services/userService';
+import toast from 'react-hot-toast';
 
 const UsersManager = () => {
     const { user: currentUser } = useAuth();
@@ -40,7 +41,7 @@ const UsersManager = () => {
             setUsers(response.data);
         } catch (error) {
             console.error('Error fetching users:', error);
-            alert('Error al cargar usuarios');
+            toast.error('Error al cargar usuarios');
         } finally {
             setLoading(false);
         }
@@ -103,7 +104,7 @@ const UsersManager = () => {
                     role: formData.role,
                     commission_percentage: parseFloat(formData.commission_percentage || 0) // NEW
                 });
-                alert('✅ Usuario creado exitosamente');
+                toast.success('Usuario creado exitosamente');
             } else if (modalMode === 'edit') {
                 // Update user
                 const updateData = {
@@ -119,20 +120,20 @@ const UsersManager = () => {
                 }
 
                 await apiClient.put(`/users/${selectedUser.id}`, updateData);
-                alert('✅ Usuario actualizado exitosamente');
+                toast.success('Usuario actualizado exitosamente');
             } else if (modalMode === 'password') {
                 // Change password
                 await apiClient.put(`/users/${selectedUser.id}`, {
                     password: formData.password
                 });
-                alert('✅ Contraseña actualizada exitosamente');
+                toast.success('Contraseña actualizada exitosamente');
             }
 
             handleCloseModal();
             fetchUsers();
         } catch (error) {
             console.error('Error saving user:', error);
-            alert('❌ Error: ' + (error.response?.data?.detail || error.message));
+            toast.error('Error: ' + (error.response?.data?.detail || error.message));
         }
     };
 
@@ -141,11 +142,11 @@ const UsersManager = () => {
 
         try {
             await apiClient.delete(`/users/${userId}`);
-            alert('✅ Usuario desactivado');
+            toast.success('Usuario desactivado');
             fetchUsers();
         } catch (error) {
             console.error('Error deactivating user:', error);
-            alert('❌ Error al desactivar usuario');
+            toast.error('Error al desactivar usuario');
         }
     };
 
@@ -181,7 +182,7 @@ const UsersManager = () => {
     const handlePinUpdate = async (userId, pin) => {
         try {
             await userService.updatePin(userId, pin);
-            alert('✅ PIN establecido exitosamente');
+            toast.success('PIN establecido exitosamente');
             setShowPinModal(false);
             setSelectedUserForPin(null);
         } catch (error) {

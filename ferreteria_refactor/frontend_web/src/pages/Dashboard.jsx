@@ -280,7 +280,6 @@ const Dashboard = () => {
     // WebSocket real-time updates
     useEffect(() => {
         return subscribe('sale:created', () => {
-            console.log('📡 Nueva venta detectada');
             fetchDashboardData(true);
         });
     }, [subscribe]);

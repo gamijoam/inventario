@@ -208,8 +208,6 @@ const ServiceManager = () => {
     };
 
     const interceptStatusChange = (newStatus) => {
-        console.log('🔵 BUTTON CLICKED:', newStatus, 'Current:', order.status);
-
         // Security reversal: Reverting from DELIVERED to something else
         if (order.status === 'DELIVERED' && newStatus !== 'DELIVERED') {
             const pin = window.prompt("⚠️ Esta orden ya fue ENTREGADA. Ingrese PIN de Administrador para revertir:");

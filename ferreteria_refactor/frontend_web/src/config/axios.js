@@ -12,13 +12,6 @@ const rawURL = API_BASE_URL.includes('/api/v1')
 
 const baseURL = rawURL.endsWith('/') ? rawURL : `${rawURL}/`;
 
-console.log('🔧 Axios config:', {
-    isDev,
-    baseURL,
-    mode: import.meta.env.MODE,
-    hostname: window.location.hostname
-});
-
 // 🔐 SECURITY ENHANCEMENT: Hybrid Authentication (Cookie + Token)
 // Web uses Cookies (HttpOnly). Mobile uses Tokens (Authorization Header).
 const apiClient = axios.create({

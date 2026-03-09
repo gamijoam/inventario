@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../config/axios';
 import { Package, Plus, Trash2, Box, Info } from 'lucide-react';
+import toast from 'react-hot-toast';
 import clsx from 'clsx';
 
 const ComboManager = ({ productId, initialComboItems = [], onChange }) => {
@@ -53,7 +54,7 @@ const ComboManager = ({ productId, initialComboItems = [], onChange }) => {
 
     const handleAddItem = () => {
         if (!selectedProductId || !quantity) {
-            alert('Por favor selecciona un producto y cantidad');
+            toast.error('Por favor selecciona un producto y cantidad');
             return;
         }
 
@@ -61,7 +62,7 @@ const ComboManager = ({ productId, initialComboItems = [], onChange }) => {
         if (!product) return;
 
         if (comboItems.some(item => item.child_product_id === product.id)) {
-            alert('Este producto ya está en el combo');
+            toast.error('Este producto ya está en el combo');
             return;
         }
 

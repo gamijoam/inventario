@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CheckCircle, Printer, X } from 'lucide-react';
 import printerService from '../../services/printerService';
+import toast from 'react-hot-toast';
 
 const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     const [printing, setPrinting] = useState(false);
@@ -17,10 +18,9 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
             }
             const result = await printerService.printTicket(saleData.saleId);
             setPrintStatus('success');
-            // alert(`Ticket impreso: ${result.message}`);
         } catch (error) {
             setPrintStatus('error');
-            alert(error.message);
+            toast.error(error.message);
         } finally {
             setPrinting(false);
         }

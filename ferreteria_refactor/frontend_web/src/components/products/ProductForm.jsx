@@ -8,6 +8,7 @@ import ComboManager from './ComboManager';
 import ProductImageUploader from './ProductImageUploader';
 import DiscountRulesManager from './DiscountRulesManager';
 import { cn } from '../../lib/utils';
+import toast from 'react-hot-toast';
 import BarcodeScannerComponent from '../common/BarcodeScanner';
 import {
     Sheet,
@@ -238,8 +239,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     };
 
     const handleSubmit = () => {
-        if (!formData.name.trim()) return alert('El nombre es obligatorio');
-        if (parseFloat(formData.price) <= 0) return alert('El precio debe ser mayor a 0');
+        if (!formData.name.trim()) return toast.error('El nombre es obligatorio');
+        if (parseFloat(formData.price) <= 0) return toast.error('El precio debe ser mayor a 0');
 
         const pricesArray = Object.entries(formData.prices).map(([listId, priceValue]) => ({
             price_list_id: parseInt(listId), price: parseFloat(priceValue) || 0

@@ -1,4 +1,5 @@
 import apiClient from '../config/axios';
+import toast from 'react-hot-toast';
 
 /**
  * Get Hardware Bridge Client ID from localStorage
@@ -26,7 +27,7 @@ function getHardwareClientId() {
  */
 window.resetPrinterConfig = function () {
     localStorage.removeItem('hardware_client_id');
-    alert('Configuración de impresora eliminada. Recargue la página para configurar nuevamente.');
+    toast.success('Configuración de impresora eliminada. Recargue la página para configurar nuevamente.');
 };
 
 // NOTE: Do NOT cache HARDWARE_CLIENT_ID at module load time.

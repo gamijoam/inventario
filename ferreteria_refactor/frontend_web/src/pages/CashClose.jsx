@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ClipboardCheck, DollarSign, AlertCircle, TrendingUp, CreditCard } from 'lucide-react';
 import apiClient from '../config/axios';
 import printerService from '../services/printerService';
+import toast from 'react-hot-toast';
 
 const CashClose = () => {
     const { isSessionOpen, session, closeSession } = useCash();
@@ -80,7 +81,7 @@ const CashClose = () => {
         );
 
         if (!allCounted) {
-            return alert("Por favor ingresa el conteo para todas las monedas");
+            return toast.error("Por favor ingresa el conteo para todas las monedas");
         }
 
         if (window.confirm("¿Seguro que deseas cerrar el turno? Esto generará el Reporte Z.")) {
@@ -96,11 +97,9 @@ const CashClose = () => {
                 currencies: currenciesData
             };
 
-            console.log('Closing session with data:', closeData);
-
             const success = await closeSession(closeData);
             if (success) {
-                alert("Caja Cerrada Exitosamente. Reporte Z enviado a impresora automáticamente.");
+                toast.success("Caja Cerrada Exitosamente. Reporte Z enviado a impresora automáticamente.");
                 navigate('/');
             }
         }

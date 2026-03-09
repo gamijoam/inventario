@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, FolderTree, Folder, Tags, Check } from 'lucide-react';
 import apiClient from '../config/axios';
+import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -44,7 +45,7 @@ const Categories = () => {
             await apiClient.delete(`/categories/${id}`);
             fetchCategories();
         } catch (error) {
-            alert(error.response?.data?.detail || 'Error al eliminar categoría');
+            toast.error(error.response?.data?.detail || 'Error al eliminar categoría');
         }
     };
 
@@ -320,7 +321,7 @@ const CategoryModal = ({ category, categories, onClose, onSuccess }) => {
 
             onSuccess();
         } catch (error) {
-            alert(error.response?.data?.detail || 'Error al guardar categoría');
+            toast.error(error.response?.data?.detail || 'Error al guardar categoría');
         } finally {
             setLoading(false);
         }

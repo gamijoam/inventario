@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCloudConfig } from '../../context/CloudConfigContext';
+import toast from 'react-hot-toast';
 import './InitialSetupWizard.css';
 
 const InitialSetupWizard = ({ onComplete }) => {
@@ -41,7 +42,7 @@ const InitialSetupWizard = ({ onComplete }) => {
         if (result.success) {
             onComplete();
         } else {
-            alert('Error al guardar configuración: ' + result.error);
+            toast.error('Error al guardar configuración: ' + result.error);
         }
     };
 

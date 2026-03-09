@@ -84,7 +84,6 @@ const PinAuthModal = ({ isOpen, onClose, onSuccess, title = "Autorización Reque
             // Try to auto-select if only one exists (fail-safe)
             if (users.length > 0) {
                 // Use first one if not selected
-                console.log("Auto-selecting user for auth");
             } else {
                 setError("Seleccione un usuario");
                 return;

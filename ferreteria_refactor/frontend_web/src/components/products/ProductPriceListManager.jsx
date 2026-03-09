@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AlertCircle, ShieldCheck, Plus, Lock, Unlock } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
+import toast from 'react-hot-toast';
 
 const ProductPriceListManager = ({
     prices = {},
@@ -37,7 +38,7 @@ const ProductPriceListManager = ({
             if (onRefresh) onRefresh();
         } catch (error) {
             console.error(error);
-            alert("Error al crear lista");
+            toast.error("Error al crear lista");
         } finally {
             setIsCreating(false);
         }
@@ -53,7 +54,7 @@ const ProductPriceListManager = ({
             if (onRefresh) onRefresh();
         } catch (error) {
             console.error(error);
-            alert("Error al actualizar lista");
+            toast.error("Error al actualizar lista");
         } finally {
             setTogglingId(null);
         }

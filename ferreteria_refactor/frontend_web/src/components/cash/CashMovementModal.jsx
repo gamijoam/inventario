@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, DollarSign, TrendingDown, TrendingUp } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
+import toast from 'react-hot-toast';
 
 const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
     const { getActiveCurrencies } = useConfig();
@@ -67,12 +68,12 @@ const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
 
             await apiClient.post('/cash/movements', movementData);
 
-            alert("Movimiento Registrado Exitosamente");
+            toast.success("Movimiento Registrado Exitosamente");
             onSuccess && onSuccess();
             onClose();
         } catch (err) {
             console.error('Error registering movement:', err);
-            alert('Error al registrar movimiento: ' + (err.response?.data?.detail || err.message));
+            toast.error('Error al registrar movimiento: ' + (err.response?.data?.detail || err.message));
         } finally {
             setLoading(false);
         }

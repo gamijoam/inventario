@@ -57,7 +57,6 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
             // Priority: Initial Customer > Null
             if (initialCustomer) {
-                console.log("Setting initial customer:", initialCustomer);
                 setSelectedCustomer(initialCustomer);
             } else {
                 setSelectedCustomer(null);
@@ -151,13 +150,13 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     const handleConfirm = async () => {
         if (isCreditSale && !selectedCustomer) {
-            alert('Debe seleccionar un cliente para venta a crédito');
+            toast.error('Debe seleccionar un cliente para venta a crédito');
             return;
         }
 
         // Use the strict checking here too
         if (!isCreditSale && !isComplete) {
-            alert('El pago no está completo');
+            toast.error('El pago no está completo');
             return;
         }
 

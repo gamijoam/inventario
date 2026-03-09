@@ -62,7 +62,6 @@ const Login = () => {
             const token = searchParams.get('impersonate_token');
 
             if (token) {
-                console.log("🕵️ Detectado token de impersonación...");
                 setLoading(true);
                 try {
                     // 1. Exchange Token for HttpOnly Cookie
@@ -115,7 +114,6 @@ const Login = () => {
         if (isSubdomain) {
             const tenantFromUrl = hostname.split('.')[0];
             localStorage.setItem('selected_tenant', tenantFromUrl);
-            console.log("🔄 Auto-synced tenant for login:", tenantFromUrl);
         }
 
         try {

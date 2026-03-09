@@ -3,8 +3,6 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 
-// DEBUG: Verify Renderer Startup
-console.log('🚀 Renderer Process Starting...');
 window.onerror = (msg, url, line) => {
   console.error('Global Error in Renderer:', msg, url, line);
 };
@@ -18,7 +16,6 @@ import GlobalErrorBoundary from './components/GlobalErrorBoundary';
   if (path !== '/' && path !== '/index.html') {
     const cleanPath = path.replace(/^\/+/, ''); // Remove leading slash
     const newUrl = `/#/${cleanPath}${window.location.search}${window.location.hash}`;
-    console.log(`🧟 Zombie Route detected: ${path} -> Redirecting to: ${newUrl}`);
     window.location.replace(newUrl);
   }
 })();

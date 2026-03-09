@@ -27,9 +27,6 @@ const AndroidBackButton = () => {
                 // Rutas donde deberíamos salir de la app en lugar de ir atrás
                 const exitRoutes = ['/', '/login', '/mobile-welcome', '/dashboard'];
 
-                // Debug
-                console.log(`[AndroidBackButton] Path: ${currentPath}, CanGoBack (WebView): ${canGoBack}`);
-
                 if (exitRoutes.includes(currentPath)) {
                     CapacitorApp.exitApp();
                 } else {
