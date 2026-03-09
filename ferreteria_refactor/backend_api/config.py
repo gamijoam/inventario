@@ -9,7 +9,9 @@ ENV_FILE = BASE_DIR / ".env"
 
 class Settings(BaseSettings):
     # Pydantic leerá estas variables automáticamente del entorno (.env o Docker)
-    DATABASE_URL: str = "sqlite:///./ferreteria.db" # Si existe DB_URL en .env, lo sobreescribe
+    # IMPORTANT: No default value. Must be a PostgreSQL URL (postgresql://...).
+    # The application will fail to start if DATABASE_URL is not set.
+    DATABASE_URL: str
     ENVIRONMENT: str = "production"
     APP_DOMAIN: str = "miinventariofacil.com"
     PROTOCOL: str = "https"
