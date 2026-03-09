@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 import requests
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime
 from pydantic import BaseModel
 from ..database.db import get_db
@@ -871,7 +871,7 @@ def get_default_tax_rate(db: Session = Depends(get_db)):
         return {"rate": Decimal("0.00")}
     try:
         return {"rate": Decimal(config.value)}
-    except:
+    except (ValueError, InvalidOperation, TypeError):
         return {"rate": Decimal("0.00")}
 
 @router.put("/tax-rate/default")

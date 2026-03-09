@@ -318,7 +318,7 @@ async def open_cash_session(
                  # If rollback happened, new_session might be transient or detached.
                  # Re-query to be safe? Or just ignore if it fails.
                  pass
-        except:
+        except Exception:
              pass
              
         raise HTTPException(status_code=500, detail=f"Error interno abriendo caja: {str(e)}")

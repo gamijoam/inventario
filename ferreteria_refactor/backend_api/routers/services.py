@@ -52,7 +52,7 @@ def create_service_order(
             try:
                 last_num = int(last_order.ticket_number.split("-")[1])
                 new_num = last_num + 1
-            except:
+            except (ValueError, IndexError, AttributeError):
                 new_num = 1
         else:
             new_num = 1

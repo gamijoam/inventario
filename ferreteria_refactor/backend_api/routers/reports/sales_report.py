@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, literal_column
 from typing import Optional
 from datetime import datetime, date, timedelta
 from decimal import Decimal
@@ -539,35 +539,63 @@ def get_top_products(
 @router.get("/customer-debts")
 def get_customer_debt_report(db: Session = Depends(get_db)):
     """All customers with outstanding debt"""
-    customers = db.query(models.Customer).all()
+    # Subquery: total unpaid credit sales per customer
+    unpaid_sub = (
+        db.query(
+            models.Sale.customer_id.label("customer_id"),
+            func.coalesce(func.sum(models.Sale.total_amount), 0).label("unpaid_total"),
+        )
+        .filter(models.Sale.is_credit == True, models.Sale.paid == False)
+        .group_by(models.Sale.customer_id)
+        .subquery()
+    )
 
-    report = []
-    for customer in customers:
-        # Sum unpaid credit sales
-        unpaid_sales = db.query(func.sum(models.Sale.total_amount)).filter(
-            models.Sale.customer_id == customer.id,
-            models.Sale.is_credit == True,
-            models.Sale.paid == False
-        ).scalar() or 0
+    # Subquery: total payments per customer
+    payments_sub = (
+        db.query(
+            models.Payment.customer_id.label("customer_id"),
+            func.coalesce(func.sum(models.Payment.amount), 0).label("paid_total"),
+        )
+        .group_by(models.Payment.customer_id)
+        .subquery()
+    )
 
-        # Sum payments
-        payments = db.query(func.sum(models.Payment.amount)).filter(
-            models.Payment.customer_id == customer.id
-        ).scalar() or 0
+    # Main query: join customers with both subqueries, compute debt
+    debt_col = (
+        func.coalesce(unpaid_sub.c.unpaid_total, 0)
+        - func.coalesce(payments_sub.c.paid_total, 0)
+    ).label("debt")
 
-        debt = unpaid_sales - payments
+    rows = (
+        db.query(
+            models.Customer.id,
+            models.Customer.name,
+            models.Customer.phone,
+            debt_col,
+        )
+        .join(unpaid_sub, models.Customer.id == unpaid_sub.c.customer_id)
+        .outerjoin(payments_sub, models.Customer.id == payments_sub.c.customer_id)
+        .having(debt_col > 0)
+        .group_by(
+            models.Customer.id,
+            models.Customer.name,
+            models.Customer.phone,
+            unpaid_sub.c.unpaid_total,
+            payments_sub.c.paid_total,
+        )
+        .order_by(desc("debt"))
+        .all()
+    )
 
-        if debt > 0:
-            report.append({
-                "customer_id": customer.id,
-                "customer_name": customer.name,
-                "phone": customer.phone,
-                "debt": debt
-            })
-
-    # Sort by debt descending
-    report.sort(key=lambda x: x["debt"], reverse=True)
-    return report
+    return [
+        {
+            "customer_id": row.id,
+            "customer_name": row.name,
+            "phone": row.phone,
+            "debt": row.debt,
+        }
+        for row in rows
+    ]
 
 
 @router.get("/profit/product/{product_id}")

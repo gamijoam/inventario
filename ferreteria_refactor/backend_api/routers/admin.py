@@ -287,7 +287,7 @@ def create_tenant_user(
         # Ensure search path is reset even on error
         try:
             db.execute(text("SET search_path TO public"))
-        except:
+        except Exception:
             pass
         print(f"Error creating tenant user: {e}")
         raise HTTPException(500, f"Failed to create user: {str(e)}")

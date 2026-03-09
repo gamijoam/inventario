@@ -68,39 +68,46 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # --- CONFIGURACIÓN DE CORS DINÁMICA (v36 - CORS FIX) ---
+_default_origins = [
+    # --- LOCAL DEVELOPMENT ---
+    "http://localhost:5173",
+    "http://localhost:5174",         # SaaS Admin Panel
+    "http://localhost:5175",         # Landing Page / Extra dev server
+    "http://localhost:8000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:8000",
+
+    # --- MOBILE APPS (Capacitor/Native) ---
+    "http://localhost",             # Android WebView Default
+    "https://localhost",            # Android WebView (Secure)
+    "capacitor://localhost",        # iOS Default
+
+    # --- PRODUCTION DOMAINS ---
+    "https://miinventariofacil.com",
+    "https://api.miinventariofacil.com",
+    "https://qa.miinventariofacil.com",
+    "https://api-qa.miinventariofacil.com",
+    "https://admin.qa.miinventariofacil.com",
+
+    # --- TENANT SUBDOMAINS (Local) ---
+    "http://prueba3.localhost:5173",
+    "http://prueba3.localhost:8000",
+    "http://prueba9.localhost:5173",
+    "http://prueba9.localhost:8000",
+    "http://demo.localhost:5173",
+    "http://admin.localhost:5173",
+]
+
+# Merge extra origins from CORS_ORIGINS env var (comma-separated)
+if settings.CORS_ORIGINS:
+    _extra = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+    _default_origins.extend(_extra)
+
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=["*"], # ❌ ERROR: Wildcard + Credentials fails in browsers
-    allow_origins=[
-        # --- LOCAL DEVELOPMENT ---
-        "http://localhost:5173",
-        "http://localhost:5174",         # SaaS Admin Panel
-        "http://localhost:5175",         # Landing Page / Extra dev server
-        "http://localhost:8000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:8000",
-        
-        # --- MOBILE APPS (Capacitor/Native) ---
-        "http://localhost",             # Android WebView Default
-        "https://localhost",            # Android WebView (Secure)
-        "capacitor://localhost",        # iOS Default
-        
-        # --- PRODUCTION DOMAINS ---
-        "https://miinventariofacil.com", 
-        "https://api.miinventariofacil.com",
-        "https://qa.miinventariofacil.com",
-        "https://api-qa.miinventariofacil.com",
-        "https://admin.qa.miinventariofacil.com",
-
-        # --- TENANT SUBDOMAINS (Local) ---
-        "http://prueba3.localhost:5173",
-        "http://prueba3.localhost:8000",
-        "http://prueba9.localhost:5173",
-        "http://prueba9.localhost:8000",
-        "http://demo.localhost:5173",
-        "http://admin.localhost:5173",
-    ],
+    allow_origins=_default_origins,
     allow_origin_regex=r"https?://.*\.miinventariofacil\.com|http://.*\.localhost:\d+",  # ✅ Allow any subdomain on production/QA and localhost
     allow_credentials=True,
     allow_methods=["*"],

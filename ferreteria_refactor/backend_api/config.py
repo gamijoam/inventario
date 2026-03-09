@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     SMTP_TLS: bool = True
     SMTP_SSL: bool = False
 
+    # CORS
+    CORS_ORIGINS: str = ""  # Comma-separated extra origins
+
     # Frontend URL
     FRONTEND_URL: str = "http://localhost:3000"
 
