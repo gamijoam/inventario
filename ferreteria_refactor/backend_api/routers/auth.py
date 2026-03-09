@@ -10,11 +10,14 @@ from ..models.tenant import Tenant
 from ..security import verify_password, create_access_token, get_password_hash, pwd_context
 from ..config import settings
 from .. import schemas
+from ..dependencies import limiter
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
 @router.post("/discovery", response_model=schemas.DiscoveryResponse)
+@limiter.limit("20/minute")
 async def discover_tenant(
+    http_request: Request,
     request: schemas.DiscoveryRequest,
     db: Session = Depends(get_db)
 ):
@@ -110,6 +113,7 @@ async def exchange_token(
 
 
 @router.post("/token")
+@limiter.limit("10/minute")
 async def login_for_access_token(
     request: Request,
     response: Response,
@@ -346,7 +350,9 @@ def validate_pin(pin_data: dict, db: Session = Depends(get_db)):
         }
 
 @router.post("/forgot-password")
+@limiter.limit("5/hour")
 async def forgot_password(
+    http_request: Request,
     request: schemas.ForgotPasswordRequest,
     db: Session = Depends(get_db)
 ):

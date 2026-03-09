@@ -1,6 +1,8 @@
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List, Annotated, Optional
@@ -8,6 +10,9 @@ from typing import List, Annotated, Optional
 from .database.db import get_db, _validate_schema_name
 from .config import settings, Settings
 from .models.models import User, UserRole
+
+# Shared rate limiter instance — imported by routers that need it
+limiter = Limiter(key_func=get_remote_address)
 
 # OAuth2 scheme for Swagger UI and legacy header-based auth
 # FIXED: tokenUrl must include the full path with prefix

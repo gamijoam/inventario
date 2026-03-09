@@ -2,6 +2,8 @@ from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 import os
 import sys
 
@@ -58,6 +60,12 @@ app = FastAPI(
     description="API profesional para la gestión integral de ferretería.",
     version="2.2.0",
 )
+
+# --- RATE LIMITING (slowapi) ---
+# Import the shared limiter instance defined in dependencies.py
+from .dependencies import limiter
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # --- CONFIGURACIÓN DE CORS DINÁMICA (v36 - CORS FIX) ---
 app.add_middleware(

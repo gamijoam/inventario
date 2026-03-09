@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional
 from enum import Enum
@@ -6,6 +6,7 @@ import re
 import logging
 import traceback
 from ..services.tenant_service import TenantService
+from ..dependencies import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,8 @@ class RegisterRequest(BaseModel):
         return v
 
 @router.post("/register")
-async def register_tenant(request: RegisterRequest):
+@limiter.limit("10/hour")
+async def register_tenant(http_request: Request, request: RegisterRequest):
     """
     Public endpoint to register a new tenant.
     Creates schema, user, and configures modules based on plan.
