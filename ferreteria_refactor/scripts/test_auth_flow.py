@@ -6,27 +6,9 @@ BASE_URL = "http://localhost:8000/api/v1"
 
 def test_auth_flow():
     print("🚀 Starting Authentication Flow Test...")
-    
-    # 1. Emergency Password Fix (CRITICAL: Also sets tenant_id=None)
-    print("\n[1] Running Emergency Password Fix...")
-    try:
-        # Try specific email first
-        resp = requests.get(f"{BASE_URL}/auth/fix_password_emergency?email=rodriguezisaac876@gmail.com")
-        if resp.status_code == 200:
-            print("   ✅ Emergency Fix Success:", resp.json())
-        else:
-            print("   ⚠️ Emergency Fix Warning (User might not exist with that email):", resp.text)
-            
-            # Try default admin
-            resp = requests.get(f"{BASE_URL}/auth/fix_password_emergency?email=admin@system.local")
-            if resp.status_code == 200:
-                print("   ✅ Emergency Fix Success (Default Admin):", resp.json())
-    except Exception as e:
-        print(f"   ❌ Failed to contact backend: {e}")
-        return
 
-    # 2. Login with Credentials
-    print("\n[2] Testing Login with Credentials (admin123)...")
+    # 1. Login with Credentials
+    print("\n[1] Testing Login with Credentials (admin123)...")
     login_data = {
         "username": "rodriguezisaac876@gmail.com", # Or admin@system.local, trying both
         "password": "admin123"

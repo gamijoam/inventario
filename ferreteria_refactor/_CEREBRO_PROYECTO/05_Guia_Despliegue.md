@@ -66,7 +66,21 @@ El sistema utiliza control de versiones basado en etiquetas (Tags) de Docker Hub
 ## 7. Procedimientos de Emergencia y Backups
 
 ### A. Reset de Acceso Maestro
-En caso de pérdida de credenciales, el endpoint `/auth/fix_password_emergency` permite forzar una contraseña temporal y elevar el usuario a Super Administrador global.
+En caso de pérdida de credenciales, el restablecimiento se realiza directamente sobre la base de datos mediante SSH al VPS:
+
+1. Conectarse al VPS por SSH y acceder al contenedor de PostgreSQL:
+   ```bash
+   docker exec -it postgres psql -U postgres
+   ```
+2. Ejecutar el UPDATE con el hash de la nueva contraseña:
+   ```sql
+   UPDATE public.users SET password_hash = '$2b$12$NUEVO_HASH' WHERE email = 'admin@ejemplo.com';
+   ```
+3. Para generar el hash bcrypt de la nueva contraseña, usar Python antes de conectarse a psql:
+   ```bash
+   python -c "from passlib.context import CryptContext; ctx=CryptContext(schemes=['bcrypt']); print(ctx.hash('nueva_password'))"
+   ```
+   Copiar el resultado y sustituirlo en el campo `$2b$12$NUEVO_HASH` del paso anterior.
 
 ### B. Fallos de Migración
 Si un cliente nuevo no puede acceder, verificar los logs de `migrate_tenants.py`. Es posible que el esquema del inquilino no se haya creado correctamente o falte la ejecución de un `alembic upgrade` en su esquema particular.
