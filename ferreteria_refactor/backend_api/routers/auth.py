@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..database.db import get_db
 from ..models import models
 from ..models.tenant import Tenant
-from ..security import verify_password, create_access_token, get_password_hash
+from ..security import verify_password, create_access_token, get_password_hash, pwd_context
 from ..config import settings
 from .. import schemas
 
@@ -178,35 +178,6 @@ async def exchange_token(
     )
     
     return {"status": "success", "user": user.username}
-
-
-# EMERGENCY ENDPOINT
-@router.get("/fix_password_emergency")
-def fix_password_emergency(email: str = "admin@system.local", db: Session = Depends(get_db)):
-    """
-    Emergency Password Reset.
-    Bypasses encoding issues by running inside python env.
-    """
-    try:
-        user = db.query(models.User).filter(models.User.email == email).first()
-        if not user:
-            return {"status": "error", "detail": f"User {email} not found"}
-        
-        new_hash = get_password_hash("admin123")
-        user.password_hash = new_hash
-        user.is_active = True
-        user.is_superuser = True
-        
-        # 🔑 FIX: Make sure this user is Global (no tenant) so they can login to SaaS Panel
-        user.tenant_id = None 
-        
-        db.commit()
-        
-        print(f"✅ EMERGENCY RESET: Password for {email} -> admin123")
-        return {"status": "success", "message": f"Password for {email} reset to 'admin123'", "username": user.username}
-    except Exception as e:
-        print(f"❌ EMERGENCY RESET FAILED: {e}")
-        return {"status": "error", "detail": str(e)}
 
 
 @router.post("/token")
@@ -431,7 +402,7 @@ def validate_pin(pin_data: dict, db: Session = Depends(get_db)):
         )
     
     # Validate PIN
-    if user.pin == pin:
+    if pwd_context.verify(pin, user.pin):
         return {
             "valid": True,
             "user_id": user.id,
@@ -527,7 +498,7 @@ def init_admin_user(db: Session):
             email="admin@system.local", # Required field
             is_active=True,
             is_superuser=True, # 🔑 ALWAYS SUPERUSER
-            pin="0000" # Default PIN
+            pin=get_password_hash("0000") # Default PIN (hashed)
         )
         db.add(new_admin)
         db.commit()
@@ -536,6 +507,6 @@ def init_admin_user(db: Session):
         # Ensure PIN exists for existing admin
         if not admin.pin:
              print("[INFO] Setting default PIN '0000' for existing admin.")
-             admin.pin = "0000"
+             admin.pin = get_password_hash("0000")
              db.commit()
         print("[OK] Admin user verified")
