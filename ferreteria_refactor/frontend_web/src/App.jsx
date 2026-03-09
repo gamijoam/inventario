@@ -1,59 +1,7 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Login from './pages/Login';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import Unauthorized from './pages/Unauthorized';
-// NEW: Mobile Welcome Screen
-import MobileWelcome from './pages/MobileWelcome';
-
-import DashboardLayout from './layouts/DashboardLayout';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Categories from './pages/Categories';
-import Inventory from './pages/Inventory';
-import POS from './pages/POS';
-import CashClose from './pages/CashClose';
-import Settings from './pages/Settings';
-import Purchases from './pages/Purchases';
-import CreatePurchase from './pages/Purchases/CreatePurchase';
-import PurchaseDetail from './pages/Purchases/PurchaseDetail';
-import AccountsPayable from './pages/Suppliers/AccountsPayable';
-import DetailedReports from './pages/Reports/DetailedReports';
-
-// Supplier Ledger
-const SupplierLedger = React.lazy(() => import('./pages/Suppliers/SupplierLedger'));
-import UnifiedReports from './pages/Reports/UnifiedReports';
-
-// ... existing imports ...
-import Suppliers from './pages/Suppliers';
-import ReturnsManager from './pages/Returns/ReturnsManager';
-import WarrantyManager from './pages/Returns/WarrantyManager';
-import SalesHistory from './pages/SalesHistory';
-import CustomerManager from './pages/Customers/CustomerManager';
-import QuotesManager from './pages/Quotes/QuotesManager';
-import WarehouseManager from './pages/Warehouses/WarehouseManager';
-import InventoryTransfers from './pages/Warehouses/InventoryTransfers';
-import ExternalTransferOut from './pages/Inventory/Transfers/ExternalTransferOut';
-
-import ExternalTransferIn from './pages/Inventory/Transfers/ExternalTransferIn';
-import SerializedReception from './pages/Inventory/SerializedReception';
-import WarrantyPolicies from './pages/WarrantyPolicies'; // NEW: Warranty Policies
-
-import AccountsReceivable from './pages/Credit/AccountsReceivable';
-import AgingReport from './pages/Credit/AgingReport';
-import ClientLedger from './pages/Credit/ClientLedger';
-import UsersManager from './pages/Users/UsersManager';
-import CashHistory from './pages/CashHistory';
-import CashRegistersPage from './pages/CashRegisters/CashRegistersPage';
-import AuditLogs from './pages/AuditLogs';
-import Help from './pages/Help';
-import TableMap from './pages/Restaurant/TableMap';
-import KitchenDisplay from './pages/Restaurant/KitchenDisplay';
-import MenuManager from './pages/Restaurant/MenuManager';
-import RecipeEditor from './pages/Restaurant/RecipeEditor';
 import { CartProvider } from './context/CartContext';
 import { CashProvider } from './context/CashContext';
 import { ConfigProvider } from './context/ConfigContext';
@@ -61,32 +9,91 @@ import { WebSocketProvider } from './context/WebSocketContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { CloudConfigProvider } from './context/CloudConfigContext';
 import { AutoSyncProvider } from './context/AutoSyncContext';
-
-import MobileWaiterLayout from './layouts/MobileWaiterLayout';
-import WaiterLogin from './pages/Mobile/WaiterLogin';
-import MobileTableGrid from './pages/Mobile/MobileTableGrid';
-import MobileOrderTaker from './pages/Mobile/MobileOrderTaker';
-import Reception from './pages/Services/Reception'; // NEW: Service Reception
-import ServicesDashboard from './pages/Services/ServicesDashboard'; // NEW: Dashboard
-import ServiceManager from './pages/Services/ServiceManager'; // NEW: Service Manager
-import ServiceList from './pages/Services/ServiceList'; // NEW: Service List
-import CommissionPayout from './pages/HumanResources/CommissionPayout'; // NEW: Commission Payout
-
-// Barbershop Module
-import BarbershopDashboard from './pages/Barbershop/BarbershopDashboard';
-import EmployeeManager from './pages/Barbershop/EmployeeManager';
-import CommissionsReport from './pages/Barbershop/CommissionsReport';
-
-// Laundry Module
-import LaundryDashboard from './pages/Laundry/LaundryDashboard';
-import LaundryForm from './pages/Laundry/LaundryForm';
-import LaundryTicket from './pages/Laundry/components/LaundryTicket';
-import SupportTickets from './pages/SupportTickets';
-
 import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
 import { Capacitor } from '@capacitor/core';
 import AndroidBackButton from './components/common/AndroidBackButton';
+
+// Eager imports — critical path only
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+
+// Lazy-loaded pages (all non-critical-path pages)
+const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
+const Unauthorized = React.lazy(() => import('./pages/Unauthorized'));
+// NEW: Mobile Welcome Screen
+const MobileWelcome = React.lazy(() => import('./pages/MobileWelcome'));
+
+const DashboardLayout = React.lazy(() => import('./layouts/DashboardLayout'));
+const Products = React.lazy(() => import('./pages/Products'));
+const Categories = React.lazy(() => import('./pages/Categories'));
+const Inventory = React.lazy(() => import('./pages/Inventory'));
+const POS = React.lazy(() => import('./pages/POS'));
+const CashClose = React.lazy(() => import('./pages/CashClose'));
+const Settings = React.lazy(() => import('./pages/Settings'));
+const Purchases = React.lazy(() => import('./pages/Purchases'));
+const CreatePurchase = React.lazy(() => import('./pages/Purchases/CreatePurchase'));
+const PurchaseDetail = React.lazy(() => import('./pages/Purchases/PurchaseDetail'));
+const AccountsPayable = React.lazy(() => import('./pages/Suppliers/AccountsPayable'));
+const DetailedReports = React.lazy(() => import('./pages/Reports/DetailedReports'));
+
+// Supplier Ledger
+const SupplierLedger = React.lazy(() => import('./pages/Suppliers/SupplierLedger'));
+const UnifiedReports = React.lazy(() => import('./pages/Reports/UnifiedReports'));
+
+const Suppliers = React.lazy(() => import('./pages/Suppliers'));
+const ReturnsManager = React.lazy(() => import('./pages/Returns/ReturnsManager'));
+const WarrantyManager = React.lazy(() => import('./pages/Returns/WarrantyManager'));
+const SalesHistory = React.lazy(() => import('./pages/SalesHistory'));
+const CustomerManager = React.lazy(() => import('./pages/Customers/CustomerManager'));
+const QuotesManager = React.lazy(() => import('./pages/Quotes/QuotesManager'));
+const WarehouseManager = React.lazy(() => import('./pages/Warehouses/WarehouseManager'));
+const InventoryTransfers = React.lazy(() => import('./pages/Warehouses/InventoryTransfers'));
+const ExternalTransferOut = React.lazy(() => import('./pages/Inventory/Transfers/ExternalTransferOut'));
+const ExternalTransferIn = React.lazy(() => import('./pages/Inventory/Transfers/ExternalTransferIn'));
+const SerializedReception = React.lazy(() => import('./pages/Inventory/SerializedReception'));
+const WarrantyPolicies = React.lazy(() => import('./pages/WarrantyPolicies')); // NEW: Warranty Policies
+
+const AccountsReceivable = React.lazy(() => import('./pages/Credit/AccountsReceivable'));
+const AgingReport = React.lazy(() => import('./pages/Credit/AgingReport'));
+const ClientLedger = React.lazy(() => import('./pages/Credit/ClientLedger'));
+const UsersManager = React.lazy(() => import('./pages/Users/UsersManager'));
+const CashHistory = React.lazy(() => import('./pages/CashHistory'));
+const CashRegistersPage = React.lazy(() => import('./pages/CashRegisters/CashRegistersPage'));
+const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
+const Help = React.lazy(() => import('./pages/Help'));
+const TableMap = React.lazy(() => import('./pages/Restaurant/TableMap'));
+const KitchenDisplay = React.lazy(() => import('./pages/Restaurant/KitchenDisplay'));
+const MenuManager = React.lazy(() => import('./pages/Restaurant/MenuManager'));
+const RecipeEditor = React.lazy(() => import('./pages/Restaurant/RecipeEditor'));
+const MobileWaiterLayout = React.lazy(() => import('./layouts/MobileWaiterLayout'));
+const WaiterLogin = React.lazy(() => import('./pages/Mobile/WaiterLogin'));
+const MobileTableGrid = React.lazy(() => import('./pages/Mobile/MobileTableGrid'));
+const MobileOrderTaker = React.lazy(() => import('./pages/Mobile/MobileOrderTaker'));
+const Reception = React.lazy(() => import('./pages/Services/Reception')); // NEW: Service Reception
+const ServicesDashboard = React.lazy(() => import('./pages/Services/ServicesDashboard')); // NEW: Dashboard
+const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // NEW: Service Manager
+const ServiceList = React.lazy(() => import('./pages/Services/ServiceList')); // NEW: Service List
+const CommissionPayout = React.lazy(() => import('./pages/HumanResources/CommissionPayout')); // NEW: Commission Payout
+
+// Barbershop Module
+const BarbershopDashboard = React.lazy(() => import('./pages/Barbershop/BarbershopDashboard'));
+const EmployeeManager = React.lazy(() => import('./pages/Barbershop/EmployeeManager'));
+const CommissionsReport = React.lazy(() => import('./pages/Barbershop/CommissionsReport'));
+
+// Laundry Module
+const LaundryDashboard = React.lazy(() => import('./pages/Laundry/LaundryDashboard'));
+const LaundryForm = React.lazy(() => import('./pages/Laundry/LaundryForm'));
+const LaundryTicket = React.lazy(() => import('./pages/Laundry/components/LaundryTicket'));
+const SupportTickets = React.lazy(() => import('./pages/SupportTickets'));
+
+// Suspense fallback spinner
+const SuspenseFallback = (
+  <div className="flex items-center justify-center h-screen">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  </div>
+);
 
 function App() {
 
@@ -160,6 +167,7 @@ function App() {
                     <CartProvider>
                       <Router>
                         <AndroidBackButton />
+                        <Suspense fallback={SuspenseFallback}>
                         <Routes>
                           <Route path="/login" element={<Login />} />
                           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -458,6 +466,7 @@ function App() {
                           {/* Catch all - Redirect to Dashboard */}
                           <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
+                        </Suspense>
                       </Router>
                     </CartProvider>
                   </CashProvider>

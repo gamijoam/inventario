@@ -49,7 +49,6 @@ export const CartProvider = ({ children }) => {
 
                 // Only update if rate changed
                 if (rateFound && newRate !== item.exchange_rate) {
-                    console.log(`🔄 Auto-updating rate for ${item.name}: ${item.exchange_rate} -> ${newRate}`);
                     const subtotalUsd = item.subtotal_usd;
                     return {
                         ...item,
@@ -166,11 +165,6 @@ export const CartProvider = ({ children }) => {
 
                 const subtotalUsd = unit.price_usd * 1;
 
-                console.log('🛒 DEBUG CartContext addToCart:');
-                console.log('   Product:', product.name);
-                console.log('   Unit received:', unit);
-                console.log('   rateInfo resolved:', rateInfo);
-
                 const newItem = {
                     id: itemId,
                     product_id: product.id,
@@ -207,8 +201,6 @@ export const CartProvider = ({ children }) => {
                     is_barbershop_service: product.is_barbershop_service || false,
                     employee_id: unit.employee_id || null, // Can be pre-assigned
                 };
-
-                console.log('   newItem created:', newItem);
 
                 return [...prevCart, newItem];
             }

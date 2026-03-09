@@ -6,8 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 
-# Backup Directory
-BACKUP_DIR = "/app/backups" # Mapped volume
+# Backup Directory — uses env var for local dev, defaults to Docker path
+BACKUP_DIR = os.environ.get("BACKUP_DIR", "/app/backups")
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
 import gzip

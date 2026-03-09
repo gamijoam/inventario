@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw, MoreHorizontal, FileDown, FileUp, ChevronDown, Barcode } from 'lucide-react';
 import SearchWithScanner from '../components/common/SearchWithScanner';
 import ProductForm from '../components/products/ProductForm';
@@ -75,10 +76,10 @@ const Products = () => {
         if (window.confirm(`¿Estás seguro de que deseas eliminar el producto "${product.name}"?`)) {
             try {
                 await apiClient.delete(`/products/${product.id}`);
-                alert("Producto eliminado correctamente");
+                toast.success("Producto eliminado correctamente");
             } catch (error) {
                 console.error("Error deleting product:", error);
-                alert("Error al eliminar el producto");
+                toast.error("Error al eliminar el producto");
             }
         }
     };
@@ -433,10 +434,10 @@ const Products = () => {
                 exchangeRates={exchangeRates}
                 onSubmit={async (productData) => {
                     try {
-                        if (selectedProduct) { await apiClient.put(`/products/${selectedProduct.id}`, productData); alert("Actualizado"); }
-                        else { await apiClient.post('/products/', productData); alert("Creado"); }
+                        if (selectedProduct) { await apiClient.put(`/products/${selectedProduct.id}`, productData); toast.success("Actualizado"); }
+                        else { await apiClient.post('/products/', productData); toast.success("Creado"); }
                         await fetchProducts(); setIsModalOpen(false); setSelectedProduct(null);
-                    } catch (e) { console.error(e); alert(e.response?.data?.detail || "Error"); }
+                    } catch (e) { console.error(e); toast.error(e.response?.data?.detail || "Error"); }
                 }}
             />
 

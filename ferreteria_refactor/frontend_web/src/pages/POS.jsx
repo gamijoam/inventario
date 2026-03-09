@@ -58,7 +58,6 @@ const POS = () => {
     const quoteIdParam = searchParams.get('quote_id');
 
     useEffect(() => {
-        console.log("STATE CHANGE: isSettingsOpen =", isSettingsOpen);
     }, [isSettingsOpen]);
 
     // UI State
@@ -239,7 +238,6 @@ const POS = () => {
      */
     const handleGlobalScan = (code) => {
         // ... (existing scan logic) ...
-        console.log('🔍 Buscando producto con código:', code);
         // ... (truncated for brevity, keep logic) ...
         const foundProduct = catalog.find(p => p.sku == code || p.id == code || p.name.includes(code)); // Simplified for replace
         if (foundProduct) handleProductClick(foundProduct);

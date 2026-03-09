@@ -380,7 +380,7 @@ class SalePayment(Base):
     __tablename__ = "sale_payments"
 
     id = Column(Integer, primary_key=True, index=True)
-    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False, index=True)
     amount = Column(Numeric(18, 4), nullable=False)
     currency = Column(String, default="USD") # USD or Bs
     payment_method = Column(String, default="Efectivo") # Efectivo, Tarjeta, etc.
@@ -396,8 +396,8 @@ class SaleDetail(Base):
     __tablename__ = "sale_details"
 
     id = Column(Integer, primary_key=True, index=True)
-    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
     quantity = Column(Numeric(12, 3), nullable=False) # Units sold
     unit_price = Column(Numeric(18, 4), nullable=False) # Price at moment of sale
     
@@ -503,7 +503,7 @@ class CashMovement(Base):
     __tablename__ = "cash_movements"
 
     id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=False)
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=False, index=True)
     type = Column(String, nullable=False) # EXPENSE, WITHDRAWAL, DEPOSIT, CASH_ADVANCE
     amount = Column(Numeric(18, 4), nullable=False)
     currency = Column(String, default="USD") # USD or BS
@@ -615,8 +615,8 @@ class ReturnDetail(Base):
     __tablename__ = "return_details"
 
     id = Column(Integer, primary_key=True, index=True)
-    return_id = Column(Integer, ForeignKey("returns.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    return_id = Column(Integer, ForeignKey("returns.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
     quantity = Column(Numeric(12, 3), nullable=False) # Units returned
     unit_price = Column(Numeric(12, 2), default=0.00)  # Price at time of return
     unit_cost = Column(Numeric(14, 4), default=0.0000) # Cost at time of return (historical)

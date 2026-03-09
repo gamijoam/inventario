@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Calendar, Trash2, Eye, Printer, AlertTriangle, X, FileText, ArrowRight, Filter, Download, MoreHorizontal, FileDown, ScanBarcode } from 'lucide-react';
 import apiClient from '../config/axios';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
 import { pdf } from '@react-pdf/renderer';
@@ -102,13 +103,13 @@ const SalesHistory = () => {
             setShowDetailModal(true);
         } catch (error) {
             console.error('Error fetching sale details:', error);
-            alert('Error al cargar detalles de la venta');
+            toast.error('Error al cargar detalles de la venta');
         }
     };
 
     const handleVoidClick = (sale) => {
         if (sale.status === 'VOIDED') {
-            alert('Esta venta ya está anulada');
+            toast.error('Esta venta ya está anulada');
             return;
         }
 
@@ -158,7 +159,7 @@ const SalesHistory = () => {
             setSales(updatedSales);
             setFilteredSales(updatedSales); // Also update filtered list to reflect change immediately
 
-            alert('✅ Venta anulada correctamente');
+            toast.success('Venta anulada correctamente');
             setShowPinModal(false);
             setSaleToVoid(null);
             setAdminPin('');
@@ -179,17 +180,17 @@ const SalesHistory = () => {
             window.open(url, '_blank');
         } catch (error) {
             console.error('Error generating PDF:', error);
-            alert('Error al generar el PDF');
+            toast.error('Error al generar el PDF');
         }
     };
 
     const handleReprint = async (sale) => {
         try {
             await printerService.printTicket(sale.id);
-            alert('✅ Ticket enviado a impresora exitosamente');
+            toast.success('Ticket enviado a impresora exitosamente');
         } catch (error) {
             console.error('Error reprinting:', error);
-            alert(`❌ Error al reimprimir:\n${error.message}`);
+            toast.error(`Error al reimprimir: ${error.message}`);
         }
     };
 
@@ -371,7 +372,7 @@ const SalesHistory = () => {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <Button variant="outline" className="gap-2 border-slate-200 text-slate-600 hover:text-indigo-600 active:scale-95 transition-transform" onClick={() => alert('Exportar Excel no implementado en demo')}>
+                    <Button variant="outline" className="gap-2 border-slate-200 text-slate-600 hover:text-indigo-600 active:scale-95 transition-transform" onClick={() => toast.error('Exportar Excel no implementado en demo')}>
                         <FileDown size={14} /> Exportar
                     </Button>
                 </div>
