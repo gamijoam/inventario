@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBasic
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -10,7 +10,7 @@ from typing import List
 from datetime import timedelta
 from ..security import verify_password, get_password_hash, create_access_token, pwd_context
 from ..config import settings
-from ..dependencies import get_current_active_user
+from ..dependencies import get_current_active_user, limiter
 
 
 class PinVerifyRequest(BaseModel):
@@ -348,7 +348,8 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     }
 
 @router.post("/pin-login")
-def pin_login(payload: dict, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def pin_login(request: Request, payload: dict, db: Session = Depends(get_db)):
     """
     Login rápido con PIN.
     Payload: { "pin": "0000" }

@@ -95,37 +95,28 @@ todos los módulos activos si `ENVIRONMENT=development` (configurado en
 
 ---
 
-### 1.4 Rate limiting en endpoints públicos
+### 1.4 Rate limiting en endpoints públicos — PARCIALMENTE RESUELTO ⚠️
 
-Los endpoints `/public/register` y `/auth/discovery` no tienen límite
+> **Actualización 2026-03-10:** `slowapi` ya está instalado e integrado.
+> Se añadió `@limiter.limit("5/minute")` al endpoint `POST /pin-login`
+> en `routers/users.py`. Los endpoints `/auth/login` y `/public/register`
+> ya contaban con rate limiting previo.
+>
+> **Pendiente:** verificar cobertura en `/auth/discovery` y otros endpoints
+> públicos. La infraestructura (`slowapi`, `Limiter`, handler de error) ya
+> está lista — solo falta aplicar el decorador en los endpoints que falten.
+
+~~Los endpoints `/public/register` y `/auth/discovery` no tienen límite
 de peticiones. Son un vector de abuso: enumeración de tenants,
-spam de registros, ataques de fuerza bruta.
+spam de registros, ataques de fuerza bruta.~~
 
-**Dependencia a agregar:** `slowapi`
+**Dependencia:** `slowapi` — ya integrada en el proyecto.
 
 ```python
-# backend_api/main.py
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-
-# routers/auth.py
-@router.post("/public/register")
-@limiter.limit("5/hour")
-async def register(request: Request, ...):
-    ...
-
+# Pendiente: revisar estos endpoints
 @router.post("/auth/discovery")
-@limiter.limit("20/minute")
+@limiter.limit("20/minute")   # ← confirmar si ya tiene limite
 async def discovery(request: Request, ...):
-    ...
-
-@router.post("/auth/login")
-@limiter.limit("10/minute")
-async def login(request: Request, ...):
     ...
 ```
 
@@ -367,7 +358,8 @@ Semana 1   → 1.2 Commits limpios de la rama actual
              1.3 Fix del Sidebar hardcodeado
              3.3 Variables de entorno para módulos
 
-Semana 2   → 1.4 Rate limiting en endpoints públicos
+Semana 2   → 1.4 ⚠️ PARCIAL (2026-03-10) — /pin-login protegido;
+                  pendiente revisar /auth/discovery y otros endpoints
              3.2 Centralizar constantes de estado
 
 Semana 3-4 → 1.1 ✅ RESUELTO — archivos ya tienen tamaños aceptables
@@ -381,6 +373,23 @@ Semana 7-8 → 2.2 Tests críticos (ventas, caja, aislamiento)
 
 Semana 9+  → Continuar extrayendo lógica de routers a services
 ```
+
+### Resueltos en fix/critical-security-multiagent (2026-03-10)
+
+Los siguientes puntos de deuda técnica fueron abordados en esta rama:
+
+| # | Descripción | Estado |
+|---|-------------|--------|
+| 1.4 | Rate limiting `/pin-login` | ⚠️ Parcial |
+| — | N+1 en `get_registers_status` (cash.py) | ✅ Resuelto |
+| — | `console.log` en build de producción | ✅ Resuelto (vite.config.js esbuild.drop) |
+| — | Exception handler expone internos | ✅ Resuelto |
+| — | Endpoint `/debug/routes` sin auth | ✅ Resuelto |
+| — | CORS permisivo en producción | ✅ Resuelto |
+| — | Pool de conexiones insuficiente | ✅ Resuelto |
+| — | Reset `search_path` no transaccional | ✅ Resuelto |
+| — | Índices FK faltantes en BD | ✅ Resuelto (migración a1b2c3d4e5f6) |
+| — | Re-renders innecesarios en CartContext | ✅ Resuelto (useMemo) |
 
 ---
 

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, subqueryload
 from sqlalchemy import func, or_, and_, text
 from typing import List, Dict, Optional
 from datetime import datetime, date
@@ -142,16 +142,18 @@ def get_registers_status(
     Devuelve el estado de todas las cajas activas: si están OPEN o CLOSED
     y quién las tiene abiertas. Útil para el selector de caja en apertura.
     """
+    # Fix N+1: load all registers with their sessions and session users in 2 queries total
     registers = db.query(models.CashRegister).filter(
         models.CashRegister.is_active == True
+    ).options(
+        subqueryload(models.CashRegister.sessions)
+        .joinedload(models.CashSession.user)
     ).order_by(models.CashRegister.id).all()
 
     result = []
     for reg in registers:
-        open_session = db.query(models.CashSession).filter(
-            models.CashSession.register_id == reg.id,
-            models.CashSession.status == "OPEN"
-        ).options(joinedload(models.CashSession.user)).first()
+        # Filter in Python — sessions already loaded, no extra queries
+        open_session = next((s for s in reg.sessions if s.status == "OPEN"), None)
 
         result.append({
             "id": reg.id,

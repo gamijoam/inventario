@@ -408,29 +408,46 @@ export const CartProvider = ({ children }) => {
 
     const discardHeldCart = () => setHeldCart(null);
 
+    const value = useMemo(() => ({
+        cart,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        updateCartItem,
+        clearCart,
+        totalUSD: totals.usd,
+        totalBs: totals.bs,
+        totalsByCurrency: totals.byCurrency,
+        rawTotalUSD: totals.rawUSD,
+        rawTotalBs: totals.rawBs,
+        discountUSD: totals.discountUSD,
+        discountBs: totals.discountBs,
+        cartDiscount,
+        setCartDiscount,
+        exchangeRates,
+        heldCart,
+        holdCart,
+        resumeHeldCart,
+        discardHeldCart,
+    }), [
+        cart,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        updateCartItem,
+        clearCart,
+        totals,
+        cartDiscount,
+        setCartDiscount,
+        exchangeRates,
+        heldCart,
+        holdCart,
+        resumeHeldCart,
+        discardHeldCart,
+    ]);
+
     return (
-        <CartContext.Provider value={{
-            cart,
-            addToCart,
-            removeFromCart,
-            updateQuantity,
-            updateCartItem,
-            clearCart,
-            totalUSD: totals.usd,
-            totalBs: totals.bs,
-            totalsByCurrency: totals.byCurrency,
-            rawTotalUSD: totals.rawUSD,
-            rawTotalBs: totals.rawBs,
-            discountUSD: totals.discountUSD,
-            discountBs: totals.discountBs,
-            cartDiscount,
-            setCartDiscount,
-            exchangeRates,
-            heldCart,
-            holdCart,
-            resumeHeldCart,
-            discardHeldCart,
-        }}>
+        <CartContext.Provider value={value}>
             {children}
         </CartContext.Provider>
     );

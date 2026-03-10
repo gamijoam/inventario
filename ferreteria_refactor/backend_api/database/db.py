@@ -26,8 +26,8 @@ DATABASE_URL = settings.DATABASE_URL
 # PostgreSQL connection arguments
 connect_args = {"client_encoding": "utf8"}
 pool_config = {
-    "pool_size": 20,
-    "max_overflow": 10,
+    "pool_size": 80,
+    "max_overflow": 50,
     "pool_timeout": 30,
     "pool_recycle": 1800,
     "pool_pre_ping": True
@@ -71,7 +71,11 @@ def get_db():
     finally:
         # 🔒 SECURITY: Explicitly reset to public before returning to pool
         try:
-            db.execute(text("SET search_path TO public"))
-        except:
-            pass
-        db.close()
+            db.execute(text('SET search_path TO "$user", public'))
+            db.commit()
+        except Exception as reset_err:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to reset search_path: {reset_err}")
+            db.rollback()
+        finally:
+            db.close()

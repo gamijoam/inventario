@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -6,6 +6,9 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 import os
 import sys
+import logging
+
+logger = logging.getLogger(__name__)
 
 # --- DIAGNÓSTICO DE INICIO ---
 print("[INFO] Verificando entorno Python...", flush=True)
@@ -63,7 +66,7 @@ app = FastAPI(
 
 # --- RATE LIMITING (slowapi) ---
 # Import the shared limiter instance defined in dependencies.py
-from .dependencies import limiter
+from .dependencies import limiter, get_current_superuser
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -104,11 +107,17 @@ if settings.CORS_ORIGINS:
     _extra = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
     _default_origins.extend(_extra)
 
+# En producción: solo https. En desarrollo: también http localhost.
+if settings.ENVIRONMENT == "production":
+    cors_origin_regex = r"https://[a-zA-Z0-9-]+\.miinventariofacil\.com"
+else:
+    cors_origin_regex = r"https?://[a-zA-Z0-9-]+\.miinventariofacil\.com|http://.*\.localhost(:\d+)?"
+
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=["*"], # ❌ ERROR: Wildcard + Credentials fails in browsers
     allow_origins=_default_origins,
-    allow_origin_regex=r"https?://.*\.miinventariofacil\.com|http://.*\.localhost:\d+",  # ✅ Allow any subdomain on production/QA and localhost
+    allow_origin_regex=cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -168,11 +177,10 @@ app.add_middleware(LoggingMiddleware)
 # --- GLOBAL EXCEPTION HANDLER ---
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    print(f"🔥 [GLOBAL HANDLER] Error in {request.url.path}: {exc}")
-    traceback.print_exc()
+    logger.exception("Unhandled error in %s", request.url.path)
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal Server Error: {str(exc)}", "type": type(exc).__name__},
+        content={"detail": "Internal server error"},
     )
 
 # --- SEGURIDAD HÍBRIDA (License Guard) ---
@@ -249,7 +257,7 @@ v1_router.include_router(restaurant_menu.router, prefix="/restaurant", tags=["Re
 app.include_router(v1_router)
 
 # DEBUG ENDPOINT - Remove after debugging
-@app.get("/api/v1/debug/routes")
+@app.get("/api/v1/debug/routes", dependencies=[Depends(get_current_superuser)])
 def list_routes():
     """List all registered routes for debugging"""
     routes = []

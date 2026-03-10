@@ -4,6 +4,71 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-10] — Fixes de Seguridad, Performance y Build
+**Branch:** `fix/critical-security-multiagent` | **Commits:** `ad8eb51`, `a0082cd`, `0aeb314`, `5cb5439`
+
+### fix(security): Global exception handler — no expone internos del servidor
+
+`backend_api/main.py` — el handler global de excepciones ya no retorna `str(exc)` ni `type(exc).__name__` en la respuesta al cliente. Retorna siempre `{"detail": "Internal server error"}` y registra el error completo internamente con `logger.exception()`.
+
+### fix(security): Endpoint de debug protegido con autenticación de superusuario
+
+`backend_api/main.py` — `GET /api/v1/debug/routes` ahora requiere `Depends(get_current_superuser)`. Antes era accesible sin autenticación, exponiendo el mapa de rutas completo de la API.
+
+### fix(security): CORS estricto en producción
+
+`backend_api/main.py` — en `ENVIRONMENT=production` el middleware CORS solo permite orígenes con `https://`. En desarrollo (`ENVIRONMENT=development`) permite también `http://localhost` para facilitar el trabajo local.
+
+### fix(performance): Pool de conexiones PostgreSQL ampliado
+
+`backend_api/database/db.py` — `pool_size` aumentado de 20 a 80, `max_overflow` de 10 a 50. Elimina cuellos de botella bajo carga concurrente alta.
+
+### fix(reliability): Reset de `search_path` transaccional garantizado
+
+`backend_api/database/db.py` — el bloque `finally` que resetea el `search_path` del tenant ahora es robusto: loguea errores, ejecuta `db.rollback()` si falla el reset, y `db.close()` en un `finally` anidado garantizado para evitar conexiones huérfanas.
+
+### fix(security): Rate limiting en endpoint `/pin-login`
+
+`backend_api/routers/users.py` — endpoint `POST /pin-login` protegido con `@limiter.limit("5/minute")`. Se requirió añadir `request: Request` como parámetro para que `slowapi` pueda identificar el cliente.
+
+### fix(performance): Eliminación de N+1 en `get_registers_status`
+
+`backend_api/routers/cash.py` — `get_registers_status()` ahora usa `subqueryload(CashRegister.sessions).joinedload(CashSession.user)`. Reducción de ~5500+ queries a 2 queries totales por llamada.
+
+### fix(performance): `CartContext.jsx` — evitar re-renders innecesarios en POS
+
+`frontend_web/src/context/CartContext.jsx` — el objeto `value` pasado al `Provider` ahora está envuelto en `useMemo` con todas sus dependencias declaradas. Previene re-renders en cascada de todos los consumidores del contexto en cada render del carrito.
+
+### fix(build): Eliminar `console.log` y `debugger` en bundle de producción
+
+`frontend_web/vite.config.js` — añadido `esbuild: { drop: ['console', 'debugger'] }`. Todos los `console.*` y sentencias `debugger` son eliminados automáticamente en `npm run build`, sin requerir cambios manuales en el código fuente.
+
+### feat(db): Migración — 8 índices FK faltantes
+
+`alembic/versions/a1b2c3d4e5f6_add_missing_fk_indexes.py` — nueva migración que agrega índices en columnas de clave foránea sin índice previo:
+
+| Tabla | Columna |
+|-------|---------|
+| `sales` | `customer_id` |
+| `sales` | `session_id` |
+| `products` | `supplier_id` |
+| `products` | `category_id` |
+| `kardex` | `product_id` |
+| `kardex` | `warehouse_id` |
+| `product_stocks` | `product_id` |
+| `product_stocks` | `warehouse_id` |
+
+**Archivos afectados:**
+- `backend_api/main.py`
+- `backend_api/database/db.py`
+- `backend_api/routers/users.py`
+- `backend_api/routers/cash.py`
+- `frontend_web/src/context/CartContext.jsx`
+- `frontend_web/vite.config.js`
+- `alembic/versions/a1b2c3d4e5f6_add_missing_fk_indexes.py` (nuevo)
+
+---
+
 ## [2026-03-06] — Modal de Novedades + Tasa BCV + Mejoras Servicios Técnicos
 **Branch:** `feature/tauri-desktop` | **Commits:** `5e4447e`, `63e1fc2`, `07b2e7b`, `ba23c9a`, `993405d`, `09e0c92`, `5e0ab8f`, `14b62a5`, `d4c5b35`, `defa5f7`
 
