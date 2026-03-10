@@ -13,9 +13,13 @@ class Tenant(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=get_venezuela_now)
     
-    # Subscription Logic
+    # Subscription / License Logic
     is_demo = Column(Boolean, default=True) # New tenants are Demo by default usually
+    license_type = Column(String(20), default="trial", nullable=False, server_default="trial")
+    trial_days = Column(Integer, default=15, nullable=False, server_default="15")
+    trial_ends_at = Column(DateTime, nullable=True)
     subscription_expires_at = Column(DateTime, nullable=True) # NULL means forever or undefined
+    license_blocked_reason = Column(String(50), nullable=True)
 
     # Stores feature flags: {"restaurant": true, "laundry": false}
     config = Column(JSON, default=dict)

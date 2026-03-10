@@ -66,9 +66,14 @@ try:
     from backend_api.models.models import (
         Base,
         CashRegister,
+        CashMovement,
         CashSession,
         Customer,
+        Product,
+        ProductStock,
         Sale,
+        SaleDetail,
+        Warehouse,
     )
     from backend_api.models.tenant import Tenant
     from backend_api.tenant_context import set_tenant_schema, reset_tenant_schema
@@ -100,24 +105,42 @@ def sqlite_engine():
 
     engine = _create_sqlite_engine()
 
-    # SQLite no tiene schemas; registramos un listener para ignorar
-    # SET search_path que lanza error en SQLite.
+    # SQLite no tiene schemas; registramos un listener para activar FKs.
     @event.listens_for(engine, "connect")
     def _set_sqlite_pragmas(dbapi_conn, _):
         dbapi_conn.execute("PRAGMA foreign_keys=ON")
 
-    # Crea todas las tablas (sin schema prefix para SQLite)
-    with engine.begin() as conn:
-        # Patch temporal: SQLite ignora __table_args__ con schema,
-        # pero create_all igual funciona porque SQLAlchemy omite el schema
-        # en SQLite si el dialect no lo soporta.
-        Base.metadata.create_all(conn)
+    # SQLite no soporta CREATE TABLE "public".<table>; falla con
+    # "unknown database public".  Para evitarlo, parche temporal: se elimina
+    # el atributo 'schema' de todos los Table que lo declaren, se crean las
+    # tablas, y luego se restaura el estado original.
+    schema_backups: dict = {}
+    for table in Base.metadata.tables.values():
+        if table.schema:
+            schema_backups[table] = table.schema
+            table.schema = None
+
+    try:
+        with engine.begin() as conn:
+            Base.metadata.create_all(conn)
+    finally:
+        # Restaurar schemas originales para no afectar otros tests o procesos
+        for table, original_schema in schema_backups.items():
+            table.schema = original_schema
 
     yield engine
 
-    # Tear-down: elimina tablas para aislar tests
-    with engine.begin() as conn:
-        Base.metadata.drop_all(conn)
+    # Tear-down: mismo patch para drop_all
+    for table in Base.metadata.tables.values():
+        if table.schema:
+            schema_backups[table] = table.schema
+            table.schema = None
+    try:
+        with engine.begin() as conn:
+            Base.metadata.drop_all(conn)
+    finally:
+        for table, original_schema in schema_backups.items():
+            table.schema = original_schema
     engine.dispose()
 
 
@@ -173,3 +196,71 @@ def customer_with_limit(db_session):
     db_session.add(customer)
     db_session.flush()
     return customer
+
+
+@pytest.fixture()
+def warehouse(db_session):
+    """Crea y persiste un Warehouse de prueba marcado como principal."""
+    if not MODELS_AVAILABLE:
+        pytest.skip("Modelos no disponibles.")
+
+    wh = Warehouse(
+        name="Almacén Principal Test",
+        address="Calle Test 1",
+        is_active=True,
+        is_main=True,
+    )
+    db_session.add(wh)
+    db_session.flush()
+    return wh
+
+
+@pytest.fixture()
+def product_with_stock(db_session, warehouse):
+    """Crea un Product físico con 10 unidades en el almacén de prueba.
+
+    Retorna una tupla (product, product_stock) para facilitar las
+    aserciones de cantidad antes y después de una venta.
+    """
+    if not MODELS_AVAILABLE:
+        pytest.skip("Modelos no disponibles.")
+
+    product = Product(
+        name="Producto Test Stock",
+        sku="SKU-TEST-001",
+        price=Decimal("15.00"),
+        stock=Decimal("10.000"),
+        cost_price=Decimal("8.00"),
+        is_active=True,
+        is_service=False,
+        is_combo=False,
+        has_imei=False,
+    )
+    db_session.add(product)
+    db_session.flush()
+
+    stock_record = ProductStock(
+        product_id=product.id,
+        warehouse_id=warehouse.id,
+        quantity=Decimal("10.000"),
+    )
+    db_session.add(stock_record)
+    db_session.flush()
+
+    return product, stock_record
+
+
+@pytest.fixture()
+def open_cash_session(db_session, cash_register):
+    """Crea una CashSession OPEN ligada al cash_register de prueba."""
+    if not MODELS_AVAILABLE:
+        pytest.skip("Modelos no disponibles.")
+
+    session = CashSession(
+        register_id=cash_register.id,
+        status="OPEN",
+        initial_cash=Decimal("50.00"),
+    )
+    db_session.add(session)
+    db_session.flush()
+    return session

@@ -53,3 +53,4 @@ httpx
 sqladmin[full]
 itsdangerous
 faker
+apscheduler>=3.10.0

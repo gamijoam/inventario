@@ -57,6 +57,7 @@ from .routers.support_admin import router as support_admin_router
 from .audit_utils import log_action
 from .models.models import UserRole
 from .middleware.license_guard import LicenseGuardMiddleware
+from .scheduler import start_scheduler, stop_scheduler
 
 app = FastAPI(
     title="Ferretería Enterprise API",
@@ -142,13 +143,22 @@ async def startup_event_async():
     print(f"[INFO] FERRETERIA API INICIADA (Environment: {settings.ENVIRONMENT.upper()})")
     if settings.ENVIRONMENT == "staging":
         print("[WARNING] AGENTE ENTORNO STAGING DETECTADO - CONFIGURACIÓN DE QA ACTIVA")
-    
+
     # EXTREME DIAGNOSTIC: Print all routes
     print("\n[ROUTES] Full hierarchy:")
     for route in sorted(app.routes, key=lambda x: getattr(x, 'path', '')):
         if hasattr(route, 'methods'):
             print(f"  {list(route.methods)} {route.path}")
     print("="*60 + "\n")
+
+    # --- SCHEDULER: Auto-expiración de licencias ---
+    from .database.db import SessionLocal
+    start_scheduler(SessionLocal)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    stop_scheduler()
 
 # --- MIDDLEWARE DE LOGGING Y SEGURIDAD ---
 from fastapi import Request
@@ -320,6 +330,10 @@ def repair_public_schema():
             ("has_hardware_module", "BOOLEAN DEFAULT FALSE"),
             ("has_services_module", "BOOLEAN DEFAULT FALSE"),
             ("has_barbershop_module", "BOOLEAN DEFAULT FALSE"),
+            ("license_type", "VARCHAR(20) NOT NULL DEFAULT 'trial'"),
+            ("trial_days", "INTEGER NOT NULL DEFAULT 15"),
+            ("trial_ends_at", "TIMESTAMP"),
+            ("license_blocked_reason", "VARCHAR(50)"),
         ]
 
         for col_name, col_type in columns_to_add:

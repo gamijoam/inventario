@@ -425,7 +425,7 @@ def test_credito_acumulado_en_bd_supera_limite(db_session, customer_with_limit):
         date=datetime.datetime.now() - datetime.timedelta(days=1),
         due_date=datetime.datetime.now() + datetime.timedelta(days=10),
         session_id=None,
-        user_id=None,
+        # user_id fue eliminado del modelo Sale
     )
     db_session.add(venta_previa)
     db_session.flush()
