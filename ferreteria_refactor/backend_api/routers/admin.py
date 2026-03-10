@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from enum import Enum
 import os
 import sys
 import argparse
@@ -356,6 +358,17 @@ def update_tenant(
     if tenant_in.subscription_expires_at is not None:
         tenant.subscription_expires_at = tenant_in.subscription_expires_at
 
+    # License fields
+    if tenant_in.license_type is not None:
+        tenant.license_type = tenant_in.license_type
+    if tenant_in.trial_days is not None:
+        tenant.trial_days = tenant_in.trial_days
+    if tenant_in.trial_ends_at is not None:
+        tenant.trial_ends_at = tenant_in.trial_ends_at
+    # Allow explicitly setting license_blocked_reason to None (clear it)
+    if "license_blocked_reason" in tenant_in.model_fields_set:
+        tenant.license_blocked_reason = tenant_in.license_blocked_reason
+
     # Module Flags Updates
     if tenant_in.has_restaurant_module is not None:
         tenant.has_restaurant_module = tenant_in.has_restaurant_module
@@ -365,6 +378,8 @@ def update_tenant(
         tenant.has_hardware_module = tenant_in.has_hardware_module
     if tenant_in.has_services_module is not None:
         tenant.has_services_module = tenant_in.has_services_module
+    if tenant_in.has_barbershop_module is not None:
+        tenant.has_barbershop_module = tenant_in.has_barbershop_module
 
     db.commit()
     db.refresh(tenant)
@@ -412,6 +427,99 @@ def delete_tenant(
     except Exception as e:
         db.rollback()
         raise HTTPException(500, f"Failed to delete tenant: {str(e)}")
+
+class LicenseAction(str, Enum):
+    grant_trial = "grant_trial"
+    extend_monthly = "extend_monthly"
+    extend_annual = "extend_annual"
+    grant_lifetime = "grant_lifetime"
+    revoke = "revoke"
+    reactivate = "reactivate"
+
+class ManageLicenseRequest(BaseModel):
+    action: LicenseAction
+    days: Optional[int] = 30  # Solo para grant_trial
+
+@router.post("/licenses/manage/{tenant_id}")
+async def manage_tenant_license(
+    tenant_id: int,
+    body: ManageLicenseRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser),
+):
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant no encontrado")
+
+    now = datetime.utcnow()
+
+    if body.action == LicenseAction.grant_trial:
+        tenant.license_type = "trial"
+        tenant.trial_days = body.days or 30
+        tenant.trial_ends_at = now + timedelta(days=body.days or 30)
+        tenant.is_active = True
+        tenant.license_blocked_reason = None
+    elif body.action == LicenseAction.extend_monthly:
+        tenant.license_type = "monthly"
+        base = max(tenant.subscription_expires_at or now, now)
+        tenant.subscription_expires_at = base + timedelta(days=30)
+        tenant.is_active = True
+        tenant.license_blocked_reason = None
+    elif body.action == LicenseAction.extend_annual:
+        tenant.license_type = "annual"
+        base = max(tenant.subscription_expires_at or now, now)
+        tenant.subscription_expires_at = base + timedelta(days=365)
+        tenant.is_active = True
+        tenant.license_blocked_reason = None
+    elif body.action == LicenseAction.grant_lifetime:
+        tenant.license_type = "lifetime"
+        tenant.subscription_expires_at = None
+        tenant.is_active = True
+        tenant.license_blocked_reason = None
+    elif body.action == LicenseAction.revoke:
+        tenant.is_active = False
+        tenant.license_blocked_reason = "manual"
+    elif body.action == LicenseAction.reactivate:
+        tenant.is_active = True
+        tenant.license_blocked_reason = None
+
+    db.commit()
+    db.refresh(tenant)
+    return {"ok": True, "tenant_id": tenant_id, "action": body.action, "license_type": tenant.license_type}
+
+
+@router.get("/licenses/summary")
+async def get_licenses_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser),
+):
+    """Lista todos los tenants con su estado de licencia."""
+    tenants = db.query(Tenant).order_by(Tenant.created_at.desc()).all()
+    now = datetime.utcnow()
+
+    result = []
+    for t in tenants:
+        days_remaining = None
+        if t.license_type == "trial" and t.trial_ends_at:
+            days_remaining = max(0, (t.trial_ends_at - now).days)
+        elif t.license_type in ("monthly", "annual") and t.subscription_expires_at:
+            days_remaining = max(0, (t.subscription_expires_at - now).days)
+
+        result.append({
+            "id": t.id,
+            "name": t.name,
+            "schema_name": t.schema_name,
+            "is_active": t.is_active,
+            "license_type": t.license_type or "trial",
+            "trial_days": t.trial_days,
+            "trial_ends_at": t.trial_ends_at.isoformat() if t.trial_ends_at else None,
+            "subscription_expires_at": t.subscription_expires_at.isoformat() if t.subscription_expires_at else None,
+            "license_blocked_reason": t.license_blocked_reason,
+            "days_remaining": days_remaining,
+        })
+
+    return result
+
 
 @router.get("/tenants/{tenant_id}/payments", response_model=List[schemas.payment.PaymentOut])
 def list_tenant_payments(

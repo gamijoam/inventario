@@ -34,6 +34,12 @@ class TenantUpdate(BaseModel):
     is_demo: Optional[bool] = None
     subscription_expires_at: Optional[datetime] = None
 
+    # License fields
+    license_type: Optional[str] = None
+    trial_days: Optional[int] = None
+    trial_ends_at: Optional[datetime] = None
+    license_blocked_reason: Optional[str] = None
+
     # Module Flags
     has_restaurant_module: Optional[bool] = None
     has_laundry_module: Optional[bool] = None
@@ -51,7 +57,13 @@ class TenantUpdate(BaseModel):
 class TenantOut(TenantBase):
     id: int
     created_at: Optional[datetime] = None
-    
+
+    # License fields
+    license_type: str = "trial"
+    trial_days: int = 15
+    trial_ends_at: Optional[datetime] = None
+    license_blocked_reason: Optional[str] = None
+
     # Module Flags
     has_restaurant_module: bool = False
     has_laundry_module: bool = False
@@ -61,6 +73,6 @@ class TenantOut(TenantBase):
 
     # Optional computed fields
     user_count: Optional[int] = None
-    
+
     class Config:
         from_attributes = True
