@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 from enum import Enum
 import re
@@ -30,13 +30,15 @@ class RegisterRequest(BaseModel):
     # Backward compatibility: handle plan_type if sent
     plan_type: Optional[str] = None
     
-    @validator('company_name')
+    @field_validator('company_name')
+    @classmethod
     def name_must_be_valid(cls, v):
         if len(v) < 3:
             raise ValueError('Company name must be at least 3 characters')
         return v
-    
-    @validator('password')
+
+    @field_validator('password')
+    @classmethod
     def password_complexity(cls, v):
         if len(v) < 6:
             raise ValueError('Password must be at least 6 characters')

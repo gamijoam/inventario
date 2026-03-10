@@ -19,6 +19,7 @@ from ..models import tenant as tenant_model
 from ..models import payment
 from ..models import restaurant
 from ..models import notas
+from ..models.desktop_license import DesktopLicense  # Ensure table is reflected
 
 from ..models.models import User, UserRole
 from ..models.tenant import Tenant

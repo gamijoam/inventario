@@ -2,6 +2,7 @@ import os
 import subprocess
 import logging
 import re
+from datetime import datetime, timedelta
 from sqlalchemy import text
 from ..config import settings
 from ..models.tenant import Tenant
@@ -55,33 +56,52 @@ class TenantService:
             
             # --- INTELIGENCIA DE SEGMENTACIÓN (Rubro -> Módulos) ---
             rubro_seleccionado = (plan_type or "Ferretería").upper()
-            
+
             # Mapeo de Rubros a Módulos Internos
-            # Default: Todo es Retail (Ferretería) a menos que se especifique lo contrario
-            m_hardware = True
+            # Módulo base: TODOS los negocios tienen POS general (hardware = ferretería/retail).
+            # Los módulos especializados son ADICIONALES, no sustitutos del POS base.
+            m_hardware = True   # POS base — SIEMPRE activo por defecto
             m_restaurant = False
             m_laundry = False
             m_services = False
             m_barbershop = False
-            
+
             # Segmentación por Palabras Clave
-            # Restaurant
-            if any(k in rubro_seleccionado for k in ["RESTAURANT", "COMIDA", "PIZZA", "CAFÉ", "CAFETERIA", "HELADO", "PANADER"]):
+            # Restaurante / Alimentos y Bebidas
+            if any(k in rubro_seleccionado for k in [
+                "RESTAURANT", "COMIDA", "PIZZA", "CAFÉ", "CAFE", "CAFETERIA",
+                "CAFETERÍA", "HELADO", "PANADER", "PANADERÍA", "FONDA", "TASCA",
+                "CHURRERÍA", "CHURRER", "EMPANADA", "SUSHI", "HAMBURGUES",
+                "FAST FOOD", "FASTFOOD", "COCINA", "BISTR", "BAR ", "BARES"
+            ]):
                 m_restaurant = True
-                m_hardware = False # Restaurantes usualmente no necesitan el módulo de ferretería puro
-            
-            # Laundry
-            if any(k in rubro_seleccionado for k in ["LAVANDER", "TINTORER"]):
+
+            # Lavandería / Tintorería
+            if any(k in rubro_seleccionado for k in [
+                "LAVANDER", "LAVANDERÍA", "TINTORER", "TINTORERÍA",
+                "LAUNDRY", "PLANCHADO", "LAVADO"
+            ]):
                 m_laundry = True
-                m_hardware = False
-            
-            # Services / Technical
-            if any(k in rubro_seleccionado for k in ["TALLER", "SERVICIO", "REPARAC", "ELECTRÓNICA"]):
+
+            # Servicio Técnico / Reparaciones
+            if any(k in rubro_seleccionado for k in [
+                "TALLER", "SERVICIO", "REPARAC", "ELECTRÓNICA", "ELECTRONICA",
+                "TECNIC", "TÉCNIC", "CELULAR", "PHONE", "COMPUTADORA", "PC ",
+                "INFORMATICA", "INFORMÁTICA", "MOTOS", "MECANIC", "MECÁNIC",
+                "CLIMATIZAC", "AIRE ACONDIC", "PLOMERIA", "PLOMERÍA"
+            ]):
                 m_services = True
-            
-            # Barbershop / Beauty
-            if any(k in rubro_seleccionado for k in ["BARBER", "PELUQUER", "BELLEZA", "ESTÉTICA", "SPA"]):
+
+            # Barbería / Salón de Belleza
+            if any(k in rubro_seleccionado for k in [
+                "BARBER", "PELUQUER", "BELLEZA", "ESTÉTICA", "ESTETICA",
+                "SPA", "SALON", "SALÓN", "MANICUR", "PEDICUR", "UÑAS",
+                "CABELLO", "PELO", "COSMETOLOG"
+            ]):
                 m_barbershop = True
+
+            # Negocios de ferretería/retail puro (ABASTO, BODEGA, MINIMARKET, FARMACIA,
+            # TIENDA, FERRETERIA, etc.) solo tienen m_hardware=True (ya activo por defecto).
             
             # Configuration dictionary for JSON config
             config = {
@@ -107,8 +127,15 @@ class TenantService:
                 has_barbershop_module=m_barbershop,
                 has_hardware_module=m_hardware
             )
+
+            # Campos de licencia para nuevos tenants via registro público
+            trial_days = settings.LICENSE_TRIAL_DAYS_DEFAULT
+            new_tenant.license_type = "trial"
+            new_tenant.trial_days = trial_days
+            new_tenant.trial_ends_at = datetime.utcnow() + timedelta(days=trial_days)
+
             db.add(new_tenant)
-            
+
             # 3. Create Schema (Postgres Only) - ATOMIC STEP
             try:
                 logger.info(f"🏗️  Executing: CREATE SCHEMA \"{schema_name}\"")
