@@ -1,0 +1,32 @@
+export const ORDER_ITEM_STATUS = {
+  PENDING:    'PENDING',
+  SENT:       'SENT',
+  PREPARING:  'PREPARING',
+  READY:      'READY',
+  SERVED:     'SERVED',
+};
+
+export const TABLE_STATUS = {
+  AVAILABLE:  'AVAILABLE',
+  OCCUPIED:   'OCCUPIED',
+  RESERVED:   'RESERVED',
+  CLEANING:   'CLEANING',
+};
+
+export const CASH_SESSION_STATUS = {
+  OPEN:   'OPEN',
+  CLOSED: 'CLOSED',
+};
+
+export const SALE_SYNC_STATUS = {
+  SYNCED:  'SYNCED',
+  PENDING: 'PENDING',
+};
+
+export const USER_ROLES = {
+  ADMIN:     'ADMIN',
+  CASHIER:   'CASHIER',
+  WAREHOUSE: 'WAREHOUSE',
+  WAITER:    'WAITER',
+  KITCHEN:   'KITCHEN',
+};

@@ -1,0 +1,183 @@
+"""
+cash/movements.py — Movimientos de caja e ingresos/egresos/adelantos.
+
+Responsabilidades:
+  - Registro de movimientos manuales (ingresos, egresos, adelantos) — POST /movements
+  - Consulta de balance disponible en cajón — GET /balance
+  - Función helper get_available_cash() (reutilizable por otros módulos)
+"""
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import func, or_, and_
+from typing import Optional
+from datetime import datetime
+from decimal import Decimal
+import logging
+
+from ...database.db import get_db
+from ...dependencies import get_current_active_user
+from ...models import models
+from ... import schemas
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+# ============================================================
+#  HELPER — disponibilidad de efectivo en cajón
+# ============================================================
+
+def get_available_cash(db: Session, session_id: int, currency: str) -> Decimal:
+    """Calculate available physical cash in the drawer for a specific currency"""
+    session = db.query(models.CashSession).filter(models.CashSession.id == session_id).first()
+    if not session:
+        return Decimal("0.00")
+
+    # 1. Initial Cash
+    initial = Decimal("0.00")
+    if currency == "USD":
+        initial = session.initial_cash
+    elif currency in ["Bs", "VES", "VEF"]:
+        initial = session.initial_cash_bs
+
+    # 2. Cash Sales (Only "Efectivo")
+    # Query optimization: Calculate sum directly in DB would be faster, but staying consistent with existing logic
+    # We filter specifically for CASH payments in the requested currency
+
+    # Normalize currency for query
+    target_currencies = [currency]
+    if currency in ["Bs", "VES", "VEF"]:
+        target_currencies = ["Bs", "VES", "VEF"]
+
+    cash_sales = db.query(func.sum(models.SalePayment.amount)).\
+        join(models.Sale).\
+        filter(
+            # New: isolate by session_id; fallback to date range for old sales without session_id
+            or_(
+                models.Sale.session_id == session.id,
+                and_(
+                    models.Sale.session_id.is_(None),
+                    models.Sale.date >= session.start_time,
+                    models.Sale.date <= (session.end_time or datetime.now()),
+                )
+            ),
+            or_(
+                models.SalePayment.payment_method.ilike("%efectivo%"),
+                models.SalePayment.payment_method.ilike("%cash%")
+            ),
+            models.SalePayment.currency.in_(target_currencies)
+        ).scalar() or Decimal("0.00")
+
+    # 3. Movements (Deposits - Withdrawals/Expenses)
+    movements_in = db.query(func.sum(models.CashMovement.amount)).filter(
+        models.CashMovement.session_id == session.id,
+        models.CashMovement.type.in_(["DEPOSIT", "IN"]),  # Fixed: Allow 'IN' from frontend
+        models.CashMovement.currency.in_(target_currencies)
+    ).scalar() or Decimal("0.00")
+
+    movements_out = db.query(func.sum(models.CashMovement.amount)).filter(
+        models.CashMovement.session_id == session.id,
+        models.CashMovement.type.in_(["EXPENSE", "WITHDRAWAL", "OUT", "CASH_ADVANCE", "RETURN"]),
+        models.CashMovement.currency.in_(target_currencies)
+    ).scalar() or Decimal("0.00")
+
+    # 4. Change Given (Vuelto) - DEDUCT FROM DRAWER
+    # We must check if the change was given in this currency
+    # Note: We assume change is always given in CASH
+    target_change_currencies = target_currencies
+
+    cash_change = db.query(func.sum(models.Sale.change_amount)).filter(
+        or_(
+            models.Sale.session_id == session.id,
+            and_(
+                models.Sale.session_id.is_(None),
+                models.Sale.date >= session.start_time,
+                models.Sale.date <= (session.end_time or datetime.now()),
+            )
+        ),
+        models.Sale.change_currency.in_(target_change_currencies),
+        models.Sale.change_amount > 0
+    ).scalar() or Decimal("0.00")
+
+    return initial + cash_sales - cash_change + movements_in - movements_out
+
+
+# ============================================================
+#  ENDPOINTS
+# ============================================================
+
+@router.post("/movements", response_model=schemas.CashMovementRead)
+def register_movement(
+    movement: schemas.CashMovementCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    # Get global open session
+    session = db.query(models.CashSession).filter(
+        models.CashSession.status == "OPEN"
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=400, detail="No hay sesión de caja abierta")
+
+    # VALIDATE FUNDS FOR OUTBOUND MOVEMENTS
+    if movement.type in ["WITHDRAWAL", "EXPENSE", "OUT", "CASH_ADVANCE"]:
+        available = get_available_cash(db, session.id, movement.currency)
+        if movement.amount > available:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Fondos insuficientes en {movement.currency}. Disponible: {available}"
+            )
+
+    new_movement = models.CashMovement(
+        session_id=session.id,
+        type=movement.type,
+        amount=movement.amount,
+        currency=movement.currency,
+        description=movement.description,
+        # Dual Transaction Fields
+        incoming_amount=movement.incoming_amount,
+        incoming_currency=movement.incoming_currency,
+        incoming_method=movement.incoming_method,
+        incoming_reference=movement.incoming_reference,
+        date=datetime.now()
+    )
+    db.add(new_movement)
+    db.flush()
+
+    response_data = {
+        "id": new_movement.id,
+        "session_id": new_movement.session_id,
+        "type": new_movement.type,
+        "amount": new_movement.amount,
+        "currency": new_movement.currency,
+        "description": new_movement.description,
+        "incoming_amount": new_movement.incoming_amount,
+        "incoming_currency": new_movement.incoming_currency,
+        "incoming_method": new_movement.incoming_method,
+        "incoming_reference": new_movement.incoming_reference,
+        "date": new_movement.date
+    }
+
+    db.commit()
+    # db.refresh(new_movement)
+    return response_data
+
+
+@router.get("/balance")
+def get_current_balance(
+    currency: str = "USD",
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Get current available cash balance for a currency"""
+    session = db.query(models.CashSession).filter(
+        models.CashSession.status == "OPEN"
+    ).first()
+
+    if not session:
+        return {"available": 0.0, "status": "CLOSED"}
+
+    available = get_available_cash(db, session.id, currency)
+    return {"available": float(available), "status": "OPEN"}
