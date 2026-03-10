@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl, field_validator
+from pydantic import BaseModel, HttpUrl, field_validator, ConfigDict
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -74,5 +74,4 @@ class TenantOut(TenantBase):
     # Optional computed fields
     user_count: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

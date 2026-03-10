@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     # Frontend URL
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # License System
+    LICENSE_MODE: str = "CLOUD"                    # OFFLINE | CLOUD
+    LICENSE_TRIAL_DAYS_DEFAULT: int = 15           # Días de trial para nuevos tenants
+    LICENSE_GRACE_DAYS_OFFLINE: int = 7            # Días de gracia offline tras vencimiento
+    LICENSE_KEY: Optional[str] = None              # JWT de licencia del servidor
+    LICENSE_RS256_PRIVATE_KEY: Optional[str] = None  # Clave privada para firmar .lic desktop
+    LICENSE_RS256_PUBLIC_KEY: Optional[str] = None   # Clave pública embebida en .exe Tauri
+
     model_config = ConfigDict(
         env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
