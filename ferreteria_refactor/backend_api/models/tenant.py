@@ -15,7 +15,7 @@ class Tenant(Base):
     
     # Subscription / License Logic
     is_demo = Column(Boolean, default=True) # New tenants are Demo by default usually
-    license_type = Column(String(20), default="trial", nullable=False, server_default="trial")
+    license_type = Column(String(20), default="trial", nullable=False, server_default="lifetime")
     trial_days = Column(Integer, default=15, nullable=False, server_default="15")
     trial_ends_at = Column(DateTime, nullable=True)
     subscription_expires_at = Column(DateTime, nullable=True) # NULL means forever or undefined

@@ -110,10 +110,11 @@ def sqlite_engine():
     def _set_sqlite_pragmas(dbapi_conn, _):
         dbapi_conn.execute("PRAGMA foreign_keys=ON")
 
-    # SQLite no soporta CREATE TABLE "public".<table>; falla con
-    # "unknown database public".  Para evitarlo, parche temporal: se elimina
-    # el atributo 'schema' de todos los Table que lo declaren, se crean las
-    # tablas, y luego se restaura el estado original.
+    # SQLite no soporta schemas ("unknown database public").  Se eliminan los
+    # atributos schema de todos los Table ANTES de create_all y se mantienen
+    # así durante todo el test para que los INSERTs/SELECTs tampoco los usen.
+    # Se restauran en el tear-down para no afectar otros módulos ni el engine
+    # de producción.
     schema_backups: dict = {}
     for table in Base.metadata.tables.values():
         if table.schema:
@@ -123,25 +124,29 @@ def sqlite_engine():
     try:
         with engine.begin() as conn:
             Base.metadata.create_all(conn)
+
+        # Los schemas permanecen a None durante el yield para que el DML
+        # (INSERT/SELECT/UPDATE) tampoco incluya el prefijo "public.".
+        yield engine
+
     finally:
-        # Restaurar schemas originales para no afectar otros tests o procesos
+        # Restaurar schemas originales antes del drop_all y al salir
         for table, original_schema in schema_backups.items():
             table.schema = original_schema
 
-    yield engine
-
-    # Tear-down: mismo patch para drop_all
-    for table in Base.metadata.tables.values():
-        if table.schema:
-            schema_backups[table] = table.schema
-            table.schema = None
-    try:
-        with engine.begin() as conn:
-            Base.metadata.drop_all(conn)
-    finally:
-        for table, original_schema in schema_backups.items():
-            table.schema = original_schema
-    engine.dispose()
+        # Tear-down: volver a quitar schemas para drop_all en SQLite
+        schema_backups_drop: dict = {}
+        for table in Base.metadata.tables.values():
+            if table.schema:
+                schema_backups_drop[table] = table.schema
+                table.schema = None
+        try:
+            with engine.begin() as conn:
+                Base.metadata.drop_all(conn)
+        finally:
+            for table, original_schema in schema_backups_drop.items():
+                table.schema = original_schema
+        engine.dispose()
 
 
 @pytest.fixture()

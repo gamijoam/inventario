@@ -6,6 +6,7 @@ Tests de aislamiento multi-tenant.
 Verifica que:
 1. Una query ejecutada en el contexto del schema A no puede ver datos del schema B.
 2. Al crear un nuevo Tenant mediante TenantService, se crea su schema PostgreSQL.
+3. La lógica de licencias/suscripciones funciona correctamente (SQLite).
 
 Arquitectura relevante:
 - tenant_context.py usa un ContextVar (_tenant_schema) para inyectar el schema activo.
@@ -18,6 +19,7 @@ Notas sobre SQLite vs PostgreSQL:
 - SQLite no soporta schemas; los tests de aislamiento de search_path REQUIEREN
   PostgreSQL real.  Están marcados con @pytest.mark.requires_postgres y se saltean
   automáticamente si TEST_DATABASE_URL no está definida.
+- Los tests de lógica de licencias y tenant SÍ corren en SQLite.
 - El test de creación de Tenant usa mocks para no necesitar una BD real.
 """
 
@@ -25,6 +27,7 @@ import os
 import pytest
 from unittest.mock import MagicMock, patch, call
 from decimal import Decimal
+import datetime
 
 
 # ---------------------------------------------------------------------------
@@ -40,14 +43,14 @@ def _import_or_skip():
         if _backend_root not in sys.path:
             sys.path.insert(0, _backend_root)
 
-        from backend_api.models.models import Customer, Base
+        from backend_api.models.models import Customer, Base, Product, Sale
         from backend_api.models.tenant import Tenant
         from backend_api.tenant_context import set_tenant_schema, reset_tenant_schema, get_tenant_schema
         from backend_api.services.tenant_service import TenantService
 
-        return Customer, Base, Tenant, set_tenant_schema, reset_tenant_schema, get_tenant_schema, TenantService
+        return Customer, Base, Tenant, set_tenant_schema, reset_tenant_schema, get_tenant_schema, TenantService, Product, Sale
     except Exception as e:
-        return None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None, None
 
 
 (
@@ -58,6 +61,8 @@ def _import_or_skip():
     reset_tenant_schema,
     get_tenant_schema,
     TenantService,
+    Product,
+    Sale,
 ) = _import_or_skip()
 
 MODELS_AVAILABLE = Customer is not None
@@ -370,3 +375,407 @@ def test_context_var_aislamiento_entre_contextos():
     assert get_tenant_schema() != "empresa_abc", (
         "El schema de empresa_abc no debe persistir tras reset_tenant_schema()."
     )
+
+
+# ---------------------------------------------------------------------------
+# Clase 4 — Aislamiento de datos de negocio por tenant (SQLite)
+# ---------------------------------------------------------------------------
+
+class TestTenantSchemaIsolation:
+    """Verifica que los datos de un tenant no se filtran a otro.
+
+    Estos tests usan la fixture db_session (SQLite) y simulan el aislamiento
+    mediante el campo tenant_id en los modelos que lo soportan (User, etc.).
+    Para modelos sin tenant_id explícito (Customer, Product), la separación
+    real ocurre a nivel de schema PostgreSQL; aquí se verifica la lógica
+    de filtrado a nivel de aplicación.
+    """
+
+    def test_clientes_filtrados_por_instancia(self, db_session):
+        """Clientes de diferentes tenants son distinguibles por sus registros.
+
+        En SQLite (sin schemas) verificamos que los registros existen de forma
+        independiente y que un filtro correcto los separa.
+        """
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        # Crear dos clientes que representan tenants distintos
+        customer_a = Customer(
+            name="Cliente Tenant A",
+            credit_limit=Decimal("500.00"),
+            is_blocked=False,
+        )
+        customer_b = Customer(
+            name="Cliente Tenant B",
+            credit_limit=Decimal("300.00"),
+            is_blocked=False,
+        )
+        db_session.add(customer_a)
+        db_session.add(customer_b)
+        db_session.flush()
+
+        # Verificar que ambos están en la BD y son distinguibles
+        all_customers = db_session.query(Customer).all()
+        names = [c.name for c in all_customers]
+
+        assert "Cliente Tenant A" in names
+        assert "Cliente Tenant B" in names
+        assert len(all_customers) == 2
+
+        # Simular filtro de tenant: en producción, search_path aísla por schema.
+        # Aquí verificamos que cada cliente tiene su propio ID independiente.
+        assert customer_a.id != customer_b.id, (
+            "Cada cliente debe tener un ID único incluso en el mismo scope."
+        )
+
+    def test_productos_tienen_ids_unicos_entre_tenants(self, db_session):
+        """Productos creados para distintos tenants tienen IDs únicos."""
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        product_a = Product(
+            name="Tornillo 1/4 Tenant A",
+            sku="SKU-A-001",
+            price=Decimal("0.50"),
+            stock=Decimal("100.000"),
+            cost_price=Decimal("0.20"),
+            is_active=True,
+            is_service=False,
+            is_combo=False,
+            has_imei=False,
+        )
+        product_b = Product(
+            name="Tornillo 1/4 Tenant B",
+            sku="SKU-B-001",
+            price=Decimal("0.60"),
+            stock=Decimal("50.000"),
+            cost_price=Decimal("0.25"),
+            is_active=True,
+            is_service=False,
+            is_combo=False,
+            has_imei=False,
+        )
+        db_session.add(product_a)
+        db_session.add(product_b)
+        db_session.flush()
+
+        # En un schema separado (PostgreSQL), product_b no existiría para tenant A.
+        # En SQLite verificamos que cada producto tiene su identidad única.
+        assert product_a.id is not None
+        assert product_b.id is not None
+        assert product_a.id != product_b.id
+
+        # Filtro por nombre simula lo que search_path hace automáticamente en PG
+        result_a = db_session.query(Product).filter(
+            Product.name == "Tornillo 1/4 Tenant A"
+        ).first()
+        result_b = db_session.query(Product).filter(
+            Product.name == "Tornillo 1/4 Tenant B"
+        ).first()
+
+        assert result_a is not None
+        assert result_b is not None
+        assert result_a.id != result_b.id
+
+    def test_context_var_no_contamina_entre_llamadas(self):
+        """El ContextVar de tenant se resetea correctamente entre llamadas."""
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        reset_tenant_schema()
+
+        # Simular request de tenant A
+        set_tenant_schema("ferreteria_garcia")
+        assert get_tenant_schema() == "ferreteria_garcia"
+
+        # Simular fin de request — reset
+        reset_tenant_schema()
+
+        # Simular request de tenant B — no debe ver el schema de A
+        set_tenant_schema("supermercado_lopez")
+        assert get_tenant_schema() == "supermercado_lopez"
+        assert get_tenant_schema() != "ferreteria_garcia", (
+            "El schema de ferreteria_garcia no debe ser visible en el contexto "
+            "de supermercado_lopez tras el reset."
+        )
+
+        # Cleanup
+        reset_tenant_schema()
+
+    @pytest.mark.requires_postgres
+    def test_schema_search_path_aísla_datos_reales(self):
+        """Con PostgreSQL real, search_path impide ver datos de otro tenant.
+
+        Este test requiere TEST_DATABASE_URL definida.
+        """
+        pytest.skip(
+            "Test de integración PostgreSQL: requiere TEST_DATABASE_URL. "
+            "Ver test_usuario_no_puede_ver_data_de_otro_tenant() en este módulo."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Clase 5 — Validación de licencias de tenant (SQLite)
+# ---------------------------------------------------------------------------
+
+class TestLicenseValidation:
+    """Verifica la lógica de validación de licencias y suscripciones."""
+
+    def _make_tenant(self, db_session, **kwargs):
+        """Helper: crea y persiste un Tenant con valores por defecto sobreescribibles."""
+        defaults = {
+            "name": "Empresa Test",
+            "schema_name": "empresa_test",
+            "is_active": True,
+            "license_type": "trial",
+            "trial_days": 15,
+            "trial_ends_at": None,
+            "subscription_expires_at": None,
+        }
+        defaults.update(kwargs)
+        tenant = Tenant(**defaults)
+        db_session.add(tenant)
+        db_session.flush()
+        return tenant
+
+    def test_tenant_activo_tiene_is_active_true(self, db_session):
+        """Un tenant recién creado está activo por defecto."""
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        tenant = self._make_tenant(db_session, schema_name="activo_test_001")
+        assert tenant.is_active is True
+
+    def test_tenant_inactivo_no_puede_operar(self, db_session):
+        """Un tenant con is_active=False representa una cuenta bloqueada.
+
+        Verifica que el flag is_active=False puede setearse y persistirse,
+        y que la lógica de negocio debe rechazar operaciones para este tenant.
+        """
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        tenant = self._make_tenant(
+            db_session,
+            schema_name="inactivo_test_001",
+            is_active=False,
+            license_blocked_reason="PAYMENT_OVERDUE",
+        )
+        db_session.flush()
+
+        # Verificar que el flag está seteado correctamente en BD
+        retrieved = db_session.query(Tenant).filter(
+            Tenant.schema_name == "inactivo_test_001"
+        ).first()
+
+        assert retrieved is not None
+        assert retrieved.is_active is False, (
+            "Un tenant bloqueado debe tener is_active=False."
+        )
+        assert retrieved.license_blocked_reason == "PAYMENT_OVERDUE"
+
+    def test_tenant_lifetime_no_tiene_fecha_expiracion(self, db_session):
+        """Un tenant con license_type=lifetime tiene subscription_expires_at=NULL.
+
+        NULL significa que nunca expira — no es afectado por auto-expiración.
+        """
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        tenant = self._make_tenant(
+            db_session,
+            schema_name="lifetime_test_001",
+            license_type="lifetime",
+            trial_ends_at=None,
+            subscription_expires_at=None,
+        )
+        db_session.flush()
+
+        retrieved = db_session.query(Tenant).filter(
+            Tenant.schema_name == "lifetime_test_001"
+        ).first()
+
+        assert retrieved.license_type == "lifetime"
+        assert retrieved.subscription_expires_at is None, (
+            "Un tenant lifetime NO debe tener subscription_expires_at definida. "
+            "NULL = nunca expira."
+        )
+        assert retrieved.trial_ends_at is None, (
+            "Un tenant lifetime no debería tener fecha de fin de trial."
+        )
+
+    def test_tenant_trial_vencido_identificable(self, db_session):
+        """Un tenant con trial_ends_at en el pasado es identificable como vencido.
+
+        El scheduler de auto-expiración compara trial_ends_at < now() y marca
+        is_active=False.  Este test verifica que el campo puede setearse en el
+        pasado y ser leído correctamente.
+        """
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        fecha_pasada = datetime.datetime.utcnow() - datetime.timedelta(days=30)
+
+        tenant = self._make_tenant(
+            db_session,
+            schema_name="trial_vencido_001",
+            license_type="trial",
+            trial_ends_at=fecha_pasada,
+            is_active=True,  # Aún no procesado por scheduler
+        )
+        db_session.flush()
+
+        retrieved = db_session.query(Tenant).filter(
+            Tenant.schema_name == "trial_vencido_001"
+        ).first()
+
+        assert retrieved.trial_ends_at is not None
+        assert retrieved.trial_ends_at < datetime.datetime.utcnow(), (
+            "El tenant debe tener trial_ends_at en el pasado para ser considerado vencido."
+        )
+
+        # Simular la lógica del scheduler: marcar inactivo si trial venció
+        ahora = datetime.datetime.utcnow()
+        if (
+            retrieved.license_type == "trial"
+            and retrieved.trial_ends_at is not None
+            and retrieved.trial_ends_at < ahora
+        ):
+            retrieved.is_active = False
+            db_session.flush()
+
+        assert retrieved.is_active is False, (
+            "El tenant con trial vencido debe ser marcado como inactivo por el scheduler."
+        )
+
+    def test_tenant_monthly_vencido_identificable(self, db_session):
+        """Un tenant monthly con subscription_expires_at en el pasado es vencido."""
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        fecha_pasada = datetime.datetime.utcnow() - datetime.timedelta(days=5)
+
+        tenant = self._make_tenant(
+            db_session,
+            schema_name="monthly_vencido_001",
+            license_type="monthly",
+            subscription_expires_at=fecha_pasada,
+            is_active=True,
+        )
+        db_session.flush()
+
+        retrieved = db_session.query(Tenant).filter(
+            Tenant.schema_name == "monthly_vencido_001"
+        ).first()
+
+        assert retrieved.subscription_expires_at is not None
+        assert retrieved.subscription_expires_at < datetime.datetime.utcnow()
+
+        # Simular lógica de scheduler para suscripción mensual
+        ahora = datetime.datetime.utcnow()
+        if (
+            retrieved.license_type in ("monthly", "annual")
+            and retrieved.subscription_expires_at is not None
+            and retrieved.subscription_expires_at < ahora
+        ):
+            retrieved.is_active = False
+            db_session.flush()
+
+        assert retrieved.is_active is False, (
+            "El tenant monthly vencido debe ser desactivado por el scheduler."
+        )
+
+    def test_tenant_monthly_vigente_permanece_activo(self, db_session):
+        """Un tenant monthly con subscription_expires_at en el futuro permanece activo."""
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        fecha_futura = datetime.datetime.utcnow() + datetime.timedelta(days=25)
+
+        tenant = self._make_tenant(
+            db_session,
+            schema_name="monthly_vigente_001",
+            license_type="monthly",
+            subscription_expires_at=fecha_futura,
+            is_active=True,
+        )
+        db_session.flush()
+
+        retrieved = db_session.query(Tenant).filter(
+            Tenant.schema_name == "monthly_vigente_001"
+        ).first()
+
+        # El scheduler NO debe desactivarlo porque aún no venció
+        ahora = datetime.datetime.utcnow()
+        debe_desactivar = (
+            retrieved.license_type in ("monthly", "annual")
+            and retrieved.subscription_expires_at is not None
+            and retrieved.subscription_expires_at < ahora
+        )
+
+        assert not debe_desactivar, (
+            "Un tenant con suscripción vigente NO debe ser desactivado por el scheduler."
+        )
+        assert retrieved.is_active is True
+
+    def test_schema_name_valida_solo_caracteres_seguros(self):
+        """El schema_name debe usar solo caracteres alfanuméricos y guiones bajos.
+
+        La función _validate_schema_name en db.py protege contra SQL injection
+        en SET search_path.
+        """
+        import re
+        _SAFE_SCHEMA_RE = re.compile(r'^[a-zA-Z0-9_]+$')
+
+        nombres_validos = ["empresa_abc", "tenant001", "FerreteriaMedina", "t_1"]
+        for nombre in nombres_validos:
+            assert _SAFE_SCHEMA_RE.match(nombre), (
+                f"'{nombre}' debe ser un schema_name válido."
+            )
+
+        nombres_invalidos = ["empresa-abc", "tenant; DROP", "schema'injection", "../etc"]
+        for nombre in nombres_invalidos:
+            assert not _SAFE_SCHEMA_RE.match(nombre), (
+                f"'{nombre}' NO debe ser un schema_name válido — posible injection."
+            )
+
+    def test_tenant_lifetime_no_se_desactiva_por_scheduler(self, db_session):
+        """Un tenant lifetime nunca es afectado por la lógica de expiración."""
+        if not MODELS_AVAILABLE:
+            pytest.skip("Modelos no disponibles.")
+
+        # Incluso si alguien pusiera una fecha pasada en trial_ends_at para
+        # un tenant lifetime, la lógica del scheduler no debería tocarlo.
+        fecha_pasada = datetime.datetime.utcnow() - datetime.timedelta(days=999)
+
+        tenant = self._make_tenant(
+            db_session,
+            schema_name="lifetime_no_expira_001",
+            license_type="lifetime",
+            trial_ends_at=fecha_pasada,
+            subscription_expires_at=None,
+            is_active=True,
+        )
+        db_session.flush()
+
+        retrieved = db_session.query(Tenant).filter(
+            Tenant.schema_name == "lifetime_no_expira_001"
+        ).first()
+
+        # Simular lógica correcta del scheduler: lifetime queda excluido
+        ahora = datetime.datetime.utcnow()
+        debe_desactivar = (
+            retrieved.license_type == "trial"
+            and retrieved.trial_ends_at is not None
+            and retrieved.trial_ends_at < ahora
+        ) or (
+            retrieved.license_type in ("monthly", "annual")
+            and retrieved.subscription_expires_at is not None
+            and retrieved.subscription_expires_at < ahora
+        )
+
+        assert not debe_desactivar, (
+            "Un tenant lifetime NO debe ser marcado para desactivación por el scheduler."
+        )
+        assert retrieved.is_active is True

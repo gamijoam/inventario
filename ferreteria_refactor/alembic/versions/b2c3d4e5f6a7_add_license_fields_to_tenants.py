@@ -16,7 +16,7 @@ depends_on = None
 def upgrade() -> None:
     # Solo aplica al schema public (tabla tenants es global)
     op.add_column('tenants',
-        sa.Column('license_type', sa.String(20), nullable=False, server_default='trial'),
+        sa.Column('license_type', sa.String(20), nullable=False, server_default='lifetime'),
         schema='public')
     op.add_column('tenants',
         sa.Column('trial_days', sa.Integer(), nullable=False, server_default='15'),
@@ -27,6 +27,13 @@ def upgrade() -> None:
     op.add_column('tenants',
         sa.Column('license_blocked_reason', sa.String(50), nullable=True),
         schema='public')
+
+    # Marcar tenants existentes como lifetime (ya son clientes activos)
+    op.execute("""
+        UPDATE public.tenants
+        SET license_type = 'lifetime'
+        WHERE is_active = true
+    """)
 
 
 def downgrade() -> None:

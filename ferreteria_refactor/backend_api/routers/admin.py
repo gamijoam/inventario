@@ -24,7 +24,7 @@ from ..models.payment import TenantPayment
 from ..schemas.tenant import TenantOut, TenantCreate, TenantUpdate
 from ..schemas import payment as payment_schema
 from .. import schemas
-from datetime import timedelta
+from datetime import datetime, timedelta
 from ..security import get_password_hash, create_access_token
 from ..config import settings
 from ..utils.time_utils import get_venezuela_now
@@ -64,6 +64,7 @@ def create_tenant(
         
     try:
         # 3. Create Tenant Record
+        trial_days = getattr(tenant_in, 'trial_days', 15) or 15
         new_tenant = Tenant(
             name=tenant_in.name,
             schema_name=schema,
@@ -71,7 +72,10 @@ def create_tenant(
             config=tenant_in.config,
             is_active=True,
             is_demo=tenant_in.is_demo,
-            subscription_expires_at=tenant_in.subscription_expires_at
+            subscription_expires_at=tenant_in.subscription_expires_at,
+            license_type="trial",
+            trial_days=trial_days,
+            trial_ends_at=datetime.utcnow() + timedelta(days=trial_days),
         )
         db.add(new_tenant)
         db.commit()
