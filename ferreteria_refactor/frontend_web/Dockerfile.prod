@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copiamos package.json e instalamos dependencias
 COPY package.json package-lock.json ./
-RUN npm install --legacy-peer-deps
+RUN node --max-old-space-size=512 $(which npm) ci --legacy-peer-deps
 
 # Copiamos el código fuente
 COPY . .

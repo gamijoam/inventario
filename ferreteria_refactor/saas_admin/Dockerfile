@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copiamos dependencias primero (para aprovechar caché de Docker)
 COPY package*.json ./
-RUN npm install
+RUN node --max-old-space-size=512 $(which npm) ci --legacy-peer-deps
 
 # Copiamos el resto del código
 COPY . .
