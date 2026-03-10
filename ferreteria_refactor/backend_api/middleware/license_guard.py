@@ -38,9 +38,11 @@ WHITELIST_PATHS = [
     "/api/v1/license/status",
     "/api/v1/license/machine-id",
     "/assets",
-    "/",
     "/api/v1/ws",
 ]
+
+# Rutas exactas (no prefijos) que se permiten sin licencia
+WHITELIST_EXACT = {"/", "/favicon.ico"}
 
 
 def get_machine_id():
@@ -194,7 +196,11 @@ class LicenseGuardMiddleware(BaseHTTPMiddleware):
         # Verificar si la ruta está en la whitelist
         path = request.url.path
         
-        # Permitir rutas whitelisted
+        # Permitir rutas exactas (ej. "/")
+        if path in WHITELIST_EXACT:
+            return await call_next(request)
+
+        # Permitir rutas por prefijo
         if any(path.startswith(whitelist_path) for whitelist_path in WHITELIST_PATHS):
             return await call_next(request)
         
