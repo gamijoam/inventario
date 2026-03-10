@@ -88,3 +88,50 @@ export async function reactivateLicense(tenantId: number): Promise<Tenant> {
         license_blocked_reason: null,
     });
 }
+
+// ─── Desktop Device / License Management ────────────────────────────────────
+
+export interface DesktopDevice {
+    id: number;
+    tenant_id: number;
+    license_key: string;
+    plan_name: string;
+    device_id: string | null;
+    device_label: string | null;
+    activated_at: string | null;
+    last_seen_at: string | null;
+    expires_at: string | null;
+    created_at: string;
+    is_active: boolean;
+    is_revoked: boolean;
+    revoked_reason: string | null;
+    revoked_at: string | null;
+    activations_count: number;
+    max_activations: number;
+    notes: string | null;
+}
+
+/** List all desktop licenses for a given tenant. */
+export async function getTenantDevices(tenantId: number): Promise<DesktopDevice[]> {
+    const response = await api.get<DesktopDevice[]>('/admin/desktop-licenses/', {
+        params: { tenant_id: tenantId },
+    });
+    return response.data;
+}
+
+/** Revoke a desktop license by its ID. */
+export async function revokeDevice(licenseId: number, reason = 'manual'): Promise<DesktopDevice> {
+    const response = await api.patch<DesktopDevice>(
+        `/admin/desktop-licenses/${licenseId}/revoke`,
+        { reason },
+    );
+    return response.data;
+}
+
+/** Reactivate a previously revoked desktop license. */
+export async function reactivateDevice(licenseId: number): Promise<DesktopDevice> {
+    const response = await api.patch<DesktopDevice>(
+        `/admin/desktop-licenses/${licenseId}/reactivate`,
+    );
+    return response.data;
+}

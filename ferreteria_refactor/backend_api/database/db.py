@@ -1,6 +1,6 @@
 import re
 from sqlalchemy import create_engine, text, event
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 from ..config import settings
 from ..tenant_context import get_tenant_schema

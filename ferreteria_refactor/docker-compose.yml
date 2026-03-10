@@ -44,7 +44,15 @@ services:
       # Application Config
       DOCKER_CONTAINER: "true"
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      
+
+      # Licencias
+      LICENSE_MODE: ${LICENSE_MODE:-CLOUD}
+      LICENSE_TRIAL_DAYS_DEFAULT: ${LICENSE_TRIAL_DAYS_DEFAULT:-15}
+      LICENSE_GRACE_DAYS_OFFLINE: ${LICENSE_GRACE_DAYS_OFFLINE:-7}
+      # LICENSE_KEY: ${LICENSE_KEY}                       # JWT de licencia (modo CLOUD)
+      # LICENSE_RS256_PRIVATE_KEY: ${LICENSE_RS256_PRIVATE_KEY}   # PEM — solo en servidor de licencias
+      # LICENSE_RS256_PUBLIC_KEY: ${LICENSE_RS256_PUBLIC_KEY}     # PEM — para verificar tokens desktop
+
     depends_on:
       db:
         condition: service_healthy  # ⚠️ CRÍTICO: Esperar a que DB esté lista

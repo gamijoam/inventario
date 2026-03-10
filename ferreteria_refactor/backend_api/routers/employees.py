@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from typing import List
+from datetime import datetime
 
 from ..database.db import get_db
 from ..models.models import User, Employee, Commission, SaleDetail, Product, CashSession, CashMovement
 from ..schemas.employees import (
-    EmployeeCreate, EmployeeUpdate, EmployeeResponse, 
+    EmployeeCreate, EmployeeUpdate, EmployeeResponse,
     CommissionResponse, CommissionPayoutRequest, CommissionPayoutResponse
 )
 from ..dependencies import get_current_user
@@ -169,5 +170,86 @@ def payout_commissions(
         total_paid=total_to_pay,
         movement_id=expense.id,
         message=f"Pagadas {len(commissions)} comisiones a {employee.name} por un total de ${total_to_pay:,.2f}"
+    )
+
+
+@router.post("/commissions/{commission_id}/pay", response_model=CommissionPayoutResponse)
+def pay_single_commission(
+    commission_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Fase 3 — Pay a single barbershop commission by ID.
+    Marks it PAID and generates a cash register expense.
+    Requires an open cash session.
+    """
+    tenant_id = current_user.tenant_id
+
+    # 1. Fetch commission belonging to this tenant
+    commission = db.query(Commission).filter(
+        Commission.id == commission_id,
+        Commission.tenant_id == tenant_id,
+        Commission.status == "PENDING"
+    ).first()
+
+    if not commission:
+        raise HTTPException(
+            status_code=404,
+            detail="Comisión no encontrada, ya pagada, o no pertenece a este tenant"
+        )
+
+    # 2. Fetch associated employee
+    employee = db.query(Employee).filter(
+        Employee.id == commission.employee_id,
+        Employee.tenant_id == tenant_id
+    ).first()
+
+    if not employee:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+
+    amount_to_pay = commission.calculated_commission
+
+    # 3. Locate open cash session (current user first, fallback to any open)
+    session = db.query(CashSession).filter(
+        CashSession.user_id == current_user.id,
+        CashSession.status == "OPEN"
+    ).first()
+
+    if not session:
+        session = db.query(CashSession).filter(CashSession.status == "OPEN").first()
+
+    if not session:
+        raise HTTPException(
+            status_code=400,
+            detail="No hay caja abierta. Abra la caja antes de liquidar comisiones."
+        )
+
+    # 4. Create cash movement (expense)
+    expense = CashMovement(
+        session_id=session.id,
+        type="EXPENSE",
+        amount=float(amount_to_pay),
+        currency="USD",
+        description=(
+            f"Pago Comisión: {employee.name} — "
+            f"Comisión #{commission_id} — ${float(amount_to_pay):,.2f} "
+            f"[{datetime.now().strftime('%Y%m%d-%H%M%S')}]"
+        ),
+    )
+    db.add(expense)
+    db.flush()
+
+    # 5. Mark commission as paid
+    commission.status = "PAID"
+
+    db.commit()
+
+    return CommissionPayoutResponse(
+        success=True,
+        paid_count=1,
+        total_paid=amount_to_pay,
+        movement_id=expense.id,
+        message=f"Comisión pagada a {employee.name} por ${float(amount_to_pay):,.2f}"
     )
 

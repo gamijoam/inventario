@@ -1,6 +1,7 @@
 import os
 from typing import Optional
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from pathlib import Path
 
 # Get the directory where this config.py file is located
@@ -59,10 +60,10 @@ class Settings(BaseSettings):
     # Frontend URL
     FRONTEND_URL: str = "http://localhost:3000"
 
-    class Config:
-        # Use absolute path to .env file in backend_api directory
-        env_file = str(ENV_FILE)
-        env_file_encoding = "utf-8"
-        extra = "ignore"
+    model_config = ConfigDict(
+        env_file=str(ENV_FILE),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 settings = Settings()

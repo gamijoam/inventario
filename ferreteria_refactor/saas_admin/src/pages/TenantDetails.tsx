@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle, DollarSign } from 'lucide-react';
+import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle, DollarSign, Monitor } from 'lucide-react';
 import { getTenantById, getTenantUsers, seedTenant } from '../api/tenants';
 import { billingApi } from '../api/billing';
+import { getTenantDevices, revokeDevice, reactivateDevice } from '../api/licenses';
 import type { TenantUser } from '../api/tenants';
 import type { Tenant } from '../types/tenant';
 import type { Payment } from '../types/billing';
+import type { DesktopDevice } from '../api/licenses';
 import toast from 'react-hot-toast';
 
 import EditTenantModal from '../components/EditTenantModal';
@@ -20,9 +22,11 @@ const TenantDetails: React.FC = () => {
     const [tenant, setTenant] = useState<Tenant | null>(null);
     const [users, setUsers] = useState<TenantUser[]>([]);
     const [payments, setPayments] = useState<Payment[]>([]);
+    const [devices, setDevices] = useState<DesktopDevice[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSeeding, setIsSeeding] = useState(false);
-    const [activeTab, setActiveTab] = useState<'general' | 'users' | 'payments'>('general');
+    const [isRevokingDevice, setIsRevokingDevice] = useState<number | null>(null);
+    const [activeTab, setActiveTab] = useState<'general' | 'users' | 'payments' | 'devices'>('general');
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -52,7 +56,16 @@ const TenantDetails: React.FC = () => {
                 setPayments(paymentsData);
             } catch (paymentError) {
                 console.warn('Failed to load payments:', paymentError);
-                setPayments([]); // Set empty array if payments fail
+                setPayments([]);
+            }
+
+            // Load desktop devices separately (non-critical)
+            try {
+                const devicesData = await getTenantDevices(tenantId);
+                setDevices(devicesData);
+            } catch (deviceError) {
+                console.warn('Failed to load desktop devices:', deviceError);
+                setDevices([]);
             }
         } catch (error) {
             console.error(error);
@@ -60,6 +73,40 @@ const TenantDetails: React.FC = () => {
             navigate('/dashboard/tenants');
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleRevokeDevice = async (device: DesktopDevice) => {
+        const label = device.device_label || device.license_key.substring(0, 12) + '...';
+        if (!window.confirm(`¿Revocar la licencia "${label}"? El dispositivo perderá acceso inmediatamente.`)) return;
+
+        try {
+            setIsRevokingDevice(device.id);
+            await revokeDevice(device.id);
+            toast.success(`Licencia revocada correctamente`);
+            if (id) setDevices(prev => prev.map(d => d.id === device.id ? { ...d, is_revoked: true, is_active: false } : d));
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.response?.data?.detail || 'Error al revocar la licencia');
+        } finally {
+            setIsRevokingDevice(null);
+        }
+    };
+
+    const handleReactivateDevice = async (device: DesktopDevice) => {
+        const label = device.device_label || device.license_key.substring(0, 12) + '...';
+        if (!window.confirm(`¿Reactivar la licencia "${label}"?`)) return;
+
+        try {
+            setIsRevokingDevice(device.id);
+            await reactivateDevice(device.id);
+            toast.success(`Licencia reactivada correctamente`);
+            if (id) setDevices(prev => prev.map(d => d.id === device.id ? { ...d, is_revoked: false, is_active: true } : d));
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.response?.data?.detail || 'Error al reactivar la licencia');
+        } finally {
+            setIsRevokingDevice(null);
         }
     };
 
@@ -245,6 +292,16 @@ const TenantDetails: React.FC = () => {
                     >
                         Historial de Pagos
                     </button>
+                    <button
+                        onClick={() => setActiveTab('devices')}
+                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-1.5 ${activeTab === 'devices'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                            }`}
+                    >
+                        <Monitor className="w-4 h-4" />
+                        Dispositivos ({devices.length})
+                    </button>
                 </nav>
             </div>
 
@@ -361,6 +418,118 @@ const TenantDetails: React.FC = () => {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                )}
+
+                {activeTab === 'devices' && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        {devices.length === 0 ? (
+                            <div className="px-6 py-16 text-center text-gray-500">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="p-4 bg-gray-100 rounded-full">
+                                        <Monitor className="w-8 h-8 text-gray-400" />
+                                    </div>
+                                    <p className="font-medium text-gray-900">Sin dispositivos registrados</p>
+                                    <p className="text-sm text-gray-500 max-w-xs">
+                                        Este tenant aún no ha activado ninguna licencia de escritorio.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Licencia</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dispositivo</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activado el</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último acceso</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vence</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {devices.map((device) => {
+                                        const isExpired = device.expires_at
+                                            ? new Date(device.expires_at) < new Date()
+                                            : false;
+
+                                        const statusBadge = device.is_revoked
+                                            ? <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 border border-red-200">Revocado</span>
+                                            : isExpired
+                                                ? <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700 border border-orange-200">Expirado</span>
+                                                : <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 border border-green-200">Activo</span>;
+
+                                        const isBusy = isRevokingDevice === device.id;
+
+                                        return (
+                                            <tr key={device.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="font-mono text-sm text-gray-700 bg-gray-100 px-2 py-1 rounded" title={device.license_key}>
+                                                        {device.license_key.length > 16
+                                                            ? device.license_key.substring(0, 16) + '…'
+                                                            : device.license_key}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="capitalize text-sm text-gray-700 font-medium">
+                                                        {device.plan_name}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm text-gray-900">
+                                                        {device.device_label || <span className="text-gray-400 italic">Sin etiqueta</span>}
+                                                    </div>
+                                                    {device.device_id && (
+                                                        <div className="text-xs text-gray-400 font-mono truncate max-w-xs" title={device.device_id}>
+                                                            {device.device_id.substring(0, 20)}…
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                    {device.activated_at
+                                                        ? new Date(device.activated_at).toLocaleDateString()
+                                                        : <span className="text-gray-400">—</span>}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                    {device.last_seen_at
+                                                        ? new Date(device.last_seen_at).toLocaleDateString()
+                                                        : <span className="text-gray-400">—</span>}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                    {device.expires_at
+                                                        ? <span className={isExpired ? 'text-red-600 font-medium' : ''}>{new Date(device.expires_at).toLocaleDateString()}</span>
+                                                        : <span className="text-gray-400">Indefinido</span>}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {statusBadge}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {device.is_revoked ? (
+                                                        <button
+                                                            onClick={() => handleReactivateDevice(device)}
+                                                            disabled={isBusy}
+                                                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors disabled:opacity-50"
+                                                        >
+                                                            {isBusy ? 'Procesando…' : 'Reactivar'}
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleRevokeDevice(device)}
+                                                            disabled={isBusy}
+                                                            className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-50"
+                                                        >
+                                                            {isBusy ? 'Procesando…' : 'Revocar'}
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 )}
 

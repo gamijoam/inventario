@@ -242,6 +242,7 @@ from .routers.admin import router as admin_router  # NEW: Superuser admin endpoi
 from .routers.admin_tasks import router as admin_tasks_router # NEW: Admin Tasks
 from .routers.support_client import router as support_client_router
 from .routers.support_admin import router as support_admin_router
+from .routers.desktop_licenses import router as desktop_licenses_router  # Desktop license management
 
 # ...
 
@@ -249,6 +250,7 @@ v1_router.include_router(admin_router, tags=["Admin Panel"])  # NEW: Superuser a
 v1_router.include_router(admin_tasks_router, tags=["Admin Tasks"]) # NEW: Admin Tasks
 v1_router.include_router(support_client_router, tags=["Soporte"])
 v1_router.include_router(support_admin_router, tags=["Admin Soporte"])
+v1_router.include_router(desktop_licenses_router, tags=["Admin - Desktop Licenses"])  # Desktop licenses
 
 
 # Include Public Auth and Restaurant in v1 hierarchy too

@@ -2,10 +2,84 @@ import React, { useState, useEffect } from 'react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import {
-    DollarSign, Search, Filter, CheckCircle, Download
+    DollarSign, Search, CheckCircle, Download, AlertTriangle, X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+// Inline confirmation modal — no window.confirm(), no window.alert()
+const ConfirmPayModal = ({ commission, employeeName, onConfirm, onCancel, isProcessing }) => {
+    if (!commission) return null;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+                <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-amber-50">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-100 rounded-xl text-amber-600">
+                            <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-800">Confirmar Pago</h3>
+                    </div>
+                    <button
+                        onClick={onCancel}
+                        disabled={isProcessing}
+                        className="text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="p-5 space-y-4">
+                    <p className="text-slate-600 text-sm">
+                        Se liquidará la comisión y se registrará un egreso en la caja activa.
+                    </p>
+                    <div className="bg-slate-50 rounded-xl p-4 space-y-2 border border-slate-100">
+                        <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Barbero / Estilista</span>
+                            <span className="font-bold text-slate-800">{employeeName}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                            <span className="text-slate-500">Venta base</span>
+                            <span className="font-medium text-slate-700">
+                                ${parseFloat(commission.base_amount).toFixed(2)}
+                            </span>
+                        </div>
+                        <div className="flex justify-between text-base border-t border-slate-200 pt-2 mt-2">
+                            <span className="font-bold text-slate-700">Comisión a pagar</span>
+                            <span className="font-black text-emerald-600">
+                                ${parseFloat(commission.calculated_commission).toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                        Recuerde retirar fisicamente el dinero de la caja para que coincida con el sistema.
+                    </p>
+                </div>
+                <div className="px-5 pb-5 flex gap-3">
+                    <button
+                        onClick={onCancel}
+                        disabled={isProcessing}
+                        className="flex-1 px-4 py-2.5 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl font-medium transition-colors disabled:opacity-50"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        disabled={isProcessing}
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shadow-sm disabled:opacity-60"
+                    >
+                        {isProcessing ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <CheckCircle className="w-4 h-4" />
+                        )}
+                        {isProcessing ? 'Procesando...' : 'Confirmar Pago'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const CommissionsReport = () => {
     const [commissions, setCommissions] = useState([]);
@@ -14,6 +88,9 @@ const CommissionsReport = () => {
     const [isProcessing, setIsProcessing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
+
+    // Inline confirmation state — replaces window.confirm()
+    const [pendingPayment, setPendingPayment] = useState(null); // commission object
 
     const loadData = async () => {
         setIsLoading(true);
@@ -42,35 +119,40 @@ const CommissionsReport = () => {
         return emp ? emp.name : `ID: ${id}`;
     };
 
-    const handleMarkAsPaid = async (comm) => {
-        if (!window.confirm(`¿Confirmar pago de comisión por $${parseFloat(comm.calculated_commission).toFixed(2)} a ${getEmployeeName(comm.employee_id)}?`)) {
-            return;
-        }
+    // Open confirmation modal (no window.confirm)
+    const handlePayClick = (comm) => {
+        setPendingPayment(comm);
+    };
+
+    // Called when user confirms inside the modal
+    const handleConfirmPay = async () => {
+        if (!pendingPayment) return;
 
         setIsProcessing(true);
         try {
-            const payload = {
-                employee_id: comm.employee_id,
-                commission_ids: [comm.id],
-                payment_method: "Efectivo",
-                notes: `Pago individual desde reporte de comisiones - Servicio ID: ${comm.sale_item_id}`
-            };
-
-            const response = await apiClient.post('/employees/payout', payload);
+            // Use the new dedicated Fase 3 endpoint
+            const response = await apiClient.post(
+                `/employees/commissions/${pendingPayment.id}/pay`
+            );
 
             if (response.data.success) {
                 toast.success(response.data.message);
+                setPendingPayment(null);
                 loadData();
             } else {
-                toast.error(response.data.message || "Error al procesar pago");
+                toast.error(response.data.message || 'Error al procesar pago');
             }
         } catch (error) {
-            console.error("Payout error:", error);
+            console.error('Payout error:', error);
             const detail = error.response?.data?.detail;
             toast.error(typeof detail === 'string' ? detail : 'Error al procesar el pago de comisión');
         } finally {
             setIsProcessing(false);
         }
+    };
+
+    const handleCancelPay = () => {
+        if (!isProcessing) setPendingPayment(null);
     };
 
     const filtered = commissions.filter(c => {
@@ -80,11 +162,22 @@ const CommissionsReport = () => {
         return matchesSearch && matchesStatus;
     });
 
-    const totalComisiones = filtered.reduce((acc, curr) => acc + parseFloat(curr.calculated_commission), 0);
-    const totalVentasBase = filtered.reduce((acc, curr) => acc + parseFloat(curr.base_amount), 0);
+    const pendingFiltered = filtered.filter(c => c.status === 'PENDING');
+    const totalComisiones = pendingFiltered.reduce((acc, curr) => acc + parseFloat(curr.calculated_commission), 0);
+    const totalVentasBase = pendingFiltered.reduce((acc, curr) => acc + parseFloat(curr.base_amount), 0);
 
     return (
         <div className="p-4 max-w-7xl mx-auto space-y-6">
+            {/* Confirmation Modal */}
+            <ConfirmPayModal
+                commission={pendingPayment}
+                employeeName={pendingPayment ? getEmployeeName(pendingPayment.employee_id) : ''}
+                onConfirm={handleConfirmPay}
+                onCancel={handleCancelPay}
+                isProcessing={isProcessing}
+            />
+
+            {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600">
@@ -98,7 +191,7 @@ const CommissionsReport = () => {
 
                 <div className="flex gap-4">
                     <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
-                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total a Pagar</p>
+                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Pendiente de Pago</p>
                         <p className="text-xl font-bold text-emerald-600">${totalComisiones.toFixed(2)}</p>
                     </div>
                     <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
@@ -108,6 +201,7 @@ const CommissionsReport = () => {
                 </div>
             </div>
 
+            {/* Table */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
                     <div className="relative w-full sm:w-80">
@@ -189,7 +283,7 @@ const CommissionsReport = () => {
                                         <td className="p-4 text-center">
                                             {comm.status === 'PENDING' && (
                                                 <button
-                                                    onClick={() => handleMarkAsPaid(comm)}
+                                                    onClick={() => handlePayClick(comm)}
                                                     className="inline-flex items-center gap-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors shadow-sm disabled:opacity-50"
                                                     disabled={isProcessing}
                                                 >

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List, Any
 from datetime import datetime
 from enum import Enum
@@ -27,7 +27,7 @@ class ResolutionType(str, Enum):
 # =======================
 
 class WarrantyPolicyBase(BaseModel):
-    name: str = Field(..., description="Nombre de la política", example="Garantía Limitada 30 Días")
+    name: str = Field(..., description="Nombre de la política", json_schema_extra={"example": "Garantía Limitada 30 Días"})
     type: WarrantyType = Field(..., description="Tipo de duración")
     duration: Optional[int] = Field(None, description="Duración en la unidad seleccionada. Null para Lifetime.")
     description: Optional[str] = Field(None, description="Descripción detallada y condiciones")
@@ -43,8 +43,7 @@ class WarrantyPolicyRead(WarrantyPolicyBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # =======================
 # WARRANTY CLAIM SCHEMAS
@@ -75,5 +74,4 @@ class WarrantyClaimRead(WarrantyClaimBase):
     claimed_at: datetime
     resolved_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

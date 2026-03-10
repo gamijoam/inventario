@@ -54,6 +54,7 @@ async def discover_tenant(
 
 # 🆕 IMPERSONATION TOKEN EXCHANGE
 @router.post("/exchange-token")
+@limiter.limit("10/minute")
 async def exchange_token(
     request: Request,
     response: Response,
@@ -309,7 +310,8 @@ async def logout(response: Response):
     return {"message": "Successfully logged out"}
 
 @router.post("/validate-pin")
-def validate_pin(pin_data: dict, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+async def validate_pin(request: Request, pin_data: dict, db: Session = Depends(get_db)):
     """Validate user PIN for sensitive operations (void sales, discounts, etc.)"""
     user_id = pin_data.get("user_id")
     pin = pin_data.get("pin", "")
@@ -385,7 +387,9 @@ async def forgot_password(
     return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
 
 @router.post("/reset-password")
+@limiter.limit("5/minute")
 async def reset_password(
+    http_request: Request,
     request: schemas.ResetPasswordRequest,
     db: Session = Depends(get_db)
 ):

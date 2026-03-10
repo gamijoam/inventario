@@ -510,12 +510,17 @@ class TestRateLimit:
         admin_user.pin = get_password_hash("1234")
         db_session.flush()
 
+        import asyncio
+
+        starlette_req = _make_starlette_request()
         # Múltiples intentos fallidos — ninguno lanza excepción (rate-limit es externo)
         for _ in range(3):
-            result = validate_pin(
+            coro = validate_pin(
+                request=starlette_req,
                 pin_data={"user_id": admin_user.id, "pin": "0000"},
                 db=db_session,
             )
+            result = asyncio.run(coro) if asyncio.iscoroutine(coro) else coro
             assert result["valid"] is False
 
     def test_discovery_endpoint_requiere_datos_validos(self, db_session):
@@ -556,10 +561,15 @@ class TestRateLimit:
         admin_user.pin = get_password_hash("4321")
         db_session.flush()
 
-        result = validate_pin(
+        import asyncio
+
+        starlette_req = _make_starlette_request()
+        coro = validate_pin(
+            request=starlette_req,
             pin_data={"user_id": admin_user.id, "pin": "4321"},
             db=db_session,
         )
+        result = asyncio.run(coro) if asyncio.iscoroutine(coro) else coro
 
         assert result["valid"] is True
         assert result["user_id"] == admin_user.id
@@ -748,11 +758,16 @@ class TestPermissions:
         admin_user.pin = None
         db_session.flush()
 
+        import asyncio
+
+        starlette_req = _make_starlette_request()
+        coro = validate_pin(
+            request=starlette_req,
+            pin_data={"user_id": admin_user.id, "pin": "1234"},
+            db=db_session,
+        )
         with pytest.raises(HTTPException) as exc_info:
-            validate_pin(
-                pin_data={"user_id": admin_user.id, "pin": "1234"},
-                db=db_session,
-            )
+            asyncio.run(coro) if asyncio.iscoroutine(coro) else coro
 
         assert exc_info.value.status_code == 400
         assert "PIN" in exc_info.value.detail

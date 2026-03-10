@@ -323,7 +323,8 @@ def delete_user(
     return {"message": "User deactivated successfully"}
 
 @router.post("/login")
-def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     """Authenticate user"""
     user = db.query(models.User).filter(models.User.username == credentials.username).first()
     
@@ -399,7 +400,8 @@ def pin_login(request: Request, payload: dict, db: Session = Depends(get_db)):
     }
 
 @router.post("/verify-pin/{user_id}")
-def verify_pin(user_id: int, body: PinVerifyRequest, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def verify_pin(request: Request, user_id: int, body: PinVerifyRequest, db: Session = Depends(get_db)):
     """Verify user PIN for authorization (e.g., discounts). PIN must be sent in the JSON body."""
     user = db.query(models.User).get(user_id)
     if not user:

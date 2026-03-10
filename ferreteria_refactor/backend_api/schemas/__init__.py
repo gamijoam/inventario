@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, condecimal, validator
+from pydantic import BaseModel, Field, ConfigDict, condecimal, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -15,29 +15,29 @@ class WarrantyUnit(str, Enum):
     YEARS = "YEARS"
 
 class ProductBase(BaseModel):
-    name: str = Field(..., description="Nombre comercial del producto", example="Taladro Percutor 500W")
-    sku: Optional[str] = Field(None, description="Código único de inventario (SKU)", example="TAL-001")
-    price: Decimal = Field(..., description="Precio de venta al público en USD", ge=0, example="45.99")
-    price_mayor_1: Optional[Decimal] = Field(Decimal("0.00"), description="Precio mayorista nivel 1", example="42.00")
-    price_mayor_2: Optional[Decimal] = Field(Decimal("0.00"), description="Precio mayorista nivel 2", example="40.00")
-    stock: Optional[Decimal] = Field(Decimal("0.000"), description="Cantidad actual en inventario físico", example="10.000")
-    description: Optional[str] = Field(None, description="Descripción detallada del producto", example="Incluye maletín y brocas")
-    cost_price: Optional[Decimal] = Field(Decimal("0.0000"), description="Costo de adquisición en USD", example="25.0000")
+    name: str = Field(..., description="Nombre comercial del producto", json_schema_extra={'example': "Taladro Percutor 500W"})
+    sku: Optional[str] = Field(None, description="Código único de inventario (SKU)", json_schema_extra={'example': "TAL-001"})
+    price: Decimal = Field(..., description="Precio de venta al público en USD", ge=0, json_schema_extra={'example': "45.99"})
+    price_mayor_1: Optional[Decimal] = Field(Decimal("0.00"), description="Precio mayorista nivel 1", json_schema_extra={'example': "42.00"})
+    price_mayor_2: Optional[Decimal] = Field(Decimal("0.00"), description="Precio mayorista nivel 2", json_schema_extra={'example': "40.00"})
+    stock: Optional[Decimal] = Field(Decimal("0.000"), description="Cantidad actual en inventario físico", json_schema_extra={'example': "10.000"})
+    description: Optional[str] = Field(None, description="Descripción detallada del producto", json_schema_extra={'example': "Incluye maletín y brocas"})
+    cost_price: Optional[Decimal] = Field(Decimal("0.0000"), description="Costo de adquisición en USD", json_schema_extra={'example': "25.0000"})
     
     # Pricing System Fields
-    profit_margin: Optional[Decimal] = Field(None, description="Margen de ganancia en porcentaje", example="30.00")
-    discount_percentage: Optional[Decimal] = Field(Decimal("0.00"), description="Descuento promocional en porcentaje", example="10.00")
+    profit_margin: Optional[Decimal] = Field(None, description="Margen de ganancia en porcentaje", json_schema_extra={'example': "30.00"})
+    discount_percentage: Optional[Decimal] = Field(Decimal("0.00"), description="Descuento promocional en porcentaje", json_schema_extra={'example': "10.00"})
     is_discount_active: bool = Field(False, description="Activar/desactivar descuento promocional")
-    tax_rate: Optional[Decimal] = Field(Decimal("0.00"), description="Porcentaje de Impuesto (IVA)", example="16.00")
+    tax_rate: Optional[Decimal] = Field(Decimal("0.00"), description="Porcentaje de Impuesto (IVA)", json_schema_extra={'example': "16.00"})
     
-    min_stock: Optional[Decimal] = Field(Decimal("5.000"), description="Nivel mínimo para alerta de reabastecimiento", example="5.000")
-    unit_type: Optional[str] = Field("Unidad", description="Unidad de medida base", example="Unidad")
+    min_stock: Optional[Decimal] = Field(Decimal("5.000"), description="Nivel mínimo para alerta de reabastecimiento", json_schema_extra={'example': "5.000"})
+    unit_type: Optional[str] = Field("Unidad", description="Unidad de medida base", json_schema_extra={'example': "Unidad"})
     is_box: bool = Field(False, description="Indica si es vendido por caja (Legacy)")
-    conversion_factor: Decimal = Field(Decimal("1.0"), description="Factor de conversión", example="1.0")
-    category_id: Optional[int] = Field(None, description="ID de la categoría a la que pertenece", example=3)
-    supplier_id: Optional[int] = Field(None, description="ID del proveedor principal", example=1)
-    location: Optional[str] = Field(None, description="Ubicación física en almacén", example="Pasillo 4, Estante B")
-    exchange_rate_id: Optional[int] = Field(None, description="ID de tasa de cambio específica (opcional)", example=2)
+    conversion_factor: Decimal = Field(Decimal("1.0"), description="Factor de conversión", json_schema_extra={'example': "1.0"})
+    category_id: Optional[int] = Field(None, description="ID de la categoría a la que pertenece", json_schema_extra={'example': 3})
+    supplier_id: Optional[int] = Field(None, description="ID del proveedor principal", json_schema_extra={'example': 1})
+    location: Optional[str] = Field(None, description="Ubicación física en almacén", json_schema_extra={'example': "Pasillo 4, Estante B"})
+    exchange_rate_id: Optional[int] = Field(None, description="ID de tasa de cambio específica (opcional)", json_schema_extra={'example': 2})
     is_combo: bool = Field(False, description="Indica si el producto es un combo/bundle")
     has_imei: bool = Field(False, description="Indica si el producto maneja seriales/IMEIs") # NEW
     is_service: bool = Field(False, description="Indica si es un servicio (no requiere stock)") # NEW
@@ -45,9 +45,10 @@ class ProductBase(BaseModel):
     is_active: Optional[bool] = True
     
     # Image Support
-    image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", example="/media/products/uuid-v4.webp")
+    image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", json_schema_extra={'example': "/media/products/uuid-v4.webp"})
     
-    @validator('image_url', pre=True)
+    @field_validator('image_url', mode='before')
+    @classmethod
     def sanitize_image_url(cls, v):
         if not v:
             return v
@@ -59,9 +60,9 @@ class ProductBase(BaseModel):
     updated_at: Optional[datetime] = Field(None, description="Fecha de última actualización (auto-gestionada)")
 
     # Warranty Configuration
-    warranty_duration: Optional[int] = Field(0, description="Duración de la garantía", example=30)
-    warranty_unit: Optional[WarrantyUnit] = Field(WarrantyUnit.DAYS, description="Unidad de tiempo (DAYS/MONTHS/YEARS)", example="DAYS")
-    warranty_notes: Optional[str] = Field(None, description="Notas de garantía", example="Solo defectos de fábrica")
+    warranty_duration: Optional[int] = Field(0, description="Duración de la garantía", json_schema_extra={'example': 30})
+    warranty_unit: Optional[WarrantyUnit] = Field(WarrantyUnit.DAYS, description="Unidad de tiempo (DAYS/MONTHS/YEARS)", json_schema_extra={'example': "DAYS"})
+    warranty_notes: Optional[str] = Field(None, description="Notas de garantía", json_schema_extra={'example': "Solo defectos de fábrica"})
     
     # New Warranty System (Policy Link)
     warranty_policy_id: Optional[int] = Field(None, description="ID de la política de garantía asignada")
@@ -89,8 +90,7 @@ class ExchangeRateRead(ExchangeRateBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProductUnitBase(BaseModel):
     unit_name: str
@@ -115,8 +115,7 @@ class ProductUnitRead(ProductUnitBase):
     product_id: int
     exchange_rate: Optional[ExchangeRateRead] = None  # NEW: Include rate details
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Quantity-Based Discount Rule Schemas (Feature 2) ---
 class DiscountRuleBase(BaseModel):
@@ -137,12 +136,11 @@ class DiscountRuleRead(DiscountRuleBase):
     product_id: int
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ComboItemBase(BaseModel):
-    child_product_id: int = Field(..., description="ID del producto componente", example=5)
-    quantity: Decimal = Field(..., description="Cantidad del componente en el combo", gt=0, example="2.000")
+    child_product_id: int = Field(..., description="ID del producto componente", json_schema_extra={'example': 5})
+    quantity: Decimal = Field(..., description="Cantidad del componente en el combo", gt=0, json_schema_extra={'example': "2.000"})
     unit_id: Optional[int] = Field(None, description="ID de la presentación específica (opcional)")  # NEW
 
 class ComboItemCreate(ComboItemBase):
@@ -153,8 +151,7 @@ class ComboItemRead(ComboItemBase):
     parent_product_id: int
     child_product: Optional['ProductRead'] = None  # Include child product details
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProductStockRead(BaseModel):
     id: int
@@ -163,8 +160,7 @@ class ProductStockRead(BaseModel):
     quantity: Decimal
     location: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProductStockCreate(BaseModel):
     warehouse_id: int
@@ -188,11 +184,10 @@ class PriceRuleRead(BaseModel):
     min_quantity: Decimal
     price: Decimal
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PriceListBase(BaseModel):
-    name: str = Field(..., description="Nombre de la lista (ej: Detal)", example="Detal")
+    name: str = Field(..., description="Nombre de la lista (ej: Detal)", json_schema_extra={'example': "Detal"})
     requires_auth: bool = Field(False, description="Requiere PIN de supervisor")
     is_active: bool = True
 
@@ -203,12 +198,11 @@ class PriceListRead(PriceListBase):
     id: int
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProductPriceBase(BaseModel):
     price_list_id: int
-    price: Decimal = Field(..., description="Precio en la lista", ge=0, example="10.5000")
+    price: Decimal = Field(..., description="Precio en la lista", ge=0, json_schema_extra={'example': "10.5000"})
 
 class ProductPriceInput(ProductPriceBase):
     """Schema for input when creating/updating product (nested)"""
@@ -222,8 +216,7 @@ class ProductPriceRead(ProductPriceBase):
     product_id: int
     price_list: Optional[PriceListRead] = None  # Include list details if needed
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProductCreate(ProductBase):
     units: List[ProductUnitCreate] = Field([], description="Lista de unidades alternativas (cajas, bultos)")
@@ -271,8 +264,7 @@ class ProductUpdate(BaseModel):
     warranty_policy_id: Optional[int] = None  # FIX: was missing → policy never saved on edit
     image_url: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ProductRead(ProductBase):
     id: int
@@ -286,8 +278,7 @@ class ProductRead(ProductBase):
     prices: List[ProductPriceRead] = [] # NEW: Multi-Price List
     discount_rules: List[DiscountRuleRead] = []  # Feature 2: Quantity-based rules
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SaleDetailCreate(BaseModel):
     product_id: int
@@ -305,8 +296,7 @@ class SaleDetailCreate(BaseModel):
     price_list_id: Optional[int] = None # NEW: Price List Validation
     auth_user_id: Optional[int] = None # NEW: Supervisor Auth for Price List
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SalePaymentCreate(BaseModel):
     sale_id: Optional[int] = None # Optional for inline creation
@@ -318,15 +308,14 @@ class SalePaymentCreate(BaseModel):
     reference: Optional[str] = None
     payment_date: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SaleCreate(BaseModel):
-    customer_id: Optional[int] = Field(None, description="ID del cliente (Opcional)", example=5)
-    payment_method: str = Field("Efectivo", description="Método de pago principal", example="Efectivo")
+    customer_id: Optional[int] = Field(None, description="ID del cliente (Opcional)", json_schema_extra={'example': 5})
+    payment_method: str = Field("Efectivo", description="Método de pago principal", json_schema_extra={'example': "Efectivo"})
     payments: List[SalePaymentCreate] = Field([], description="Lista de pagos desglosados (Multi-moneda)")
     items: List[SaleDetailCreate] = Field(..., description="Lista de productos a vender")
-    total_amount: Decimal = Field(..., description="Monto total de la venta en USD", gt=0, example="150.50")
+    total_amount: Decimal = Field(..., description="Monto total de la venta en USD", gt=0, json_schema_extra={'example': "150.50"})
     # NEW: Multi-currency Source of Truth
     total_amount_bs: Decimal = Field(..., description="Monto total en VES calculado por Frontend (respetando anclajes)", ge=0)
     
@@ -338,9 +327,9 @@ class SaleCreate(BaseModel):
     change_amount: Decimal = Field(Decimal("0.00"), description="Monto del vuelto entregado", ge=0)
     change_currency: str = Field("VES", description="Moneda del vuelto (VES/USD)")
     
-    currency: str = Field("USD", description="Moneda de referencia de la venta", example="USD")
-    exchange_rate: Decimal = Field(Decimal("1.0"), description="Tasa de cambio global (Referencia)", example="35.5")
-    notes: Optional[str] = Field(None, description="Notas adicionales o observaciones", example="Entregar en puerta trasera")
+    currency: str = Field("USD", description="Moneda de referencia de la venta", json_schema_extra={'example': "USD"})
+    exchange_rate: Decimal = Field(Decimal("1.0"), description="Tasa de cambio global (Referencia)", json_schema_extra={'example': "35.5"})
+    notes: Optional[str] = Field(None, description="Notas adicionales o observaciones", json_schema_extra={'example': "Entregar en puerta trasera"})
     is_credit: bool = Field(False, description="Indica si es una venta a crédito")
     
     # Hybrid/Sync Fields (Optional, for offline sales)
@@ -350,8 +339,7 @@ class SaleCreate(BaseModel):
     quote_id: Optional[int] = Field(None, description="ID de la cotización origen (si aplica)") # NEW: Quote Link
     session_id: Optional[int] = Field(None, description="ID de la sesión de caja activa (multi-caja)")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ServiceCheckoutPayment(BaseModel):
     """
@@ -384,8 +372,7 @@ class ServiceCheckoutPayment(BaseModel):
     reference: Optional[str] = None
     payment_date: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SalePaymentRead(BaseModel):
@@ -397,8 +384,7 @@ class SalePaymentRead(BaseModel):
     reference: Optional[str] = None
     payment_date: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # NEW: Product Instance Schema
 class ProductInstanceRead(BaseModel):
@@ -408,8 +394,7 @@ class ProductInstanceRead(BaseModel):
     serial_number: str
     status: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # NEW: Sale Detail Instance Schema
 class SaleDetailInstanceRead(BaseModel):
@@ -419,8 +404,7 @@ class SaleDetailInstanceRead(BaseModel):
     product_instance: Optional[ProductInstanceRead] = None
     warranty_expiration_date: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # NEW: Sale Detail Read Schema (for invoice detail view)
 class SaleDetailRead(BaseModel):
@@ -441,14 +425,14 @@ class SaleDetailRead(BaseModel):
     # Warranty Snapshot
     warranty_expiration_date: Optional[datetime] = None
 
-    @validator('subtotal', 'discount', 'tax_rate', pre=True, always=True)
+    @field_validator('subtotal', 'discount', 'tax_rate', mode='before')
+    @classmethod
     def validate_decimals(cls, v):
         if v is None:
             return Decimal("0.00")
         return v
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SaleRead(BaseModel):
     id: int
@@ -478,33 +462,35 @@ class SaleRead(BaseModel):
     unique_uuid: Optional[str] = None
     is_offline_sale: bool = False
 
-    @validator('total_amount_bs', 'change_amount', 'total_discount_usd', pre=True, always=True)
+    @field_validator('total_amount_bs', 'change_amount', 'total_discount_usd', mode='before')
+    @classmethod
     def validate_decimals(cls, v):
         if v is None:
             return Decimal("0.00")
         return v
 
-    @validator('change_currency', pre=True, always=True)
+    @field_validator('change_currency', mode='before')
+    @classmethod
     def validate_currency(cls, v):
         if v is None:
             return "VES"
         return v
 
-    @validator('is_offline_sale', pre=True, always=True)
+    @field_validator('is_offline_sale', mode='before')
+    @classmethod
     def validate_offline_flag(cls, v):
         if v is None:
             return False
         return v
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CustomerBase(BaseModel):
-    name: str = Field(..., description="Nombre completo o Razón Social", example="Constructora Global S.A.")
-    id_number: Optional[str] = Field(None, description="Cédula o RIF del cliente", example="J-12345678-9")
-    phone: Optional[str] = Field(None, description="Teléfono de contacto principal", example="+58 412 5555555")
-    email: Optional[str] = Field(None, description="Correo electrónico para facturación", example="compras@global.com")
-    address: Optional[str] = Field(None, description="Dirección fiscal o de entrega", example="Av. Principal, Edif. Azul")
+    name: str = Field(..., description="Nombre completo o Razón Social", json_schema_extra={'example': "Constructora Global S.A."})
+    id_number: Optional[str] = Field(None, description="Cédula o RIF del cliente", json_schema_extra={'example': "J-12345678-9"})
+    phone: Optional[str] = Field(None, description="Teléfono de contacto principal", json_schema_extra={'example': "+58 412 5555555"})
+    email: Optional[str] = Field(None, description="Correo electrónico para facturación", json_schema_extra={'example': "compras@global.com"})
+    address: Optional[str] = Field(None, description="Dirección fiscal o de entrega", json_schema_extra={'example': "Av. Principal, Edif. Azul"})
     credit_limit: Decimal = Field(Decimal("100.00"), description="Límite máximo de crédito permitido en USD", ge=0)
     payment_term_days: int = Field(15, description="Días de crédito otorgados", ge=0)
     unique_uuid: Optional[str] = Field(None, description="UUID único para sync")
@@ -525,8 +511,7 @@ class CustomerPaymentCreate(BaseModel):
 class CustomerRead(CustomerBase):
     id: int
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QuoteDetailCreate(BaseModel):
     product_id: int
@@ -550,15 +535,13 @@ class QuoteDetailRead(BaseModel):
     is_box_sale: bool
     product: Optional[ProductRead] = None # Include product info for display
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QuoteCreatorInfo(BaseModel):
     id: int
     username: str
     full_name: Optional[str] = None
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QuoteRead(BaseModel):
     id: int
@@ -572,16 +555,14 @@ class QuoteRead(BaseModel):
     user: Optional[QuoteCreatorInfo] = None
     details: List[QuoteDetailRead] = [] # Include details for counts in list view
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QuoteReadWithDetails(QuoteRead):
     details: List[QuoteDetailRead]
     notes: Optional[str]
     customer: Optional[CustomerRead] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CashMovementCreate(BaseModel):
@@ -597,7 +578,8 @@ class CashMovementCreate(BaseModel):
     incoming_method: Optional[str] = None
     incoming_reference: Optional[str] = None
 
-    @validator('description')
+    @field_validator('description')
+    @classmethod
     def validate_description_content(cls, v, values):
         if values.get('type') == 'CASH_ADVANCE':
             if not v or len(v.strip()) < 5:
@@ -608,8 +590,7 @@ class CashMovementRead(CashMovementCreate):
     id: int
     date: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ===== CASH REGISTER SCHEMAS =====
 
@@ -634,8 +615,7 @@ class CashRegisterRead(BaseModel):
     created_at: datetime
     hardware_client_id: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ===== CASH SESSION SCHEMAS =====
 class CashSessionCurrencyCreate(BaseModel):
@@ -650,8 +630,7 @@ class CashSessionCurrencyRead(BaseModel):
     final_expected: Optional[Decimal] = None
     difference: Optional[Decimal] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CashSessionCreate(BaseModel):
     initial_cash: Decimal = Decimal("0.00")
@@ -686,8 +665,7 @@ class CashSessionRead(BaseModel):
     movements: List[CashMovementRead] = []
     currencies: List[CashSessionCurrencyRead] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CashCloseDetails(BaseModel):
     initial_usd: Decimal
@@ -724,8 +702,7 @@ class ReturnItemCreate(BaseModel):
     condition: ItemCondition = ItemCondition.GOOD  # Default to GOOD condition
     product: Optional[ProductRead] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ReturnCreate(BaseModel):
     sale_id: int 
@@ -741,8 +718,7 @@ class ReturnDetailRead(BaseModel):
     unit_price: Decimal
     product: Optional[ProductRead] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ReturnRead(BaseModel):
     id: int
@@ -752,8 +728,7 @@ class ReturnRead(BaseModel):
     reason: Optional[str]
     details: List[ReturnDetailRead] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 
@@ -791,8 +766,7 @@ class UserRead(BaseModel):
     tenant_id: Optional[int] = None # NEW: Expose tenant_id as int (ID) to frontend
 
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserLogin(BaseModel):
     username: str
@@ -849,8 +823,7 @@ class CurrencyUpdate(BaseModel):
 class CurrencyRead(CurrencyBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Inventory/Kardex Schemas
 class StockAdjustmentCreate(BaseModel):
@@ -870,8 +843,7 @@ class KardexRead(BaseModel):
     description: Optional[str] = None
     product: Optional['ProductRead'] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Category Schemas
 class CategoryBase(BaseModel):
@@ -890,8 +862,7 @@ class CategoryUpdate(BaseModel):
 class CategoryResponse(CategoryBase):
     id: int
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Supplier Schemas
 
@@ -914,8 +885,7 @@ class SupplierRead(SupplierBase):
     created_at: Optional[datetime] = None
     current_balance: Optional[Decimal] = Decimal("0.00")
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ExchangeRateSync(BaseModel):
     id: int
@@ -927,8 +897,7 @@ class ExchangeRateSync(BaseModel):
     is_active: bool
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Purchase Order and Payment Schemas
 
@@ -962,8 +931,7 @@ class PurchaseItemRead(BaseModel):
     unit_cost: Decimal
     product: Optional['ProductRead'] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PurchaseOrderResponse(PurchaseOrderBase):
     id: int
@@ -975,8 +943,7 @@ class PurchaseOrderResponse(PurchaseOrderBase):
     supplier: Optional['SupplierRead'] = None
     items: List[PurchaseItemRead] = [] # Include items in response
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PurchasePaymentCreate(BaseModel):
     amount: Decimal
@@ -997,8 +964,7 @@ class PurchasePaymentResponse(BaseModel):
     currency: Optional[str] = "USD"
     exchange_rate: Optional[float] = 1.0
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SupplierStatsResponse(BaseModel):
     supplier_id: int
@@ -1008,8 +974,7 @@ class SupplierStatsResponse(BaseModel):
     pending_purchases: int
     total_purchases: int
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class BusinessInfo(BaseModel):
     name: Optional[str] = None
@@ -1042,8 +1007,7 @@ class AuditLogRead(AuditLogBase):
     user_id: Optional[int] = None
     user: Optional[UserRead] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ========================
 # Remote Print Schemas
@@ -1051,8 +1015,8 @@ class AuditLogRead(AuditLogBase):
 
 class RemotePrintRequest(BaseModel):
     """Request body for remote printing via WebSocket"""
-    client_id: str = Field(..., description="Hardware Bridge client ID", example="escritorio-caja-1")
-    sale_id: int = Field(..., description="Sale ID to print", example=123)
+    client_id: str = Field(..., description="Hardware Bridge client ID", json_schema_extra={'example': "escritorio-caja-1"})
+    sale_id: int = Field(..., description="Sale ID to print", json_schema_extra={'example': 123})
 
 # ========================
 # Warehouse Schemas
@@ -1079,8 +1043,7 @@ class WarehouseRead(WarehouseBase):
     id: int
     stocks_count: Optional[int] = 0 # To show how many products it has
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class WarehouseWithStocks(WarehouseRead):
     stocks: List[ProductStockRead] = []
@@ -1101,8 +1064,7 @@ class TransferDetailRead(TransferDetailBase):
     transfer_id: int
     product: Optional[ProductRead] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class InventoryTransferBase(BaseModel):
     source_warehouse_id: int
@@ -1121,8 +1083,7 @@ class InventoryTransferRead(InventoryTransferBase):
     target_warehouse: Optional[WarehouseRead] = None
     details: List[TransferDetailRead] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 
@@ -1133,8 +1094,7 @@ class WarehouseInventoryItem(BaseModel):
     quantity: Decimal
     location: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- INTER-COMPANY TRANSFER SCHEMAS ---
 class TransferItemSchema(BaseModel):
@@ -1178,8 +1138,7 @@ class ServiceOrderDetailRead(ServiceOrderDetailBase):
     product: Optional[ProductRead] = None
     technician: Optional[UserRead] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ServiceType(str, Enum):
     REPAIR = "REPAIR"
@@ -1198,8 +1157,7 @@ class ServicePaymentRead(BaseModel):
     reference: Optional[str] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Service Payment Create Schema (Nested in Order Create or standalone)
 class ServicePaymentCreate(BaseModel):
@@ -1250,7 +1208,8 @@ class ServiceOrderCreate(ServiceOrderBase):
     # NEW: Support Initial Payment (Abono)
     payments: List[ServicePaymentCreate] = []
 
-    @validator('problem_description')
+    @field_validator('problem_description')
+    @classmethod
     def validate_tech_fields(cls, v, values):
         service_type = values.get('service_type', ServiceType.REPAIR)
         if service_type == ServiceType.REPAIR:
@@ -1274,8 +1233,7 @@ class ServiceOrderRead(ServiceOrderBase):
     details: List[ServiceOrderDetailRead] = []
     payments: List[ServicePaymentRead] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ========================
 # COMMISSION & CASH SCHEMAS
@@ -1297,8 +1255,7 @@ class CommissionLogRead(BaseModel):
     
     user: Optional[UserRead] = None # Assuming UserRead is available in scope
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 
