@@ -23,6 +23,9 @@ const AccountsReceivable = () => {
     const [expandedClients, setExpandedClients] = useState({}); // { clientName: boolean }
     const [filter, setFilter] = useState('pending'); // pending, overdue, paid
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [totalCredits, setTotalCredits] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
 
     // Search
     const [searchTerm, setSearchTerm] = useState('');
@@ -63,16 +66,29 @@ const AccountsReceivable = () => {
         applyFilter();
     }, [invoices, filter, searchTerm]);
 
-    const fetchInvoices = async () => {
-        setLoading(true);
+    const fetchInvoices = async (loadMore = false) => {
+        if (loadMore) {
+            setLoadingMore(true);
+        } else {
+            setLoading(true);
+        }
         try {
-            const response = await apiClient.get('/products/credits', { params: { limit: 500 } });
-            setInvoices(response.data);
+            const skip = loadMore ? invoices.length : 0;
+            const response = await apiClient.get('/products/credits', { params: { limit: 500, skip } });
+            const { items, total, has_more } = response.data;
+            if (loadMore) {
+                setInvoices(prev => [...prev, ...items]);
+            } else {
+                setInvoices(items);
+            }
+            setTotalCredits(total);
+            setHasMore(has_more);
         } catch (error) {
             console.error('Error fetching invoices:', error);
             toast.error('Error al cargar cuentas por cobrar');
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
     };
 
@@ -656,6 +672,21 @@ const AccountsReceivable = () => {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                    {/* Pagination footer */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 px-2">
+                        <p className="text-sm text-slate-500 font-medium">
+                            Mostrando {invoices.length} de {totalCredits} créditos
+                        </p>
+                        {hasMore && (
+                            <button
+                                onClick={() => fetchInvoices(true)}
+                                disabled={loadingMore}
+                                className="px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                            >
+                                {loadingMore ? 'Cargando...' : 'Cargar más'}
+                            </button>
+                        )}
                     </div>
                 </div>
             ) : (

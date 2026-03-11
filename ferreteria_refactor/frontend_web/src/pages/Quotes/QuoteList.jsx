@@ -15,6 +15,9 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
     const [quotes, setQuotes] = useState([]);
     const [filteredQuotes, setFilteredQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [totalQuotes, setTotalQuotes] = useState(0);
+    const [hasMoreQuotes, setHasMoreQuotes] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [thermalMenuId, setThermalMenuId] = useState(null); // id de la cotización con dropdown abierto
 
@@ -39,18 +42,33 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
         }
     }, [searchTerm, quotes]);
 
-    const fetchQuotes = async () => {
-        setLoading(true);
+    const fetchQuotes = async (loadMore = false) => {
+        if (loadMore) {
+            setLoadingMore(true);
+        } else {
+            setLoading(true);
+        }
         try {
-            const response = await apiClient.get('/quotes');
-            const sorted = response.data.sort((a, b) => b.id - a.id);
-            setQuotes(sorted);
-            setFilteredQuotes(sorted);
+            const skip = loadMore ? quotes.length : 0;
+            const response = await apiClient.get('/quotes', { params: { limit: 500, skip } });
+            const { items, total, has_more } = response.data;
+            const sorted = items.sort((a, b) => b.id - a.id);
+            if (loadMore) {
+                setQuotes(prev => {
+                    const merged = [...prev, ...sorted];
+                    return merged;
+                });
+            } else {
+                setQuotes(sorted);
+            }
+            setTotalQuotes(total);
+            setHasMoreQuotes(has_more);
         } catch (error) {
             console.error("Error loading quotes:", error);
             toast.error("Error al cargar cotizaciones");
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
     };
 
@@ -242,7 +260,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center sticky top-0 z-20 backdrop-blur-sm">
                 <div>
                     <h2 className="text-lg font-bold text-slate-800">Historial</h2>
-                    <p className="text-xs text-slate-500 font-medium">{filteredQuotes.length} cotizaciones encontradas</p>
+                    <p className="text-xs text-slate-500 font-medium">Mostrando {filteredQuotes.length} de {totalQuotes} cotizaciones</p>
                 </div>
 
                 <div className="flex gap-3 items-center">
@@ -391,6 +409,17 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+                {hasMoreQuotes && !loading && (
+                    <div className="flex justify-center mt-6">
+                        <button
+                            onClick={() => fetchQuotes(true)}
+                            disabled={loadingMore}
+                            className="px-6 py-2.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50"
+                        >
+                            {loadingMore ? 'Cargando...' : 'Cargar m\u00e1s cotizaciones'}
+                        </button>
                     </div>
                 )}
             </div>

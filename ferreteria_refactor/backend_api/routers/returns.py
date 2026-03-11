@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, cast, String
 from typing import List, Optional
@@ -15,7 +15,8 @@ router = APIRouter(
 @router.get("/sales/search")
 def search_sales(
     q: Optional[str] = None,
-    limit: int = 100,
+    skip: int = 0,
+    limit: int = Query(default=500, le=5000),
     payment_method: Optional[str] = None,
     status: Optional[str] = None,
     start_date: Optional[date] = None,
@@ -24,14 +25,8 @@ def search_sales(
 ):
     try:
         """Search sales with filters"""
-        query = db.query(models.Sale).options(
-            joinedload(models.Sale.customer),
-            joinedload(models.Sale.payments),
-            joinedload(models.Sale.returns),
-            joinedload(models.Sale.cash_session).joinedload(models.CashSession.user),
-            joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
-        )
-        
+        query = db.query(models.Sale)
+
         # Text Search
         if q:
             query = query.join(models.Customer, isouter=True).filter(
@@ -40,11 +35,11 @@ def search_sales(
                     models.Customer.name.ilike(f"%{q}%")
                 )
             )
-        
+
         # Filter by Payment Method
         if payment_method:
             query = query.filter(models.Sale.payment_method == payment_method)
-        
+
         # Filter by Status (Derived from existence of Return)
         if status:
             if status == "VOIDED":
@@ -58,12 +53,20 @@ def search_sales(
         if start_date:
             start_dt = datetime.combine(start_date, datetime.min.time())
             query = query.filter(models.Sale.date >= start_dt)
-        
+
         if end_date:
             end_dt = datetime.combine(end_date, datetime.max.time())
             query = query.filter(models.Sale.date <= end_dt)
-        
-        results = query.order_by(models.Sale.date.desc()).limit(limit).all()
+
+        total = query.count()
+
+        results = query.options(
+            joinedload(models.Sale.customer),
+            joinedload(models.Sale.payments),
+            joinedload(models.Sale.returns),
+            joinedload(models.Sale.cash_session).joinedload(models.CashSession.user),
+            joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
+        ).order_by(models.Sale.date.desc()).offset(skip).limit(limit).all()
 
         # Build enriched response with cashier + register info
         output = []
@@ -80,7 +83,7 @@ def search_sales(
                     sale_dict["register_name"] = sale.cash_session.register.name
                     sale_dict["register_code"] = sale.cash_session.register.code
             output.append(sale_dict)
-        return output
+        return {"items": output, "total": total, "has_more": skip + limit < total}
     except Exception as e:
         import traceback
         trace = traceback.format_exc()

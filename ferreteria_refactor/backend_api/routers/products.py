@@ -729,7 +729,7 @@ def export_pdf(db: Session = Depends(get_db)):
 @router.get("/credits", dependencies=[Depends(cashier_or_admin)])
 def get_credit_sales(
     skip: int = 0,
-    limit: int = Query(default=100, le=500),
+    limit: int = Query(default=500, le=5000),
     db: Session = Depends(get_db)
 ):
     """
@@ -738,9 +738,12 @@ def get_credit_sales(
     Returns both Pending and Paid to allow history filtering on frontend.
     Includes cashier_name, register_name, register_code from the cash session.
     """
-    sales = db.query(models.Sale).filter(
+    base_query = db.query(models.Sale).filter(
         models.Sale.is_credit == True
-    ).options(
+    )
+    total = base_query.count()
+
+    sales = base_query.options(
         joinedload(models.Sale.customer),
         joinedload(models.Sale.payments),
         joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
@@ -764,7 +767,7 @@ def get_credit_sales(
                 sale_dict["register_name"] = sale.cash_session.register.name
                 sale_dict["register_code"] = sale.cash_session.register.code
         result.append(sale_dict)
-    return result
+    return {"items": result, "total": total, "has_more": skip + limit < total}
 
 @router.get("/sales/", dependencies=[Depends(cashier_or_admin)])
 def get_all_sales(

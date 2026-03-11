@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database.db import get_db
@@ -57,10 +57,12 @@ def create_quote(
     
     return response_data
 
-@router.get("", response_model=List[schemas.QuoteRead])
-def read_quotes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+@router.get("")
+def read_quotes(skip: int = 0, limit: int = Query(default=500, le=5000), db: Session = Depends(get_db)):
     # Optimize query to load customer and user (creator)
-    return db.query(models.Quote)\
+    base_query = db.query(models.Quote)
+    total = base_query.count()
+    items = base_query\
         .options(
             joinedload(models.Quote.customer),
             joinedload(models.Quote.user),
@@ -68,6 +70,7 @@ def read_quotes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
         )\
         .order_by(models.Quote.date.desc())\
         .offset(skip).limit(limit).all()
+    return {"items": items, "total": total, "has_more": (skip + limit) < total}
 
 
 @router.get("/{quote_id}", response_model=schemas.QuoteReadWithDetails)

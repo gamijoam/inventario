@@ -12,11 +12,11 @@ router = APIRouter(
     tags=["customers"]
 )
 
-@router.get("/", response_model=List[schemas.CustomerRead])
-@router.get("", response_model=List[schemas.CustomerRead], include_in_schema=False)
+@router.get("/")
+@router.get("", include_in_schema=False)
 def read_customers(
     skip: int = 0,
-    limit: int = Query(default=100, le=500),
+    limit: int = Query(default=500, le=5000),
     q: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
@@ -24,10 +24,12 @@ def read_customers(
     if q:
         search = f"%{q}%"
         query = query.filter(
-            (models.Customer.name.ilike(search)) | 
+            (models.Customer.name.ilike(search)) |
             (models.Customer.id_number.ilike(search))
         )
-    return query.offset(skip).limit(limit).all()
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+    return {"items": items, "total": total, "has_more": (skip + limit) < total}
 
 @router.post("/", response_model=schemas.CustomerRead)
 @router.post("", response_model=schemas.CustomerRead, include_in_schema=False)
