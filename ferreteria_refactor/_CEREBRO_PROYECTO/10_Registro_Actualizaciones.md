@@ -4,7 +4,32 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
-## [2026-03-11] — Eliminación Tauri + Fixes WebSocket/AutoSync + Prod TZ
+## [2026-03-11] — Eliminación Tauri + Fixes WS + Notificaciones + Dashboard Actividad
+
+### Dashboard de Actividad de Tenants (Monitor de Rendimiento)
+- **Backend**: Nuevo endpoint `GET /admin/dashboard/activity?date_from=&date_to=` — consulta cross-schema para métricas por tenant
+  - Ventas (count + revenue), productos, clientes, usuarios, último login, última venta
+  - Clasificación automática: Activo (venta <7d), Baja Actividad (7-30d), Inactivo (30d+), Sin Uso (nunca vendió)
+  - Filtrado por rango de fechas con preset por defecto al mes actual
+- **SaaS Admin**: Nueva página `/dashboard/activity` con tabla interactiva completa
+  - Cards resumen clickeables para filtrar por estado (Activo/Baja/Inactivo/Sin Uso)
+  - Búsqueda por nombre/schema, ordenamiento por cualquier columna (click en header)
+  - Filtro de fechas con presets rápidos (7D, Mes, 30D, 90D, Año)
+  - Exportar a CSV con BOM UTF-8 para Excel
+  - Badges de licencia y demo por empresa
+  - Formato "hace Xd/Xm" para fechas relativas
+- **Archivos creados**: `activity.ts` (API), `ActivityDashboard.tsx` (página)
+- **Archivos modificados**: `App.tsx` (ruta), `DashboardLayout.tsx` (nav link "Actividad")
+- **Backend**: Endpoint en `admin.py` usa SQL raw cross-schema para máximo rendimiento
+
+### Sistema de Notificaciones de Soporte (Badge en tiempo real)
+- **Backend**: Nuevo endpoint `GET /support/tickets/unread-count?since=ISO` — cuenta tickets con respuesta admin desde última visita del cliente
+- **Backend**: Nuevo endpoint `GET /admin/support/tickets/pending-count` — cuenta tickets abiertos/en progreso para badge admin
+- **Frontend Cliente (Sidebar)**: Badge rojo animado en "Soporte" con conteo de respuestas no leídas, polling cada 60s
+- **Frontend Cliente (SupportTickets)**: Auto-marca como leído al visitar la página (`localStorage` para tracking de última visita)
+- **SaaS Admin (DashboardLayout)**: Badge rojo animado en "Mesa de Ayuda" con conteo de tickets pendientes, polling cada 60s
+- **SaaS Admin (support.ts)**: Nueva función `getPendingCount()` para API de conteo
+- Refactorizado `support_client.py` extrayendo `_resolve_tenant_id()` helper para evitar duplicación
 
 ### Eliminación completa de Tauri/Desktop
 - Removido código Tauri de `constants.js`, `axios.js`, `Login.jsx`, `vite.config.js`, `package.json`

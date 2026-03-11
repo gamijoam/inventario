@@ -719,6 +719,172 @@ def get_dashboard_stats(
         "growth_data": growth_data
     }
 
+# --- Tenant Activity Dashboard ---
+
+@router.get("/dashboard/activity")
+def get_tenant_activity(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Get activity metrics for ALL tenants by querying each schema.
+    Returns: last_sale, sales_count, revenue, products, customers, last_login.
+    Supports date range filtering for sales/revenue metrics.
+    """
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+
+    now = get_venezuela_now()
+
+    # Parse date filters (default: current month)
+    if date_from:
+        try:
+            start_date = datetime.fromisoformat(date_from)
+        except ValueError:
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if date_to:
+        try:
+            end_date = datetime.fromisoformat(date_to)
+        except ValueError:
+            end_date = now
+    else:
+        end_date = now
+
+    # Get all tenants
+    tenants = db.query(Tenant).order_by(Tenant.name).all()
+    activity_data = []
+
+    for t in tenants:
+        schema = t.schema_name
+        try:
+            _validate_schema_name(schema)
+        except ValueError:
+            continue
+
+        metrics = {
+            "tenant_id": t.id,
+            "name": t.name,
+            "schema_name": schema,
+            "is_active": t.is_active,
+            "is_demo": t.is_demo,
+            "license_type": t.license_type,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+            "sales_count": 0,
+            "revenue_usd": 0.0,
+            "last_sale": None,
+            "products_count": 0,
+            "customers_count": 0,
+            "last_login": None,
+            "user_count": 0,
+        }
+
+        # User count from public schema
+        metrics["user_count"] = db.query(func.count(User.id)).filter(
+            User.tenant_id == t.id
+        ).scalar() or 0
+
+        # Check if schema exists before querying
+        schema_exists = db.execute(
+            text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :s"),
+            {"s": schema}
+        ).fetchone()
+
+        if not schema_exists:
+            activity_data.append(metrics)
+            continue
+
+        try:
+            # Sales metrics (filtered by date range)
+            row = db.execute(text(
+                f'SELECT COUNT(*), COALESCE(SUM(total_amount), 0) '
+                f'FROM "{schema}".sales '
+                f'WHERE date >= :start AND date <= :end'
+            ), {"start": start_date, "end": end_date}).fetchone()
+
+            if row:
+                metrics["sales_count"] = row[0] or 0
+                metrics["revenue_usd"] = round(float(row[1] or 0), 2)
+
+            # Last sale ever (not filtered)
+            last_sale = db.execute(text(
+                f'SELECT MAX(date) FROM "{schema}".sales'
+            )).scalar()
+            if last_sale:
+                metrics["last_sale"] = last_sale.isoformat()
+
+            # Product count
+            metrics["products_count"] = db.execute(text(
+                f'SELECT COUNT(*) FROM "{schema}".products WHERE is_active = true'
+            )).scalar() or 0
+
+            # Customer count
+            metrics["customers_count"] = db.execute(text(
+                f'SELECT COUNT(*) FROM "{schema}".customers'
+            )).scalar() or 0
+
+            # Last login from audit_logs
+            last_login = db.execute(text(
+                f"SELECT MAX(timestamp) FROM \"{schema}\".audit_logs WHERE action = 'LOGIN'"
+            )).scalar()
+            if last_login:
+                metrics["last_login"] = last_login.isoformat()
+
+        except Exception as e:
+            # Schema may exist but tables may not (partial setup)
+            print(f"[ACTIVITY] Error querying schema '{schema}': {e}")
+
+        activity_data.append(metrics)
+
+    # Summary stats
+    total = len(activity_data)
+    seven_days_ago = now - timedelta(days=7)
+    thirty_days_ago = now - timedelta(days=30)
+
+    active_count = 0
+    inactive_count = 0
+    low_count = 0
+    abandoned_count = 0
+
+    for item in activity_data:
+        ls = item.get("last_sale")
+        if ls:
+            try:
+                last = datetime.fromisoformat(ls)
+                if last >= seven_days_ago:
+                    active_count += 1
+                    item["activity_status"] = "active"
+                elif last >= thirty_days_ago:
+                    low_count += 1
+                    item["activity_status"] = "low"
+                else:
+                    inactive_count += 1
+                    item["activity_status"] = "inactive"
+            except (ValueError, TypeError):
+                abandoned_count += 1
+                item["activity_status"] = "abandoned"
+        else:
+            abandoned_count += 1
+            item["activity_status"] = "abandoned"
+
+    return {
+        "summary": {
+            "total": total,
+            "active": active_count,
+            "low_activity": low_count,
+            "inactive": inactive_count,
+            "abandoned": abandoned_count,
+            "date_from": start_date.isoformat(),
+            "date_to": end_date.isoformat(),
+        },
+        "tenants": activity_data
+    }
+
+
 # --- System Messages CRUD ---
 
 from ..models.system_messages import SystemMessage

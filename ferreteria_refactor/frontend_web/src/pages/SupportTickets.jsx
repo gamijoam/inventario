@@ -22,6 +22,8 @@ const SupportTickets = () => {
 
     useEffect(() => {
         fetchTickets();
+        // Mark support page as visited to reset the unread badge in Sidebar
+        supportService.markAsRead();
     }, []);
 
     const fetchTickets = async () => {

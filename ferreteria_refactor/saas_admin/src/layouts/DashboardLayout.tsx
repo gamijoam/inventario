@@ -1,19 +1,45 @@
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, LogOut, Megaphone, LifeBuoy, CheckSquare, HardDrive, Key } from 'lucide-react';
+import { LayoutDashboard, Building2, LogOut, Megaphone, LifeBuoy, CheckSquare, HardDrive, Key, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getPendingCount } from '../api/support';
 
 const DashboardLayout: React.FC = () => {
     const { logout, user } = useAuth();
     const location = useLocation();
+    const [pendingTickets, setPendingTickets] = useState(0);
+
+    const fetchPendingCount = useCallback(async () => {
+        try {
+            const count = await getPendingCount();
+            setPendingTickets(count);
+        } catch {
+            // Silently ignore
+        }
+    }, []);
+
+    // Poll pending ticket count every 60 seconds
+    useEffect(() => {
+        fetchPendingCount();
+        const interval = setInterval(fetchPendingCount, 60000);
+        return () => clearInterval(interval);
+    }, [fetchPendingCount]);
+
+    // Refresh count when navigating away from support page (after responding)
+    useEffect(() => {
+        if (!location.pathname.includes('/support')) {
+            fetchPendingCount();
+        }
+    }, [location.pathname, fetchPendingCount]);
 
     const navigation = [
         { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
         { name: 'Empresas', href: '/dashboard/tenants', icon: Building2 },
         { name: 'Licencias', href: '/dashboard/licenses', icon: Key },
-        { name: 'Mesa de Ayuda', href: '/dashboard/support', icon: LifeBuoy },
+        { name: 'Mesa de Ayuda', href: '/dashboard/support', icon: LifeBuoy, badge: pendingTickets },
         { name: 'Recordatorios', href: '/dashboard/reminders', icon: CheckSquare },
         { name: 'Mensajes', href: '/dashboard/messages', icon: Megaphone },
+        { name: 'Actividad', href: '/dashboard/activity', icon: Activity },
         { name: 'Respaldos', href: '/dashboard/backups', icon: HardDrive },
     ];
 
@@ -40,13 +66,18 @@ const DashboardLayout: React.FC = () => {
                             <Link
                                 key={item.name}
                                 to={item.href}
-                                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 group ${active
+                                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 group relative ${active
                                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
                                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                                     }`}
                             >
                                 <Icon className={`mr-3 h-5 w-5 ${active ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
                                 {item.name}
+                                {item.badge != null && item.badge > 0 && (
+                                    <span className="ml-auto flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-bold text-white bg-rose-500 rounded-full shadow-sm animate-pulse">
+                                        {item.badge > 99 ? '99+' : item.badge}
+                                    </span>
+                                )}
                             </Link>
                         );
                     })}

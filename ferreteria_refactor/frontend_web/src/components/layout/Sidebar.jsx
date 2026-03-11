@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard,
@@ -49,6 +49,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { useAppTour } from '../../hooks/useAppTour';
 import TourSelectionModal from '../common/TourSelectionModal';
+import supportService from '../../services/supportService';
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const location = useLocation();
@@ -57,6 +58,31 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const { modules } = useConfig();
     const { startTour } = useAppTour();
     const [isTourModalOpen, setIsTourModalOpen] = useState(false);
+    const [supportUnread, setSupportUnread] = useState(0);
+
+    // Poll unread support ticket count every 60 seconds
+    const fetchUnreadCount = useCallback(async () => {
+        try {
+            const count = await supportService.getUnreadCount();
+            setSupportUnread(count);
+        } catch {
+            // Silently ignore — user may not be authenticated yet
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchUnreadCount();
+        const interval = setInterval(fetchUnreadCount, 60000);
+        return () => clearInterval(interval);
+    }, [fetchUnreadCount]);
+
+    // Reset badge when user navigates to /support
+    useEffect(() => {
+        if (location.pathname === '/support') {
+            supportService.markAsRead();
+            setSupportUnread(0);
+        }
+    }, [location.pathname]);
 
     // En desarrollo, VITE_FORCE_ALL_MODULES=true (en .env.development) activa todos los módulos
     // para poder probarlos sin depender de los feature flags reales del backend.
@@ -350,9 +376,17 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 {!isCollapsed && <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Soporte y Guía</p>}
 
                 <div className={cn("grid gap-1", isCollapsed ? "grid-cols-1" : "grid-cols-1")}>
-                    <Link to="/support" className={cn("flex items-center px-4 py-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-sm", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")} title="Soporte Técnico">
+                    <Link to="/support" className={cn("flex items-center px-4 py-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-sm relative", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")} title="Soporte Técnico">
                         <LifeBuoy size={18} />
                         {!isCollapsed && <span className="ml-3">Soporte</span>}
+                        {supportUnread > 0 && (
+                            <span className={cn(
+                                "absolute flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black text-white bg-rose-500 rounded-full shadow-sm animate-pulse",
+                                isCollapsed ? "top-0 right-0" : "top-1 right-2"
+                            )}>
+                                {supportUnread > 9 ? '9+' : supportUnread}
+                            </span>
+                        )}
                     </Link>
 
                     <button

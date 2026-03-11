@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from ..database.db import get_db
 from ..dependencies import get_current_superuser
@@ -10,6 +11,22 @@ router = APIRouter(
     prefix="/admin/support/tickets",
     tags=["admin-support"]
 )
+
+
+@router.get("/pending-count")
+def get_pending_count(
+    db: Session = Depends(get_db),
+    current_user: Session = Depends(get_current_superuser)
+):
+    """
+    Count tickets that need admin attention (open or in_progress).
+    Used by the SaaS admin panel to show a notification badge.
+    """
+    count = db.query(func.count(SupportTicket.id)).filter(
+        SupportTicket.status.in_([TicketStatus.open, TicketStatus.in_progress])
+    ).scalar() or 0
+    return {"count": count}
+
 
 @router.get("/", response_model=List[SupportTicketOut])
 def list_all_tickets(

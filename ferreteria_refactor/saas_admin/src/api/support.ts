@@ -28,3 +28,12 @@ export const updateTicketStatus = async (id: number, status: string): Promise<Su
     const response = await axios.patch(`/admin/support/tickets/${id}`, { status });
     return response.data;
 };
+
+/**
+ * Get count of tickets pending admin attention (open or in_progress).
+ * Used for the notification badge in the admin sidebar.
+ */
+export const getPendingCount = async (): Promise<number> => {
+    const response = await axios.get('/admin/support/tickets/pending-count');
+    return response.data.count;
+};
