@@ -63,6 +63,8 @@ services:
     restart: always
     mem_limit: 512m
     cpus: 1.0
+    environment:
+      - TZ=America/Caracas
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\""]
       interval: 30s
@@ -111,6 +113,9 @@ services:
     restart: always
     mem_limit: 1g
     cpus: 1.0
+    environment:
+      - TZ=America/Caracas
+      - PGTZ=America/Caracas
     volumes:
       - postgres_data_qa:/var/lib/postgresql/data
     env_file:
