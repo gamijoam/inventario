@@ -46,32 +46,32 @@ class RegisterRequest(BaseModel):
 
 @router.post("/register")
 @limiter.limit("10/hour")
-async def register_tenant(http_request: Request, request: RegisterRequest):
+async def register_tenant(request: Request, payload: RegisterRequest):
     """
     Public endpoint to register a new tenant.
     Creates schema, user, and configures modules based on plan.
     """
     try:
         # 1. Generate Schema Name
-        schema_name = TenantService.slugify_schema_name(request.company_name)
-        
-        # 2. Call Service (Synchronous for now to ensure capability, 
+        schema_name = TenantService.slugify_schema_name(payload.company_name)
+
+        # 2. Call Service (Synchronous for now to ensure capability,
         # ideally this should be a background task if migration takes long)
         # But user needs to know if it failed.
-        
+
         # Logical Mapping: Priority for business_type, then plan_type, then default to FERRETERIA
-        if request.business_type:
-            final_plan = request.business_type  # already a plain str
-        elif request.plan_type:
-            final_plan = request.plan_type      # already a plain str
+        if payload.business_type:
+            final_plan = payload.business_type  # already a plain str
+        elif payload.plan_type:
+            final_plan = payload.plan_type      # already a plain str
         else:
             final_plan = "FERRETERIA"
-        
+
         result = TenantService.create_tenant(
-            name=request.company_name,
+            name=payload.company_name,
             schema_name=schema_name,
-            admin_email=request.email,
-            admin_password=request.password,
+            admin_email=payload.email,
+            admin_password=payload.password,
             plan_type=final_plan
         )
         
