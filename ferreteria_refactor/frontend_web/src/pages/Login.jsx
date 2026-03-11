@@ -7,8 +7,6 @@ import authService from '../services/authService';
 import toast from 'react-hot-toast';
 import { Capacitor } from '@capacitor/core';
 
-const IS_TAURI = typeof window !== 'undefined' && typeof window.__TAURI_INTERNALS__ !== 'undefined';
-
 const Login = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -27,21 +25,6 @@ const Login = () => {
             navigate('/');
         }
     }, [isAuthenticated, user, loading]);
-
-    // [TAURI DESKTOP] Si es primer arranque (no hay usuarios), redirigir al setup
-    useEffect(() => {
-        const IS_TAURI = typeof window !== 'undefined' && typeof window.__TAURI_INTERNALS__ !== 'undefined';
-        if (!IS_TAURI) return;
-
-        fetch('http://127.0.0.1:8000/api/v1/desktop/info')
-            .then(r => r.json())
-            .then(info => {
-                if (info?.first_run) {
-                    navigate('/desktop-first-run', { replace: true });
-                }
-            })
-            .catch(() => { /* backend iniciando, ignorar */ });
-    }, []);
 
     // 🕵️ IMPERSONATION HANDLER
     useEffect(() => {
@@ -202,7 +185,7 @@ const Login = () => {
                             {/* Username */}
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700" htmlFor="username">
-                                    {IS_TAURI ? 'Usuario' : 'Correo'}
+                                    Correo
                                 </label>
                                 <div className="relative group">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -212,7 +195,7 @@ const Login = () => {
                                         id="username"
                                         type="text"
                                         className="h-12 w-full pl-10 pr-4 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium"
-                                        placeholder={IS_TAURI ? 'Ej: admin' : 'Ej: correo@empresa.com'}
+                                        placeholder="Ej: correo@empresa.com"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         required

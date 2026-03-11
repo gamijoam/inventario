@@ -65,7 +65,16 @@ Para maximizar la conversión en el POS, se han implementado patrones visuales a
 *   **Configuración de Monedas**: Panel lateral con tasas actuales + botón "Consultar BCV" que obtiene las tasas oficiales del Banco Central de Venezuela en tiempo real.
 *   **Botón Recepción**: En la página `/products`, visible solo si `modules?.services` está activo. Lleva a `/inventory/serialized-reception`.
 
-## 7. Tecnologías Core
+## 7. Lazy Loading y ErrorBoundary (Auditoría 2026-03-10)
+
+*   **React.lazy()**: 58 páginas cargadas con `React.lazy()`. Solo `Login` y `Dashboard` se cargan de forma eager (bundle inicial ~60% menor).
+*   **LazyErrorBoundary**: Class component que atrapa errores de chunk load en rutas lazy. Si un chunk falla al cargar (ej. deploy nuevo mientras el usuario tiene la app abierta), muestra un mensaje amigable con opción de recargar.
+*   **Notificaciones migradas**: 37 llamadas `alert()` reemplazadas por `toast()` de `react-hot-toast` en 16 archivos.
+*   **console.log eliminados**: 17 llamadas de debug removidas. Además, `vite.config.js` tiene `esbuild: { drop: ['console', 'debugger'] }` para eliminar automáticamente en build de producción.
+*   **CartContext optimizado**: El objeto `value` del Provider está envuelto en `useMemo` para evitar re-renders innecesarios en cascada.
+*   **Paginación server-side**: Products y Customers usan `skip/limit` (max 500) en vez de cargar todos los registros.
+
+## 8. Tecnologías Core
 *   **React + Vite**: Para una carga casi instantánea.
 *   **Tailwind CSS**: Estilizado moderno y mantenible.
 *   **React Context API**: Gestión de estados sin la complejidad de Redux.

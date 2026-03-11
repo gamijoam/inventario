@@ -64,3 +64,22 @@ Guía de resolución de conflictos comunes en el uso y administración de **Mi I
 ### "Error: Column xxx does not exist in tenants"
 *   **Reparación Automática**: `repair_public_schema()` agrega automáticamente columnas faltantes (`business_type`, `has_restaurant_module`, etc.) a `public.tenants` durante el startup.
 
+### "FAILED: Can't locate revision identified by 'XXXXXXX'" (Alembic)
+*   **Causa**: La tabla `alembic_version` referencia una revisión que fue eliminada del código fuente. Alembic no puede resolver la cadena de migraciones.
+*   **Solución**: Forzar el stamp directamente en la BD — ver procedimiento completo en `05_Guia_Despliegue.md`, sección 7.B.
+*   **Prevención**: NUNCA eliminar archivos de migración que ya hayan sido aplicados en algún entorno.
+
+## 7. Problemas de Deploy y DevOps (Auditoría 2026-03-10)
+
+### CORS falla con sub-subdominios (`tenant.qa.domain.com`)
+*   **Causa**: La regex de CORS original solo matcheaba 1 nivel de subdominio. QA usa 2 niveles (`tenant.qa.miinventariofacil.com`).
+*   **Solución**: Regex actualizada para soportar multi-nivel. Verificar con: `re.match(pattern, "tenant.qa.miinventariofacil.com")`.
+
+### slowapi: "TypeError: missing argument 'request'"
+*   **Causa**: `slowapi` requiere que el parametro de tipo `Request` se llame EXACTAMENTE `request`. Si se nombra `http_request` o cualquier otro nombre, el rate limiter no puede extraer la IP del cliente.
+*   **Solución**: Renombrar el parametro a `request: Request` en la firma del endpoint.
+
+### Contenedores muestran hora UTC en vez de hora local
+*   **Causa**: Los contenedores Docker usan UTC por defecto.
+*   **Solución**: Agregar `TZ=America/Caracas` como variable de entorno en backend y DB en docker-compose.
+

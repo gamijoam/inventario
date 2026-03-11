@@ -3,9 +3,7 @@ const getApiUrl = () => {
     let url = import.meta.env.VITE_API_URL;
 
     // 2. Dynamic Localhost Subdomain Handling (Multi-tenant Dev)
-    // Excluded: tauri.localhost — Tauri always uses the baked-in VITE_API_URL
-    const isTauri = typeof window !== 'undefined' && typeof window.__TAURI_INTERNALS__ !== 'undefined';
-    if (import.meta.env.DEV && !isTauri && window.location.hostname.includes('.localhost')) {
+    if (import.meta.env.DEV && window.location.hostname.includes('.localhost')) {
         // Example: ferreteria.localhost:5173 -> http://ferreteria.localhost:8000/api/v1
         return `http://${window.location.hostname.split(':')[0]}:8000/api/v1`;
     }

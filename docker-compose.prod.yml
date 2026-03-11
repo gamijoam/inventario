@@ -80,8 +80,6 @@ services:
     restart: always
     mem_limit: 512m
     cpus: 1.0
-    environment:
-      - TZ=America/Caracas
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')\""]
       interval: 30s
@@ -101,6 +99,8 @@ services:
       - media_data_prod:/app/media
     environment:
       - DOCKER_CONTAINER: "true"
+      - TZ=America/Caracas
+      
     depends_on:
       db:
         condition: service_healthy

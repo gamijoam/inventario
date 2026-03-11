@@ -58,6 +58,6 @@ La función `repair_public_schema()` en `main.py` verifica y repara automáticam
 > [!IMPORTANT]
 > El sistema opera **exclusivamente con PostgreSQL**. No existe soporte para SQLite. Toda la lógica de `db.py` y `tenant_service.py` asume PostgreSQL como motor de base de datos.
 
-*   **Pool de Conexiones**: 20 conexiones base + 10 overflow. Reciclo cada 1800s. Pre-ping activo.
+*   **Pool de Conexiones**: 80 conexiones base + 50 overflow. Reciclo cada 1800s. Pre-ping activo. (Ampliado de 20+10 en auditoría 2026-03-10 para eliminar cuellos de botella bajo carga concurrente.)
 *   **Schema Switching**: Se realiza exclusivamente en `get_db()`. No hay event listeners de `checkout` en el pool.
-*   **Seguridad**: Cada petición resetea `search_path TO public` al terminar para prevenir fugas de datos entre tenants.
+*   **Seguridad**: Cada petición resetea `search_path TO public` al terminar. El bloque `finally` es robusto: loguea errores, ejecuta `db.rollback()` si falla el reset, y `db.close()` en un `finally` anidado para evitar conexiones huérfanas.

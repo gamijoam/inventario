@@ -52,29 +52,35 @@ def extract_token_hybrid(
     )
 
 def get_current_user(
-    token: Annotated[str, Depends(extract_token_hybrid)], 
+    request: Request,
+    token: Annotated[str, Depends(extract_token_hybrid)],
     db: Session = Depends(get_db)
 ):
     """
     Validate JWT token and return current user.
-    
+
     Now supports HYBRID authentication (cookie + header).
+    Marks request for cookie clearing when JWT signature is invalid (SECRET_KEY rotation).
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
-        
+
         if email is None:
             print("⛔ Auth Failed: Token payload missing 'sub'")
             raise credentials_exception
     except JWTError as e:
         print(f"⛔ JWT Validation Error: {e}")
+        # Mark for cookie clearing in middleware
+        if request.cookies.get("access_token"):
+            request.state.clear_auth_cookie = True
+            print("🧹 Marking invalid cookie for clearing (force re-login)")
         raise credentials_exception
         
     # FETCH USER (Globally Unique by Email)

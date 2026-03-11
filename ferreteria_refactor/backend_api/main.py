@@ -40,7 +40,6 @@ from .routers.audit import router as audit_router
 from .routers.system import router as system_router
 from .routers.payment_methods import router as payment_methods_router
 from .routers.sync import router as sync_router
-from .routers.sync_local import router as sync_local_router
 from .routers.cloud import router as cloud_router
 from .routers.credits import router as credits_router
 from .routers.services import router as services_router
@@ -175,6 +174,22 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             process_time = time.time() - start_time
             print(f"👈 [RES] {response.status_code} ({process_time:.4f}s)")
+
+            # Force clear invalid auth cookie on 401 (e.g. after SECRET_KEY rotation)
+            if response.status_code == 401 and request.cookies.get("access_token"):
+                from .config import settings as app_settings
+                response.set_cookie(
+                    key="access_token",
+                    value="",
+                    max_age=0,
+                    httponly=True,
+                    secure=app_settings.SECURE_COOKIES,
+                    samesite="lax",
+                    path="/",
+                    domain=app_settings.COOKIE_DOMAIN,
+                )
+                print("🧹 Cleared invalid auth cookie (force re-login)")
+
             return response
         except Exception as e:
             process_time = time.time() - start_time
@@ -228,7 +243,6 @@ v1_router.include_router(system_router, tags=["Sistema y Licencias"])
 v1_router.include_router(credits_router, tags=["Créditos y Cobranzas"])
 v1_router.include_router(payment_methods_router, tags=["Métodos de Pago"])
 v1_router.include_router(sync_router, tags=["Sincronización Híbrida"])
-v1_router.include_router(sync_local_router, tags=["Sincronización Local"])
 v1_router.include_router(warehouses_router, tags=["Almacenes"])
 v1_router.include_router(transfers_router, tags=["Traslados"])
 v1_router.include_router(services_router, tags=["Servicios Técnicos"])
@@ -392,20 +406,12 @@ def run_migrations():
     IS_DOCKER = os.getenv('DOCKER_CONTAINER', 'false').lower() == 'true'
     
     try:
-        if getattr(sys, 'frozen', False):
-             # FROZEN: alembic.ini is in the root of the bundle (sys._MEIPASS)
-             base_dir_frozen = sys._MEIPASS
-             alembic_ini_path = os.path.join(base_dir_frozen, "alembic.ini")
-             script_location = os.path.join(base_dir_frozen, "alembic")
-             print(f"[MIGRATION] Buscando alembic.ini congelado en: {alembic_ini_path}")
-        else:
-             # DEV
-             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-             alembic_ini_path = os.path.join(base_dir, "alembic.ini")
-             script_location = os.path.join(base_dir, "alembic")
-             
-             if not os.path.exists(alembic_ini_path):
-                 alembic_ini_path = "alembic.ini"
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        alembic_ini_path = os.path.join(base_dir, "alembic.ini")
+        script_location = os.path.join(base_dir, "alembic")
+
+        if not os.path.exists(alembic_ini_path):
+            alembic_ini_path = "alembic.ini"
 
         if not os.path.exists(alembic_ini_path):
             error_msg = f"alembic.ini no encontrado en: {alembic_ini_path}"
@@ -581,10 +587,7 @@ print("[INFO] Imagenes montadas como archivos estaticos")
 
 # 2. THEN: Mount frontend static files
 # Check for local frontend directory first (PWA mode), then Docker path
-if getattr(sys, 'frozen', False):
-    # FROZEN (PyInstaller): Frontend next to executable
-    frontend_dir = os.path.join(os.path.dirname(sys.executable), "frontend")
-elif os.path.exists("./frontend"):
+if os.path.exists("./frontend"):
     # Local development/distribution: Frontend in ./frontend
     frontend_dir = os.path.abspath("./frontend")
 elif os.path.exists("/app/static"):

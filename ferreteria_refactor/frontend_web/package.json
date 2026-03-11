@@ -8,13 +8,7 @@
     "build": "vite build",
     "build:qa": "vite build --mode qa",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:dev:qa": "tauri dev --config src-tauri/tauri.qa.conf.json",
-    "tauri:build": "tauri build",
-    "tauri:build:qa": "tauri build --config src-tauri/tauri.qa.conf.json",
-    "tauri:icon": "tauri icon"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@capacitor-community/barcode-scanner": "^4.0.1",
@@ -22,8 +16,6 @@
     "@capacitor/app": "^8.0.1",
     "@capacitor/cli": "^8.1.0",
     "@capacitor/core": "^8.1.0",
-    "@tauri-apps/api": "^2.10.1",
-    "@tauri-apps/cli": "^2.10.1",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

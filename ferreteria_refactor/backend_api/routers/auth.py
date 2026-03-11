@@ -17,14 +17,14 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 @router.post("/discovery", response_model=schemas.DiscoveryResponse)
 @limiter.limit("20/minute")
 async def discover_tenant(
-    http_request: Request,
-    request: schemas.DiscoveryRequest,
+    request: Request,
+    payload: schemas.DiscoveryRequest,
     db: Session = Depends(get_db)
 ):
     """
     Discovery endpoint to find a tenant by user email.
     """
-    email = request.email.strip().lower()
+    email = payload.email.strip().lower()
     
     # 1. Look for user by email
     user = db.query(models.User).filter(models.User.email == email).first()
@@ -354,18 +354,18 @@ async def validate_pin(request: Request, pin_data: dict, db: Session = Depends(g
 @router.post("/forgot-password")
 @limiter.limit("5/hour")
 async def forgot_password(
-    http_request: Request,
-    request: schemas.ForgotPasswordRequest,
+    request: Request,
+    payload: schemas.ForgotPasswordRequest,
     db: Session = Depends(get_db)
 ):
     """
     Step 1 of the recovery flow.
     Receives email, generates a 1-hour recovery token and sends reset link.
     """
-    user = db.query(models.User).filter(models.User.email == request.email).first()
+    user = db.query(models.User).filter(models.User.email == payload.email).first()
     if not user:
         # Return success even if user not found to prevent email enumeration
-        print(f"🕵️ Recovery requested for non-existent email: {request.email}")
+        print(f"🕵️ Recovery requested for non-existent email: {payload.email}")
         return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
 
     # Generate token with specific payload to differentiate from access tokens
@@ -389,8 +389,8 @@ async def forgot_password(
 @router.post("/reset-password")
 @limiter.limit("5/minute")
 async def reset_password(
-    http_request: Request,
-    request: schemas.ResetPasswordRequest,
+    request: Request,
+    body: schemas.ResetPasswordRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -398,11 +398,11 @@ async def reset_password(
     Validates recovery token and updates user password.
     """
     from jose import jwt, JWTError
-    
+
     try:
-        payload = jwt.decode(request.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        token_type: str = payload.get("type")
+        token_payload = jwt.decode(body.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = token_payload.get("sub")
+        token_type: str = token_payload.get("type")
         
         if username is None or token_type != "password_reset":
              raise HTTPException(status_code=400, detail="Token de recuperación inválido o expirado")
@@ -415,7 +415,7 @@ async def reset_password(
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     # Update password
-    user.password_hash = get_password_hash(request.new_password)
+    user.password_hash = get_password_hash(body.new_password)
     db.commit()
     
     print(f"🔐 Password successfully reset for user: {username}")

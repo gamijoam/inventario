@@ -56,12 +56,31 @@ El contenedor de FastAPI sigue un flujo estricto al arrancar:
 | **SECRET_KEY** | Firma de seguridad inalterable para los JWT. |
 | **SECURE_COOKIES** | Habilitado (`true`) solo para entornos con HTTPS activo. |
 
-## 6. Procedimiento de Actualización y Rollback (Zero Downtime)
+## 6. Procedimiento de Actualización — `deploy_images.sh`
 
-El sistema utiliza control de versiones basado en etiquetas (Tags) de Docker Hub. Para actualizar o revertir una versión:
-1.  Acceder a `~/deploy/prod/`.
-2.  Editar el `.env` modificando la variable `TAG` (ej. pasar de `prod-version-50` a `prod-version-51`).
-3.  Ejecutar `docker-compose up -d`. Docker descargará la imagen y recreará los contenedores en segundos sin interrumpir el servicio general.
+El despliegue se realiza con el script `deploy_images.sh` desde la máquina local:
+
+```bash
+./deploy_images.sh          # Build + push Docker images + VPS pull + restart
+```
+
+**Flujo del script:**
+1. **pytest pre-flight gate** (opcional): ejecuta los tests. Si fallan, el deploy se detiene.
+2. Build local de las imágenes Docker (backend, frontend, admin panel).
+3. Push a Docker Hub con el tag configurado.
+4. SSH al VPS → pull de nuevas imágenes → `docker-compose up -d`.
+
+**Rollback manual:** Acceder a `~/deploy/prod/`, cambiar `TAG` en `.env` a la versión anterior, ejecutar `docker-compose up -d`.
+
+### Hardening Docker (aplicado en auditoría 2026-03-10)
+| Aspecto | Configuración |
+|---------|---------------|
+| Non-root user | `appuser` en backend Dockerfile |
+| Healthchecks | `python urllib` a `/api/v1/health` |
+| Resource limits | backend 512m, frontend 128m, db 1g, traefik 256m |
+| Versiones pinneadas | 30 paquetes Python (`==`) + 8 base images con version+distro |
+| Timezone | `TZ=America/Caracas` en backend + DB |
+| Frontend build | `npm ci` (no `npm install`) + `--max-old-space-size` para evitar OOM en Alpine |
 
 ## 7. Procedimientos de Emergencia y Backups
 
@@ -82,7 +101,31 @@ En caso de pérdida de credenciales, el restablecimiento se realiza directamente
    ```
    Copiar el resultado y sustituirlo en el campo `$2b$12$NUEVO_HASH` del paso anterior.
 
-### B. Fallos de Migración
+### B. Fallos de Migración — Revisión Huérfana en Alembic
+
+**Síntoma:** `FAILED: Can't locate revision identified by 'XXXXXXX'` — el backend crashea porque la tabla `alembic_version` referencia una revisión que ya no existe en el código.
+
+**Procedimiento de recuperación (probado en QA, 2026-03-10):**
+
+```bash
+# 1. Verificar revisión actual en la BD
+docker exec db_prod_server psql -U postgres -d invensoft_prod \
+  -c "SELECT * FROM alembic_version;"
+
+# 2. Si la revisión no existe en alembic/versions/, forzar el stamp
+docker exec db_prod_server psql -U postgres -d invensoft_prod \
+  -c "UPDATE alembic_version SET version_num = '<revision_válida>';"
+
+# 3. Correr upgrade normal
+docker exec backend_prod_server alembic -c /app/ferreteria_refactor/alembic.ini upgrade head
+
+# 4. Verificar que las columnas se crearon
+docker exec db_prod_server psql -U postgres -d invensoft_prod \
+  -c "SELECT column_name FROM information_schema.columns WHERE table_name='desktop_licenses' AND table_schema='public';"
+```
+
+**Prevención:** NUNCA eliminar archivos de migración que ya hayan sido aplicados en algún entorno. Siempre verificar `alembic current` en el VPS antes de desplegar código con migraciones nuevas.
+
 Si un cliente nuevo no puede acceder, verificar los logs de `migrate_tenants.py`. Es posible que el esquema del inquilino no se haya creado correctamente o falte la ejecución de un `alembic upgrade` en su esquema particular.
 
 ### C. Respaldo de Base de Datos

@@ -23,26 +23,9 @@ const apiClient = axios.create({
     },
 });
 
-// Detectar entorno Tauri (desktop local)
-const IS_TAURI = typeof window !== 'undefined' && typeof window.__TAURI_INTERNALS__ !== 'undefined';
-
 // Request Interceptor (Multi-tenant & Hybrid Auth)
 apiClient.interceptors.request.use(
     (config) => {
-
-        // ── DESKTOP (Tauri) ────────────────────────────────────────────────
-        // El backend es local (localhost:8000) y el tenant es siempre fijo.
-        // Las cookies HttpOnly NO funcionan cross-origin (localhost:5173 → 127.0.0.1:8000)
-        // así que usamos el Bearer token guardado en localStorage (igual que mobile).
-        if (IS_TAURI) {
-            config.baseURL = 'http://127.0.0.1:8000/api/v1/';
-            config.headers['X-Tenant-ID'] = 'desktop_local';
-            const desktopToken = localStorage.getItem('token');
-            if (desktopToken) {
-                config.headers['Authorization'] = `Bearer ${desktopToken}`;
-            }
-            return config;
-        }
 
         // --- 1. MOBILE BASE URL OVERRIDE ---
         // If we are functioning as a Mobile App (Native), we MUST use the stored API URL

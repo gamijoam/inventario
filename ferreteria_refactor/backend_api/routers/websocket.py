@@ -8,6 +8,19 @@ import json
 
 router = APIRouter(prefix="/ws", tags=["websocket"])
 
+# Rate-limit WS auth failure logs: max 1 log per IP every 5 minutes
+import time as _time
+_ws_fail_log = {}  # {ip: last_log_timestamp}
+_WS_LOG_COOLDOWN = 300  # 5 minutes
+
+def _should_log_ws_fail(ip: str) -> bool:
+    now = _time.time()
+    last = _ws_fail_log.get(ip, 0)
+    if now - last > _WS_LOG_COOLDOWN:
+        _ws_fail_log[ip] = now
+        return True
+    return False
+
 
 @router.websocket("/hardware/connect")
 async def hardware_connect(
@@ -33,8 +46,11 @@ async def hardware_connect(
     from ..models.models import User
     from ..database.db import SessionLocal
 
+    client_ip = websocket.client.host if websocket.client else "unknown"
+
     if not token or len(token) < 10:
-        print(f"⛔ [WS] Connection rejected for {client_id}: Invalid Token")
+        if _should_log_ws_fail(client_ip):
+            print(f"⛔ [WS] Connection rejected from {client_ip} ({client_id}): Invalid Token")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
@@ -100,7 +116,8 @@ async def hardware_connect(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
     except JWTError:
-        print(f"⛔ [WS] Invalid Token Format (Not enough segments or bad signature)")
+        if _should_log_ws_fail(client_ip):
+            print(f"⛔ [WS] Invalid Token from {client_ip} ({client_id}): bad signature or expired")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
     except Exception as e:

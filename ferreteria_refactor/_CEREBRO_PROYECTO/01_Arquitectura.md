@@ -5,7 +5,7 @@ Este documento describe la infraestructura de nivel empresarial del proyecto **M
 ## 1. Stack Tecnológico de Alto Nivel
 *   **Frontend**: React 18 (Vite) + Tailwind CSS. Gestión de estado mediante **Context API** (Caja-Context, Auth-Context).
 *   **Backend**: FastAPI (Python 3.12). Arquitectura de routers modulares y dependencias asíncronas.
-*   **Base de Datos**: **PostgreSQL 15+** (exclusivo, sin soporte SQLite). Pool de 20+10 conexiones con pre-ping.
+*   **Base de Datos**: **PostgreSQL 15+** (exclusivo, sin soporte SQLite). Pool de 80+50 conexiones con pre-ping.
 *   **Identidad**: JWT (JSON Web Tokens) con soporte para **Impersonation** (suplantación de identidad para soporte técnico).
 *   **Puente de Hardware**: Túnel dúplex mediante **WebSockets** (FastAPI <-> C# Bridge).
 *   **SaaS Admin**: Panel de administración en React (Vite) para gestión centralizada de tenants.

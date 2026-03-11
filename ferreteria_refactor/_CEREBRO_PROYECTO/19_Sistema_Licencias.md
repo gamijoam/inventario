@@ -2,8 +2,8 @@
 
 > **Estado:** Backend implementado ✅ | SaaS Admin UI pendiente 🔄
 > **Actualizado:** 2026-03-05 (antes: 2026-03-04)
-> **Aplica a:** Web SaaS + App Desktop Tauri
-> **Branch:** `feature/tauri-desktop`
+> **Aplica a:** Web SaaS (Tauri/Desktop removido marzo 2026)
+> **Branch:** `fix/critical-security-multiagent`
 
 ---
 

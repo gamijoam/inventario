@@ -41,7 +41,6 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "/app/media"
     
     # Feature Flags
-    ENABLE_LOCAL_SYNC: bool = False  # Disable local sync to prevent 400 errors in QA/Production
 
     # Email / SMTP Settings
     # Quitamos el '= None' para forzar a Pydantic a buscar en el entorno
@@ -65,8 +64,8 @@ class Settings(BaseSettings):
     LICENSE_TRIAL_DAYS_DEFAULT: int = 15           # Días de trial para nuevos tenants
     LICENSE_GRACE_DAYS_OFFLINE: int = 7            # Días de gracia offline tras vencimiento
     LICENSE_KEY: Optional[str] = None              # JWT de licencia del servidor
-    LICENSE_RS256_PRIVATE_KEY: Optional[str] = None  # Clave privada para firmar .lic desktop
-    LICENSE_RS256_PUBLIC_KEY: Optional[str] = None   # Clave pública embebida en .exe Tauri
+    LICENSE_RS256_PRIVATE_KEY: Optional[str] = None  # Clave privada para firmar .lic
+    LICENSE_RS256_PUBLIC_KEY: Optional[str] = None   # Clave pública para verificar .lic
 
     model_config = ConfigDict(
         env_file=str(ENV_FILE),

@@ -173,6 +173,23 @@ class RestaurantMenuItem(Base):
 *   **Búsqueda Global**: El esquema `public` permite el login instantáneo centralizado.
 *   **Case Insensitivity**: Índices `UPPER()` en nombres de productos y clientes para búsquedas ágiles en POS.
 
+### Índices FK añadidos (migración `a1b2c3d4e5f6`, auditoría 2026-03-10)
+
+| Tabla | Columna | Impacto |
+|-------|---------|---------|
+| `sales` | `customer_id` | JOINs con clientes |
+| `sales` | `session_id` | JOINs con sesiones de caja |
+| `products` | `supplier_id` | Filtros por proveedor |
+| `products` | `category_id` | Filtros por categoría |
+| `kardex` | `product_id` | Historial de movimientos |
+| `kardex` | `warehouse_id` | Filtros por almacén |
+| `product_stocks` | `product_id` | Consultas de stock |
+| `product_stocks` | `warehouse_id` | Stock por almacén |
+
+### Índices FK adicionales (migración `b2c3d4e5f6a7`)
+
+6 índices adicionales en tablas de detalle: `SalePayment`, `SaleDetail` (x2), `CashMovement`, `ReturnDetail` (x2). Mejoran JOINs ~10x en consultas de reportes.
+
 ## 5. Provisionamiento de Esquemas de Tenant
 
 La creación de un nuevo tenant sigue este flujo orquestado por `TenantService`:

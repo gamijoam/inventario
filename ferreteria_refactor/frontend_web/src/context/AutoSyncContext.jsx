@@ -66,34 +66,16 @@ export const AutoSyncProvider = ({ children }) => {
         }
     }, [cloudConfig.cloudUrl, cloudConfig.isConfigured]);
 
-    // SELF-HEALING: Asegurar que el backend tenga la configuración cuando iniciamos sesión
+    // Sync cloud_url to backend once when config changes (uses cookies, not localStorage token)
     useEffect(() => {
-        const syncToBackend = async () => {
-            if (cloudConfig.isConfigured && cloudConfig.cloudUrl) {
-                const token = localStorage.getItem('token');
-                if (token) {
-                    try {
-                        // Enviamos la configuración al backend silenciosamente
-                        await apiClient.put('/config/cloud_url', {
-                            key: 'cloud_url',
-                            value: cloudConfig.cloudUrl
-                        }, {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        console.log('[AutoSync] ✅ Configuración sincronizada con Backend (Self-Healing)');
-                    } catch (e) {
-                        // Ignoramos errores aquí para no molestar, reintentará luego
-                        console.warn('[AutoSync] Falló self-healing de config:', e.message);
-                    }
-                }
-            }
-        };
-
-        syncToBackend();
-        // Ejecutar cada vez que cambie la config o cada 30 seg por si el token aparece recién
-        const interval = setInterval(syncToBackend, 30000);
-        return () => clearInterval(interval);
-
+        if (cloudConfig.isConfigured && cloudConfig.cloudUrl) {
+            apiClient.put('/config/cloud_url', {
+                key: 'cloud_url',
+                value: cloudConfig.cloudUrl
+            }).catch(e => {
+                console.warn('[AutoSync] Falló sync de cloud_url:', e.message);
+            });
+        }
     }, [cloudConfig.isConfigured, cloudConfig.cloudUrl]);
 
     // Función de sincronización

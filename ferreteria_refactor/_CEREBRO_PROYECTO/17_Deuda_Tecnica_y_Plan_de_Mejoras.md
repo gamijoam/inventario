@@ -192,47 +192,15 @@ def test_escandallo_descuenta_ingredientes_al_vender()
 
 ---
 
-### 2.3 Script de healthcheck en deployment
+### ~~2.3 Script de healthcheck en deployment~~ ⚠️ PARCIALMENTE RESUELTO
 
-No hay verificación automática de que el sistema arrancó correctamente.
-Un deployment fallido puede pasar desapercibido.
-
-**Archivo a crear:** `scripts/healthcheck.sh`
-
-```bash
-#!/bin/bash
-set -e
-
-echo "[1/4] Verificando API..."
-curl -sf http://localhost:8000/health > /dev/null || {
-  echo "ERROR: API no responde"; exit 1;
-}
-
-echo "[2/4] Verificando conexión a base de datos..."
-python -c "
-from ferreteria_refactor.backend_api.database.db import engine
-with engine.connect() as conn:
-    conn.execute('SELECT 1')
-print('DB OK')
-" || { echo "ERROR: BD no accesible"; exit 1; }
-
-echo "[3/4] Verificando migraciones..."
-alembic current 2>&1 | grep "(head)" || {
-  echo "ERROR: Migraciones pendientes"; exit 1;
-}
-
-echo "[4/4] Verificando schemas de tenants..."
-python -c "
-from ferreteria_refactor.backend_api.database.db import engine
-with engine.connect() as conn:
-    result = conn.execute(\"SELECT count(*) FROM public.tenants WHERE is_active = true\")
-    count = result.scalar()
-    print(f'Tenants activos: {count}')
-"
-
-echo ""
-echo "Sistema OK - $(date)"
-```
+> **Actualización 2026-03-10:** Se añadieron healthchecks Docker nativos
+> (`python urllib` a `/api/v1/health`) en el Dockerfile del backend.
+> Además, `deploy_images.sh` incluye un pytest pre-flight gate opcional
+> que detiene el deploy si los tests fallan.
+>
+> **Pendiente:** Script bash standalone para verificación post-deploy más
+> completa (BD, migraciones, schemas de tenants).
 
 ---
 
@@ -376,20 +344,42 @@ Semana 9+  → Continuar extrayendo lógica de routers a services
 
 ### Resueltos en fix/critical-security-multiagent (2026-03-10)
 
-Los siguientes puntos de deuda técnica fueron abordados en esta rama:
+Los siguientes puntos de deuda técnica fueron abordados en esta rama (35+ fixes, 15 commits):
 
 | # | Descripción | Estado |
 |---|-------------|--------|
-| 1.4 | Rate limiting `/pin-login` | ⚠️ Parcial |
+| 1.4 | Rate limiting `/pin-login` | ⚠️ Parcial (pendiente `/auth/discovery`) |
+| 2.3 | Healthcheck en deployment | ⚠️ Parcial (Docker healthcheck + pytest gate, falta script standalone) |
 | — | N+1 en `get_registers_status` (cash.py) | ✅ Resuelto |
 | — | `console.log` en build de producción | ✅ Resuelto (vite.config.js esbuild.drop) |
 | — | Exception handler expone internos | ✅ Resuelto |
 | — | Endpoint `/debug/routes` sin auth | ✅ Resuelto |
 | — | CORS permisivo en producción | ✅ Resuelto |
-| — | Pool de conexiones insuficiente | ✅ Resuelto |
-| — | Reset `search_path` no transaccional | ✅ Resuelto |
-| — | Índices FK faltantes en BD | ✅ Resuelto (migración a1b2c3d4e5f6) |
+| — | Pool de conexiones insuficiente | ✅ Resuelto (80+50) |
+| — | Reset `search_path` no transaccional | ✅ Resuelto (rollback + close en finally) |
+| — | Índices FK faltantes en BD | ✅ Resuelto (14 índices en 2 migraciones) |
 | — | Re-renders innecesarios en CartContext | ✅ Resuelto (useMemo) |
+| — | `alert()` en frontend (37 calls) | ✅ Migrado a `toast()` |
+| — | `console.log` debug (17 calls) | ✅ Removidos |
+| — | React.lazy en 58 páginas | ✅ Bundle ~60% menor |
+| — | ErrorBoundary para lazy routes | ✅ LazyErrorBoundary |
+| — | Paginación server-side (products, customers) | ✅ skip/limit max 500 |
+| — | Cloudflare token hardcoded | ✅ Externalizado a env var |
+| — | Docker non-root user | ✅ appuser |
+| — | Versiones Docker no pinneadas | ✅ 30 Python + 8 base images |
+| — | nginx sin security headers | ✅ 4 headers añadidos |
+| — | Docker sin resource limits | ✅ Limits configurados |
+| — | CORS regex sub-subdominios | ✅ Multi-nivel soportado |
+| — | TZ UTC en contenedores | ✅ America/Caracas |
+
+### Pendientes post-auditoría
+| Prioridad | Descripción |
+|-----------|-------------|
+| ALTA | Rotar token Cloudflare (estuvo en git history) |
+| ALTA | Rotar `private_key.pem` (JWT signing key estuvo en repo) |
+| ALTA | Aplicar migraciones a Producción (ver `05_Guia_Despliegue.md` sección 7.B) |
+| MEDIA | CI/CD pipeline (deploys son manuales, pytest gate local como alternativa) |
+| BAJA | Rate limiting en `/auth/discovery` y otros endpoints públicos |
 
 ---
 

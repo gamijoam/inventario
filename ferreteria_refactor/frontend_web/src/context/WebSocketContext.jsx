@@ -92,18 +92,20 @@ export const WebSocketProvider = ({ children }) => {
                 setStatus('DISCONNECTED');
                 if (pingInterval.current) clearInterval(pingInterval.current);
 
-                // Exponential Backoff Reconnect
-                if (isMounting.current && ws.current) { // Check mount status
+                // Exponential Backoff Reconnect (with max retries limit)
+                if (isMounting.current && ws.current && retryCount.current < maxRetries) {
                     const delay = Math.min(1000 * Math.pow(2, retryCount.current), 30000);
-                    console.log(`🔄 WS: Reconnecting in ${delay}ms...`);
+                    console.log(`🔄 WS: Reconnecting in ${delay}ms... (${retryCount.current + 1}/${maxRetries})`);
 
                     if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
                     reconnectTimeout.current = setTimeout(() => {
-                        if (isMounting.current) { // Double check before firing
+                        if (isMounting.current) {
                             retryCount.current++;
                             connect();
                         }
                     }, delay);
+                } else if (retryCount.current >= maxRetries) {
+                    console.warn('🛑 WS: Max retries reached. Stopping reconnection.');
                 }
             };
 

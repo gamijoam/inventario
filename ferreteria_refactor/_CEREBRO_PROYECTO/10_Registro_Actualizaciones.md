@@ -4,8 +4,50 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
-## [2026-03-10] — Fixes de Seguridad, Performance y Build
-**Branch:** `fix/critical-security-multiagent` | **Commits:** `ad8eb51`, `a0082cd`, `0aeb314`, `5cb5439`
+## [2026-03-11] — Eliminación Tauri + Fixes WebSocket/AutoSync + Prod TZ
+
+### Eliminación completa de Tauri/Desktop
+- Removido código Tauri de `constants.js`, `axios.js`, `Login.jsx`, `vite.config.js`, `package.json`
+- Eliminados `@tauri-apps/api`, `@tauri-apps/cli`, 6 scripts npm `tauri:*`
+- Eliminado `sync_local.py` (router de sincronización desktop)
+- Eliminado `18_Plan_App_Escritorio_Tauri.md` (documentación completa)
+- Limpiado código PyInstaller/frozen de `main.py`
+- Removido `ENABLE_LOCAL_SYNC` feature flag de `config.py`
+- Conservado: sistema de licencias desktop (funcionalidad admin SaaS)
+
+### Fixes WebSocket y AutoSync
+- **WebSocketContext.jsx**: Corregido retry infinito — ahora respeta `maxRetries=10` y para
+- **AutoSyncContext.jsx**: Eliminado self-healing que enviaba `PUT /config/cloud_url` cada 30seg con token viejo del localStorage (causaba flood de 401 en logs)
+- **websocket.py**: Rate-limit en logs de auth failure — max 1 log por IP cada 5 minutos (evita spam de cientos de líneas iguales)
+
+### Infraestructura Prod
+- **TZ=America/Caracas** agregado a `docker-compose.yml` de producción (backend + db)
+- Migraciones de licencias verificadas en prod (todas aplicadas, Alembic en head `c3d4e5f6a7b8`)
+
+---
+
+## [2026-03-10] — Auditoría de Seguridad Completa (35+ fixes)
+**Branch:** `fix/critical-security-multiagent` | **15 commits atómicos** | **4 agentes correctores + 4 verificadores**
+
+### Resumen Ejecutivo
+| Categoría | Fixes | Destacados |
+|-----------|-------|------------|
+| Seguridad | 8 | Cloudflare token externalizado, bare excepts eliminados, CORS dinámico, nginx headers, non-root Docker |
+| Performance | 4 | 6 FK indexes, React.lazy 58 páginas, N+1 query corregido, paginación server-side |
+| UX | 4 | alert() → toast (37 calls), console.log removidos (17 calls) |
+| Docker/DevOps | 11 | Versiones pinneadas (30 Python + 8 images), healthchecks, resource limits, TZ=America/Caracas |
+| Bugs producción | 4 | CORS multi-nivel, slowapi param naming, Alembic orphan recovery, UTC timezone |
+
+### Bugs de Producción (descubiertos durante deploy QA)
+
+| Commit | Fix | Causa Raíz |
+|--------|-----|------------|
+| `9c57e63` | TZ=America/Caracas en backend + DB | Contenedores en UTC, horas incorrectas |
+| `7467bca` | Register: `request` → payload para slowapi | slowapi requiere param Request llamado exactamente `request` |
+| `a519188` | CORS regex multi-nivel | Regex solo matcheaba 1 nivel de subdominio, QA usa 2 (`tenant.qa.domain`) |
+| VPS fix | Alembic stamp `0fbdc2b894af` → `b2c3d4e5f6a7` | Revisión huérfana en BD, migraciones bloqueadas |
+
+### Commits anteriores del branch: `ad8eb51`, `a0082cd`, `0aeb314`, `5cb5439`
 
 ### fix(security): Global exception handler — no expone internos del servidor
 
@@ -66,6 +108,54 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 - `frontend_web/src/context/CartContext.jsx`
 - `frontend_web/vite.config.js`
 - `alembic/versions/a1b2c3d4e5f6_add_missing_fk_indexes.py` (nuevo)
+
+### fix(security): Cloudflare token externalizado + .gitignore hardening
+`deploy_images.sh` — token de Cloudflare DNS movido a variable de entorno `${CF_DNS_API_TOKEN}`. `.gitignore` actualizado para excluir `.venv/` y proteger `.env.example`.
+
+### fix(security): nginx security headers + non-root Docker user
+- nginx: `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`, `X-XSS-Protection`, `Referrer-Policy strict-origin-when-cross-origin`
+- Backend Dockerfile: usuario `appuser` (non-root)
+- Healthchecks con `python urllib` a `/api/v1/health`
+- Resource limits: backend 512m, frontend 128m, db 1g, traefik 256m
+
+### fix(security): bare excepts + CORS dinámico + N+1 en reporte deudas
+- 4 `except:` → excepciones específicas (services, config, admin, cash)
+- CORS: variable `CORS_ORIGINS` env var + merge con defaults
+- N+1 en reporte de deudas: de 2N queries a 3 queries (2 subqueries + 1 join)
+
+### fix(ux): alert() → toast (37 calls) + console.log removidos (17 calls)
+- `commit cad95f9`: 11 archivos migrados de `alert()` a `toast()` (25 calls)
+- `commit 5cb5439`: Products (5) + SalesHistory (7) migrados (12 calls)
+- console.log debug removidos en 11 archivos (17 total)
+
+### feat(devops): Versiones pinneadas + paginación server-side + ErrorBoundary
+- `commit 78dc26f`: 30 paquetes Python pinneados (`==`) + 8 base images Docker con versión+distro
+- `commit 02c2287`: Paginación server-side en products + customers (skip/limit, max 500)
+- `commit 02c2287`: `LazyErrorBoundary` — class component que atrapa errores de chunk load en lazy routes
+
+### feat(deploy): pytest pre-flight gate
+`deploy_images.sh` — `commit a8bc757`: gate opcional de pytest antes de build. Si los tests fallan, el deploy se detiene.
+
+### fix(docker): npm ci + memoria limitada para Alpine
+`commit 6e1a65d`: Frontend Dockerfile usa `npm ci` en vez de `npm install` + flag `--max-old-space-size` para evitar OOM en Alpine.
+
+### fix(deps): regenerar package-lock.json para Node 22
+`commit edd2f56`: package-lock.json de frontend y saas_admin regenerados para compatibilidad con Node 22.
+
+### fix(registration): trial_ends_at en registro público + fix module mapping
+`commit 601546e`: `trial_ends_at` se setea correctamente al registrar por `/public/register`. Corregido mapeo de módulos por rubro.
+
+### fix(config): variables LICENSE_* en Settings + warnings Pydantic V2
+`commit 96a4afb`: Variables `LICENSE_*` en `Settings` de config. Últimos warnings de Pydantic V2 corregidos.
+
+### feat(semana-4): rate limiting + barbería fase 3 + panel dispositivos
+`commit ab04ace`: Rate limiting completo, barbería fase 3, panel de dispositivos, warnings fix.
+
+### Pasos Pendientes del Branch
+1. **Rotar token Cloudflare** — el viejo estuvo en git history
+2. **Rotar `private_key.pem`** — JWT signing key estuvo en repo
+3. **Aplicar migraciones en Producción** — ver procedimiento en sección 7.B de `05_Guia_Despliegue.md`
+4. **CI/CD pipeline** — no existe; deploys son manuales (pytest gate local como alternativa)
 
 ---
 
