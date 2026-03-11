@@ -1,10 +1,19 @@
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { FixedSizeGrid } from 'react-window';
 import { Search, Package, Box } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
-import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '../../lib/utils';
 import ProductCard from './ProductCard';
 import SearchWithScanner from '../common/SearchWithScanner';
+
+const getColumnCount = (width) => {
+    if (width >= 1536) return 6;  // 2xl
+    if (width >= 1280) return 5;  // xl
+    if (width >= 1024) return 4;  // lg
+    if (width >= 768) return 3;   // md
+    return 2;
+};
 
 const POSCatalog = ({
     products = [],
@@ -19,6 +28,52 @@ const POSCatalog = ({
     secondaryCurrency = null,
     convertProductPrice = null
 }) => {
+    const containerRef = useRef(null);
+    const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const observer = new ResizeObserver(entries => {
+            const { width, height } = entries[0].contentRect;
+            setContainerSize({ width, height });
+        });
+        observer.observe(containerRef.current);
+        return () => observer.disconnect();
+    }, []);
+
+    const columnCount = getColumnCount(containerSize.width);
+    const rowCount = Math.ceil(products.length / columnCount);
+    const GAP = 12; // gap-3 = 12px
+    const PADDING = 16; // p-4 = 16px
+    const columnWidth = containerSize.width > 0
+        ? (containerSize.width - PADDING * 2 - GAP * (columnCount - 1)) / columnCount
+        : 0;
+    const ROW_HEIGHT = 380; // min-h-[360px] + gap
+
+    const Cell = useCallback(({ columnIndex, rowIndex, style }) => {
+        const index = rowIndex * columnCount + columnIndex;
+        if (index >= products.length) return null;
+        const product = products[index];
+
+        return (
+            <div style={{
+                ...style,
+                left: style.left + PADDING + columnIndex * GAP,
+                top: style.top + PADDING + rowIndex * GAP,
+                width: style.width - GAP,
+                height: style.height - GAP,
+            }}>
+                <ProductCard
+                    key={product.id}
+                    product={product}
+                    onClick={onAddToCart}
+                    currentStock={product.stock}
+                    currencySymbol={currencySymbol}
+                    convertProductPrice={convertProductPrice}
+                />
+            </div>
+        );
+    }, [products, columnCount, onAddToCart, currencySymbol, convertProductPrice]);
 
     return (
         <div className="flex flex-col h-full bg-muted/10 overflow-hidden rounded-3xl border border-slate-200">
@@ -71,7 +126,7 @@ const POSCatalog = ({
             </div>
 
             {/* Grid Area */}
-            <div className="flex-1 min-h-0 relative bg-slate-50/30">
+            <div ref={containerRef} className="flex-1 min-h-0 relative bg-slate-50/30">
                 {loading ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                         <div className="animate-pulse flex flex-col items-center">
@@ -91,21 +146,18 @@ const POSCatalog = ({
                             <p className="text-xs text-slate-400 font-medium mt-1">Intenta con otra búsqueda o categoría</p>
                         </div>
                     </div>
-                ) : (
-                    <ScrollArea className="h-full">
-                        <div className="p-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 pb-24">
-                            {products.map((product) => (
-                                <ProductCard
-                                    key={product.id}
-                                    product={product}
-                                    onClick={onAddToCart}
-                                    currentStock={product.stock}
-                                    currencySymbol={currencySymbol}
-                                    convertProductPrice={convertProductPrice}
-                                />
-                            ))}
-                        </div>
-                    </ScrollArea>
+                ) : containerSize.width > 0 && (
+                    <FixedSizeGrid
+                        columnCount={columnCount}
+                        columnWidth={columnWidth + GAP}
+                        height={containerSize.height}
+                        rowCount={rowCount}
+                        rowHeight={ROW_HEIGHT}
+                        width={containerSize.width}
+                        overscanRowCount={2}
+                    >
+                        {Cell}
+                    </FixedSizeGrid>
                 )}
             </div>
         </div>

@@ -1,5 +1,5 @@
 import { useAuth } from '../context/AuthContext';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
@@ -62,6 +62,8 @@ const POS = () => {
 
     // UI State
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const searchTimeoutRef = useRef(null);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [selectedProductForUnits, setSelectedProductForUnits] = useState(null);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
@@ -99,6 +101,21 @@ const POS = () => {
     const [selectedSalespersonId, setSelectedSalespersonId] = useState(''); // NEW: Global Salesperson
 
     const [isLoading, setIsLoading] = useState(true);
+
+    const handleSearchChange = useCallback((value) => {
+        setSearchTerm(value); // Update input immediately for responsiveness
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = setTimeout(() => {
+            setDebouncedSearch(value);
+        }, 300);
+    }, []);
+
+    // Clean up debounce timer on unmount
+    useEffect(() => {
+        return () => {
+            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        };
+    }, []);
 
     // Refs
     const searchInputRef = useRef(null);
@@ -147,7 +164,7 @@ const POS = () => {
             handleSuccessClose();
         } else {
             // Nothing open, clear search and focus
-            setSearchTerm('');
+            handleSearchChange('');
             if (searchInputRef.current) {
                 searchInputRef.current.focus();
             }
@@ -176,14 +193,14 @@ const POS = () => {
                 setActiveServiceOrderId(null);
                 setServiceOrderTicket(null);
 
-                setSearchTerm('');
+                handleSearchChange('');
                 if (searchInputRef.current) {
                     searchInputRef.current.focus();
                 }
             }
         } else {
             // Cart already empty, just clear search
-            setSearchTerm('');
+            handleSearchChange('');
             if (searchInputRef.current) {
                 searchInputRef.current.focus();
             }
@@ -368,10 +385,10 @@ const POS = () => {
     // UPDATED: Now respects both Search AND Category
     const filteredCatalog = useMemo(() => {
         return catalog.filter(p => {
-            const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (p.sku && p.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+            const matchesSearch = p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                (p.sku && p.sku.toLowerCase().includes(debouncedSearch.toLowerCase()));
 
-            // If selectedCategory is null, it's "All". 
+            // If selectedCategory is null, it's "All".
             // Note: selectedCategory is stored as ID (int or string).
             const matchesCategory = selectedCategory
                 ? (p.category_id === selectedCategory || p.category?.id === selectedCategory)
@@ -379,7 +396,7 @@ const POS = () => {
 
             return matchesSearch && matchesCategory;
         });
-    }, [catalog, searchTerm, selectedCategory]);
+    }, [catalog, debouncedSearch, selectedCategory]);
 
     const rootCategories = categories.filter(cat => !cat.parent_id);
 
@@ -754,7 +771,7 @@ const POS = () => {
                         categories={rootCategories}
                         loading={isLoading}
                         onAddToCart={handleProductClick}
-                        onSearch={setSearchTerm}
+                        onSearch={handleSearchChange}
                         onFilterCategory={setSelectedCategory}
                         selectedCategoryId={selectedCategory}
                         searchTerm={searchTerm}
