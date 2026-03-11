@@ -1,5 +1,5 @@
 # ETAPA 1: Construcción (Build)
-FROM node:22-alpine AS build
+FROM node:22.14-alpine3.21 AS build
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
 # ETAPA 2: Servidor (Production)
-FROM nginx:alpine
+FROM nginx:1.27-alpine3.21
 
 # Copiamos el build de la etapa anterior a la carpeta de Nginx
 COPY --from=build /app/dist /usr/share/nginx/html

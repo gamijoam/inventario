@@ -1,5 +1,5 @@
 # Production Dockerfile for Static Landing Page
-FROM nginx:alpine
+FROM nginx:1.27-alpine3.21
 
 # Recibimos la variable desde el script .bat
 ARG VITE_API_URL

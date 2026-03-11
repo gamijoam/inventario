@@ -1,5 +1,5 @@
 # Production Dockerfile for FastAPI Backend
-FROM python:3.12-slim
+FROM python:3.12.8-slim-bookworm
 
 # Install system dependencies (postgres client for healthchecks/migrations)
 RUN apt-get update && apt-get install -y \
