@@ -44,6 +44,48 @@ from typing import Optional
 from sqlalchemy import or_
 from pydantic import BaseModel
 
+@router.get("/catalog", response_model=List[schemas.ProductRead])
+@router.get("/catalog/", response_model=List[schemas.ProductRead], include_in_schema=False)
+def read_catalog_products(
+    skip: int = 0,
+    limit: int = Query(default=200, le=1000),
+    search: Optional[str] = None,
+    category_id: Optional[int] = None,
+    warehouse_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Lightweight product listing for POS/catalog views.
+    Only loads essential relationships (category, units, stocks, prices).
+    Skips combo_items, price_rules, discount_rules for faster response.
+    """
+    query = db.query(models.Product).options(
+        joinedload(models.Product.category),
+        joinedload(models.Product.units),
+        joinedload(models.Product.stocks),
+        joinedload(models.Product.prices),
+    ).filter(models.Product.is_active == True)
+
+    if warehouse_id:
+        query = query.join(models.ProductStock).filter(
+            models.ProductStock.warehouse_id == warehouse_id,
+            models.ProductStock.quantity > 0
+        )
+
+    if category_id:
+        query = query.filter(models.Product.category_id == category_id)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            or_(
+                models.Product.name.ilike(search_term),
+                models.Product.sku.ilike(search_term)
+            )
+        )
+
+    return query.order_by(models.Product.name).offset(skip).limit(limit).all()
+
 @router.get("/", response_model=List[schemas.ProductRead])
 @router.get("", response_model=List[schemas.ProductRead], include_in_schema=False)
 def read_products(
@@ -82,7 +124,6 @@ def read_products(
             )
             
         products = query.offset(skip).limit(limit).all()
-        print(f"[OK] Loaded {len(products)} products successfully (Search: {search}, Warehouse: {warehouse_id})")
         return products
     except Exception as e:
         print(f"[ERROR] ERROR loading products: {type(e).__name__}: {str(e)}")
