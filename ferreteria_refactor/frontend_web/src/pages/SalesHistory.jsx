@@ -27,6 +27,9 @@ const SalesHistory = () => {
     const [sales, setSales] = useState([]);
     const [filteredSales, setFilteredSales] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [totalSalesCount, setTotalSalesCount] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
 
     // Filters
     const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0]);
@@ -71,11 +74,17 @@ const SalesHistory = () => {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    const fetchSales = async () => {
-        setLoading(true);
+    const fetchSales = async (loadMore = false) => {
+        if (loadMore) {
+            setLoadingMore(true);
+        } else {
+            setLoading(true);
+        }
         try {
+            const skip = loadMore ? sales.length : 0;
             const params = {
-                limit: 100,
+                limit: 500,
+                skip,
                 start_date: dateFrom,
                 end_date: dateTo
             };
@@ -85,14 +94,26 @@ const SalesHistory = () => {
             if (selectedStatus) params.status = selectedStatus;
 
             const response = await apiClient.get('/returns/sales/search', { params });
+            const { items, total, has_more } = response.data;
             // Sort by ID desc locally to ensure order if not forced by backend
-            const sorted = response.data.sort((a, b) => b.id - a.id);
-            setSales(sorted);
-            setFilteredSales(sorted);
+            const sorted = items.sort((a, b) => b.id - a.id);
+            if (loadMore) {
+                setSales(prev => {
+                    const merged = [...prev, ...sorted];
+                    setFilteredSales(merged);
+                    return merged;
+                });
+            } else {
+                setSales(sorted);
+                setFilteredSales(sorted);
+            }
+            setTotalSalesCount(total);
+            setHasMore(has_more);
         } catch (error) {
             console.error('Error fetching sales:', error);
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
     };
 
@@ -507,6 +528,23 @@ const SalesHistory = () => {
                         )}
                     </TableBody>
                 </Table>
+            </div>
+
+            {/* Pagination footer */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+                <p className="text-sm text-slate-500 font-medium">
+                    Mostrando {sales.length} de {totalSalesCount} ventas
+                </p>
+                {hasMore && (
+                    <Button
+                        onClick={() => fetchSales(true)}
+                        disabled={loadingMore}
+                        variant="outline"
+                        className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                    >
+                        {loadingMore ? 'Cargando...' : 'Cargar mas ventas'}
+                    </Button>
+                )}
             </div>
 
             {/* Modals - Kept but restyled slightly if needing container updates, though they are fixed position */}

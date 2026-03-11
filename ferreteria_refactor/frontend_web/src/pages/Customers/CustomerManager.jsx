@@ -18,11 +18,14 @@ import { Textarea } from '../../components/ui/textarea';
 
 const CustomerManager = () => {
     const [customers, setCustomers] = useState([]);
+    const [totalCustomers, setTotalCustomers] = useState(0);
+    const [hasMoreCustomers, setHasMoreCustomers] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [financialStatus, setFinancialStatus] = useState(null);
     const [creditHistory, setCreditHistory] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     // Edit states for Profile View (Quick Edits)
     const [editingCredit, setEditingCredit] = useState(false);
@@ -45,15 +48,26 @@ const CustomerManager = () => {
         }
     }, [selectedCustomer]);
 
-    const fetchCustomers = async () => {
+    const fetchCustomers = async (loadMore = false) => {
         try {
+            if (loadMore) setLoadingMore(true);
+            const skip = loadMore ? customers.length : 0;
             const response = await apiClient.get('/customers', {
-                params: { q: searchQuery, limit: 100 }
+                params: { q: searchQuery, limit: 500, skip }
             });
-            setCustomers(response.data);
+            const { items, total, has_more } = response.data;
+            if (loadMore) {
+                setCustomers(prev => [...prev, ...items]);
+            } else {
+                setCustomers(items);
+            }
+            setTotalCustomers(total);
+            setHasMoreCustomers(has_more);
         } catch (error) {
             console.error('Error fetching customers:', error);
             toast.error('Error cargando clientes');
+        } finally {
+            setLoadingMore(false);
         }
     };
 
@@ -220,6 +234,9 @@ const CustomerManager = () => {
                         </div>
                     </div>
 
+                    <div className="px-4 py-2 text-xs font-medium text-slate-500 border-b border-slate-100">
+                        Mostrando {customers.length} de {totalCustomers} clientes
+                    </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
                         {customers.map(customer => (
                             <div
@@ -279,6 +296,15 @@ const CustomerManager = () => {
                                 </div>
                             </div>
                         ))}
+                        {hasMoreCustomers && (
+                            <button
+                                onClick={() => fetchCustomers(true)}
+                                disabled={loadingMore}
+                                className="w-full py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors disabled:opacity-50"
+                            >
+                                {loadingMore ? 'Cargando...' : 'Cargar m\u00e1s clientes'}
+                            </button>
+                        )}
                     </div>
                 </div>
 

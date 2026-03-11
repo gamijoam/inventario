@@ -84,8 +84,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     const fetchCustomers = async () => {
         try {
-            const response = await apiClient.get('/customers', { params: { limit: 100 } });
-            setCustomers(response.data);
+            const response = await apiClient.get('/customers', { params: { limit: 500 } });
+            setCustomers(response.data.items || response.data);
         } catch (error) {
             console.error('Error fetching customers:', error);
         }

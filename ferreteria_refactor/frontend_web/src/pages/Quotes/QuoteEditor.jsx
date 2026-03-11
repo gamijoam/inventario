@@ -48,8 +48,8 @@ const QuoteEditor = ({ quoteId, onBack }) => {
 
     const fetchCustomers = async () => {
         try {
-            const { data } = await apiClient.get('/customers');
-            setCustomers(data);
+            const { data } = await apiClient.get('/customers', { params: { limit: 500 } });
+            setCustomers(data.items || data);
         } catch (error) {
             console.error("Error fetching customers:", error);
         }
