@@ -4,7 +4,39 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
-## [2026-03-11] — Eliminación Tauri + Fixes WS + Notificaciones + Dashboard Actividad
+## [2026-03-11] — Eliminación Tauri + Fixes WS + Notificaciones + Dashboard Actividad + Paginación POS
+
+### POS: Paginación Server-Side con Infinite Scroll
+- **Backend**: Endpoint `GET /products/catalog` ahora retorna `{items, total, has_more}` (antes retornaba lista plana)
+  - COUNT query con mismos filtros antes del fetch principal
+  - Soporte: `skip`, `limit`, `search`, `category_id`, `warehouse_id`
+- **Backend**: Nuevo endpoint `GET /products/lookup` — búsqueda de producto único por SKU (case-insensitive) o product_id
+  - Usado para barcode scanning cuando el producto no está en cache local
+  - Joins livianos (sin combo_items, price_rules, discount_rules)
+- **Frontend**: Nuevo hook `usePOSCatalog.js` — gestión completa de paginación
+  - `products` (array acumulativo para infinite scroll) + `productCache` (Map por ID y SKU)
+  - `fetchPage(reset)` con AbortController para cancelar peticiones obsoletas
+  - `loadMore()` para cargar siguiente página (PAGE_SIZE = 40)
+  - `lookupProduct(skuOrId)` — busca en cache primero, luego llama `/products/lookup`
+  - `getFromCache(id)` — lookup sincrónico para cotizaciones/órdenes
+  - `refreshProduct(id)` — actualiza un producto desde el servidor (WebSocket events)
+  - Re-fetch automático al cambiar search/categoryId/warehouseId
+- **Frontend**: `POSCatalog.jsx` actualizado con infinite scroll
+  - Detección de scroll via `FixedSizeGrid.onScroll` (threshold 600px)
+  - Spinner flotante "Cargando más productos..." durante carga
+  - Contador "Mostrando X de Y productos" en barra de categorías
+  - `forwardRef` + `useImperativeHandle` para resetear scroll desde el padre
+  - Búsqueda con debounce 300ms delegada al servidor (ya no filtra client-side)
+  - Backward compatible: sin props nuevos funciona como antes
+- **Frontend**: `POS.jsx` reintegrado con el hook
+  - Removido state `catalog` y `filteredCatalog` (useMemo client-side)
+  - Barcode scanning ahora async con `await lookupProduct(code)`
+  - Cotizaciones/órdenes usan `getFromCache()` con fallback a `lookupProduct()`
+  - WebSocket: suscripción a `product:updated` y `product:deleted` para refresh en tiempo real
+- **Schema**: Nuevo `PaginatedCatalog(BaseModel)` con `items: List[ProductRead]`, `total: int`, `has_more: bool`
+- **Rendimiento**: Carga inicial de 40 productos vs 500 anteriores (~92% menos datos)
+- **Archivos creados**: `hooks/usePOSCatalog.js`
+- **Archivos modificados**: `products.py`, `schemas/__init__.py`, `POSCatalog.jsx`, `POS.jsx`
 
 ### Dashboard de Actividad de Tenants (Monitor de Rendimiento)
 - **Backend**: Nuevo endpoint `GET /admin/dashboard/activity?date_from=&date_to=` — consulta cross-schema para métricas por tenant
