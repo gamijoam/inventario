@@ -76,6 +76,7 @@ const ServicesDashboard = React.lazy(() => import('./pages/Services/ServicesDash
 const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // NEW: Service Manager
 const ServiceList = React.lazy(() => import('./pages/Services/ServiceList')); // NEW: Service List
 const CommissionPayout = React.lazy(() => import('./pages/HumanResources/CommissionPayout')); // NEW: Commission Payout
+const ReportsCenter = React.lazy(() => import('./pages/Reports/ReportsCenter')); // NEW: Unified Reports Center
 
 // Barbershop Module
 const BarbershopDashboard = React.lazy(() => import('./pages/Barbershop/BarbershopDashboard'));
@@ -217,17 +218,9 @@ function App() {
 
                           <Route path="/unauthorized" element={<Unauthorized />} />
 
-                          {/* Reports Routes */}
-                          <Route path="/reports/detailed" element={
-                            <ProtectedRoute allowedRoles={['ADMIN']}>
-                              <DetailedReports />
-                            </ProtectedRoute>
-                          } />
-                          <Route path="/reports/unified" element={
-                            <ProtectedRoute allowedRoles={['ADMIN']}>
-                              <UnifiedReports />
-                            </ProtectedRoute>
-                          } />
+                          {/* Legacy Reports Routes — redirect to unified ReportsCenter */}
+                          <Route path="/reports/detailed" element={<Navigate to="/reports" replace />} />
+                          <Route path="/reports/unified" element={<Navigate to="/reports" replace />} />
 
                           {/* Standalone POS Routes (No Dashboard Layout) */}
                           <Route element={<ProtectedRoute roles={['ADMIN', 'CASHIER']} />}>
@@ -288,16 +281,8 @@ function App() {
                               } />
 
                               {/* Sales - ADMIN or CASHIER */}
-                              <Route path="/sales-history" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <SalesHistory />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/cash-history" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <CashHistory />
-                                </ProtectedRoute>
-                              } />
+                              <Route path="/sales-history" element={<Navigate to="/reports" replace />} />
+                              <Route path="/cash-history" element={<Navigate to="/reports" replace />} />
                               <Route path="/cash-registers" element={
                                 <ProtectedRoute roles={['ADMIN']}>
                                   <CashRegistersPage />
@@ -313,21 +298,9 @@ function App() {
                                   <QuotesManager />
                                 </ProtectedRoute>
                               } />
-                              <Route path="/accounts-receivable" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <AccountsReceivable />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/credit/aging" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <AgingReport />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/credit/ledger/:clientId" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <ClientLedger />
-                                </ProtectedRoute>
-                              } />
+                              <Route path="/accounts-receivable" element={<Navigate to="/reports" replace />} />
+                              <Route path="/credit/aging" element={<Navigate to="/reports" replace />} />
+                              <Route path="/credit/ledger/:clientId" element={<Navigate to="/reports" replace />} />
 
                               {/* Purchases - ADMIN or WAREHOUSE */}
                               <Route path="/purchases" element={
@@ -350,11 +323,7 @@ function App() {
                                   <Suppliers />
                                 </ProtectedRoute>
                               } />
-                              <Route path="/accounts-payable" element={
-                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
-                                  <AccountsPayable />
-                                </ProtectedRoute>
-                              } />
+                              <Route path="/accounts-payable" element={<Navigate to="/reports" replace />} />
                               <Route path="/suppliers/:supplierId/ledger" element={
                                 <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                   <SupplierLedger />
@@ -387,9 +356,12 @@ function App() {
                                   <AuditLogs />
                                 </ProtectedRoute>
                               } />
-                              <Route path="/hr/commissions" element={
+                              <Route path="/hr/commissions" element={<Navigate to="/reports" replace />} />
+
+                              {/* Unified Reports Center */}
+                              <Route path="/reports" element={
                                 <ProtectedRoute roles={['ADMIN']}>
-                                  <CommissionPayout />
+                                  <ReportsCenter />
                                 </ProtectedRoute>
                               } />
 

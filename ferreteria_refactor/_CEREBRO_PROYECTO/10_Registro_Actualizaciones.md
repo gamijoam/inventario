@@ -4,6 +4,28 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-11] — Centro de Reportes Unificado + Paginación POS + Tauri Removal + WS Fixes
+
+### Centro de Reportes Profesional (`/reports` → ReportsCenter.jsx)
+Consolidación de 16+ páginas dispersas en un solo dashboard con 7 tabs. Reemplaza: SalesHistory, CashHistory, AccountsReceivable, AgingReport, ClientLedger, AccountsPayable, SupplierLedger, CommissionsReport, UnifiedReports, DetailedReports.
+
+- **Tab Resumen**: 6 KPIs con comparativa de períodos (% cambio), AreaChart ventas por día (Recharts), DonutChart métodos de pago, Top 10 productos/clientes, selector de fechas global con presets (Hoy/7D/Mes/30D/90D/Año), export Excel
+- **Tab Ventas**: Sub-tabs Historial (migrado de SalesHistory — void con PIN, PDF, reprint, multi-moneda) + Análisis (por método de pago, por producto, por cliente top 50)
+- **Tab Caja**: Sesiones expandibles con multi-moneda (Initial/Expected/Reported/Difference), reimprimir Z-Report via Hardware Bridge, descargar PDF, KPIs faltantes/sobrantes, export audit Excel
+- **Tab Créditos**: Sub-tabs CxC (facturas con modal de pagos multi-moneda) + Antigüedad (aging buckets color-coded) + Estado de Cuenta (ledger inline con print)
+- **Tab Proveedores**: Sub-tabs CxP (pagos a proveedores multi-moneda) + Estado de Cuenta proveedor (ledger + print)
+- **Tab Inventario**: KPIs valuación (stock, inversión, valor venta, ganancia potencial, margen), tabla stock bajo con urgencia
+- **Tab Comisiones**: Solo visible si módulo barbería activo. Tabla empleados con pago inline.
+
+**Backend**: Nuevo endpoint `GET /reports/sales/period-comparison` para comparativa de períodos con métricas (revenue, transactions, items, avg_ticket, profit) + porcentaje de cambio.
+
+**Navegación**: Sidebar simplificado — eliminados 8 items dispersos, agregado "Centro de Reportes" en Finanzas. Rutas antiguas redirigen a `/reports` via `<Navigate>`.
+
+**Archivos creados**: `ReportsCenter.jsx`, `tabs/SalesTab.jsx`, `tabs/CashTab.jsx`, `tabs/CreditsTab.jsx`, `tabs/SuppliersTab.jsx`, `tabs/InventoryTab.jsx`, `tabs/CommissionsTab.jsx`
+**Archivos modificados**: `Sidebar.jsx`, `App.jsx`, `unifiedReportService.js`, `sales_report.py`
+
+---
+
 ## [2026-03-11] — Eliminación Tauri + Fixes WS + Notificaciones + Dashboard Actividad + Paginación POS
 
 ### POS: Paginación Server-Side con Infinite Scroll

@@ -138,7 +138,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             icon: ShoppingCart,
             items: [
                 { icon: ShoppingCart, label: 'Nueva Venta', path: '/pos' },
-                { icon: FileText, label: 'Historial', path: '/sales-history' },
                 { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
                 { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
                 ...(user?.role === 'ADMIN' ? [
@@ -171,14 +170,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             items: [
                 { icon: Briefcase, label: 'Compras', path: '/purchases' },
                 { icon: Truck, label: 'Proveedores', path: '/suppliers' },
-                { icon: RefreshCcw, label: 'Corte de Caja', path: '/cash-history' },
+                { icon: BarChart2, label: 'Centro de Reportes', path: '/reports' },
                 { icon: LayoutGrid, label: 'Gestión de Cajas', path: '/cash-registers' },
-                { icon: CreditCard, label: 'Ctas. por Cobrar', path: '/accounts-receivable' },
-                { icon: BarChart2, label: 'Antigüedad', path: '/credit/aging' },
-                { icon: DollarSign, label: 'Ctas. por Pagar', path: '/accounts-payable' },
-                { icon: DollarSign, label: 'Pago Comisiones', path: '/hr/commissions' },
-                { icon: BarChart2, label: 'Reportes Unificados', path: '/reports/unified' },
-                { icon: PieChart, label: 'Reportes Detallados', path: '/reports/detailed' },
             ]
         },
         {

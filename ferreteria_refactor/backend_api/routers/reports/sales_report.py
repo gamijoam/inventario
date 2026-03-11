@@ -468,6 +468,111 @@ def get_sales_summary(
     }
 
 
+def _calculate_period_metrics(db: Session, start_date: date, end_date: date) -> dict:
+    """Helper: calculate revenue, transactions, items_sold, avg_ticket, profit for a period."""
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
+
+    # Revenue & transactions
+    sales = db.query(models.Sale).filter(
+        models.Sale.date >= start_dt,
+        models.Sale.date <= end_dt
+    ).all()
+
+    total_revenue = Decimal(0)
+    for s in sales:
+        amount = s.total_amount
+        if amount is None:
+            amount = Decimal(0)
+        elif not isinstance(amount, Decimal):
+            amount = Decimal(str(amount))
+        total_revenue += amount
+
+    total_transactions = len(sales)
+
+    # Items sold
+    total_items = db.query(func.sum(models.SaleDetail.quantity)).join(models.Sale).filter(
+        models.Sale.date >= start_dt,
+        models.Sale.date <= end_dt
+    ).scalar() or 0
+
+    # Returns
+    returns = db.query(models.Return).filter(
+        models.Return.date >= start_dt,
+        models.Return.date <= end_dt
+    ).all()
+    total_refunded = sum(Decimal(str(r.total_refunded or 0)) for r in returns)
+    total_returned_items = db.query(func.sum(models.ReturnDetail.quantity)).join(models.Return).filter(
+        models.Return.date >= start_dt,
+        models.Return.date <= end_dt
+    ).scalar() or 0
+
+    net_revenue = total_revenue - total_refunded
+    net_items = float(total_items) - float(total_returned_items)
+    avg_ticket = float(net_revenue / total_transactions) if total_transactions > 0 else 0.0
+
+    # Profit (revenue - cost from sale details)
+    sale_details = db.query(models.SaleDetail).join(models.Sale).filter(
+        models.Sale.date >= start_dt,
+        models.Sale.date <= end_dt
+    ).all()
+
+    total_cost = Decimal(0)
+    for detail in sale_details:
+        cost_price = detail.product.cost_price
+        if detail.cost_at_sale is not None and detail.cost_at_sale > 0:
+            cost_price = detail.cost_at_sale
+        if cost_price and detail.quantity is not None:
+            total_cost += Decimal(str(cost_price)) * Decimal(str(detail.quantity))
+
+    profit = net_revenue - total_cost
+
+    return {
+        "revenue": round(float(net_revenue), 2),
+        "transactions": total_transactions,
+        "items_sold": round(float(net_items), 2),
+        "avg_ticket": round(avg_ticket, 2),
+        "profit": round(float(profit), 2),
+    }
+
+
+def _pct_change(current: float, previous: float) -> Optional[float]:
+    """Calculate percentage change, returning None on division by zero."""
+    if previous == 0:
+        return None
+    return round(((current - previous) / previous) * 100, 2)
+
+
+@router.get("/sales/period-comparison")
+def get_period_comparison(
+    start_date: date,
+    end_date: date,
+    prev_start_date: date,
+    prev_end_date: date,
+    db: Session = Depends(get_db)
+):
+    """Compare metrics between two arbitrary date periods."""
+    current = _calculate_period_metrics(db, start_date, end_date)
+    previous = _calculate_period_metrics(db, prev_start_date, prev_end_date)
+
+    changes = {
+        "revenue_pct": _pct_change(current["revenue"], previous["revenue"]),
+        "transactions_pct": _pct_change(current["transactions"], previous["transactions"]),
+        "items_pct": _pct_change(current["items_sold"], previous["items_sold"]),
+        "avg_ticket_pct": _pct_change(current["avg_ticket"], previous["avg_ticket"]),
+        "profit_pct": _pct_change(current["profit"], previous["profit"]),
+    }
+
+    return {
+        "current": current,
+        "previous": previous,
+        "changes": changes,
+    }
+
+
 @router.get("/top-products")
 def get_top_products(
     start_date: date,

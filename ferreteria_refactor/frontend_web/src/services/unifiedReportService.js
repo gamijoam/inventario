@@ -46,6 +46,40 @@ const unifiedReportService = {
         return response.data; // Returns Blob
     },
 
+    // Period comparison (current vs previous)
+    getPeriodComparison: async (startDate, endDate, prevStartDate, prevEndDate) => {
+        const response = await apiClient.get('/reports/sales/period-comparison', {
+            params: {
+                start_date: startDate,
+                end_date: endDate,
+                prev_start_date: prevStartDate,
+                prev_end_date: prevEndDate
+            }
+        });
+        return response.data;
+    },
+
+    // Sales by payment method
+    getSalesByPaymentMethod: async (params) => {
+        // params: { start_date, end_date }
+        const response = await apiClient.get('/reports/sales/by-payment-method', { params });
+        return response.data;
+    },
+
+    // Sales by customer
+    getSalesByCustomer: async (params) => {
+        // params: { start_date, end_date, limit }
+        const response = await apiClient.get('/reports/sales/by-customer', { params });
+        return response.data;
+    },
+
+    // Detailed sales (for daily aggregation)
+    getSalesDetailed: async (params) => {
+        // params: { start_date, end_date }
+        const response = await apiClient.get('/reports/sales/detailed', { params });
+        return response.data;
+    },
+
     // Credits / Accounts Receivable
     getCreditsSummary: async () => {
         const response = await apiClient.get('/reports/credits/summary');
