@@ -51,23 +51,67 @@ echo "[CONFIRMACION] Se usara el TAG: $TAG"
 echo "[CONFIRMACION] API URL: $API_URL"
 read -p "Presiona Enter para continuar..." _
 
+# --- PRE-FLIGHT: TESTS ---
+echo ""
+echo "================================================"
+echo "     EJECUTANDO TESTS PRE-DEPLOY"
+echo "================================================"
+echo "1) Ejecutar tests (Recomendado)"
+echo "2) Saltar tests (Solo si es urgente)"
+echo ""
+read -p "Elige opcion (1 o 2) [Default 1]: " TEST_CHOICE
+
+if [ "$TEST_CHOICE" != "2" ]; then
+    echo "Ejecutando pytest..."
+
+    # Activate venv if exists
+    if [ -f ".venv/bin/activate" ]; then
+        source .venv/bin/activate
+    fi
+
+    # Run tests from the ferreteria_refactor directory
+    REPO_ROOT="$(pwd)"
+    cd ferreteria_refactor
+
+    set +e
+    python -m pytest tests/ -v --tb=short 2>&1
+    TEST_EXIT=$?
+    set -e
+
+    cd "$REPO_ROOT"
+
+    if [ $TEST_EXIT -ne 0 ]; then
+        echo ""
+        echo "================================================"
+        echo "TESTS FALLARON. Deploy abortado."
+        echo "Corrige los errores y vuelve a intentar."
+        echo "================================================"
+        exit 1
+    fi
+
+    echo ""
+    echo "Tests pasaron. Continuando con el build..."
+else
+    echo "[SKIP] Tests omitidos por el usuario."
+fi
+
 # --- PROCESO DE BUILD ---
 
 # 1. Backend
 echo "🏗️ Construyendo Backend..."
-docker build -f ./ferreteria_refactor/backend_api/Dockerfile -t "${USER}/ferreteria-backend:${TAG}" .
+docker build --network host -f ./ferreteria_refactor/backend_api/Dockerfile -t "${USER}/ferreteria-backend:${TAG}" .
 
 # 2. Frontend App
 echo "🏗️ Construyendo Frontend App..."
-docker build --no-cache --build-arg VITE_API_URL="${API_URL}" -f ./ferreteria_refactor/frontend_web/Dockerfile.prod -t "${USER}/ferreteria-app:${TAG}" ./ferreteria_refactor/frontend_web
+docker build --network host --no-cache --build-arg VITE_API_URL="${API_URL}" -f ./ferreteria_refactor/frontend_web/Dockerfile.prod -t "${USER}/ferreteria-app:${TAG}" ./ferreteria_refactor/frontend_web
 
 # 3. Landing
 echo "🏗️ Construyendo Landing..."
-docker build --no-cache --build-arg VITE_API_URL="${API_URL}" -t "${USER}/ferreteria-landing:${TAG}" ./landing_page
+docker build --network host --no-cache --build-arg VITE_API_URL="${API_URL}" -t "${USER}/ferreteria-landing:${TAG}" ./landing_page
 
 # 4. Admin Panel
 echo "🏗️ Construyendo Admin Panel..."
-docker build --no-cache --build-arg VITE_API_URL="${API_URL}" -f ./ferreteria_refactor/saas_admin/Dockerfile -t "${USER}/ferreteria-admin-panel:${TAG}" ./ferreteria_refactor/saas_admin
+docker build --network host --no-cache --build-arg VITE_API_URL="${API_URL}" -f ./ferreteria_refactor/saas_admin/Dockerfile -t "${USER}/ferreteria-admin-panel:${TAG}" ./ferreteria_refactor/saas_admin
 
 # --- PUSH ---
 echo "☁️ Subiendo imagenes..."
