@@ -66,7 +66,7 @@ const AccountsReceivable = () => {
     const fetchInvoices = async () => {
         setLoading(true);
         try {
-            const response = await apiClient.get('/products/credits'); // Updated to fetch all history
+            const response = await apiClient.get('/products/credits', { params: { limit: 500 } });
             setInvoices(response.data);
         } catch (error) {
             console.error('Error fetching invoices:', error);

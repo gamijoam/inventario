@@ -75,7 +75,7 @@ const SalesHistory = () => {
         setLoading(true);
         try {
             const params = {
-                limit: 100,
+                limit: 500,
                 start_date: dateFrom,
                 end_date: dateTo
             };

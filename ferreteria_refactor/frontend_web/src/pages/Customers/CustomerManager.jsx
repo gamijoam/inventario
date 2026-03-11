@@ -48,7 +48,7 @@ const CustomerManager = () => {
     const fetchCustomers = async () => {
         try {
             const response = await apiClient.get('/customers', {
-                params: { q: searchQuery, limit: 100 }
+                params: { q: searchQuery, limit: 500 }
             });
             setCustomers(response.data);
         } catch (error) {
