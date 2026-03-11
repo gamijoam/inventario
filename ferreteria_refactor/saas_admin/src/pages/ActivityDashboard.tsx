@@ -14,8 +14,7 @@ import {
     ShoppingCart,
     Package,
     Users,
-    DollarSign,
-    Clock
+    DollarSign
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
