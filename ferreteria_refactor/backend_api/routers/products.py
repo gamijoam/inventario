@@ -41,11 +41,11 @@ def run_broadcast(event: str, data: dict):
         loop.close()
 
 from typing import Optional
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from pydantic import BaseModel
 
-@router.get("/catalog", response_model=List[schemas.ProductRead])
-@router.get("/catalog/", response_model=List[schemas.ProductRead], include_in_schema=False)
+@router.get("/catalog", response_model=schemas.PaginatedCatalog)
+@router.get("/catalog/", response_model=schemas.PaginatedCatalog, include_in_schema=False)
 def read_catalog_products(
     skip: int = 0,
     limit: int = Query(default=200, le=1000),
@@ -58,7 +58,60 @@ def read_catalog_products(
     Lightweight product listing for POS/catalog views.
     Only loads essential relationships (category, units, stocks, prices).
     Skips combo_items, price_rules, discount_rules for faster response.
+    Returns paginated response with {items, total, has_more}.
     """
+    # Base filter query (shared between count and main query)
+    base_query = db.query(models.Product).filter(models.Product.is_active == True)
+
+    if warehouse_id:
+        base_query = base_query.join(models.ProductStock).filter(
+            models.ProductStock.warehouse_id == warehouse_id,
+            models.ProductStock.quantity > 0
+        )
+
+    if category_id:
+        base_query = base_query.filter(models.Product.category_id == category_id)
+
+    if search:
+        search_term = f"%{search}%"
+        base_query = base_query.filter(
+            or_(
+                models.Product.name.ilike(search_term),
+                models.Product.sku.ilike(search_term)
+            )
+        )
+
+    # Count query (before adding joinedload options)
+    total = base_query.with_entities(func.count(models.Product.id)).scalar()
+
+    # Main query with eager loading
+    products = base_query.options(
+        joinedload(models.Product.category),
+        joinedload(models.Product.units),
+        joinedload(models.Product.stocks),
+        joinedload(models.Product.prices),
+    ).order_by(models.Product.name).offset(skip).limit(limit).all()
+
+    return {
+        "items": products,
+        "total": total,
+        "has_more": (skip + limit) < total
+    }
+
+@router.get("/lookup", response_model=schemas.ProductRead)
+@router.get("/lookup/", response_model=schemas.ProductRead, include_in_schema=False)
+def lookup_product(
+    sku: Optional[str] = None,
+    product_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Lightweight single-product lookup by SKU (exact, case-insensitive) or product_id.
+    Used for barcode scanning and direct ID lookups in POS.
+    """
+    if not sku and not product_id:
+        raise HTTPException(status_code=400, detail="Provide sku or product_id")
+
     query = db.query(models.Product).options(
         joinedload(models.Product.category),
         joinedload(models.Product.units),
@@ -66,25 +119,15 @@ def read_catalog_products(
         joinedload(models.Product.prices),
     ).filter(models.Product.is_active == True)
 
-    if warehouse_id:
-        query = query.join(models.ProductStock).filter(
-            models.ProductStock.warehouse_id == warehouse_id,
-            models.ProductStock.quantity > 0
-        )
+    if sku:
+        product = query.filter(func.lower(models.Product.sku) == sku.lower()).first()
+    else:
+        product = query.filter(models.Product.id == product_id).first()
 
-    if category_id:
-        query = query.filter(models.Product.category_id == category_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
 
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            or_(
-                models.Product.name.ilike(search_term),
-                models.Product.sku.ilike(search_term)
-            )
-        )
-
-    return query.order_by(models.Product.name).offset(skip).limit(limit).all()
+    return product
 
 @router.get("/", response_model=List[schemas.ProductRead])
 @router.get("", response_model=List[schemas.ProductRead], include_in_schema=False)

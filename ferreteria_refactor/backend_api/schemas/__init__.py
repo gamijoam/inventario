@@ -280,6 +280,11 @@ class ProductRead(ProductBase):
     
     model_config = ConfigDict(from_attributes=True)
 
+class PaginatedCatalog(BaseModel):
+    items: List[ProductRead]
+    total: int
+    has_more: bool
+
 class SaleDetailCreate(BaseModel):
     product_id: int
     quantity: Decimal

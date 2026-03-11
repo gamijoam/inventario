@@ -1,5 +1,5 @@
 import { useAuth } from '../context/AuthContext';
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
@@ -26,6 +26,7 @@ import CashMovementModal from '../components/cash/CashMovementModal';
 import CashAdvanceModal from '../components/cash/CashAdvanceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
+import usePOSCatalog from '../hooks/usePOSCatalog';
 import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
 import POSSettingsModal from '../components/pos/POSSettingsModal';
@@ -48,6 +49,11 @@ const POS = () => {
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
     const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
+    const {
+        products: displayProducts, isLoading: catalogLoading, isLoadingMore,
+        hasMore, total: totalProducts, loadMore, setSearch: setServerSearch,
+        setCategoryId: setServerCategory, lookupProduct, getFromCache, refreshProduct
+    } = usePOSCatalog();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
     // Theme State - Resolve by ID to ensure latest styles
@@ -62,8 +68,6 @@ const POS = () => {
 
     // UI State
     const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-    const searchTimeoutRef = useRef(null);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [selectedProductForUnits, setSelectedProductForUnits] = useState(null);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
@@ -92,7 +96,6 @@ const POS = () => {
     const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
 
     // Data State
-    const [catalog, setCatalog] = useState([]);
     const [categories, setCategories] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
@@ -104,21 +107,12 @@ const POS = () => {
 
     const handleSearchChange = useCallback((value) => {
         setSearchTerm(value); // Update input immediately for responsiveness
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        searchTimeoutRef.current = setTimeout(() => {
-            setDebouncedSearch(value);
-        }, 300);
     }, []);
 
-    // Clean up debounce timer on unmount
-    useEffect(() => {
-        return () => {
-            if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        };
-    }, []);
 
     // Refs
     const searchInputRef = useRef(null);
+    const catalogRef = useRef(null);
 
     // ... (Existing hotkeys remain same) ...
     // F3: Focus search input
@@ -219,17 +213,17 @@ const POS = () => {
 
     // Arrow Down: Navigate to next product in search results
     useHotkeys('down', (e) => {
-        if (filteredCatalog.length > 0) {
+        if (displayProducts.length > 0) {
             e.preventDefault();
             setSelectedProductIndex(prev =>
-                prev < filteredCatalog.length - 1 ? prev + 1 : prev
+                prev < displayProducts.length - 1 ? prev + 1 : prev
             );
         }
     }, { enableOnFormTags: true });
 
     // Arrow Up: Navigate to previous product in search results
     useHotkeys('up', (e) => {
-        if (filteredCatalog.length > 0) {
+        if (displayProducts.length > 0) {
             e.preventDefault();
             setSelectedProductIndex(prev => prev > 0 ? prev - 1 : 0);
         }
@@ -237,9 +231,9 @@ const POS = () => {
 
     // Enter: Add selected product to cart
     useHotkeys('enter', (e) => {
-        if (selectedProductIndex >= 0 && selectedProductIndex < filteredCatalog.length) {
+        if (selectedProductIndex >= 0 && selectedProductIndex < displayProducts.length) {
             e.preventDefault();
-            const selectedProduct = filteredCatalog[selectedProductIndex];
+            const selectedProduct = displayProducts[selectedProductIndex];
             handleProductClick(selectedProduct);
             setSelectedProductIndex(-1); // Reset selection
         }
@@ -253,11 +247,13 @@ const POS = () => {
      * Handler para cuando se escanea un código de barras
      * Busca el producto en el catálogo y lo agrega al carrito
      */
-    const handleGlobalScan = (code) => {
-        // ... (existing scan logic) ...
-        // ... (truncated for brevity, keep logic) ...
-        const foundProduct = catalog.find(p => p.sku == code || p.id == code || p.name.includes(code)); // Simplified for replace
-        if (foundProduct) handleProductClick(foundProduct);
+    const handleGlobalScan = async (code) => {
+        const foundProduct = await lookupProduct(code);
+        if (foundProduct) {
+            handleProductClick(foundProduct);
+        } else {
+            toast.error(`Producto no encontrado: ${code}`);
+        }
     };
 
     useBarcodeScanner(handleGlobalScan, {
@@ -275,13 +271,11 @@ const POS = () => {
             // Assuming session check is handled by context/other logic or implicit here
 
             try {
-                const [productsRes, categoriesRes, warehousesRes, priceListsRes] = await Promise.all([
-                    apiClient.get('/products/'),
+                const [categoriesRes, warehousesRes, priceListsRes] = await Promise.all([
                     apiClient.get('/categories'),
                     apiClient.get('/warehouses'),
                     apiClient.get('/price-lists/') // NEW
                 ]);
-                setCatalog(Array.isArray(productsRes.data) ? productsRes.data : []);
                 setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
                 setWarehouses(Array.isArray(warehousesRes.data) ? warehousesRes.data : []);
 
@@ -318,12 +312,26 @@ const POS = () => {
         fetchData();
     }, [modules]);
 
+    // WebSocket: real-time product updates
+    useEffect(() => {
+        const unsub1 = subscribe('product:updated', (data) => {
+            refreshProduct(data.id || data.product_id);
+        });
+        const unsub2 = subscribe('product:deleted', (data) => {
+            refreshProduct(data.id || data.product_id);
+        });
+        return () => {
+            if (unsub1) unsub1();
+            if (unsub2) unsub2();
+        };
+    }, [subscribe, refreshProduct]);
+
     // ... Quote Loading Logic ...
     useEffect(() => {
-        if (!isLoading && quoteIdParam && catalog.length > 0) {
+        if (!isLoading && quoteIdParam) {
             loadQuoteIntoCart(quoteIdParam);
         }
-    }, [isLoading, quoteIdParam, catalog.length]);
+    }, [isLoading, quoteIdParam]);
 
     const loadQuoteIntoCart = async (id) => {
         try {
@@ -345,7 +353,7 @@ const POS = () => {
             const items = quote.details || quote.items || [];
 
             for (const item of items) {
-                const product = catalog.find(p => p.id === item.product_id);
+                const product = getFromCache(item.product_id) || await lookupProduct(item.product_id);
                 if (product) {
                     // Try to match unit or use base
                     const unitName = item.is_box ? 'Caja' : 'Unidad';
@@ -380,23 +388,6 @@ const POS = () => {
     };
 
     // ... WebSocket Logic ...
-
-    // ... Filter Logic ...
-    // UPDATED: Now respects both Search AND Category
-    const filteredCatalog = useMemo(() => {
-        return catalog.filter(p => {
-            const matchesSearch = p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                (p.sku && p.sku.toLowerCase().includes(debouncedSearch.toLowerCase()));
-
-            // If selectedCategory is null, it's "All".
-            // Note: selectedCategory is stored as ID (int or string).
-            const matchesCategory = selectedCategory
-                ? (p.category_id === selectedCategory || p.category?.id === selectedCategory)
-                : true;
-
-            return matchesSearch && matchesCategory;
-        });
-    }, [catalog, debouncedSearch, selectedCategory]);
 
     const rootCategories = categories.filter(cat => !cat.parent_id);
 
@@ -497,7 +488,7 @@ const POS = () => {
     };
 
     // NEW: Handlers for Service Orders
-    const handleServiceOrderSelect = (order) => {
+    const handleServiceOrderSelect = async (order) => {
         if (cart.length > 0) {
             if (!confirm('¿Reemplazar carrito con orden de servicio?')) return;
         }
@@ -510,10 +501,10 @@ const POS = () => {
 
         let addedCount = 0;
 
-        order.details.forEach(item => {
+        for (const item of order.details) {
             // Logic to find or mock product
             let product;
-            if (item.product_id) product = catalog.find(p => p.id === item.product_id);
+            if (item.product_id) product = getFromCache(item.product_id) || await lookupProduct(item.product_id);
             if (!product) {
                 product = {
                     id: `SRV_${item.id}`,
@@ -539,7 +530,7 @@ const POS = () => {
 
             if (item.technician_id) updateCartItem(itemId, { salesperson_id: item.technician_id });
             addedCount++;
-        });
+        }
 
         // 🆕 DEDUCT PAYMENTS (ABONOS)
         if (order.payments && order.payments.length > 0) {
@@ -599,14 +590,14 @@ const POS = () => {
     const handlePriceListSelect = (list, item) => {
         // null list = revert to base price
         if (!list) {
-            const itemProduct = catalog.find(p => p.id === item.product_id);
+            const itemProduct = getFromCache(item.product_id);
             const basePrice = itemProduct ? parseFloat(itemProduct.price) : item.unit_price_usd;
             updateCartItem(item.id, { unit_price_usd: basePrice, price_list_id: null, auth_user_id: null });
             toast.success('Precio revertido al precio base');
             return;
         }
 
-        const itemProduct = catalog.find(p => p.id === item.product_id);
+        const itemProduct = getFromCache(item.product_id);
         let newPrice = null;
         if (itemProduct && itemProduct.prices) {
             const priceEntry = itemProduct.prices.find(p => p.price_list_id === list.id);
@@ -767,9 +758,10 @@ const POS = () => {
                 {/* SECCIÓN IZQUIERDA: CATÁLOGO */}
                 <div className="flex-1 min-w-0 h-full">
                     <POSCatalog
-                        products={filteredCatalog}
+                        ref={catalogRef}
+                        products={displayProducts}
                         categories={rootCategories}
-                        loading={isLoading}
+                        loading={isLoading || catalogLoading}
                         onAddToCart={handleProductClick}
                         onSearch={handleSearchChange}
                         onFilterCategory={setSelectedCategory}
@@ -779,6 +771,13 @@ const POS = () => {
                         // Secondary Currency Props
                         secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
                         convertProductPrice={convertProductPrice}
+                        // Server-side pagination props
+                        onLoadMore={loadMore}
+                        hasMore={hasMore}
+                        isLoadingMore={isLoadingMore}
+                        totalCount={totalProducts}
+                        onSearchChange={setServerSearch}
+                        onCategoryChange={setServerCategory}
                     />
                 </div>
 
