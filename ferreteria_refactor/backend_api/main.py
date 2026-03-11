@@ -110,9 +110,9 @@ if settings.CORS_ORIGINS:
 
 # En producción: solo https. En desarrollo: también http localhost.
 if settings.ENVIRONMENT == "production":
-    cors_origin_regex = r"https://[a-zA-Z0-9-]+\.miinventariofacil\.com"
+    cors_origin_regex = r"https://[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.miinventariofacil\.com"
 else:
-    cors_origin_regex = r"https?://[a-zA-Z0-9-]+\.miinventariofacil\.com|http://.*\.localhost(:\d+)?"
+    cors_origin_regex = r"https?://[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.miinventariofacil\.com|http://.*\.localhost(:\d+)?"
 
 app.add_middleware(
     CORSMiddleware,
