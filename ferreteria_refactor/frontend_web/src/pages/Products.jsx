@@ -52,6 +52,10 @@ const Products = () => {
     const [products, setProducts] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 50;
+
     // Filters State
     const [categories, setCategories] = useState([]);
     const [exchangeRates, setExchangeRates] = useState([]);
@@ -60,10 +64,18 @@ const Products = () => {
     const [filterExchangeRate, setFilterExchangeRate] = useState('');
     const [filterWarehouse, setFilterWarehouse] = useState('');
 
-    const fetchProducts = async () => {
+    const fetchProducts = async (page = currentPage) => {
         setIsLoading(true);
         try {
-            const response = await apiClient.get('/products/');
+            const skip = (page - 1) * ITEMS_PER_PAGE;
+            const response = await apiClient.get('/products/', {
+                params: {
+                    skip,
+                    limit: ITEMS_PER_PAGE,
+                    search: searchTerm || undefined,
+                    warehouse_id: filterWarehouse || undefined,
+                }
+            });
             setProducts(response.data);
         } catch (error) {
             console.error("Error fetching products:", error);
@@ -100,7 +112,10 @@ const Products = () => {
     };
 
     useEffect(() => {
-        fetchProducts();
+        fetchProducts(currentPage);
+    }, [currentPage]);
+
+    useEffect(() => {
         fetchFilters();
 
         const unsubCreate = subscribe('product:created', (newProduct) => setProducts(prev => [newProduct, ...prev]));
@@ -110,13 +125,20 @@ const Products = () => {
         return () => { unsubCreate(); unsubUpdate(); unsubDelete(); };
     }, [subscribe]);
 
-    // Computed Products List
+    // Debounced search: reset to page 1 and re-fetch
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            setCurrentPage(1);
+            fetchProducts(1);
+        }, 400);
+        return () => clearTimeout(timeout);
+    }, [searchTerm, filterCategory, filterWarehouse]);
+
+    // Client-side category and exchange rate filtering (not handled by backend params)
     const filteredProducts = products.filter(product => {
-        const matchesSearch = !searchTerm || product.name.toLowerCase().includes(searchTerm.toLowerCase()) || (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
         const matchesCategory = !filterCategory || product.category_id === parseInt(filterCategory);
         const matchesRate = !filterExchangeRate || product.exchange_rate_id === parseInt(filterExchangeRate);
-        const matchesWarehouse = !filterWarehouse || (product.stocks && product.stocks.some(s => s.warehouse_id === parseInt(filterWarehouse) && s.quantity > 0));
-        return matchesSearch && matchesCategory && matchesRate && matchesWarehouse;
+        return matchesCategory && matchesRate;
     });
 
     return (
@@ -419,10 +441,29 @@ const Products = () => {
                 </div>
             </div>
 
-            {/* Pagination Placeholder (if needed in future) */}
-            <div className="flex items-center justify-between text-xs text-slate-500">
-                <span>Mostrando {filteredProducts.length} productos</span>
-                {/* <div className="flex gap-2">...</div> */}
+            {/* Pagination */}
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+                <div className="text-sm text-muted-foreground">
+                    Mostrando {filteredProducts.length} productos (página {currentPage})
+                </div>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                    >
+                        Anterior
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => p + 1)}
+                        disabled={products.length < ITEMS_PER_PAGE}
+                    >
+                        Siguiente
+                    </Button>
+                </div>
             </div>
 
             <ProductForm
