@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { DollarSign, Calendar, AlertCircle, CheckCircle, X, Filter, Eye, Users, ChevronDown, ChevronRight, Calculator, CheckSquare, Search, Wallet } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { useConfig } from '../../context/ConfigContext';
@@ -27,8 +27,10 @@ const AccountsReceivable = () => {
     const [totalCredits, setTotalCredits] = useState(0);
     const [hasMore, setHasMore] = useState(false);
 
-    // Search
+    // Search (server-side with debounce)
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const searchTimerRef = useRef(null);
 
     // Payment Modal
     const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -58,13 +60,23 @@ const AccountsReceivable = () => {
     const [rateMode, setRateMode] = useState('valuation'); // 'valuation', 'custom', 'currency_{id}'
     const [customRate, setCustomRate] = useState(0);
 
+    // Debounce search: wait 300ms after user stops typing
+    useEffect(() => {
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 300);
+        return () => clearTimeout(searchTimerRef.current);
+    }, [searchTerm]);
+
+    // Re-fetch when search or filter changes (server-side)
     useEffect(() => {
         fetchInvoices();
-    }, []);
+    }, [debouncedSearch, filter]);
 
     useEffect(() => {
-        applyFilter();
-    }, [invoices, filter, searchTerm]);
+        setFilteredInvoices(invoices);
+    }, [invoices]);
 
     const fetchInvoices = async (loadMore = false) => {
         if (loadMore) {
@@ -74,7 +86,13 @@ const AccountsReceivable = () => {
         }
         try {
             const skip = loadMore ? invoices.length : 0;
-            const response = await apiClient.get('/products/credits', { params: { limit: 500, skip } });
+            const params = { limit: 500, skip };
+            if (debouncedSearch) params.q = debouncedSearch;
+            // Map filter to server-side status
+            if (filter === 'pending' || filter === 'overdue' || filter === 'paid') {
+                params.status = filter;
+            }
+            const response = await apiClient.get('/products/credits', { params });
             const { items, total, has_more } = response.data;
             if (loadMore) {
                 setInvoices(prev => [...prev, ...items]);
@@ -90,42 +108,6 @@ const AccountsReceivable = () => {
             setLoading(false);
             setLoadingMore(false);
         }
-    };
-
-    const applyFilter = () => {
-        const now = new Date();
-        // Normalize 'now' to start of day to avoid time collisions on the same day
-        now.setHours(0, 0, 0, 0);
-
-        let filtered = [];
-
-        if (filter === 'pending') {
-            // Pending: Show ALL unpaid invoices (both future and overdue)
-            // User requested "Cuentas por Cobrar", so default view should show everything owed.
-            filtered = invoices.filter(inv => !inv.paid);
-        } else if (filter === 'overdue') {
-            // Overdue: Not paid AND Due Date < Today
-            filtered = invoices.filter(inv => {
-                if (inv.paid) return false;
-                if (!inv.due_date) return false;
-                // Check if *really* overdue (yesterday or before)
-                return new Date(inv.due_date + 'T23:59:59') < now;
-            });
-        } else if (filter === 'paid') {
-            filtered = invoices.filter(inv => inv.paid);
-        }
-
-        // Apply Search
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(inv =>
-                inv.id.toString().includes(term) ||
-                (inv.customer?.name || '').toLowerCase().includes(term) ||
-                (inv.customer?.id_number || '').toLowerCase().includes(term)
-            );
-        }
-
-        setFilteredInvoices(filtered);
     };
 
     const getDaysOverdue = (dueDate) => {

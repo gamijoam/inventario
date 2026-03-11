@@ -730,6 +730,8 @@ def export_pdf(db: Session = Depends(get_db)):
 def get_credit_sales(
     skip: int = 0,
     limit: int = Query(default=500, le=5000),
+    q: Optional[str] = None,
+    status: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -737,10 +739,35 @@ def get_credit_sales(
     Used by the CxC module.
     Returns both Pending and Paid to allow history filtering on frontend.
     Includes cashier_name, register_name, register_code from the cash session.
+    Supports server-side search by customer name/id_number (q param)
+    and status filter (pending, overdue, paid).
     """
+    from datetime import date as date_type
     base_query = db.query(models.Sale).filter(
         models.Sale.is_credit == True
     )
+
+    # Server-side search by customer name or id_number
+    if q and q.strip():
+        search_term = f"%{q.strip()}%"
+        base_query = base_query.join(models.Sale.customer).filter(
+            or_(
+                models.Customer.name.ilike(search_term),
+                models.Customer.id_number.ilike(search_term),
+            )
+        )
+
+    # Server-side status filter
+    if status == "pending":
+        base_query = base_query.filter(models.Sale.paid == False)
+    elif status == "overdue":
+        base_query = base_query.filter(
+            models.Sale.paid == False,
+            models.Sale.due_date < date_type.today()
+        )
+    elif status == "paid":
+        base_query = base_query.filter(models.Sale.paid == True)
+
     total = base_query.count()
 
     sales = base_query.options(
