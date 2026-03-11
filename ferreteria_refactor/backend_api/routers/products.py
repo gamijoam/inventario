@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List
@@ -47,9 +47,9 @@ from pydantic import BaseModel
 @router.get("/", response_model=List[schemas.ProductRead])
 @router.get("", response_model=List[schemas.ProductRead], include_in_schema=False)
 def read_products(
-    skip: int = 0, 
-    limit: int = 5000, 
-    search: Optional[str] = None, 
+    skip: int = 0,
+    limit: int = Query(default=100, le=500),
+    search: Optional[str] = None,
     warehouse_id: Optional[int] = None,  # NEW PARAM
     db: Session = Depends(get_db)
 ):
@@ -643,9 +643,13 @@ def export_pdf(db: Session = Depends(get_db)):
 # ========================================
 
 @router.get("/credits", dependencies=[Depends(cashier_or_admin)])
-def get_credit_sales(db: Session = Depends(get_db)):
+def get_credit_sales(
+    skip: int = 0,
+    limit: int = Query(default=100, le=500),
+    db: Session = Depends(get_db)
+):
     """
-    Get all credit sales (invoices) for Accounts Receivable.
+    Get credit sales (invoices) for Accounts Receivable.
     Used by the CxC module.
     Returns both Pending and Paid to allow history filtering on frontend.
     Includes cashier_name, register_name, register_code from the cash session.
@@ -659,7 +663,7 @@ def get_credit_sales(db: Session = Depends(get_db)):
         joinedload(models.Sale.returns),
         joinedload(models.Sale.cash_session).joinedload(models.CashSession.user),
         joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
-    ).order_by(models.Sale.due_date.asc()).all()
+    ).order_by(models.Sale.due_date.asc()).offset(skip).limit(limit).all()
 
     result = []
     for sale in sales:
@@ -680,7 +684,7 @@ def get_credit_sales(db: Session = Depends(get_db)):
 
 @router.get("/sales/", dependencies=[Depends(cashier_or_admin)])
 def get_all_sales(
-    limit: int = 50,
+    limit: int = Query(default=50, le=500),
     offset: int = 0,
     sort: str = "date",
     order: str = "desc",

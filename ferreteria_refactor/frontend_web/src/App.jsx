@@ -95,6 +95,32 @@ const SuspenseFallback = (
   </div>
 );
 
+class LazyErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center h-screen gap-4">
+          <p className="text-gray-600">Error al cargar la página</p>
+          <button
+            onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Reintentar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function App() {
 
   // 🛡️ STARTUP LOADER (Chicken & Egg Fix)
@@ -167,6 +193,7 @@ function App() {
                     <CartProvider>
                       <Router>
                         <AndroidBackButton />
+                        <LazyErrorBoundary>
                         <Suspense fallback={SuspenseFallback}>
                         <Routes>
                           <Route path="/login" element={<Login />} />
@@ -467,6 +494,7 @@ function App() {
                           <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
                         </Suspense>
+                        </LazyErrorBoundary>
                       </Router>
                     </CartProvider>
                   </CashProvider>

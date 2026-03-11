@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database.db import get_db
@@ -15,8 +15,8 @@ router = APIRouter(
 @router.get("/", response_model=List[schemas.CustomerRead])
 @router.get("", response_model=List[schemas.CustomerRead], include_in_schema=False)
 def read_customers(
-    skip: int = 0, 
-    limit: int = 100, 
+    skip: int = 0,
+    limit: int = Query(default=100, le=500),
     q: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
