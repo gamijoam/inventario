@@ -371,9 +371,10 @@ const Products = () => {
                                         </TableCell>
                                         <TableCell>
                                             {(() => {
-                                                const totalStock = product.stock || 0;
-                                                const isLow = totalStock <= 5;
+                                                const totalStock = Number(product.stock || 0);
+                                                const minStock = Number(product.min_stock ?? 5);
                                                 const isOut = totalStock === 0;
+                                                const isLow = !isOut && totalStock < minStock;
 
                                                 return (
                                                     <div className="flex flex-col gap-1">

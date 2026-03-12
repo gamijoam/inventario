@@ -500,6 +500,7 @@ class CustomerBase(BaseModel):
     payment_term_days: int = Field(15, description="Días de crédito otorgados", ge=0)
     unique_uuid: Optional[str] = Field(None, description="UUID único para sync")
     is_blocked: bool = Field(False, description="Bloqueo administrativo para impedir nuevas ventas")
+    is_active: bool = Field(True, description="Estado activo del cliente (False = eliminado lógicamente)")
 
 
 
@@ -585,8 +586,8 @@ class CashMovementCreate(BaseModel):
 
     @field_validator('description')
     @classmethod
-    def validate_description_content(cls, v, values):
-        if values.get('type') == 'CASH_ADVANCE':
+    def validate_description_content(cls, v, info):
+        if info.data.get('type') == 'CASH_ADVANCE':
             if not v or len(v.strip()) < 5:
                 raise ValueError('Para Avances de Efectivo, la descripción debe detallar la referencia o destino (min 5 chars)')
         return v
@@ -683,6 +684,10 @@ class CashCloseDetails(BaseModel):
     deposits_bs: Decimal
     cash_advances_usd: Optional[Decimal] = Decimal("0.00") # NEW
     cash_advances_bs: Optional[Decimal] = Decimal("0.00") # NEW
+    returns_usd: Optional[Decimal] = Decimal("0.00")
+    returns_bs: Optional[Decimal] = Decimal("0.00")
+    credit_pending: Optional[Decimal] = Decimal("0.00")
+    credit_count: Optional[int] = 0
     # New: per-currency breakdown
     cash_by_currency: Optional[Dict[str, Decimal]] = {}
     transfers_by_currency: Optional[Dict[str, Dict[str, Decimal]]] = {}  # {currency: {method: amount}}
@@ -1215,8 +1220,8 @@ class ServiceOrderCreate(ServiceOrderBase):
 
     @field_validator('problem_description')
     @classmethod
-    def validate_tech_fields(cls, v, values):
-        service_type = values.get('service_type', ServiceType.REPAIR)
+    def validate_tech_fields(cls, v, info):
+        service_type = info.data.get('service_type', ServiceType.REPAIR)
         if service_type == ServiceType.REPAIR:
             # If REPAIR, we might want to warn or ensure some fields are present
             # But we made them generic. Let's ensure 'problem_description' is present for Repairs?

@@ -8,8 +8,9 @@ const CustomerSearch = ({ customers, selectedCustomer, onSelect, disabled = fals
     const inputRef = useRef(null);
     const dropdownRef = useRef(null);
 
-    // Filter customers based on search term
+    // Filter customers based on search term (exclude inactive customers)
     const filteredCustomers = customers.filter(c => {
+        if (c.is_active === false) return false;
         const term = searchTerm.toLowerCase();
         return (
             c.name.toLowerCase().includes(term) ||

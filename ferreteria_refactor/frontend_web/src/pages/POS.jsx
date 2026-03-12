@@ -111,18 +111,14 @@ const POS = () => {
 
 
     // Refs
-    const searchInputRef = useRef(null);
     const catalogRef = useRef(null);
 
     // ... (Existing hotkeys remain same) ...
     // F3: Focus search input
     useHotkeys('f3', (e) => {
         e.preventDefault();
-        if (searchInputRef.current) {
-            searchInputRef.current.focus();
-            if (searchTerm) {
-                searchInputRef.current.select(); // Select all text for easy rewrite
-            }
+        if (catalogRef.current) {
+            catalogRef.current.focusSearch();
         }
     }, { enableOnFormTags: true }); // Works even when focused on inputs
 
@@ -159,8 +155,8 @@ const POS = () => {
         } else {
             // Nothing open, clear search and focus
             handleSearchChange('');
-            if (searchInputRef.current) {
-                searchInputRef.current.focus();
+            if (catalogRef.current) {
+                catalogRef.current.clearAndFocusSearch();
             }
         }
     });
@@ -188,15 +184,15 @@ const POS = () => {
                 setServiceOrderTicket(null);
 
                 handleSearchChange('');
-                if (searchInputRef.current) {
-                    searchInputRef.current.focus();
+                if (catalogRef.current) {
+                    catalogRef.current.clearAndFocusSearch();
                 }
             }
         } else {
             // Cart already empty, just clear search
             handleSearchChange('');
-            if (searchInputRef.current) {
-                searchInputRef.current.focus();
+            if (catalogRef.current) {
+                catalogRef.current.clearAndFocusSearch();
             }
         }
     });
@@ -393,22 +389,19 @@ const POS = () => {
 
     // ... Helper functions ...
     const focusAndSelectSearch = () => {
-        // ... kept ... (Might need to pass ref to POSCatalog to focus input? POSCatalog has its own input)
-        // If POSCatalog manages the input, we might not need this ref focusing logic from outside unless we want to force focus.
-        // For compatibility, we can leave it empty or try to focus a DOM element if we had a ref. 
-        // Since POSCatalog is a child, we can't easily ref its input without forwardRef.
-        // But the requirement says "Mantén intacta toda la lógica".
-        // Let's assume onSearch updates state, and focus is handled by user action.
-        // Hotkeys like F3 should focus the search bar. 
-        // Ideally POSCatalog exposes a ref. For now, let's skip the explicit focus logic or implement it if critical.
-        // POSCatalog has `autoFocus` on mount.
-        // We can just querySelector if really needed, or ignore for now.
+        if (catalogRef.current) {
+            catalogRef.current.focusSearch();
+        }
     };
 
     const focusSearch = focusAndSelectSearch;
 
     const handleProductClick = (product) => {
-        // setSearchTerm(''); // REMOVED: Keep search term
+        // Bug [006] fix: clear search text and keep focus on search bar
+        setSearchTerm('');
+        if (catalogRef.current) {
+            catalogRef.current.clearAndFocusSearch();
+        }
 
         // NEW: Barbershop Service check
         if (product.is_barbershop_service) {

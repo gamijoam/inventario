@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check } from 'lucide-react';
+import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check, RotateCcw, Eye, EyeOff, UserX } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
@@ -26,6 +26,7 @@ const CustomerManager = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
+    const [showInactive, setShowInactive] = useState(false);
 
     // Edit states for Profile View (Quick Edits)
     const [editingCredit, setEditingCredit] = useState(false);
@@ -39,7 +40,7 @@ const CustomerManager = () => {
 
     useEffect(() => {
         fetchCustomers();
-    }, []);
+    }, [showInactive]);
 
     useEffect(() => {
         if (selectedCustomer) {
@@ -53,7 +54,7 @@ const CustomerManager = () => {
             if (loadMore) setLoadingMore(true);
             const skip = loadMore ? customers.length : 0;
             const response = await apiClient.get('/customers', {
-                params: { q: searchQuery, limit: 500, skip }
+                params: { q: searchQuery, limit: 500, skip, include_inactive: showInactive }
             });
             const { items, total, has_more } = response.data;
             if (loadMore) {
@@ -125,17 +126,31 @@ const CustomerManager = () => {
     };
 
 
-    const handleDeleteCustomer = async (customerId) => {
-        if (!confirm('¿Estás seguro de eliminar este cliente?')) return;
+    const handleDeactivateCustomer = async (customerId) => {
+        if (!confirm('¿Desactivar este cliente? No aparecerá en listas ni en el POS.')) return;
         try {
-            await apiClient.delete(`/customers/${customerId}`);
-            toast.success('Cliente eliminado');
+            await apiClient.put(`/customers/${customerId}/deactivate`);
+            toast.success('Cliente desactivado');
             if (selectedCustomer?.id === customerId) {
                 setSelectedCustomer(null);
             }
             fetchCustomers();
         } catch (error) {
-            toast.error('Error al eliminar cliente: ' + (error.response?.data?.detail || error.message));
+            toast.error('Error al desactivar cliente: ' + (error.response?.data?.detail || error.message));
+        }
+    };
+
+    const handleActivateCustomer = async (customerId) => {
+        try {
+            await apiClient.put(`/customers/${customerId}/activate`);
+            toast.success('Cliente reactivado');
+            fetchCustomers();
+            // Update selected customer if it's the one being reactivated
+            if (selectedCustomer?.id === customerId) {
+                setSelectedCustomer({ ...selectedCustomer, is_active: true });
+            }
+        } catch (error) {
+            toast.error('Error al reactivar cliente: ' + (error.response?.data?.detail || error.message));
         }
     };
 
@@ -234,68 +249,117 @@ const CustomerManager = () => {
                         </div>
                     </div>
 
-                    <div className="px-4 py-2 text-xs font-medium text-slate-500 border-b border-slate-100">
-                        Mostrando {customers.length} de {totalCustomers} clientes
+                    <div className="px-4 py-2 flex items-center justify-between border-b border-slate-100">
+                        <span className="text-xs font-medium text-slate-500">
+                            Mostrando {customers.length} de {totalCustomers} clientes
+                        </span>
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                            <div className="relative">
+                                <input
+                                    type="checkbox"
+                                    checked={showInactive}
+                                    onChange={() => setShowInactive(!showInactive)}
+                                    className="sr-only"
+                                />
+                                <div className={clsx("w-7 h-4 rounded-full transition-colors", showInactive ? "bg-amber-500" : "bg-slate-300")}></div>
+                                <div className={clsx("absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform", showInactive ? "translate-x-3" : "translate-x-0")}></div>
+                            </div>
+                            <span className="text-xs font-medium text-slate-500">{showInactive ? <Eye size={14} /> : <EyeOff size={14} />}</span>
+                            <span className="text-xs font-medium text-slate-500">Inactivos</span>
+                        </label>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-                        {customers.map(customer => (
+                        {customers.map(customer => {
+                            const isInactive = customer.is_active === false;
+                            return (
                             <div
                                 key={customer.id}
                                 onClick={() => setSelectedCustomer(customer)}
                                 className={clsx(
                                     "p-3 rounded-xl cursor-pointer transition-all border",
+                                    isInactive && "opacity-50",
                                     selectedCustomer?.id === customer.id
                                         ? 'bg-indigo-50 border-indigo-200 shadow-sm'
-                                        : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-200'
+                                        : isInactive
+                                            ? 'bg-slate-50 border-slate-200'
+                                            : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-200'
                                 )}
                             >
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3 flex-1 min-w-0">
                                         <div className={clsx(
                                             "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0",
-                                            selectedCustomer?.id === customer.id ? "bg-indigo-200 text-indigo-700" : "bg-slate-100 text-slate-500"
+                                            isInactive
+                                                ? "bg-slate-200 text-slate-400"
+                                                : selectedCustomer?.id === customer.id ? "bg-indigo-200 text-indigo-700" : "bg-slate-100 text-slate-500"
                                         )}>
                                             {customer.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="min-w-0">
-                                            <p className={clsx("font-bold truncate", selectedCustomer?.id === customer.id ? "text-indigo-900" : "text-slate-700")}>
+                                            <p className={clsx("font-bold truncate", isInactive ? "text-slate-400 line-through" : selectedCustomer?.id === customer.id ? "text-indigo-900" : "text-slate-700")}>
                                                 {customer.name}
                                             </p>
-                                            <p className={clsx("text-xs truncate", selectedCustomer?.id === customer.id ? "text-indigo-600/70" : "text-slate-400")}>
-                                                {customer.id_number || 'Sin ID'}
-                                            </p>
+                                            <div className="flex items-center gap-1.5">
+                                                <p className={clsx("text-xs truncate", selectedCustomer?.id === customer.id ? "text-indigo-600/70" : "text-slate-400")}>
+                                                    {customer.id_number || 'Sin ID'}
+                                                </p>
+                                                {isInactive && (
+                                                    <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                                                        Inactivo
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 
                                     {selectedCustomer?.id === customer.id && (
                                         <div className="flex gap-1 animate-in fade-in slide-in-from-right-2 duration-200">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEditClick(customer);
-                                                }}
-                                                className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-200"
-                                            >
-                                                <Edit2 size={16} />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteCustomer(customer.id);
-                                                }}
-                                                className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-100"
-                                            >
-                                                <Trash2 size={16} />
-                                            </Button>
+                                            {isInactive ? (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleActivateCustomer(customer.id);
+                                                    }}
+                                                    className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-100"
+                                                    title="Reactivar cliente"
+                                                >
+                                                    <RotateCcw size={16} />
+                                                </Button>
+                                            ) : (
+                                                <>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleEditClick(customer);
+                                                        }}
+                                                        className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-200"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeactivateCustomer(customer.id);
+                                                        }}
+                                                        className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-100"
+                                                        title="Desactivar cliente"
+                                                    >
+                                                        <UserX size={16} />
+                                                    </Button>
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                         {hasMoreCustomers && (
                             <button
                                 onClick={() => fetchCustomers(true)}
@@ -329,8 +393,30 @@ const CustomerManager = () => {
                                 <Users className="mr-2" size={20} /> Volver a lista
                             </Button>
 
+                            {/* Inactive Banner */}
+                            {selectedCustomer.is_active === false && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-amber-100 p-2 rounded-full text-amber-600">
+                                            <UserX size={24} />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-amber-800">Cliente Inactivo</p>
+                                            <p className="text-amber-600 text-sm">Este cliente fue desactivado y no aparece en el POS ni en listas por defecto.</p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        onClick={() => handleActivateCustomer(selectedCustomer.id)}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    >
+                                        <RotateCcw size={16} className="mr-2" />
+                                        Reactivar
+                                    </Button>
+                                </div>
+                            )}
+
                             {/* Header Card */}
-                            <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl shadow-lg p-6 relative overflow-hidden">
+                            <div className={clsx("bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl shadow-lg p-6 relative overflow-hidden", selectedCustomer.is_active === false && "opacity-60")}>
                                 <div className="absolute top-0 right-0 p-32 bg-white opacity-5 rounded-full blur-3xl transform translate-x-10 -translate-y-10"></div>
                                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-start gap-6">
                                     <div>

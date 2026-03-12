@@ -49,6 +49,28 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     // Quick Customer Modal
     const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
 
+    // Credit availability state
+    const [creditInfo, setCreditInfo] = useState(null);
+    const [loadingCredit, setLoadingCredit] = useState(false);
+
+    // Fetch financial status when customer is selected and credit mode is on
+    useEffect(() => {
+        if (isCreditSale && selectedCustomer?.id) {
+            setLoadingCredit(true);
+            apiClient.get(`/customers/${selectedCustomer.id}/financial-status`)
+                .then(res => {
+                    setCreditInfo(res.data);
+                })
+                .catch(err => {
+                    console.error('Error fetching credit info:', err);
+                    setCreditInfo(null);
+                })
+                .finally(() => setLoadingCredit(false));
+        } else {
+            setCreditInfo(null);
+        }
+    }, [isCreditSale, selectedCustomer?.id]);
+
     useEffect(() => {
         if (isOpen) {
             // FIXED: Default to "Efectivo Bolívares (Bs)" as requested
@@ -468,20 +490,79 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 />
 
                                 {isCreditSale && selectedCustomer && (
-                                    <div className="mt-2 flex gap-3 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
-                                        <div className="flex-1">
-                                            <span className="text-[9px] text-indigo-400 font-bold uppercase">Límite Crédito</span>
-                                            <div className="text-xs font-black text-indigo-900 font-mono">
-                                                ${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}
+                                    <div className="mt-2 space-y-2">
+                                        {loadingCredit ? (
+                                            <div className="flex items-center justify-center p-3 bg-slate-50 rounded-lg border border-slate-200">
+                                                <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin mr-2"></div>
+                                                <span className="text-[10px] text-slate-500 font-medium">Consultando crédito...</span>
                                             </div>
-                                        </div>
-                                        <div className="w-px bg-indigo-100"></div>
-                                        <div className="flex-1">
-                                            <span className="text-[9px] text-indigo-400 font-bold uppercase">Saldo Actual</span>
-                                            <div className="text-xs font-black text-slate-700 font-mono">
-                                                $0.00
+                                        ) : creditInfo ? (
+                                            <>
+                                                <div className="flex gap-2 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
+                                                    <div className="flex-1 text-center">
+                                                        <span className="text-[9px] text-indigo-400 font-bold uppercase block">Límite</span>
+                                                        <div className="text-xs font-black text-indigo-900 font-mono">
+                                                            ${formatLocalCurrency(creditInfo.credit_limit)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-px bg-indigo-200"></div>
+                                                    <div className="flex-1 text-center">
+                                                        <span className="text-[9px] text-rose-400 font-bold uppercase block">Deuda</span>
+                                                        <div className="text-xs font-black text-rose-600 font-mono">
+                                                            ${formatLocalCurrency(creditInfo.total_debt)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-px bg-indigo-200"></div>
+                                                    <div className="flex-1 text-center">
+                                                        <span className="text-[9px] font-bold uppercase block" style={{ color: creditInfo.available_credit >= totalUSD ? '#16a34a' : '#dc2626' }}>
+                                                            Disponible
+                                                        </span>
+                                                        <div className={`text-sm font-black font-mono ${creditInfo.available_credit >= totalUSD ? 'text-green-600' : 'text-red-600'}`}>
+                                                            ${formatLocalCurrency(creditInfo.available_credit)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Warning if insufficient credit */}
+                                                {creditInfo.available_credit < totalUSD && (
+                                                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                                        <X size={14} className="text-red-500 shrink-0" />
+                                                        <span className="text-[10px] text-red-700 font-bold">
+                                                            Crédito insuficiente. Falta ${formatLocalCurrency(totalUSD - creditInfo.available_credit)} para cubrir esta venta.
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Warning if customer is blocked */}
+                                                {creditInfo.is_blocked && (
+                                                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                                        <X size={14} className="text-red-500 shrink-0" />
+                                                        <span className="text-[10px] text-red-700 font-bold">
+                                                            Cliente bloqueado para crédito.
+                                                        </span>
+                                                    </div>
+                                                )}
+
+                                                {/* Overdue invoices warning */}
+                                                {creditInfo.overdue_invoices > 0 && (
+                                                    <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                                                        <Calculator size={14} className="text-amber-500 shrink-0" />
+                                                        <span className="text-[10px] text-amber-700 font-bold">
+                                                            {creditInfo.overdue_invoices} factura(s) vencida(s) por ${formatLocalCurrency(creditInfo.overdue_amount)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <div className="flex gap-3 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
+                                                <div className="flex-1">
+                                                    <span className="text-[9px] text-indigo-400 font-bold uppercase">Límite Crédito</span>
+                                                    <div className="text-xs font-black text-indigo-900 font-mono">
+                                                        ${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -622,11 +703,16 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         </Button>
                         <Button
                             onClick={handleConfirm}
-                            disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)}
-                            title={(!isCreditSale && !isComplete) ? "El total pagado debe coincidir con el total de la venta" : ""}
+                            disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
+                            title={
+                                (!isCreditSale && !isComplete) ? "El total pagado debe coincidir con el total de la venta"
+                                : (isCreditSale && creditInfo?.is_blocked) ? "Cliente bloqueado para crédito"
+                                : (isCreditSale && creditInfo && creditInfo.available_credit < totalUSD) ? "Crédito insuficiente para esta venta"
+                                : ""
+                            }
                             className={`
                                 flex-1 rounded-xl font-black text-base tracking-wide shadow-xl transition-all h-12
-                                ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer)
+                                ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
                                     ? 'bg-slate-100 text-slate-400'
                                     : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:-translate-y-1 shadow-indigo-500/30'
                                 }

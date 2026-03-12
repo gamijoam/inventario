@@ -231,7 +231,7 @@ def get_client_ledger(client_id: int, db: Session = Depends(get_db)):
                 details_str += f" ({payment.amount} {payment.currency} @ {rate})"
 
             ledger_entries.append({
-                "date": payment.created_at if hasattr(payment, 'created_at') and payment.created_at else sale.date,
+                "date": payment.payment_date if payment.payment_date else sale.date,
                 "type": "ABONO",
                 "ref": details_str, # Updated to include details
                 "debit": 0.0,

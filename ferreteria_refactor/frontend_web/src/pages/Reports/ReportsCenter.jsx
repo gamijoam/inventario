@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from
 import {
     BarChart3, ShoppingCart, Landmark, CreditCard, Truck,
     Package, DollarSign, Calendar, Download, RefreshCw,
-    TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight
+    TrendingUp, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-    ResponsiveContainer, PieChart, Pie, Cell, Legend
+    ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { toast } from 'react-hot-toast';
 import unifiedReportService from '../../services/unifiedReportService';
@@ -76,12 +76,6 @@ const fmtCurrency = (amount, currency = 'USD') => {
 };
 
 const fmtNumber = (n) => new Intl.NumberFormat('es-VE').format(Number(n) || 0);
-
-const fmtPercent = (n) => {
-    const val = Number(n) || 0;
-    const sign = val > 0 ? '+' : '';
-    return `${sign}${val.toFixed(1)}%`;
-};
 
 // --- Payment method colors ---
 const PAYMENT_COLORS = {
@@ -163,7 +157,7 @@ const KPICard = ({ title, value, prevValue, icon: Icon, color = 'bg-emerald-500'
                             ? <ArrowUpRight size={12} strokeWidth={3} />
                             : <ArrowDownRight size={12} strokeWidth={3} />
                         }
-                        {fmtPercent(Math.abs(change.pct))}
+                        {Math.abs(change.pct).toFixed(1)}%
                     </span>
                     <span className="text-slate-400 text-[10px] font-medium uppercase">vs periodo anterior</span>
                 </div>
@@ -198,10 +192,11 @@ const renderPieLabel = ({ name, percent }) => {
 // MAIN COMPONENT
 // ============================================================
 const ReportsCenter = () => {
-    const { modules, formatCurrency: ctxFormatCurrency } = useConfig();
+    const { modules } = useConfig();
 
     // --- State ---
     const [activeTab, setActiveTab] = useState('resumen');
+    const [activePreset, setActivePreset] = useState('month');
     const [loading, setLoading] = useState(false);
     const [dateRange, setDateRange] = useState({
         start: toDateStr(getFirstOfMonth()),
@@ -257,6 +252,7 @@ const ReportsCenter = () => {
                 start = getFirstOfMonth();
         }
         setDateRange({ start: toDateStr(start), end: toDateStr(today) });
+        setActivePreset(preset);
     };
 
     const presets = [
@@ -353,6 +349,7 @@ const ReportsCenter = () => {
     const handleDateChange = (e) => {
         const { name, value } = e.target;
         setDateRange(prev => ({ ...prev, [name]: value }));
+        setActivePreset(null);
     };
 
     // --- Filtered tabs (hide module-specific tabs if module not active) ---
@@ -374,9 +371,9 @@ const ReportsCenter = () => {
     // --- Pie data for payment methods ---
     const pieData = useMemo(() => {
         if (!paymentMethods.length) return [];
-        const total = paymentMethods.reduce((sum, m) => sum + (Number(m.total) || Number(m.amount) || 0), 0);
+        const total = paymentMethods.reduce((sum, m) => sum + (Number(m.total_amount) || Number(m.total) || Number(m.amount) || 0), 0);
         return paymentMethods.map((m, i) => {
-            const amount = Number(m.total) || Number(m.amount) || 0;
+            const amount = Number(m.total_amount) || Number(m.total) || Number(m.amount) || 0;
             return {
                 name: m.method || m.payment_method || m.name || `Metodo ${i + 1}`,
                 value: amount,
@@ -598,17 +595,33 @@ const ReportsCenter = () => {
                                                 {fmtCurrency(p.revenue || p.total_revenue || 0)}
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                {p.margin_percent !== undefined || p.margin !== undefined ? (
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                                                        (Number(p.margin_percent || p.margin) || 0) >= 20
-                                                            ? 'bg-emerald-50 text-emerald-700'
-                                                            : 'bg-amber-50 text-amber-700'
-                                                    }`}>
-                                                        {(Number(p.margin_percent || p.margin) || 0).toFixed(1)}%
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-slate-300">--</span>
-                                                )}
+                                                {(() => {
+                                                    const marginVal = p.margin_percent ?? p.margin ?? null;
+                                                    if (marginVal !== null && marginVal !== undefined) {
+                                                        const num = Number(marginVal) || 0;
+                                                        return (
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                                                                num >= 20 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                                            }`}>
+                                                                {num.toFixed(1)}%
+                                                            </span>
+                                                        );
+                                                    }
+                                                    // Calculate margin from cost if available
+                                                    const revenue = Number(p.revenue || p.total_revenue || 0);
+                                                    const cost = Number(p.total_cost || p.cost || 0);
+                                                    if (revenue > 0 && cost > 0) {
+                                                        const calculated = ((revenue - cost) / revenue) * 100;
+                                                        return (
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                                                                calculated >= 20 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                                                            }`}>
+                                                                {calculated.toFixed(1)}%
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return <span className="text-slate-300">--</span>;
+                                                })()}
                                             </td>
                                         </tr>
                                     )) : (
@@ -650,7 +663,7 @@ const ReportsCenter = () => {
                                                 {c.transaction_count || c.transactions || c.count || 0}
                                             </td>
                                             <td className="px-4 py-3 text-right font-bold text-slate-900">
-                                                {fmtCurrency(c.total || c.total_amount || c.revenue || 0)}
+                                                {fmtCurrency(c.total_purchased || c.total || c.total_amount || c.revenue || 0)}
                                             </td>
                                         </tr>
                                     )) : (
@@ -753,8 +766,7 @@ const ReportsCenter = () => {
                                         key={p.id}
                                         onClick={() => applyPreset(p.id)}
                                         className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
-                                            // Rough active detection
-                                            false
+                                            activePreset === p.id
                                                 ? 'bg-white text-slate-900 shadow-sm'
                                                 : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
                                         }`}

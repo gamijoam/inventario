@@ -7,10 +7,11 @@ import { cn } from '../../utils/cn';
 
 export default function ProductMobileCard({ product, onEdit, onDelete, onCategoryClick }) {
 
-    // Calcular estado de stock
-    const totalStock = product.stock || 0;
-    const isLow = totalStock <= 5;
+    // Calcular estado de stock usando min_stock del producto
+    const totalStock = Number(product.stock || 0);
+    const minStock = Number(product.min_stock ?? 5);
     const isOut = totalStock === 0;
+    const isLow = !isOut && totalStock < minStock;
 
     // Formatear stock
     const formatStock = (stock) => {

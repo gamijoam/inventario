@@ -39,17 +39,38 @@ const POSCatalog = forwardRef(({
 }, ref) => {
     const containerRef = useRef(null);
     const gridRef = useRef(null);
+    const searchInputRef = useRef(null);
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
     const debounceTimerRef = useRef(null);
 
-    // Expose resetScroll to parent via ref
+    // Expose resetScroll, focusSearch, clearSearch to parent via ref
     useImperativeHandle(ref, () => ({
         resetScroll: () => {
             if (gridRef.current) {
                 gridRef.current.scrollTo({ scrollLeft: 0, scrollTop: 0 });
             }
-        }
+        },
+        focusSearch: () => {
+            if (searchInputRef.current) {
+                searchInputRef.current.focus();
+            }
+        },
+        clearAndFocusSearch: () => {
+            // Clear local state immediately
+            setLocalSearchTerm('');
+            // Notify parent about the change
+            if (onSearchChange) {
+                if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                onSearchChange('');
+            } else if (onSearch) {
+                onSearch('');
+            }
+            // Focus the input
+            if (searchInputRef.current) {
+                searchInputRef.current.focus();
+            }
+        },
     }));
 
     // Sync localSearchTerm with prop
@@ -162,6 +183,7 @@ const POSCatalog = forwardRef(({
             <div className="p-4 bg-background border-b z-10 space-y-4 shadow-sm">
                 {/* Row 1: Search */}
                 <SearchWithScanner
+                    ref={searchInputRef}
                     id="tour-pos-search"
                     value={localSearchTerm}
                     onChange={handleSearchInput}

@@ -35,17 +35,12 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const Purchases = React.lazy(() => import('./pages/Purchases'));
 const CreatePurchase = React.lazy(() => import('./pages/Purchases/CreatePurchase'));
 const PurchaseDetail = React.lazy(() => import('./pages/Purchases/PurchaseDetail'));
-const AccountsPayable = React.lazy(() => import('./pages/Suppliers/AccountsPayable'));
-const DetailedReports = React.lazy(() => import('./pages/Reports/DetailedReports'));
-
 // Supplier Ledger
 const SupplierLedger = React.lazy(() => import('./pages/Suppliers/SupplierLedger'));
-const UnifiedReports = React.lazy(() => import('./pages/Reports/UnifiedReports'));
 
 const Suppliers = React.lazy(() => import('./pages/Suppliers'));
 const ReturnsManager = React.lazy(() => import('./pages/Returns/ReturnsManager'));
 const WarrantyManager = React.lazy(() => import('./pages/Returns/WarrantyManager'));
-const SalesHistory = React.lazy(() => import('./pages/SalesHistory'));
 const CustomerManager = React.lazy(() => import('./pages/Customers/CustomerManager'));
 const QuotesManager = React.lazy(() => import('./pages/Quotes/QuotesManager'));
 const WarehouseManager = React.lazy(() => import('./pages/Warehouses/WarehouseManager'));
@@ -55,11 +50,7 @@ const ExternalTransferIn = React.lazy(() => import('./pages/Inventory/Transfers/
 const SerializedReception = React.lazy(() => import('./pages/Inventory/SerializedReception'));
 const WarrantyPolicies = React.lazy(() => import('./pages/WarrantyPolicies')); // NEW: Warranty Policies
 
-const AccountsReceivable = React.lazy(() => import('./pages/Credit/AccountsReceivable'));
-const AgingReport = React.lazy(() => import('./pages/Credit/AgingReport'));
-const ClientLedger = React.lazy(() => import('./pages/Credit/ClientLedger'));
 const UsersManager = React.lazy(() => import('./pages/Users/UsersManager'));
-const CashHistory = React.lazy(() => import('./pages/CashHistory'));
 const CashRegistersPage = React.lazy(() => import('./pages/CashRegisters/CashRegistersPage'));
 const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
 const Help = React.lazy(() => import('./pages/Help'));
@@ -75,7 +66,6 @@ const Reception = React.lazy(() => import('./pages/Services/Reception')); // NEW
 const ServicesDashboard = React.lazy(() => import('./pages/Services/ServicesDashboard')); // NEW: Dashboard
 const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // NEW: Service Manager
 const ServiceList = React.lazy(() => import('./pages/Services/ServiceList')); // NEW: Service List
-const CommissionPayout = React.lazy(() => import('./pages/HumanResources/CommissionPayout')); // NEW: Commission Payout
 const ReportsCenter = React.lazy(() => import('./pages/Reports/ReportsCenter')); // NEW: Unified Reports Center
 
 // Barbershop Module

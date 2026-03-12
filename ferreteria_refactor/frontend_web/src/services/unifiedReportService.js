@@ -46,6 +46,13 @@ const unifiedReportService = {
         return response.data; // Returns Blob
     },
 
+    downloadInventoryExcel: async () => {
+        const response = await apiClient.get('/products/export/excel', {
+            responseType: 'blob'
+        });
+        return response.data; // Returns Blob
+    },
+
     // Period comparison (current vs previous)
     getPeriodComparison: async (startDate, endDate, prevStartDate, prevEndDate) => {
         const response = await apiClient.get('/reports/sales/period-comparison', {

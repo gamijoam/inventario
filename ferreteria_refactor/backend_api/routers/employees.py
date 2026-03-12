@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from typing import List
-from datetime import datetime
+from typing import List, Optional
+from datetime import datetime, date as date_type
 
 from ..database.db import get_db
 from ..models.models import User, Employee, Commission, SaleDetail, Product, CashSession, CashMovement
@@ -92,15 +92,34 @@ def delete_employee(
 
 @router.get("/commissions", response_model=List[CommissionResponse])
 def get_commissions(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     tenant_id = current_user.tenant_id
     """
     Retrieve all barbershop commissions for the current tenant.
+    Optionally filter by date range (start_date, end_date in YYYY-MM-DD).
     """
-    # Simply order by recent
-    commissions = db.query(Commission).filter(Commission.tenant_id == tenant_id).order_by(Commission.created_at.desc()).all()
+    query = db.query(Commission).filter(Commission.tenant_id == tenant_id)
+
+    # Date range filter on created_at
+    if start_date:
+        try:
+            sd = date_type.fromisoformat(start_date)
+            query = query.filter(Commission.created_at >= datetime.combine(sd, datetime.min.time()))
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            from datetime import timedelta
+            ed = date_type.fromisoformat(end_date)
+            query = query.filter(Commission.created_at < datetime.combine(ed + timedelta(days=1), datetime.min.time()))
+        except ValueError:
+            pass
+
+    commissions = query.order_by(Commission.created_at.desc()).all()
     return commissions
 
 @router.post("/payout", response_model=CommissionPayoutResponse)

@@ -69,20 +69,17 @@ const InventoryTab = ({ dateRange }) => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [dateRange?.start, dateRange?.end]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
-    // Export inventory Excel
+    // Export inventory Excel — uses the dedicated /products/export/excel endpoint
     const handleExport = async () => {
         const toastId = toast.loading('Generando reporte de inventario...');
         try {
-            const blob = await unifiedReportService.downloadExcelReport({
-                start_date: dateRange?.start,
-                end_date: dateRange?.end,
-            });
+            const blob = await unifiedReportService.downloadInventoryExcel();
             const url = window.URL.createObjectURL(new Blob([blob]));
             const link = document.createElement('a');
             link.href = url;
@@ -90,6 +87,7 @@ const InventoryTab = ({ dateRange }) => {
             document.body.appendChild(link);
             link.click();
             link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(url);
             toast.success('Reporte descargado correctamente', { id: toastId });
         } catch (error) {
             console.error('Export error:', error);

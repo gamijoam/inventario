@@ -18,9 +18,12 @@ def read_customers(
     skip: int = 0,
     limit: int = Query(default=500, le=5000),
     q: Optional[str] = None,
+    include_inactive: bool = Query(default=False, description="Incluir clientes inactivos (soft-deleted)"),
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Customer)
+    if not include_inactive:
+        query = query.filter(models.Customer.is_active == True)
     if q:
         search = f"%{q}%"
         query = query.filter(
@@ -54,12 +57,13 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
         "address": db_customer.address,
         "credit_limit": db_customer.credit_limit,
         "payment_term_days": db_customer.payment_term_days,
-        "is_blocked": db_customer.is_blocked
+        "is_blocked": db_customer.is_blocked,
+        "is_active": db_customer.is_active
     }
-    
+
     db.commit()
     # db.refresh(db_customer) # REMOVED
-    
+
     # Broadcast customer created
     await manager.broadcast(WebSocketEvents.CUSTOMER_CREATED, {
         "id": response_data["id"],
@@ -89,12 +93,13 @@ async def update_customer(customer_id: int, customer_data: schemas.CustomerCreat
         "address": db_customer.address,
         "credit_limit": db_customer.credit_limit,
         "payment_term_days": db_customer.payment_term_days,
-        "is_blocked": db_customer.is_blocked
+        "is_blocked": db_customer.is_blocked,
+        "is_active": db_customer.is_active
     }
-        
+
     db.commit()
     # db.refresh(db_customer) # REMOVED
-    
+
     # Broadcast customer updated
     await manager.broadcast(WebSocketEvents.CUSTOMER_UPDATED, {
         "id": response_data["id"],
@@ -204,22 +209,38 @@ def get_customer_financial_status(customer_id: int, db: Session = Depends(get_db
 
 @router.delete("/{customer_id}")
 def delete_customer(customer_id: int, db: Session = Depends(get_db)):
-    """Delete a customer"""
+    """Soft-delete a customer (set is_active=False)"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-    
-    # Check if customer has sales
-    has_sales = db.query(models.Sale).filter(models.Sale.customer_id == customer_id).first()
-    if has_sales:
-        raise HTTPException(
-            status_code=400, 
-            detail="No se puede eliminar el cliente porque tiene ventas registradas"
-        )
-    
-    db.delete(customer)
+
+    customer.is_active = False
     db.commit()
-    return {"status": "success", "message": "Cliente eliminado"}
+    return {"status": "success", "message": "Cliente desactivado"}
+
+
+@router.put("/{customer_id}/deactivate")
+def deactivate_customer(customer_id: int, db: Session = Depends(get_db)):
+    """Deactivate (soft-delete) a customer"""
+    customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    customer.is_active = False
+    db.commit()
+    return {"status": "success", "message": "Cliente desactivado"}
+
+
+@router.put("/{customer_id}/activate")
+def activate_customer(customer_id: int, db: Session = Depends(get_db)):
+    """Reactivate a soft-deleted customer"""
+    customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    customer.is_active = True
+    db.commit()
+    return {"status": "success", "message": "Cliente reactivado"}
 
 from ..dependencies import cashier_or_admin
 

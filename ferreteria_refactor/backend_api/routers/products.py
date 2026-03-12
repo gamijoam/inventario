@@ -732,6 +732,8 @@ def get_credit_sales(
     limit: int = Query(default=500, le=5000),
     q: Optional[str] = None,
     status: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -767,6 +769,22 @@ def get_credit_sales(
         )
     elif status == "paid":
         base_query = base_query.filter(models.Sale.paid == True)
+
+    # Date range filter
+    if start_date:
+        try:
+            sd = date_type.fromisoformat(start_date)
+            base_query = base_query.filter(models.Sale.date >= sd)
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            from datetime import datetime as dt_cls, timedelta
+            ed = date_type.fromisoformat(end_date)
+            # Include the entire end date (up to 23:59:59)
+            base_query = base_query.filter(models.Sale.date <= ed + timedelta(days=1))
+        except ValueError:
+            pass
 
     total = base_query.count()
 

@@ -639,8 +639,9 @@ class Customer(Base):
     credit_limit = Column(Numeric(12, 2), default=100.00)
     payment_term_days = Column(Integer, default=15)  # Default payment term in days
     is_blocked = Column(Boolean, default=False)  # Manual credit block flag
+    is_active = Column(Boolean, default=True, nullable=False)  # Soft delete flag
 
-    
+
     # Hybrid/Sync Fields
     unique_uuid = Column(String(36), nullable=True, unique=True, index=True)
     sync_status = Column(String(20), default="SYNCED") # SYNCED, PENDING

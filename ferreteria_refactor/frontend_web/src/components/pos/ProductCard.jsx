@@ -1,6 +1,7 @@
 import React from 'react';
 import { Package, AlertTriangle, Layers, RotateCcw, User, MapPin } from 'lucide-react';
 import { Badge } from '../ui/badge';
+import { cn } from '../../lib/utils';
 import ProductThumbnail from '../products/ProductThumbnail';
 
 const formatLocalCurrency = (amount, currency = 'USD') => {
@@ -32,7 +33,10 @@ const ProductCard = ({
     };
 
     const priceBS = convertProductPrice ? convertProductPrice(product, 'VES') : 0;
-    const isLowStock = currentStock <= (product.min_stock || 5);
+    const numStock = Number(currentStock);
+    const minStock = Number(product.min_stock ?? 5);
+    const isOutOfStock = numStock <= 0;
+    const isLowStock = !isOutOfStock && numStock < minStock;
 
     return (
         <div
@@ -71,15 +75,27 @@ const ProductCard = ({
                     )}
                 </div>
 
-                {/* Low Stock Indicator - Bottom-Right */}
+                {/* Stock Status Indicator - Bottom-Right */}
                 <div className="absolute bottom-3 right-3">
-                    {isLowStock && (
+                    {isOutOfStock ? (
                         <Badge
-                            variant={currentStock <= 0 ? "destructive" : "warning"}
+                            variant="destructive"
                             className="text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md backdrop-blur-sm border-white/20"
                         >
-                            {currentStock <= 0 ? 'SIN STOCK' : 'STOCK BAJO'}
+                            SIN STOCK
                         </Badge>
+                    ) : isLowStock ? (
+                        <Badge
+                            variant="warning"
+                            className="text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md backdrop-blur-sm border-white/20"
+                        >
+                            STOCK BAJO
+                        </Badge>
+                    ) : (
+                        <div className="flex items-center gap-1 bg-emerald-50/90 backdrop-blur-sm px-2 py-0.5 rounded-full border border-emerald-200/50 shadow-sm">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span className="text-[9px] font-bold text-emerald-700">EN STOCK</span>
+                        </div>
                     )}
                 </div>
             </div>
@@ -90,14 +106,18 @@ const ProductCard = ({
                     <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-1 rounded-md tracking-widest uppercase border border-slate-200/50 truncate max-w-[90px]">
                         {product.sku || 'N/A'}
                     </span>
-                    {!isLowStock && (
-                        <div className="flex items-center gap-1.5 text-slate-500">
-                            <Package size={10} className="text-slate-400" />
-                            <span className="text-[10px] font-bold">
-                                {Number(currentStock).toFixed(0)} <span className="font-medium text-slate-400">Unid.</span>
-                            </span>
-                        </div>
-                    )}
+                    <div className={cn(
+                        "flex items-center gap-1.5",
+                        isOutOfStock ? "text-rose-500" : (isLowStock ? "text-amber-500" : "text-slate-500")
+                    )}>
+                        <div className={cn(
+                            "w-1.5 h-1.5 rounded-full",
+                            isOutOfStock ? "bg-rose-500 animate-pulse" : (isLowStock ? "bg-amber-500" : "bg-emerald-500")
+                        )} />
+                        <span className="text-[10px] font-bold">
+                            {numStock.toFixed(0)} <span className="font-medium opacity-60">Unid.</span>
+                        </span>
+                    </div>
                 </div>
 
                 <h3 className="font-bold text-slate-800 text-sm leading-tight line-clamp-3 group-hover:text-blue-600 transition-colors min-h-[3.2rem]" title={product.name}>

@@ -47,10 +47,11 @@ def get_dashboard_financials(
     else:
         end_dt = datetime.combine(end_date, datetime.max.time())
 
-    # Query SalePayment grouped by currency
+    # Query SalePayment grouped by currency (COALESCE NULL currency to "USD")
     # Note: We include ALL sales, even if they have returns. Returns are subtracted separately.
+    currency_col = func.coalesce(models.SalePayment.currency, "USD")
     query = db.query(
-        models.SalePayment.currency,
+        currency_col.label('currency'),
         func.sum(models.SalePayment.amount).label('total_collected'),
         func.count(models.SalePayment.id).label('payment_count')
     ).join(models.Sale).filter(
@@ -58,22 +59,22 @@ def get_dashboard_financials(
         models.Sale.date <= end_dt
     )
 
-    # Group by currency
-    results = query.group_by(models.SalePayment.currency).all()
+    # Group by coalesced currency
+    results = query.group_by(currency_col).all()
 
-    # NEW: Query Returns (CashMovements of type "RETURN")
-    # This captures the actual money leaving the drawer for refunds
-    returns_query = db.query(
-        models.CashMovement.currency,
-        func.sum(models.CashMovement.amount).label('total_refunded')
+    # Query Returns from the dedicated Return model (source of truth)
+    # Return.total_refunded is always in USD (base currency)
+    total_returns_usd = db.query(
+        func.sum(models.Return.total_refunded)
     ).filter(
-        models.CashMovement.date >= start_dt,
-        models.CashMovement.date <= end_dt,
-        models.CashMovement.type == "RETURN"
-    ).group_by(models.CashMovement.currency).all()
+        models.Return.date >= start_dt,
+        models.Return.date <= end_dt
+    ).scalar() or Decimal("0.00")
 
-    # Convert returns to dict for easy lookup
-    returns_map = {r[0] or "USD": r[1] for r in returns_query}
+    # All returns are in USD since Return.total_refunded uses base price (USD)
+    returns_map = {}
+    if total_returns_usd:
+        returns_map["USD"] = Decimal(str(total_returns_usd))
 
     # Format sales by currency
     sales_by_currency = []
@@ -730,7 +731,7 @@ def get_product_profitability(product_id: int, db: Session = Depends(get_db)):
         total_profit += (float(detail.unit_price or 0) - float(final_cost or 0)) * float(detail.quantity or 0)
 
     margin = 0
-    if product.price > 0:
+    if product.price and product.price > 0 and product.cost_price is not None:
         margin = ((product.price - product.cost_price) / product.price) * 100
 
     return {
@@ -890,38 +891,47 @@ def get_sales_by_payment_method(
     db: Session = Depends(get_db)
 ):
     """
-    Sales breakdown by payment method.
+    Sales breakdown by payment method (NET: Gross - Returns).
     Groups by 'payment_method' column in Sale.
     """
     start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
+    # TIMEZONE FIX: Same-day queries need +1 day to cover UTC offset
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
 
-    # Query: Group by payment_method, sum total_amount
+    # 1. Gross sales by payment method
     results = db.query(
         models.Sale.payment_method,
         func.sum(models.Sale.total_amount).label('total_amount'),
-        func.sum(models.Sale.total_amount_bs).label('total_amount_bs'), # NEW
+        func.sum(models.Sale.total_amount_bs).label('total_amount_bs'),
         func.count(models.Sale.id).label('count')
     ).filter(
         models.Sale.date >= start_dt,
         models.Sale.date <= end_dt
-        # Note: We include all statuses or filter by active?
-        # Ideally only COMPLETED for reports
     ).group_by(models.Sale.payment_method).all()
 
-    # Filter COMPLETED only roughly (re-using logic from sales search)
-    # Better: join returns to exclude voided, or trust the data if we have status column
-    # Since we don't have a physical status column in DB yet (it's property),
-    # and doing a join here is expensive for aggregation without proper indexing,
-    # let's proceed with simple aggregation but filter out known "VOIDED" if we can via existing logic.
-    # Actually, let's keep it simple: Raw sales data.
+    # 2. Subtract returns: get total refunded per payment method of original sale
+    # Returns don't have payment_method, so we join through the original sale
+    returns_by_method = db.query(
+        models.Sale.payment_method,
+        func.sum(models.Return.total_refunded).label('total_refunded')
+    ).join(models.Return, models.Return.sale_id == models.Sale.id).filter(
+        models.Return.date >= start_dt,
+        models.Return.date <= end_dt
+    ).group_by(models.Sale.payment_method).all()
+
+    refund_map = {r.payment_method: float(r.total_refunded or 0) for r in returns_by_method}
 
     return [
         {
             "method": r.payment_method or "Desconocido",
-            "total_amount": float(r.total_amount or 0),
-            "total_amount_bs": float(r.total_amount_bs or 0), # NEW
-            "count": r.count
+            "total_amount": float(r.total_amount or 0) - refund_map.get(r.payment_method, 0),
+            "total_amount_bs": float(r.total_amount_bs or 0),
+            "count": r.count,
+            "gross_amount": float(r.total_amount or 0),
+            "returns": refund_map.get(r.payment_method, 0)
         }
         for r in results
     ]
@@ -935,15 +945,21 @@ def get_sales_by_customer(
     db: Session = Depends(get_db)
 ):
     """
-    Top customers by sales volume.
+    Top customers by sales volume (NET: Gross - Returns).
     """
     start_dt = datetime.combine(start_date, datetime.min.time())
-    end_dt = datetime.combine(end_date, datetime.max.time())
+    # TIMEZONE FIX: Same-day queries need +1 day to cover UTC offset
+    if start_date == end_date:
+        end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+    else:
+        end_dt = datetime.combine(end_date, datetime.max.time())
 
+    # 1. Gross sales by customer
     results = db.query(
+        models.Customer.id.label('customer_id'),
         models.Customer.name,
         func.sum(models.Sale.total_amount).label('total_purchased'),
-        func.sum(models.Sale.total_amount_bs).label('total_purchased_bs'), # NEW
+        func.sum(models.Sale.total_amount_bs).label('total_purchased_bs'),
         func.count(models.Sale.id).label('transaction_count')
     ).join(models.Sale).filter(
         models.Sale.date >= start_dt,
@@ -952,12 +968,26 @@ def get_sales_by_customer(
     .order_by(desc('total_purchased'))\
     .limit(limit).all()
 
+    # 2. Subtract returns per customer (through original sale's customer)
+    returns_by_customer = db.query(
+        models.Sale.customer_id,
+        func.sum(models.Return.total_refunded).label('total_refunded')
+    ).join(models.Return, models.Return.sale_id == models.Sale.id).filter(
+        models.Return.date >= start_dt,
+        models.Return.date <= end_dt,
+        models.Sale.customer_id.isnot(None)
+    ).group_by(models.Sale.customer_id).all()
+
+    refund_map = {r.customer_id: float(r.total_refunded or 0) for r in returns_by_customer}
+
     return [
         {
             "customer_name": r.name,
-            "total_purchased": float(r.total_purchased or 0),
-            "total_purchased_bs": float(r.total_purchased_bs or 0), # NEW
-            "transaction_count": r.transaction_count
+            "total_purchased": float(r.total_purchased or 0) - refund_map.get(r.customer_id, 0),
+            "total_purchased_bs": float(r.total_purchased_bs or 0),
+            "transaction_count": r.transaction_count,
+            "gross_purchased": float(r.total_purchased or 0),
+            "returns": refund_map.get(r.customer_id, 0)
         }
         for r in results
     ]
@@ -1056,7 +1086,11 @@ async def export_excel_report(
         # ============================================
 
         start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, datetime.max.time())
+        # TIMEZONE FIX: Same-day queries need +1 day to cover UTC offset
+        if start_date == end_date:
+            end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+        else:
+            end_dt = datetime.combine(end_date, datetime.max.time())
 
         # Query Sales
         sales_query = db.query(

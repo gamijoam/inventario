@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { Search, ScanBarcode } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import BarcodeScannerComponent from './BarcodeScanner';
 
-const SearchWithScanner = ({
+const SearchWithScanner = forwardRef(({
     value,
     onChange,
     onSearch, // Opción para manejar "Enter" o búsqueda explícita
@@ -12,7 +12,7 @@ const SearchWithScanner = ({
     inputClassName,
     autoFocus = false,
     id
-}) => {
+}, ref) => {
     const [isScanning, setIsScanning] = useState(false);
 
     // Manejo híbrido: si se pasa 'value' es controlado, si no, usa estado local (aunque para este caso de uso asumimos controlado)
@@ -32,6 +32,7 @@ const SearchWithScanner = ({
                 </div>
 
                 <input
+                    ref={ref}
                     type="text"
                     value={value}
                     onChange={(e) => onChange && onChange(e.target.value)}
@@ -67,6 +68,8 @@ const SearchWithScanner = ({
             )}
         </div>
     );
-};
+});
+
+SearchWithScanner.displayName = 'SearchWithScanner';
 
 export default SearchWithScanner;

@@ -249,7 +249,7 @@ export const TOUR_FLOWS = {
         id: 'finance',
         title: 'Finanzas y Caja',
         description: 'Caja, compras, proveedores y cuentas por pagar/cobrar.',
-        startUrl: '/cash-history',
+        startUrl: '/reports',
         module: null,
         steps: [
             {

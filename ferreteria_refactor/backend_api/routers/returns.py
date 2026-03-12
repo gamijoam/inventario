@@ -64,6 +64,7 @@ def search_sales(
             joinedload(models.Sale.customer),
             joinedload(models.Sale.payments),
             joinedload(models.Sale.returns),
+            joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
             joinedload(models.Sale.cash_session).joinedload(models.CashSession.user),
             joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
         ).order_by(models.Sale.date.desc()).offset(skip).limit(limit).all()

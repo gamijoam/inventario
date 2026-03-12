@@ -110,8 +110,12 @@ const CommissionsTab = ({ dateRange }) => {
     const loadData = async () => {
         setIsLoading(true);
         try {
+            const params = {};
+            if (dateRange?.start) params.start_date = dateRange.start;
+            if (dateRange?.end) params.end_date = dateRange.end;
+
             const [commRes, empRes] = await Promise.all([
-                apiClient.get('/employees/commissions'),
+                apiClient.get('/employees/commissions', { params }),
                 apiClient.get('/employees/'),
             ]);
             setCommissions(commRes.data);
@@ -126,7 +130,7 @@ const CommissionsTab = ({ dateRange }) => {
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [dateRange?.start, dateRange?.end]);
 
     const getEmployeeName = (id) => {
         const emp = employees.find(e => e.id === id);
@@ -158,6 +162,33 @@ const CommissionsTab = ({ dateRange }) => {
 
     const handleCancelPay = () => {
         if (!isProcessing) setPendingPayment(null);
+    };
+
+    // Export commissions to CSV
+    const handleExport = () => {
+        if (filtered.length === 0) {
+            toast.error('No hay datos para exportar');
+            return;
+        }
+        const headers = ['Fecha', 'Empleado', 'Venta Base', 'Comision', 'Estado'];
+        const rows = filtered.map(c => [
+            c.created_at ? new Date(c.created_at).toLocaleDateString('es-VE') : '',
+            getEmployeeName(c.employee_id),
+            parseFloat(c.base_amount || 0).toFixed(2),
+            parseFloat(c.calculated_commission || 0).toFixed(2),
+            c.status === 'PENDING' ? 'PENDIENTE' : 'PAGADO',
+        ]);
+        const csvContent = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Comisiones_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        toast.success('Comisiones exportadas correctamente');
     };
 
     // Filtering
@@ -249,7 +280,10 @@ const CommissionsTab = ({ dateRange }) => {
                             <option value="PENDING">Pendientes</option>
                             <option value="PAID">Pagadas</option>
                         </select>
-                        <button className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl transition-colors font-medium text-sm">
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl transition-colors font-medium text-sm"
+                        >
                             <Download className="w-4 h-4" />
                             <span className="hidden sm:inline">Exportar</span>
                         </button>

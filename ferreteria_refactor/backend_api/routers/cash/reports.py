@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, and_
 from typing import Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 import logging
 
@@ -51,7 +51,11 @@ def get_sessions_history(
         query = query.filter(models.CashSession.start_time >= start_dt)
 
     if end_date:
-        end_dt = datetime.combine(end_date, datetime.max.time())
+        # Extend end_date by +1 day for same-day queries (consistent with sales_report)
+        if start_date and end_date and start_date == end_date:
+            end_dt = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
+        else:
+            end_dt = datetime.combine(end_date, datetime.max.time())
         query = query.filter(models.CashSession.start_time <= end_dt)
 
     # Order by most recent first
@@ -59,6 +63,13 @@ def get_sessions_history(
 
     # Format response with calculated fields
     result = []
+
+    # Pre-fetch anchor currency symbol for is_anchor flag in response
+    anchor_currency = db.query(models.Currency).filter(
+        models.Currency.is_anchor == True,
+        models.Currency.is_active == True
+    ).first()
+    anchor_symbol = anchor_currency.symbol if anchor_currency else "$"
 
     # Pre-fetch for performance?
     # For now, we do it in loop (30 queries max usually). Optimize later if needed.
@@ -109,6 +120,7 @@ def get_sessions_history(
                 {
                     "id": curr.id,
                     "currency_symbol": curr.currency_symbol,
+                    "is_anchor": curr.currency_symbol == anchor_symbol,
                     "initial_amount": float(curr.initial_amount) if curr.initial_amount else 0.0,
                     "final_reported": float(curr.final_reported) if curr.final_reported else 0.0,
                     "final_expected": float(curr.final_expected) if curr.final_expected else 0.0,
@@ -213,17 +225,17 @@ def get_session_details(
 
     # Calculate Movements
     # Separate Expenses from Cash Advances and Returns
-    expenses_usd = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and m.currency == "USD"), Decimal("0.00"))
-    expenses_bs = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
+    expenses_usd = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and (m.currency or "USD") == "USD"), Decimal("0.00"))
+    expenses_bs = sum((m.amount for m in movements if m.type in ["EXPENSE", "WITHDRAWAL", "OUT"] and ((m.currency or "USD").upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
 
-    returns_usd = sum((m.amount for m in movements if m.type == "RETURN" and m.currency == "USD"), Decimal("0.00"))
-    returns_bs = sum((m.amount for m in movements if m.type == "RETURN" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
+    returns_usd = sum((m.amount for m in movements if m.type == "RETURN" and (m.currency or "USD") == "USD"), Decimal("0.00"))
+    returns_bs = sum((m.amount for m in movements if m.type == "RETURN" and ((m.currency or "USD").upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
 
-    cash_advances_usd = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and m.currency == "USD"), Decimal("0.00"))
-    cash_advances_bs = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
+    cash_advances_usd = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and (m.currency or "USD") == "USD"), Decimal("0.00"))
+    cash_advances_bs = sum((m.amount for m in movements if m.type == "CASH_ADVANCE" and ((m.currency or "USD").upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
 
-    deposits_usd = sum((m.amount for m in movements if m.type in ["DEPOSIT", "IN"] and m.currency == "USD"), Decimal("0.00"))
-    deposits_bs = sum((m.amount for m in movements if m.type in ["DEPOSIT", "IN"] and (m.currency and m.currency.upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
+    deposits_usd = sum((m.amount for m in movements if m.type in ["DEPOSIT", "IN"] and (m.currency or "USD") == "USD"), Decimal("0.00"))
+    deposits_bs = sum((m.amount for m in movements if m.type in ["DEPOSIT", "IN"] and ((m.currency or "USD").upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
 
     # Calculate Expected Cash (Only Cash payments affect the drawer)
     # Check for multiple possible cash payment method names using substring

@@ -104,8 +104,13 @@ const CreditsTab = ({ dateRange }) => {
     const fetchInvoices = async () => {
         setLoading(true);
         try {
-            const response = await apiClient.get('/products/credits');
-            setInvoices(response.data);
+            const params = {};
+            if (dateRange?.start) params.start_date = dateRange.start;
+            if (dateRange?.end) params.end_date = dateRange.end;
+
+            const response = await apiClient.get('/products/credits', { params });
+            const data = response.data;
+            setInvoices(Array.isArray(data) ? data : (data.items || []));
         } catch (error) {
             console.error('Error fetching invoices:', error);
             toast.error('Error al cargar cuentas por cobrar');
@@ -151,7 +156,7 @@ const CreditsTab = ({ dateRange }) => {
     useEffect(() => {
         if (activeSubTab === 'cxc') fetchInvoices();
         if (activeSubTab === 'aging') fetchAgingReport();
-    }, [activeSubTab]);
+    }, [activeSubTab, dateRange?.start, dateRange?.end]);
 
     useEffect(() => {
         if (ledgerClientId) fetchLedger(ledgerClientId);
@@ -414,7 +419,9 @@ const CreditsTab = ({ dateRange }) => {
                         amount: payAmountCurrency,
                         currency: paymentCurrency,
                         payment_method: paymentMethod,
-                        exchange_rate: rateToUse
+                        exchange_rate: rateToUse,
+                        payment_date: paymentDate ? new Date(paymentDate).toISOString() : new Date().toISOString(),
+                        reference: reference || null
                     });
                     remainingUSD -= payAmountUSD;
                 }
