@@ -133,6 +133,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: LayoutDashboard, label: 'Dashboard Farmacia', path: '/pharmacy' },
                 { icon: Package, label: 'Gestión de Lotes', path: '/pharmacy/lots' },
                 { icon: BookOpen, label: 'Libro de Control', path: '/pharmacy/control-log' },
+                { icon: FileText, label: 'Recetas', path: '/pharmacy/prescriptions' },
             ]
         }] : []),
         // BARBERSHOP MODULE

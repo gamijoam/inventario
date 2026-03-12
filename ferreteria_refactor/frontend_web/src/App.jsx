@@ -75,6 +75,9 @@ const CommissionsReport = React.lazy(() => import('./pages/Barbershop/Commission
 
 // Pharmacy Module
 const PharmacyDashboard = React.lazy(() => import('./pages/Pharmacy/PharmacyDashboard'));
+const LotsManager = React.lazy(() => import('./pages/Pharmacy/LotsManager'));
+const ControlLog = React.lazy(() => import('./pages/Pharmacy/ControlLog'));
+const PrescriptionsHistory = React.lazy(() => import('./pages/Pharmacy/PrescriptionsHistory'));
 
 // Laundry Module
 const LaundryDashboard = React.lazy(() => import('./pages/Laundry/LaundryDashboard'));
@@ -461,12 +464,17 @@ function App() {
                               } />
                               <Route path="/pharmacy/lots" element={
                                 <ProtectedRoute>
-                                  <PharmacyDashboard />
+                                  <LotsManager />
                                 </ProtectedRoute>
                               } />
                               <Route path="/pharmacy/control-log" element={
                                 <ProtectedRoute>
-                                  <PharmacyDashboard />
+                                  <ControlLog />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/pharmacy/prescriptions" element={
+                                <ProtectedRoute>
+                                  <PrescriptionsHistory />
                                 </ProtectedRoute>
                               } />
                             </Route>
