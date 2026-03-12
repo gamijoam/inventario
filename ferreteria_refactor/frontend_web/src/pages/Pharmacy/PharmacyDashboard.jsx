@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Package, ClipboardList, BookOpen, AlertTriangle, ChevronDown, ChevronUp, RefreshCw, Search, Plus } from 'lucide-react';
+import { Package, ClipboardList, AlertTriangle, ChevronDown, ChevronUp, RefreshCw, Search, Plus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { getLots, createLot, getAlerts } from '../../services/pharmacyService';
 import apiClient from '../../config/axios';
