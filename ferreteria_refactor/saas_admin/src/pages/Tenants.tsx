@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getTenants, deleteTenant, updateTenantStatus, updateTenant, impersonateTenant } from '../api/tenants';
 import type { Tenant } from '../types/tenant';
-import { Plus, Search, Building, Trash2, Edit, Utensils, Shirt, Zap, ShoppingBag, Key, Scissors } from 'lucide-react';
+import { Plus, Search, Building, Trash2, Edit, Utensils, Shirt, Zap, ShoppingBag, Key, Scissors, Pill } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import CreateTenantModal from '../components/CreateTenantModal';
@@ -303,6 +303,16 @@ const Tenants: React.FC = () => {
                                                     title="Módulo Barbería / Salón"
                                                 >
                                                     <Scissors size={18} />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleModuleToggle(tenant.id, 'has_pharmacy_module', !tenant.has_pharmacy_module)}
+                                                    className={`p-2 rounded-lg transition-all duration-200 border ${tenant.has_pharmacy_module
+                                                        ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100 hover:border-rose-300 shadow-sm'
+                                                        : 'bg-white border-dashed border-gray-300 text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
+                                                    title="Farmacia / Droguería — Lotes, vencimientos, recetas médicas, libro de control"
+                                                >
+                                                    <Pill size={18} />
                                                 </button>
                                             </div>
                                         </td>

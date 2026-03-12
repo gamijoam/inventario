@@ -381,6 +381,8 @@ def update_tenant(
         tenant.has_services_module = tenant_in.has_services_module
     if tenant_in.has_barbershop_module is not None:
         tenant.has_barbershop_module = tenant_in.has_barbershop_module
+    if tenant_in.has_pharmacy_module is not None:
+        tenant.has_pharmacy_module = tenant_in.has_pharmacy_module
 
     db.commit()
     db.refresh(tenant)
