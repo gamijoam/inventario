@@ -89,19 +89,7 @@ Error de avance/abono corregido. Además se redujo el selector de moneda a solo 
 **Estado:** pendiente
 **Categoría:** deploy
 
-SQL ya aplicado en QA. Debe correrse en PROD después de subir la imagen Docker.
-
-Correr en el VPS con:
-```bash
-sshpass -p 'GaboMac12' ssh root@212.28.176.157 \
-  "docker exec db_prod_server psql -U postgres -d invensoft_prod -c \
-  \"DO \\\$\\\$ DECLARE s TEXT; BEGIN FOR s IN SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('public','information_schema','pg_catalog','pg_toast') LOOP EXECUTE format('ALTER TABLE %I.customers ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE', s); EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_sales_is_credit ON %I.sales(is_credit) WHERE is_credit = true', replace(s,''-'',''_''), s); EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_sales_paid ON %I.sales(paid)', replace(s,''-'',''_''), s); EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_sales_due_date ON %I.sales(due_date) WHERE due_date IS NOT NULL', replace(s,''-'',''_''), s); END LOOP; END \\\$\\\$;\""
-```
-
-O paso a paso:
-1. ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
-2. CREATE INDEX IF NOT EXISTS idx_sales_is_credit ON sales(is_credit) WHERE is_credit = true;
-3. CREATE INDEX IF NOT EXISTS idx_sales_paid ON sales(paid);
-4. CREATE INDEX IF NOT EXISTS idx_sales_due_date ON sales(due_date) WHERE due_date IS NOT NULL;
+SQL pendiente para PROD: M001 (is_active) y M002 (índices sales).
+Ver detalle completo en: `_CEREBRO_PROYECTO/20_Migraciones_SQL_Pendientes.md`
 
 ---
