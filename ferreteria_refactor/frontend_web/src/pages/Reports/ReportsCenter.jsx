@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from
 import {
     BarChart3, ShoppingCart, Landmark, CreditCard, Truck,
     Package, DollarSign, Calendar, Download, RefreshCw,
-    TrendingUp, ArrowUpRight, ArrowDownRight
+    TrendingUp, ArrowUpRight, ArrowDownRight, Pill
 } from 'lucide-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -18,6 +18,7 @@ const CashTab = lazy(() => import('./tabs/CashTab'));
 const CreditsTab = lazy(() => import('./tabs/CreditsTab'));
 const SuppliersTab = lazy(() => import('./tabs/SuppliersTab'));
 const InventoryTab = lazy(() => import('./tabs/InventoryTab'));
+const PharmacyTab = lazy(() => import('./tabs/PharmacyTab'));
 const CommissionsTab = lazy(() => import('./tabs/CommissionsTab'));
 
 // --- Tab definitions ---
@@ -28,6 +29,7 @@ const TABS = [
     { id: 'creditos', label: 'Créditos', icon: CreditCard },
     { id: 'proveedores', label: 'Proveedores', icon: Truck },
     { id: 'inventario', label: 'Inventario', icon: Package },
+    { id: 'farmacia', label: 'Farmacia', icon: Pill, moduleRequired: 'pharmacy' },
     { id: 'comisiones', label: 'Comisiones', icon: DollarSign },
 ];
 
@@ -728,6 +730,12 @@ const ReportsCenter = () => {
                 return (
                     <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 animate-pulse">Cargando...</div>}>
                         <InventoryTab dateRange={dateRange} />
+                    </Suspense>
+                );
+            case 'farmacia':
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 animate-pulse">Cargando...</div>}>
+                        <PharmacyTab dateRange={dateRange} />
                     </Suspense>
                 );
             case 'comisiones':
