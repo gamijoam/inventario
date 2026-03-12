@@ -4,6 +4,46 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-12] — Bug Fixes Ronda A + B: ReportsCenter, POS, Créditos, PDF, Comisiones
+
+### POS: Cliente nuevo aparece sin refrescar
+- `PaymentModal.jsx`: `handleQuickCustomerSuccess` agrega el nuevo cliente al array local inmediatamente, sin esperar evento WebSocket. Guard `alreadyExists` evita duplicados.
+
+### Header: Botón "Reportes" al lado de "Vender"
+- `Header.jsx`: Nuevo botón indigo con `BarChart2` → `Link to="/reports"` visible en navbar superior.
+
+### Tab Ventas — Ventas del día no aparecían
+- `SalesTab.jsx`: Cambiado `useState('COMPLETED')` a `useState('')` — sin filtro hardcodeado. Fix de desempaquetado de respuesta paginada `response.data.items` (antes leía `.data` como array). Límite subido a 200.
+
+### Devoluciones — búsqueda por factura fallaba
+- `ReturnsManager.jsx`: Eliminado `status=COMPLETED` hardcodeado. Fix desempaquetado `response.data.items`. Límite subido a 200.
+
+### Avances POS — 3 monedas reducidas a 2
+- `PaymentModal.jsx`: Selector de moneda ahora muestra exactamente USD + Bs (primera moneda no-USD), sin importar cuántas tasas (BCV, Paralelo) devuelva el backend.
+
+### Créditos lentos — optimización
+- `models.py`: Índices `index=True` en `Sale.is_credit`, `Sale.paid`, `Sale.due_date`.
+- `products.py`: Límite default `/credits` 500→100. Eliminados JOINs pesados: `Sale.details→product` y `Sale.returns`.
+- `CreditsTab.jsx`: Paginación acumulativa (`page`, `hasMore`, `total`). Botón "Cargar más (N restantes)". Reset al cambiar filtros.
+- **SQL corrido en QA** (15 tenants): `idx_sales_is_credit`, `idx_sales_paid`, `idx_sales_due_date`.
+- **SQL PENDIENTE en PROD**: Ver `.recordatorios/NOTAS.md` nota [009].
+
+### PDF Cierre de Caja — nuevo formato
+- `ZReportPDF.jsx`: Reescrito completo. Branding "Mi Inventario Fácil" (reemplaza "Invensoft"). Sin `toLocaleString` (incompatible con @react-pdf). Helpers manuales `fmtNum`, `fmtDate`, `fmtNow`. Secciones: Info sesión, Resumen ventas, Tabla por método de pago, Efectivo. Footer con URL `miinventariofacil.com`.
+
+### Comisiones — ahora globales
+- `ReportsCenter.jsx`: Eliminado `moduleRequired: 'barbershop'` del tab Comisiones. Ahora visible para **todos los tipos de negocio** (ferretería, lavandería, servicio técnico, etc.). Backend `/employees/commissions` ya era global (filtraba solo por `tenant_id`).
+
+### SQL aplicado en QA (debe aplicarse en PROD)
+```sql
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+CREATE INDEX IF NOT EXISTS idx_sales_is_credit ON sales(is_credit) WHERE is_credit = true;
+CREATE INDEX IF NOT EXISTS idx_sales_paid ON sales(paid);
+CREATE INDEX IF NOT EXISTS idx_sales_due_date ON sales(due_date) WHERE due_date IS NOT NULL;
+```
+
+---
+
 ## [2026-03-11] — Centro de Reportes Unificado + Paginación POS + Tauri Removal + WS Fixes
 
 ### Centro de Reportes Profesional (`/reports` → ReportsCenter.jsx)

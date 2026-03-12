@@ -729,7 +729,7 @@ def export_pdf(db: Session = Depends(get_db)):
 @router.get("/credits", dependencies=[Depends(cashier_or_admin)])
 def get_credit_sales(
     skip: int = 0,
-    limit: int = Query(default=500, le=5000),
+    limit: int = Query(default=100, le=5000),
     q: Optional[str] = None,
     status: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -791,8 +791,6 @@ def get_credit_sales(
     sales = base_query.options(
         joinedload(models.Sale.customer),
         joinedload(models.Sale.payments),
-        joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
-        joinedload(models.Sale.returns),
         joinedload(models.Sale.cash_session).joinedload(models.CashSession.user),
         joinedload(models.Sale.cash_session).joinedload(models.CashSession.register),
     ).order_by(models.Sale.due_date.asc()).offset(skip).limit(limit).all()

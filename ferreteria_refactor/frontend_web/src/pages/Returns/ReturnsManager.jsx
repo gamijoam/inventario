@@ -49,9 +49,10 @@ const ReturnsManager = () => {
 
         setLoading(true);
         try {
-            const response = await apiClient.get(`/returns/sales/search?q=${searchQuery}&status=COMPLETED`);
-            setSearchResults(response.data);
-            if (response.data.length === 0) {
+            const response = await apiClient.get('/returns/sales/search', { params: { q: searchQuery, limit: 200 } });
+            const items = response.data?.items || [];
+            setSearchResults(items);
+            if (items.length === 0) {
                 toast.error(`No se encontraron ventas con "${searchQuery}"`);
             }
         } catch (error) {

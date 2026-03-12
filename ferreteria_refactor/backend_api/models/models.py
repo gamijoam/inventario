@@ -343,9 +343,9 @@ class Sale(Base):
     
     # Credit Sales
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
-    is_credit = Column(Boolean, default=False)
-    paid = Column(Boolean, default=True) # False for credit sales
-    due_date = Column(DateTime, nullable=True)  # Payment deadline for credit sales
+    is_credit = Column(Boolean, default=False, index=True)
+    paid = Column(Boolean, default=True, index=True) # False for credit sales
+    due_date = Column(DateTime, nullable=True, index=True)  # Payment deadline for credit sales
     balance_pending = Column(Numeric(18, 4), nullable=True)  # Remaining balance for partial payments
 
 

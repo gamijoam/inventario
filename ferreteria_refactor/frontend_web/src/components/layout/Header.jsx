@@ -1,4 +1,4 @@
-import { Search, Bell, ShoppingCart, PackageSearch, DollarSign, RefreshCw, User, LogOut, Settings, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Search, Bell, ShoppingCart, PackageSearch, DollarSign, RefreshCw, User, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
@@ -72,6 +72,13 @@ export default function Header() {
                     <Link to="/pos" className="hidden md:flex items-center gap-2 px-3 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0">
                         <ShoppingCart size={16} />
                         <span className="text-sm font-bold">Vender</span>
+                    </Link>
+                    <Link
+                        to="/reports"
+                        className="hidden md:flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0"
+                    >
+                        <BarChart2 size={16} />
+                        <span className="text-sm font-bold">Reportes</span>
                     </Link>
                 </div>
 

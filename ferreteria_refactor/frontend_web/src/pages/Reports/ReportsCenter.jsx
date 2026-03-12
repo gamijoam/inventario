@@ -28,7 +28,7 @@ const TABS = [
     { id: 'creditos', label: 'Créditos', icon: CreditCard },
     { id: 'proveedores', label: 'Proveedores', icon: Truck },
     { id: 'inventario', label: 'Inventario', icon: Package },
-    { id: 'comisiones', label: 'Comisiones', icon: DollarSign, moduleRequired: 'barbershop' },
+    { id: 'comisiones', label: 'Comisiones', icon: DollarSign },
 ];
 
 // --- Date helpers ---

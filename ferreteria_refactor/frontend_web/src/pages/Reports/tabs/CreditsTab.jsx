@@ -58,6 +58,9 @@ const CreditsTab = ({ dateRange }) => {
     const [cxcFilter, setCxcFilter] = useState('pending');
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
+    const [total, setTotal] = useState(0);
 
     // Selection for bulk payment
     const [selectedInvoices, setSelectedInvoices] = useState([]);
@@ -101,16 +104,22 @@ const CreditsTab = ({ dateRange }) => {
     // -----------------------------------------------------------------------
     // FETCH FUNCTIONS
     // -----------------------------------------------------------------------
-    const fetchInvoices = async () => {
+    const fetchInvoices = async (currentPage = 0, append = false) => {
         setLoading(true);
         try {
-            const params = {};
+            const params = { skip: currentPage * 100, limit: 100 };
             if (dateRange?.start) params.start_date = dateRange.start;
             if (dateRange?.end) params.end_date = dateRange.end;
 
             const response = await apiClient.get('/products/credits', { params });
             const data = response.data;
-            setInvoices(Array.isArray(data) ? data : (data.items || []));
+            const items = Array.isArray(data) ? data : (data.items || []);
+            const responseTotal = Array.isArray(data) ? items.length : (data.total || items.length);
+            const responseHasMore = Array.isArray(data) ? false : (data.has_more || false);
+
+            setInvoices(prev => append ? [...prev, ...items] : items);
+            setTotal(responseTotal);
+            setHasMore(responseHasMore);
         } catch (error) {
             console.error('Error fetching invoices:', error);
             toast.error('Error al cargar cuentas por cobrar');
@@ -154,9 +163,20 @@ const CreditsTab = ({ dateRange }) => {
     // EFFECTS
     // -----------------------------------------------------------------------
     useEffect(() => {
-        if (activeSubTab === 'cxc') fetchInvoices();
+        if (activeSubTab === 'cxc') {
+            setPage(0);
+            setInvoices([]);
+            fetchInvoices(0, false);
+        }
         if (activeSubTab === 'aging') fetchAgingReport();
     }, [activeSubTab, dateRange?.start, dateRange?.end]);
+
+    // Reset and reload when page changes (only for page > 0, i.e. "Cargar más")
+    useEffect(() => {
+        if (activeSubTab === 'cxc' && page > 0) {
+            fetchInvoices(page, true);
+        }
+    }, [page]);
 
     useEffect(() => {
         if (ledgerClientId) fetchLedger(ledgerClientId);
@@ -428,7 +448,9 @@ const CreditsTab = ({ dateRange }) => {
                 toast.success('Pagos registrados correctamente');
                 setSelectedInvoices([]);
                 setShowPaymentModal(false);
-                await fetchInvoices();
+                setPage(0);
+                setInvoices([]);
+                await fetchInvoices(0, false);
             } catch (error) {
                 console.error('Error in bulk payment:', error);
                 toast.error('Error al registrar pagos masivos');
@@ -464,7 +486,9 @@ const CreditsTab = ({ dateRange }) => {
 
             toast.success('Pago registrado correctamente');
             setShowPaymentModal(false);
-            await fetchInvoices();
+            setPage(0);
+            setInvoices([]);
+            await fetchInvoices(0, false);
         } catch (error) {
             console.error('Error registering payment:', error);
             toast.error('Error al registrar el pago');
@@ -730,6 +754,17 @@ const CreditsTab = ({ dateRange }) => {
                             </tbody>
                         </table>
                     </div>
+                    {hasMore && (
+                        <div className="border-t border-slate-100 px-4 py-3">
+                            <button
+                                onClick={() => setPage(p => p + 1)}
+                                disabled={loading}
+                                className="w-full py-2 text-sm text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {loading ? 'Cargando...' : `Cargar más créditos (${total - invoices.length} restantes)`}
+                            </button>
+                        </div>
+                    )}
                 </div>
             ) : (
                 /* Client grouped view */

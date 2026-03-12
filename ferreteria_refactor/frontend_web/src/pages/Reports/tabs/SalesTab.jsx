@@ -75,7 +75,7 @@ const SalesTab = ({ dateRange }) => {
     const [dateFrom, setDateFrom] = useState(dateRange?.start || new Date().toISOString().split('T')[0]);
     const [dateTo, setDateTo] = useState(dateRange?.end || new Date().toISOString().split('T')[0]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState('COMPLETED');
+    const [selectedStatus, setSelectedStatus] = useState('');
 
     // Modals
     const [showDetailModal, setShowDetailModal] = useState(false);
@@ -120,7 +120,7 @@ const SalesTab = ({ dateRange }) => {
         setLoading(true);
         try {
             const params = {
-                limit: 100,
+                limit: 200,
                 start_date: dateFrom,
                 end_date: dateTo,
             };
@@ -128,7 +128,8 @@ const SalesTab = ({ dateRange }) => {
             if (selectedStatus) params.status = selectedStatus;
 
             const response = await apiClient.get('/returns/sales/search', { params });
-            const sorted = response.data.sort((a, b) => b.id - a.id);
+            const items = response.data?.items || [];
+            const sorted = items.sort((a, b) => b.id - a.id);
             setSales(sorted);
             setFilteredSales(sorted);
         } catch (error) {
