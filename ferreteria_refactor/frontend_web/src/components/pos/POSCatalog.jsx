@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { Grid as FixedSizeGrid } from 'react-window';
+import { FixedSizeGrid } from 'react-window';
 import { Search, Package, Box, Loader2 } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
