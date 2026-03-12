@@ -47,7 +47,9 @@ def get_public_config(db: Session = Depends(get_db)):
             "restaurant": settings.MODULE_RESTAURANT_ENABLED,
             "laundry": settings.MODULE_LAUNDRY_ENABLED,
             "services": settings.MODULE_SERVICES_ENABLED,
-            "ferreteria": True 
+            "ferreteria": True,
+            "barbershop": False,
+            "pharmacy": False,
         }
     else:
         # For a Real Tenant, start with Server Capabilities
@@ -55,7 +57,9 @@ def get_public_config(db: Session = Depends(get_db)):
             "restaurant": settings.MODULE_RESTAURANT_ENABLED,
             "laundry": settings.MODULE_LAUNDRY_ENABLED,
             "services": settings.MODULE_SERVICES_ENABLED,
-            "ferreteria": True
+            "ferreteria": True,
+            "barbershop": False,
+            "pharmacy": False,
         }
     
     # 3. DB Entitlements (Override for Tenants)
@@ -75,7 +79,9 @@ def get_public_config(db: Session = Depends(get_db)):
                     "restaurant": tenant_obj.has_restaurant_module,
                     "laundry": tenant_obj.has_laundry_module,
                     "services": tenant_obj.has_services_module,
-                    "ferreteria": tenant_obj.has_hardware_module
+                    "ferreteria": tenant_obj.has_hardware_module,
+                    "barbershop": tenant_obj.has_barbershop_module,
+                    "pharmacy": tenant_obj.has_pharmacy_module,
                 }
                 
                 # Falling back to JSON config if all booleans are False (for existing tenants)
@@ -97,7 +103,9 @@ def get_public_config(db: Session = Depends(get_db)):
             "restaurant": False,
             "laundry": False,
             "services": False,
-            "ferreteria": True 
+            "ferreteria": True,
+            "barbershop": False,
+            "pharmacy": False,
         }
 
     return {
