@@ -33,6 +33,7 @@ class Tenant(Base):
     has_hardware_module = Column(Boolean, default=False)
     has_services_module = Column(Boolean, default=False)
     has_barbershop_module = Column(Boolean, default=False)
+    has_pharmacy_module = Column(Boolean, default=False)
 
     def __repr__(self):
         return f"<Tenant(name={self.name}, schema={self.schema_name})>"

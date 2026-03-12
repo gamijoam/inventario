@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric, Text, DateTime, Enum, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric, Text, DateTime, Date, Enum, JSON, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from ..database.db import Base
@@ -183,6 +183,12 @@ class Product(Base):
     commission_percentage = Column(Numeric(5, 2), nullable=True) # Percentage overrides employee base
 
     
+    # NEW: Pharmacy Module Fields
+    drug_classification = Column(String(20), nullable=True)  # OTC, PRESCRIPTION, CONTROLLED
+    active_ingredient = Column(String(200), nullable=True)
+    storage_condition = Column(String(20), nullable=True, default='AMBIENT')  # AMBIENT, REFRIGERATED, FROZEN
+    requires_prescription = Column(Boolean, nullable=True, default=False)
+
     # Image Support
     image_url = Column(String(255), nullable=True)  # Relative path to product image
     updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)  # Auto-updated timestamp
@@ -228,6 +234,9 @@ class Product(Base):
     # NEW: Warranty Policy Link
     warranty_policy_id = Column(Integer, ForeignKey("warranty_policies.id"), nullable=True)
     warranty_policy = relationship("WarrantyPolicy", back_populates="products")
+
+    # NEW: Pharmacy lot tracking
+    lots = relationship("ProductLot", back_populates="product", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Product(name='{self.name}', is_box={self.is_box}, is_combo={self.is_combo}, factor={self.conversion_factor})>"
@@ -1171,3 +1180,46 @@ class Commission(Base):
     # Relationships
     employee = relationship("Employee", back_populates="commissions")
     sale_item = relationship("SaleDetail", foreign_keys=[sale_item_id])
+
+# ==========================================
+# PHARMACY MODULE
+# ==========================================
+
+class ProductLot(Base):
+    """Pharmacy: batch/lot tracking with expiry dates"""
+    __tablename__ = "product_lots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    lot_number = Column(String(100), nullable=False)
+    expiry_date = Column(Date, nullable=False, index=True)
+    quantity = Column(Numeric(12, 2), default=0)
+    received_date = Column(Date, nullable=True)
+    status = Column(String(20), default="ACTIVE")  # ACTIVE, EXPIRED, RECALLED, QUARANTINE
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    product = relationship("Product", back_populates="lots")
+
+    def __repr__(self):
+        return f"<ProductLot(product_id={self.product_id}, lot={self.lot_number}, expiry={self.expiry_date})>"
+
+
+class Prescription(Base):
+    """Pharmacy: prescription records linked to sales"""
+    __tablename__ = "prescriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sale_id = Column(Integer, ForeignKey("sales.id", ondelete="SET NULL"), nullable=True, index=True)
+    patient_name = Column(String(200), nullable=False)
+    patient_cedula = Column(String(20), nullable=False, index=True)
+    doctor_name = Column(String(200), nullable=False)
+    doctor_mpps = Column(String(50), nullable=True)
+    prescription_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Prescription(patient={self.patient_name}, doctor={self.doctor_name})>"

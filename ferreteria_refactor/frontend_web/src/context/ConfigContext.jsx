@@ -26,7 +26,8 @@ export const ConfigProvider = ({ children }) => {
         laundry: parseBool(import.meta.env.VITE_MODULE_LAUNDRY_ENABLED),
         services: import.meta.env.VITE_MODULE_SERVICES_ENABLED === undefined
             ? true
-            : parseBool(import.meta.env.VITE_MODULE_SERVICES_ENABLED)
+            : parseBool(import.meta.env.VITE_MODULE_SERVICES_ENABLED),
+        pharmacy: parseBool(import.meta.env.VITE_MODULE_PHARMACY_ENABLED)
     });
 
     useEffect(() => {
@@ -108,7 +109,12 @@ export const ConfigProvider = ({ children }) => {
                 if (publicConfig.data) {
                     // Update Modules
                     if (publicConfig.data.modules) {
-                        setModules(prev => ({ ...prev, ...publicConfig.data.modules }));
+                        const backendModules = publicConfig.data.modules;
+                        // Map backend snake_case flags to frontend module keys
+                        if (backendModules.has_pharmacy_module !== undefined) {
+                            backendModules.pharmacy = parseBool(backendModules.has_pharmacy_module);
+                        }
+                        setModules(prev => ({ ...prev, ...backendModules }));
                     }
                     // Update Business Name (Priority set)
                     if (publicConfig.data.tenant_name) {

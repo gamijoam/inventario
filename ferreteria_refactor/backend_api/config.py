@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     MODULE_RESTAURANT_ENABLED: bool = False
     MODULE_SERVICES_ENABLED: bool = False
     MODULE_LAUNDRY_ENABLED: bool = False
+    MODULE_PHARMACY_ENABLED: bool = False
     
     # Timezone
     TIMEZONE: str = "America/Caracas"

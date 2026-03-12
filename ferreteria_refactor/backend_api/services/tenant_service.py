@@ -65,6 +65,7 @@ class TenantService:
             m_laundry = False
             m_services = False
             m_barbershop = False
+            m_pharmacy = False
 
             # Segmentación por Palabras Clave
             # Restaurante / Alimentos y Bebidas
@@ -100,7 +101,13 @@ class TenantService:
             ]):
                 m_barbershop = True
 
-            # Negocios de ferretería/retail puro (ABASTO, BODEGA, MINIMARKET, FARMACIA,
+            # Farmacia / Droguería / Botica
+            if any(k in rubro_seleccionado for k in [
+                "FARMACIA", "DROGUERIA", "DROGUERÍA", "BOTICA"
+            ]):
+                m_pharmacy = True
+
+            # Negocios de ferretería/retail puro (ABASTO, BODEGA, MINIMARKET,
             # TIENDA, FERRETERIA, etc.) solo tienen m_hardware=True (ya activo por defecto).
             
             # Configuration dictionary for JSON config
@@ -110,7 +117,8 @@ class TenantService:
                     "laundry": m_laundry,
                     "services": m_services,
                     "barbershop": m_barbershop,
-                    "ferreteria": m_hardware
+                    "ferreteria": m_hardware,
+                    "pharmacy": m_pharmacy
                 }
             }
             
@@ -125,7 +133,8 @@ class TenantService:
                 has_laundry_module=m_laundry,
                 has_services_module=m_services,
                 has_barbershop_module=m_barbershop,
-                has_hardware_module=m_hardware
+                has_hardware_module=m_hardware,
+                has_pharmacy_module=m_pharmacy
             )
 
             # Campos de licencia para nuevos tenants via registro público

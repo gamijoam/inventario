@@ -42,7 +42,8 @@ import {
     X,
     HelpCircle,
     LifeBuoy,
-    Scissors
+    Scissors,
+    Pill
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -88,7 +89,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     // para poder probarlos sin depender de los feature flags reales del backend.
     // En producción/QA la variable no existe y se usan los flags reales del tenant.
     const forceAll = import.meta.env.VITE_FORCE_ALL_MODULES === 'true';
-    const effectiveModules = forceAll ? { ...modules, services: true, barbershop: true, restaurant: true } : modules;
+    const effectiveModules = forceAll ? { ...modules, services: true, barbershop: true, restaurant: true, pharmacy: true } : modules;
 
     const menuStructure = [
         {
@@ -121,6 +122,17 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 ...(effectiveModules?.laundry ? [
                     { icon: Smartphone, label: 'Tablero Lavandería', path: '/laundry' },
                 ] : []),
+            ]
+        }] : []),
+        // PHARMACY MODULE
+        ...(effectiveModules?.pharmacy ? [{
+            type: 'group',
+            label: 'Farmacia',
+            icon: Pill,
+            items: [
+                { icon: LayoutDashboard, label: 'Dashboard Farmacia', path: '/pharmacy' },
+                { icon: Package, label: 'Gestión de Lotes', path: '/pharmacy/lots' },
+                { icon: BookOpen, label: 'Libro de Control', path: '/pharmacy/control-log' },
             ]
         }] : []),
         // BARBERSHOP MODULE

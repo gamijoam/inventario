@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown, Scissors } from 'lucide-react';
+import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown, Scissors, Snowflake, Shield } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import ProductPriceListManager from './ProductPriceListManager';
@@ -82,7 +82,12 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
         combo_items: [],
         warehouse_stocks: [],
         prices: {},
-        image_url: ''
+        image_url: '',
+        // Pharmacy fields
+        drug_classification: '',
+        active_ingredient: '',
+        storage_condition: '',
+        requires_prescription: false
     });
 
     const [isScanning, setIsScanning] = useState(false);
@@ -163,13 +168,19 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                     combo_items: initialData.combo_items || [],
                     warehouse_stocks: initialData.stocks || [],
                     prices: initialPrices,
-                    image_url: initialData.image_url || ''
+                    image_url: initialData.image_url || '',
+                    // Pharmacy fields
+                    drug_classification: initialData.drug_classification || '',
+                    active_ingredient: initialData.active_ingredient || '',
+                    storage_condition: initialData.storage_condition || '',
+                    requires_prescription: initialData.requires_prescription || false
                 });
             } else {
                 setFormData({
                     name: '', sku: '', category_id: null, cost: 0, price: 0, stock: 0, min_stock: 5, location: '',
                     margin: 0, unit_type: 'UNID', exchange_rate_id: null, is_combo: false, has_imei: false, is_service: false, is_barbershop_service: false, commission_amount: '', commission_percentage: '', is_commissionable: false, units: [],
-                    combo_items: [], tax_rate: 0, warehouse_stocks: [], prices: {}, image_url: ''
+                    combo_items: [], tax_rate: 0, warehouse_stocks: [], prices: {}, image_url: '',
+                    drug_classification: '', active_ingredient: '', storage_condition: '', requires_prescription: false
                 });
             }
             // Reset dropdown searches when opened
@@ -273,7 +284,12 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             })),
             combo_items: formData.is_combo ? formData.combo_items.map(ci => ({ child_product_id: ci.child_product_id, quantity: parseFloat(ci.quantity) })) : [],
             prices: pricesArray,
-            image_url: formData.image_url
+            image_url: formData.image_url,
+            // Pharmacy fields
+            drug_classification: formData.drug_classification || null,
+            active_ingredient: formData.active_ingredient || null,
+            storage_condition: formData.storage_condition || null,
+            requires_prescription: formData.requires_prescription || false
         };
         onSubmit(payload);
     };
@@ -845,6 +861,108 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     placeholder="Vitrina A, Caja 3..."
                                                     className="h-10"
                                                 />
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            {/* PHARMACY SECTION - Only when pharmacy module is active */}
+                            {modules?.pharmacy && (
+                                <Card className="border-indigo-200 shadow-sm bg-white overflow-hidden animate-in zoom-in-95 duration-200">
+                                    <div className="px-6 py-4 border-b border-indigo-100 flex items-center gap-2 bg-indigo-50/40">
+                                        <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
+                                            <Shield size={18} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-sm font-bold text-slate-800">Información Farmacéutica</h4>
+                                            <p className="text-[10px] text-slate-500">Datos regulatorios del medicamento o producto farmacéutico.</p>
+                                        </div>
+                                    </div>
+                                    <CardContent className="p-6 space-y-5">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                            {/* Drug Classification */}
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] uppercase tracking-wider text-indigo-600 font-bold">Clasificación</Label>
+                                                <Select
+                                                    value={formData.drug_classification || ''}
+                                                    onValueChange={(val) => setFormData(p => ({ ...p, drug_classification: val === 'none' ? '' : val }))}
+                                                >
+                                                    <SelectTrigger className="h-11 border-indigo-200 bg-indigo-50/20 focus:ring-indigo-500">
+                                                        <SelectValue placeholder="Seleccionar clasificación..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="none">-- Sin clasificación --</SelectItem>
+                                                        <SelectItem value="OTC">OTC — Venta Libre</SelectItem>
+                                                        <SelectItem value="PRESCRIPTION">PRESCRIPTION — Requiere Receta</SelectItem>
+                                                        <SelectItem value="CONTROLLED">CONTROLLED — Sustancia Controlada</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            {/* Storage Condition */}
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] uppercase tracking-wider text-indigo-600 font-bold flex items-center gap-1">
+                                                    <Snowflake size={10} /> Condición de Almacenamiento
+                                                </Label>
+                                                <Select
+                                                    value={formData.storage_condition || ''}
+                                                    onValueChange={(val) => setFormData(p => ({ ...p, storage_condition: val === 'none' ? '' : val }))}
+                                                >
+                                                    <SelectTrigger className="h-11 border-indigo-200 bg-indigo-50/20 focus:ring-indigo-500">
+                                                        <SelectValue placeholder="Seleccionar condición..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="none">-- Sin especificar --</SelectItem>
+                                                        <SelectItem value="AMBIENT">AMBIENT — Temperatura Ambiente</SelectItem>
+                                                        <SelectItem value="REFRIGERATED">REFRIGERATED — Refrigerado 2-8°C</SelectItem>
+                                                        <SelectItem value="FROZEN">FROZEN — Congelado</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+
+                                        {/* Active Ingredient */}
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] uppercase tracking-wider text-indigo-600 font-bold">Principio Activo</Label>
+                                            <Input
+                                                name="active_ingredient"
+                                                value={formData.active_ingredient || ''}
+                                                onChange={handleInputChange}
+                                                placeholder="Ej: Paracetamol, Ibuprofeno..."
+                                                className="h-11 border-indigo-200 bg-indigo-50/20 focus:border-indigo-500 focus:ring-indigo-500"
+                                            />
+                                        </div>
+
+                                        {/* Requires Prescription */}
+                                        <div className={cn(
+                                            "flex items-center gap-4 p-4 rounded-xl transition-all border",
+                                            formData.requires_prescription
+                                                ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-500/10"
+                                                : "bg-slate-50 border-slate-100 hover:border-indigo-100"
+                                        )}>
+                                            <div className={cn(
+                                                "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                                                formData.requires_prescription ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-400"
+                                            )}>
+                                                <Shield size={20} />
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <Label htmlFor="requires_prescription" className="text-sm font-bold text-slate-800 cursor-pointer">Requiere receta médica</Label>
+                                                    <input
+                                                        type="checkbox"
+                                                        id="requires_prescription"
+                                                        checked={formData.requires_prescription || false}
+                                                        onChange={(e) => setFormData(p => ({ ...p, requires_prescription: e.target.checked }))}
+                                                        className="sr-only peer"
+                                                    />
+                                                    <div
+                                                        onClick={() => setFormData(p => ({ ...p, requires_prescription: !p.requires_prescription }))}
+                                                        className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:translate-x-5"
+                                                    ></div>
+                                                </div>
+                                                <p className="text-[11px] text-slate-500 mt-0.5">El POS solicitará confirmación antes de agregar al carrito.</p>
                                             </div>
                                         </div>
                                     </CardContent>

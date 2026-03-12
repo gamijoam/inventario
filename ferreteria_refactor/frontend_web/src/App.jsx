@@ -73,6 +73,9 @@ const BarbershopDashboard = React.lazy(() => import('./pages/Barbershop/Barbersh
 const EmployeeManager = React.lazy(() => import('./pages/Barbershop/EmployeeManager'));
 const CommissionsReport = React.lazy(() => import('./pages/Barbershop/CommissionsReport'));
 
+// Pharmacy Module
+const PharmacyDashboard = React.lazy(() => import('./pages/Pharmacy/PharmacyDashboard'));
+
 // Laundry Module
 const LaundryDashboard = React.lazy(() => import('./pages/Laundry/LaundryDashboard'));
 const LaundryForm = React.lazy(() => import('./pages/Laundry/LaundryForm'));
@@ -447,6 +450,23 @@ function App() {
                               <Route path="/barbershop/commissions" element={
                                 <ProtectedRoute>
                                   <CommissionsReport />
+                                </ProtectedRoute>
+                              } />
+
+                              {/* Pharmacy Module Routes */}
+                              <Route path="/pharmacy" element={
+                                <ProtectedRoute>
+                                  <PharmacyDashboard />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/pharmacy/lots" element={
+                                <ProtectedRoute>
+                                  <PharmacyDashboard />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/pharmacy/control-log" element={
+                                <ProtectedRoute>
+                                  <PharmacyDashboard />
                                 </ProtectedRoute>
                               } />
                             </Route>

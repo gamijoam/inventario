@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, AlertTriangle, Layers, RotateCcw, User, MapPin } from 'lucide-react';
+import { Package, AlertTriangle, Layers, RotateCcw, User, MapPin, Snowflake, Shield } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 import ProductThumbnail from '../products/ProductThumbnail';
@@ -22,7 +22,8 @@ const ProductCard = ({
     currentStock = 0,
     currencySymbol = '$',
     convertProductPrice,
-    isSelected = false
+    isSelected = false,
+    nearExpiry = false
 }) => {
     const [isAnimating, setIsAnimating] = React.useState(false);
 
@@ -71,6 +72,27 @@ const ProductCard = ({
                     {product.is_combo && (
                         <Badge className="bg-purple-500/90 hover:bg-purple-500 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm">
                             COMBO
+                        </Badge>
+                    )}
+                    {/* Pharmacy badges */}
+                    {product.drug_classification === 'PRESCRIPTION' && (
+                        <Badge className="bg-blue-500/90 hover:bg-blue-500 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm flex items-center gap-0.5">
+                            <Shield size={8} />Rx
+                        </Badge>
+                    )}
+                    {product.drug_classification === 'CONTROLLED' && (
+                        <Badge className="bg-orange-600/90 hover:bg-orange-600 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm">
+                            C
+                        </Badge>
+                    )}
+                    {product.storage_condition === 'REFRIGERATED' && (
+                        <Badge className="bg-sky-400/90 hover:bg-sky-400 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm flex items-center gap-0.5">
+                            <Snowflake size={8} />2-8°C
+                        </Badge>
+                    )}
+                    {product.storage_condition === 'FROZEN' && (
+                        <Badge className="bg-blue-800/90 hover:bg-blue-800 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm flex items-center gap-0.5">
+                            <Snowflake size={8} />CONG.
                         </Badge>
                     )}
                 </div>
@@ -156,6 +178,14 @@ const ProductCard = ({
                     </div>
                 </div>
             </div>
+
+            {/* Near-expiry warning strip */}
+            {nearExpiry && (
+                <div className="px-3 py-1.5 bg-amber-50 border-t border-amber-200 flex items-center gap-1.5">
+                    <AlertTriangle size={10} className="text-amber-600 flex-shrink-0" />
+                    <span className="text-[9px] font-bold text-amber-700 uppercase tracking-wide">Vence pronto</span>
+                </div>
+            )}
         </div>
     );
 };

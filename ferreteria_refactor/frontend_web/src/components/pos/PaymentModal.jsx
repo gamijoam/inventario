@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag, Calendar } from 'lucide-react';
+import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag, Calendar, FileText } from 'lucide-react';
+import { createPrescription } from '../../services/pharmacyService';
 import { useConfig } from '../../context/ConfigContext';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { useCash } from '../../context/CashContext';
@@ -48,6 +49,17 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     // Quick Customer Modal
     const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
+
+    // Prescription Modal state
+    const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
+    const [prescriptionForm, setPrescriptionForm] = useState({
+        patient_name: '',
+        patient_cedula: '',
+        doctor_name: '',
+        doctor_mpps: '',
+        prescription_date: new Date().toISOString().split('T')[0],
+    });
+    const [savingPrescription, setSavingPrescription] = useState(false);
 
     // Credit availability state
     const [creditInfo, setCreditInfo] = useState(null);
@@ -175,37 +187,18 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         setPayments(newPayments);
     };
 
-    const handleConfirm = async () => {
-        if (isCreditSale && !selectedCustomer) {
-            toast.error('Debe seleccionar un cliente para venta a crédito');
-            return;
-        }
+    // Check if cart has any item requiring a prescription
+    const cartRequiresPrescription = () => {
+        if (!cart || cart.length === 0) return false;
+        return cart.some(item =>
+            item.requires_prescription === true ||
+            item.drug_classification === 'CONTROLLED'
+        );
+    };
 
-        // Use the strict checking here too
-        if (!isCreditSale && !isComplete) {
-            toast.error('El pago no está completo');
-            return;
-        }
-
-        // Validate Amounts & References
-        if (!isCreditSale) {
-            for (let i = 0; i < payments.length; i++) {
-                const p = payments[i];
-                const amount = parseFloat(p.amount);
-
-                if (isNaN(amount) || amount <= 0) {
-                    toast.error(`El monto para el método #${i + 1} (${p.method}) no es válido.`);
-                    return;
-                }
-
-                const method = paymentMethods.find(m => m.name === p.method);
-                if (method?.requires_reference && !p.reference?.trim()) {
-                    toast.error(`Debe ingresar la referencia para el método: ${p.method}`);
-                    return;
-                }
-            }
-        }
-
+    // Execute the actual sale after prescription check
+    // onSaleComplete is an optional async callback (saleId) => void to run BEFORE onConfirm/onClose
+    const executeSale = async (onSaleComplete) => {
         setProcessing(true);
 
         try {
@@ -289,6 +282,11 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
             const saleId = response.data?.sale_id || response.sale_id;
 
+            // Optional post-sale callback (e.g. save prescription with sale_id)
+            if (onSaleComplete) {
+                try { await onSaleComplete(saleId); } catch { /* ignore secondary errors */ }
+            }
+
             onConfirm({
                 payments: isCreditSale ? [] : payments,
                 totalPaidUSD: isCreditSale ? 0 : totalPaidUSD,
@@ -334,6 +332,93 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             toast.error(errorMessage);
             setProcessing(false);
         }
+    };
+
+    const handleConfirm = async () => {
+        if (isCreditSale && !selectedCustomer) {
+            toast.error('Debe seleccionar un cliente para venta a crédito');
+            return;
+        }
+
+        // Use the strict checking here too
+        if (!isCreditSale && !isComplete) {
+            toast.error('El pago no está completo');
+            return;
+        }
+
+        // Validate Amounts & References
+        if (!isCreditSale) {
+            for (let i = 0; i < payments.length; i++) {
+                const p = payments[i];
+                const amount = parseFloat(p.amount);
+
+                if (isNaN(amount) || amount <= 0) {
+                    toast.error(`El monto para el método #${i + 1} (${p.method}) no es válido.`);
+                    return;
+                }
+
+                const method = paymentMethods.find(m => m.name === p.method);
+                if (method?.requires_reference && !p.reference?.trim()) {
+                    toast.error(`Debe ingresar la referencia para el método: ${p.method}`);
+                    return;
+                }
+            }
+        }
+
+        // If cart has controlled/prescription items, intercept and show prescription modal
+        if (cartRequiresPrescription()) {
+            setPrescriptionForm({
+                patient_name: '',
+                patient_cedula: '',
+                doctor_name: '',
+                doctor_mpps: '',
+                prescription_date: new Date().toISOString().split('T')[0],
+            });
+            setIsPrescriptionModalOpen(true);
+            return;
+        }
+
+        await executeSale();
+    };
+
+    const handlePrescriptionSave = async () => {
+        if (!prescriptionForm.patient_name.trim()) {
+            toast.error('Ingresa el nombre del paciente');
+            return;
+        }
+        if (!prescriptionForm.doctor_name.trim()) {
+            toast.error('Ingresa el nombre del médico');
+            return;
+        }
+
+        setSavingPrescription(true);
+        setIsPrescriptionModalOpen(false);
+        try {
+            await executeSale(async (saleId) => {
+                if (saleId) {
+                    await createPrescription({
+                        sale_id: saleId,
+                        patient_name: prescriptionForm.patient_name.trim(),
+                        patient_cedula: prescriptionForm.patient_cedula.trim() || null,
+                        doctor_name: prescriptionForm.doctor_name.trim(),
+                        doctor_mpps: prescriptionForm.doctor_mpps.trim() || null,
+                        prescription_date: prescriptionForm.prescription_date || null,
+                    }).catch(() => {
+                        // Non-blocking: sale already completed, just warn
+                        toast.error('Venta registrada, pero no se pudo guardar la receta');
+                    });
+                }
+            });
+        } catch {
+            // executeSale already shows toast
+        } finally {
+            setSavingPrescription(false);
+        }
+    };
+
+    const handlePrescriptionSkip = async () => {
+        setIsPrescriptionModalOpen(false);
+        await executeSale();
     };
 
     return (
@@ -750,6 +835,107 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 onClose={() => setIsQuickCustomerOpen(false)}
                 onSuccess={handleQuickCustomerSuccess}
             />
+
+            {/* Prescription Modal */}
+            {isPrescriptionModalOpen && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 bg-teal-100 rounded-xl flex items-center justify-center">
+                                    <FileText size={18} className="text-teal-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-800 text-base">Datos de Receta Médica</h3>
+                                    <p className="text-xs text-slate-500 font-medium">Este producto requiere receta médica</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsPrescriptionModalOpen(false)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {/* Form */}
+                        <div className="px-6 py-5 space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Nombre del Paciente *</label>
+                                    <input
+                                        type="text"
+                                        value={prescriptionForm.patient_name}
+                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, patient_name: e.target.value }))}
+                                        placeholder="Nombre completo"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Cédula del Paciente</label>
+                                    <input
+                                        type="text"
+                                        value={prescriptionForm.patient_cedula}
+                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, patient_cedula: e.target.value }))}
+                                        placeholder="V-12345678"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Fecha de Receta *</label>
+                                    <input
+                                        type="date"
+                                        value={prescriptionForm.prescription_date}
+                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, prescription_date: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Nombre del Médico *</label>
+                                    <input
+                                        type="text"
+                                        value={prescriptionForm.doctor_name}
+                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, doctor_name: e.target.value }))}
+                                        placeholder="Dr. Nombre Apellido"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
+                                    />
+                                </div>
+                                <div className="col-span-2">
+                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">MPPS / Nro. Registro Médico</label>
+                                    <input
+                                        type="text"
+                                        value={prescriptionForm.doctor_mpps}
+                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, doctor_mpps: e.target.value }))}
+                                        placeholder="MPPS-12345"
+                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="px-6 pb-5 flex gap-3">
+                            <button
+                                onClick={handlePrescriptionSkip}
+                                disabled={savingPrescription}
+                                className="flex-shrink-0 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors disabled:opacity-60"
+                            >
+                                Omitir
+                            </button>
+                            <button
+                                onClick={handlePrescriptionSave}
+                                disabled={savingPrescription}
+                                className="flex-1 px-5 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                            >
+                                {savingPrescription && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                Guardar Receta y Confirmar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

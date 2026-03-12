@@ -1,10 +1,10 @@
 import random
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from faker import Faker
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from ..models.models import Category, Product, Customer, Sale, SaleDetail, Warehouse
+from ..models.models import Category, Product, Customer, Sale, SaleDetail, Warehouse, ProductLot
 from ..models.tenant import Tenant
 from ..tenant_context import set_tenant_schema, reset_tenant_schema
 from ..database.db import _validate_schema_name
@@ -29,6 +29,19 @@ RETAIL_ITEMS = [
     {"name": "Arroz Primor Clasico 1kg", "price": 1.50, "category": "Alimentos"},
     {"name": "Jabón en Polvo Las Llaves 400g", "price": 1.80, "category": "Limpieza"},
     {"name": "Aceite Vegetal 1L", "price": 3.20, "category": "Alimentos"},
+]
+
+PHARMACY_ITEMS = [
+    {"name": "Paracetamol 500mg", "price": 1.50, "category": "Medicamentos", "drug_classification": "OTC", "active_ingredient": "Paracetamol"},
+    {"name": "Ibuprofeno 400mg", "price": 1.80, "category": "Medicamentos", "drug_classification": "OTC", "active_ingredient": "Ibuprofeno"},
+    {"name": "Amoxicilina 500mg", "price": 3.20, "category": "Antibióticos", "drug_classification": "PRESCRIPTION", "active_ingredient": "Amoxicilina", "requires_prescription": True},
+    {"name": "Losartan 50mg", "price": 4.50, "category": "Medicamentos", "drug_classification": "PRESCRIPTION", "active_ingredient": "Losartan", "requires_prescription": True},
+    {"name": "Metformina 850mg", "price": 3.80, "category": "Medicamentos", "drug_classification": "PRESCRIPTION", "active_ingredient": "Metformina", "requires_prescription": True},
+    {"name": "Vitamina C 1g", "price": 2.00, "category": "Vitaminas", "drug_classification": "OTC", "active_ingredient": "Ácido Ascórbico"},
+    {"name": "Omeprazol 20mg", "price": 2.50, "category": "Medicamentos", "drug_classification": "OTC", "active_ingredient": "Omeprazol"},
+    {"name": "Alcohol 96° 250ml", "price": 1.20, "category": "Insumos", "drug_classification": "OTC", "storage_condition": "AMBIENT"},
+    {"name": "Insulina NPH", "price": 12.00, "category": "Medicamentos", "drug_classification": "PRESCRIPTION", "storage_condition": "REFRIGERATED", "requires_prescription": True},
+    {"name": "Alprazolam 0.5mg", "price": 5.00, "category": "Medicamentos", "drug_classification": "CONTROLLED", "active_ingredient": "Alprazolam", "requires_prescription": True},
 ]
 
 LAUNDRY_SERVICES = [
@@ -67,6 +80,9 @@ def seed_tenant_data(db: Session, tenant_id: int):
         
         if tenant.has_laundry_module:
             item_list.extend(LAUNDRY_SERVICES)
+
+        if tenant.has_pharmacy_module:
+            item_list.extend(PHARMACY_ITEMS)
             
         # Deduplicate categories
         cat_names = list(set([item["category"] for item in item_list]))
@@ -94,13 +110,36 @@ def seed_tenant_data(db: Session, tenant_id: int):
                     stock=Decimal("100.000") if not is_service else Decimal("0.000"),
                     is_service=is_service,
                     category_id=categories[item["category"]].id,
-                    is_active=True
+                    is_active=True,
+                    drug_classification=item.get("drug_classification"),
+                    active_ingredient=item.get("active_ingredient"),
+                    storage_condition=item.get("storage_condition", "AMBIENT") if item.get("drug_classification") else None,
+                    requires_prescription=item.get("requires_prescription", False),
                 )
                 db.add(prod)
                 products.append(prod)
             else:
                 products.append(existing_prod)
         db.flush()
+
+        # 4b. If pharmacy module, seed a sample lot for each pharmacy product
+        if tenant.has_pharmacy_module:
+            today = date.today()
+            for prod in products:
+                # Only seed lots for products with drug_classification
+                if prod.drug_classification:
+                    existing_lot = db.query(ProductLot).filter(ProductLot.product_id == prod.id).first()
+                    if not existing_lot:
+                        lot = ProductLot(
+                            product_id=prod.id,
+                            lot_number=f"LOT-{prod.id:04d}-A",
+                            expiry_date=today.replace(year=today.year + 1),
+                            quantity=Decimal("100.00"),
+                            received_date=today,
+                            status="ACTIVE",
+                        )
+                        db.add(lot)
+            db.flush()
 
         # 5. Create 10 Fictitious Customers
         customers = []
