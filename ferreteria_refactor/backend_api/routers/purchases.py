@@ -267,10 +267,15 @@ def void_purchase_order(
     if not purchase:
         raise HTTPException(status_code=404, detail="Factura de compra no encontrada")
 
-    if purchase.paid_amount > 0:
+    # Block only if there are explicit manual payment records registered after creation
+    # Cash purchases (PAID at creation with no payment records) are allowed to be voided
+    payment_count = db.query(models.PurchasePayment).filter(
+        models.PurchasePayment.purchase_id == purchase_id
+    ).count()
+    if payment_count > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"No se puede anular una factura con pagos registrados (Bs {purchase.paid_amount}). Contacte soporte."
+            detail=f"No se puede anular: tiene {payment_count} pago(s) registrado(s). Revierta los pagos primero."
         )
 
     reversed_items = []

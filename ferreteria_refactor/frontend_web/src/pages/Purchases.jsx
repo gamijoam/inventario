@@ -185,15 +185,13 @@ const Purchases = () => {
                                             >
                                                 {purchase.payment_status === 'PAID' ? 'Ver Detalles' : 'Ver / Pagar'}
                                             </button>
-                                            {purchase.payment_status !== 'PAID' && (
-                                                <button
-                                                    onClick={() => handleVoid(purchase)}
-                                                    title="Anular factura"
-                                                    className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
-                                                >
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            )}
+                                            <button
+                                                onClick={() => handleVoid(purchase)}
+                                                title="Anular factura"
+                                                className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
