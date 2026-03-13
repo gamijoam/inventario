@@ -68,6 +68,7 @@ const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager'
 const ServiceList = React.lazy(() => import('./pages/Services/ServiceList')); // NEW: Service List
 const ReportsCenter = React.lazy(() => import('./pages/Reports/ReportsCenter')); // NEW: Unified Reports Center
 const InventoryCenter = React.lazy(() => import('./pages/Inventory/InventoryCenter')); // NEW: Unified Inventory Center
+const SalesCenter = React.lazy(() => import('./pages/Sales/SalesCenter')); // NEW: Unified Sales Center
 
 // Barbershop Module
 const BarbershopDashboard = React.lazy(() => import('./pages/Barbershop/BarbershopDashboard'));
@@ -297,6 +298,18 @@ function App() {
                                 </ProtectedRoute>
                               } />
 
+                              {/* Unified Sales Center */}
+                              <Route path="/sales-center" element={
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER', 'WAREHOUSE']}>
+                                  <SalesCenter />
+                                </ProtectedRoute>
+                              } />
+
+                              {/* Backward-compatible redirects to Sales Center */}
+                              <Route path="/quotes" element={<Navigate to="/sales-center?tab=cotizaciones" replace />} />
+                              <Route path="/customers" element={<Navigate to="/sales-center?tab=clientes" replace />} />
+                              <Route path="/accounts-receivable" element={<Navigate to="/sales-center?tab=creditos" replace />} />
+
                               {/* Sales - ADMIN or CASHIER */}
                               <Route path="/sales-history" element={<Navigate to="/reports" replace />} />
                               <Route path="/cash-history" element={<Navigate to="/reports" replace />} />
@@ -305,6 +318,10 @@ function App() {
                                   <CashRegistersPage />
                                 </ProtectedRoute>
                               } />
+                              <Route path="/credit/aging" element={<Navigate to="/reports" replace />} />
+                              <Route path="/credit/ledger/:clientId" element={<Navigate to="/reports" replace />} />
+
+                              {/* Old Sales Routes (kept for reference)
                               <Route path="/customers" element={
                                 <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <CustomerManager />
@@ -315,9 +332,7 @@ function App() {
                                   <QuotesManager />
                                 </ProtectedRoute>
                               } />
-                              <Route path="/accounts-receivable" element={<Navigate to="/reports" replace />} />
-                              <Route path="/credit/aging" element={<Navigate to="/reports" replace />} />
-                              <Route path="/credit/ledger/:clientId" element={<Navigate to="/reports" replace />} />
+                              */}
 
                               {/* Purchases - ADMIN or WAREHOUSE */}
                               <Route path="/purchases" element={
@@ -346,6 +361,11 @@ function App() {
                                   <SupplierLedger />
                                 </ProtectedRoute>
                               } />
+                              {/* Backward-compatible redirects to Sales Center (returns/warranty) */}
+                              <Route path="/returns" element={<Navigate to="/sales-center?tab=devoluciones" replace />} />
+                              <Route path="/rma/warranty" element={<Navigate to="/sales-center?tab=garantias" replace />} />
+
+                              {/* Old Returns/Warranty Routes (kept for reference)
                               <Route path="/returns" element={
                                 <ProtectedRoute roles={['ADMIN']}>
                                   <ReturnsManager />
@@ -356,6 +376,7 @@ function App() {
                                   <WarrantyManager />
                                 </ProtectedRoute>
                               } />
+                              */}
 
                               {/* Admin Only */}
                               <Route path="/settings" element={

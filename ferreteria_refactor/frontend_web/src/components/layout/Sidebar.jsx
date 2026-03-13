@@ -146,18 +146,8 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             }
         }] : []),
         {
-            type: 'group',
-            label: 'Ventas',
-            icon: ShoppingCart,
-            items: [
-                { icon: ShoppingCart, label: 'Nueva Venta', path: '/pos' },
-                { icon: FileInput, label: 'Cotizaciones', path: '/quotes' },
-                { icon: CornerDownLeft, label: 'Devoluciones', path: '/returns' },
-                ...(user?.role === 'ADMIN' ? [
-                    { icon: ShieldCheck, label: 'Garantías', path: '/rma/warranty' }
-                ] : []),
-                { icon: Users, label: 'Clientes', path: '/customers' },
-            ]
+            type: 'single',
+            item: { icon: ShoppingCart, label: 'Centro de Ventas', path: '/sales-center' }
         },
         {
             type: 'single',

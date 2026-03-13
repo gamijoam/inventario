@@ -1,34 +1,31 @@
-import React, { useState, useMemo, lazy, Suspense } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-    Package, Tags, Archive, ArrowRightLeft, Warehouse, Barcode, Info
+    FileText, Users, CornerDownLeft, ShieldCheck, CreditCard, Info
 } from 'lucide-react';
 
-const ProductsTab = lazy(() => import('./tabs/ProductsTab'));
-const CategoriesTab = lazy(() => import('./tabs/CategoriesTab'));
-const KardexTab = lazy(() => import('./tabs/KardexTab'));
-const TransfersTab = lazy(() => import('./tabs/TransfersTab'));
-const WarehousesTab = lazy(() => import('./tabs/WarehousesTab'));
-const SerialsTab = lazy(() => import('./tabs/SerialsTab'));
+const CotizacionesTab = React.lazy(() => import('./tabs/CotizacionesTab'));
+const ClientesTab = React.lazy(() => import('./tabs/ClientesTab'));
+const DevolucionesTab = React.lazy(() => import('./tabs/DevolucionesTab'));
+const GarantiasTab = React.lazy(() => import('./tabs/GarantiasTab'));
+const CreditosTab = React.lazy(() => import('./tabs/CreditosTab'));
 
 // --- Tab descriptions ---
 const TAB_DESCRIPTIONS = {
-    productos: { desc: 'Gestiona tu catálogo completo: agrega, edita, busca y controla el stock de cada producto.', tip: 'Tip: usa el botón "Importar Excel" para cargar productos en masa.' },
-    categorias: { desc: 'Organiza tus productos en categorías y subcategorías para facilitar la búsqueda en el POS.', tip: 'Las categorías se muestran como filtros en el punto de venta.' },
-    kardex: { desc: 'Historial completo de movimientos de inventario: entradas, salidas y ajustes manuales.', tip: 'Filtra por fecha o tipo para auditar cambios específicos.' },
-    traslados: { desc: 'Mueve mercancía entre tus almacenes internos o transfiere inventario entre sucursales.', tip: 'Usa "Exportar" para generar un archivo de traslado que la otra sucursal importa.' },
-    almacenes: { desc: 'Administra tus ubicaciones de almacenamiento y consulta el stock disponible en cada una.', tip: 'Puedes asignar un almacén por defecto en la configuración.' },
-    seriales: { desc: 'Recibe y registra productos con número de serie o IMEI para trazabilidad individual.', tip: 'Ideal para celulares, laptops y equipos electrónicos.' },
+    cotizaciones: { desc: 'Crea y gestiona cotizaciones para tus clientes. Conviértelas en ventas con un solo clic.', tip: 'Las cotizaciones tienen fecha de vencimiento configurable.' },
+    clientes: { desc: 'Administra tu cartera de clientes: historial de compras, límite de crédito y datos de contacto.', tip: 'Puedes marcar clientes como inactivos sin perder su historial.' },
+    devoluciones: { desc: 'Procesa devoluciones de ventas buscando por número de factura. El stock se reintegra automáticamente.', tip: 'Solo se pueden devolver ventas en estado COMPLETADO.' },
+    garantias: { desc: 'Gestiona las reclamaciones de garantía de tus clientes y consulta el historial por producto.', tip: 'Las garantías se vinculan a la política configurada al momento de la venta.' },
+    creditos: { desc: 'Controla las cuentas por cobrar: facturas a crédito, abonos pendientes y antigüedad de cartera.', tip: 'Usa el reporte de antigüedad para priorizar cobros urgentes.' },
 };
 
 // --- Tab definitions ---
 const TABS = [
-    { id: 'productos', label: 'Productos', icon: Package },
-    { id: 'categorias', label: 'Categorías', icon: Tags },
-    { id: 'kardex', label: 'Kardex', icon: Archive },
-    { id: 'traslados', label: 'Traslados', icon: ArrowRightLeft },
-    { id: 'almacenes', label: 'Almacenes', icon: Warehouse },
-    { id: 'seriales', label: 'Seriales', icon: Barcode },
+    { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText },
+    { id: 'clientes', label: 'Clientes', icon: Users },
+    { id: 'devoluciones', label: 'Devoluciones', icon: CornerDownLeft },
+    { id: 'garantias', label: 'Garantías', icon: ShieldCheck },
+    { id: 'creditos', label: 'Créditos (CxC)', icon: CreditCard },
 ];
 
 // --- Loading spinner for Suspense ---
@@ -53,9 +50,9 @@ const TabPlaceholder = ({ label, icon: Icon }) => (
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
-const InventoryCenter = () => {
+const SalesCenter = () => {
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'productos';
+    const activeTab = searchParams.get('tab') || 'cotizaciones';
 
     const setActiveTab = (tabId) => {
         setSearchParams({ tab: tabId });
@@ -66,45 +63,39 @@ const InventoryCenter = () => {
     // ============================================================
     const renderTabContent = () => {
         switch (activeTab) {
-            case 'productos':
+            case 'cotizaciones':
                 return (
                     <Suspense fallback={<TabSpinner />}>
-                        <ProductsTab />
+                        <CotizacionesTab />
                     </Suspense>
                 );
-            case 'categorias':
+            case 'clientes':
                 return (
                     <Suspense fallback={<TabSpinner />}>
-                        <CategoriesTab />
+                        <ClientesTab />
                     </Suspense>
                 );
-            case 'kardex':
+            case 'devoluciones':
                 return (
                     <Suspense fallback={<TabSpinner />}>
-                        <KardexTab />
+                        <DevolucionesTab />
                     </Suspense>
                 );
-            case 'traslados':
+            case 'garantias':
                 return (
                     <Suspense fallback={<TabSpinner />}>
-                        <TransfersTab />
+                        <GarantiasTab />
                     </Suspense>
                 );
-            case 'almacenes':
+            case 'creditos':
                 return (
                     <Suspense fallback={<TabSpinner />}>
-                        <WarehousesTab />
-                    </Suspense>
-                );
-            case 'seriales':
-                return (
-                    <Suspense fallback={<TabSpinner />}>
-                        <SerialsTab />
+                        <CreditosTab />
                     </Suspense>
                 );
             default: {
                 const tab = TABS.find(t => t.id === activeTab);
-                return <TabPlaceholder label={tab?.label || activeTab} icon={tab?.icon || Package} />;
+                return <TabPlaceholder label={tab?.label || activeTab} icon={tab?.icon || FileText} />;
             }
         }
     };
@@ -120,8 +111,8 @@ const InventoryCenter = () => {
                     {/* Title row */}
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 py-4">
                         <div>
-                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Centro de Inventario</h1>
-                            <p className="text-slate-500 text-sm font-medium">Gestión completa de tu inventario</p>
+                            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Centro de Ventas</h1>
+                            <p className="text-slate-500 text-sm font-medium">Gestión completa de clientes, cotizaciones y postventa</p>
                         </div>
                     </div>
 
@@ -168,4 +159,4 @@ const InventoryCenter = () => {
     );
 };
 
-export default InventoryCenter;
+export default SalesCenter;
