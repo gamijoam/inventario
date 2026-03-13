@@ -32,11 +32,14 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         if not warehouse:
              raise HTTPException(status_code=404, detail="Warehouse not found")
         
-        # Calculate due date
+        # Calculate dates — prefer frontend-provided values, fall back to server defaults
         from datetime import datetime, timedelta
-        purchase_date = datetime.now()
-        due_date = purchase_date + timedelta(days=supplier.payment_terms or 30)
-        
+        purchase_date = order_data.purchase_date if order_data.purchase_date else datetime.now()
+        if order_data.due_date:
+            due_date = order_data.due_date
+        else:
+            due_date = purchase_date + timedelta(days=supplier.payment_terms or 30)
+
         # Create purchase order
         purchase = models.PurchaseOrder(
             supplier_id=order_data.supplier_id,
@@ -168,10 +171,14 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
             purchase.paid_amount = order_data.total_amount
             purchase.payment_status = models.PaymentStatus.PAID
         
+        # Flush all pending items/stock/kardex writes so the re-query below sees them
+        db.flush()
+
         # 🔒 SECURITY: Eager Load relations BEFORE commit (v44)
         captured_id = purchase.id
         purchase = db.query(models.PurchaseOrder).options(
             joinedload(models.PurchaseOrder.supplier),
+            joinedload(models.PurchaseOrder.warehouse),
             joinedload(models.PurchaseOrder.items).joinedload(models.PurchaseItem.product)
         ).filter(models.PurchaseOrder.id == captured_id).first()
         
@@ -195,6 +202,7 @@ def get_all_purchase_orders(status: Optional[str] = None, db: Session = Depends(
     """Get all purchase orders, optionally filtered by status"""
     query = db.query(models.PurchaseOrder).options(
         joinedload(models.PurchaseOrder.supplier),
+        joinedload(models.PurchaseOrder.warehouse),
         joinedload(models.PurchaseOrder.items).joinedload(models.PurchaseItem.product) # Load items and their products
     )
     
@@ -213,6 +221,7 @@ def get_pending_purchases(db: Session = Depends(get_db)):
     """Get all pending and partially paid purchases"""
     purchases = db.query(models.PurchaseOrder).options(
         joinedload(models.PurchaseOrder.supplier),
+        joinedload(models.PurchaseOrder.warehouse),
         joinedload(models.PurchaseOrder.items).joinedload(models.PurchaseItem.product)
     ).filter(
         models.PurchaseOrder.payment_status.in_([models.PaymentStatus.PENDING, models.PaymentStatus.PARTIAL])
@@ -225,6 +234,7 @@ def get_purchase_order(order_id: int, db: Session = Depends(get_db)):
     """Get purchase order by ID"""
     order = db.query(models.PurchaseOrder).options(
         joinedload(models.PurchaseOrder.supplier),
+        joinedload(models.PurchaseOrder.warehouse),
         joinedload(models.PurchaseOrder.items).joinedload(models.PurchaseItem.product)
     ).filter(models.PurchaseOrder.id == order_id).first()
     

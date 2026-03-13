@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from ..database.db import get_db
 from ..models import models
@@ -162,10 +162,14 @@ def get_supplier_purchases(
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
     
-    query = db.query(models.PurchaseOrder).filter(
+    query = db.query(models.PurchaseOrder).options(
+        joinedload(models.PurchaseOrder.supplier),
+        joinedload(models.PurchaseOrder.warehouse),
+        joinedload(models.PurchaseOrder.items).joinedload(models.PurchaseItem.product)
+    ).filter(
         models.PurchaseOrder.supplier_id == supplier_id
     )
-    
+
     if status:
         # Handle multiple statuses separated by comma
         if ',' in status:
@@ -173,7 +177,7 @@ def get_supplier_purchases(
             query = query.filter(models.PurchaseOrder.payment_status.in_(statuses))
         else:
             query = query.filter(models.PurchaseOrder.payment_status == status)
-    
+
     return query.order_by(models.PurchaseOrder.purchase_date.desc()).all()
 
 @router.get("/{supplier_id}/ledger")
@@ -188,7 +192,9 @@ def get_supplier_ledger(supplier_id: int, db: Session = Depends(get_db)):
         
     # 2. Get Purchases (Credits for Supplier / Debits for Us)
     # Careful with terms: "Credit" usually means we owe them.
-    purchases = db.query(models.PurchaseOrder).filter(
+    purchases = db.query(models.PurchaseOrder).options(
+        joinedload(models.PurchaseOrder.payments)
+    ).filter(
         models.PurchaseOrder.supplier_id == supplier_id,
         # Only unpaid? No, History should be EVERYTHING.
         # models.PurchaseOrder.payment_status.in_([models.PaymentStatus.PENDING, models.PaymentStatus.PARTIAL])
