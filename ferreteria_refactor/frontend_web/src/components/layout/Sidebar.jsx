@@ -153,10 +153,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             type: 'single',
             item: { icon: Package, label: 'Centro de Inventario', path: '/inventory-center' }
         },
-        ...(user?.role === 'ADMIN' ? [{
-            type: 'single',
-            item: { icon: ShieldCheck, label: 'Políticas de G.', path: '/warranty-policies' }
-        }] : []),
         {
             type: 'group',
             label: 'Finanzas',
@@ -168,21 +164,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: LayoutGrid, label: 'Gestión de Cajas', path: '/cash-registers' },
             ]
         },
-        {
-            type: 'group',
-            label: 'Configuración',
-            icon: Settings,
-            items: [
-                { icon: Building2, label: 'General', path: '/settings?tab=business' },
-                { icon: Users, label: 'Usuarios', path: '/users' },
-                { icon: DollarSign, label: 'Monedas', path: '/settings?tab=currencies' },
-                { icon: Percent, label: 'Impuestos', path: '/settings?tab=taxes' },
-                { icon: Printer, label: 'Impresoras', path: '/settings?tab=tickets' },
-                { icon: CreditCard, label: 'Métodos de Pago', path: '/settings?tab=payments' },
-                { icon: ClipboardList, label: 'Auditoría', path: '/audit-logs' },
-                { icon: Monitor, label: 'Estación POS', path: '/settings?tab=pos' },
-            ]
-        }
+        ...(user?.role === 'ADMIN' ? [{
+            type: 'single',
+            item: { icon: Settings, label: 'Configuración', path: '/config-center' }
+        }] : [])
     ];
 
     const [expandedGroup, setExpandedGroup] = useState(null);

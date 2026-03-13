@@ -69,6 +69,7 @@ const ServiceList = React.lazy(() => import('./pages/Services/ServiceList')); //
 const ReportsCenter = React.lazy(() => import('./pages/Reports/ReportsCenter')); // NEW: Unified Reports Center
 const InventoryCenter = React.lazy(() => import('./pages/Inventory/InventoryCenter')); // NEW: Unified Inventory Center
 const SalesCenter = React.lazy(() => import('./pages/Sales/SalesCenter')); // NEW: Unified Sales Center
+const ConfigCenter = React.lazy(() => import('./pages/Config/ConfigCenter'));
 
 // Barbershop Module
 const BarbershopDashboard = React.lazy(() => import('./pages/Barbershop/BarbershopDashboard'));
@@ -291,13 +292,6 @@ function App() {
                               } />
                               */}
 
-                              {/* Warranty Policies — stays separate from Inventory Center */}
-                              <Route path="/warranty-policies" element={
-                                <ProtectedRoute roles={['ADMIN']}>
-                                  <WarrantyPolicies />
-                                </ProtectedRoute>
-                              } />
-
                               {/* Unified Sales Center */}
                               <Route path="/sales-center" element={
                                 <ProtectedRoute roles={['ADMIN', 'CASHIER', 'WAREHOUSE']}>
@@ -379,21 +373,17 @@ function App() {
                               */}
 
                               {/* Admin Only */}
-                              <Route path="/settings" element={
+                              <Route path="/config-center" element={
                                 <ProtectedRoute roles={['ADMIN']}>
-                                  <Settings />
+                                  <ConfigCenter />
                                 </ProtectedRoute>
                               } />
-                              <Route path="/users" element={
-                                <ProtectedRoute roles={['ADMIN']}>
-                                  <UsersManager />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/audit-logs" element={
-                                <ProtectedRoute roles={['ADMIN']}>
-                                  <AuditLogs />
-                                </ProtectedRoute>
-                              } />
+
+                              {/* Redirects for old settings routes */}
+                              <Route path="/settings" element={<Navigate to="/config-center" replace />} />
+                              <Route path="/users" element={<Navigate to="/config-center?tab=usuarios" replace />} />
+                              <Route path="/audit-logs" element={<Navigate to="/config-center?tab=auditoria" replace />} />
+                              <Route path="/warranty-policies" element={<Navigate to="/config-center?tab=garantias" replace />} />
                               <Route path="/hr/commissions" element={<Navigate to="/reports" replace />} />
 
                               {/* Unified Reports Center */}

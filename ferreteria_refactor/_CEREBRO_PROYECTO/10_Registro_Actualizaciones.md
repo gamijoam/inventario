@@ -4,6 +4,34 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-13] — Centros Unificados: Ventas + Configuración + Garantías en Servicio Técnico
+
+### Centro de Ventas (`/sales-center` → SalesCenter.jsx)
+Consolida 5 páginas en un dashboard con 5 tabs: Cotizaciones, Clientes, Devoluciones, Garantías, Créditos CxC.
+Sidebar: grupo "Ventas" reemplazado por un solo item. Rutas viejas redirigen a `/sales-center?tab=XXX`.
+
+### Centro de Configuración (`/config-center` → ConfigCenter.jsx, solo ADMIN)
+Consolida 8 páginas/secciones de Settings en 9 tabs: General, Usuarios, Monedas, Impuestos, Métodos de Pago, Impresoras, **Políticas de Garantía**, Auditoría, Estación POS.
+Sidebar: grupo "Configuración" (8 items) reemplazado por un solo item. Rutas viejas redirigen.
+
+### Tab Descriptions Banner
+Todos los centros (Inventario, Ventas, Configuración) muestran un banner informativo bajo los tabs con descripción + tip contextual.
+
+### Garantía en Órdenes de Servicio (Reception.jsx + ServiceManager.jsx)
+- `Reception.jsx`: selector de política de garantía con pre-selección del default
+- `ServiceManager.jsx`: badge 🛡 con nombre y duración de la garantía asignada
+- Backend ya tenía FK — solo faltaba exponer el selector en el frontend
+
+### Sidebar final
+```
+🛒 Centro de Ventas → /sales-center
+📦 Centro de Inventario → /inventory-center
+💼 Finanzas: Compras, Proveedores, Centro de Reportes, Gestión de Cajas
+⚙️  Configuración (ADMIN) → /config-center
+```
+
+---
+
 ## [2026-03-13] — Centro de Inventario Unificado + Módulo Farmacia + Traslados Inter-Sucursales
 
 ### Centro de Inventario (`/inventory-center` → InventoryCenter.jsx)
