@@ -198,7 +198,7 @@ def get_kardex(
 # --- INTER-COMPANY TRANSFER ENDPOINTS ---
 from fastapi import UploadFile, File, Body
 from ..services.inventory_service import InventoryService
-from ..schemas import TransferPackageSchema, TransferResultSchema
+from ..schemas import TransferPackageSchema, TransferResultSchema, TransferPreviewResult, TransferImportV2Request
 from pydantic import BaseModel
 from typing import Optional
 
@@ -235,11 +235,36 @@ async def import_transfer_package(
     db: Session = Depends(get_db)
 ):
     """
-    Import a JSON transfer package.
+    Import a JSON transfer package (legacy - exact SKU match only).
     Adds stock to this instance.
     """
     content = await file.read()
     return InventoryService.process_transfer_package(db, content)
+
+@router.post("/transfer/preview", response_model=TransferPreviewResult)
+async def preview_transfer(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Preview a JSON transfer package before importing.
+    Returns match results for each item using a 4-step cascade:
+    exact SKU, case-insensitive SKU, normalized SKU, name ILIKE.
+    """
+    content = await file.read()
+    return InventoryService.preview_transfer_package(db, content)
+
+@router.post("/transfer/import-mapped")
+async def import_transfer_mapped(
+    request: TransferImportV2Request = Body(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Import a transfer package with explicit product mappings (v2).
+    Each item can be mapped to an existing product_id or flagged to create a new product.
+    """
+    data = request.model_dump()
+    return InventoryService.process_transfer_package_v2(db, data, request.warehouse_id)
 
 @router.post("/bulk-entry", dependencies=[Depends(warehouse_or_admin)])
 def bulk_entry(

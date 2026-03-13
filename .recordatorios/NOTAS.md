@@ -93,3 +93,17 @@ SQL pendiente para PROD: M001 (is_active) y M002 (índices sales).
 Ver detalle completo en: `_CEREBRO_PROYECTO/20_Migraciones_SQL_Pendientes.md`
 
 ---
+
+## [010] Landing page + SaaS admin — activación módulo Farmacia
+**Fecha:** 2026-03-12 19:00
+**Estado:** completado
+**Completado:** 2026-03-12 20:00
+**Categoría:** feature
+
+Dos cosas pendientes del módulo farmacia:
+
+(1) **Landing page**: Cuando el usuario elige "Farmacia" como tipo de negocio en el formulario de registro, debe activarse `has_pharmacy_module` automáticamente. El keyword detection en `tenant_service.py` ya cubre "FARMACIA"/"DROGUERIA"/"BOTICA" — verificar que el dropdown/formulario de la landing envía ese valor. Si usa opciones predefinidas, asegurarse de que "Farmacia" esté listada y mapee correctamente.
+
+(2) **Panel SaaS admin**: En `saas_admin/`, agregar el módulo Farmacia al panel de gestión de módulos por tenant (donde se activan/desactivan Restaurante, Barbería, Lavandería, Servicios). El admin SaaS debe poder activar/desactivar `has_pharmacy_module` desde la interfaz, igual que los demás módulos.
+
+---

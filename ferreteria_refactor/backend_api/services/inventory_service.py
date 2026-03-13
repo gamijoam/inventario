@@ -1,8 +1,10 @@
 from datetime import datetime
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from fastapi import HTTPException, UploadFile
 import json
+import re
 from decimal import Decimal
 
 from ..models import models
@@ -352,3 +354,205 @@ class InventoryService:
             }
         
         return {"exists": False, "message": "Serial nuevo"}
+
+    @staticmethod
+    def preview_transfer_package(db: Session, file_content: bytes) -> Dict[str, Any]:
+        """
+        Parses a JSON transfer package and previews how items would match
+        against existing products using a 4-step cascade.
+        """
+        try:
+            data = json.loads(file_content.decode('utf-8'))
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON file")
+
+        if "items" not in data or not isinstance(data["items"], list):
+            raise HTTPException(status_code=400, detail="Invalid package format: Missing 'items' list")
+
+        source_company = data.get("source_company", "Unknown")
+        preview_items = []
+
+        for item in data["items"]:
+            sku = item.get("sku", "")
+            name = item.get("name", "")
+            qty = float(item.get("quantity", 0))
+
+            match_type = "none"
+            matched_product = None
+
+            # Step 1: Exact SKU match
+            if sku:
+                matched_product = db.query(models.Product).filter(
+                    models.Product.sku == sku
+                ).first()
+                if matched_product:
+                    match_type = "exact"
+
+            # Step 2: Case-insensitive SKU match
+            if not matched_product and sku:
+                matched_product = db.query(models.Product).filter(
+                    func.lower(models.Product.sku) == sku.lower()
+                ).first()
+                if matched_product:
+                    match_type = "fuzzy"
+
+            # Step 3: Normalized SKU match (strip dashes, spaces, dots)
+            if not matched_product and sku:
+                normalized_sku = re.sub(r'[-\s.]', '', sku).lower()
+                # Query all products with SKU and filter in Python for normalization
+                candidates = db.query(models.Product).filter(
+                    models.Product.sku.isnot(None),
+                    models.Product.sku != ''
+                ).all()
+                for candidate in candidates:
+                    candidate_normalized = re.sub(r'[-\s.]', '', candidate.sku).lower()
+                    if candidate_normalized == normalized_sku:
+                        matched_product = candidate
+                        match_type = "fuzzy"
+                        break
+
+            # Step 4: Name ILIKE match (only if name has 4+ chars)
+            if not matched_product and name and len(name) >= 4:
+                matched_product = db.query(models.Product).filter(
+                    models.Product.name.ilike(f'%{name}%')
+                ).first()
+                if matched_product:
+                    match_type = "name"
+
+            preview_item = {
+                "sku": sku,
+                "name": name,
+                "quantity": qty,
+                "match_type": match_type,
+                "matched_product_id": matched_product.id if matched_product else None,
+                "matched_sku": matched_product.sku if matched_product else None,
+                "matched_name": matched_product.name if matched_product else None,
+                "matched_stock": float(matched_product.stock) if matched_product else None,
+            }
+            preview_items.append(preview_item)
+
+        return {
+            "source_company": source_company,
+            "items": preview_items,
+        }
+
+    @staticmethod
+    def process_transfer_package_v2(db: Session, data: Dict[str, Any], warehouse_id: int = None) -> Dict[str, Any]:
+        """
+        Processes a mapped transfer import (v2).
+        Each item can either be mapped to an existing product or flagged to create a new one.
+        """
+        success_count = 0
+        failure_count = 0
+        created_count = 0
+        errors = []
+        source_company = data.get("source_company", "Unknown")
+
+        for item in data.get("items", []):
+            sku = item.get("sku", "")
+            name = item.get("name", "Unknown")
+            qty = Decimal(str(item.get("quantity", 0)))
+            target_product_id = item.get("target_product_id")
+            create_new = item.get("create_new", False)
+
+            try:
+                if target_product_id:
+                    # Map to existing product
+                    product = db.query(models.Product).filter(
+                        models.Product.id == target_product_id
+                    ).first()
+                    if not product:
+                        errors.append(f"Product ID {target_product_id} not found for SKU '{sku}'")
+                        failure_count += 1
+                        continue
+
+                    # Add stock
+                    product.stock += qty
+
+                    # Create Kardex
+                    kardex = models.Kardex(
+                        product_id=product.id,
+                        movement_type=models.MovementType.EXTERNAL_TRANSFER_IN,
+                        quantity=qty,
+                        balance_after=product.stock,
+                        description=f"Transfer IN (v2) from {source_company}",
+                        warehouse_id=warehouse_id,
+                        date=datetime.now()
+                    )
+                    db.add(kardex)
+
+                    # Update warehouse stock if warehouse_id provided
+                    if warehouse_id:
+                        p_stock = db.query(models.ProductStock).filter(
+                            models.ProductStock.product_id == product.id,
+                            models.ProductStock.warehouse_id == warehouse_id
+                        ).first()
+                        if p_stock:
+                            p_stock.quantity += qty
+                        else:
+                            p_stock = models.ProductStock(
+                                product_id=product.id,
+                                warehouse_id=warehouse_id,
+                                quantity=qty
+                            )
+                            db.add(p_stock)
+
+                    success_count += 1
+
+                elif create_new:
+                    # Create new product
+                    new_product = models.Product(
+                        name=name,
+                        sku=sku if sku else None,
+                        stock=qty,
+                        price=Decimal("0.0000"),  # Default price, user must update later
+                        cost_price=Decimal("0.0000"),
+                    )
+                    db.add(new_product)
+                    db.flush()  # Get the ID
+
+                    # Create Kardex
+                    kardex = models.Kardex(
+                        product_id=new_product.id,
+                        movement_type=models.MovementType.EXTERNAL_TRANSFER_IN,
+                        quantity=qty,
+                        balance_after=new_product.stock,
+                        description=f"Transfer IN (v2 - new product) from {source_company}",
+                        warehouse_id=warehouse_id,
+                        date=datetime.now()
+                    )
+                    db.add(kardex)
+
+                    # Create warehouse stock if warehouse_id provided
+                    if warehouse_id:
+                        p_stock = models.ProductStock(
+                            product_id=new_product.id,
+                            warehouse_id=warehouse_id,
+                            quantity=qty
+                        )
+                        db.add(p_stock)
+
+                    success_count += 1
+                    created_count += 1
+
+                else:
+                    # Skip unmapped items
+                    errors.append(f"Skipped '{name}' (SKU: {sku}): No target product and create_new=false")
+                    failure_count += 1
+
+            except Exception as e:
+                errors.append(f"Error processing '{name}' (SKU: {sku}): {str(e)}")
+                failure_count += 1
+
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database commit error: {str(e)}")
+
+        return {
+            "success_count": success_count,
+            "failure_count": failure_count,
+            "errors": errors,
+            "created_count": created_count,
+        }

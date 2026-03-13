@@ -1122,6 +1122,32 @@ class TransferResultSchema(BaseModel):
     failure_count: int
     errors: List[str]
 
+class TransferPreviewItemResult(BaseModel):
+    sku: str
+    name: str
+    quantity: float
+    match_type: str  # exact, fuzzy, name, none
+    matched_product_id: Optional[int] = None
+    matched_sku: Optional[str] = None
+    matched_name: Optional[str] = None
+    matched_stock: Optional[float] = None
+
+class TransferPreviewResult(BaseModel):
+    source_company: str
+    items: List[TransferPreviewItemResult]
+
+class TransferImportV2Item(BaseModel):
+    sku: str
+    name: str
+    quantity: float
+    target_product_id: Optional[int] = None
+    create_new: bool = False
+
+class TransferImportV2Request(BaseModel):
+    source_company: str
+    warehouse_id: Optional[int] = None
+    items: List[TransferImportV2Item]
+
 # ========================
 # SERVICE MODULE SCHEMAS
 # ========================

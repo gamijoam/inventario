@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
-import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle } from 'lucide-react';
+import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
 
 const ExternalTransferOut = () => {
     const [products, setProducts] = useState([]);
@@ -11,6 +11,11 @@ const ExternalTransferOut = () => {
     const [generating, setGenerating] = useState(false);
     const [warehouses, setWarehouses] = useState([]);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
+    const [showConfirmation, setShowConfirmation] = useState(false);
+    const [exportSummary, setExportSummary] = useState(null);
+
+    // Check if any item exceeds available stock
+    const hasStockError = selectedItems.some(i => i.quantity > i.current_stock);
 
     // Load warehouses on mount
     useEffect(() => {
@@ -69,14 +74,11 @@ const ExternalTransferOut = () => {
     };
 
     const updateQuantity = (id, qty) => {
-        const item = selectedItems.find(i => i.product_id === id);
-        if (item && qty > item.current_stock) {
-            toast.error(`Stock insuficiente. Disponible: ${item.current_stock}`);
-            return;
-        }
         setSelectedItems(selectedItems.map(item =>
-            item.product_id === id ? { ...item, quantity: parseFloat(qty) } : item
+            item.product_id === id ? { ...item, quantity: parseFloat(qty) || 0 } : item
         ));
+        // Reset confirmation when quantities change
+        setShowConfirmation(false);
     };
 
     const removeItem = (id) => {
@@ -118,7 +120,12 @@ const ExternalTransferOut = () => {
 
             toast.dismiss(loadingToast);
             toast.success("Paquete generado exitosamente. Stock descontado.");
+            setExportSummary({
+                count: selectedItems.length,
+                items: selectedItems.map(i => ({ sku: i.sku, name: i.name, quantity: i.quantity }))
+            });
             setSelectedItems([]);
+            setShowConfirmation(false);
             setSearch('');
             setProducts([]);
 
@@ -224,6 +231,12 @@ const ExternalTransferOut = () => {
                                     <div className="flex-1">
                                         <h4 className="font-bold text-slate-700 text-sm">{item.name}</h4>
                                         <p className="text-xs text-slate-400 font-mono">{item.sku}</p>
+                                        <p className={`text-xs mt-0.5 ${item.quantity > item.current_stock ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
+                                            Stock: {item.current_stock}
+                                            {item.quantity > item.current_stock && (
+                                                <span className="ml-1">— Excede el stock disponible</span>
+                                            )}
+                                        </p>
                                     </div>
 
                                     <div className="flex items-center gap-2">
@@ -234,7 +247,6 @@ const ExternalTransferOut = () => {
                                             value={item.quantity}
                                             onChange={(e) => updateQuantity(item.product_id, e.target.value)}
                                             min="0"
-                                            max={item.current_stock}
                                         />
                                     </div>
 
@@ -251,6 +263,29 @@ const ExternalTransferOut = () => {
                 </div>
 
                 <div className="mt-auto pt-4 border-t border-slate-100">
+                    {/* Success banner after export */}
+                    {exportSummary && (
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-emerald-800">
+                            <CheckCircle className="flex-shrink-0 text-emerald-600" size={20} />
+                            <p>
+                                Traslado generado exitosamente. Se descontaron <strong>{exportSummary.count}</strong> producto{exportSummary.count !== 1 ? 's' : ''} del inventario.
+                            </p>
+                            <button onClick={() => setExportSummary(null)} className="ml-auto text-emerald-600 hover:text-emerald-800 text-xs font-bold">
+                                Cerrar
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Stock error warning */}
+                    {hasStockError && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-red-700">
+                            <AlertTriangle className="flex-shrink-0 text-red-500" size={20} />
+                            <p>
+                                Uno o más productos exceden el stock disponible. Ajusta las cantidades antes de continuar.
+                            </p>
+                        </div>
+                    )}
+
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
                         <AlertTriangle className="flex-shrink-0" size={20} />
                         <p>
@@ -258,19 +293,52 @@ const ExternalTransferOut = () => {
                         </p>
                     </div>
 
+                    {/* Confirmation step */}
+                    {showConfirmation && (
+                        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4">
+                            <p className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
+                                <AlertTriangle size={16} />
+                                Se descontará del inventario:
+                            </p>
+                            <ul className="text-sm text-amber-900 space-y-1 mb-3 ml-1">
+                                {selectedItems.map(item => (
+                                    <li key={item.product_id}>
+                                        • <span className="font-mono text-xs">{item.sku}</span> {item.name} — <strong>{item.quantity}</strong> unidades
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowConfirmation(false)}
+                                    className="flex-1 py-2 px-4 rounded-lg border border-slate-300 text-slate-600 font-semibold text-sm hover:bg-slate-100 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleExport}
+                                    disabled={generating}
+                                    className="flex-1 py-2 px-4 rounded-lg bg-emerald-600 text-white font-semibold text-sm hover:bg-emerald-700 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {generating ? (
+                                        <span className="animate-pulse">Procesando...</span>
+                                    ) : (
+                                        <>
+                                            <CheckCircle size={16} />
+                                            Confirmar y Generar
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <button
-                        onClick={handleExport}
-                        disabled={selectedItems.length === 0 || generating || !selectedWarehouseId}
+                        onClick={() => { setShowConfirmation(true); setExportSummary(null); }}
+                        disabled={selectedItems.length === 0 || generating || !selectedWarehouseId || hasStockError || showConfirmation}
                         className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                     >
-                        {generating ? (
-                            <span className="animate-pulse">Procesando...</span>
-                        ) : (
-                            <>
-                                <Download size={20} />
-                                Generar y Descargar Paquete JSON
-                            </>
-                        )}
+                        <Download size={20} />
+                        Generar Paquete
                     </button>
                 </div>
             </div>
