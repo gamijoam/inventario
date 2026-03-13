@@ -936,12 +936,21 @@ class PurchaseOrderUpdate(BaseModel):
     invoice_number: Optional[str] = None
     notes: Optional[str] = None
 
+class PurchaseProductBasic(BaseModel):
+    """Minimal product info for purchase orders — avoids lazy-loading category/price_rules."""
+    id: int
+    name: str
+    sku: Optional[str] = None
+    unit: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class PurchaseItemRead(BaseModel):
     id: int
     product_id: int
     quantity: Decimal
     unit_cost: Decimal
-    product: Optional['ProductRead'] = None
+    product: Optional[PurchaseProductBasic] = None
 
     model_config = ConfigDict(from_attributes=True)
 
