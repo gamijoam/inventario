@@ -1142,6 +1142,7 @@ class TransferImportV2Item(BaseModel):
     quantity: float
     target_product_id: Optional[int] = None
     create_new: bool = False
+    warehouse_id: Optional[int] = None
 
 class TransferImportV2Request(BaseModel):
     source_company: str

@@ -67,6 +67,7 @@ const ServicesDashboard = React.lazy(() => import('./pages/Services/ServicesDash
 const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // NEW: Service Manager
 const ServiceList = React.lazy(() => import('./pages/Services/ServiceList')); // NEW: Service List
 const ReportsCenter = React.lazy(() => import('./pages/Reports/ReportsCenter')); // NEW: Unified Reports Center
+const InventoryCenter = React.lazy(() => import('./pages/Inventory/InventoryCenter')); // NEW: Unified Inventory Center
 
 // Barbershop Module
 const BarbershopDashboard = React.lazy(() => import('./pages/Barbershop/BarbershopDashboard'));
@@ -229,7 +230,24 @@ function App() {
                             <Route element={<DashboardLayout />}>
                               <Route path="/" element={<Dashboard />} />
 
-                              {/* Inventory - ADMIN or WAREHOUSE */}
+                              {/* Unified Inventory Center */}
+                              <Route path="/inventory-center" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <InventoryCenter />
+                                </ProtectedRoute>
+                              } />
+
+                              {/* Backward-compatible redirects to Inventory Center */}
+                              <Route path="/products" element={<Navigate to="/inventory-center?tab=productos" replace />} />
+                              <Route path="/categories" element={<Navigate to="/inventory-center?tab=categorias" replace />} />
+                              <Route path="/inventory" element={<Navigate to="/inventory-center?tab=kardex" replace />} />
+                              <Route path="/warehouses" element={<Navigate to="/inventory-center?tab=almacenes" replace />} />
+                              <Route path="/transfers" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
+                              <Route path="/transfers/external/out" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
+                              <Route path="/transfers/external/in" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
+                              <Route path="/inventory/serialized-reception" element={<Navigate to="/inventory-center?tab=seriales" replace />} />
+
+                              {/* Old Inventory Routes (kept for reference)
                               <Route path="/products" element={
                                 <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                   <Products />
@@ -243,11 +261,6 @@ function App() {
                               <Route path="/inventory" element={
                                 <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                   <Inventory />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/warranty-policies" element={
-                                <ProtectedRoute roles={['ADMIN']}>
-                                  <WarrantyPolicies />
                                 </ProtectedRoute>
                               } />
                               <Route path="/warehouses" element={
@@ -273,6 +286,14 @@ function App() {
                               <Route path="/transfers/external/in" element={
                                 <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                   <ExternalTransferIn />
+                                </ProtectedRoute>
+                              } />
+                              */}
+
+                              {/* Warranty Policies — stays separate from Inventory Center */}
+                              <Route path="/warranty-policies" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <WarrantyPolicies />
                                 </ProtectedRoute>
                               } />
 

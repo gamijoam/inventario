@@ -454,6 +454,8 @@ class InventoryService:
             qty = Decimal(str(item.get("quantity", 0)))
             target_product_id = item.get("target_product_id")
             create_new = item.get("create_new", False)
+            # Per-item warehouse_id takes priority, then global warehouse_id
+            item_warehouse_id = item.get("warehouse_id") or warehouse_id
 
             try:
                 if target_product_id:
@@ -476,23 +478,23 @@ class InventoryService:
                         quantity=qty,
                         balance_after=product.stock,
                         description=f"Transfer IN (v2) from {source_company}",
-                        warehouse_id=warehouse_id,
+                        warehouse_id=item_warehouse_id,
                         date=datetime.now()
                     )
                     db.add(kardex)
 
                     # Update warehouse stock if warehouse_id provided
-                    if warehouse_id:
+                    if item_warehouse_id:
                         p_stock = db.query(models.ProductStock).filter(
                             models.ProductStock.product_id == product.id,
-                            models.ProductStock.warehouse_id == warehouse_id
+                            models.ProductStock.warehouse_id == item_warehouse_id
                         ).first()
                         if p_stock:
                             p_stock.quantity += qty
                         else:
                             p_stock = models.ProductStock(
                                 product_id=product.id,
-                                warehouse_id=warehouse_id,
+                                warehouse_id=item_warehouse_id,
                                 quantity=qty
                             )
                             db.add(p_stock)
@@ -518,16 +520,16 @@ class InventoryService:
                         quantity=qty,
                         balance_after=new_product.stock,
                         description=f"Transfer IN (v2 - new product) from {source_company}",
-                        warehouse_id=warehouse_id,
+                        warehouse_id=item_warehouse_id,
                         date=datetime.now()
                     )
                     db.add(kardex)
 
                     # Create warehouse stock if warehouse_id provided
-                    if warehouse_id:
+                    if item_warehouse_id:
                         p_stock = models.ProductStock(
                             product_id=new_product.id,
-                            warehouse_id=warehouse_id,
+                            warehouse_id=item_warehouse_id,
                             quantity=qty
                         )
                         db.add(p_stock)

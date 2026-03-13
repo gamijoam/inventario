@@ -3,7 +3,7 @@ import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import {
   Upload, Search, Check, AlertTriangle, Package,
-  ArrowRight, X, FileJson, RefreshCw
+  ArrowRight, X, FileJson, RefreshCw, Warehouse
 } from 'lucide-react';
 
 /* ─── Inline searchable product selector ─── */
@@ -54,7 +54,7 @@ function ProductSearchSelect({ value, onChange, currentMatch }) {
   }
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className="relative" style={{ overflow: 'visible' }}>
       <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-300 focus-within:border-indigo-400">
         <Search size={14} className="ml-2 text-slate-400 flex-shrink-0" />
         <input
@@ -67,7 +67,7 @@ function ProductSearchSelect({ value, onChange, currentMatch }) {
         />
       </div>
       {open && (query.length >= 2) && (
-        <div className="absolute z-50 mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-xl max-h-52 overflow-y-auto">
+        <div className="absolute z-[100] mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-xl max-h-52 overflow-y-auto">
           {loading && <div className="px-3 py-2 text-sm text-slate-400">Buscando...</div>}
           {!loading && results.length === 0 && <div className="px-3 py-2 text-sm text-slate-400">Sin resultados</div>}
           {results.map((p) => (
@@ -122,8 +122,25 @@ const ExternalTransferIn = () => {
   const [previewItems, setPreviewItems] = useState([]);
   const [sourceCompany, setSourceCompany] = useState('');
 
+  // Warehouse data
+  const [warehouses, setWarehouses] = useState([]);
+  const [globalWarehouseId, setGlobalWarehouseId] = useState('');
+
   // Result data
   const [result, setResult] = useState(null);
+
+  /* ── Fetch warehouses ── */
+  useEffect(() => {
+    const fetchWarehouses = async () => {
+      try {
+        const res = await apiClient.get('/warehouses');
+        setWarehouses(res.data?.items ?? res.data ?? []);
+      } catch {
+        // silent — warehouses are optional
+      }
+    };
+    fetchWarehouses();
+  }, []);
 
   /* ── Upload handlers ── */
   const handleFileChange = (e) => {
@@ -160,6 +177,7 @@ const ExternalTransferIn = () => {
         matched_name: item.matched_name || '',
         matched_stock: item.matched_stock ?? 0,
         create_new: false,
+        warehouse_id: null, // per-item warehouse
         // editable override via search
         _override: item.matched_product_id
           ? { id: item.matched_product_id, sku: item.matched_sku, name: item.matched_name, stock: item.matched_stock ?? 0 }
@@ -195,6 +213,13 @@ const ExternalTransferIn = () => {
     }
   }, [updateItem]);
 
+  /* ── Global warehouse change → apply to all items ── */
+  const handleGlobalWarehouseChange = useCallback((warehouseId) => {
+    const wId = warehouseId ? parseInt(warehouseId, 10) : null;
+    setGlobalWarehouseId(warehouseId);
+    setPreviewItems((prev) => prev.map((it) => ({ ...it, warehouse_id: wId })));
+  }, []);
+
   /* ── Derived stats ── */
   const mappedCount = previewItems.filter((it) => it._override || it.create_new).length;
   const totalCount = previewItems.length;
@@ -210,6 +235,7 @@ const ExternalTransferIn = () => {
         quantity: it.quantity,
         target_product_id: it._override?.id || null,
         create_new: it.create_new,
+        warehouse_id: it.warehouse_id || null,
       }));
 
     if (items.length === 0) {
@@ -221,7 +247,7 @@ const ExternalTransferIn = () => {
       setConfirming(true);
       const res = await apiClient.post('/inventory/transfer/import-mapped', {
         source_company: sourceCompany,
-        warehouse_id: null,
+        warehouse_id: globalWarehouseId ? parseInt(globalWarehouseId, 10) : null,
         items,
       });
       setResult(res.data);
@@ -243,6 +269,7 @@ const ExternalTransferIn = () => {
     setSourceCompany('');
     setResult(null);
     setStep('upload');
+    setGlobalWarehouseId('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -343,16 +370,38 @@ const ExternalTransferIn = () => {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="flex-1 overflow-auto px-6 py-4">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <table className="w-full text-sm">
+        {/* Global warehouse selector */}
+        {warehouses.length > 0 && (
+          <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3">
+            <Warehouse size={18} className="text-indigo-500 flex-shrink-0" />
+            <label className="text-sm font-semibold text-slate-700 flex-shrink-0">Enviar todo a:</label>
+            <select
+              value={globalWarehouseId}
+              onChange={(e) => handleGlobalWarehouseChange(e.target.value)}
+              className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none min-w-[200px]"
+            >
+              <option value="">-- Sin almacén (stock global) --</option>
+              {warehouses.map((wh) => (
+                <option key={wh.id} value={wh.id}>{wh.name}</option>
+              ))}
+            </select>
+            <span className="text-xs text-slate-400">Puedes cambiar el almacén por producto en la tabla</span>
+          </div>
+        )}
+
+        {/* Table — overflow visible so dropdowns aren't clipped */}
+        <div className="flex-1 overflow-x-auto overflow-y-auto px-6 py-4">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200" style={{ overflow: 'visible' }}>
+            <table className="w-full text-sm" style={{ overflow: 'visible' }}>
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="text-left px-4 py-3 font-semibold text-slate-600">Producto Origen</th>
                   <th className="text-center px-4 py-3 font-semibold text-slate-600 w-20">Cant</th>
                   <th className="text-center px-4 py-3 font-semibold text-slate-600 w-28">Match</th>
                   <th className="text-left px-4 py-3 font-semibold text-slate-600 min-w-[240px]">Producto Local</th>
+                  {warehouses.length > 0 && (
+                    <th className="text-center px-4 py-3 font-semibold text-slate-600 w-40">Almacén</th>
+                  )}
                   <th className="text-center px-4 py-3 font-semibold text-slate-600 w-32">Acción</th>
                 </tr>
               </thead>
@@ -360,10 +409,9 @@ const ExternalTransferIn = () => {
                 {previewItems.map((item, idx) => {
                   const hasOverride = !!item._override;
                   const isEditing = item._editing;
-                  const showSearch = !hasOverride || isEditing;
 
                   return (
-                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors" style={{ overflow: 'visible' }}>
                       {/* Source product */}
                       <td className="px-4 py-3">
                         <div className="font-mono text-xs text-indigo-600">{item.sku}</div>
@@ -380,8 +428,8 @@ const ExternalTransferIn = () => {
                         <MatchBadge type={item.match_type} />
                       </td>
 
-                      {/* Local product */}
-                      <td className="px-4 py-3">
+                      {/* Local product — relative + overflow visible for dropdown */}
+                      <td className="px-4 py-3 relative" style={{ overflow: 'visible' }}>
                         {hasOverride && !isEditing ? (
                           <button
                             onClick={() => updateItem(idx, { _editing: true })}
@@ -400,6 +448,22 @@ const ExternalTransferIn = () => {
                           />
                         )}
                       </td>
+
+                      {/* Per-item warehouse selector */}
+                      {warehouses.length > 0 && (
+                        <td className="text-center px-4 py-3">
+                          <select
+                            value={item.warehouse_id ?? ''}
+                            onChange={(e) => updateItem(idx, { warehouse_id: e.target.value ? parseInt(e.target.value, 10) : null })}
+                            className="border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-600 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none w-full max-w-[140px]"
+                          >
+                            <option value="">Global</option>
+                            {warehouses.map((wh) => (
+                              <option key={wh.id} value={wh.id}>{wh.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                      )}
 
                       {/* Action */}
                       <td className="text-center px-4 py-3">

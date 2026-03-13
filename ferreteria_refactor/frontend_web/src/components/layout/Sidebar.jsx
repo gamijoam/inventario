@@ -160,22 +160,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             ]
         },
         {
-            type: 'group',
-            label: 'Inventario',
-            icon: Package,
-            items: [
-                { icon: Package, label: 'Productos', path: '/products' },
-                { icon: Tags, label: 'Categorías', path: '/categories' },
-                ...(user?.role === 'ADMIN' ? [
-                    { icon: ShieldCheck, label: 'Políticas de G.', path: '/warranty-policies' }
-                ] : []),
-                { icon: Archive, label: 'Movimientos', path: '/inventory' },
-                { icon: Warehouse, label: 'Almacenes', path: '/warehouses' },
-                { icon: ArrowRightLeft, label: 'Traslados', path: '/transfers' },
-                { icon: ArrowRight, label: 'Exportar', path: '/transfers/external/out' },
-                { icon: Download, label: 'Importar', path: '/transfers/external/in' },
-            ]
+            type: 'single',
+            item: { icon: Package, label: 'Centro de Inventario', path: '/inventory-center' }
         },
+        ...(user?.role === 'ADMIN' ? [{
+            type: 'single',
+            item: { icon: ShieldCheck, label: 'Políticas de G.', path: '/warranty-policies' }
+        }] : []),
         {
             type: 'group',
             label: 'Finanzas',
