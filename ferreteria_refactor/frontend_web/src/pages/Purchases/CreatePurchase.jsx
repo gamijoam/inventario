@@ -53,7 +53,7 @@ const CreatePurchase = () => {
 
     const fetchProducts = async () => {
         try {
-            const response = await apiClient.get('/products');
+            const response = await apiClient.get('/products?limit=500');
             setProducts(response.data);
         } catch (error) {
             console.error('Error fetching products:', error);
@@ -200,6 +200,8 @@ const CreatePurchase = () => {
                 invoice_number: invoiceData.invoice_number,
                 notes: invoiceData.notes,
                 total_amount: total,
+                purchase_date: invoiceData.purchase_date,
+                due_date: invoiceData.due_date,
                 items: purchaseItems.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity,

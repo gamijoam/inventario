@@ -929,6 +929,8 @@ class PurchaseOrderCreate(PurchaseOrderBase):
     items: List[PurchaseItemCreate] = []
     payment_type: str = "CREDIT"  # CASH or CREDIT
     warehouse_id: int # NEW: Required warehouse
+    purchase_date: Optional[datetime] = None  # User-selected date; overrides server datetime.now()
+    due_date: Optional[datetime] = None  # User-selected due date; overrides supplier-term calculation
 
 class PurchaseOrderUpdate(BaseModel):
     invoice_number: Optional[str] = None
@@ -947,12 +949,14 @@ class PurchaseOrderResponse(PurchaseOrderBase):
     id: int
     purchase_date: datetime
     due_date: Optional[datetime] = None
+    warehouse_id: Optional[int] = None
+    warehouse: Optional['WarehouseRead'] = None  # Nested warehouse object for display
     total_amount: Decimal
     paid_amount: Decimal
     payment_status: str
     supplier: Optional['SupplierRead'] = None
     items: List[PurchaseItemRead] = [] # Include items in response
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 class PurchasePaymentCreate(BaseModel):

@@ -28,7 +28,7 @@ class WarrantyUnit(str, enum.Enum):
     MONTHS = "MONTHS"
     YEARS = "YEARS"
 
-class PaymentStatus(enum.Enum):
+class PaymentStatus(str, enum.Enum):
     PENDING = "PENDING"
     PARTIAL = "PARTIAL"
     PAID = "PAID"
@@ -796,6 +796,7 @@ class PurchaseOrder(Base):
     
     # Relationships
     supplier = relationship("Supplier", back_populates="purchase_orders")
+    warehouse = relationship("Warehouse")  # Receiving warehouse for display
     payments = relationship("PurchasePayment", back_populates="purchase", cascade="all, delete-orphan")
     items = relationship("PurchaseItem", back_populates="purchase", cascade="all, delete-orphan")
     
