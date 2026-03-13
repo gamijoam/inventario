@@ -4,6 +4,48 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-13] — Centro de Inventario Unificado + Módulo Farmacia + Traslados Inter-Sucursales
+
+### Centro de Inventario (`/inventory-center` → InventoryCenter.jsx)
+Consolidación de 8+ páginas dispersas en un solo dashboard con 6 tabs. Reemplaza: Products, Categories, Inventory (Kardex), WarehouseManager, InventoryTransfers, ExternalTransferOut, ExternalTransferIn, SerializedReception.
+
+- **Tab Productos**: Migrado completo de Products.jsx con CRUD, búsqueda, filtros, bulk actions, WebSocket, indicadores stock
+- **Tab Categorías**: Migrado de Categories.jsx con tabla jerárquica, vista mobile, CRUD modal
+- **Tab Kardex**: Migrado de Inventory.jsx (movimientos de inventario) con ajustes manuales, búsqueda, filtros fecha
+- **Tab Traslados**: 3 sub-tabs con pill selector:
+  - Internos (entre almacenes del mismo negocio)
+  - Exportar (generar JSON para otra sucursal, descuenta stock)
+  - Importar (recibir JSON con preview, fuzzy matching, mapeo manual, selector de almacén)
+- **Tab Almacenes**: Migrado de WarehouseManager.jsx con grid, CRUD, inventario por almacén
+- **Tab Seriales**: Migrado de SerializedReception.jsx para recepción de productos serializados (IMEI)
+
+**Navegación**: Sidebar simplificado — un solo item "Centro de Inventario". Rutas antiguas (/products, /categories, /inventory, /warehouses, /transfers) redirigen con `<Navigate>`.
+
+### Traslados Inter-Sucursales: Preview + Fuzzy Matching + Mapeo Manual
+- **Backend**: `POST /transfer/preview` — recibe JSON de traslado, hace fuzzy matching por SKU/nombre con productos locales, retorna items clasificados (exact_match, fuzzy_match, no_match)
+- **Backend**: `POST /transfer/import` v2 — acepta mappings manuales + `warehouse_id` por item
+- **Frontend**: ExternalTransferIn.jsx reescrito con tabla preview a 3 colores (verde/amarillo/rojo), buscador de productos con z-50, selector de almacén global + por item
+- **Schema**: `TransferImportV2Item.warehouse_id: Optional[int]` — almacén destino por producto
+
+### Módulo Farmacia (Completo)
+- **Backend**: Router `/pharmacy/` con endpoints: lots (CRUD), alerts (vencimientos), prescriptions, control-log
+- **Backend**: Modelos: `ProductLot`, `Prescription` + columnas en `Product`: drug_classification, active_ingredient, storage_condition, requires_prescription
+- **Frontend**: 4 páginas: PharmacyDashboard, PharmacyLots, PharmacyControlLog, PharmacyPrescriptions
+- **Frontend**: Campos farmacéuticos en formulario de producto (sección azul), badges Rx/C/❄ en POS
+- **Frontend**: Modal de receta obligatorio en POS al vender producto con requires_prescription
+- **Frontend**: Tab Farmacia en ReportsCenter (vencimientos, ventas por clasificación, valoración)
+- **Config**: `/config/public` ahora expone `pharmacy` y `barbershop` flags
+- **SaaS Admin**: Toggle de módulo farmacia en panel de gestión de tenants
+- **Landing**: Keyword detection para "FARMACIA"/"DROGUERIA"/"BOTICA" en tenant_service.py
+
+### Migraciones SQL
+- **M001**: `customers.is_active BOOLEAN DEFAULT TRUE` (eliminación lógica)
+- **M002**: Índices en `sales` (is_credit, paid, due_date) para rendimiento CxC
+- **M003**: `tenants.has_pharmacy_module`, columnas farmacia en `products`, tablas `product_lots` y `prescriptions`
+- Aplicadas en QA (15 tenants) y PROD (19 tenants). Detalle en `20_Migraciones_SQL_Pendientes.md`.
+
+---
+
 ## [2026-03-12] — Bug Fixes Ronda A + B: ReportsCenter, POS, Créditos, PDF, Comisiones
 
 ### POS: Cliente nuevo aparece sin refrescar
