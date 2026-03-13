@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, FileText, DollarSign, Calendar, TrendingUp } from 'lucide-react';
+import { Plus, FileText, DollarSign, Calendar, TrendingUp, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../config/axios';
+import toast from 'react-hot-toast';
 
 const Purchases = () => {
     const navigate = useNavigate();
@@ -44,6 +45,18 @@ const Purchases = () => {
                 {labels[status] || status}
             </span>
         );
+    };
+
+    const handleVoid = async (purchase) => {
+        const ref = purchase.invoice_number || `#${purchase.id}`;
+        if (!window.confirm(`¿Anular la factura ${ref}? Esto revertirá el stock ingresado y no se puede deshacer.`)) return;
+        try {
+            const res = await apiClient.delete(`/purchases/${purchase.id}`);
+            toast.success(`Factura ${ref} anulada. Se revirtieron ${res.data.reversed_items?.length || 0} productos.`);
+            fetchPurchases();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al anular la factura');
+        }
     };
 
     const handleViewDetails = (purchaseId) => {
@@ -165,12 +178,23 @@ const Purchases = () => {
                                     <td className="p-4 text-right text-green-600 font-medium text-sm">${Number(purchase.paid_amount || 0).toFixed(2)}</td>
                                     <td className="p-4 text-center">{getStatusBadge(purchase.payment_status)}</td>
                                     <td className="p-4 text-right">
-                                        <button
-                                            onClick={() => handleViewDetails(purchase.id)}
-                                            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                                        >
-                                            {purchase.payment_status === 'PAID' ? 'Ver Detalles' : 'Ver / Pagar'}
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => handleViewDetails(purchase.id)}
+                                                className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                                            >
+                                                {purchase.payment_status === 'PAID' ? 'Ver Detalles' : 'Ver / Pagar'}
+                                            </button>
+                                            {purchase.payment_status !== 'PAID' && (
+                                                <button
+                                                    onClick={() => handleVoid(purchase)}
+                                                    title="Anular factura"
+                                                    className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))

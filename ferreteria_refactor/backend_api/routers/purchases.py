@@ -5,6 +5,7 @@ from decimal import Decimal
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
+from ..dependencies import get_current_user
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 
@@ -242,6 +243,77 @@ def get_purchase_order(order_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Purchase order not found")
     
     return order
+
+@router.delete("/{purchase_id}", status_code=200)
+def void_purchase_order(
+    purchase_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Void/delete a purchase order and reverse all stock movements.
+    - Subtracts quantity from ProductStock and product.stock (global)
+    - Creates a Kardex REVERSAL entry per item
+    - Deletes the PurchaseOrder (cascade deletes items + payments)
+    - Only ADMIN can void purchases
+    """
+    if current_user.role != "ADMIN":
+        raise HTTPException(status_code=403, detail="Solo administradores pueden anular facturas de compra")
+
+    purchase = db.query(models.PurchaseOrder).options(
+        joinedload(models.PurchaseOrder.items).joinedload(models.PurchaseItem.product)
+    ).filter(models.PurchaseOrder.id == purchase_id).first()
+
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Factura de compra no encontrada")
+
+    if purchase.paid_amount > 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se puede anular una factura con pagos registrados (Bs {purchase.paid_amount}). Contacte soporte."
+        )
+
+    reversed_items = []
+    for item in purchase.items:
+        product = item.product
+        if not product:
+            continue
+
+        qty = float(item.quantity)
+
+        # Reverse warehouse stock
+        if purchase.warehouse_id:
+            product_stock = db.query(models.ProductStock).filter(
+                models.ProductStock.product_id == product.id,
+                models.ProductStock.warehouse_id == purchase.warehouse_id
+            ).first()
+            if product_stock:
+                product_stock.quantity = max(0, float(product_stock.quantity) - qty)
+
+        # Reverse global stock
+        product.stock = max(0, float(product.stock) - qty)
+
+        # Kardex reversal entry
+        kardex = models.Kardex(
+            product_id=product.id,
+            movement_type="ADJUSTMENT_OUT",
+            quantity=-qty,
+            balance_after=product.stock,
+            notes=f"ANULACIÓN factura compra #{purchase.invoice_number or purchase.id}",
+            warehouse_id=purchase.warehouse_id,
+            user_id=current_user.id
+        )
+        db.add(kardex)
+        reversed_items.append({"product_id": product.id, "name": product.name, "quantity": qty})
+
+    invoice_ref = purchase.invoice_number or f"#{purchase.id}"
+    db.delete(purchase)
+    db.commit()
+
+    return {
+        "message": f"Factura {invoice_ref} anulada correctamente",
+        "reversed_items": reversed_items
+    }
 
 # Accounts Payable Endpoints
 
