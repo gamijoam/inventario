@@ -170,7 +170,8 @@ const ExternalTransferIn = () => {
       setStep('preview');
       toast.success(`${items.length} productos cargados para revisión`);
     } catch (error) {
-      const msg = error.response?.data?.detail || 'Error al previsualizar el archivo';
+      const detail = error.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join(', ') : 'Error al previsualizar el archivo';
       toast.error(msg);
     } finally {
       setUploading(false);
@@ -204,10 +205,10 @@ const ExternalTransferIn = () => {
     const items = previewItems
       .filter((it) => it._override || it.create_new)
       .map((it) => ({
-        source_sku: it.sku,
-        source_name: it.name,
+        sku: it.sku,
+        name: it.name,
         quantity: it.quantity,
-        matched_product_id: it._override?.id || null,
+        target_product_id: it._override?.id || null,
         create_new: it.create_new,
       }));
 
@@ -227,7 +228,8 @@ const ExternalTransferIn = () => {
       setStep('result');
       toast.success('Traslado confirmado');
     } catch (error) {
-      const msg = error.response?.data?.detail || 'Error al confirmar el traslado';
+      const detail = error.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join(', ') : 'Error al confirmar el traslado';
       toast.error(msg);
     } finally {
       setConfirming(false);
