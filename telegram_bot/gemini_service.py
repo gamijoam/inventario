@@ -42,9 +42,11 @@ REGLAS PARA BÚSQUEDA:
 Ejemplos:
   "tiene iphone?" → {"intent": "search", "queries": ["iPhone"], "sort": null}
   "cual es el telefono mas economico?" → {"intent": "search", "queries": ["telefono"], "sort": "price_asc"}
-  "cual es el celular mas barato?" → {"intent": "search", "queries": ["telefono"], "sort": "price_asc"}
+  "cual es el celular mas barato?" → {"intent": "search", "queries": ["celular"], "sort": "price_asc"}
   "que telefono me recomiendas?" → {"intent": "search", "queries": ["telefono"], "sort": "price_asc"}
   "tienen algo económico en teléfonos?" → {"intent": "search", "queries": ["telefono"], "sort": "price_asc"}
+  "me muestras todos los telefonos?" → {"intent": "search", "queries": ["telefono"], "sort": null}
+  "que celulares tienen?" → {"intent": "search", "queries": ["celular"], "sort": null}
   "cual es el samsung mas caro?" → {"intent": "search", "queries": ["Samsung"], "sort": "price_desc"}
   "hay samsung s24 y iphone 15?" → {"intent": "search", "queries": ["Samsung S24", "iPhone 15"], "sort": null}
   "tiene redmi 15 c de 256 gb" → {"intent": "search", "queries": ["Redmi 15C 256"], "sort": null}

@@ -6,6 +6,19 @@ from config import BACKEND_URL, TENANT_SUBDOMAIN
 
 logger = logging.getLogger(__name__)
 
+# Palabras genéricas que no existen en nombres de productos.
+# Se mapean a términos reales o a búsqueda vacía (todo el catálogo).
+_GENERIC_TERMS: dict[str, str] = {
+    # Teléfonos
+    "telefono": "", "teléfono": "", "telefonos": "", "teléfonos": "",
+    "celular": "", "celulares": "",
+    "movil": "", "móvil": "", "moviles": "", "móviles": "",
+    "smartphone": "", "smartphones": "",
+    # Accesorios
+    "accesorio": "", "accesorios": "",
+    # Cargadores (sí existen en la BD como "cargador", dejar pasar)
+}
+
 
 class InventoryAPI:
     """HTTP client for the Invensoft backend API."""
@@ -33,14 +46,24 @@ class InventoryAPI:
         if not tokens:
             return []
 
-        # Use first token for the backend query (broadest match)
-        primary_token = tokens[0]
-        remaining_tokens = tokens[1:]
+        # Resolve generic category words → real search terms
+        # e.g. "telefono" → "" (search all), keeping other tokens as client-side filter
+        first = tokens[0].lower()
+        if first in _GENERIC_TERMS:
+            primary_token = _GENERIC_TERMS[first]  # "" means fetch all
+            remaining_tokens = tokens[1:]          # still filter by rest
+        else:
+            primary_token = tokens[0]
+            remaining_tokens = tokens[1:]
 
         try:
+            params: dict = {"limit": limit}
+            if primary_token:  # Don't send empty search param
+                params["search"] = primary_token
+
             response = await self.client.get(
                 "/api/v1/products/catalog",
-                params={"search": primary_token, "limit": limit},
+                params=params,
             )
             response.raise_for_status()
             data = response.json()
