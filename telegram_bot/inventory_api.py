@@ -17,21 +17,44 @@ class InventoryAPI:
             headers={"X-Tenant-ID": TENANT_SUBDOMAIN},
         )
 
-    async def search_products(self, query: str, limit: int = 10) -> list[dict]:
-        """Search the product catalog.
-
-        Calls GET /api/v1/products/catalog and returns the list of matching
-        products.  Returns an empty list on any error so the bot can degrade
-        gracefully.
+    async def search_products(self, query: str, limit: int = 20) -> list[dict]:
         """
+        Search the product catalog with multi-token AND filtering.
+
+        Strategy (works with current production backend):
+          1. Send the first significant token to the backend (broad search)
+          2. Filter results client-side so ALL tokens appear in name or SKU
+
+        Example: "Redmi 15C 256"
+          → backend: search=Redmi (gets all Redmi products)
+          → client filter: keep only those containing "15C" AND "256"
+        """
+        tokens = [t.strip() for t in query.split() if t.strip()]
+        if not tokens:
+            return []
+
+        # Use first token for the backend query (broadest match)
+        primary_token = tokens[0]
+        remaining_tokens = tokens[1:]
+
         try:
             response = await self.client.get(
                 "/api/v1/products/catalog",
-                params={"search": query, "limit": limit},
+                params={"search": primary_token, "limit": limit},
             )
             response.raise_for_status()
             data = response.json()
-            return data.get("items", [])
+            products = data.get("items", [])
+
+            # Client-side AND filter for the remaining tokens
+            if remaining_tokens:
+                products = [
+                    p for p in products
+                    if _product_matches_all_tokens(p, remaining_tokens)
+                ]
+
+            return products
+
         except httpx.HTTPStatusError as exc:
             logger.error(
                 "Backend returned %s when searching '%s': %s",
@@ -43,16 +66,6 @@ class InventoryAPI:
         except Exception as exc:
             logger.error("Error searching products for '%s': %s", query, exc)
             return []
-
-    async def get_product_image_url(self, product: dict) -> str | None:
-        """Return the full image URL for a product, or None."""
-        image_url = product.get("image_url")
-        if not image_url:
-            return None
-        if image_url.startswith("http"):
-            return image_url
-        # Relative path — prepend the backend URL.
-        return f"{BACKEND_URL.rstrip('/')}{image_url}"
 
     async def get_store_info(self) -> dict | None:
         """Fetch public store configuration (name, modules, etc.)."""
@@ -67,3 +80,11 @@ class InventoryAPI:
     async def close(self) -> None:
         """Close the underlying HTTP client."""
         await self.client.aclose()
+
+
+def _product_matches_all_tokens(product: dict, tokens: list[str]) -> bool:
+    """Return True if ALL tokens appear in the product name or SKU (case-insensitive)."""
+    searchable = (
+        (product.get("name") or "") + " " + (product.get("sku") or "")
+    ).lower()
+    return all(t.lower() in searchable for t in tokens)
