@@ -7,8 +7,8 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// Inline confirmation modal — no window.confirm(), no window.alert()
-const ConfirmPayModal = ({ commission, employeeName, onConfirm, onCancel, isProcessing }) => {
+// Inline confirmation modal
+const ConfirmPayModal = ({ commission, onConfirm, onCancel, isProcessing }) => {
     if (!commission) return null;
 
     return (
@@ -35,19 +35,21 @@ const ConfirmPayModal = ({ commission, employeeName, onConfirm, onCancel, isProc
                     </p>
                     <div className="bg-slate-50 rounded-xl p-4 space-y-2 border border-slate-100">
                         <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Barbero / Estilista</span>
-                            <span className="font-bold text-slate-800">{employeeName}</span>
+                            <span className="text-slate-500">Vendedor</span>
+                            <span className="font-bold text-slate-800">{commission.user_name}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-slate-500">Venta base</span>
-                            <span className="font-medium text-slate-700">
-                                ${parseFloat(commission.base_amount).toFixed(2)}
-                            </span>
-                        </div>
+                        {commission.percentage_applied && (
+                            <div className="flex justify-between text-sm">
+                                <span className="text-slate-500">Porcentaje aplicado</span>
+                                <span className="font-medium text-slate-700">
+                                    {parseFloat(commission.percentage_applied).toFixed(1)}%
+                                </span>
+                            </div>
+                        )}
                         <div className="flex justify-between text-base border-t border-slate-200 pt-2 mt-2">
                             <span className="font-bold text-slate-700">Comisión a pagar</span>
                             <span className="font-black text-emerald-600">
-                                ${parseFloat(commission.calculated_commission).toFixed(2)}
+                                ${parseFloat(commission.amount).toFixed(2)}
                             </span>
                         </div>
                     </div>
@@ -83,25 +85,18 @@ const ConfirmPayModal = ({ commission, employeeName, onConfirm, onCancel, isProc
 
 const CommissionsReport = () => {
     const [commissions, setCommissions] = useState([]);
-    const [employees, setEmployees] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
 
-    // Inline confirmation state — replaces window.confirm()
-    const [pendingPayment, setPendingPayment] = useState(null); // commission object
+    const [pendingPayment, setPendingPayment] = useState(null);
 
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const [commRes, empRes] = await Promise.all([
-                apiClient.get('/employees/commissions'),
-                apiClient.get('/employees/')
-            ]);
-
-            setCommissions(commRes.data);
-            setEmployees(empRes.data);
+            const res = await apiClient.get('/employees/commissions');
+            setCommissions(res.data);
         } catch (error) {
             console.error(error);
             toast.error('Error al cargar datos de comisiones');
@@ -114,23 +109,15 @@ const CommissionsReport = () => {
         loadData();
     }, []);
 
-    const getEmployeeName = (id) => {
-        const emp = employees.find(e => e.id === id);
-        return emp ? emp.name : `ID: ${id}`;
-    };
-
-    // Open confirmation modal (no window.confirm)
     const handlePayClick = (comm) => {
         setPendingPayment(comm);
     };
 
-    // Called when user confirms inside the modal
     const handleConfirmPay = async () => {
         if (!pendingPayment) return;
 
         setIsProcessing(true);
         try {
-            // Use the new dedicated Fase 3 endpoint
             const response = await apiClient.post(
                 `/employees/commissions/${pendingPayment.id}/pay`
             );
@@ -156,22 +143,19 @@ const CommissionsReport = () => {
     };
 
     const filtered = commissions.filter(c => {
-        const empName = getEmployeeName(c.employee_id).toLowerCase();
-        const matchesSearch = empName.includes(searchTerm.toLowerCase());
+        const name = (c.user_name || '').toLowerCase();
+        const matchesSearch = name.includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
 
     const pendingFiltered = filtered.filter(c => c.status === 'PENDING');
-    const totalComisiones = pendingFiltered.reduce((acc, curr) => acc + parseFloat(curr.calculated_commission), 0);
-    const totalVentasBase = pendingFiltered.reduce((acc, curr) => acc + parseFloat(curr.base_amount), 0);
+    const totalComisiones = pendingFiltered.reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
 
     return (
         <div className="p-4 max-w-7xl mx-auto space-y-6">
-            {/* Confirmation Modal */}
             <ConfirmPayModal
                 commission={pendingPayment}
-                employeeName={pendingPayment ? getEmployeeName(pendingPayment.employee_id) : ''}
                 onConfirm={handleConfirmPay}
                 onCancel={handleCancelPay}
                 isProcessing={isProcessing}
@@ -185,7 +169,7 @@ const CommissionsReport = () => {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Reporte de Comisiones</h1>
-                        <p className="text-slate-500 text-sm mt-1">Historial de servicios y comisiones generadas por estilistas</p>
+                        <p className="text-slate-500 text-sm mt-1">Historial de comisiones generadas por ventas</p>
                     </div>
                 </div>
 
@@ -193,10 +177,6 @@ const CommissionsReport = () => {
                     <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
                         <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Pendiente de Pago</p>
                         <p className="text-xl font-bold text-emerald-600">${totalComisiones.toFixed(2)}</p>
-                    </div>
-                    <div className="bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
-                        <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Volumen Generado</p>
-                        <p className="text-xl font-bold text-indigo-600">${totalVentasBase.toFixed(2)}</p>
                     </div>
                 </div>
             </div>
@@ -208,7 +188,7 @@ const CommissionsReport = () => {
                         <Search className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Buscar por barbero..."
+                            placeholder="Buscar por vendedor..."
                             className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow bg-white"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -236,8 +216,8 @@ const CommissionsReport = () => {
                         <thead>
                             <tr className="bg-slate-50 text-slate-600 text-sm border-b border-slate-100">
                                 <th className="p-4 font-semibold uppercase tracking-wider text-xs">Fecha</th>
-                                <th className="p-4 font-semibold uppercase tracking-wider text-xs">Barbero / Estilista</th>
-                                <th className="p-4 font-semibold uppercase tracking-wider text-xs text-right">Venta Base</th>
+                                <th className="p-4 font-semibold uppercase tracking-wider text-xs">Vendedor</th>
+                                <th className="p-4 font-semibold uppercase tracking-wider text-xs">Tipo</th>
                                 <th className="p-4 font-semibold uppercase tracking-wider text-xs text-right">Comisión</th>
                                 <th className="p-4 font-semibold uppercase tracking-wider text-xs text-center">Estado</th>
                                 <th className="p-4 font-semibold uppercase tracking-wider text-xs text-center">Acciones</th>
@@ -264,14 +244,14 @@ const CommissionsReport = () => {
                                             {format(new Date(comm.created_at), "dd MMM yyyy, p", { locale: es })}
                                         </td>
                                         <td className="p-4 font-bold text-slate-800">
-                                            {getEmployeeName(comm.employee_id)}
+                                            {comm.user_name}
                                         </td>
-                                        <td className="p-4 text-right font-medium text-slate-600">
-                                            ${parseFloat(comm.base_amount).toFixed(2)}
+                                        <td className="p-4 text-slate-500 text-sm">
+                                            {comm.source_type === 'SERVICE' ? 'Servicio' : 'Venta'}
                                         </td>
                                         <td className="p-4 text-right">
                                             <span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-lg border border-emerald-200">
-                                                ${parseFloat(comm.calculated_commission).toFixed(2)}
+                                                ${parseFloat(comm.amount).toFixed(2)}
                                             </span>
                                         </td>
                                         <td className="p-4 text-center">

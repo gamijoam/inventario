@@ -29,14 +29,17 @@ class EmployeeResponse(EmployeeBase):
 
 class CommissionResponse(BaseModel):
     id: int
-    tenant_id: int
-    employee_id: int
-    sale_item_id: int
-    base_amount: Decimal
-    calculated_commission: Decimal
+    user_id: int
+    user_name: Optional[str] = None
+    sale_detail_id: Optional[int] = None
+    source_type: Optional[str] = None
+    amount: Decimal
+    percentage_applied: Optional[Decimal] = None
     status: str
     created_at: datetime
-    
+    paid_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 class CommissionPayoutRequest(BaseModel):

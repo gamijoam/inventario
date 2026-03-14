@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import datetime, date as date_type
 
 from ..database.db import get_db
-from ..models.models import User, Employee, Commission, SaleDetail, Product, CashSession, CashMovement
+from ..models.models import User, Employee, CommissionLog, CommissionStatus, SaleDetail, Product, CashSession, CashMovement
 from ..schemas.employees import (
     EmployeeCreate, EmployeeUpdate, EmployeeResponse,
     CommissionResponse, CommissionPayoutRequest, CommissionPayoutResponse
@@ -93,33 +93,55 @@ def delete_employee(
 def get_commissions(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    status_filter: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    tenant_id = current_user.tenant_id
     """
-    Retrieve all barbershop commissions for the current tenant.
-    Optionally filter by date range (start_date, end_date in YYYY-MM-DD).
+    Retrieve all commission logs. Uses CommissionLog (general system).
     """
-    query = db.query(Commission).filter(Commission.tenant_id == tenant_id)
+    query = db.query(CommissionLog)
 
-    # Date range filter on created_at
+    if status_filter and status_filter != "ALL":
+        try:
+            query = query.filter(CommissionLog.status == CommissionStatus(status_filter))
+        except ValueError:
+            pass
+
     if start_date:
         try:
             sd = date_type.fromisoformat(start_date)
-            query = query.filter(Commission.created_at >= datetime.combine(sd, datetime.min.time()))
+            query = query.filter(CommissionLog.created_at >= datetime.combine(sd, datetime.min.time()))
         except ValueError:
             pass
     if end_date:
         try:
             from datetime import timedelta
             ed = date_type.fromisoformat(end_date)
-            query = query.filter(Commission.created_at < datetime.combine(ed + timedelta(days=1), datetime.min.time()))
+            query = query.filter(CommissionLog.created_at < datetime.combine(ed + timedelta(days=1), datetime.min.time()))
         except ValueError:
             pass
 
-    commissions = query.order_by(Commission.created_at.desc()).all()
-    return commissions
+    logs = query.order_by(CommissionLog.created_at.desc()).all()
+
+    # Map to response with user_name
+    results = []
+    for log in logs:
+        user = db.query(User).filter(User.id == log.user_id).first()
+        results.append(CommissionResponse(
+            id=log.id,
+            user_id=log.user_id,
+            user_name=user.username if user else f"User #{log.user_id}",
+            sale_detail_id=log.sale_detail_id,
+            source_type=log.source_type,
+            amount=log.amount,
+            percentage_applied=log.percentage_applied,
+            status=log.status.value if hasattr(log.status, 'value') else str(log.status),
+            created_at=log.created_at,
+            paid_at=log.paid_at,
+            notes=log.notes,
+        ))
+    return results
 
 @router.post("/payout", response_model=CommissionPayoutResponse)
 def payout_commissions(
@@ -191,24 +213,21 @@ def payout_commissions(
     )
 
 
-@router.post("/commissions/{commission_id}/pay", response_model=CommissionPayoutResponse)
+@router.post("/commissions/{commission_id}/pay")
 def pay_single_commission(
     commission_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Fase 3 — Pay a single barbershop commission by ID.
+    Pay a single commission log by ID.
     Marks it PAID and generates a cash register expense.
     Requires an open cash session.
     """
-    tenant_id = current_user.tenant_id
-
-    # 1. Fetch commission belonging to this tenant
-    commission = db.query(Commission).filter(
-        Commission.id == commission_id,
-        Commission.tenant_id == tenant_id,
-        Commission.status == "PENDING"
+    # 1. Fetch commission log
+    commission = db.query(CommissionLog).filter(
+        CommissionLog.id == commission_id,
+        CommissionLog.status == CommissionStatus.PENDING
     ).first()
 
     if not commission:
@@ -217,16 +236,11 @@ def pay_single_commission(
             detail="Comisión no encontrada, ya pagada, o no pertenece a este tenant"
         )
 
-    # 2. Fetch associated employee
-    employee = db.query(Employee).filter(
-        Employee.id == commission.employee_id,
-        Employee.tenant_id == tenant_id
-    ).first()
+    # 2. Fetch associated user
+    user = db.query(User).filter(User.id == commission.user_id).first()
+    user_name = user.username if user else f"User #{commission.user_id}"
 
-    if not employee:
-        raise HTTPException(status_code=404, detail="Empleado no encontrado")
-
-    amount_to_pay = commission.calculated_commission
+    amount_to_pay = commission.amount
 
     # 3. Locate open cash session (current user first, fallback to any open)
     session = db.query(CashSession).filter(
@@ -250,7 +264,7 @@ def pay_single_commission(
         amount=float(amount_to_pay),
         currency="USD",
         description=(
-            f"Pago Comisión: {employee.name} — "
+            f"Pago Comisión: {user_name} — "
             f"Comisión #{commission_id} — ${float(amount_to_pay):,.2f} "
             f"[{datetime.now().strftime('%Y%m%d-%H%M%S')}]"
         ),
@@ -259,15 +273,16 @@ def pay_single_commission(
     db.flush()
 
     # 5. Mark commission as paid
-    commission.status = "PAID"
+    commission.status = CommissionStatus.PAID
+    commission.paid_at = datetime.now()
 
     db.commit()
 
-    return CommissionPayoutResponse(
-        success=True,
-        paid_count=1,
-        total_paid=amount_to_pay,
-        movement_id=expense.id,
-        message=f"Comisión pagada a {employee.name} por ${float(amount_to_pay):,.2f}"
-    )
+    return {
+        "success": True,
+        "paid_count": 1,
+        "total_paid": float(amount_to_pay),
+        "movement_id": expense.id,
+        "message": f"Comisión pagada a {user_name} por ${float(amount_to_pay):,.2f}"
+    }
 
