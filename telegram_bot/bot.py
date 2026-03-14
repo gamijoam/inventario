@@ -137,24 +137,31 @@ async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     intent_type    = intent.get("intent", "search")
     search_queries = intent.get("queries") or []
     sort_order     = intent.get("sort")  # "price_asc" | "price_desc" | null
+    budget_min     = intent.get("budget_min")  # float | None
+    budget_max     = intent.get("budget_max")  # float | None
     # Support single-query fallback from Gemini
     if not search_queries and intent.get("query"):
         search_queries = [intent["query"]]
 
-    logger.info("Intent: %s | Queries: %s | Sort: %s", intent_type, search_queries, sort_order)
+    logger.info(
+        "Intent: %s | Queries: %s | Sort: %s | Budget: %s-%s",
+        intent_type, search_queries, sort_order, budget_min, budget_max,
+    )
 
     if intent_type == "search" and search_queries:
         api = InventoryAPI()
         all_products = []
         searched_terms = []
-        # For sorted queries fetch more to have a good pool to sort from
-        fetch_limit = 30 if sort_order else 5
+        # For sorted/budget queries fetch more to have a good pool
+        fetch_limit = 30 if (sort_order or budget_min or budget_max) else 5
 
         for q in search_queries:
             q = q.strip()
             if not q:
                 continue
-            products = await api.search_products(q, limit=fetch_limit)
+            products = await api.search_products(
+                q, limit=fetch_limit, min_price=budget_min, max_price=budget_max,
+            )
             if products:
                 all_products.extend(products)
                 searched_terms.append(q)
@@ -166,14 +173,15 @@ async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         if all_products:
             await _send_product_results(
-                update, all_products, " + ".join(searched_terms), sort_order=sort_order
+                update, all_products, " + ".join(searched_terms),
+                sort_order=sort_order, budget_min=budget_min, budget_max=budget_max,
             )
         elif not search_queries:
             await update.message.reply_text(
                 "🔍 No encontré productos. Intenta con otras palabras."
             )
 
-    elif intent_type in ("greeting", "info", "thanks", "other"):
+    elif intent_type in ("greeting", "info", "thanks", "offtopic", "other"):
         reply = intent.get("response", "")
         if reply:
             await update.message.reply_text(reply)
@@ -193,6 +201,8 @@ async def _send_product_results(
     products: list[dict],
     query: str,
     sort_order: Optional[str] = None,
+    budget_min: float | None = None,
+    budget_max: float | None = None,
 ) -> None:
     import random
 
@@ -233,8 +243,28 @@ async def _send_product_results(
     limited = unique[:show_count]
     total   = len(unique)
 
-    # Humanized intro message — diferente para sorted vs normal
-    if sort_order == "price_asc":
+    # Build budget label for intro messages
+    budget_label = ""
+    if budget_min is not None and budget_max is not None:
+        budget_label = f" entre ${int(budget_min)} y ${int(budget_max)}"
+    elif budget_max is not None:
+        budget_label = f" hasta ${int(budget_max)}"
+    elif budget_min is not None:
+        budget_label = f" desde ${int(budget_min)}"
+
+    # Humanized intro message — diferente para sorted/budget vs normal
+    if budget_label and sort_order == "price_desc":
+        intros = [
+            f"¡Lo mejor que tenemos{_escape_md(budget_label)}\\! ⭐ 👇",
+            f"Estos son los top en *{_escape_md(query)}*{_escape_md(budget_label)} 🏆",
+        ]
+    elif budget_label:
+        intros = [
+            f"¡Esto encontré para tu presupuesto{_escape_md(budget_label)}\\! 💰 👇",
+            f"Opciones de *{_escape_md(query)}*{_escape_md(budget_label)} 💵 👇",
+            f"Con tu presupuesto{_escape_md(budget_label)}, esto es lo que hay en *{_escape_md(query)}* 👇",
+        ]
+    elif sort_order == "price_asc":
         intros = [
             f"¡Aquí te muestro los más económicos\\! 💰 Ordenados de menor a mayor precio 👇",
             f"Estos son los más baratos que tenemos para *{_escape_md(query)}* 💵",

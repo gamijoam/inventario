@@ -52,6 +52,8 @@ def read_catalog_products(
     search: Optional[str] = None,
     category_id: Optional[int] = None,
     warehouse_id: Optional[int] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
     db: Session = Depends(get_db)
 ):
     """
@@ -94,6 +96,12 @@ def read_catalog_products(
                 for t in tokens
             ]
             base_query = base_query.filter(and_(*token_conditions))
+
+    # Price range filter
+    if min_price is not None:
+        base_query = base_query.filter(models.Product.price >= min_price)
+    if max_price is not None:
+        base_query = base_query.filter(models.Product.price <= max_price)
 
     # Count query (before adding joinedload options)
     total = base_query.with_entities(func.count(models.Product.id)).scalar()

@@ -30,7 +30,13 @@ class InventoryAPI:
             headers={"X-Tenant-ID": TENANT_SUBDOMAIN},
         )
 
-    async def search_products(self, query: str, limit: int = 20) -> list[dict]:
+    async def search_products(
+        self,
+        query: str,
+        limit: int = 20,
+        min_price: float | None = None,
+        max_price: float | None = None,
+    ) -> list[dict]:
         """
         Search the product catalog with multi-token AND filtering.
 
@@ -60,6 +66,10 @@ class InventoryAPI:
             params: dict = {"limit": limit}
             if primary_token:  # Don't send empty search param
                 params["search"] = primary_token
+            if min_price is not None:
+                params["min_price"] = min_price
+            if max_price is not None:
+                params["max_price"] = max_price
 
             response = await self.client.get(
                 "/api/v1/products/catalog",

@@ -27,7 +27,7 @@ python-telegram-bot (polling)
       │
       └─► API Central: api.miinventariofacil.com
             Header: X-Tenant-ID: <tenant>
-            GET /api/v1/products/catalog?search=<query>&limit=10
+            GET /api/v1/products/catalog?search=<query>&limit=10&min_price=X&max_price=Y
             Devuelve: {items, total, has_more}
 ```
 
@@ -92,14 +92,28 @@ El system prompt instruye a Gemini a responder siempre en JSON:
 
 | Intent | Descripción | Estructura de respuesta |
 |---|---|---|
-| `search` | Búsqueda de productos | `{"intent": "search", "queries": ["term1", "term2"]}` |
+| `search` | Búsqueda de productos | `{"intent": "search", "queries": ["term1"], "sort": "price_asc", "budget_min": 0, "budget_max": 200}` |
 | `greeting` | Saludo sin búsqueda | `{"intent": "greeting", "response": "¡Hola!..."}` |
 | `thanks` | Despedida/agradecimiento | `{"intent": "thanks", "response": "..."}` |
-| `info` | Preguntas sobre la tienda | `{"intent": "info", "response": "..."}` |
-| `other` | Cualquier otra cosa | `{"intent": "other", "response": "..."}` |
+| `offtopic` | Mensaje no relacionado | `{"intent": "offtopic", "response": "..."}` |
 
-**Característica clave:** El bot soporta múltiples productos en un mensaje:
-- "tienen samsung y iphone?" → `{"queries": ["Samsung", "iPhone"]}` → 2 búsquedas, resultados unificados
+**Campos del intent `search`:**
+- `queries`: array de términos de búsqueda (normalización automática de sinónimos, marcas, modelos)
+- `sort`: `"price_asc"` (barato), `"price_desc"` (caro), `null` (sin orden)
+- `budget_min` / `budget_max`: rango de presupuesto en USD, `null` si no aplica
+
+**Detección de presupuesto:**
+- "tengo 200$" → `budget_min: 0, budget_max: 200`
+- "entre 100 y 200" → `budget_min: 100, budget_max: 200`
+- "como unos 200" → `budget_min: 160, budget_max: 240` (±20%)
+- "más de 300" → `budget_min: 300, budget_max: null`
+
+**Características del prompt:**
+- Diccionario de sinónimos (cel/celu/tlf → "telefono", forro/case/cover → "forro", etc.)
+- Normalización de marcas con typos (sansung → Samsung, aifon → iPhone)
+- Detección de recomendaciones ("recomiéndame", "cuál es mejor") → siempre search
+- Tolerancia a errores tipográficos y spanglish
+- Regla de oro: ante la duda, buscar (nunca pedir aclaración)
 
 ---
 
@@ -173,11 +187,16 @@ nohup python bot.py > /var/log/telegram_bot.log 2>&1 &
 
 ## 10. Roadmap del Bot (Propuestas)
 
-### Fase 1 — Búsqueda (✅ COMPLETADO)
-- Búsqueda por lenguaje natural
+### Fase 1 — Búsqueda + Presupuesto (✅ COMPLETADO)
+- Búsqueda por lenguaje natural con sinónimos y typos
 - Soporte multi-producto en un mensaje
 - Fotos de productos
 - Fallback sin Gemini
+- Filtro por presupuesto (budget_min/budget_max) server-side y client-side
+- Ordenamiento por precio (más barato/más caro)
+- Respuestas humanizadas con intros aleatorios
+- Detección de categorías genéricas ("telefono", "audifonos", "cargador", etc.)
+- Backend: endpoint catalog con `min_price`/`max_price` query params
 
 ### Fase 2 — Carrito y Apartados (PROPUESTA)
 - El cliente puede decir "apártame 1 iPhone 13" → se reserva stock
