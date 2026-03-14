@@ -5,19 +5,22 @@ from sqlalchemy.orm import sessionmaker
 from ..config import settings
 from ..tenant_context import get_tenant_schema
 
-_SAFE_SCHEMA_RE = re.compile(r'^[a-zA-Z0-9_]+$')
+_SAFE_SCHEMA_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 def _validate_schema_name(schema: str) -> None:
-    """Raise ValueError if schema contains any character outside [a-zA-Z0-9_].
+    """Raise ValueError if schema contains any character outside [a-zA-Z0-9_-].
 
     PostgreSQL SET search_path does not support bind parameters, so we
     must whitelist the identifier before embedding it in SQL.  An invalid
     name indicates either a misconfigured tenant or an injection attempt.
+    Hyphens are allowed since tenant schema names may contain them
+    (e.g. 'lavado-automoto-y-accesorios-el-progresito') and are safe
+    when the schema name is quoted with double quotes in SET search_path.
     """
     if not _SAFE_SCHEMA_RE.match(schema):
         raise ValueError(
-            f"Invalid schema name '{schema}': only alphanumeric characters and "
-            "underscores are allowed."
+            f"Invalid schema name '{schema}': only alphanumeric characters, "
+            "underscores, and hyphens are allowed."
         )
 
 # Database Configuration
