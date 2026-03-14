@@ -56,12 +56,21 @@ Ver documentación completa en `21_Bot_Telegram.md`.
 6 tabs: Productos, Categorías, Kardex, Traslados, Almacenes, Seriales
 Reemplaza 8+ páginas dispersas. Cada tab tiene descripción contextual.
 
-#### Centro de Ventas (`SalesCenter.jsx`)
+#### Centro de Ventas (`/sales-center` → `SalesCenter.jsx`)
 5 tabs: Cotizaciones, Clientes, Devoluciones, Garantías, Créditos CxC
+Sidebar: grupo "Ventas" reemplazado por un solo item. Rutas viejas redirigen a `/sales-center?tab=XXX`.
 
-#### Centro de Configuración (`ConfigCenter.jsx`)
+#### Centro de Configuración (`/config-center` → `ConfigCenter.jsx`, solo ADMIN)
 9 tabs: General, Usuarios, Monedas, Impuestos, Métodos de Pago, Impresoras, Políticas de Garantía, Auditoría, Estación POS
-Solo visible para ADMIN.
+Sidebar: grupo "Configuración" (8 items) reemplazado por un solo item. Rutas viejas redirigen.
+
+#### Tab Descriptions Banner
+Todos los centros (Inventario, Ventas, Configuración) muestran un banner informativo bajo los tabs con descripción + tip contextual.
+
+#### Garantía en Órdenes de Servicio (Reception.jsx + ServiceManager.jsx)
+- `Reception.jsx`: selector de política de garantía con pre-selección del default
+- `ServiceManager.jsx`: badge con nombre y duración de la garantía asignada
+- Backend ya tenía FK — solo faltaba exponer el selector en el frontend
 
 #### Módulo Farmacia
 - Activación automática por keyword ("FARMACIA", "DROGUERIA", "BOTICA") en `tenant_service.py`

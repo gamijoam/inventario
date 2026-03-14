@@ -269,6 +269,26 @@ const ServiceManager = () => {
                         <p className="text-gray-500">{order.customer?.phone}</p>
                     </div>
 
+                    {order.warranty_policy && (
+                        <div className="mb-6 bg-indigo-50 border border-indigo-100 rounded-xl p-3">
+                            <span className="block text-xs text-indigo-500 font-bold uppercase mb-1 flex items-center gap-1">
+                                🛡 Política de Garantía
+                            </span>
+                            <p className="font-semibold text-indigo-800 text-sm">{order.warranty_policy.name}</p>
+                            {order.warranty_policy.duration && (
+                                <p className="text-xs text-indigo-600">
+                                    {order.warranty_policy.duration} {order.warranty_policy.type === 'DAYS' ? 'días' : order.warranty_policy.type === 'MONTHS' ? 'meses' : 'años'}
+                                </p>
+                            )}
+                            {order.warranty_policy.type === 'LIFETIME' && (
+                                <p className="text-xs text-indigo-600">Garantía vitalicia</p>
+                            )}
+                            {order.warranty_policy.description && (
+                                <p className="text-xs text-indigo-500 mt-1">{order.warranty_policy.description}</p>
+                            )}
+                        </div>
+                    )}
+
                     {order.service_type === 'LAUNDRY' ? (
                         <>
                             <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">

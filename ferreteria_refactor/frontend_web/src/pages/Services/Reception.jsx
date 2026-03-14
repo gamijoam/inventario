@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Users, Smartphone, Tablet, Monitor, Save,
-    Search, Plus, CheckCircle, AlertTriangle, Printer
+    Search, Plus, CheckCircle, AlertTriangle, Printer, ShieldCheck
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -29,6 +29,18 @@ const Reception = () => {
 
     // Quick Customer Modal
     const [isQuickCustomerModalOpen, setIsQuickCustomerModalOpen] = useState(false);
+
+    // Warranty Policies
+    const [warrantyPolicies, setWarrantyPolicies] = useState([]);
+    const [selectedWarrantyId, setSelectedWarrantyId] = useState('');
+
+    useEffect(() => {
+        apiClient.get('/warranties/policies').then(res => {
+            setWarrantyPolicies(res.data || []);
+            const def = (res.data || []).find(p => p.is_default);
+            if (def) setSelectedWarrantyId(String(def.id));
+        }).catch(() => {});
+    }, []);
 
     // Form Data
     const [formData, setFormData] = useState({
@@ -102,6 +114,7 @@ const Reception = () => {
                 customer_id: selectedCustomer.id,
                 service_type: 'REPAIR',
                 ...formData,
+                warranty_policy_id: selectedWarrantyId ? parseInt(selectedWarrantyId) : null,
                 items: [], // Future: Add cart items in reception
                 payments: paymentData.amount ? [{
                     amount: parseFloat(paymentData.amount),
@@ -416,6 +429,35 @@ const Reception = () => {
                                 </div>
                             </div>
                             */}
+
+                            {/* Política de Garantía */}
+                            {warrantyPolicies.length > 0 && (
+                                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                    <h3 className="font-semibold text-indigo-800 flex items-center gap-2 mb-3">
+                                        <ShieldCheck size={18} className="text-indigo-600" />
+                                        Política de Garantía
+                                    </h3>
+                                    <select
+                                        value={selectedWarrantyId}
+                                        onChange={e => setSelectedWarrantyId(e.target.value)}
+                                        className="w-full p-2 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm"
+                                    >
+                                        <option value="">— Sin garantía —</option>
+                                        {warrantyPolicies.map(p => (
+                                            <option key={p.id} value={String(p.id)}>
+                                                {p.name}{p.is_default ? ' (predeterminada)' : ''}
+                                                {p.duration ? ` — ${p.duration} ${p.type === 'DAYS' ? 'días' : p.type === 'MONTHS' ? 'meses' : 'años'}` : p.type === 'LIFETIME' ? ' — Vitalicia' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {selectedWarrantyId && (
+                                        <p className="text-xs text-indigo-600 mt-1 flex items-center gap-1">
+                                            <ShieldCheck size={12} />
+                                            Esta garantía se imprimirá en el ticket del cliente
+                                        </p>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="border-t pt-6 mt-6 flex justify-end">
                                 <button
