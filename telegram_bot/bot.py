@@ -23,6 +23,7 @@ load_dotenv()
 
 from config import (
     TELEGRAM_BOT_TOKEN,
+    BACKEND_URL,
     MAX_PRODUCTS_PER_MESSAGE,
     WELCOME_MESSAGE,
 )
@@ -88,9 +89,12 @@ def _escape_md(text: str) -> str:
 def _get_image_url(product: dict) -> Optional[str]:
     """Extract the first usable image URL from a product dict."""
     url = product.get("image_url") or product.get("imagen_url") or product.get("image")
-    if url and isinstance(url, str) and url.startswith("http"):
+    if not url or not isinstance(url, str):
+        return None
+    if url.startswith("http"):
         return url
-    return None
+    # Relative path — prepend the backend URL
+    return f"{BACKEND_URL.rstrip('/')}{url}"
 
 
 # ── Handlers ────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import logging
 
 import httpx
 
-from config import BACKEND_URL
+from config import BACKEND_URL, TENANT_SUBDOMAIN
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,7 @@ class InventoryAPI:
         self.client = httpx.AsyncClient(
             base_url=BACKEND_URL,
             timeout=10.0,
+            headers={"X-Tenant-ID": TENANT_SUBDOMAIN},
         )
 
     async def search_products(self, query: str, limit: int = 10) -> list[dict]:
