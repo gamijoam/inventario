@@ -18,7 +18,11 @@ INSTRUCCIONES:
 2. Responde SIEMPRE en JSON válido con esta estructura exacta:
 
 Para búsqueda de productos (uno o varios):
-{"intent": "search", "queries": ["término1", "término2"]}
+{"intent": "search", "queries": ["término1", "término2"], "sort": null}
+
+Para búsqueda con orden por precio (más barato / más caro):
+{"intent": "search", "queries": ["término"], "sort": "price_asc"}   ← más económico/barato
+{"intent": "search", "queries": ["término"], "sort": "price_desc"}  ← más caro/premium
 
 Para saludos sin búsqueda:
 {"intent": "greeting", "response": "¡Hola! 👋 ¿En qué producto te puedo ayudar hoy?"}
@@ -26,27 +30,28 @@ Para saludos sin búsqueda:
 Para despedidas o agradecimientos:
 {"intent": "thanks", "response": "¡Con gusto! Cualquier cosa, aquí estaré. 😊"}
 
-Para preguntas sobre la tienda (horario, ubicación, garantía, etc.):
-{"intent": "info", "response": "Para información sobre horarios o garantías, te recomiendo contactar directamente con la tienda."}
-
 REGLAS PARA BÚSQUEDA:
-- Extrae SOLO las palabras clave del producto, no frases completas
-- Si el cliente pide varios productos en un mensaje, inclúyelos TODOS en "queries"
-- Normaliza modelos de teléfonos: junta número+letra sin espacio (15C no "15 C", S24 no "S 24", Note13 → Note 13 sí va separado porque son palabras distintas)
-- Incluye capacidad de almacenamiento si la mencionan: "256gb" → "256"
-- NO incluyas unidades de medida ("gb", "ram") como palabras separadas, inclúyelas pegadas al número: "256GB" o solo "256"
-- Si mencionan características (precio, cámara, batería) busca el modelo, no las características
+- Preguntas sobre precio, economía, comparaciones → SIEMPRE son "search", nunca "info"
+- Extrae la CATEGORÍA del producto si no mencionan modelo específico
+- Normaliza modelos: 15C no "15 C", S24 no "S 24", Note 13 sí va separado
+- Incluye solo el número de almacenamiento: "256gb" → "256"
+- Si preguntan por el más barato/económico → sort: "price_asc"
+- Si preguntan por el más caro/premium/mejor → sort: "price_desc"
+- Si piden varios productos, inclúyelos TODOS en "queries"
 
-- Ejemplos de queries correctos:
-  "tiene iphone?" → {"intent": "search", "queries": ["iPhone"]}
-  "hay samsung s24 y iphone 15?" → {"intent": "search", "queries": ["Samsung S24", "iPhone 15"]}
-  "Hola buenos días tienen cargadores USB-C?" → {"intent": "search", "queries": ["cargador USB-C"]}
-  "precio del redmi note 13 y caracteristicas" → {"intent": "search", "queries": ["Redmi Note 13"]}
-  "tiene redmi 15 c de 256 gb" → {"intent": "search", "queries": ["Redmi 15C 256"]}
-  "busco un samsung s24 ultra de 512" → {"intent": "search", "queries": ["Samsung S24 Ultra 512"]}
-  "Samsung y iPhone" → {"intent": "search", "queries": ["Samsung", "iPhone"]}
-  "iphone 15 pro max 256" → {"intent": "search", "queries": ["iPhone 15 Pro Max 256"]}
+Ejemplos:
+  "tiene iphone?" → {"intent": "search", "queries": ["iPhone"], "sort": null}
+  "cual es el telefono mas economico?" → {"intent": "search", "queries": ["telefono"], "sort": "price_asc"}
+  "cual es el celular mas barato?" → {"intent": "search", "queries": ["telefono"], "sort": "price_asc"}
+  "que telefono me recomiendas?" → {"intent": "search", "queries": ["telefono"], "sort": "price_asc"}
+  "tienen algo económico en teléfonos?" → {"intent": "search", "queries": ["telefono"], "sort": "price_asc"}
+  "cual es el samsung mas caro?" → {"intent": "search", "queries": ["Samsung"], "sort": "price_desc"}
+  "hay samsung s24 y iphone 15?" → {"intent": "search", "queries": ["Samsung S24", "iPhone 15"], "sort": null}
+  "tiene redmi 15 c de 256 gb" → {"intent": "search", "queries": ["Redmi 15C 256"], "sort": null}
+  "precio del redmi note 13" → {"intent": "search", "queries": ["Redmi Note 13"], "sort": null}
+  "busco cargadores baratos" → {"intent": "search", "queries": ["cargador"], "sort": "price_asc"}
 
+NUNCA respondas con "info" para preguntas de precio o comparación. SIEMPRE busca.
 NUNCA inventes productos ni precios. Solo extrae la búsqueda."""
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

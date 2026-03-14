@@ -134,24 +134,27 @@ async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     gemini = GeminiService()
     intent = await gemini.understand_message(user_text)
 
-    intent_type   = intent.get("intent", "search")
+    intent_type    = intent.get("intent", "search")
     search_queries = intent.get("queries") or []
+    sort_order     = intent.get("sort")  # "price_asc" | "price_desc" | null
     # Support single-query fallback from Gemini
     if not search_queries and intent.get("query"):
         search_queries = [intent["query"]]
 
-    logger.info("Intent: %s | Queries: %s", intent_type, search_queries)
+    logger.info("Intent: %s | Queries: %s | Sort: %s", intent_type, search_queries, sort_order)
 
     if intent_type == "search" and search_queries:
         api = InventoryAPI()
         all_products = []
         searched_terms = []
+        # For sorted queries fetch more to have a good pool to sort from
+        fetch_limit = 30 if sort_order else 5
 
         for q in search_queries:
             q = q.strip()
             if not q:
                 continue
-            products = await api.search_products(q, limit=5)
+            products = await api.search_products(q, limit=fetch_limit)
             if products:
                 all_products.extend(products)
                 searched_terms.append(q)
@@ -162,7 +165,9 @@ async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 )
 
         if all_products:
-            await _send_product_results(update, all_products, " + ".join(searched_terms))
+            await _send_product_results(
+                update, all_products, " + ".join(searched_terms), sort_order=sort_order
+            )
         elif not search_queries:
             await update.message.reply_text(
                 "🔍 No encontré productos. Intenta con otras palabras."
@@ -187,14 +192,16 @@ async def _send_product_results(
     update: Update,
     products: list[dict],
     query: str,
+    sort_order: Optional[str] = None,
 ) -> None:
+    import random
+
     if not products:
         intros_no_result = [
             f"Mmm, busqué bien y no encontré nada para *{_escape_md(query)}* 🤔\nIntenta con otras palabras o un modelo diferente\\.",
             f"No tenemos en este momento lo que buscas para *{_escape_md(query)}* 😕\n¿Quieres intentar con otro término?",
             f"Busqué *{_escape_md(query)}* y no hay resultados disponibles 🔍\nPrueba siendo más general o escribe solo la marca\\.",
         ]
-        import random
         await update.message.reply_text(
             random.choice(intros_no_result),
             parse_mode=ParseMode.MARKDOWN_V2,
@@ -210,18 +217,43 @@ async def _send_product_results(
             seen.add(pid)
             unique.append(p)
 
-    limited = unique[:MAX_PRODUCTS_PER_MESSAGE]
+    # Sort by price if requested
+    if sort_order in ("price_asc", "price_desc"):
+        def price_key(p):
+            try:
+                return float(p.get("price") or 0)
+            except (ValueError, TypeError):
+                return 0
+        unique.sort(key=price_key, reverse=(sort_order == "price_desc"))
+        # For sorted queries only show top results (most relevant)
+        show_count = min(3, MAX_PRODUCTS_PER_MESSAGE)
+    else:
+        show_count = MAX_PRODUCTS_PER_MESSAGE
+
+    limited = unique[:show_count]
     total   = len(unique)
 
-    # Humanized intro message
-    intros = [
-        f"¡Claro que sí\\! Aquí te muestro lo que encontré para *{_escape_md(query)}* 👇",
-        f"Encontré *{total}* resultado\\(s\\) para *{_escape_md(query)}* ✅",
-        f"Mira lo que tenemos para *{_escape_md(query)}* 📦",
-        f"¡Buena elección\\! Estos son los *{_escape_md(query)}* disponibles 👇",
-        f"Aquí están los resultados para *{_escape_md(query)}* 🛍️",
-    ]
-    import random
+    # Humanized intro message — diferente para sorted vs normal
+    if sort_order == "price_asc":
+        intros = [
+            f"¡Aquí te muestro los más económicos\\! 💰 Ordenados de menor a mayor precio 👇",
+            f"Estos son los más baratos que tenemos para *{_escape_md(query)}* 💵",
+            f"Mirando lo más accesible en *{_escape_md(query)}*\\.\\.\\. aquí van 👇",
+        ]
+    elif sort_order == "price_desc":
+        intros = [
+            f"¡Los más premium que tenemos\\! ⭐ De mayor a menor precio 👇",
+            f"Estos son los de gama alta en *{_escape_md(query)}* 🏆",
+            f"Lo mejor del inventario en *{_escape_md(query)}* 👇",
+        ]
+    else:
+        intros = [
+            f"¡Claro que sí\\! Aquí te muestro lo que encontré para *{_escape_md(query)}* 👇",
+            f"Encontré *{total}* resultado\\(s\\) para *{_escape_md(query)}* ✅",
+            f"Mira lo que tenemos para *{_escape_md(query)}* 📦",
+            f"¡Buena elección\\! Estos son los *{_escape_md(query)}* disponibles 👇",
+            f"Aquí están los resultados para *{_escape_md(query)}* 🛍️",
+        ]
     await update.message.reply_text(
         random.choice(intros),
         parse_mode=ParseMode.MARKDOWN_V2,
