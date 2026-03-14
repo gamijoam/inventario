@@ -129,16 +129,17 @@ def create_service_order(
                 )
                 db.add(new_payment)
 
-        # 🔒 Commit and Refresh
-        db.commit()
+        # Eager load BEFORE commit (while search_path is still set)
+        db.flush()
 
-        # 7. Eager Load for Response
         final_order = db.query(models.ServiceOrder).options(
             joinedload(models.ServiceOrder.customer),
             joinedload(models.ServiceOrder.technician),
             joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-            joinedload(models.ServiceOrder.payments) # Include payments in response
+            joinedload(models.ServiceOrder.payments)
         ).filter(models.ServiceOrder.id == new_order.id).first()
+
+        db.commit()
 
         return schemas.ServiceOrderRead.model_validate(final_order)
         
@@ -278,13 +279,16 @@ def add_service_order_item(
     )
     
     db.add(new_detail)
-    db.commit()
-    
-    # Reload with payments and details
-    return db.query(models.ServiceOrder).options(
+    db.flush()
+
+    # Reload BEFORE commit (while search_path is still set)
+    result = db.query(models.ServiceOrder).options(
          joinedload(models.ServiceOrder.details),
          joinedload(models.ServiceOrder.payments)
     ).get(order_id)
+
+    db.commit()
+    return result
 
 @router.delete("/orders/{order_id}/items/{item_id}", response_model=schemas.ServiceOrderRead)
 def delete_service_order_item(
@@ -313,12 +317,15 @@ def delete_service_order_item(
         raise HTTPException(status_code=404, detail="Item not found")
         
     db.delete(item)
-    db.commit()
-    
-    return db.query(models.ServiceOrder).options(
+    db.flush()
+
+    result = db.query(models.ServiceOrder).options(
          joinedload(models.ServiceOrder.details),
          joinedload(models.ServiceOrder.payments)
     ).get(order_id)
+
+    db.commit()
+    return result
 
 @router.patch("/orders/{order_id}/status", response_model=schemas.ServiceOrderRead)
 def update_service_order_status(
