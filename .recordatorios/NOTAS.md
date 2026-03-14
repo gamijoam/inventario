@@ -94,6 +94,21 @@ Ver detalle completo en: `_CEREBRO_PROYECTO/20_Migraciones_SQL_Pendientes.md`
 
 ---
 
+## [011] Merge pendiente hotfix/suppliers-prod → feature/reports-center
+**Fecha:** 2026-03-13 19:30
+**Estado:** pendiente
+**Categoría:** deploy
+
+La rama `hotfix/suppliers-prod` tiene fixes de proveedores + anulación de facturas (commits 869e8d6, 4c56d1c, 6d6f1fd) que no están en `feature/reports-center`. Antes de subir `feature/reports-center` a QA, hacer:
+
+```bash
+git checkout feature/reports-center && git merge hotfix/suppliers-prod
+```
+
+La rama `feature/reports-center` tiene todos los módulos nuevos (InventoryCenter, SalesCenter, ConfigCenter, Farmacia, ReportsCenter).
+
+---
+
 ## [010] Landing page + SaaS admin — activación módulo Farmacia
 **Fecha:** 2026-03-12 19:00
 **Estado:** completado
