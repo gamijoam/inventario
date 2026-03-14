@@ -9,82 +9,101 @@ from config import GEMINI_API_KEY, GEMINI_MODEL
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """Eres el asistente virtual de una tienda. Tu trabajo es ayudar a los clientes a encontrar productos.
+# ── System prompt ────────────────────────────────────────────────────────────
+SYSTEM_PROMPT = """Eres el asistente virtual de una tienda de tecnología y electrónica.
+Tu única función es ayudar a los clientes a buscar productos disponibles en el inventario.
 
-REGLAS:
-1. Siempre responde en español venezolano amigable y profesional.
-2. Cuando el cliente pregunta por un producto, extrae las palabras clave de búsqueda.
-3. Responde SOLO en formato JSON con esta estructura:
-   {"intent": "search", "query": "palabras clave del producto"}
-   {"intent": "greeting", "response": "tu respuesta amigable"}
-   {"intent": "info", "response": "información sobre horarios, ubicación, etc"}
-   {"intent": "thanks", "response": "tu respuesta de despedida"}
-   {"intent": "other", "response": "respuesta a lo que preguntó"}
+INSTRUCCIONES:
+1. Analiza el mensaje del cliente e identifica qué tipo de respuesta dar.
+2. Responde SIEMPRE en JSON válido con esta estructura exacta:
 
-4. Para búsquedas, extrae solo las palabras clave relevantes del producto.
-   Ejemplo: "Hola buenas tardes, tienen cargadores para iPhone?" -> {"intent": "search", "query": "cargador iPhone"}
-   Ejemplo: "quiero ver pinturas de agua" -> {"intent": "search", "query": "pintura agua"}
-   Ejemplo: "cuánto cuesta un martillo?" -> {"intent": "search", "query": "martillo"}
+Para búsqueda de productos (uno o varios):
+{"intent": "search", "queries": ["término1", "término2"]}
 
-5. Si el cliente saluda sin preguntar por un producto, responde con greeting.
-6. Si no estás seguro, asume que es una búsqueda de producto.
-7. NUNCA inventes productos ni precios. Solo extrae la búsqueda."""
+Para saludos sin búsqueda:
+{"intent": "greeting", "response": "¡Hola! 👋 ¿En qué producto te puedo ayudar hoy?"}
 
-PRODUCT_FORMAT_PROMPT = """Eres el asistente virtual de una tienda. El cliente buscó: "{query}"
+Para despedidas o agradecimientos:
+{"intent": "thanks", "response": "¡Con gusto! Cualquier cosa, aquí estaré. 😊"}
 
-Aquí están los productos encontrados:
-{products_json}
+Para preguntas sobre la tienda (horario, ubicación, garantía, etc.):
+{"intent": "info", "response": "Para información sobre horarios o garantías, te recomiendo contactar directamente con la tienda."}
 
-Genera una respuesta amigable en español venezolano presentando estos productos.
-- Usa emojis con moderación.
-- Muestra nombre, precio y disponibilidad de cada producto.
-- Si hay precio en USD y en Bs, muestra ambos.
-- Sé conciso pero amable.
-- NO uses formato markdown, solo texto plano con saltos de línea.
-- Al final, invita al cliente a preguntar si necesita más información."""
+REGLAS PARA BÚSQUEDA:
+- Extrae SOLO las palabras clave del producto, no frases completas
+- Si el cliente pide varios productos en un mensaje, inclúyelos TODOS en "queries"
+- Normaliza modelos de teléfonos: junta número+letra sin espacio (15C no "15 C", S24 no "S 24", Note13 → Note 13 sí va separado porque son palabras distintas)
+- Incluye capacidad de almacenamiento si la mencionan: "256gb" → "256"
+- NO incluyas unidades de medida ("gb", "ram") como palabras separadas, inclúyelas pegadas al número: "256GB" o solo "256"
+- Si mencionan características (precio, cámara, batería) busca el modelo, no las características
 
-NO_RESULTS_PROMPT = """Eres el asistente virtual de una tienda. El cliente buscó: "{query}" y no se encontraron resultados.
+- Ejemplos de queries correctos:
+  "tiene iphone?" → {"intent": "search", "queries": ["iPhone"]}
+  "hay samsung s24 y iphone 15?" → {"intent": "search", "queries": ["Samsung S24", "iPhone 15"]}
+  "Hola buenos días tienen cargadores USB-C?" → {"intent": "search", "queries": ["cargador USB-C"]}
+  "precio del redmi note 13 y caracteristicas" → {"intent": "search", "queries": ["Redmi Note 13"]}
+  "tiene redmi 15 c de 256 gb" → {"intent": "search", "queries": ["Redmi 15C 256"]}
+  "busco un samsung s24 ultra de 512" → {"intent": "search", "queries": ["Samsung S24 Ultra 512"]}
+  "Samsung y iPhone" → {"intent": "search", "queries": ["Samsung", "iPhone"]}
+  "iphone 15 pro max 256" → {"intent": "search", "queries": ["iPhone 15 Pro Max 256"]}
 
-Genera una respuesta amigable en español venezolano indicando que no encontraste ese producto.
-- Sugiere que intente con otros términos de búsqueda.
-- Sé breve, amable y servicial.
-- NO uses formato markdown, solo texto plano."""
+NUNCA inventes productos ni precios. Solo extrae la búsqueda."""
 
-EMPTY_SUGGEST_PROMPT = """Eres el asistente virtual de una tienda. El cliente buscó: "{query}" pero no hay productos que coincidan.
-
-Genera una respuesta corta y amigable en español venezolano:
-- Indica que no encontraste resultados exactos.
-- Sugiere buscar con otras palabras o ser más específico.
-- Sé breve y servicial."""
-
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _extract_json(text: str) -> dict:
     """Extract a JSON object from text that may contain markdown fences."""
-    # Try raw parse first
-    text_stripped = text.strip()
+    text = text.strip()
     try:
-        return json.loads(text_stripped)
+        return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    # Strip markdown ```json ... ``` fences
-    match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text_stripped, re.DOTALL)
-    if match:
+    # Strip ```json ... ``` fences
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
+    if m:
         try:
-            return json.loads(match.group(1))
+            return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
 
-    # Last resort: find the first { ... } block
-    match = re.search(r"\{.*\}", text_stripped, re.DOTALL)
-    if match:
+    # Find first { ... } block
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if m:
         try:
-            return json.loads(match.group(0))
+            return json.loads(m.group(0))
         except json.JSONDecodeError:
             pass
 
-    raise ValueError(f"Could not extract JSON from: {text_stripped[:200]}")
+    raise ValueError(f"Could not parse JSON from Gemini response: {text[:300]}")
 
+
+def _clean_query_fallback(text: str) -> str:
+    """
+    Last-resort query cleaner used when Gemini is unavailable.
+    Uses word-boundary regex to avoid breaking words like SAMSUNG or IPHONE.
+    """
+    result = re.sub(r"[¿?¡!.,;:]+", " ", text)
+    # Remove greeting words
+    result = re.sub(
+        r"\b(?:hola|buenos?\s+d[ií]as?|buenas?\s+tardes?|buenas?\s+noches?)\b",
+        " ", result, flags=re.IGNORECASE,
+    )
+    # Remove question/request verbs
+    result = re.sub(
+        r"\b(?:tienen|tienes?|tiene|hay|venden|busco|quiero|necesito|cu[aá]nto\s+cuestan?|precio\s+de[l]?|características?\s+de[l]?)\b",
+        " ", result, flags=re.IGNORECASE,
+    )
+    # Remove articles and common prepositions
+    result = re.sub(
+        r"\b(?:un|una|unos|unas|el|la|los|las|de|del|para|con|en|al|por|y|e|o|u)\b",
+        " ", result, flags=re.IGNORECASE,
+    )
+    cleaned = " ".join(result.split()).strip()
+    return cleaned or text.strip()
+
+
+# ── Service class ─────────────────────────────────────────────────────────────
 
 class GeminiService:
     """Wrapper around the Google Gemini API for the Telegram store bot."""
@@ -93,110 +112,34 @@ class GeminiService:
         self.client = genai.Client(api_key=GEMINI_API_KEY)
         self.model = GEMINI_MODEL
 
-    async def understand_message(
-        self, user_message: str, context: list | None = None
-    ) -> dict:
-        """Classify a customer message and extract search keywords if applicable.
-
-        Args:
-            user_message: The raw text the customer sent.
-            context: Optional list of previous message dicts for conversation
-                     continuity. Each dict should have ``role`` ("user" or
-                     "model") and ``parts`` keys.
-
-        Returns:
-            A dict with at least ``intent`` and either ``query`` or
-            ``response`` depending on the intent.
+    async def understand_message(self, user_message: str) -> dict:
         """
-        contents: list = []
+        Classify a customer message and extract product search keywords.
 
-        if context:
-            for msg in context:
-                contents.append(
-                    genai_types.Content(
-                        role=msg.get("role", "user"),
-                        parts=[genai_types.Part.from_text(text=msg.get("text", ""))],
-                    )
-                )
-
-        contents.append(
-            genai_types.Content(
-                role="user",
-                parts=[genai_types.Part.from_text(text=user_message)],
-            )
-        )
-
-        try:
-            response = await self.client.aio.models.generate_content(
-                model=self.model,
-                contents=contents,
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT,
-                    temperature=0.3,
-                ),
-            )
-
-            result = _extract_json(response.text)
-            logger.debug("Gemini understood message as: %s", result)
-            return result
-
-        except Exception as exc:
-            logger.error("Gemini understand_message failed: %s", exc)
-            # Fallback: treat entire message as a product search
-            return {"intent": "search", "query": user_message}
-
-    async def format_product_response(
-        self, products: list, original_query: str
-    ) -> str:
-        """Ask Gemini to present a list of products in a friendly way.
-
-        Args:
-            products: List of product dicts coming from the backend.
-            original_query: The search terms the customer used.
-
-        Returns:
-            A human-friendly string ready to be sent back to the customer.
+        Returns a dict like:
+          {"intent": "search", "queries": ["iPhone", "Samsung"]}
+          {"intent": "greeting", "response": "¡Hola! ..."}
         """
-        if not products:
-            return await self._generate_text(
-                EMPTY_SUGGEST_PROMPT.format(query=original_query)
-            )
-
-        prompt = PRODUCT_FORMAT_PROMPT.format(
-            query=original_query,
-            products_json=json.dumps(products, ensure_ascii=False, indent=2),
-        )
-        return await self._generate_text(prompt)
-
-    async def format_no_results(self, query: str) -> str:
-        """Return a friendly 'nothing found' message for the given query."""
-        return await self._generate_text(
-            NO_RESULTS_PROMPT.format(query=query)
-        )
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    async def _generate_text(self, prompt: str) -> str:
-        """Send a single prompt to Gemini and return the plain-text answer."""
         try:
             response = await self.client.aio.models.generate_content(
                 model=self.model,
                 contents=[
                     genai_types.Content(
                         role="user",
-                        parts=[genai_types.Part.from_text(text=prompt)],
+                        parts=[genai_types.Part.from_text(text=user_message)],
                     )
                 ],
                 config=genai_types.GenerateContentConfig(
-                    temperature=0.7,
+                    system_instruction=SYSTEM_PROMPT,
+                    temperature=0.1,
                 ),
             )
-            return response.text.strip()
+            result = _extract_json(response.text)
+            logger.info("Gemini intent: %s", result)
+            return result
+
         except Exception as exc:
-            logger.error("Gemini _generate_text failed: %s", exc)
-            return (
-                "Disculpa, tuve un problema generando la respuesta. "
-                "Por favor intenta de nuevo."
-            )
+            logger.error("Gemini failed (%s) — using fallback", exc)
+            # Fallback: clean query and search directly
+            cleaned = _clean_query_fallback(user_message)
+            return {"intent": "search", "queries": [cleaned]}

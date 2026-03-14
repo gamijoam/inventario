@@ -41,7 +41,7 @@ def run_broadcast(event: str, data: dict):
         loop.close()
 
 from typing import Optional
-from sqlalchemy import or_, func
+from sqlalchemy import or_, and_, func
 from pydantic import BaseModel
 
 @router.get("/catalog", response_model=schemas.PaginatedCatalog)
@@ -73,13 +73,27 @@ def read_catalog_products(
         base_query = base_query.filter(models.Product.category_id == category_id)
 
     if search:
-        search_term = f"%{search}%"
-        base_query = base_query.filter(
-            or_(
-                models.Product.name.ilike(search_term),
-                models.Product.sku.ilike(search_term)
+        # Split query into tokens and require ALL words to appear in name OR sku
+        # This handles: "Redmi 15C 256GB" matching "REDMI 15C 256GB-8RAM"
+        tokens = [t for t in search.strip().split() if t]
+        if len(tokens) == 1:
+            search_term = f"%{tokens[0]}%"
+            base_query = base_query.filter(
+                or_(
+                    models.Product.name.ilike(search_term),
+                    models.Product.sku.ilike(search_term),
+                )
             )
-        )
+        else:
+            # Multi-word: each token must appear somewhere in name OR sku
+            token_conditions = [
+                or_(
+                    models.Product.name.ilike(f"%{t}%"),
+                    models.Product.sku.ilike(f"%{t}%"),
+                )
+                for t in tokens
+            ]
+            base_query = base_query.filter(and_(*token_conditions))
 
     # Count query (before adding joinedload options)
     total = base_query.with_entities(func.count(models.Product.id)).scalar()
