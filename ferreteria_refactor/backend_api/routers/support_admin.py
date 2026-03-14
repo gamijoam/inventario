@@ -67,7 +67,6 @@ def reply_to_ticket(
     db_ticket.status = reply_in.status
     
     db.commit()
-    db.refresh(db_ticket)
     return db_ticket
 
 @router.patch("/{ticket_id}", response_model=SupportTicketOut)
@@ -91,5 +90,4 @@ def update_ticket_status(
         db_ticket.priority = update_in.priority
         
     db.commit()
-    db.refresh(db_ticket)
     return db_ticket

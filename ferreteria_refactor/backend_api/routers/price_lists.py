@@ -67,7 +67,6 @@ def update_price_list(
     price_list.requires_auth = list_data.requires_auth
     price_list.is_active = list_data.is_active
     db.commit()
-    db.refresh(price_list)
     return price_list
 
 @router.patch("/{list_id}", response_model=schemas.PriceListRead)
@@ -88,7 +87,6 @@ def patch_price_list(
         price_list.name = list_data["name"]
 
     db.commit()
-    db.refresh(price_list)
     return price_list
 
 @router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT)

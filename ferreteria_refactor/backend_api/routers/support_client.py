@@ -90,8 +90,8 @@ def create_ticket(
         priority=ticket_in.priority
     )
     db.add(db_ticket)
+    db.flush()
     db.commit()
-    db.refresh(db_ticket)
     return db_ticket
 
 @router.get("/", response_model=List[SupportTicketOut])

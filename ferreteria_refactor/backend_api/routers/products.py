@@ -1303,8 +1303,8 @@ def create_discount_rule(
         is_active=data.is_active
     )
     db.add(rule)
+    db.flush()
     db.commit()
-    db.refresh(rule)
     return rule
 
 
@@ -1329,7 +1329,6 @@ def update_discount_rule(
     if data.is_active is not None:
         rule.is_active = data.is_active
     db.commit()
-    db.refresh(rule)
     return rule
 
 

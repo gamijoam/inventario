@@ -45,8 +45,8 @@ def create_employee(
         tenant_id=tenant_id
     )
     db.add(new_employee)
+    db.flush()
     db.commit()
-    db.refresh(new_employee)
     return new_employee
 
 @router.put("/{employee_id}", response_model=EmployeeResponse)
@@ -69,7 +69,6 @@ def update_employee(
         setattr(employee, key, value)
 
     db.commit()
-    db.refresh(employee)
     return employee
 
 @router.delete("/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)

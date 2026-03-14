@@ -61,8 +61,8 @@ def create_warranty_policy(
         **policy.dict()
     )
     db.add(new_policy)
+    db.flush()
     db.commit()
-    db.refresh(new_policy)
     return new_policy
 
 @router.put("/policies/{policy_id}", response_model=schemas.WarrantyPolicyRead)
@@ -80,7 +80,6 @@ def update_warranty_policy(
         setattr(db_policy, key, value)
     
     db.commit()
-    db.refresh(db_policy)
     return db_policy
 
 @router.delete("/policies/{policy_id}")
@@ -145,8 +144,8 @@ def create_warranty_claim(
     # Or just current policy? For now, we leave policy_snapshot empty or implement logic later.
     
     db.add(new_claim)
+    db.flush()
     db.commit()
-    db.refresh(new_claim)
     return new_claim
 
 @router.put("/claims/{claim_id}", response_model=schemas.WarrantyClaimRead)
@@ -170,5 +169,4 @@ def update_warranty_claim(
         db_claim.resolved_at = datetime.now()
         
     db.commit()
-    db.refresh(db_claim)
     return db_claim

@@ -60,8 +60,8 @@ def open_table(table_id: int, db: Session = Depends(get_db), current_user = Depe
     # 3. Actualizar Mesa
     table.status = TableStatusDB.OCCUPIED
     
+    db.flush()
     db.commit()
-    db.refresh(new_order)
     return new_order
 
 @router.post("/open-takeout", response_model=OrderRead)
@@ -78,8 +78,8 @@ def open_takeout(customer_name: Optional[str] = None, db: Session = Depends(get_
         total_amount=0
     )
     db.add(new_order)
+    db.flush()
     db.commit()
-    db.refresh(new_order)
     return new_order
 
 @router.get("/{table_id}/current", response_model=OrderRead)
@@ -159,7 +159,6 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreate], background_t
         
     order.updated_at = datetime.now()
     db.commit()
-    db.refresh(order)
     
     # TRIGGER KITCHEN PRINT
     try:
