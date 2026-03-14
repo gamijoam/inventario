@@ -59,8 +59,8 @@ const Reception = () => {
         const delayDebounceFn = setTimeout(async () => {
             if (searchTerm.length > 2) {
                 try {
-                    const res = await apiClient.get(`/customers/?search=${searchTerm}`);
-                    setCustomers(res.data);
+                    const res = await apiClient.get(`/customers/?q=${searchTerm}`);
+                    setCustomers(res.data.items || []);
                     setShowResults(true);
                 } catch (error) {
                     console.error("Error searching customers:", error);
