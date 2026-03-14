@@ -4,6 +4,77 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-13] — Bot Telegram con IA + Módulo Proveedores + Centros Unificados
+
+### Bot de Telegram (nueva rama: `feature/telegram-bot`)
+Chatbot para clientes que permite buscar productos del inventario por lenguaje natural.
+Ver documentación completa en `21_Bot_Telegram.md`.
+
+**Stack:** Python + python-telegram-bot v20 + Google Gemini 2.5 Flash + httpx async
+
+**Características implementadas:**
+- Lenguaje natural: "tienen iphone y samsung?" → 2 búsquedas separadas en el catálogo
+- Soporte multi-producto en un solo mensaje (`queries: []`)
+- Envío de fotos de productos cuando tienen `image_url`
+- Fallback inteligente cuando Gemini no está disponible (`_clean_query_fallback`)
+- Rate limiting por usuario (2s entre consultas)
+- `/buscar <término>` para búsqueda directa sin Gemini
+
+**Identificación de tenant:** Header `X-Tenant-ID` en cada request al backend central (`api.miinventariofacil.com`)
+
+**Bugs resueltos durante desarrollo:**
+- `price` como string "90.0000" → función `_to_float()` antes de formatear
+- Regex sin `\b` convertía "SAMSUNG" en "S A M S U N G" → reescrito con word boundaries
+- `gemini-2.0-flash` da 404 con API keys nivel 1 → cambiado a `gemini-2.5-flash`
+- Indentación rota por trabajo de agentes paralelos → archivo reescrito completo
+
+**Archivos creados:**
+- `telegram_bot/bot.py` — handler principal
+- `telegram_bot/gemini_service.py` — wrapper Gemini con system prompt de tienda
+- `telegram_bot/inventory_api.py` — cliente HTTP con header tenant
+- `telegram_bot/config.py`, `Dockerfile`, `requirements.txt`, `.env.example`
+
+**Rama:** `feature/telegram-bot` | **Commits:** `a42a1de`, `71bfa3d`, `162b35d`
+
+---
+
+### Módulo de Proveedores — 8 bugs corregidos
+- `joinedload` en queries de compras para evitar lazy-load cross-schema
+- `purchase_date` y `due_date` ahora se envían correctamente al crear factura
+- Eliminación/anulación de órdenes con reversión de stock (Kardex `PURCHASE_VOID`)
+- Anulación de facturas pagadas al contado (validación por `PurchasePayment` count, no `paid_amount`)
+- `PurchaseProductBasic` schema mínimo para evitar lazy-load de `category`/`price_rules`
+- `PaymentStatus(str, enum.Enum)` → serializa como `"PENDING"` no `"PaymentStatus.PENDING"`
+
+**Archivos:** `routers/purchases.py`, `services/inventory_service.py`, `schemas/__init__.py`, `models/models.py`
+
+---
+
+### Centros Unificados (rama: `feature/reports-center`)
+
+#### Centro de Inventario (`InventoryCenter.jsx`)
+6 tabs: Productos, Categorías, Kardex, Traslados, Almacenes, Seriales
+Reemplaza 8+ páginas dispersas. Cada tab tiene descripción contextual.
+
+#### Centro de Ventas (`SalesCenter.jsx`)
+5 tabs: Cotizaciones, Clientes, Devoluciones, Garantías, Créditos CxC
+
+#### Centro de Configuración (`ConfigCenter.jsx`)
+9 tabs: General, Usuarios, Monedas, Impuestos, Métodos de Pago, Impresoras, Políticas de Garantía, Auditoría, Estación POS
+Solo visible para ADMIN.
+
+#### Módulo Farmacia
+- Activación automática por keyword ("FARMACIA", "DROGUERIA", "BOTICA") en `tenant_service.py`
+- Fix en `config.py`: `pharmacy` y `barbershop` ahora aparecen en los 3 bloques del endpoint `/config/public`
+- Pestaña "Farmacia" en sidebar solo visible cuando `has_pharmacy_module = true`
+
+#### Sistema de Anuncios (AnnouncementModal)
+- Modal de novedades con animación al entrar al sistema
+- Parser de formato `emoji Título | descripción` para presentar features en tarjetas
+- Dismiss persistente via `localStorage`
+
+---
+
 ## [2026-03-13] — Centro de Inventario Unificado + Módulo Farmacia + Traslados Inter-Sucursales
 
 ### Centro de Inventario (`/inventory-center` → InventoryCenter.jsx)

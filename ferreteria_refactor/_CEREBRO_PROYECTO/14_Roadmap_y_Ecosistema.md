@@ -54,11 +54,36 @@ La plataforma no es solo un POS, sino un conjunto de herramientas interconectada
 ### IA de Business Intelligence (Próximamente)
 *   **Predicción de Stock**: El sistema alertará no solo cuando haya poco stock, sino cuándo es el momento óptimo de comprar basado en la velocidad de venta histórica.
 
-## 4. Integraciones Futuras
+## 4. Nuevos Componentes del Ecosistema (2026-03)
+
+### ✅ Bot de Telegram con IA — COMPLETADO (2026-03-13)
+Chatbot para clientes finales que permite buscar el catálogo de la tienda por lenguaje natural vía Telegram.
+- Integra Google Gemini 2.5 Flash para comprensión de español venezolano
+- Búsqueda multi-producto: "tienen iPhone y Samsung?" → 2 búsquedas paralelas
+- Envío de fotos + precio + stock por producto
+- Identificación de tenant por `X-Tenant-ID` (mismo backend central `api.miinventariofacil.com`)
+- Rama: `feature/telegram-bot` | Documentación completa: `21_Bot_Telegram.md`
+
+**Roadmap Bot — Fases Propuestas:**
+
+| Fase | Feature | Estado |
+|---|---|---|
+| 1 | Búsqueda de catálogo con Gemini | ✅ Completado |
+| 2 | Carrito + Apartado de productos | 🔜 Propuesto |
+| 3 | Pedidos completos + notificación al vendedor | 🔜 Propuesto |
+| 4 | Integración de pagos | 💡 Idea futura |
+
+### ✅ Centros Unificados — COMPLETADO (2026-03-13)
+- **InventoryCenter** (6 tabs) — reemplaza 8+ páginas de inventario
+- **SalesCenter** (5 tabs) — ventas, clientes, créditos, garantías
+- **ConfigCenter** (9 tabs) — configuración completa del sistema (solo ADMIN)
+
+## 5. Integraciones Futuras
 
 *   **E-commerce (Shopify/WooCommerce)**: Sincronización automática de inventario entre la tienda física y la tienda online.
 *   **Bancos Locales**: Integración directa para verificar Pagos Móviles de forma automatizada mediante API bancaria.
+*   **n8n como orquestador**: Complementa el bot Python para notificaciones, alertas de stock y flujos con pasarelas de pago. No reemplaza la lógica conversacional.
 
-## 5. Filosofía del Proyecto
+## 6. Filosofía del Proyecto
 
 **Mi Inventario Fácil** nace con la misión de democratizar la gestión empresarial. Buscamos que un pequeño taller de teléfonos o una lavandería de barrio tenga las mismas herramientas de control que una gran cadena de ferreterías, con una interfaz que cualquiera pueda aprender a usar en menos de 10 minutos.
