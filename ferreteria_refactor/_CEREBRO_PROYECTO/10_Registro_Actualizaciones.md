@@ -4,6 +4,22 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-14] — Budget filtering en Bot + Fix Kardex en anulación de compras
+
+### Bot Telegram — Presupuesto y System Prompt mejorado
+- **System prompt completo:** sinónimos, normalización de modelos, detección de presupuesto, spanglish, typos
+- **Budget filtering:** campos `budget_min`/`budget_max` en intent de Gemini → filtrado client-side en bot
+- **Backend `min_price`/`max_price`:** nuevos query params en endpoint `/api/v1/products/catalog`
+- **Intent `offtopic`:** nuevo tipo para mensajes no relacionados con productos
+
+### Fix: Anulación de facturas de compra crasheaba
+- `purchases.py:302` usaba `notes=` y `user_id=` al crear Kardex → modelo solo tiene `description` y no `user_id`
+- Fix: `notes` → `description`, eliminado `user_id`
+
+**Archivos:** `routers/purchases.py`, `telegram_bot/bot.py`, `telegram_bot/gemini_service.py`, `telegram_bot/inventory_api.py`, `routers/products.py`
+
+---
+
 ## [2026-03-13] — Bot Telegram con IA + Módulo Proveedores + Centros Unificados
 
 ### Bot de Telegram (nueva rama: `feature/telegram-bot`)

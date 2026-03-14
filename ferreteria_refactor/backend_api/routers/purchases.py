@@ -304,9 +304,8 @@ def void_purchase_order(
             movement_type="ADJUSTMENT_OUT",
             quantity=-qty,
             balance_after=product.stock,
-            notes=f"ANULACIÓN factura compra #{purchase.invoice_number or purchase.id}",
-            warehouse_id=purchase.warehouse_id,
-            user_id=current_user.id
+            description=f"ANULACIÓN factura compra #{purchase.invoice_number or purchase.id}",
+            warehouse_id=purchase.warehouse_id
         )
         db.add(kardex)
         reversed_items.append({"product_id": product.id, "name": product.name, "quantity": qty})
