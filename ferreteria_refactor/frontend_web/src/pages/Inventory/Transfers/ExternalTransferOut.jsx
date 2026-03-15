@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
-import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle, Camera, X, Image as ImageIcon } from 'lucide-react';
 
 const ExternalTransferOut = () => {
     const [products, setProducts] = useState([]);
@@ -13,6 +13,9 @@ const ExternalTransferOut = () => {
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [exportSummary, setExportSummary] = useState(null);
+    const [photos, setPhotos] = useState([]); // { file, preview, uploading, url }
+    const [uploadingPhotos, setUploadingPhotos] = useState(false);
+    const fileInputRef = useRef(null);
 
     // Check if any item exceeds available stock
     const hasStockError = selectedItems.some(i => i.quantity > i.current_stock);
@@ -85,6 +88,64 @@ const ExternalTransferOut = () => {
         setSelectedItems(selectedItems.filter(item => item.product_id !== id));
     };
 
+    const handleAddPhotos = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        const newPhotos = files.map(file => ({
+            file,
+            preview: URL.createObjectURL(file),
+            uploading: false,
+            url: null
+        }));
+        setPhotos(prev => [...prev, ...newPhotos]);
+        // Reset input so same file can be re-selected
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const removePhoto = (index) => {
+        setPhotos(prev => {
+            const updated = [...prev];
+            URL.revokeObjectURL(updated[index].preview);
+            updated.splice(index, 1);
+            return updated;
+        });
+    };
+
+    const uploadAllPhotos = async () => {
+        const pendingPhotos = photos.filter(p => !p.url);
+        if (pendingPhotos.length === 0) return photos.map(p => p.url);
+
+        setUploadingPhotos(true);
+        const updatedPhotos = [...photos];
+
+        for (let i = 0; i < updatedPhotos.length; i++) {
+            if (updatedPhotos[i].url) continue; // Already uploaded
+            updatedPhotos[i].uploading = true;
+            setPhotos([...updatedPhotos]);
+
+            try {
+                const formData = new FormData();
+                formData.append('file', updatedPhotos[i].file);
+                const res = await apiClient.post('/inventory/transfer/upload-photo', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                updatedPhotos[i].url = res.data.url;
+                updatedPhotos[i].uploading = false;
+            } catch (err) {
+                console.error('Photo upload failed:', err);
+                updatedPhotos[i].uploading = false;
+                setPhotos([...updatedPhotos]);
+                setUploadingPhotos(false);
+                throw new Error('Error al subir foto de evidencia');
+            }
+        }
+
+        setPhotos([...updatedPhotos]);
+        setUploadingPhotos(false);
+        return updatedPhotos.map(p => p.url);
+    };
+
     const handleExport = async () => {
         if (selectedItems.length === 0) return;
         if (!selectedWarehouseId) {
@@ -94,7 +155,24 @@ const ExternalTransferOut = () => {
 
         try {
             setGenerating(true);
-            const loadingToast = toast.loading("Generando y descargando paquete...");
+            const loadingToast = toast.loading(
+                photos.length > 0
+                    ? "Subiendo fotos y generando paquete..."
+                    : "Generando y descargando paquete..."
+            );
+
+            // Upload photos first (if any)
+            let photoUrls = [];
+            if (photos.length > 0) {
+                try {
+                    photoUrls = await uploadAllPhotos();
+                } catch (err) {
+                    toast.dismiss(loadingToast);
+                    toast.error(err.message);
+                    setGenerating(false);
+                    return;
+                }
+            }
 
             // Call API to generate package (and deduct stock)
             const payload = {
@@ -103,7 +181,8 @@ const ExternalTransferOut = () => {
                 items: selectedItems.map(item => ({
                     product_id: item.product_id,
                     quantity: item.quantity
-                }))
+                })),
+                photo_urls: photoUrls
             };
 
             const response = await apiClient.post('/inventory/transfer/export', payload);
@@ -128,6 +207,9 @@ const ExternalTransferOut = () => {
             setShowConfirmation(false);
             setSearch('');
             setProducts([]);
+            // Cleanup photo previews
+            photos.forEach(p => URL.revokeObjectURL(p.preview));
+            setPhotos([]);
 
         } catch (error) {
             console.error("Export failed:", error);
@@ -258,6 +340,77 @@ const ExternalTransferOut = () => {
                                     </button>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Photo Evidence Section */}
+                <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-bold text-slate-600 flex items-center gap-2">
+                            <Camera size={16} className="text-indigo-500" />
+                            Evidencia Fotográfica
+                        </h3>
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                        >
+                            <Camera size={14} />
+                            Agregar Fotos
+                        </button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            capture="environment"
+                            onChange={handleAddPhotos}
+                            className="hidden"
+                        />
+                    </div>
+
+                    {photos.length === 0 ? (
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+                        >
+                            <ImageIcon size={24} className="mx-auto text-slate-300 mb-1" />
+                            <p className="text-xs text-slate-400">Toca para agregar fotos de evidencia (opcional)</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-4 gap-2">
+                            {photos.map((photo, idx) => (
+                                <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                                    <img
+                                        src={photo.preview}
+                                        alt={`Evidencia ${idx + 1}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                    {photo.uploading && (
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        </div>
+                                    )}
+                                    {photo.url && (
+                                        <div className="absolute top-1 left-1 bg-emerald-500 rounded-full p-0.5">
+                                            <CheckCircle size={12} className="text-white" />
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => removePhoto(idx)}
+                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                            {/* Add more button */}
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className="aspect-square rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-colors"
+                            >
+                                <Camera size={20} className="text-slate-300" />
+                            </div>
                         </div>
                     )}
                 </div>

@@ -1,8 +1,10 @@
 import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-    Package, Tags, Archive, ArrowRightLeft, Warehouse, Barcode, Info
+    Package, Tags, Archive, ArrowRightLeft, Warehouse, Barcode, Info, PlayCircle
 } from 'lucide-react';
+import { useOnboardingVideo } from '../../hooks/useOnboardingVideo';
+import OnboardingVideoModal from '../../components/common/OnboardingVideoModal';
 
 const ProductsTab = lazy(() => import('./tabs/ProductsTab'));
 const CategoriesTab = lazy(() => import('./tabs/CategoriesTab'));
@@ -56,6 +58,10 @@ const TabPlaceholder = ({ label, icon: Icon }) => (
 const InventoryCenter = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'productos';
+
+    // Onboarding: clave dinámica según la pestaña activa
+    const onboardingKey = `inventory:${activeTab}`;
+    const { showModal: showVideoModal, dismiss: dismissVideo, open: openVideo, videoConfig } = useOnboardingVideo(onboardingKey);
 
     const setActiveTab = (tabId) => {
         setSearchParams({ tab: tabId });
@@ -151,12 +157,23 @@ const InventoryCenter = () => {
 
             {/* Description Banner */}
             {TAB_DESCRIPTIONS[activeTab] && (
-                <div className="mx-6 mb-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-start gap-3">
-                    <Info size={16} className="text-slate-400 mt-0.5 shrink-0" />
-                    <div>
-                        <p className="text-sm text-slate-600">{TAB_DESCRIPTIONS[activeTab].desc}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{TAB_DESCRIPTIONS[activeTab].tip}</p>
+                <div className="mx-6 mb-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                        <Info size={16} className="text-slate-400 mt-0.5 shrink-0" />
+                        <div>
+                            <p className="text-sm text-slate-600">{TAB_DESCRIPTIONS[activeTab].desc}</p>
+                            <p className="text-xs text-slate-400 mt-0.5">{TAB_DESCRIPTIONS[activeTab].tip}</p>
+                        </div>
                     </div>
+                    {videoConfig && (
+                        <button
+                            onClick={openVideo}
+                            className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 hover:text-emerald-700 whitespace-nowrap transition-colors"
+                        >
+                            <PlayCircle size={15} />
+                            Ver tutorial
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -164,6 +181,15 @@ const InventoryCenter = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
                 {renderTabContent()}
             </div>
+
+            {/* Onboarding Video Modal */}
+            {showVideoModal && videoConfig && (
+                <OnboardingVideoModal
+                    videoId={videoConfig.videoId}
+                    title={videoConfig.title}
+                    onClose={dismissVideo}
+                />
+            )}
         </div>
     );
 };

@@ -42,3 +42,17 @@ Bot corriendo en local. Para produccion, agregar al docker-compose o correr stan
 Ver opciones en `_CEREBRO_PROYECTO/21_Bot_Telegram.md` seccion 9.
 
 ---
+
+## [014] Revisar traslados — Fotos no se ven al importar en otra tienda
+**Fecha:** 2026-03-14
+**Estado:** pendiente
+**Categoria:** bug
+
+La imagen sube correctamente en el traslado de salida (ExternalTransferOut), pero cuando se hace el descargue/importación en la otra tienda (ExternalTransferIn) no se ve nada — las fotos no aparecen.
+
+Posibles causas a investigar:
+- El JSON de importación no incluye las URLs de las fotos
+- El componente ExternalTransferIn no renderiza las fotos del JSON
+- Las URLs apuntan a un path que no es accesible desde el otro tenant
+
+---

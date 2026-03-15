@@ -206,6 +206,7 @@ class TransferRequest(BaseModel):
     items: List[Dict[str, Any]]
     source_company: str
     warehouse_id: Optional[int] = None
+    photo_urls: Optional[List[str]] = None
 
 @router.post("/transfer/export", response_model=TransferPackageSchema)
 def export_transfer_package(
@@ -219,10 +220,11 @@ def export_transfer_package(
     """
     try:
         return InventoryService.generate_transfer_package_v2(
-            db, 
-            request.items, 
+            db,
+            request.items,
             request.source_company,
-            request.warehouse_id
+            request.warehouse_id,
+            request.photo_urls
         )
     except HTTPException as e:
         raise e
@@ -265,6 +267,17 @@ async def import_transfer_mapped(
     """
     data = request.model_dump()
     return InventoryService.process_transfer_package_v2(db, data, request.warehouse_id)
+
+@router.post("/transfer/upload-photo")
+async def upload_transfer_photo(file: UploadFile = File(...)):
+    """
+    Upload a photo as evidence for a transfer package.
+    Photos are stored permanently in /app/media/transfers/.
+    Returns the public URL of the uploaded image.
+    """
+    from ..utils.media_utils import save_upload_file
+    url = save_upload_file(file, folder="transfers")
+    return {"url": url}
 
 @router.post("/bulk-entry", dependencies=[Depends(warehouse_or_admin)])
 def bulk_entry(

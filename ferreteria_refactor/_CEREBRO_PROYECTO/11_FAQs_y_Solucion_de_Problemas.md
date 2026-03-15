@@ -83,3 +83,29 @@ Guía de resolución de conflictos comunes en el uso y administración de **Mi I
 *   **Causa**: Los contenedores Docker usan UTC por defecto.
 *   **Solución**: Agregar `TZ=America/Caracas` como variable de entorno en backend y DB en docker-compose.
 
+## 8. Problemas de Multi-Tenant y Search Path (2026-03-14)
+
+### "relation 'warranty_policies' / 'service_orders' / cualquier tabla does not exist" después de un commit
+*   **Causa raíz**: `db.refresh()` o queries con `joinedload` ejecutadas DESPUÉS de `db.commit()` pierden el `search_path` del tenant. PostgreSQL resetea el search_path al esquema `public` al cerrar la transacción.
+*   **Regla crítica**: Con `expire_on_commit=False` (configurado en SessionLocal), `db.refresh()` es **siempre incorrecto**. Usar `db.flush()` antes de `db.commit()` para obtener IDs generados.
+*   **Patrón correcto:**
+    ```python
+    db.flush()          # obtiene ID generado, no cierra la transacción
+    result = db.query(...).options(joinedload(...)).filter(...).first()  # ANTES del commit
+    db.commit()         # cierra la transacción
+    return result       # ya tiene todos los datos cargados
+    ```
+
+### "El tenant con guiones en el nombre no puede iniciar sesión"
+*   **Causa**: La regex de validación de esquemas en `database/db.py` era `^[a-zA-Z0-9_]+` y no permitía guiones.
+*   **Solución**: Regex corregida a `^[a-zA-Z0-9_-]+`. Ya aplicado en el código.
+
+### "Error al procesar la imagen" al subir fotos de productos
+*   **Causa runtime**: El directorio `/app/media/` dentro del contenedor es propiedad de `root`, pero el backend corre como `appuser`.
+*   **Fix inmediato (VPS)**: `docker exec -u root <container_name> chown -R appuser:appgroup /app/media`
+*   **Fix permanente**: Agregar al `Dockerfile` del backend: `RUN mkdir -p /app/media && chown -R appuser:appgroup /app/media`
+
+### "Las comisiones muestran 'error del servidor'"
+*   **Causa**: El sistema tenía dos tablas: `commissions` (barbería legacy) y `commission_logs` (ventas generales). El frontend consultaba `commissions` pero las ventas generan `commission_logs`.
+*   **Solución**: Unificado a `CommissionLog`. El router `/employees/commissions` ahora siempre usa `commission_logs`.
+

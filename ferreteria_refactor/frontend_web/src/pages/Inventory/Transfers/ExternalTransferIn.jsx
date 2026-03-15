@@ -1,39 +1,35 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import apiClient from '../../../config/axios';
+import { API_ROOT_URL } from '../../../config/constants';
 import { toast } from 'react-hot-toast';
 import {
   Upload, Search, Check, AlertTriangle, Package,
-  ArrowRight, X, FileJson, RefreshCw, Warehouse
+  ArrowRight, X, FileJson, RefreshCw, Warehouse, Camera, Image as ImageIcon
 } from 'lucide-react';
 
-/* ─── Inline searchable product selector ─── */
-function ProductSearchSelect({ value, onChange, currentMatch }) {
+/* ─── Product Search Modal (replaces inline dropdown) ─── */
+function ProductSearchModal({ isOpen, onClose, onSelect }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
-  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const wrapperRef = useRef(null);
+  const inputRef = useRef(null);
   const debounceRef = useRef(null);
 
-  // Click-outside to close
   useEffect(() => {
-    const handler = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    if (isOpen) {
+      setQuery('');
+      setResults([]);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
 
-  // Debounced search
   useEffect(() => {
     if (!query || query.length < 2) { setResults([]); return; }
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
         setLoading(true);
-        const res = await apiClient.get('/products', { params: { search: query, limit: 20 } });
+        const res = await apiClient.get('/products', { params: { search: query, limit: 30 } });
         setResults(res.data?.items ?? res.data ?? []);
       } catch { setResults([]); }
       finally { setLoading(false); }
@@ -41,52 +37,65 @@ function ProductSearchSelect({ value, onChange, currentMatch }) {
     return () => clearTimeout(debounceRef.current);
   }, [query]);
 
-  if (value) {
-    return (
-      <div className="flex items-center gap-2 text-sm">
-        <span className="font-medium text-slate-700">{value.sku}</span>
-        <span className="text-slate-500 truncate max-w-[140px]">{value.name}</span>
-        <button onClick={() => onChange(null)} className="text-slate-400 hover:text-red-500 flex-shrink-0">
-          <X size={14} />
-        </button>
-      </div>
-    );
-  }
+  if (!isOpen) return null;
 
   return (
-    <div ref={wrapperRef} className="relative" style={{ overflow: 'visible' }}>
-      <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-indigo-300 focus-within:border-indigo-400">
-        <Search size={14} className="ml-2 text-slate-400 flex-shrink-0" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => query.length >= 2 && setOpen(true)}
-          placeholder="Buscar producto..."
-          className="w-full px-2 py-1.5 text-sm outline-none bg-transparent"
-        />
-      </div>
-      {open && (query.length >= 2) && (
-        <div className="absolute z-[100] mt-1 w-72 bg-white border border-slate-200 rounded-lg shadow-xl max-h-52 overflow-y-auto">
-          {loading && <div className="px-3 py-2 text-sm text-slate-400">Buscando...</div>}
-          {!loading && results.length === 0 && <div className="px-3 py-2 text-sm text-slate-400">Sin resultados</div>}
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[10vh]">
+      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="flex items-center gap-3 p-4 border-b border-slate-100 bg-slate-50">
+          <Search size={20} className="text-indigo-600" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar producto por nombre o código..."
+            className="flex-1 bg-transparent outline-none text-slate-700 font-medium placeholder:text-slate-400"
+          />
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors">
+            <X size={18} className="text-slate-500" />
+          </button>
+        </div>
+
+        {/* Results */}
+        <div className="max-h-[50vh] overflow-y-auto">
+          {loading && (
+            <div className="flex items-center justify-center py-8 text-slate-400 gap-2">
+              <RefreshCw size={16} className="animate-spin" />
+              Buscando...
+            </div>
+          )}
+
+          {!loading && query.length >= 2 && results.length === 0 && (
+            <div className="text-center py-8 text-slate-400 text-sm">Sin resultados para "{query}"</div>
+          )}
+
+          {!loading && query.length < 2 && (
+            <div className="text-center py-8 text-slate-400 text-sm">Escribe al menos 2 caracteres</div>
+          )}
+
           {results.map((p) => (
             <button
               key={p.id}
               onClick={() => {
-                onChange({ id: p.id, sku: p.sku, name: p.name, stock: p.stock ?? p.current_stock ?? 0 });
-                setQuery('');
-                setOpen(false);
+                onSelect({ id: p.id, sku: p.sku, name: p.name, stock: p.stock ?? p.current_stock ?? 0 });
+                onClose();
               }}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 flex items-center gap-2 border-b border-slate-50 last:border-0"
+              className="w-full text-left px-4 py-3 hover:bg-indigo-50 flex items-center gap-3 border-b border-slate-50 last:border-0 transition-colors"
             >
-              <span className="font-mono text-xs text-indigo-600 flex-shrink-0">{p.sku}</span>
-              <span className="truncate text-slate-700">{p.name}</span>
-              <span className="ml-auto text-xs text-slate-400 flex-shrink-0">Stock: {p.stock ?? p.current_stock ?? 0}</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-slate-700 truncate">{p.name}</div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="font-mono text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">{p.sku || 'SIN SKU'}</span>
+                  <span className="text-xs text-slate-400">Stock: {p.stock ?? p.current_stock ?? 0}</span>
+                </div>
+              </div>
+              <ArrowRight size={16} className="text-slate-300 flex-shrink-0" />
             </button>
           ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -113,36 +122,36 @@ function MatchBadge({ type }) {
 /* ─── Main component ─── */
 const ExternalTransferIn = () => {
   const fileInputRef = useRef(null);
-  const [step, setStep] = useState('upload');   // upload | preview | result
+  const [step, setStep] = useState('upload');
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  // Preview data
   const [previewItems, setPreviewItems] = useState([]);
   const [sourceCompany, setSourceCompany] = useState('');
 
-  // Warehouse data
   const [warehouses, setWarehouses] = useState([]);
   const [globalWarehouseId, setGlobalWarehouseId] = useState('');
 
-  // Result data
   const [result, setResult] = useState(null);
+  const [photoUrls, setPhotoUrls] = useState([]);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
 
-  /* ── Fetch warehouses ── */
+  // Modal state
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [searchModalIdx, setSearchModalIdx] = useState(null);
+
   useEffect(() => {
     const fetchWarehouses = async () => {
       try {
         const res = await apiClient.get('/warehouses');
         setWarehouses(res.data?.items ?? res.data ?? []);
-      } catch {
-        // silent — warehouses are optional
-      }
+      } catch { /* silent */ }
     };
     fetchWarehouses();
   }, []);
 
-  /* ── Upload handlers ── */
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const selected = e.target.files[0];
@@ -167,6 +176,7 @@ const ExternalTransferIn = () => {
 
       const data = res.data;
       setSourceCompany(data.source_company || '');
+      setPhotoUrls(data.photo_urls || []);
       const items = (data.items || []).map((item) => ({
         sku: item.sku,
         name: item.name,
@@ -177,12 +187,10 @@ const ExternalTransferIn = () => {
         matched_name: item.matched_name || '',
         matched_stock: item.matched_stock ?? 0,
         create_new: false,
-        warehouse_id: null, // per-item warehouse
-        // editable override via search
+        warehouse_id: null,
         _override: item.matched_product_id
           ? { id: item.matched_product_id, sku: item.matched_sku, name: item.matched_name, stock: item.matched_stock ?? 0 }
           : null,
-        _editing: false,
       }));
       setPreviewItems(items);
       setStep('preview');
@@ -196,36 +204,35 @@ const ExternalTransferIn = () => {
     }
   };
 
-  /* ── Preview item mutation helpers ── */
   const updateItem = useCallback((idx, patch) => {
     setPreviewItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
   }, []);
 
-  const handleProductSelect = useCallback((idx, product) => {
-    if (product) {
-      updateItem(idx, {
+  const openSearchFor = (idx) => {
+    setSearchModalIdx(idx);
+    setSearchModalOpen(true);
+  };
+
+  const handleModalSelect = (product) => {
+    if (searchModalIdx !== null && product) {
+      updateItem(searchModalIdx, {
         _override: product,
-        _editing: false,
         create_new: false,
       });
-    } else {
-      updateItem(idx, { _override: null, _editing: true });
     }
-  }, [updateItem]);
+    setSearchModalIdx(null);
+  };
 
-  /* ── Global warehouse change → apply to all items ── */
   const handleGlobalWarehouseChange = useCallback((warehouseId) => {
     const wId = warehouseId ? parseInt(warehouseId, 10) : null;
     setGlobalWarehouseId(warehouseId);
     setPreviewItems((prev) => prev.map((it) => ({ ...it, warehouse_id: wId })));
   }, []);
 
-  /* ── Derived stats ── */
   const mappedCount = previewItems.filter((it) => it._override || it.create_new).length;
   const totalCount = previewItems.length;
   const mappedPct = totalCount > 0 ? Math.round((mappedCount / totalCount) * 100) : 0;
 
-  /* ── Confirm import ── */
   const handleConfirm = async () => {
     const items = previewItems
       .filter((it) => it._override || it.create_new)
@@ -262,11 +269,13 @@ const ExternalTransferIn = () => {
     }
   };
 
-  /* ── Reset ── */
   const resetProcess = () => {
     setFile(null);
     setPreviewItems([]);
     setSourceCompany('');
+    setPhotoUrls([]);
+    setShowPhotoModal(false);
+    setSelectedPhoto(null);
     setResult(null);
     setStep('upload');
     setGlobalWarehouseId('');
@@ -290,7 +299,6 @@ const ExternalTransferIn = () => {
             Carga el archivo JSON generado por la otra sucursal. Podrás revisar y mapear los productos antes de confirmar.
           </p>
 
-          {/* Drop zone */}
           <div
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all py-12 ${
@@ -345,6 +353,13 @@ const ExternalTransferIn = () => {
   if (step === 'preview') {
     return (
       <div className="flex flex-col h-full bg-slate-50">
+        {/* Search Modal */}
+        <ProductSearchModal
+          isOpen={searchModalOpen}
+          onClose={() => { setSearchModalOpen(false); setSearchModalIdx(null); }}
+          onSelect={handleModalSelect}
+        />
+
         {/* Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -354,7 +369,6 @@ const ExternalTransferIn = () => {
             )}
           </div>
 
-          {/* Summary bar */}
           <div className="flex items-center gap-4">
             <div className="text-sm text-slate-600">
               <span className="font-bold text-indigo-600">{mappedCount}</span> de{' '}
@@ -370,7 +384,6 @@ const ExternalTransferIn = () => {
           </div>
         </div>
 
-        {/* Global warehouse selector */}
         {warehouses.length > 0 && (
           <div className="bg-white border-b border-slate-200 px-6 py-3 flex items-center gap-3">
             <Warehouse size={18} className="text-indigo-500 flex-shrink-0" />
@@ -385,14 +398,83 @@ const ExternalTransferIn = () => {
                 <option key={wh.id} value={wh.id}>{wh.name}</option>
               ))}
             </select>
-            <span className="text-xs text-slate-400">Puedes cambiar el almacén por producto en la tabla</span>
           </div>
         )}
 
-        {/* Table — overflow visible so dropdowns aren't clipped */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto px-6 py-4">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200" style={{ overflow: 'visible' }}>
-            <table className="w-full text-sm" style={{ overflow: 'visible' }}>
+        {/* Photo Evidence Section */}
+        {photoUrls.length > 0 && (
+          <div className="bg-white border-b border-slate-200 px-6 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Camera size={16} className="text-indigo-500" />
+              <span className="text-sm font-bold text-slate-700">Evidencia Fotográfica ({photoUrls.length} foto{photoUrls.length !== 1 ? 's' : ''})</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {photoUrls.map((url, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => { setSelectedPhoto(url); setShowPhotoModal(true); }}
+                  className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 border-slate-200 hover:border-indigo-400 transition-colors"
+                >
+                  <img src={`${API_ROOT_URL}${url}`} alt={`Evidencia ${idx + 1}`} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Photo Lightbox Modal */}
+        {showPhotoModal && selectedPhoto && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            onClick={() => setShowPhotoModal(false)}
+          >
+            <div className="relative max-w-3xl max-h-[85vh]" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setShowPhotoModal(false)}
+                className="absolute -top-3 -right-3 bg-white rounded-full p-1.5 shadow-lg hover:bg-slate-100 transition-colors z-10"
+              >
+                <X size={18} className="text-slate-600" />
+              </button>
+              <img
+                src={`${API_ROOT_URL}${selectedPhoto}`}
+                alt="Evidencia de traslado"
+                className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain"
+              />
+              {/* Navigation arrows */}
+              {photoUrls.length > 1 && (
+                <div className="absolute inset-y-0 left-0 right-0 flex items-center justify-between px-2 pointer-events-none">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentIdx = photoUrls.indexOf(selectedPhoto);
+                      const prevIdx = (currentIdx - 1 + photoUrls.length) % photoUrls.length;
+                      setSelectedPhoto(photoUrls[prevIdx]);
+                    }}
+                    className="pointer-events-auto bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-colors"
+                  >
+                    <ArrowRight size={18} className="text-slate-700 rotate-180" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const currentIdx = photoUrls.indexOf(selectedPhoto);
+                      const nextIdx = (currentIdx + 1) % photoUrls.length;
+                      setSelectedPhoto(photoUrls[nextIdx]);
+                    }}
+                    className="pointer-events-auto bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-colors"
+                  >
+                    <ArrowRight size={18} className="text-slate-700" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Table */}
+        <div className="flex-1 overflow-auto px-6 py-4">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="text-left px-4 py-3 font-semibold text-slate-600">Producto Origen</th>
@@ -408,32 +490,27 @@ const ExternalTransferIn = () => {
               <tbody className="divide-y divide-slate-100">
                 {previewItems.map((item, idx) => {
                   const hasOverride = !!item._override;
-                  const isEditing = item._editing;
 
                   return (
-                    <tr key={idx} className="hover:bg-slate-50 transition-colors" style={{ overflow: 'visible' }}>
-                      {/* Source product */}
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="font-mono text-xs text-indigo-600">{item.sku}</div>
                         <div className="text-slate-700 truncate max-w-[200px]">{item.name}</div>
                       </td>
 
-                      {/* Quantity */}
                       <td className="text-center px-4 py-3">
                         <span className="font-bold text-slate-800">{item.quantity}</span>
                       </td>
 
-                      {/* Match type badge */}
                       <td className="text-center px-4 py-3">
                         <MatchBadge type={item.match_type} />
                       </td>
 
-                      {/* Local product — relative + overflow visible for dropdown */}
-                      <td className="px-4 py-3 relative" style={{ overflow: 'visible' }}>
-                        {hasOverride && !isEditing ? (
+                      <td className="px-4 py-3">
+                        {hasOverride ? (
                           <button
-                            onClick={() => updateItem(idx, { _editing: true })}
-                            className="text-left hover:bg-slate-100 rounded-lg px-2 py-1 -mx-2 -my-1 transition-colors group w-full"
+                            onClick={() => openSearchFor(idx)}
+                            className="text-left hover:bg-slate-100 rounded-lg px-2 py-1 -mx-2 -my-1 transition-colors w-full"
                             title="Click para cambiar producto"
                           >
                             <div className="font-mono text-xs text-emerald-600">{item._override.sku}</div>
@@ -441,21 +518,22 @@ const ExternalTransferIn = () => {
                             <div className="text-xs text-slate-400">Stock: {item._override.stock}</div>
                           </button>
                         ) : (
-                          <ProductSearchSelect
-                            value={null}
-                            onChange={(product) => handleProductSelect(idx, product)}
-                            currentMatch={item.match_type}
-                          />
+                          <button
+                            onClick={() => openSearchFor(idx)}
+                            className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            <Search size={14} />
+                            Buscar producto
+                          </button>
                         )}
                       </td>
 
-                      {/* Per-item warehouse selector */}
                       {warehouses.length > 0 && (
                         <td className="text-center px-4 py-3">
                           <select
                             value={item.warehouse_id ?? ''}
                             onChange={(e) => updateItem(idx, { warehouse_id: e.target.value ? parseInt(e.target.value, 10) : null })}
-                            className="border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-600 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none w-full max-w-[140px]"
+                            className="border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-600 focus:ring-2 focus:ring-indigo-300 outline-none w-full max-w-[140px]"
                           >
                             <option value="">Global</option>
                             {warehouses.map((wh) => (
@@ -465,14 +543,13 @@ const ExternalTransferIn = () => {
                         </td>
                       )}
 
-                      {/* Action */}
                       <td className="text-center px-4 py-3">
-                        {hasOverride && !isEditing ? (
+                        {hasOverride ? (
                           <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-semibold">
                             <Check size={14} />
                             Mapeado
                           </span>
-                        ) : item.match_type === 'none' || (!hasOverride && !isEditing) ? (
+                        ) : (
                           <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none">
                             <input
                               type="checkbox"
@@ -482,8 +559,6 @@ const ExternalTransferIn = () => {
                             />
                             <span className="text-slate-600">Crear nuevo</span>
                           </label>
-                        ) : (
-                          <span className="text-xs text-slate-400">--</span>
                         )}
                       </td>
                     </tr>
@@ -494,7 +569,7 @@ const ExternalTransferIn = () => {
           </div>
         </div>
 
-        {/* Footer actions */}
+        {/* Footer */}
         <div className="bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between">
           <button
             onClick={resetProcess}
@@ -531,7 +606,6 @@ const ExternalTransferIn = () => {
         <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">Resultado del Traslado</h2>
 
         <div className="space-y-4 mb-8">
-          {/* Imported */}
           {(result?.imported_count ?? result?.success_count ?? 0) > 0 && (
             <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-4">
               <div className="bg-emerald-100 p-2 rounded-lg">
@@ -546,7 +620,6 @@ const ExternalTransferIn = () => {
             </div>
           )}
 
-          {/* Created */}
           {(result?.created_count ?? 0) > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-4">
               <div className="bg-blue-100 p-2 rounded-lg">
@@ -559,7 +632,6 @@ const ExternalTransferIn = () => {
             </div>
           )}
 
-          {/* Errors */}
           {(result?.errors?.length ?? 0) > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
               <div className="flex items-center gap-3 mb-3">
@@ -582,11 +654,8 @@ const ExternalTransferIn = () => {
             </div>
           )}
 
-          {/* No errors, all good */}
           {(result?.errors?.length ?? 0) === 0 && (
-            <div className="text-center text-slate-400 text-sm py-2">
-              Sin errores reportados
-            </div>
+            <div className="text-center text-slate-400 text-sm py-2">Sin errores reportados</div>
           )}
         </div>
 

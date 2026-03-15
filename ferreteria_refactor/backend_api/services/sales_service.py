@@ -631,6 +631,7 @@ class SalesService:
             return {"status": "success", "sale_id": new_sale_id}
         
         except HTTPException:
+            db.rollback()
             raise
         except Exception as e:
             print(f"[ERROR] ERROR CRÍTICO CREANDO VENTA: {e}")

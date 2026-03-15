@@ -1129,6 +1129,7 @@ class TransferPackageSchema(BaseModel):
     source_company: str
     generated_at: datetime
     items: List[TransferItemSchema]
+    photo_urls: Optional[List[str]] = None
 
 class TransferResultSchema(BaseModel):
     success_count: int
@@ -1148,6 +1149,7 @@ class TransferPreviewItemResult(BaseModel):
 class TransferPreviewResult(BaseModel):
     source_company: str
     items: List[TransferPreviewItemResult]
+    photo_urls: Optional[List[str]] = None
 
 class TransferImportV2Item(BaseModel):
     sku: str

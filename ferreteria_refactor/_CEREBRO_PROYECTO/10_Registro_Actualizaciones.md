@@ -4,6 +4,104 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-15] — Fix: Créditos con stock insuficiente + Sistema de Onboarding con Videos YouTube
+
+### Fix: Venta a crédito se registraba aunque no hubiera stock
+**Causa raíz:** `create_sale` en `sales_service.py` hacía `db.flush()` (crea el encabezado de venta) antes de validar el stock. Al fallar el stock lanzaba `HTTPException`, pero el `except HTTPException: raise` no hacía `db.rollback()`. El `finally` de `get_db()` llamaba `db.commit()` y committeba el encabezado de venta vacío.
+
+**Fix:** Se agregó `db.rollback()` en el bloque `except HTTPException` de `create_sale`.
+
+```python
+except HTTPException:
+    db.rollback()  # ← línea agregada
+    raise
+```
+
+**Archivo:** `ferreteria_refactor/backend_api/services/sales_service.py` (línea ~633)
+
+---
+
+### Feature: Sistema de Onboarding con Videos YouTube
+
+**Objetivo:** Mostrar un video tutorial corto la primera vez que un usuario entra a cada módulo/pestaña. Se puede re-ver con el botón "Ver tutorial".
+
+**Arquitectura:**
+- `src/config/onboardingVideos.js` — mapa `"modulo:pestana"` → `{ videoId, title }`
+- `src/hooks/useOnboardingVideo.js` — hook con lógica localStorage (`onboarding_video:tenantId:userId:key`)
+- `src/components/common/OnboardingVideoModal.jsx` — modal con iframe YouTube 16:9, autoplay
+
+**Integración actual:** `InventoryCenter.jsx`
+- Modal se muestra automáticamente al entrar a una pestaña con video configurado (delay 800ms)
+- Banner de descripción muestra botón "▶ Ver tutorial" si la pestaña tiene video
+- Estado "visto" aislado por tenant + usuario (no se mezclan entre cuentas)
+
+**Videos disponibles:**
+| Clave | Video | Descripción |
+|---|---|---|
+| `inventory:productos` | `btv6ZDuO4kA` | Cómo gestionar productos |
+
+**Para agregar más videos:** editar `src/config/onboardingVideos.js` y descomentar/agregar entradas.
+
+---
+
+## [2026-03-14] — Fix Masivo: db.refresh() + Comisiones + Traslados con Fotos + Onboarding
+
+### Fix Crítico: Patrón `db.refresh()` / post-commit queries
+**Causa raíz de múltiples errores "relation does not exist"**: después de `db.commit()`, PostgreSQL resetea el `search_path` del tenant. Como `expire_on_commit=False` está configurado, `db.refresh()` es innecesario y rompe el tenant isolation.
+
+**Regla:** Siempre usar `db.flush()` antes de `db.commit()` para obtener IDs. Nunca `db.refresh()` ni queries con `joinedload` post-commit.
+
+**Archivos corregidos:**
+- `routers/warranties.py` — 4 endpoints (create/update policy, create/update claim)
+- `routers/employees.py` — create/update employee
+- `routers/services.py` — create_service_order, add_item_to_order, delete_service_order_item (queries movidas antes del commit)
+- `routers/products.py` — discount rules endpoints (líneas 1307, 1332)
+- `routers/price_lists.py` — update y patch endpoints
+- `routers/modules/restaurant/orders.py` — create order (dine-in + takeout) y add items
+- `routers/support_client.py` y `support_admin.py`
+
+### Fix: Sistema de Comisiones unificado a CommissionLog
+**Problema:** Dos tablas de comisiones coexistían: `commissions` (barbería, legacy) y `commission_logs` (general/ventas). El frontend consultaba `commissions` pero las ventas generaban registros en `commission_logs`.
+
+**Fix:**
+- `routers/employees.py`: GET `/commissions` y POST `/commissions/{id}/pay` ahora usan `CommissionLog` + `CommissionStatus`
+- `schemas/employees.py`: `CommissionResponse` reescrito con campos de CommissionLog (`user_name`, `source_type`, `amount`, etc.)
+- `pages/Barbershop/CommissionsReport.jsx`: Reescrito completo para usar `CommissionLog`, columna "Tipo" (Venta/Servicio)
+
+### Fix: Recepción de Servicios (Reception.jsx)
+- Búsqueda de clientes: `?search=` → `?q=` (param correcto del backend)
+- Respuesta paginada: `res.data` → `res.data.items || []`
+
+### Fix: Tenant con guiones en nombre de esquema
+- `database/db.py`: regex `^[a-zA-Z0-9_]+` → `^[a-zA-Z0-9_-]+`
+- 7 tenants bloqueados (ej. `lavado-automoto-y-accesorios-el-progresito`) ahora pueden iniciar sesión
+
+### Fix: Permisos de directorio de media en VPS
+- **Problema runtime:** `/app/media/` era propiedad de `root`, pero el backend corre como `appuser`
+- **Fix temporal aplicado:** `docker exec -u root backend_qa chown -R appuser:appgroup /app/media`
+- **Pendiente:** Hacer permanente en Dockerfile
+
+### Feature: ExternalTransferIn — Modal de búsqueda de productos
+- Reemplazado `ProductSearchSelect` inline (se ocultaba detrás de la tabla) por `ProductSearchModal`
+- Modal centrado con z-50, búsqueda con debounce 300ms, resultados scrollables
+- Cada fila de la tabla tiene botón "Buscar producto" que abre el modal
+
+### Feature: ExternalTransferOut — Evidencia fotográfica
+- Sección de fotos antes del botón "Generar Paquete"
+- Upload a `/api/v1/inventory/transfer/upload-photo` → `/app/media/transfers/`
+- Almacenamiento permanente en VPS (UUIDs, no temporales)
+- URLs incluidas en el JSON generado (`photo_urls: []`)
+- Thumbnails 4 columnas con indicador de subida + botón eliminar
+
+### Feature: ExternalTransferIn — Visualización de fotos del traslado
+- Al importar un JSON, si tiene `photo_urls`, se muestran thumbnails clickables
+- Lightbox modal para ver fotos en grande con navegación ← → entre fotos
+- **Backend:** `preview_transfer_package` ahora retorna `photo_urls` del JSON
+- **Schema:** `TransferPreviewResult` incluye `photo_urls: Optional[List[str]]`
+- URLs resueltas con `API_ROOT_URL` (no relativas) — igual que imágenes de productos
+
+---
+
 ## [2026-03-14] — Budget filtering en Bot + Fix Kardex en anulación de compras
 
 ### Bot Telegram — Presupuesto y System Prompt mejorado

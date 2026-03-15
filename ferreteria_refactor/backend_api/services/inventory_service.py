@@ -44,7 +44,7 @@ class InventoryService:
             pass
 
     @staticmethod
-    def generate_transfer_package_v2(db: Session, items_data: List[Dict[str, Any]], source_company: str, warehouse_id: int = None) -> Dict[str, Any]:
+    def generate_transfer_package_v2(db: Session, items_data: List[Dict[str, Any]], source_company: str, warehouse_id: int = None, photo_urls: List[str] = None) -> Dict[str, Any]:
         """
         items_data: List of dicts like {'product_id': 1, 'quantity': 10}
         warehouse_id: Optional ID of the warehouse to deduct stock from
@@ -132,7 +132,8 @@ class InventoryService:
             "source_company": source_company,
             "source_warehouse_id": warehouse_id, # Include source metadata
             "generated_at": datetime.now().isoformat(),
-            "items": transfer_items
+            "items": transfer_items,
+            "photo_urls": photo_urls or []
         }
         
         return package
@@ -434,6 +435,7 @@ class InventoryService:
         return {
             "source_company": source_company,
             "items": preview_items,
+            "photo_urls": data.get("photo_urls", []),
         }
 
     @staticmethod
