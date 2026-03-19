@@ -425,7 +425,7 @@ def get_business_info(db: Session = Depends(get_db)):
             default_tax_rate=Decimal("0.00")
         )
 
-    keys = ["business_name", "business_doc", "business_address", "business_phone", "business_email", "default_tax_rate"]
+    keys = ["business_name", "business_doc", "business_address", "business_phone", "business_email", "default_tax_rate", "ticket_template"]
     configs = db.query(models.BusinessConfig).filter(models.BusinessConfig.key.in_(keys)).all()
     config_dict = {c.key: c.value for c in configs}
     
@@ -464,11 +464,11 @@ def update_business_info(
                 db.add(config)
             else:
                 config.value = value
-    
+
+    db.flush()
+    result = get_business_info(db)
     db.commit()
-    
-    # Return updated info
-    return get_business_info(db)
+    return result
 
 @router.post("/test-print")
 async def test_print_ticket(db: Session = Depends(get_db)):
