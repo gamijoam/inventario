@@ -185,14 +185,11 @@ const HelpDesk: React.FC = () => {
                                                 </div>
                                                 <div className="ml-3">
                                                     <div className="text-sm font-medium text-gray-900">
-                                                        {ticket?.tenant_id ? (tenants[ticket.tenant_id] || `ID: ${ticket.tenant_id}`) : 'Desconocido'}
+                                                        {ticket?.full_name || ticket?.tenant_id ? (tenants[ticket.tenant_id!] || ticket?.full_name || `ID: ${ticket.tenant_id}`) : 'Sin empresa'}
                                                     </div>
                                                     <div className="text-xs text-gray-500">
-                                                        {ticket?.contact_email ? (
-                                                            <span className="text-blue-600 font-semibold">{ticket.contact_email}</span>
-                                                        ) : (
-                                                            ticket?.user_email || '-'
-                                                        )}
+                                                        {ticket?.user_email || '-'}
+                                                        {ticket?.phone && <span className="ml-1 text-green-600 font-semibold">· 📞 {ticket.phone}</span>}
                                                     </div>
                                                 </div>
                                             </div>
@@ -250,11 +247,12 @@ const HelpDesk: React.FC = () => {
                                             Empresa: <span className="font-bold text-gray-700">{selectedTicket?.tenant_id ? (tenants[selectedTicket.tenant_id] || `ID: ${selectedTicket.tenant_id}`) : '-'}</span>
                                         </p>
                                         <p className="text-xs text-gray-400 mt-0.5">
-                                            Autor: {selectedTicket?.user_email || '-'}
-                                            {selectedTicket?.contact_email && (
-                                                <span className="ml-1 text-slate-400">
-                                                    | Contacto: <span className="text-blue-600 font-bold">{selectedTicket.contact_email}</span>
-                                                </span>
+                                            {selectedTicket?.full_name && (
+                                                <span className="font-semibold text-gray-600">{selectedTicket.full_name} — </span>
+                                            )}
+                                            {selectedTicket?.user_email || '-'}
+                                            {selectedTicket?.phone && (
+                                                <span className="ml-2 text-green-600 font-bold">📞 {selectedTicket.phone}</span>
                                             )}
                                         </p>
                                     </div>

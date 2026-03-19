@@ -2,9 +2,11 @@ import axios from './axios';
 
 export interface SupportTicket {
     id: number;
-    tenant_id: number;
+    tenant_id: number | null;
     user_email: string;
     contact_email?: string;
+    phone?: string;
+    full_name?: string;
     subject: string;
     message: string;
     priority: 'low' | 'medium' | 'high' | 'critical';

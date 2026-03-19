@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 from typing import List, Optional
 from datetime import datetime
+from pydantic import BaseModel, EmailStr
 from ..database.db import get_db
 from ..dependencies import get_current_active_user
 from ..models.models import User
-from ..models.support import SupportTicket, TicketStatus
+from ..models.support import SupportTicket, TicketStatus, TicketPriority
 from ..models.tenant import Tenant
 from ..tenant_context import get_tenant_schema
 from ..schemas.support import SupportTicketCreate, SupportTicketOut
@@ -112,3 +113,52 @@ def list_my_tickets(
     ).order_by(SupportTicket.created_at.desc()).all()
 
     return tickets
+
+
+# ─── CONTACTO PÚBLICO (sin autenticación) ────────────────────────────────────
+
+class PublicContactRequest(BaseModel):
+    full_name: str
+    email: EmailStr
+    phone: str
+    message: str
+    source: str = "login"  # "login" | "landing"
+
+
+@router.post("/public-contact", status_code=201)
+def public_contact(
+    request: Request,
+    body: PublicContactRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Endpoint público (sin auth) para que usuarios o prospectos
+    envíen un mensaje de contacto desde el login o la landing page.
+    Se crea como ticket en el HelpDesk del panel SaaS.
+    """
+    # Intentar resolver tenant desde el subdominio (si viene del login)
+    tenant_id = None
+    tenant_schema = getattr(request.state, "tenant_schema", "public")
+    if tenant_schema and tenant_schema != "public":
+        tenant = db.query(Tenant).filter(Tenant.schema_name == tenant_schema).first()
+        if tenant:
+            tenant_id = tenant.id
+
+    origin = "🌐 Landing Page" if body.source == "landing" else "🔐 Página de Login"
+    subject = f"[{origin}] Contacto de {body.full_name}"
+
+    ticket = SupportTicket(
+        tenant_id=tenant_id,
+        user_email=body.email,
+        contact_email=body.email,
+        phone=body.phone,
+        full_name=body.full_name,
+        subject=subject,
+        message=body.message,
+        priority=TicketPriority.medium,
+        status=TicketStatus.open,
+    )
+    db.add(ticket)
+    db.commit()
+
+    return {"message": "Tu mensaje fue enviado. Te contactaremos pronto."}

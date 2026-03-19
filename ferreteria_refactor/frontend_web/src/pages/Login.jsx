@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, User, LogIn, AlertCircle, Eye, EyeOff, LayoutTemplate, Briefcase } from 'lucide-react';
+import { Lock, User, LogIn, AlertCircle, Eye, EyeOff, LayoutTemplate, Briefcase, MessageCircle, X, Phone, Mail, Send } from 'lucide-react';
 import authService from '../services/authService';
 import toast from 'react-hot-toast';
 import { Capacitor } from '@capacitor/core';
+import apiClient from '../config/axios';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -14,6 +15,9 @@ const Login = () => {
     const [showTenant, setShowTenant] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showContact, setShowContact] = useState(false);
+    const [contactForm, setContactForm] = useState({ full_name: '', email: '', phone: '', message: '' });
+    const [contactLoading, setContactLoading] = useState(false);
 
     const { login, user, isAuthenticated, refreshUser } = useAuth();
     const { business } = useConfig();
@@ -106,6 +110,25 @@ const Login = () => {
             setError(err.response?.data?.detail || 'Credenciales inválidas. Por favor intenta nuevamente.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleContactSubmit = async (e) => {
+        e.preventDefault();
+        if (!contactForm.full_name || !contactForm.email || !contactForm.phone || !contactForm.message) {
+            toast.error('Por favor completa todos los campos');
+            return;
+        }
+        setContactLoading(true);
+        try {
+            await apiClient.post('/support/tickets/public-contact', { ...contactForm, source: 'login' });
+            toast.success('¡Mensaje enviado! Te contactaremos pronto.');
+            setShowContact(false);
+            setContactForm({ full_name: '', email: '', phone: '', message: '' });
+        } catch {
+            toast.error('Error al enviar el mensaje. Intenta de nuevo.');
+        } finally {
+            setContactLoading(false);
         }
     };
 
@@ -292,6 +315,18 @@ const Login = () => {
                             </div>
                         )}
 
+                        {/* CONTACT SUPPORT BUTTON */}
+                        <div className="w-full flex justify-center pt-1">
+                            <button
+                                type="button"
+                                onClick={() => setShowContact(true)}
+                                className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-indigo-500 transition-colors"
+                            >
+                                <MessageCircle size={13} />
+                                ¿Necesitas ayuda? Contáctanos
+                            </button>
+                        </div>
+
                         {/* MOBILE CONFIG BUTTON (Only visible on Native App) */}
                         {Capacitor.isNativePlatform() && (
                             <>
@@ -316,6 +351,72 @@ const Login = () => {
                 </div>
             </div>
         </div>
+        {/* CONTACT MODAL */}
+        {showContact && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative">
+                    <button onClick={() => setShowContact(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                        <X size={20} />
+                    </button>
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                            <MessageCircle size={20} className="text-indigo-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-slate-800 text-lg">Contactar soporte</h3>
+                            <p className="text-xs text-slate-400">Te respondemos a la brevedad</p>
+                        </div>
+                    </div>
+                    <form onSubmit={handleContactSubmit} className="space-y-3">
+                        <input
+                            type="text"
+                            placeholder="Nombre completo *"
+                            value={contactForm.full_name}
+                            onChange={e => setContactForm(f => ({ ...f, full_name: e.target.value }))}
+                            className="w-full text-sm px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-colors"
+                            required
+                        />
+                        <div className="relative">
+                            <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="email"
+                                placeholder="Correo electrónico *"
+                                value={contactForm.email}
+                                onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))}
+                                className="w-full text-sm pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-colors"
+                                required
+                            />
+                        </div>
+                        <div className="relative">
+                            <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="tel"
+                                placeholder="Teléfono *"
+                                value={contactForm.phone}
+                                onChange={e => setContactForm(f => ({ ...f, phone: e.target.value }))}
+                                className="w-full text-sm pl-9 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-colors"
+                                required
+                            />
+                        </div>
+                        <textarea
+                            placeholder="¿En qué podemos ayudarte? *"
+                            value={contactForm.message}
+                            onChange={e => setContactForm(f => ({ ...f, message: e.target.value }))}
+                            rows={3}
+                            className="w-full text-sm px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 transition-colors resize-none"
+                            required
+                        />
+                        <button
+                            type="submit"
+                            disabled={contactLoading}
+                            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-60"
+                        >
+                            {contactLoading ? 'Enviando...' : <><Send size={14} /> Enviar mensaje</>}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        )}
     );
 };
 

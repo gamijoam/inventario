@@ -8,6 +8,8 @@ class SupportTicketBase(BaseModel):
     message: str
     priority: TicketPriority = TicketPriority.medium
     contact_email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    full_name: Optional[str] = None
 
     @field_validator('contact_email', mode='before')
     @classmethod
@@ -28,9 +30,11 @@ class SupportTicketCreate(SupportTicketBase):
 
 class SupportTicketOut(SupportTicketBase):
     id: int
-    tenant_id: int
+    tenant_id: Optional[int] = None
     user_email: str
     contact_email: Optional[str] = None
+    phone: Optional[str] = None
+    full_name: Optional[str] = None
     status: TicketStatus
     admin_response: Optional[str] = None
     created_at: datetime

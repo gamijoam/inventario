@@ -21,9 +21,11 @@ class SupportTicket(Base):
     __table_args__ = {"schema": "public"} # Centralized in public schema
 
     id = Column(Integer, primary_key=True, index=True)
-    tenant_id = Column(Integer, ForeignKey("public.tenants.id"), nullable=False)
+    tenant_id = Column(Integer, ForeignKey("public.tenants.id"), nullable=True)  # Nullable para contactos desde landing
     user_email = Column(String, nullable=False, index=True)
-    contact_email = Column(String, nullable=True) # Optional contact email
+    contact_email = Column(String, nullable=True)
+    phone = Column(String, nullable=True)  # Teléfono de contacto
+    full_name = Column(String, nullable=True)  # Nombre completo
     subject = Column(String, nullable=False)
     message = Column(Text, nullable=False)
     
