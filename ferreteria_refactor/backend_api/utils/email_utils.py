@@ -53,11 +53,10 @@ def send_reset_password_email(email_to: str, token: str):
     try:
         # Usamos el puerto y host definido en settings
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.set_debuglevel(0)
-            
+            server.ehlo()
             if settings.SMTP_TLS:
-                server.starttls() # Upgrade to secure connection
-            
+                server.starttls()
+                server.ehlo()
             if settings.SMTP_USER and settings.SMTP_PASSWORD:
                 server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
             
