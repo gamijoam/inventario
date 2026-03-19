@@ -409,24 +409,31 @@ def delete_tenant(
     schema_name = tenant.schema_name
     
     try:
-        # 1. CASCADE DELETE: Remove dependent records from PUBLIC schema first
-        # Users linked to this tenant
-        db.query(User).filter(User.tenant_id == tenant_id).delete()
-        
-        # Payments linked to this tenant (if any in public, usually they are)
-        db.query(TenantPayment).filter(TenantPayment.tenant_id == tenant_id).delete()
-        
-        # Delete Tenant Record
-        db.delete(tenant)
-        db.commit()
-        
-        # 2. DROP SCHEMA CASCADE
+        # 1. DROP SCHEMA CASCADE primero — elimina todas las tablas del tenant
+        #    y libera las FK que apuntan a public.users / public.tenants
         print(f"🔥 DROPPING SCHEMA: {schema_name}")
         db.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
         db.commit()
-        
-        return None # 204 No Content
-        
+
+        # 2. Limpiar tablas del esquema PUBLIC que referencian este tenant
+        # support_tickets está en public y tiene FK a tenants
+        db.execute(
+            text("DELETE FROM public.support_tickets WHERE tenant_id = :tid"),
+            {"tid": tenant_id}
+        )
+
+        # 3. Eliminar usuarios del tenant (ya sin FK desde el schema eliminado)
+        db.query(User).filter(User.tenant_id == tenant_id).delete()
+
+        # 4. Eliminar pagos del tenant
+        db.query(TenantPayment).filter(TenantPayment.tenant_id == tenant_id).delete()
+
+        # 5. Eliminar el tenant
+        db.delete(tenant)
+        db.commit()
+
+        return None  # 204 No Content
+
     except Exception as e:
         db.rollback()
         raise HTTPException(500, f"Failed to delete tenant: {str(e)}")
