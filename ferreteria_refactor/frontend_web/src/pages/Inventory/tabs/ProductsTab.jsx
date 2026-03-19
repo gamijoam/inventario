@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw, MoreHorizontal, FileDown, FileUp, ChevronDown, Barcode } from 'lucide-react';
+import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw, MoreHorizontal, FileDown, FileUp, ChevronDown, Barcode, ArrowUpAZ, ArrowDownAZ, ArrowUpDown, TrendingUp, TrendingDown } from 'lucide-react';
 import SearchWithScanner from '../../../components/common/SearchWithScanner';
 import ProductForm from '../../../components/products/ProductForm';
 import ProductMobileCard from '../../../components/products/ProductMobileCard';
@@ -63,6 +63,8 @@ const ProductsTab = () => {
     const [filterCategory, setFilterCategory] = useState('');
     const [filterExchangeRate, setFilterExchangeRate] = useState('');
     const [filterWarehouse, setFilterWarehouse] = useState('');
+    const [filterStock, setFilterStock] = useState('');   // '' | 'in_stock' | 'low_stock' | 'out_of_stock'
+    const [sortBy, setSortBy] = useState('');             // '' | 'az' | 'za' | 'price_asc' | 'price_desc'
 
     const fetchProducts = async (page = currentPage) => {
         setIsLoading(true);
@@ -134,12 +136,30 @@ const ProductsTab = () => {
         return () => clearTimeout(timeout);
     }, [searchTerm, filterCategory, filterWarehouse]);
 
-    // Client-side category and exchange rate filtering (not handled by backend params)
-    const filteredProducts = products.filter(product => {
-        const matchesCategory = !filterCategory || product.category_id === parseInt(filterCategory);
-        const matchesRate = !filterExchangeRate || product.exchange_rate_id === parseInt(filterExchangeRate);
-        return matchesCategory && matchesRate;
-    });
+    // Client-side filtering + sorting
+    const filteredProducts = useMemo(() => {
+        let result = products.filter(product => {
+            const matchesCategory = !filterCategory || product.category_id === parseInt(filterCategory);
+            const matchesRate = !filterExchangeRate || product.exchange_rate_id === parseInt(filterExchangeRate);
+            if (!matchesCategory || !matchesRate) return false;
+
+            if (filterStock) {
+                const stock = Number(product.stock || 0);
+                const minStock = Number(product.min_stock ?? 5);
+                if (filterStock === 'out_of_stock' && stock > 0) return false;
+                if (filterStock === 'low_stock' && !(stock > 0 && stock < minStock)) return false;
+                if (filterStock === 'in_stock' && !(stock >= minStock)) return false;
+            }
+            return true;
+        });
+
+        if (sortBy === 'az') result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+        else if (sortBy === 'za') result = [...result].sort((a, b) => b.name.localeCompare(a.name));
+        else if (sortBy === 'price_asc') result = [...result].sort((a, b) => Number(a.price) - Number(b.price));
+        else if (sortBy === 'price_desc') result = [...result].sort((a, b) => Number(b.price) - Number(a.price));
+
+        return result;
+    }, [products, filterCategory, filterExchangeRate, filterStock, sortBy]);
 
     return (
         <div className="space-y-4 md:space-y-8 animate-in fade-in duration-500">
@@ -234,7 +254,7 @@ const ProductsTab = () => {
                 </div>
 
                 {/* Desktop Filters (Toolbar) */}
-                <div className="hidden md:flex p-4 bg-white rounded-xl border border-slate-200 shadow-sm gap-4">
+                <div className="hidden md:flex p-4 bg-white rounded-xl border border-slate-200 shadow-sm gap-3 flex-wrap items-center">
                     <select
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
@@ -253,8 +273,42 @@ const ProductsTab = () => {
                         {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                     </select>
 
-                    {(filterCategory || filterWarehouse) && (
-                        <Button variant="ghost" size="sm" onClick={() => { setFilterCategory(''); setFilterWarehouse(''); }} className="text-rose-500 h-9">
+                    {/* Stock filter */}
+                    <div className="flex items-center gap-1.5 border border-slate-200 rounded-md overflow-hidden h-9">
+                        {[
+                            { val: '', label: 'Todo' },
+                            { val: 'in_stock', label: 'En stock', cls: 'text-emerald-600' },
+                            { val: 'low_stock', label: 'Bajo stock', cls: 'text-amber-600' },
+                            { val: 'out_of_stock', label: 'Agotado', cls: 'text-rose-600' },
+                        ].map(({ val, label, cls }) => (
+                            <button
+                                key={val}
+                                onClick={() => setFilterStock(val)}
+                                className={cn(
+                                    "px-3 h-full text-xs font-bold transition-colors",
+                                    filterStock === val
+                                        ? "bg-slate-900 text-white"
+                                        : `bg-white ${cls || 'text-slate-500'} hover:bg-slate-50`
+                                )}
+                            >{label}</button>
+                        ))}
+                    </div>
+
+                    {/* Sort */}
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="h-9 px-3 rounded-md border border-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-slate-50/50 text-slate-600 font-medium"
+                    >
+                        <option value="">Ordenar por...</option>
+                        <option value="az">Nombre A → Z</option>
+                        <option value="za">Nombre Z → A</option>
+                        <option value="price_asc">Precio: menor primero</option>
+                        <option value="price_desc">Precio: mayor primero</option>
+                    </select>
+
+                    {(filterCategory || filterWarehouse || filterStock || sortBy) && (
+                        <Button variant="ghost" size="sm" onClick={() => { setFilterCategory(''); setFilterWarehouse(''); setFilterStock(''); setSortBy(''); }} className="text-rose-500 h-9">
                             <X size={14} className="mr-1" /> Limpiar
                         </Button>
                     )}
@@ -361,11 +415,16 @@ const ProductsTab = () => {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex flex-col items-end">
-                                                <div className="text-2xl font-black text-slate-900 tracking-tighter leading-none">
+                                            <div className="flex flex-col items-end gap-0.5">
+                                                <div className="text-xl font-black text-slate-900 tracking-tighter leading-none">
                                                     ${Number(product.price).toFixed(2)}
                                                 </div>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">USD</div>
+                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">USD</div>
+                                                {convertProductPrice && (
+                                                    <div className="text-xs font-bold text-emerald-600 mt-0.5">
+                                                        Bs {Number(convertProductPrice(product, 'VES') || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </div>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell>
