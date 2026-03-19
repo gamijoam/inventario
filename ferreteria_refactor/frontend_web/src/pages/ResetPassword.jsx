@@ -33,6 +33,7 @@ export default function ResetPassword() {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [tokenError, setTokenError] = useState(false);
+    const [loginUrl, setLoginUrl] = useState(null);
 
     // NO redirigir automáticamente - el formulario siempre se muestra
 
@@ -54,10 +55,11 @@ export default function ResetPassword() {
         setTokenError(false);
 
         try {
-            await axios.post('auth/reset-password', {
+            const res = await axios.post('auth/reset-password', {
                 token: token,
                 new_password: password
             });
+            setLoginUrl(res.data?.login_url || null);
             setSuccess(true);
             toast.success('Contraseña actualizada correctamente');
         } catch (error) {
@@ -91,7 +93,13 @@ export default function ResetPassword() {
                     </p>
                     <div className="mt-6">
                         <button
-                            onClick={() => navigate('/login')}
+                            onClick={() => {
+                                if (loginUrl) {
+                                    window.location.href = loginUrl;
+                                } else {
+                                    navigate('/login');
+                                }
+                            }}
                             className="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                         >
                             Ir al inicio de sesión

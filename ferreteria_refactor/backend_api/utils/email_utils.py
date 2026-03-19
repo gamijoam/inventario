@@ -6,18 +6,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def send_reset_password_email(email_to: str, token: str):
+def send_reset_password_email(email_to: str, token: str, reset_link_base: str = None):
     """
     Sends a password reset email using SMTP.
-    Enforces real connection; simulation mode is removed.
+    reset_link_base: base URL del tenant (ej. https://prueba.miinventariofacil.com)
     """
     if not settings.SMTP_HOST or not settings.SMTP_USER:
         error_msg = "SMTP_HOST and SMTP_USER must be configured for password recovery."
         logger.error(f"❌ {error_msg}")
         raise ValueError(error_msg)
 
-    # Aseguramos que el link use FRONTEND_URL configurado y respete el HashRouter
-    reset_link = f"{settings.FRONTEND_URL}/#/reset-password?token={token}"
+    base = reset_link_base or settings.FRONTEND_URL
+    reset_link = f"{base}/#/reset-password?token={token}"
     
     html_content = f"""
     <html>

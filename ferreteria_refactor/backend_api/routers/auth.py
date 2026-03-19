@@ -368,16 +368,24 @@ async def forgot_password(
         print(f"🕵️ Recovery requested for non-existent email: {payload.email}")
         return {"message": "Si el correo está registrado, recibirás un enlace de recuperación."}
 
-    # Generate token with specific payload to differentiate from access tokens
-    # Expire in 1 hour
+    # Obtener el subdominio del tenant desde el request para construir el link correcto
+    tenant_schema = getattr(request.state, "tenant_schema", None)
+
+    # Incluir tenant_schema en el token para que reset-password sepa a qué tenant pertenece
     recovery_token = create_access_token(
-        data={"sub": user.username, "type": "password_reset"},
+        data={"sub": user.username, "type": "password_reset", "tenant": tenant_schema},
         expires_delta=timedelta(hours=1)
     )
 
+    # Construir el link con el dominio exacto del tenant
+    if tenant_schema:
+        reset_link_base = f"{settings.PROTOCOL}://{tenant_schema}.{settings.APP_DOMAIN}"
+    else:
+        reset_link_base = settings.FRONTEND_URL
+
     from ..utils.email_utils import send_reset_password_email
     try:
-        send_reset_password_email(user.email, recovery_token)
+        send_reset_password_email(user.email, recovery_token, reset_link_base)
     except Exception as e:
          raise HTTPException(
             status_code=500,
@@ -410,6 +418,8 @@ async def reset_password(
     except JWTError:
         raise HTTPException(status_code=400, detail="Token de recuperación inválido o expirado")
 
+    tenant_schema = token_payload.get("tenant")
+
     user = db.query(models.User).filter(models.User.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -417,9 +427,15 @@ async def reset_password(
     # Update password
     user.password_hash = get_password_hash(body.new_password)
     db.commit()
-    
-    print(f"🔐 Password successfully reset for user: {username}")
-    return {"message": "Tu contraseña ha sido actualizada exitosamente."}
+
+    # Construir URL de login del tenant para que el frontend redirija correctamente
+    if tenant_schema:
+        login_url = f"{settings.PROTOCOL}://{tenant_schema}.{settings.APP_DOMAIN}/#/login"
+    else:
+        login_url = f"{settings.FRONTEND_URL}/#/login"
+
+    print(f"🔐 Password successfully reset for user: {username} (tenant: {tenant_schema})")
+    return {"message": "Tu contraseña ha sido actualizada exitosamente.", "login_url": login_url}
 
 
 def init_admin_user(db: Session):
