@@ -59,3 +59,8 @@ export const seedTenant = async (id: number): Promise<any> => {
     const response = await api.post(`/admin/tenants/${id}/seed`);
     return response.data;
 };
+
+export const updateTenantUserEmail = async (tenantId: number, userId: number, email: string): Promise<TenantUser> => {
+    const response = await api.patch<TenantUser>(`/admin/tenants/${tenantId}/users/${userId}/email`, { email });
+    return response.data;
+};

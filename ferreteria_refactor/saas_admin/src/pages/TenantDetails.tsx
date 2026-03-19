@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle, DollarSign, Monitor } from 'lucide-react';
-import { getTenantById, getTenantUsers, seedTenant } from '../api/tenants';
+import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle, DollarSign, Monitor, Mail, Check, X } from 'lucide-react';
+import { getTenantById, getTenantUsers, seedTenant, updateTenantUserEmail } from '../api/tenants';
 import { billingApi } from '../api/billing';
 import { getTenantDevices, revokeDevice, reactivateDevice } from '../api/licenses';
 import type { TenantUser } from '../api/tenants';
@@ -32,6 +32,31 @@ const TenantDetails: React.FC = () => {
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+    // Edición inline de email
+    const [editingEmailUserId, setEditingEmailUserId] = useState<number | null>(null);
+    const [editingEmailValue, setEditingEmailValue] = useState('');
+    const [savingEmail, setSavingEmail] = useState(false);
+
+    const handleEditEmail = (user: TenantUser) => {
+        setEditingEmailUserId(user.id);
+        setEditingEmailValue(user.email || '');
+    };
+
+    const handleSaveEmail = async (userId: number) => {
+        if (!id) return;
+        setSavingEmail(true);
+        try {
+            const updated = await updateTenantUserEmail(parseInt(id), userId, editingEmailValue);
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, email: updated.email } : u));
+            toast.success('Email actualizado');
+            setEditingEmailUserId(null);
+        } catch {
+            toast.error('Error al actualizar el email');
+        } finally {
+            setSavingEmail(false);
+        }
+    };
 
     useEffect(() => {
         if (id) {
@@ -376,6 +401,7 @@ const TenantDetails: React.FC = () => {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -400,7 +426,26 @@ const TenantDetails: React.FC = () => {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {user.email || 'No email'}
+                                                {editingEmailUserId === user.id ? (
+                                                    <div className="flex items-center gap-1">
+                                                        <input
+                                                            type="email"
+                                                            value={editingEmailValue}
+                                                            onChange={e => setEditingEmailValue(e.target.value)}
+                                                            className="border border-blue-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
+                                                            autoFocus
+                                                            onKeyDown={e => { if (e.key === 'Enter') handleSaveEmail(user.id); if (e.key === 'Escape') setEditingEmailUserId(null); }}
+                                                        />
+                                                        <button onClick={() => handleSaveEmail(user.id)} disabled={savingEmail} className="p-1 text-green-600 hover:bg-green-50 rounded-lg">
+                                                            <Check size={14} />
+                                                        </button>
+                                                        <button onClick={() => setEditingEmailUserId(null)} className="p-1 text-gray-400 hover:bg-gray-100 rounded-lg">
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    user.email || <span className="text-gray-300 italic">Sin email</span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <span className="px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full border border-blue-100">
@@ -412,6 +457,15 @@ const TenantDetails: React.FC = () => {
                                                     }`}>
                                                     {user.is_active ? 'Activo' : 'Inactivo'}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <button
+                                                    onClick={() => handleEditEmail(user)}
+                                                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors"
+                                                    title="Cambiar email"
+                                                >
+                                                    <Mail size={13} /> Cambiar email
+                                                </button>
                                             </td>
                                         </tr>
                                     ))

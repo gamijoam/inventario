@@ -299,6 +299,28 @@ def create_tenant_user(
         print(f"Error creating tenant user: {e}")
         raise HTTPException(500, f"Failed to create user: {str(e)}")
 
+@router.patch("/tenants/{tenant_id}/users/{user_id}/email")
+def update_tenant_user_email(
+    tenant_id: int,
+    user_id: int,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """Update email of a user belonging to a specific tenant."""
+    new_email = body.get("email", "").strip()
+    if not new_email:
+        raise HTTPException(400, "El email no puede estar vacío")
+
+    user = db.query(User).filter(User.id == user_id, User.tenant_id == tenant_id).first()
+    if not user:
+        raise HTTPException(404, "Usuario no encontrado en este tenant")
+
+    user.email = new_email
+    db.commit()
+    return {"id": user.id, "username": user.username, "email": user.email}
+
+
 @router.patch("/tenants/{tenant_id}/status", response_model=TenantOut)
 def toggle_tenant_status(
     tenant_id: int,
