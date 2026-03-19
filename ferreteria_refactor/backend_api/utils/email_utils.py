@@ -42,6 +42,8 @@ def send_reset_password_email(email_to: str, token: str):
     </html>
     """
 
+    subject = f"Recuperación de Contraseña - {settings.EMAILS_FROM_NAME}"
+
     message = MIMEMultipart()
     message["From"] = f"{settings.EMAILS_FROM_NAME} <{settings.EMAILS_FROM_EMAIL}>"
     message["To"] = email_to
