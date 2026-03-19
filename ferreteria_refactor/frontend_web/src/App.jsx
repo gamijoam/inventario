@@ -300,7 +300,7 @@ function App() {
                               } />
 
                               {/* Backward-compatible redirects to Sales Center */}
-                              <Route path="/quotes" element={<Navigate to="/sales-center?tab=cotizaciones" replace />} />
+                              {/* /quotes → QuotesManager (editor completo) */}
                               <Route path="/customers" element={<Navigate to="/sales-center?tab=clientes" replace />} />
                               <Route path="/accounts-receivable" element={<Navigate to="/sales-center?tab=creditos" replace />} />
 
@@ -315,18 +315,11 @@ function App() {
                               <Route path="/credit/aging" element={<Navigate to="/reports" replace />} />
                               <Route path="/credit/ledger/:clientId" element={<Navigate to="/reports" replace />} />
 
-                              {/* Old Sales Routes (kept for reference)
-                              <Route path="/customers" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <CustomerManager />
-                                </ProtectedRoute>
-                              } />
                               <Route path="/quotes" element={
                                 <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <QuotesManager />
                                 </ProtectedRoute>
                               } />
-                              */}
 
                               {/* Purchases - ADMIN or WAREHOUSE */}
                               <Route path="/purchases" element={

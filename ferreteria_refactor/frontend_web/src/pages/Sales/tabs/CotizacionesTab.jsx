@@ -274,6 +274,12 @@ const CotizacionesTab = ({ onCreateNew, onEdit }) => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
+                    <button
+                        onClick={onCreateNew}
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all"
+                    >
+                        <FileText size={16} /> Nueva Cotización
+                    </button>
                 </div>
             </div>
 

@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
     FileText, Users, CornerDownLeft, ShieldCheck, CreditCard, Info
 } from 'lucide-react';
@@ -52,6 +52,7 @@ const TabPlaceholder = ({ label, icon: Icon }) => (
 // ============================================================
 const SalesCenter = () => {
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const activeTab = searchParams.get('tab') || 'cotizaciones';
 
     const setActiveTab = (tabId) => {
@@ -66,7 +67,10 @@ const SalesCenter = () => {
             case 'cotizaciones':
                 return (
                     <Suspense fallback={<TabSpinner />}>
-                        <CotizacionesTab />
+                        <CotizacionesTab
+                            onCreateNew={() => navigate('/quotes')}
+                            onEdit={(id) => navigate(`/quotes?edit=${id}`)}
+                        />
                     </Suspense>
                 );
             case 'clientes':
