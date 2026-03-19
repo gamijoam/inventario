@@ -572,6 +572,12 @@ const POS = () => {
     };
 
     const handleSuccessClose = () => {
+        // Refrescar stock de los productos vendidos antes de limpiar el carrito
+        if (lastSaleData?.cart?.length > 0) {
+            lastSaleData.cart.forEach(item => {
+                if (item.product_id) refreshProduct(item.product_id);
+            });
+        }
         setLastSaleData(null);
         clearCart();
         setActiveServiceOrderId(null);

@@ -134,7 +134,7 @@ const POSCatalog = forwardRef(({
     const columnWidth = containerSize.width > 0
         ? (containerSize.width - PADDING * 2 - GAP * (columnCount - 1)) / columnCount
         : 0;
-    const ROW_HEIGHT = 380; // min-h-[360px] + gap
+    const ROW_HEIGHT = 230; // tarjeta compacta ~210px + gap
 
     const totalHeight = rowCount * ROW_HEIGHT;
     const gridHeight = containerSize.height;
@@ -189,7 +189,7 @@ const POSCatalog = forwardRef(({
                     onChange={handleSearchInput}
                     placeholder="Buscar productos por nombre o código..."
                     autoFocus
-                    inputClassName="h-14 pl-10 text-lg bg-slate-50 border-slate-200 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm rounded-2xl"
+                    inputClassName="h-10 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-xl"
                 />
 
                 {/* Row 2: Categories + Count */}
@@ -199,9 +199,9 @@ const POSCatalog = forwardRef(({
                         size="md"
                         onClick={() => handleCategoryClick(null)}
                         className={cn(
-                            "rounded-2xl px-6 h-11 font-black transition-all uppercase text-[11px] tracking-widest",
+                            "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest",
                             selectedCategoryId === null
-                                ? "bg-slate-900 hover:bg-black text-white shadow-xl shadow-slate-900/10"
+                                ? "bg-slate-900 hover:bg-black text-white shadow-md shadow-slate-900/10"
                                 : "border-slate-200 text-slate-500 bg-white hover:text-slate-900 hover:border-slate-400"
                         )}
                     >
@@ -214,9 +214,9 @@ const POSCatalog = forwardRef(({
                             size="md"
                             onClick={() => handleCategoryClick(cat.id)}
                             className={cn(
-                                "rounded-2xl px-6 h-11 font-black transition-all uppercase text-[11px] tracking-widest whitespace-nowrap",
+                                "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest whitespace-nowrap",
                                 selectedCategoryId === cat.id
-                                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-500/20"
+                                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20"
                                     : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
                             )}
                         >

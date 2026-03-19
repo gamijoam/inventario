@@ -1,18 +1,14 @@
 import React from 'react';
-import { Package, AlertTriangle, Layers, RotateCcw, User, MapPin, Snowflake, Shield } from 'lucide-react';
+import { Shield, Snowflake } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 import ProductThumbnail from '../products/ProductThumbnail';
 
-const formatLocalCurrency = (amount, currency = 'USD') => {
+const fmt = (n) => {
     try {
-        // Use es-VE or similar locale to get 1.234,56 format
-        return new Intl.NumberFormat('de-DE', { // de-DE is very consistent with the dot-thousands comma-decimals requirement
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(amount);
-    } catch (error) {
-        return amount.toFixed(2);
+        return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+    } catch {
+        return Number(n).toFixed(2);
     }
 };
 
@@ -42,150 +38,112 @@ const ProductCard = ({
     return (
         <div
             onClick={handleClick}
-            className={`
-                group relative flex flex-col justify-between bg-white rounded-2xl cursor-pointer transition-all duration-300
-                border h-full min-h-[360px] overflow-hidden
-                ${isSelected
-                    ? 'ring-4 ring-blue-500/20 shadow-2xl border-blue-500 -translate-y-2'
-                    : 'border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-blue-200'
-                }
-                ${isAnimating ? 'ring-4 ring-blue-500/40 scale-95' : ''}
-            `}
+            className={cn(
+                'group relative flex flex-col bg-white rounded-xl cursor-pointer transition-all duration-200 border overflow-hidden h-full',
+                isSelected
+                    ? 'ring-2 ring-blue-500 shadow-lg border-blue-400'
+                    : 'border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200',
+                isAnimating && 'scale-95 ring-2 ring-blue-400'
+            )}
         >
-            {/* Image Section - Redesigned for better aspect ratio */}
-            <div className="relative h-40 bg-slate-50 overflow-hidden flex items-center justify-center border-b border-slate-100">
+            {/* ── Imagen ── */}
+            <div className="relative bg-slate-50 flex items-center justify-center overflow-hidden" style={{ height: '60%', minHeight: 110 }}>
                 <ProductThumbnail
                     imageUrl={product.image_url}
                     productName={product.name}
                     size="lg"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="w-full h-full object-contain p-1 transition-transform duration-500 group-hover:scale-105"
                     updatedAt={product.updated_at}
                 />
 
-                {/* Status Badges - Top-Right */}
-                <div className="absolute top-3 right-3 flex flex-col gap-1.5 items-end">
+                {/* Badges esquina sup-izq */}
+                <div className="absolute top-1.5 left-1.5 flex flex-col gap-1 items-start">
                     {product.has_imei && (
-                        <Badge className="bg-blue-600/90 hover:bg-blue-600 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm">
-                            IMEI/SERIAL
+                        <Badge className="bg-blue-600/90 text-white border-none text-[7px] font-black tracking-widest px-1.5 h-4 shadow-sm">
+                            SERIAL
                         </Badge>
                     )}
                     {product.is_combo && (
-                        <Badge className="bg-purple-500/90 hover:bg-purple-500 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm">
+                        <Badge className="bg-purple-500/90 text-white border-none text-[7px] font-black tracking-widest px-1.5 h-4 shadow-sm">
                             COMBO
                         </Badge>
                     )}
-                    {/* Pharmacy badges */}
                     {product.drug_classification === 'PRESCRIPTION' && (
-                        <Badge className="bg-blue-500/90 hover:bg-blue-500 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm flex items-center gap-0.5">
-                            <Shield size={8} />Rx
+                        <Badge className="bg-blue-500/90 text-white border-none text-[7px] font-black px-1.5 h-4 shadow-sm flex items-center gap-0.5">
+                            <Shield size={7} />Rx
                         </Badge>
                     )}
                     {product.drug_classification === 'CONTROLLED' && (
-                        <Badge className="bg-orange-600/90 hover:bg-orange-600 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm">
+                        <Badge className="bg-orange-600/90 text-white border-none text-[7px] font-black px-1.5 h-4 shadow-sm">
                             C
                         </Badge>
                     )}
                     {product.storage_condition === 'REFRIGERATED' && (
-                        <Badge className="bg-sky-400/90 hover:bg-sky-400 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm flex items-center gap-0.5">
-                            <Snowflake size={8} />2-8°C
+                        <Badge className="bg-sky-400/90 text-white border-none text-[7px] font-black px-1.5 h-4 shadow-sm flex items-center gap-0.5">
+                            <Snowflake size={7} />2-8°C
                         </Badge>
                     )}
                     {product.storage_condition === 'FROZEN' && (
-                        <Badge className="bg-blue-800/90 hover:bg-blue-800 text-white border-none text-[8px] font-black tracking-widest px-2 h-5 shadow-sm flex items-center gap-0.5">
-                            <Snowflake size={8} />CONG.
+                        <Badge className="bg-blue-800/90 text-white border-none text-[7px] font-black px-1.5 h-4 shadow-sm flex items-center gap-0.5">
+                            <Snowflake size={7} />CONG.
                         </Badge>
                     )}
                 </div>
 
-                {/* Stock Status Indicator - Bottom-Right */}
-                <div className="absolute bottom-3 right-3">
+                {/* Stock badge esquina sup-der */}
+                <div className="absolute top-1.5 right-1.5">
                     {isOutOfStock ? (
-                        <Badge
-                            variant="destructive"
-                            className="text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md backdrop-blur-sm border-white/20"
-                        >
-                            SIN STOCK
-                        </Badge>
-                    ) : isLowStock ? (
-                        <Badge
-                            variant="warning"
-                            className="text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md backdrop-blur-sm border-white/20"
-                        >
-                            STOCK BAJO
-                        </Badge>
-                    ) : (
-                        <div className="flex items-center gap-1 bg-emerald-50/90 backdrop-blur-sm px-2 py-0.5 rounded-full border border-emerald-200/50 shadow-sm">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[9px] font-bold text-emerald-700">EN STOCK</span>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Content Section */}
-            <div className="p-3 flex-1 flex flex-col gap-1.5">
-                <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-slate-400 bg-slate-100 px-2 py-1 rounded-md tracking-widest uppercase border border-slate-200/50 truncate max-w-[90px]">
-                        {product.sku || 'N/A'}
-                    </span>
-                    <div className={cn(
-                        "flex items-center gap-1.5",
-                        isOutOfStock ? "text-rose-500" : (isLowStock ? "text-amber-500" : "text-slate-500")
-                    )}>
-                        <div className={cn(
-                            "w-1.5 h-1.5 rounded-full",
-                            isOutOfStock ? "bg-rose-500 animate-pulse" : (isLowStock ? "bg-amber-500" : "bg-emerald-500")
-                        )} />
-                        <span className="text-[10px] font-bold">
-                            {numStock.toFixed(0)} <span className="font-medium opacity-60">Unid.</span>
+                        <span className="bg-red-600 text-white text-[7px] font-black px-1.5 py-0.5 rounded-full shadow">
+                            AGOTADO
                         </span>
-                    </div>
+                    ) : isLowStock ? (
+                        <span className="bg-amber-500 text-white text-[7px] font-black px-1.5 py-0.5 rounded-full shadow">
+                            BAJO
+                        </span>
+                    ) : null}
                 </div>
 
-                <h3 className="font-bold text-slate-800 text-sm leading-tight line-clamp-3 group-hover:text-blue-600 transition-colors min-h-[3.2rem]" title={product.name}>
-                    {product.name}
-                </h3>
-
-                {/* Location Badge */}
-                {product.location && (
-                    <div className="flex items-center gap-1 text-slate-400 group-hover:text-indigo-500 transition-colors">
-                        <MapPin size={9} className="flex-shrink-0" />
-                        <span className="text-[9px] font-bold truncate" title={product.location}>{product.location}</span>
+                {nearExpiry && (
+                    <div className="absolute bottom-0 inset-x-0 bg-amber-500/90 text-white text-[7px] font-black text-center py-0.5 tracking-wide">
+                        VENCE PRONTO
                     </div>
                 )}
-                {/* Price Display Redesign */}
-                <div className="mt-auto pt-2 border-t border-slate-50 flex flex-col gap-0.5">
-                    {/* Primary Price (USD) - Blue */}
-                    <div className="flex justify-between items-center px-1">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Precio $</span>
-                        <div className="flex items-baseline gap-0.5 text-blue-600">
-                            <span className="text-xs font-black">$</span>
-                            <span className="text-xl font-black tracking-tight">
-                                {formatLocalCurrency(product.price)}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Secondary Price (VES) - Green */}
-                    <div className="flex justify-between items-center bg-emerald-50/40 rounded-lg px-2 py-0.5 border border-emerald-100/30">
-                        <span className="text-[9px] font-bold text-emerald-600/70 uppercase">Precio Bs</span>
-                        <div className="flex items-baseline gap-0.5 text-emerald-500">
-                            <span className="text-[10px] font-black">Bs</span>
-                            <span className="text-sm font-black tracking-tight">
-                                {formatLocalCurrency(priceBS)}
-                            </span>
-                        </div>
-                    </div>
-                </div>
             </div>
 
-            {/* Near-expiry warning strip */}
-            {nearExpiry && (
-                <div className="px-3 py-1.5 bg-amber-50 border-t border-amber-200 flex items-center gap-1.5">
-                    <AlertTriangle size={10} className="text-amber-600 flex-shrink-0" />
-                    <span className="text-[9px] font-bold text-amber-700 uppercase tracking-wide">Vence pronto</span>
+            {/* ── Info ── */}
+            <div className="flex flex-col gap-1 p-2 flex-1">
+                {/* Nombre */}
+                <p className="text-xs font-bold text-slate-800 leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors">
+                    {product.name}
+                </p>
+
+                {/* SKU + stock */}
+                <div className="flex items-center justify-between">
+                    {product.sku && (
+                        <span className="text-[9px] text-slate-400 font-mono truncate max-w-[70px]">
+                            {product.sku}
+                        </span>
+                    )}
+                    <span className={cn(
+                        'text-[9px] font-bold ml-auto',
+                        isOutOfStock ? 'text-red-500' : isLowStock ? 'text-amber-500' : 'text-emerald-600'
+                    )}>
+                        {numStock.toFixed(0)} un.
+                    </span>
                 </div>
-            )}
+
+                {/* Precios */}
+                <div className="mt-auto pt-1 border-t border-slate-100 flex items-center justify-between gap-1">
+                    <span className="text-sm font-black text-blue-600">
+                        ${fmt(product.price)}
+                    </span>
+                    {priceBS > 0 && (
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                            Bs {fmt(priceBS)}
+                        </span>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };
