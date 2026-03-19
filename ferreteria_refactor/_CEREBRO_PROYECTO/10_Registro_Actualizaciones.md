@@ -4,6 +4,73 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-19] — Fix: Cotizaciones + Config empresa + POS + Eliminación tenant
+
+### Fix: Botón "Nueva Cotización" no hacía nada
+**Causa:** La ruta `/quotes` tenía un `<Navigate>` que redirigía de vuelta a `SalesCenter`, formando un bucle. El botón navegaba pero el redirect lo regresaba al mismo lugar.
+**Fix:** Se eliminó el redirect y se dejó la ruta `/quotes` apuntando directamente a `QuotesManager`. Se pasaron `onCreateNew` y `onEdit` como props a `CotizacionesTab` para navegar correctamente.
+**Archivos:** `App.jsx`, `SalesCenter.jsx`, `CotizacionesTab.jsx`
+
+---
+
+### Fix: Configuración empresa no guardaba (business_config)
+**Causa:** `update_business_info` llamaba `get_business_info` **después** de `db.commit()`, lo que reseteaba el `search_path` y lanzaba `relation "business_config" does not exist`.
+**Fix:** Se movió la query antes del commit usando `db.flush()` (patrón estándar del proyecto).
+**Archivo:** `ferreteria_refactor/backend_api/routers/config.py`
+
+---
+
+### Fix: Stock del POS no se actualizaba en tiempo real
+**Causa:** Al cerrar el modal de éxito de venta, el carrito se limpiaba pero los productos en el catálogo no se refrescaban del servidor.
+**Fix:** Al cerrar `handleSuccessClose`, se llama `refreshProduct(item.product_id)` por cada producto vendido antes de limpiar el carrito.
+**Archivo:** `ferreteria_refactor/frontend_web/src/pages/POS.jsx`
+
+---
+
+### Feature: Filtros y ordenamiento en pestaña Productos del inventario
+**Nuevos filtros client-side:**
+- Por stock: `En stock` / `Stock bajo` / `Agotado`
+- Ordenamiento: A→Z, Z→A, Precio ↑, Precio ↓
+**Implementación:** `useMemo` en `ProductsTab.jsx` para no re-fetching innecesario.
+**Archivo:** `ferreteria_refactor/frontend_web/src/pages/Inventory/tabs/ProductsTab.jsx`
+
+---
+
+### Fix: Eliminación de tenant falla con FK violation
+**Causa:** El orden de eliminación era: (1) borrar usuarios → ERROR porque tablas del schema del tenant (ej. `cash_sessions`) tienen FK a `public.users`. (2) borrar tenant → ERROR porque `support_tickets` en public tiene FK a `public.tenants`.
+**Fix:** Se invirtió el orden:
+1. `DROP SCHEMA CASCADE` primero → elimina todas las tablas del tenant y sus FK
+2. Borrar `support_tickets` de public para ese tenant
+3. Borrar usuarios, pagos y finalmente el tenant
+**Archivo:** `ferreteria_refactor/backend_api/routers/admin.py`
+
+---
+
+### Rediseño tarjetas POS
+**Cambios:**
+- Imagen con `object-contain` (foto completa, sin recorte)
+- Imagen ocupa 60% de la tarjeta (`min-height: 110px`)
+- Badges IMEI/SERIAL más pequeños, esquina superior izquierda
+- Badge AGOTADO en rojo sólido, esquina superior derecha
+- Info compacta: nombre (2 líneas), SKU + `X un.`, precios en una fila
+- `ROW_HEIGHT` del grid virtual: 380 → 230px (caben más productos en pantalla)
+**Archivo:** `ferreteria_refactor/frontend_web/src/components/pos/ProductCard.jsx`, `POSCatalog.jsx`
+
+---
+
+### UX: Buscador POS selecciona texto al hacer foco
+**Comportamiento:** Al hacer clic en el buscador del POS, todo el texto se selecciona automáticamente. Presionar Backspace una vez borra todo.
+**Implementación:** `onFocus={(e) => e.target.select()}` + `onMouseUp={(e) => e.preventDefault()}` (evita que mouseUp deshaga la selección).
+**Archivo:** `ferreteria_refactor/frontend_web/src/components/common/SearchWithScanner.jsx`
+
+---
+
+### Fix + UX: Panel SaaS Admin fondo blanco
+**Fix build:** Variable `activeSortLabel` declarada pero no usada en `ActivityDashboard.tsx` — removida.
+**UX:** Fondo del contenido cambiado de `bg-slate-50` (gris) a `bg-white` en `DashboardLayout`, `ActivityDashboard` y `Tenants`.
+
+---
+
 ## [2026-03-15] — Fix: Créditos con stock insuficiente + Sistema de Onboarding con Videos YouTube
 
 ### Fix: Venta a crédito se registraba aunque no hubiera stock
