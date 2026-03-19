@@ -373,7 +373,7 @@ async def forgot_password(
 
     # Incluir tenant_schema en el token para que reset-password sepa a qué tenant pertenece
     recovery_token = create_access_token(
-        data={"sub": user.username, "type": "password_reset", "tenant": tenant_schema},
+        data={"sub": user.email, "type": "password_reset", "tenant": tenant_schema},
         expires_delta=timedelta(hours=1)
     )
 
@@ -409,18 +409,18 @@ async def reset_password(
 
     try:
         token_payload = jwt.decode(body.token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = token_payload.get("sub")
+        email: str = token_payload.get("sub")
         token_type: str = token_payload.get("type")
-        
-        if username is None or token_type != "password_reset":
+
+        if email is None or token_type != "password_reset":
              raise HTTPException(status_code=400, detail="Token de recuperación inválido o expirado")
-             
+
     except JWTError:
         raise HTTPException(status_code=400, detail="Token de recuperación inválido o expirado")
 
     tenant_schema = token_payload.get("tenant")
 
-    user = db.query(models.User).filter(models.User.username == username).first()
+    user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -434,7 +434,7 @@ async def reset_password(
     else:
         login_url = f"{settings.FRONTEND_URL}/#/login"
 
-    print(f"🔐 Password successfully reset for user: {username} (tenant: {tenant_schema})")
+    print(f"🔐 Password successfully reset for user: {email} (tenant: {tenant_schema})")
     return {"message": "Tu contraseña ha sido actualizada exitosamente.", "login_url": login_url}
 
 
