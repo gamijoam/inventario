@@ -154,6 +154,62 @@ END $$;
 
 ---
 
+## M004 — Re-hashear PINs en texto plano
+
+**Prioridad:** 🔴 URGENTE — seguridad
+**Descubierto:** 2026-03-19 (tests automatizados)
+
+6 usuarios en `public.users` tienen el campo `pin` almacenado en texto plano (4-5 chars) en lugar de un hash bcrypt (~60 chars). El endpoint `validate-pin` falla para estos usuarios.
+
+### Script Python para ejecutar en el VPS
+
+```bash
+# En el servidor (dentro del contenedor o con acceso al entorno):
+docker exec -it backend_qa /bin/bash
+
+# Luego ejecutar este script Python:
+python3 - << 'EOF'
+from passlib.context import CryptContext
+import psycopg2
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+conn = psycopg2.connect("postgresql://postgres:PASSWORD@localhost/invensoft_prod")
+cur = conn.cursor()
+
+# Obtener usuarios con PIN corto (texto plano)
+cur.execute("""
+    SELECT id, email, pin FROM public.users
+    WHERE pin IS NOT NULL AND pin != ''
+    AND (LENGTH(pin) < 20
+         OR (pin NOT LIKE '$2b$%' AND pin NOT LIKE '$2a$%' AND pin NOT LIKE '$2y$%'))
+""")
+usuarios = cur.fetchall()
+
+for uid, email, pin_plano in usuarios:
+    pin_hash = pwd_context.hash(pin_plano)
+    cur.execute("UPDATE public.users SET pin = %s WHERE id = %s", (pin_hash, uid))
+    print(f"  Hasheado PIN de {email}")
+
+conn.commit()
+cur.close()
+conn.close()
+print("✅ PINs re-hasheados exitosamente")
+EOF
+```
+
+**Usuarios afectados en prod:**
+- `rodriguezisaac876@gmail.com` (PIN: 0000)
+- `maikergimenez@gmail.com` (PIN: 1770)
+- `maikergimenez1986@gmail.com` (PIN: 1770)
+- `lavanderialecheria@gmail.com` (PIN: 8899)
+- `parramartinezj16@gmail.com` (PIN: 1234)
+- `comercialasiatico@gmail.com` (PIN: 12345)
+
+**Después de ejecutar:** El test 36 en `test_cat4_auth_pg.py` debe pasar.
+
+---
+
 ## Resumen rápido
 
 | ID | Descripción | QA | PROD | Cuándo ejecutar |
@@ -161,6 +217,7 @@ END $$;
 | M001 | `customers.is_active` | ✅ | ❌ | Al subir imagen con soft-delete |
 | M002 | Índices en `sales` | ✅ | ❌ | Al subir imagen con ReportsCenter |
 | M003 | Módulo Farmacia completo | ⏳ | ⏳ | Al subir imagen con módulo farmacia |
+| M004 | Re-hashear PINs en texto plano | ❌ | ❌ | **URGENTE** — antes del próximo deploy |
 
 ---
 

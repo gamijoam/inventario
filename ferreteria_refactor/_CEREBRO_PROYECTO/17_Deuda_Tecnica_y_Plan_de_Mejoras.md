@@ -452,9 +452,10 @@ Los siguientes puntos de deuda técnica fueron abordados en esta rama (35+ fixes
 
 ```
 Fase 1 (rápido, alto impacto):
-  → S1: Eliminar DEBUG_BYPASS_TOKEN
+  → S1: ✅ HECHO — Eliminar DEBUG_BYPASS_TOKEN (commit 4b6b93a, 2026-03-19)
   → S2: Rate limit en public-contact
   → S3: Rotar credenciales .env
+  → S4: PENDIENTE — Migración re-hashear 6 PINs en texto plano (ver abajo)
   → Eliminar 5 archivos muertos del backend (~3,200 líneas)
 
 Fase 2 (medio plazo):
@@ -469,6 +470,53 @@ Fase 3 (largo plazo):
   → Hook useCRUDManager para Managers del frontend
   → Migración gradual JSX → TypeScript
 ```
+
+---
+
+### Hallazgos adicionales — Tests automatizados 2026-03-19
+
+> Descubiertos al correr el suite de 45 tests contra BD de producción real.
+> Ver `18_Sistema_de_Tests.md` para el catálogo completo.
+
+#### 🔴 PINs en texto plano (seguridad — ACCIÓN REQUERIDA)
+
+6 usuarios tienen el campo `pin` almacenado como texto plano en `public.users`.
+Un hash bcrypt tiene ~60 caracteres; estos PINs tienen 4-5 caracteres, confirma que no fueron hasheados.
+
+**Usuarios afectados:**
+| Email | PIN (texto plano) | Tenant |
+|-------|-------------------|--------|
+| `rodriguezisaac876@gmail.com` | `0000` | Superadmin (global) |
+| `maikergimenez@gmail.com` | `1770` | `emprendimientomaikergimenez` |
+| `maikergimenez1986@gmail.com` | `1770` | `emprendimientomaikergimenez` |
+| `lavanderialecheria@gmail.com` | `8899` | `la-lavanderia-lecheria` |
+| `parramartinezj16@gmail.com` | `1234` | `moto-repuesto-el-negro` |
+| `comercialasiatico@gmail.com` | `12345` | `comercialasiatico` |
+
+**Impacto doble:**
+1. Los PINs son legibles directamente en la BD (riesgo si alguien accede a la BD)
+2. El endpoint `POST /auth/validate-pin` **falla** para estos usuarios porque `passlib.verify()` no puede comparar un hash bcrypt con texto plano → estos usuarios no pueden usar PIN
+
+**Migración a aplicar** (ver `20_Migraciones_SQL_Pendientes.md`):
+```python
+# Generar hashes bcrypt para los PINs actuales y actualizar
+from passlib.context import CryptContext
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Luego UPDATE public.users SET pin = hash WHERE email = ...
+```
+
+#### 🟡 Admins de tenant con is_superuser=TRUE (diseño)
+
+6 usuarios de tenant tienen `is_superuser=TRUE`. Esto ocurrió al crear esos tenants cuando el flag se asignaba incorrectamente. No rompe nada hoy, pero es confuso: `is_superuser` debería ser solo para admins globales (tenant_id=NULL).
+
+**Tenants afectados:** `inversionesmis4tesoro`, `farmaciasanjose`, `la-lavanderia-lecheria`, `moto-repuesto-el-negro`, `lavado-automoto-y-accesorios-el-progresito`, `prueba2020`
+
+**Acción:** En `TenantService.seed_tenant_admin()`, cambiar `is_superuser=True` a `is_superuser=False` para usuarios de tenant. Los superusers reales se crean separado.
+
+#### 🟡 Ventas históricas sin sale_payments (datos)
+
+4 tenants tienen ventas `is_credit=FALSE, paid=TRUE` sin ningún registro en `sale_payments`. La tabla `sale_payments` fue creada después de que esos tenants ya operaban. No hay acción urgente — las ventas ya ocurrieron.
 
 ---
 
