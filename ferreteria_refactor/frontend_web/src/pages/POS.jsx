@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -16,6 +16,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 // New Components
 import POSCatalog from '../components/pos/POSCatalog';
 import POSCart from '../components/pos/POSCart';
+import ExpressSearch from '../components/pos/ExpressSearch';
+import ExpressCart from '../components/pos/ExpressCart';
+import ExpressPayModal from '../components/pos/ExpressPayModal';
 
 // Modals
 import UnitSelectionModal from '../components/pos/UnitSelectionModal';
@@ -44,7 +47,7 @@ const formatStock = (stock) => {
 };
 
 const POS = () => {
-    const { user } = useAuth();
+    const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
     const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
@@ -60,6 +63,13 @@ const POS = () => {
     const themeId = user?.preferences?.pos_theme?.id || 'default';
     const currentTheme = POS_THEMES.find(t => t.id === themeId) || DEFAULT_THEME;
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+    // Express Mode State
+    const isExpressMode = user?.preferences?.pos_mode === 'express';
+    const [isExpressPayOpen, setIsExpressPayOpen] = useState(false);
+    const handleToggleExpressMode = () => {
+        updateUserPreferences({ pos_mode: isExpressMode ? 'full' : 'express' });
+    };
     const [searchParams] = useSearchParams();
     const quoteIdParam = searchParams.get('quote_id');
 
@@ -704,6 +714,19 @@ const POS = () => {
                         <Lock size={16} /> Cerrar Caja
                     </Button>
 
+                    <Button
+                        variant={isExpressMode ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={handleToggleExpressMode}
+                        className={isExpressMode
+                            ? 'hidden md:flex gap-2 font-bold bg-indigo-600 hover:bg-indigo-700 text-white border-0'
+                            : 'hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'
+                        }
+                        title={isExpressMode ? 'Cambiar a POS Completo' : 'Activar Modo Express (caja rápida)'}
+                    >
+                        <Zap size={16} /> {isExpressMode ? 'Modo Express' : 'Express'}
+                    </Button>
+
                     <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
                     <Button
@@ -754,49 +777,87 @@ const POS = () => {
             )}
 
             <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-4 p-4">
-                {/* SECCIÓN IZQUIERDA: CATÁLOGO */}
-                <div className="flex-1 min-w-0 h-full">
-                    <POSCatalog
-                        ref={catalogRef}
-                        products={displayProducts}
-                        categories={rootCategories}
-                        loading={isLoading || catalogLoading}
-                        onAddToCart={handleProductClick}
-                        onSearch={handleSearchChange}
-                        onFilterCategory={setSelectedCategory}
-                        selectedCategoryId={selectedCategory}
-                        searchTerm={searchTerm}
-                        currencySymbol={anchorCurrency.symbol}
-                        // Secondary Currency Props
-                        secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
-                        convertProductPrice={convertProductPrice}
-                        // Server-side pagination props
-                        onLoadMore={loadMore}
-                        hasMore={hasMore}
-                        isLoadingMore={isLoadingMore}
-                        totalCount={totalProducts}
-                        onSearchChange={setServerSearch}
-                        onCategoryChange={setServerCategory}
-                    />
-                </div>
+                {isExpressMode ? (
+                    /* ===== MODO EXPRESS ===== */
+                    <>
+                        {/* Centro: búsqueda grande + historial de última búsqueda */}
+                        <div className="flex-1 min-w-0 h-full flex flex-col gap-4">
+                            <ExpressSearch
+                                onAddToCart={handleProductClick}
+                                lookupProduct={lookupProduct}
+                            />
+                            {/* Hint visual */}
+                            <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 rounded-2xl text-indigo-500 text-sm font-semibold">
+                                <Zap size={16} className="shrink-0" />
+                                Modo Express activo — escanea o escribe para agregar productos al instante.
+                                <button onClick={handleToggleExpressMode} className="ml-auto text-xs underline text-indigo-400 hover:text-indigo-600">
+                                    Volver al POS completo
+                                </button>
+                            </div>
+                        </div>
+                        {/* Derecha: carrito express */}
+                        <div className="md:w-[380px] lg:w-[420px] flex-none h-full z-10 w-full hidden md:block">
+                            <ExpressCart
+                                cartItems={cart}
+                                onRemoveItem={removeFromCart}
+                                onUpdateQuantity={updateQuantity}
+                                onClearCart={() => { if (confirm('¿Vaciar carrito?')) clearCart(); }}
+                                totals={{ totalUSD, totalBs }}
+                                anchorCurrency={anchorCurrency}
+                                onCheckout={() => setIsExpressPayOpen(true)}
+                                secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                                convertPrice={convertPrice}
+                            />
+                        </div>
+                    </>
+                ) : (
+                    /* ===== MODO COMPLETO (original) ===== */
+                    <>
+                        {/* SECCIÓN IZQUIERDA: CATÁLOGO */}
+                        <div className="flex-1 min-w-0 h-full">
+                            <POSCatalog
+                                ref={catalogRef}
+                                products={displayProducts}
+                                categories={rootCategories}
+                                loading={isLoading || catalogLoading}
+                                onAddToCart={handleProductClick}
+                                onSearch={handleSearchChange}
+                                onFilterCategory={setSelectedCategory}
+                                selectedCategoryId={selectedCategory}
+                                searchTerm={searchTerm}
+                                currencySymbol={anchorCurrency.symbol}
+                                // Secondary Currency Props
+                                secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                                convertProductPrice={convertProductPrice}
+                                // Server-side pagination props
+                                onLoadMore={loadMore}
+                                hasMore={hasMore}
+                                isLoadingMore={isLoadingMore}
+                                totalCount={totalProducts}
+                                onSearchChange={setServerSearch}
+                                onCategoryChange={setServerCategory}
+                            />
+                        </div>
 
-                {/* SECCIÓN DERECHA: CARRITO (Fixed Width on Desktop) */}
-                <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
-                    <POSCart
-                        cartItems={cart}
-                        onRemoveItem={removeFromCart}
-                        onUpdateQuantity={updateQuantity}
-                        onClearCart={() => {
-                            if (confirm('¿Vaciar carrito?')) clearCart();
-                        }}
-                        totals={{ totalUSD, totalBs }}
-                        anchorCurrency={anchorCurrency}
-                        onCheckout={() => setIsPaymentOpen(true)}
-                        onItemClick={(item) => setSelectedItemForEdit(item)}
-                        secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
-                        convertPrice={convertPrice}
-                    />
-                </div>
+                        {/* SECCIÓN DERECHA: CARRITO (Fixed Width on Desktop) */}
+                        <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
+                            <POSCart
+                                cartItems={cart}
+                                onRemoveItem={removeFromCart}
+                                onUpdateQuantity={updateQuantity}
+                                onClearCart={() => {
+                                    if (confirm('¿Vaciar carrito?')) clearCart();
+                                }}
+                                totals={{ totalUSD, totalBs }}
+                                anchorCurrency={anchorCurrency}
+                                onCheckout={() => setIsPaymentOpen(true)}
+                                onItemClick={(item) => setSelectedItemForEdit(item)}
+                                secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                                convertPrice={convertPrice}
+                            />
+                        </div>
+                    </>
+                )}
 
                 {/* MOBILE CART: Floating Button + Sheet */}
                 <div className="fixed bottom-20 right-4 md:hidden z-50">
@@ -840,6 +901,15 @@ const POS = () => {
                 </Sheet>
 
                 {/* --- MODALS --- */}
+                <ExpressPayModal
+                    isOpen={isExpressPayOpen}
+                    onClose={() => setIsExpressPayOpen(false)}
+                    totalUSD={totalUSD}
+                    totalBs={totalBs}
+                    cart={cart}
+                    warehouseId={selectedWarehouseId}
+                    onConfirm={handleCheckout}
+                />
                 <POSSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
                 <UnitSelectionModal isOpen={!!selectedProductForUnits} product={selectedProductForUnits} onClose={() => setSelectedProductForUnits(null)} onSelect={handleUnitSelect} />
                 <EditItemModal
