@@ -59,18 +59,14 @@ async def hardware_connect(
     try:
         from jose import ExpiredSignatureError
         
-        # DEBUG BYPASS FOR SCRIPT TESTING
-        if token == "DEBUG_BYPASS_TOKEN_xyz":
-            email = db.query(User).first().email
-        else:
-            # Ignore expiration time for Hardware Bridge (config tokens are long-lived), but still verify signature
-            payload = jwt.decode(
-                token, 
-                settings.SECRET_KEY, 
-                algorithms=[settings.ALGORITHM],
-                options={"verify_exp": False}
-            )
-            email = payload.get("sub")
+        # Ignore expiration time for Hardware Bridge (config tokens are long-lived), but still verify signature
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            options={"verify_exp": False}
+        )
+        email = payload.get("sub")
         if not email:
             print("⛔ [WS] Auth Failed: Token payload missing 'sub'")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
