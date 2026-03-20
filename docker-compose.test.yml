@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  db_test:
+    image: postgres:15
+    container_name: invensoft_db_test
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: testpass123
+      POSTGRES_DB: invensoft_test
+    ports:
+      - "5434:5432"
+    volumes:
+      - invensoft_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  invensoft_test_data:

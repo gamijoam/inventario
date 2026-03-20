@@ -13,11 +13,81 @@ Variables de entorno relevantes:
                          Si no está definida, los tests requires_postgres se saltean.
 """
 
+import os
 import pytest
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import sessionmaker
+
+# ---------------------------------------------------------------------------
+# Fixtures PostgreSQL real (BD de test restaurada desde backup de prod)
+# ---------------------------------------------------------------------------
+
+TEST_DB_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql://postgres:testpass123@localhost:5434/invensoft_test"
+)
+
+DEFAULT_TENANT = "farmaciasanjose"
+
+TENANT_SCHEMAS = [
+    "farmaciasanjose",
+    "hmd2018caa",
+    "inversionesjr",
+    "lalicoreria",
+    "yaracall",
+]
+
+
+@pytest.fixture(scope="session")
+def pg_engine():
+    """Engine PostgreSQL conectado a la BD de test. Una sola conexión por sesión."""
+    engine = create_engine(TEST_DB_URL, echo=False)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture(scope="function")
+def pg_db(pg_engine):
+    """
+    Sesión PostgreSQL con search_path al tenant por defecto.
+    Corre en transacción que se revierte al final → BD queda intacta.
+    """
+    connection = pg_engine.connect()
+    transaction = connection.begin()
+    connection.execute(text(f'SET search_path TO "{DEFAULT_TENANT}", public'))
+    Session = sessionmaker(bind=connection)
+    session = Session()
+    yield session
+    session.close()
+    transaction.rollback()
+    connection.close()
+
+
+@pytest.fixture(scope="function")
+def pg_db_for_schema(pg_engine):
+    """
+    Factory fixture: devuelve una función que crea sesiones para cualquier schema.
+    Útil para tests de aislamiento multi-tenant.
+    """
+    connections = []
+
+    def _get_session(schema: str):
+        conn = pg_engine.connect()
+        txn = conn.begin()
+        conn.execute(text(f'SET search_path TO "{schema}", public'))
+        Session = sessionmaker(bind=conn)
+        session = Session()
+        connections.append((conn, txn, session))
+        return session
+
+    yield _get_session
+
+    for conn, txn, session in connections:
+        session.close()
+        txn.rollback()
+        conn.close()
 
 # ---------------------------------------------------------------------------
 # Registro de marca personalizada para tests que necesitan PostgreSQL real
