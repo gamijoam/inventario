@@ -382,4 +382,56 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // Contact form
+    const contactForm = document.getElementById('contactForm');
+    if (contactForm) {
+        contactForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const btn = document.getElementById('contactBtn');
+            const btnText = document.getElementById('contactBtnText');
+            const spinner = document.getElementById('contactSpinner');
+            const msgEl = document.getElementById('contactMsg');
+
+            btn.disabled = true;
+            btnText.textContent = 'Enviando...';
+            spinner.style.display = 'inline-block';
+            msgEl.style.display = 'none';
+
+            try {
+                const resp = await fetch(`${API_URL}/api/v1/support/tickets/public-contact`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        full_name: document.getElementById('contactName').value.trim(),
+                        email: document.getElementById('contactEmail').value.trim(),
+                        phone: document.getElementById('contactPhone').value.trim(),
+                        message: document.getElementById('contactMessage').value.trim(),
+                        source: 'landing'
+                    })
+                });
+
+                if (!resp.ok) throw new Error('Error al enviar el mensaje');
+
+                msgEl.textContent = '✅ Mensaje enviado. ¡Te contactaremos pronto!';
+                msgEl.style.background = '#f0fdf4';
+                msgEl.style.color = '#166534';
+                msgEl.style.border = '1px solid #bbf7d0';
+                msgEl.style.display = 'block';
+                contactForm.reset();
+                btn.disabled = false;
+                btnText.textContent = 'Enviar Mensaje';
+                spinner.style.display = 'none';
+            } catch (err) {
+                msgEl.textContent = '❌ No se pudo enviar el mensaje. Intenta de nuevo.';
+                msgEl.style.background = '#fef2f2';
+                msgEl.style.color = '#991b1b';
+                msgEl.style.border = '1px solid #fecaca';
+                msgEl.style.display = 'block';
+                btn.disabled = false;
+                btnText.textContent = 'Enviar Mensaje';
+                spinner.style.display = 'none';
+            }
+        });
+    }
 });

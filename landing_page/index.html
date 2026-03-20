@@ -292,6 +292,48 @@
         </div>
     </section>
 
+    <!-- Contact Section -->
+    <section id="contact" style="padding: 5rem 1rem; background-color: #f8fafc;">
+        <div class="container" style="max-width: 600px; margin: 0 auto;">
+            <h2 class="section-title mb-4">¿Tienes alguna pregunta?</h2>
+            <p class="section-desc mb-8">Déjanos un mensaje y te contactaremos a la brevedad.</p>
+
+            <form id="contactForm" style="background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                <div class="form-group" style="margin-bottom: 1.2rem;">
+                    <label style="display:block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.9rem; color: #334155;">Nombre Completo *</label>
+                    <input type="text" id="contactName" placeholder="Tu nombre completo" required
+                        style="width: 100%; padding: 0.75rem 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.95rem; outline: none; transition: border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div class="form-group" style="margin-bottom: 1.2rem;">
+                    <label style="display:block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.9rem; color: #334155;">Correo Electrónico *</label>
+                    <input type="email" id="contactEmail" placeholder="tu@correo.com" required
+                        style="width: 100%; padding: 0.75rem 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.95rem; outline: none; transition: border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div class="form-group" style="margin-bottom: 1.2rem;">
+                    <label style="display:block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.9rem; color: #334155;">Teléfono *</label>
+                    <input type="tel" id="contactPhone" placeholder="+58 412 000 0000" required
+                        style="width: 100%; padding: 0.75rem 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.95rem; outline: none; transition: border-color 0.2s;"
+                        onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#e2e8f0'">
+                </div>
+                <div class="form-group" style="margin-bottom: 1.5rem;">
+                    <label style="display:block; margin-bottom: 0.4rem; font-weight: 600; font-size: 0.9rem; color: #334155;">Mensaje *</label>
+                    <textarea id="contactMessage" placeholder="¿En qué podemos ayudarte?" required rows="4"
+                        style="width: 100%; padding: 0.75rem 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; font-size: 0.95rem; outline: none; resize: vertical; transition: border-color 0.2s; font-family: inherit;"
+                        onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+                </div>
+
+                <div id="contactMsg" style="display:none; padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 1rem; font-size: 0.9rem; text-align: center;"></div>
+
+                <button type="submit" id="contactBtn" class="btn btn-primary" style="width: 100%; justify-content: center; display: flex; align-items: center; gap: 0.5rem;">
+                    <span id="contactBtnText">Enviar Mensaje</span>
+                    <i class="fas fa-spinner fa-spin" id="contactSpinner" style="display: none;"></i>
+                </button>
+            </form>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container footer-grid">

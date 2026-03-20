@@ -618,7 +618,7 @@ class CashRegisterRead(BaseModel):
     code: str
     description: Optional[str] = None
     is_active: bool
-    created_at: datetime
+    created_at: Optional[datetime] = None
     hardware_client_id: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
