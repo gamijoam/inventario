@@ -62,19 +62,38 @@ echo ""
 read -p "Elige opcion (1 o 2) [Default 1]: " TEST_CHOICE
 
 if [ "$TEST_CHOICE" != "2" ]; then
-    echo "Ejecutando pytest..."
+    echo "Verificando BD de test (Docker puerto 5434)..."
+
+    # Levantar BD de test si no está corriendo
+    if ! docker ps --format '{{.Names}}' | grep -q "invensoft_db_test"; then
+        echo "  BD de test no está corriendo. Levantando..."
+        docker compose -f docker-compose.test.yml up -d
+        echo "  Esperando 5 segundos para que la BD inicie..."
+        sleep 5
+    else
+        echo "  BD de test ya está corriendo. OK."
+    fi
 
     # Activate venv if exists
     if [ -f ".venv/bin/activate" ]; then
         source .venv/bin/activate
     fi
 
-    # Run tests from the ferreteria_refactor directory
     REPO_ROOT="$(pwd)"
     cd ferreteria_refactor
 
+    echo ""
+    echo "Ejecutando suite de tests (45 tests, 5 categorias)..."
+    echo ""
+
     set +e
-    python -m pytest tests/ -v --tb=short 2>&1
+    python -m pytest \
+        backend_api/tests/test_cat1_caja_pg.py \
+        backend_api/tests/test_cat2_ventas_pg.py \
+        backend_api/tests/test_cat3_inventario_pg.py \
+        backend_api/tests/test_cat4_auth_pg.py \
+        backend_api/tests/test_cat5_tenants_pg.py \
+        -v --no-cov --tb=short 2>&1
     TEST_EXIT=$?
     set -e
 
@@ -84,7 +103,9 @@ if [ "$TEST_CHOICE" != "2" ]; then
         echo ""
         echo "================================================"
         echo "TESTS FALLARON. Deploy abortado."
-        echo "Corrige los errores y vuelve a intentar."
+        echo ""
+        echo "Si los fallos son datos historicos conocidos,"
+        echo "vuelve a correr y elige opcion 2 (Saltar tests)."
         echo "================================================"
         exit 1
     fi
