@@ -217,7 +217,7 @@ EOF
 | M001 | `customers.is_active` | ✅ | ❌ | Al subir imagen con soft-delete |
 | M002 | Índices en `sales` | ✅ | ❌ | Al subir imagen con ReportsCenter |
 | M003 | Módulo Farmacia completo | ⏳ | ⏳ | Al subir imagen con módulo farmacia |
-| M004 | Re-hashear PINs en texto plano | ❌ | ❌ | **URGENTE** — antes del próximo deploy |
+| M004 | Re-hashear PINs en texto plano | ✅ | ✅ | Ejecutado 2026-03-20 |
 
 ---
 
