@@ -123,10 +123,11 @@ def create_tenant(
         db.add(admin_user)
         db.commit()
 
-        # 7. Seed Initial Tenant Data (Currencies, Payment Methods, Warehouse)
+        # 7. Seed Initial Tenant Data (Currencies, Payment Methods, Warehouse, Cash Register)
         from ..utils.tenant_seeding import seed_tenant_data
+        from ..services.tenant_service import TenantService
         from ..database.db import SessionLocal
-        
+
         # Use a FRESH session for seeding to avoid any transaction/search_path conflicts
         # with the main request session (which might be reset by middleware or dependencies)
         seed_db = SessionLocal()
@@ -134,7 +135,9 @@ def create_tenant(
             seed_tenant_data(seed_db, schema)
         finally:
             seed_db.close()
-            
+
+        TenantService.seed_cash_register(schema)
+
         print(f"✅ Seeding completed for {schema}")
         
         return new_tenant
