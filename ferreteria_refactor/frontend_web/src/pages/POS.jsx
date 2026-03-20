@@ -17,8 +17,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import POSCatalog from '../components/pos/POSCatalog';
 import POSCart from '../components/pos/POSCart';
 import ExpressSearch from '../components/pos/ExpressSearch';
-import ExpressCart from '../components/pos/ExpressCart';
-import ExpressPayModal from '../components/pos/ExpressPayModal';
 
 // Modals
 import UnitSelectionModal from '../components/pos/UnitSelectionModal';
@@ -66,7 +64,6 @@ const POS = () => {
 
     // Express Mode State
     const isExpressMode = user?.preferences?.pos_mode === 'express';
-    const [isExpressPayOpen, setIsExpressPayOpen] = useState(false);
     const handleToggleExpressMode = () => {
         updateUserPreferences({ pos_mode: isExpressMode ? 'full' : 'express' });
     };
@@ -795,16 +792,17 @@ const POS = () => {
                                 </button>
                             </div>
                         </div>
-                        {/* Derecha: carrito express */}
-                        <div className="md:w-[380px] lg:w-[420px] flex-none h-full z-10 w-full hidden md:block">
-                            <ExpressCart
+                        {/* Derecha: carrito normal (igual que modo completo) */}
+                        <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
+                            <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
                                 onUpdateQuantity={updateQuantity}
                                 onClearCart={() => { if (confirm('¿Vaciar carrito?')) clearCart(); }}
                                 totals={{ totalUSD, totalBs }}
                                 anchorCurrency={anchorCurrency}
-                                onCheckout={() => setIsExpressPayOpen(true)}
+                                onCheckout={() => setIsPaymentOpen(true)}
+                                onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
                                 convertPrice={convertPrice}
                             />
@@ -901,15 +899,6 @@ const POS = () => {
                 </Sheet>
 
                 {/* --- MODALS --- */}
-                <ExpressPayModal
-                    isOpen={isExpressPayOpen}
-                    onClose={() => setIsExpressPayOpen(false)}
-                    totalUSD={totalUSD}
-                    totalBs={totalBs}
-                    cart={cart}
-                    warehouseId={selectedWarehouseId}
-                    onConfirm={handleCheckout}
-                />
                 <POSSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
                 <UnitSelectionModal isOpen={!!selectedProductForUnits} product={selectedProductForUnits} onClose={() => setSelectedProductForUnits(null)} onSelect={handleUnitSelect} />
                 <EditItemModal
