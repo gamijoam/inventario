@@ -83,7 +83,7 @@ if [ "$TEST_CHOICE" != "2" ]; then
     cd ferreteria_refactor
 
     echo ""
-    echo "Ejecutando suite de tests (45 tests, 5 categorias)..."
+    echo "Ejecutando suite de tests (~305 tests: 45 integridad BD + ~260 funcionales)..."
     echo ""
 
     set +e
@@ -93,6 +93,33 @@ if [ "$TEST_CHOICE" != "2" ]; then
         backend_api/tests/test_cat3_inventario_pg.py \
         backend_api/tests/test_cat4_auth_pg.py \
         backend_api/tests/test_cat5_tenants_pg.py \
+        backend_api/tests/test_func_ventas_pg.py \
+        backend_api/tests/test_func_caja_pg.py \
+        backend_api/tests/test_func_inventario_pg.py \
+        backend_api/tests/test_func_traslados_pg.py \
+        backend_api/tests/test_func_auth_pg.py \
+        backend_api/tests/test_func_config_pg.py \
+        backend_api/tests/test_func_compras_pg.py \
+        backend_api/tests/test_func_creditos_pg.py \
+        backend_api/tests/test_func_clientes.py \
+        backend_api/tests/test_func_devoluciones.py \
+        backend_api/tests/test_func_tasas_cambio.py \
+        backend_api/tests/test_func_ventas_avanzado.py \
+        backend_api/tests/test_func_ordenes_servicio.py \
+        backend_api/tests/test_func_compras_avanzado.py \
+        backend_api/tests/test_func_comisiones.py \
+        backend_api/tests/test_func_cotizaciones.py \
+        backend_api/tests/test_func_productos.py \
+        backend_api/tests/test_func_proveedores.py \
+        backend_api/tests/test_func_usuarios.py \
+        backend_api/tests/test_func_bodegas.py \
+        backend_api/tests/test_func_categorias.py \
+        backend_api/tests/test_func_metodos_pago.py \
+        backend_api/tests/test_func_listas_precio.py \
+        backend_api/tests/test_func_garantias.py \
+        backend_api/tests/test_func_ajustes_inventario.py \
+        backend_api/tests/test_func_traslados_internos.py \
+        backend_api/tests/test_func_empleados.py \
         -v --no-cov --tb=short 2>&1
     TEST_EXIT=$?
     set -e

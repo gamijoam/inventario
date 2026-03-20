@@ -1,318 +1,452 @@
-# 19 — Tests Funcionales (Integración de Endpoints)
+# 19 — Tests Funcionales (Integración contra PostgreSQL real)
 
-> Análisis y plan de implementación de tests que verifican que el **código** funciona,
-> no solo que los datos están bien (eso lo hace `18_Sistema_de_Tests.md`).
-> **Creado:** 2026-03-20
+> Documentación completa del sistema de tests funcionales: qué verifica cada módulo,
+> por qué importa, cómo está implementado, y qué flujos están pendientes.
+> **Creado:** 2026-03-20 | **Última actualización:** 2026-03-20
 
 ---
 
-## Diferencia con los tests de integridad de BD
+## Índice
 
-| | Tests de BD (Cat 1-5) | Tests Funcionales (este doc) |
+1. [Diferencia con tests de integridad BD](#diferencia)
+2. [Arquitectura de los tests funcionales](#arquitectura)
+3. [Estado de implementación](#estado)
+4. [Plan completo por módulo](#plan)
+5. [Nota técnica: service rollback](#rollback)
+6. [Pipeline de deploy](#pipeline)
+
+---
+
+## 1. Diferencia con tests de integridad BD {#diferencia}
+
+| | Tests de BD (Cat 1-5) | Tests Funcionales (func_*) |
 |---|---|---|
 | **Qué verifican** | Estado de los datos en prod | Que el código hace lo que debe |
-| **Cómo trabajan** | SQL directo, solo lectura | Llaman endpoints reales, crean datos |
+| **Cómo trabajan** | SQL directo, solo lectura | ORM real, crean y modifican datos |
 | **Detectan** | Corrupción histórica | Regresiones en código nuevo |
-| **Velocidad** | ~1 segundo | ~30-120 segundos |
-| **Archivo** | `test_cat1-5_*_pg.py` | `test_func_*_pg.py` (por implementar) |
+| **Aislamiento** | Read-only, no modifica | Transacción que se revierte al final |
+| **Velocidad** | ~1 segundo | ~2-3 segundos |
+| **Archivo** | `test_cat1-5_*_pg.py` | `test_func_*_pg.py` |
+
+### Cobertura previa (tests con SQLite mock — NO cuentan)
+
+Los archivos `test_auth.py`, `test_cash.py`, `test_sales.py`, etc. usan SQLite en memoria.
+No detectan bugs específicos de PostgreSQL: schemas multi-tenant, search_path, índices parciales, Numeric precision, ENUMs nativos.
 
 ---
 
-## Cobertura actual (tests existentes)
+## 2. Arquitectura de los tests funcionales {#arquitectura}
 
-Los archivos en `backend_api/tests/` ya tienen tests, pero la mayoría usan **SQLite en memoria** con mocks — no PostgreSQL real. Esto significa que no detectan bugs específicos de PostgreSQL (schemas, search_path, índices parciales).
-
-| Archivo | Tipo | BD | Cobertura |
-|---------|------|----|-----------|
-| `test_auth.py` (37 KB) | Funcional | SQLite mock | Login, tokens, PIN, reset password |
-| `test_cash.py` (23 KB) | Funcional | SQLite mock | Movimientos, cierre, balance |
-| `test_cash_routers.py` (33 KB) | Funcional | SQLite mock | Operaciones de caja |
-| `test_cash_session.py` (16 KB) | Funcional | SQLite mock | Abrir/cerrar sesión |
-| `test_credit_limit.py` (19 KB) | Funcional | SQLite mock | Validación de crédito |
-| `test_products.py` (20 KB) | Funcional | SQLite mock | CRUD productos, SKU |
-| `test_customers.py` (30 KB) | Funcional | SQLite mock | Clientes, deuda |
-| `test_sales.py` (18 KB) | Funcional | SQLite mock | Stock, crédito, idempotency |
-| `test_reports.py` (39 KB) | Funcional | SQLite mock | Reportes |
-| `test_cat1-5_*_pg.py` | Integridad BD | PostgreSQL real | 45 tests, solo lectura |
-
-**Gap principal:** Ningún test funcional usa PostgreSQL real con schemas multi-tenant.
-
----
-
-## Módulos y endpoints cubiertos por el backend
-
-### Routers registrados en `main.py`
-
-| Módulo | Router | Endpoints aprox. |
-|--------|--------|-----------------|
-| Autenticación | `auth.py` | 7 endpoints |
-| Ventas + Productos | `products.py` | ~25 endpoints |
-| Caja | `cash_legacy.py` (1,099 líneas) | ~15 endpoints |
-| Inventario | `inventory.py` | 5 endpoints |
-| Traslados | `transfers.py` | 6 endpoints |
-| Clientes | `customers.py` | 5 endpoints |
-| Usuarios | `users.py` | 6 endpoints |
-| Compras | `purchases.py` | 4 endpoints |
-| Créditos | `credits.py` | 2 endpoints |
-| Devoluciones | `returns.py` | 4 endpoints |
-| Presupuestos | `quotes.py` | 4 endpoints |
-| Configuración | `config.py` (1,018 líneas) | ~10 endpoints |
-| Reportes | `reports_legacy.py` (2,027 líneas) | ~8 endpoints |
-| Admin SaaS | `admin.py` (1,125 líneas) | ~12 endpoints |
-| Farmacia | `pharmacy.py` | ~6 endpoints |
-| Servicios técnicos | `services.py` | ~5 endpoints |
-
-**Total estimado:** ~130 endpoints
-
----
-
-## Flujos críticos por prioridad
-
-### 🔴 PRIORIDAD 1 — Core del negocio (sin esto no hay sistema)
-
-#### F01 — Venta completa con descuento de stock
-```
-1. Abrir sesión de caja
-2. POST /products/sales/ con 2 productos
-3. Verificar:
-   - ProductStock[warehouse] se redujo en la cantidad vendida
-   - Product.stock (caché global) se redujo
-   - Kardex tiene entrada tipo SALE con balance_after correcto
-   - SaleDetail creado por cada producto
-   - sale.total_amount == suma de subtotales
-4. Verificar que otro tenant NO ve esta venta
-```
-
-#### F02 — Venta con stock insuficiente → debe rechazar
-```
-1. Producto con stock = 5
-2. Intentar vender 10 unidades
-3. Verificar: HTTP 400, stock NO se modificó, Kardex sin entrada nueva
-```
-
-#### F03 — Cierre de caja con cálculo correcto
-```
-1. Abrir caja con initial_cash = 100 USD
-2. Registrar movimiento DEPOSIT 50 USD
-3. Registrar movimiento EXPENSE 20 USD
-4. Cerrar caja reportando 130 USD
-5. Verificar:
-   - final_cash_expected = 100 + 50 - 20 = 130 USD
-   - difference = 130 - 130 = 0
-   - status = CLOSED, end_time NOT NULL
-```
-
-#### F04 — Venta a crédito con límite de crédito
-```
-1. Cliente con credit_limit = 500 USD, deuda actual = 400 USD
-2. Intentar venta a crédito de 200 USD → debe rechazar (400 + 200 > 500)
-3. Intentar venta a crédito de 50 USD → debe aprobar
-4. Verificar: balance_pending = 50, Sale.is_credit = TRUE
-```
-
-#### F05 — No se pueden abrir dos cajas en el mismo registro
-```
-1. Abrir sesión en caja #1 → OK
-2. Intentar abrir segunda sesión en caja #1 → debe rechazar (HTTP 409)
-3. Abrir sesión en caja #2 distinta → OK
-```
-
----
-
-### 🟡 PRIORIDAD 2 — Flujos importantes (afectan integridad de datos)
-
-#### F06 — Traslado entre almacenes sincroniza stock
-```
-1. Almacén A: producto X con 100 unidades
-2. Almacén B: producto X con 0 unidades
-3. POST /transfers { source: A, target: B, product: X, qty: 30 }
-4. Verificar:
-   - Almacén A: 70 unidades
-   - Almacén B: 30 unidades
-   - Product.stock global: sigue en 100 (solo se movió)
-   - Kardex: 2 entradas (TRANSFER_OUT en A, TRANSFER_IN en B)
-```
-
-#### F07 — Entrada de stock actualiza Kardex
-```
-1. Producto con stock = 20
-2. POST /inventory/add { product_id, warehouse_id, quantity: 50 }
-3. Verificar:
-   - ProductStock[warehouse] = 70
-   - Product.stock = 70
-   - Kardex: entrada PURCHASE, balance_after = 70
-```
-
-#### F08 — Reset de contraseña usa email (no username)
-```
-1. Dos usuarios con username='admin' en distintos tenants
-2. POST /auth/forgot-password { email: "user@tenant1.com" }
-3. Verificar que el JWT generado tiene sub = "user@tenant1.com"
-4. POST /auth/reset-password con ese token
-5. Verificar que SOLO el usuario con ese email cambió su password
-   (el otro 'admin' no se tocó)
-```
-
-#### F09 — Venta a crédito con cliente bloqueado → rechaza
-```
-1. Cliente con is_blocked = TRUE
-2. Intentar venta a crédito
-3. Verificar: HTTP 400 "Cliente bloqueado"
-4. Verificar: la venta NO se creó en BD
-```
-
-#### F10 — Atomicidad: si falla un item, no se guarda nada
-```
-1. Venta con 3 productos: los 2 primeros tienen stock, el 3ro no
-2. Intentar crear la venta
-3. Verificar: HTTP 400
-4. Verificar: stock de los 2 primeros NO se modificó (rollback)
-5. Verificar: no hay Sale ni SaleDetails creados
-```
-
----
-
-### 🟢 PRIORIDAD 3 — Edge cases y validaciones
-
-#### F11 — SKU duplicado rechazado al crear producto
-```
-POST /products/ con SKU ya existente → HTTP 400
-```
-
-#### F12 — Venta de servicio no requiere warehouse
-```
-Producto is_service=True, POST /products/sales/ sin warehouse_id → OK
-Stock no cambia, sin Kardex entry de stock
-```
-
-#### F13 — Multicaja: ventas van a la sesión correcta
-```
-2 cajeros con 2 cajas abiertas, cada uno vende
-Verificar que sale.session_id apunta a la sesión del cajero correcto
-```
-
-#### F14 — Compra actualiza stock en warehouse específico
-```
-POST /purchases con warehouse_id = bodega_b
-Verificar ProductStock[bodega_b] aumentó, ProductStock[bodega_a] intacto
-```
-
-#### F15 — Valuación de deuda en Bs con tasas por producto
-```
-Venta con productos de distintas tasas (BCV vs Paralelo)
-GET /credits/sales/{id}/valuation
-Verificar breakdown correcto por tasa
-```
-
----
-
-## Arquitectura de los tests funcionales
-
-### Cómo funciona FastAPI TestClient
+### Fixtures disponibles (conftest.py)
 
 ```python
-from fastapi.testclient import TestClient
-from backend_api.main import app
-
-client = TestClient(app)
-
-def test_crear_venta(pg_db):
-    # 1. Preparar datos en BD real
-    # 2. Hacer request HTTP al endpoint
-    response = client.post("/api/v1/products/sales/", json={...},
-                           headers={"x-tenant-id": "farmaciasanjose"})
-    # 3. Verificar respuesta
-    assert response.status_code == 200
-    # 4. Verificar estado en BD
-    venta = pg_db.query(Sale).filter_by(id=response.json()["id"]).first()
-    assert venta.total_amount == 100
+pg_engine          # SQLAlchemy engine → PostgreSQL 5434 (test BD)
+pg_db_for_schema   # Factory: pg_db_for_schema("tenant") → sesión con search_path correcto
 ```
 
-### Diferencia vs tests actuales (SQLite)
-
-Los tests actuales en `test_sales.py` etc. usan SQLite en memoria. Los nuevos usarán:
-- **PostgreSQL real** (puerto 5434, misma BD de test)
-- **Search path real** por tenant
-- **Índices parciales** reales (el unique de caja, por ejemplo)
-- **F-strings con schemas** como hace el código de producción
-
-### Fixtures necesarias (a agregar en `conftest.py`)
+### Patrón de aislamiento
 
 ```python
-@pytest.fixture
-def test_tenant_setup(pg_engine):
-    """
-    Crea en la BD de test un set completo:
-    - 1 almacén principal
-    - 1 caja registradora
-    - 3 productos con stock
-    - 1 cliente con crédito
-    Todo dentro de una transacción que se revierte al final.
-    """
-
-@pytest.fixture
-def open_session(test_tenant_setup, pg_db):
-    """Abre una CashSession y la retorna para los tests de venta."""
-
-@pytest.fixture
-def admin_headers():
-    """Headers con JWT de admin para autenticar requests."""
+@pytest.fixture()
+def tenant_db(pg_db_for_schema):
+    return pg_db_for_schema("lalicoreria")  # Transacción → ROLLBACK al finalizar el test
 ```
+
+Cada test corre dentro de una transacción PostgreSQL que se revierte automáticamente.
+La BD queda intacta. Los tests pueden insertar, modificar y consultar libremente.
+
+### Patrón de helpers (sin db.commit ni WebSocket)
+
+```python
+def _helper_logica(db, params):
+    """Replica la lógica del router/service sin db.commit() ni WebSocket."""
+    obj = Model(**params)
+    db.add(obj)
+    db.flush()   # ← aplica a BD dentro de la transacción, sin commit
+    return obj
+```
+
+### Tenant de test
+
+Todos los tests usan `TENANT = "lalicoreria"` (existe en la BD de test restaurada de producción).
 
 ---
 
-## Estructura de archivos propuesta
+## 3. Estado de implementación {#estado}
 
-```
-backend_api/tests/
-├── conftest.py                        ← Agregar fixtures funcionales
-├── test_func_ventas_pg.py             ← F01, F02, F04, F09, F10, F12, F13
-├── test_func_caja_pg.py               ← F03, F05
-├── test_func_inventario_pg.py         ← F07, F14
-├── test_func_traslados_pg.py          ← F06
-├── test_func_auth_pg.py               ← F08
-└── test_func_creditos_pg.py           ← F15
-```
+### Suite actual
+
+**~305 tests implementados: 45 integridad BD + ~260 funcionales ✅**
+
+| Archivo | Grupo | Tests | Estado |
+|---------|-------|-------|--------|
+| `test_cat1_caja_pg.py` | Integridad caja | ~9 | ✅ |
+| `test_cat2_ventas_pg.py` | Integridad ventas | ~9 | ✅ |
+| `test_cat3_inventario_pg.py` | Integridad inventario | ~9 | ✅ |
+| `test_cat4_auth_pg.py` | Integridad auth | ~9 | ✅ |
+| `test_cat5_tenants_pg.py` | Integridad tenants | ~9 | ✅ |
+| `test_func_ventas_pg.py` | Ventas funcionales | 12 | ✅ |
+| `test_func_caja_pg.py` | Caja funcionales | 32 | ✅ |
+| `test_func_inventario_pg.py` | Inventario funcionales | 6 | ✅ |
+| `test_func_traslados_pg.py` | Traslados externos | 5 | ✅ |
+| `test_func_auth_pg.py` | Auth funcionales | 4 | ✅ |
+| `test_func_config_pg.py` | Config funcionales | 12 | ✅ |
+| `test_func_compras_pg.py` | Compras funcionales | 11 | ✅ |
+| `test_func_creditos_pg.py` | Créditos funcionales | 9+1skip | ✅ |
+| `test_func_clientes.py` | Clientes y deuda | 12 | ✅ |
+| `test_func_devoluciones.py` | Devoluciones | 12 | ✅ |
+| `test_func_tasas_cambio.py` | Tasas de cambio | 12 | ✅ |
+| `test_func_ventas_avanzado.py` | Ventas avanzadas | 13 | ✅ |
+| `test_func_ordenes_servicio.py` | Órdenes de servicio | 18 | ✅ |
+| `test_func_compras_avanzado.py` | Compras avanzadas | 11 | ✅ |
+| `test_func_comisiones.py` | Comisiones (ventas) | 13 | ✅ |
+| `test_func_cotizaciones.py` | Cotizaciones | 13 | ✅ |
+| `test_func_productos.py` | Productos | 12 | ✅ |
+| `test_func_proveedores.py` | Proveedores | 9 | ✅ |
+| `test_func_usuarios.py` | Usuarios y roles | 8 | ✅ |
+| `test_func_bodegas.py` | Bodegas/Almacenes | 10 | ✅ |
+| `test_func_categorias.py` | Categorías de productos | 12 | ✅ |
+| `test_func_metodos_pago.py` | Métodos de pago | 10 | ✅ |
+| `test_func_listas_precio.py` | Listas de precio | 10 | ✅ |
+| `test_func_garantias.py` | Garantías (policy+claim) | 13 | ✅ |
+| `test_func_ajustes_inventario.py` | Ajustes de stock (IN/OUT) | 13 | ✅ |
+| `test_func_traslados_internos.py` | Traslados entre bodegas | 12 | ✅ |
+| `test_func_empleados.py` | Empleados + Commission | 13 | ✅ |
+
+**Total implementado: ~305 tests ✅**
+
+### Nota técnica: dos sistemas de comisiones
+
+| Modelo | Módulo | Propósito |
+|--------|--------|-----------|
+| `CommissionLog` | Ventas generales | Comisión por venta al usuario (vendedor) |
+| `Commission` | Barbería/Salón | Comisión por servicio al empleado físico |
 
 ---
 
-## Cómo integrar al pipeline de deploy
+## 4. Plan completo por módulo {#plan}
 
-Una vez implementados, agregar al `deploy_images.sh` **después** de los tests de integridad:
+---
+
+### TIER 1 — Flujos core con alto riesgo de bug
+
+---
+
+#### `test_func_clientes.py` — Clientes y deuda (~12 tests)
+
+**Por qué importa:** La deuda del cliente se calcula en tiempo real sumando ventas crédito menos pagos. Un error aquí puede negar crédito a clientes que ya pagaron o aprobar a clientes deudores.
+
+**Flujos a cubrir:**
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FCL01a | Crear cliente con todos los campos | `name`, `credit_limit`, `payment_term_days` persisten |
+| FCL01b | ID/cédula único por tenant | Segundo cliente con misma cédula → `IntegrityError` |
+| FCL02a | Deuda = suma balance_pending de ventas crédito activas | Fórmula correcta |
+| FCL02b | Pago reduce deuda correctamente | `balance_pending` baja, `paid=True` cuando llega a 0 |
+| FCL02c | Deuda en 0 tras pagar todo | Cliente sin deuda pendiente |
+| FCL03a | Límite de crédito disponible = `credit_limit - deuda_actual` | Cálculo correcto |
+| FCL03b | Facturas vencidas: `due_date < hoy AND balance_pending > 0` | Count y suma correctos |
+| FCL03c | Cliente sin facturas vencidas → overdue_count = 0 | Caso base |
+| FCL04a | `is_blocked=True` bloquea ventas a crédito | Sale con crédito rechazada |
+| FCL04b | `is_blocked=True` NO bloquea ventas de contado | Venta normal OK |
+| FCL05a | Soft-delete: `is_active=False` mantiene registro en BD | Dato histórico preservado |
+| FCL05b | Cliente inactivo excluido de lista por defecto | Filtro `is_active=True` funciona |
+
+---
+
+#### `test_func_devoluciones.py` — Devoluciones (~10 tests)
+
+**Por qué importa:** Una devolución toca stock, Kardex, balance de deuda y caja al mismo tiempo. Un error puede crear stock fantasma, doble crédito o pérdida de trazabilidad.
+
+**Flujos a cubrir:**
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FRE01a | Devolución GOOD: stock se restaura | `ProductStock` y `Product.stock` aumentan |
+| FRE01b | Devolución GOOD: Kardex RETURN creado | `movement_type=RETURN`, `balance_after` correcto |
+| FRE01c | Devolución GOOD: `ReturnDetail` almacena `unit_price` y `unit_cost` | Auditoría histórica |
+| FRE02a | Devolución DAMAGED: stock restaurado temporalmente | RETURN kardex primero |
+| FRE02b | Devolución DAMAGED: ajuste OUT inmediato | ADJUSTMENT_OUT kardex → stock neto = 0 |
+| FRE02c | Devolución DAMAGED: dos entradas Kardex, stock neto sin cambio | Auditoría sin stock fantasma |
+| FRE03a | Devolución sobre venta a crédito reduce `balance_pending` | Deuda baja en monto devuelto |
+| FRE03b | Devolución parcial de crédito: `balance_pending` baja pero no llega a 0 | No cancela toda la deuda |
+| FRE03c | `Return` y `ReturnDetail` registrados correctamente | FK a Sale y SaleDetail |
+| FRE04a | Importe de refund = `unit_price × qty_returned` | Cálculo correcto |
+
+---
+
+#### `test_func_tasas_cambio.py` — Tasas de cambio (~8 tests)
+
+**Por qué importa:** El sistema es multimoneda con tasas variables (BCV, paralelo). Una tasa mal configurada afecta todos los precios, valuaciones de crédito y conversiones de la caja.
+
+**Flujos a cubrir:**
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FTC01a | Crear tasa con `is_default=True` | Persiste correctamente |
+| FTC01b | Solo una tasa puede ser `is_default=True` | Al activar otra como default, la anterior queda `is_default=False` |
+| FTC02a | Producto con `exchange_rate_id` específico | Usa esa tasa, no la default |
+| FTC02b | Producto sin `exchange_rate_id` | Usa la tasa `is_default=True` |
+| FTC03a | Valuación de crédito en Bs: `balance_pending × rate.rate` | Fórmula correcta |
+| FTC03b | Valuación proporcional: `(balance_pending/total_amount) × total_ves` | Crédito parcialmente pagado |
+| FTC04a | Tasa `is_active=False` excluida de selección activa | Solo tasas activas disponibles |
+| FTC04b | Múltiples tasas activas coexisten (BCV + Paralelo) | Sistema multi-tasa funcional |
+
+---
+
+#### `test_func_ventas_avanzado.py` — Ventas avanzadas (~10 tests)
+
+**Por qué importa:** Los flujos de descuento, IGTF, vuelto y pago mixto son fuentes frecuentes de errores de cálculo que afectan directamente el dinero del negocio.
+
+**Flujos a cubrir:**
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FVA01a | Descuento en carrito: `total_discount_usd` reduce `total_amount` | Cálculo correcto |
+| FVA01b | Descuento no puede superar el subtotal | Validación límite |
+| FVA02a | IGTF 3% en pago USD: `total_amount` aumenta en 3% | `igtf_amount` calculado |
+| FVA02b | Pago en Bs no activa IGTF | Solo USD paga IGTF en Venezuela |
+| FVA03a | Pago mixto: USD + Bs → dos `SalePayment` | Ambos registros creados |
+| FVA03b | Suma de `SalePayment.amount` (normalizados) == `total_amount` | Sin doble cobro |
+| FVA04a | `change_amount > 0`: vuelto registrado en venta | `change_amount` y `change_currency` correctos |
+| FVA04b | Vuelto resta del `expected` en cierre de caja | Fórmula de cierre incluye `change` |
+| FVA05a | `SaleDetail.unit_price` capturado al momento de venta | No cambia si el producto cambia de precio |
+| FVA05b | Precio histórico: `SaleDetail` conserva precio aunque producto se actualice | Auditoría correcta |
+
+---
+
+#### `test_func_ordenes_servicio.py` — Órdenes de servicio (~12 tests)
+
+**Por qué importa:** Las órdenes de servicio (reparación/lavandería) son el core de varios tipos de negocio. El flujo tiene estados, restricciones de reversión, y converge en una venta al hacer checkout.
+
+**Flujos a cubrir:**
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FSO01a | Crear orden: `ServiceOrder` con datos del dispositivo | Persiste correctamente |
+| FSO01b | Número de ticket auto-generado con prefijo por tipo | `ticket_number` único y secuencial |
+| FSO01c | Orden vinculada a cliente (opcional) | `customer_id` nullable |
+| FSO02a | Flujo: RECEIVED → IN_PROGRESS | Transición válida |
+| FSO02b | Flujo: IN_PROGRESS → READY | Transición válida |
+| FSO02c | Flujo: READY → DELIVERED | Transición válida, `delivered_at` se setea |
+| FSO02d | No se puede ir de RECEIVED → DELIVERED (saltar estados) | Validación de flujo |
+| FSO03a | Agregar ítem/repuesto a orden (`ServiceOrderItem`) | FK correcto, precio almacenado |
+| FSO03b | Ítem sin `product_id` (trabajo manual/mano de obra) | Descripción-only, sin stock |
+| FSO04a | Checkout: convierte orden en Sale | Sale creado con `total_amount` correcto |
+| FSO04b | Checkout doble: segunda llamada rechazada | Flag `payment_status=PAID` en metadata previene doble cobro |
+| FSO05a | Orden tipo laundry: metadata con `pieces` y `bag_color` | Datos específicos de lavandería |
+
+---
+
+### TIER 2 — Flujos de dinero y soporte
+
+---
+
+#### `test_func_compras_avanzado.py` — Compras avanzadas (~8 tests)
+
+**Por qué importa:** Las compras a crédito a proveedores y los pagos parciales son flujos complejos que afectan el balance del proveedor y el status de la PO.
+
+**Flujos a cubrir:**
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FPA01a | PO CREDIT: `supplier.current_balance` aumenta en `total_amount` | Deuda con proveedor registrada |
+| FPA01b | Pago parcial: `paid_amount` acumula, status PENDING→PARTIAL | Transición correcta |
+| FPA01c | Pago completo: status PARTIAL→PAID, `supplier.current_balance` baja | Liquidación correcta |
+| FPA02a | `update_price=True`: precio venta recalculado desde costo + margen | `product.sale_price` actualizado |
+| FPA02b | `update_price=False`: precio de venta no cambia | Precio anterior intacto |
+| FPA03a | Recibir en warehouse B no toca warehouse A | Aislamiento de almacenes |
+| FPA03b | PO sin `warehouse_id`: stock va al warehouse principal | Default correcto |
+| FPA04a | Múltiples ítems en una PO: stock de cada producto actualizado | Batch correcto |
+
+---
+
+#### `test_func_comisiones.py` — Comisiones de empleados (~8 tests)
+
+**Por qué importa:** Las comisiones son dinero real que sale de la caja. Un error puede pagar comisiones dos veces o calcular montos incorrectos.
+
+**Flujos a cubrir:**
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FCO01a | `CommissionLog` creado al hacer una venta | Vínculo sale → comisión |
+| FCO01b | Monto = `total_amount × commission_percentage / 100` | Cálculo correcto |
+| FCO01c | Comisión en estado PENDING tras la venta | Estado inicial correcto |
+| FCO02a | Payout: `CommissionLog.status` → PAID | Transición de estado |
+| FCO02b | Payout crea `CashMovement` de tipo EXPENSE en sesión activa | Dinero sale de caja |
+| FCO02c | No se puede pagar la misma comisión dos veces | Segunda llamada rechazada |
+| FCO03a | Comisión 0% (empleado sin comisión): no crea CommissionLog | Sin registro innecesario |
+| FCO03b | Resumen por empleado: total PENDING y total PAID | Agregación correcta |
+
+---
+
+#### `test_func_cotizaciones.py` — Cotizaciones/presupuestos (~8 tests)
+
+**Por qué importa:** Las cotizaciones capturan precios en un momento dado. Si el precio cambia después, la cotización debe conservar el precio original.
+
+**Flujos a cubrir:**
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FCT01a | Crear cotización con múltiples ítems | `Quote` + `QuoteDetail` persisten |
+| FCT01b | `QuoteDetail.unit_price` fijado al momento de cotizar | No cambia con el producto |
+| FCT01c | `subtotal = unit_price × quantity` por cada ítem | Cálculo por línea |
+| FCT01d | `total_amount = suma subtotales` | Total correcto |
+| FCT02a | Solo cotizaciones PENDING son editables | Editar CONVERTED → error |
+| FCT02b | Convertir: status PENDING → CONVERTED | Transición correcta |
+| FCT02c | Cotización CONVERTED no puede editarse | Inmutabilidad post-conversión |
+| FCT03a | Eliminar cotización PENDING → se borra de BD | Borrado físico OK |
+
+---
+
+#### `test_func_productos.py` — Productos (~10 tests)
+
+**Por qué importa:** Los productos son el centro del sistema. SKU duplicado, búsquedas incorrectas o stock global mal calculado rompen el POS.
+
+**Flujos a cubrir:**
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FPR01a | Crear producto con categoría | FK correcta, todos los campos |
+| FPR01b | SKU único por tenant → duplicado rechazado | `IntegrityError` en SKU repetido |
+| FPR01c | Producto sin categoría permitido | `category_id=None` OK |
+| FPR02a | `Product.stock` = suma de `ProductStock` de todos los warehouses | Stock global consistente |
+| FPR02b | Crear stock en warehouse que no tenía ProductStock | Se crea el registro automáticamente |
+| FPR03a | Búsqueda multi-token: "Redmi 15C 256" → busca con AND lógico | Todos los tokens deben estar |
+| FPR03b | Búsqueda por SKU parcial | ilike match |
+| FPR04a | `is_service=True`: venta sin Kardex, sin cambio de stock | Servicio no descuenta |
+| FPR04b | Soft-delete: `is_active=False` conserva en BD | Histórico preservado |
+| FPR04c | Producto tipo combo: `is_combo=True`, tiene `ComboItem`s | Estructura correcta |
+
+---
+
+### TIER 3 — Completitud e infraestructura
+
+---
+
+#### `test_func_proveedores.py` — Proveedores (~5 tests)
+
+**Por qué importa:** El `current_balance` del proveedor debe reflejar exactamente lo que se le debe. Un error lo hace invisible.
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FSP01a | Crear proveedor con `payment_term_days` | Campos persisten |
+| FSP01b | `current_balance` aumenta con compra CREDIT | Deuda registrada |
+| FSP01c | `current_balance` baja al registrar pago | Liquidación parcial |
+| FSP01d | `current_balance` no cambia con compra CASH | Solo crédito afecta balance |
+| FSP01e | Nombre único por tenant (si hay constraint) | Duplicado rechazado o permitido |
+
+---
+
+#### `test_func_usuarios.py` — Usuarios y roles (~6 tests)
+
+**Por qué importa:** Los roles controlan qué puede hacer cada usuario. Un error en la creación o el PIN puede bloquear el acceso o saltarse la autenticación.
+
+| ID | Descripción | Qué verifica |
+|----|-------------|-------------|
+| FUS01a | Crear usuario con rol CASHIER | Rol asignado correctamente |
+| FUS01b | Email único por tenant (no global) | Mismo email en otro tenant: OK; mismo tenant: error |
+| FUS01c | Username único por tenant | Duplicado en mismo tenant: error |
+| FUS02a | PIN se hashea con bcrypt al guardar | `pin` en BD es hash (~60 chars), no texto plano |
+| FUS02b | Verificar PIN con `passlib.verify()` | Hash correcto, verificación exitosa |
+| FUS03a | `is_active=False`: soft-delete, usuario en BD | Dato histórico preservado |
+
+---
+
+## 5. Nota técnica: service rollback en tests de excepción {#rollback}
+
+El `SalesService` llama `db.rollback()` internamente al lanzar una excepción.
+Esto invalida la sesión de test (`tenant_db`) para queries posteriores.
+
+**Soluciones adoptadas:**
+
+1. **Verificar estado ANTES** del intento fallido (F02b)
+2. **`pg_engine` con conexión independiente** para verificar BD comprometida (F02c)
+3. **ORM directo** en lugar de llamar al service (créditos, caja, devoluciones)
+
+Este patrón se replica en todos los tests de excepción nuevos.
+
+---
+
+## 6. Pipeline de deploy {#pipeline}
+
+### Estado actual (136 tests)
 
 ```bash
-# Tests de integridad BD (actuales, ~1 seg)
-python -m pytest backend_api/tests/test_cat1_caja_pg.py \
-                  backend_api/tests/test_cat2_ventas_pg.py \
-                  ...
+# deploy_images.sh — 136 tests totales, ~2 segundos
+python -m pytest \
+    backend_api/tests/test_cat1_caja_pg.py \
+    backend_api/tests/test_cat2_ventas_pg.py \
+    backend_api/tests/test_cat3_inventario_pg.py \
+    backend_api/tests/test_cat4_auth_pg.py \
+    backend_api/tests/test_cat5_tenants_pg.py \
+    backend_api/tests/test_func_ventas_pg.py \
+    backend_api/tests/test_func_caja_pg.py \
+    backend_api/tests/test_func_inventario_pg.py \
+    backend_api/tests/test_func_traslados_pg.py \
+    backend_api/tests/test_func_auth_pg.py \
+    backend_api/tests/test_func_config_pg.py \
+    backend_api/tests/test_func_compras_pg.py \
+    backend_api/tests/test_func_creditos_pg.py \
+    -v --no-cov --tb=short
+```
 
-# Tests funcionales (nuevos, ~30-60 seg)
-python -m pytest backend_api/tests/test_func_ventas_pg.py \
-                  backend_api/tests/test_func_caja_pg.py \
-                  backend_api/tests/test_func_inventario_pg.py \
-                  backend_api/tests/test_func_traslados_pg.py \
-                  backend_api/tests/test_func_auth_pg.py \
-                  -v --no-cov --tb=short
+### Target (233 tests) — se actualiza al implementar cada módulo
+
+```bash
+python -m pytest \
+    backend_api/tests/test_cat1_caja_pg.py \
+    backend_api/tests/test_cat2_ventas_pg.py \
+    backend_api/tests/test_cat3_inventario_pg.py \
+    backend_api/tests/test_cat4_auth_pg.py \
+    backend_api/tests/test_cat5_tenants_pg.py \
+    backend_api/tests/test_func_ventas_pg.py \
+    backend_api/tests/test_func_caja_pg.py \
+    backend_api/tests/test_func_inventario_pg.py \
+    backend_api/tests/test_func_traslados_pg.py \
+    backend_api/tests/test_func_auth_pg.py \
+    backend_api/tests/test_func_config_pg.py \
+    backend_api/tests/test_func_compras_pg.py \
+    backend_api/tests/test_func_creditos_pg.py \
+    backend_api/tests/test_func_clientes.py \
+    backend_api/tests/test_func_devoluciones.py \
+    backend_api/tests/test_func_tasas_cambio.py \
+    backend_api/tests/test_func_ventas_avanzado.py \
+    backend_api/tests/test_func_ordenes_servicio.py \
+    backend_api/tests/test_func_compras_avanzado.py \
+    backend_api/tests/test_func_comisiones.py \
+    backend_api/tests/test_func_cotizaciones.py \
+    backend_api/tests/test_func_productos.py \
+    backend_api/tests/test_func_proveedores.py \
+    backend_api/tests/test_func_usuarios.py \
+    -v --no-cov --tb=short
 ```
 
 ---
 
-## Estado de implementación
+## Módulos cubiertos — resumen final
 
-| Test | Descripción | Estado |
-|------|-------------|--------|
-| F01 | Venta completa con stock | ⏳ Pendiente |
-| F02 | Venta con stock insuficiente | ⏳ Pendiente |
-| F03 | Cierre de caja con cálculo correcto | ⏳ Pendiente |
-| F04 | Crédito con límite excedido | ⏳ Pendiente |
-| F05 | Doble apertura de caja rechazada | ⏳ Pendiente |
-| F06 | Traslado entre almacenes | ⏳ Pendiente |
-| F07 | Entrada de stock en Kardex | ⏳ Pendiente |
-| F08 | Reset password por email | ⏳ Pendiente |
-| F09 | Venta a cliente bloqueado | ⏳ Pendiente |
-| F10 | Atomicidad en venta multi-item | ⏳ Pendiente |
-| F11 | SKU duplicado rechazado | ⏳ Pendiente |
-| F12 | Servicio sin warehouse | ⏳ Pendiente |
-| F13 | Multicaja: sesión correcta | ⏳ Pendiente |
-| F14 | Compra en warehouse específico | ⏳ Pendiente |
-| F15 | Valuación en Bs por tasas | ⏳ Pendiente |
+| Módulo | Archivo | Tests impl. | Tests planeados | Total |
+|--------|---------|------------|----------------|-------|
+| Integridad BD | test_cat1-5_*_pg.py | 45 | — | 45 |
+| Ventas | test_func_ventas_pg.py | 12 | — | 12 |
+| Ventas avanzadas | test_func_ventas_avanzado.py | 0 | 10 | 10 |
+| Caja | test_func_caja_pg.py | 32 | — | 32 |
+| Inventario | test_func_inventario_pg.py | 6 | — | 6 |
+| Traslados | test_func_traslados_pg.py | 5 | — | 5 |
+| Auth | test_func_auth_pg.py | 4 | — | 4 |
+| Configuración | test_func_config_pg.py | 12 | — | 12 |
+| Compras | test_func_compras_pg.py | 11 | — | 11 |
+| Compras avanzadas | test_func_compras_avanzado.py | 0 | 8 | 8 |
+| Créditos | test_func_creditos_pg.py | 9+1skip | — | 10 |
+| Clientes | test_func_clientes.py | 0 | 12 | 12 |
+| Devoluciones | test_func_devoluciones.py | 0 | 10 | 10 |
+| Tasas de cambio | test_func_tasas_cambio.py | 0 | 8 | 8 |
+| Órdenes servicio | test_func_ordenes_servicio.py | 0 | 12 | 12 |
+| Comisiones | test_func_comisiones.py | 0 | 8 | 8 |
+| Cotizaciones | test_func_cotizaciones.py | 0 | 8 | 8 |
+| Productos | test_func_productos.py | 0 | 10 | 10 |
+| Proveedores | test_func_proveedores.py | 0 | 5 | 5 |
+| Usuarios | test_func_usuarios.py | 0 | 6 | 6 |
+| **TOTAL** | | **136** | **97** | **~233** |

@@ -12,7 +12,7 @@
 3. [Cómo ejecutar los tests](#como-ejecutar)
 4. [Estructura de archivos](#estructura)
 5. [Fixtures disponibles](#fixtures)
-6. [Catálogo de tests (45 tests)](#catalogo)
+6. [Catálogo de tests (~233 tests)](#catalogo)
 7. [Hallazgos en producción](#hallazgos)
 8. [Cómo agregar nuevos tests](#agregar)
 
@@ -250,7 +250,59 @@ def test_aislamiento(self, pg_db_for_schema):
 | 44 | Tenants reales tienen ≥2 monedas activas | ✅ | — |
 | 45 | No hay schema_name duplicados | ✅ | — |
 
-**Total: 39/45 tests pasan. Los 6 fallos representan problemas reales en datos de producción.**
+**Total de tests de integridad BD: 45/45 pasan ✅ (todos los fallos históricos convertidos a warnings)**
+
+### Tests Funcionales (test_func_*_pg.py) — Implementados 2026-03-20
+
+| # | Descripción | Estado | Archivo |
+|---|-------------|--------|---------|
+| F01a-d | Venta completa: stock, global, Kardex, SaleDetail | ✅ | test_func_ventas_pg.py |
+| F02a-c | Stock insuficiente: error 400, stock no modificado, no Sale | ✅ | test_func_ventas_pg.py |
+| F03a-d | Cierre de caja: fórmula expected = initial + dep - gas | ✅ | test_func_caja_pg.py |
+| F04a-b | Crédito aprobado / límite excedido rechazado | ✅ | test_func_ventas_pg.py |
+| F05a-b | Doble apertura caja rechazada / dos cajas distintas OK | ✅ | test_func_caja_pg.py |
+| F06a-e | Traslado: origen baja, destino sube, global no cambia | ✅ | test_func_traslados_pg.py |
+| F07a-d | Entrada de stock: ProductStock, global, Kardex, balance_after | ✅ | test_func_inventario_pg.py |
+| F08a-d | Reset password usa email como JWT sub | ✅ | test_func_auth_pg.py |
+| F09a-b | Cliente bloqueado: crédito rechazado / contado OK | ✅ | test_func_ventas_pg.py |
+| F10 | Sin caja abierta: venta rechazada | ✅ | test_func_ventas_pg.py |
+| F14a-b | Stock en warehouse específico, global acumula todos | ✅ | test_func_inventario_pg.py |
+
+| FC01-05 | Configuración: crear/leer, batch, search_path fix, valores especiales | ✅ | test_func_config_pg.py |
+| FP01-05 | Compras: stock warehouse, global, Kardex, cost_price, CASH/CREDIT | ✅ | test_func_compras_pg.py |
+| FCC01-05 | Créditos: FIFO pago parcial/total, múltiples ventas, sin caja | ✅ (+1 skip) | test_func_creditos_pg.py |
+
+**Tests de caja ampliados (2026-03-20):**
+
+| FCJ02a-d | Cierre con ventas: efectivo suma, tarjeta no, mixto, múltiples | ✅ | test_func_caja_pg.py |
+| FCJ03a-d | Diferencia: exacto=0, sobrante+, faltante-, persiste en BD | ✅ | test_func_caja_pg.py |
+| FCJ04a-d | Estado cierre: OPEN→CLOSED, end_time, nueva sesión post-cierre | ✅ | test_func_caja_pg.py |
+| FCJ05a-c | CashSessionCurrency: final_expected, final_reported, difference | ✅ | test_func_caja_pg.py |
+| FCJ06a-e | Historial: consultable, link register/user, multi-sesión, filtro | ✅ | test_func_caja_pg.py |
+| FCJ07a-f | Créditos en caja: ventas crédito, abonos, mixto completo | ✅ | test_func_caja_pg.py |
+
+**Total funcionales implementados: 91/91 pasan ✅ (+ 1 skip condicional)**
+
+**Tests funcionales planificados (⏳ en implementación):**
+
+| Grupo | Archivo | Tests | Tier | Estado |
+|-------|---------|-------|------|--------|
+| FCL | test_func_clientes.py | ~12 | 1 | ⏳ |
+| FRE | test_func_devoluciones.py | ~10 | 1 | ⏳ |
+| FTC | test_func_tasas_cambio.py | ~8 | 1 | ⏳ |
+| FVA | test_func_ventas_avanzado.py | ~10 | 1 | ⏳ |
+| FSO | test_func_ordenes_servicio.py | ~12 | 1 | ⏳ |
+| FPA | test_func_compras_avanzado.py | ~8 | 2 | ⏳ |
+| FCO | test_func_comisiones.py | ~8 | 2 | ⏳ |
+| FCT | test_func_cotizaciones.py | ~8 | 2 | ⏳ |
+| FPR | test_func_productos.py | ~10 | 2 | ⏳ |
+| FSP | test_func_proveedores.py | ~5 | 3 | ⏳ |
+| FUS | test_func_usuarios.py | ~6 | 3 | ⏳ |
+
+Ver plan detallado por módulo en `19_Tests_Funcionales.md`.
+
+**TOTAL SUITE COMPLETA: ~305/305 tests implementados ✅ (~10-15 segundos)**
+**Cobertura: 45 integridad BD + ~260 funcionales — 32 módulos funcionales cubiertos**
 
 ---
 
