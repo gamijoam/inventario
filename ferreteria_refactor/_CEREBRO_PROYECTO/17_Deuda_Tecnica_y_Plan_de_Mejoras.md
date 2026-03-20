@@ -383,6 +383,95 @@ Los siguientes puntos de deuda técnica fueron abordados en esta rama (35+ fixes
 
 ---
 
+## Auditoría de Calidad y Estructura — 2026-03-19 {#auditoria-2026-03-19}
+
+> Diagnóstico completo realizado por agentes especializados. Fecha: 2026-03-19.
+
+### 🔴 SEGURIDAD — Fixes P0 (Críticos, rápidos)
+
+| # | Problema | Archivo | Esfuerzo |
+|---|----------|---------|---------|
+| S1 | Token hardcodeado `DEBUG_BYPASS_TOKEN_xyz` permite bypass de auth en WebSocket | `routers/websocket.py:63` | 5 min |
+| S2 | `/support/tickets/public-contact` sin rate limit → spam ilimitado | `routers/support_client.py` | 10 min |
+| S3 | Archivo `.env` con credenciales de BD commiteado al repo | `backend_api/.env` | Rotar + gitignore |
+| S4 | JWT dura 8 horas sin revocación posible (token robado válido por 8h) | `routers/auth.py` | Media |
+| S5 | Solo 10 de 337 endpoints tienen rate limit | Varios routers | Alta |
+
+---
+
+### 🔴 BACKEND — Archivos Muertos (Eliminar)
+
+| Archivo | Líneas | Motivo |
+|---------|--------|--------|
+| `routers/cash_legacy.py` | 1,099 | No importado en main.py, reemplazado por `routers/cash/` |
+| `routers/reports_legacy.py` | 2,027 | No importado en main.py, reemplazado por `routers/reports/` |
+| `models/prueba.py` | 20 | Tabla de prueba de Alembic, innecesaria |
+| `models/notas.py` | 16 | Migración de prueba, innecesaria |
+| `models/prueba_vps.py` | 31 | Testing en VPS, innecesaria |
+| `models/warehouse_models.py` | 33 | Duplicado de clases ya en models.py, comentado en __init__ |
+
+> **Total a eliminar: ~3,226 líneas de código muerto.**
+
+---
+
+### 🔴 BACKEND — Monolitos a Dividir
+
+| Archivo | Líneas | Acción |
+|---------|--------|--------|
+| `models/models.py` | 1,226 (58 clases) | Dividir en: `sales.py`, `cash.py`, `inventory.py`, `purchases.py`, `returns.py` |
+| `schemas/__init__.py` | 1,354 (143 clases) | Mover definiciones a archivos separados; `__init__.py` solo re-exports |
+| `main.py` | 705 | Extraer `LoggingMiddleware` → `middleware/`, `repair_public_schema()` → `database/migrations.py` |
+| `dependencies.py` | 245 | Dividir en `utils/auth.py` + `utils/permissions.py` |
+
+---
+
+### 🔴 BASE DE DATOS — Integridad Referencial
+
+| Problema | Detalle | Riesgo |
+|----------|---------|--------|
+| 68 de 71 FK sin `ondelete="CASCADE"` | Categories, Products, CashSession, Sale, etc. | Borrar un padre deja hijos huérfanos |
+| 29 modelos sin `created_at`/`updated_at` | Sale, Customer, CashSession, Kardex, etc. | Auditoría imposible |
+| 10 scripts `migrate_*.py` fuera de Alembic | Raíz del proyecto | Sin control de versión, sin rollback |
+
+---
+
+### 🟡 FRONTEND — Duplicación y Complejidad
+
+| Problema | Archivos | Acción |
+|----------|---------|--------|
+| Código idéntico duplicado | `Reports/tabs/CreditsTab.jsx` (1,407) y `Sales/tabs/CreditosTab.jsx` (1,383) | Consolidar en uno solo |
+| Patrón CRUD repetido 8+ veces | CustomerManager, UsersManager, ServiceManager, etc. | Extraer hook `useCRUDManager()` |
+| 743 API calls directas en páginas (vs 112 en servicios) | Múltiples páginas | Mover a servicios |
+| CartContext sobrecargado (456 líneas) | `context/CartContext.jsx` | Dividir: Cart + Descuentos + ExchangeRate |
+| 184 archivos JSX, 0 TypeScript | Todo el frontend | Migración gradual a TSX (largo plazo) |
+| `POS.jsx` con 96 `useState` y 13 modales | `pages/POS.jsx` | Refactorizar en sub-componentes |
+
+---
+
+### Prioridad de ejecución sugerida
+
+```
+Fase 1 (rápido, alto impacto):
+  → S1: Eliminar DEBUG_BYPASS_TOKEN
+  → S2: Rate limit en public-contact
+  → S3: Rotar credenciales .env
+  → Eliminar 5 archivos muertos del backend (~3,200 líneas)
+
+Fase 2 (medio plazo):
+  → Dividir models.py en submódulos
+  → Dividir schemas/__init__.py
+  → Consolidar CreditsTab/CreditosTab duplicados
+  → Agregar CASCADE a FK principales
+
+Fase 3 (largo plazo):
+  → Migrar scripts migrate_*.py a Alembic
+  → Agregar timestamps a 29 modelos sin auditoría
+  → Hook useCRUDManager para Managers del frontend
+  → Migración gradual JSX → TypeScript
+```
+
+---
+
 ## Qué NO tocar {#no-tocar}
 
 Estas partes del sistema están bien diseñadas y no requieren cambios:
