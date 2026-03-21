@@ -78,7 +78,33 @@ Chatbot para clientes finales que permite buscar el catálogo de la tienda por l
 - **SalesCenter** (5 tabs) — ventas, clientes, créditos, garantías
 - **ConfigCenter** (9 tabs) — configuración completa del sistema (solo ADMIN)
 
-## 5. Integraciones Futuras
+## 5. App de Escritorio Nativa — Futuras Actualizaciones
+
+### 🔜 InvensoftDesktop — App Windows C# WPF (Planificado)
+
+Cliente de escritorio nativo para Windows que consume la misma API REST del backend.
+**No** es un wrapper web — es C# puro con WPF.
+Documentación completa del plan: `23_Desktop_App_Plan.md`
+
+| Componente | Tecnología |
+|---|---|
+| Framework | .NET 8.0 Windows + WPF |
+| Patrón | MVVM + CommunityToolkit.Mvvm |
+| Auth | JWT via Windows Credential Manager |
+| HTTP | HttpClient con DI + header auto-injection |
+
+**Fases planificadas:**
+
+| Fase | Contenido | Estado |
+|---|---|---|
+| 1 — MVP | Login, Dashboard, POS completo, Productos, Caja | 🔜 Planificado |
+| 2 | Clientes, Compras, Inventario, Empleados, Reportes | 🔜 Planificado |
+| 3 | Servicios, Cotizaciones, Devoluciones, Integración Bridge (impresión) | 💡 Futuro |
+
+> El Bridge (`Invensoft_Windows_Bridge`) sigue siendo únicamente el bridge de impresora.
+> `InvensoftDesktop` es un proyecto **separado** en `/InvensoftDesktop/`.
+
+## 6. Integraciones Futuras
 
 *   **E-commerce (Shopify/WooCommerce)**: Sincronización automática de inventario entre la tienda física y la tienda online.
 *   **Bancos Locales**: Integración directa para verificar Pagos Móviles de forma automatizada mediante API bancaria.
