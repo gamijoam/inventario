@@ -1,0 +1,103 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:InvensoftDesktop.ViewModels"
+        x:Class="InvensoftDesktop.Views.LoginWindow"
+        x:DataType="vm:LoginViewModel"
+        Title="Invensoft — Iniciar Sesión"
+        Width="440" Height="620"
+        WindowStartupLocation="CenterScreen"
+        CanResize="False"
+        Background="#F1F5F9">
+
+    <Grid RowDefinitions="*,Auto,*">
+        <Border Grid.Row="1"
+                Background="White"
+                CornerRadius="16"
+                Margin="24"
+                Padding="40 36"
+                BoxShadow="0 8 32 0 #18000000">
+
+            <StackPanel Spacing="0">
+
+                <!-- Logo -->
+                <StackPanel HorizontalAlignment="Center" Spacing="6" Margin="0 0 0 28">
+                    <Border Background="#EEF2FF" CornerRadius="16"
+                            Width="64" Height="64" HorizontalAlignment="Center">
+                        <TextBlock Text="📦" FontSize="32"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="Invensoft"
+                               FontSize="26" FontWeight="Black"
+                               Foreground="#1E293B"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="Sistema de Gestión Empresarial"
+                               FontSize="12" Foreground="#94A3B8"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Servidor -->
+                <TextBlock Text="Servidor" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#64748B" Margin="0 0 0 4"/>
+                <TextBox Text="{Binding ServerUrl}"
+                         Watermark="https://api.miinventariofacil.com"
+                         CornerRadius="8" Padding="12 10"
+                         Margin="0 0 0 14"/>
+
+                <!-- Empresa -->
+                <TextBlock Text="Empresa (Tenant)" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#64748B" Margin="0 0 0 4"/>
+                <TextBox Text="{Binding TenantSlug}"
+                         Watermark="ej: laferreteria"
+                         CornerRadius="8" Padding="12 10"
+                         Margin="0 0 0 14"/>
+
+                <!-- Usuario -->
+                <TextBlock Text="Usuario" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#64748B" Margin="0 0 0 4"/>
+                <TextBox Text="{Binding Username}"
+                         Watermark="nombre de usuario"
+                         CornerRadius="8" Padding="12 10"
+                         Margin="0 0 0 14"/>
+
+                <!-- Contraseña -->
+                <TextBlock Text="Contraseña" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#64748B" Margin="0 0 0 4"/>
+                <TextBox Text="{Binding Password}"
+                         PasswordChar="●"
+                         Watermark="contraseña"
+                         CornerRadius="8" Padding="12 10"
+                         Margin="0 0 0 16"/>
+
+                <!-- Error -->
+                <Border Background="#FEF2F2" CornerRadius="8" Padding="12 10"
+                        Margin="0 0 0 14"
+                        IsVisible="{Binding ErrorMessage,
+                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               Foreground="#DC2626" FontSize="13"
+                               TextWrapping="Wrap"/>
+                </Border>
+
+                <!-- Botón Login -->
+                <Button Command="{Binding LoginCommand}"
+                        IsEnabled="{Binding !IsLoading}"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        CornerRadius="8" Padding="12 13"
+                        FontWeight="Bold" FontSize="14"
+                        Background="#4F46E5" Foreground="White">
+                    <Panel>
+                        <TextBlock Text="Iniciando sesión…"
+                                   IsVisible="{Binding IsLoading}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="Iniciar Sesión"
+                                   IsVisible="{Binding !IsLoading}"
+                                   HorizontalAlignment="Center"/>
+                    </Panel>
+                </Button>
+
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,20 +1,165 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:InvensoftDesktop.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        xmlns:pages="using:InvensoftDesktop.Views.Pages"
         x:Class="InvensoftDesktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="InvensoftDesktop">
+        Title="Invensoft"
+        Width="1200" Height="760"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#F1F5F9">
 
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainWindowViewModel/>
-    </Design.DataContext>
+    <Grid ColumnDefinitions="220,*">
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <!-- ===== SIDEBAR ===== -->
+        <Border Grid.Column="0" Background="#1E293B">
+            <Grid RowDefinitions="Auto,*,Auto">
 
+                <!-- Logo -->
+                <Border Grid.Row="0" Padding="20 24 20 16"
+                        BorderThickness="0 0 0 1" BorderBrush="#2D3F55">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="📦 Invensoft"
+                                   FontSize="18" FontWeight="Black"
+                                   Foreground="White"/>
+                        <TextBlock Text="Gestión Empresarial"
+                                   FontSize="11" Foreground="#64748B"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Nav Items -->
+                <StackPanel Grid.Row="1" Spacing="2" Margin="12 16 12 0">
+
+                    <!-- Dashboard -->
+                    <Button Command="{Binding GoToDashboardCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="#3B4F6B">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="🏠" FontSize="16"/>
+                            <TextBlock Text="Dashboard"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- POS (próximamente) -->
+                    <Button IsEnabled="False"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="🛒" FontSize="16"/>
+                            <StackPanel>
+                                <TextBlock Text="Punto de Venta"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="#475569"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="Próximamente" FontSize="10" Foreground="#334155"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Productos (próximamente) -->
+                    <Button IsEnabled="False"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="📦" FontSize="16"/>
+                            <StackPanel>
+                                <TextBlock Text="Productos"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="#475569"/>
+                                <TextBlock Text="Próximamente" FontSize="10" Foreground="#334155"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Caja (próximamente) -->
+                    <Button IsEnabled="False"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="💰" FontSize="16"/>
+                            <StackPanel>
+                                <TextBlock Text="Caja"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="#475569"/>
+                                <TextBlock Text="Próximamente" FontSize="10" Foreground="#334155"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Reportes (próximamente) -->
+                    <Button IsEnabled="False"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="📊" FontSize="16"/>
+                            <StackPanel>
+                                <TextBlock Text="Reportes"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="#475569"/>
+                                <TextBlock Text="Próximamente" FontSize="10" Foreground="#334155"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+
+                </StackPanel>
+
+                <!-- Bottom: Logout -->
+                <Border Grid.Row="2" Padding="12 12"
+                        BorderThickness="0 1 0 0" BorderBrush="#2D3F55">
+                    <Button Command="{Binding LogoutCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="🚪" FontSize="16"/>
+                            <TextBlock Text="Cerrar Sesión"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="#EF4444"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
+            </Grid>
+        </Border>
+
+        <!-- ===== CONTENT AREA ===== -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="White" Padding="24 0"
+                    BorderThickness="0 0 0 1" BorderBrush="#E2E8F0"
+                    Height="56">
+                <TextBlock Text="{Binding CurrentPageTitle}"
+                           FontSize="16" FontWeight="Black"
+                           Foreground="#1E293B"
+                           VerticalAlignment="Center"/>
+            </Border>
+
+            <!-- Page Content -->
+            <ContentControl Grid.Row="1" Content="{Binding CurrentPage}">
+                <ContentControl.DataTemplates>
+                    <DataTemplate DataType="vm:DashboardViewModel">
+                        <pages:DashboardPage/>
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+
+        </Grid>
+    </Grid>
 </Window>

@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InvensoftDesktop.ViewModels"
+             x:Class="InvensoftDesktop.Views.Pages.DashboardPage"
+             x:DataType="vm:DashboardViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="28" Spacing="24">
+
+            <!-- Saludo -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="{Binding Greeting}"
+                           FontSize="22" FontWeight="Black" Foreground="#1E293B"/>
+                <TextBlock Text="Resumen de hoy"
+                           FontSize="14" Foreground="#64748B"/>
+            </StackPanel>
+
+            <!-- Loading -->
+            <TextBlock Text="Cargando datos…"
+                       FontSize="14" Foreground="#94A3B8"
+                       IsVisible="{Binding IsLoading}"/>
+
+            <!-- Error -->
+            <Border Background="#FEF2F2" CornerRadius="10" Padding="16"
+                    IsVisible="{Binding ErrorMessage,
+                        Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Foreground="#DC2626" FontSize="13"/>
+            </Border>
+
+            <!-- Stats Cards -->
+            <WrapPanel Orientation="Horizontal" IsVisible="{Binding !IsLoading}">
+
+                <!-- Ventas -->
+                <Border Background="White" CornerRadius="12" Padding="20"
+                        Margin="0 0 16 16" Width="220"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Ventas hoy" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding TotalSales}"
+                                   FontSize="28" FontWeight="Black" Foreground="#1E293B"/>
+                        <TextBlock Text="transacciones"
+                                   FontSize="12" Foreground="#94A3B8"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Ingresos -->
+                <Border Background="White" CornerRadius="12" Padding="20"
+                        Margin="0 0 16 16" Width="220"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Ingresos (USD)" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding TotalRevenue, StringFormat=\{0:F2\}}"
+                                   FontSize="28" FontWeight="Black" Foreground="#059669"/>
+                        <TextBlock Text="dólares"
+                                   FontSize="12" Foreground="#94A3B8"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Costo -->
+                <Border Background="White" CornerRadius="12" Padding="20"
+                        Margin="0 0 16 16" Width="220"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Costo" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding TotalCost, StringFormat=\{0:F2\}}"
+                                   FontSize="28" FontWeight="Black" Foreground="#DC2626"/>
+                        <TextBlock Text="costo de ventas"
+                                   FontSize="12" Foreground="#94A3B8"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Ganancia -->
+                <Border Background="#F0FDF4" CornerRadius="12" Padding="20"
+                        Margin="0 0 16 16" Width="220"
+                        BorderThickness="1" BorderBrush="#BBF7D0"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Ganancia bruta" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#166534"/>
+                        <TextBlock Text="{Binding GrossProfit, StringFormat=\{0:F2\}}"
+                                   FontSize="28" FontWeight="Black" Foreground="#15803D"/>
+                        <TextBlock Text="margen bruto"
+                                   FontSize="12" Foreground="#4ADE80"/>
+                    </StackPanel>
+                </Border>
+
+            </WrapPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

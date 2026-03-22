@@ -1,16 +1,19 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using System.Linq;
 using Avalonia.Markup.Xaml;
+using InvensoftDesktop.Core;
 using InvensoftDesktop.ViewModels;
 using InvensoftDesktop.Views;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace InvensoftDesktop;
 
 public partial class App : Application
 {
+    public static IServiceProvider Services { get; private set; } = null!;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -18,30 +21,88 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        DisableAvaloniaDataAnnotationValidation();
+
+        var collection = new ServiceCollection();
+        ConfigureServices(collection);
+        Services = collection.BuildServiceProvider();
+
+        // Load persisted settings
+        var settings = Services.GetRequiredService<SettingsManager>();
+        settings.Load();
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
-            // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
-            DisableAvaloniaDataAnnotationValidation();
-            desktop.MainWindow = new MainWindow
+            if (settings.Settings.IsLoggedIn)
             {
-                DataContext = new MainWindowViewModel(),
-            };
+                desktop.MainWindow = BuildMainWindow();
+            }
+            else
+            {
+                desktop.MainWindow = BuildLoginWindow();
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private void DisableAvaloniaDataAnnotationValidation()
+    private LoginWindow BuildLoginWindow()
     {
-        // Get an array of plugins to remove
-        var dataValidationPluginsToRemove =
-            BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
+        var loginVm = Services.GetRequiredService<LoginViewModel>();
+        var loginWindow = new LoginWindow { DataContext = loginVm };
 
-        // remove each entry found
-        foreach (var plugin in dataValidationPluginsToRemove)
+        loginVm.LoginSucceeded += () =>
         {
+            var mainWindow = BuildMainWindow();
+            mainWindow.Show();
+            loginWindow.Close();
+
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                desktop.MainWindow = mainWindow;
+        };
+
+        return loginWindow;
+    }
+
+    private MainWindow BuildMainWindow()
+    {
+        var mainVm = Services.GetRequiredService<MainWindowViewModel>();
+        var mainWindow = new MainWindow { DataContext = mainVm };
+
+        mainVm.LogoutRequested += () =>
+        {
+            var loginWindow = BuildLoginWindow();
+            loginWindow.Show();
+            mainWindow.Close();
+
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                desktop.MainWindow = loginWindow;
+        };
+
+        return mainWindow;
+    }
+
+    private static void ConfigureServices(IServiceCollection services)
+    {
+        // HTTP
+        services.AddHttpClient();
+
+        // Core
+        services.AddSingleton<SettingsManager>();
+        services.AddSingleton<AuthService>();
+        services.AddSingleton<ApiService>();
+
+        // ViewModels
+        services.AddTransient<LoginViewModel>();
+        services.AddSingleton<DashboardViewModel>();
+        services.AddTransient<MainWindowViewModel>();
+    }
+
+    private static void DisableAvaloniaDataAnnotationValidation()
+    {
+        var toRemove = BindingPlugins.DataValidators
+            .OfType<DataAnnotationsValidationPlugin>().ToArray();
+        foreach (var plugin in toRemove)
             BindingPlugins.DataValidators.Remove(plugin);
-        }
     }
 }
