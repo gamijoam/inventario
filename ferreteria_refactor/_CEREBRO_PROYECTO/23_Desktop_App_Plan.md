@@ -204,11 +204,11 @@ NavigationService.NavigateTo("Products"); // → ProductsPage
 - [x] POSPage (búsqueda por código/nombre, carrito, cobro)
 
 ### Fase 2
-- [ ] CustomersPage
-- [ ] PurchasesPage
-- [ ] InventoryPage (ajustes, Kardex)
-- [ ] EmployeesPage
-- [ ] ReportsPage completa
+- [x] CustomersPage (lista + búsqueda + paginación, estado, crédito)
+- [x] PurchasesPage (filtros por estado, monto pendiente)
+- [x] InventoryPage (ajuste entrada/salida + Kardex con filtro)
+- [x] EmployeesPage (lista, status, % comisión)
+- [x] ReportsPage (rango fechas + 5 tarjetas: ventas, USD, Bs, costo, ganancia)
 
 ### Fase 3
 - [ ] Módulo Servicios/Órdenes
