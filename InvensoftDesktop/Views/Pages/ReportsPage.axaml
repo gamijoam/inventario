@@ -1,0 +1,124 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InvensoftDesktop.ViewModels"
+             x:Class="InvensoftDesktop.Views.Pages.ReportsPage"
+             x:DataType="vm:ReportsViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="28" Spacing="24">
+
+            <!-- Selector de fechas -->
+            <Border Background="White" CornerRadius="12" Padding="20"
+                    BoxShadow="0 2 12 0 #10000000">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Rango de Fechas"
+                               FontSize="14" FontWeight="Black" Foreground="#1E293B"/>
+                    <Grid ColumnDefinitions="*,20,*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="6">
+                            <TextBlock Text="Desde" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBox Text="{Binding StartDate}" Watermark="yyyy-MM-dd"
+                                     CornerRadius="8" Padding="12 9" FontSize="13"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="—" VerticalAlignment="Bottom"
+                                   HorizontalAlignment="Center" Margin="0 0 0 9"
+                                   Foreground="#94A3B8"/>
+                        <StackPanel Grid.Column="2" Spacing="6">
+                            <TextBlock Text="Hasta" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBox Text="{Binding EndDate}" Watermark="yyyy-MM-dd"
+                                     CornerRadius="8" Padding="12 9" FontSize="13"/>
+                        </StackPanel>
+                        <Button Grid.Column="3" Command="{Binding RefreshCommand}"
+                                IsEnabled="{Binding !IsLoading}"
+                                Margin="16 0 0 0" CornerRadius="8" Padding="20 9"
+                                Background="#4F46E5" Foreground="White"
+                                FontWeight="Bold" FontSize="13"
+                                VerticalAlignment="Bottom">
+                            <Panel>
+                                <TextBlock Text="Cargando…" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Generar"   IsVisible="{Binding !IsLoading}" HorizontalAlignment="Center"/>
+                            </Panel>
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Error -->
+            <Border Background="#FEF2F2" CornerRadius="8" Padding="14 10"
+                    IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="13"/>
+            </Border>
+
+            <!-- Tarjetas de métricas -->
+            <WrapPanel Orientation="Horizontal" IsVisible="{Binding !IsLoading}">
+
+                <!-- Ventas -->
+                <Border Background="White" CornerRadius="12" Padding="20"
+                        Margin="0 0 16 16" Width="220"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Ventas" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding Sales}"
+                                   FontSize="28" FontWeight="Black" Foreground="#1E293B"/>
+                        <TextBlock Text="transacciones" FontSize="12" Foreground="#94A3B8"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Ingresos USD -->
+                <Border Background="White" CornerRadius="12" Padding="20"
+                        Margin="0 0 16 16" Width="220"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Ingresos (USD)" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding Revenue, StringFormat=\{0:F2\}}"
+                                   FontSize="28" FontWeight="Black" Foreground="#059669"/>
+                        <TextBlock Text="dólares" FontSize="12" Foreground="#94A3B8"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Ingresos Bs -->
+                <Border Background="White" CornerRadius="12" Padding="20"
+                        Margin="0 0 16 16" Width="220"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Ingresos (Bs)" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding RevenueBs, StringFormat=\{0:F2\}}"
+                                   FontSize="28" FontWeight="Black" Foreground="#0EA5E9"/>
+                        <TextBlock Text="bolívares" FontSize="12" Foreground="#94A3B8"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Costo -->
+                <Border Background="White" CornerRadius="12" Padding="20"
+                        Margin="0 0 16 16" Width="220"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Costo" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding Cost, StringFormat=\{0:F2\}}"
+                                   FontSize="28" FontWeight="Black" Foreground="#DC2626"/>
+                        <TextBlock Text="costo de ventas" FontSize="12" Foreground="#94A3B8"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Ganancia -->
+                <Border Background="#F0FDF4" CornerRadius="12" Padding="20"
+                        Margin="0 0 16 16" Width="220"
+                        BorderThickness="1" BorderBrush="#BBF7D0"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Ganancia bruta" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#166534"/>
+                        <TextBlock Text="{Binding Profit, StringFormat=\{0:F2\}}"
+                                   FontSize="28" FontWeight="Black" Foreground="#15803D"/>
+                        <TextBlock Text="margen bruto" FontSize="12" Foreground="#4ADE80"/>
+                    </StackPanel>
+                </Border>
+
+            </WrapPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

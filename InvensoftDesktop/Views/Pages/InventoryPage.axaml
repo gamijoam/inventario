@@ -1,0 +1,188 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InvensoftDesktop.ViewModels"
+             x:Class="InvensoftDesktop.Views.Pages.InventoryPage"
+             x:DataType="vm:InventoryViewModel">
+
+    <Grid ColumnDefinitions="320,*">
+
+        <!-- LEFT: Ajuste de stock -->
+        <Border Grid.Column="0" Background="White"
+                BorderThickness="0 0 1 0" BorderBrush="#E2E8F0">
+            <ScrollViewer>
+                <StackPanel Margin="20" Spacing="14">
+
+                    <TextBlock Text="Ajuste de Stock"
+                               FontSize="16" FontWeight="Black" Foreground="#1E293B"/>
+
+                    <!-- Tipo de ajuste -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Tipo" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <Grid ColumnDefinitions="*,*">
+                            <Button Grid.Column="0" Command="{Binding SetAdjInCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    CornerRadius="8 0 0 8" Padding="10 8"
+                                    FontWeight="SemiBold" FontSize="13"
+                                    Background="{Binding AdjInBg}"
+                                    Foreground="{Binding AdjInFg}">
+                                + Entrada
+                            </Button>
+                            <Button Grid.Column="1" Command="{Binding SetAdjOutCommand}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    CornerRadius="0 8 8 0" Padding="10 8"
+                                    FontWeight="SemiBold" FontSize="13"
+                                    Background="{Binding AdjOutBg}"
+                                    Foreground="{Binding AdjOutFg}">
+                                - Salida
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Producto ID -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="ID del Producto" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBox Text="{Binding AdjProductId}" Watermark="ej: 42"
+                                 CornerRadius="8" Padding="12 9" FontSize="13"/>
+                    </StackPanel>
+
+                    <!-- Cantidad -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Cantidad" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBox Text="{Binding AdjQuantity}" Watermark="ej: 10"
+                                 CornerRadius="8" Padding="12 9" FontSize="13"/>
+                    </StackPanel>
+
+                    <!-- Motivo -->
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Motivo (opcional)" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBox Text="{Binding AdjReason}" Watermark="ej: Inventario físico"
+                                 CornerRadius="8" Padding="12 9" FontSize="13"/>
+                    </StackPanel>
+
+                    <!-- Error / Success -->
+                    <Border Background="#FEF2F2" CornerRadius="8" Padding="10 8"
+                            IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="12" TextWrapping="Wrap"/>
+                    </Border>
+                    <Border Background="#F0FDF4" CornerRadius="8" Padding="10 8"
+                            IsVisible="{Binding SuccessMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding SuccessMessage}" Foreground="#15803D" FontSize="12" TextWrapping="Wrap"/>
+                    </Border>
+
+                    <!-- Botón confirmar -->
+                    <Button Command="{Binding ConfirmAdjustmentCommand}"
+                            IsEnabled="{Binding !IsProcessing}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            CornerRadius="8" Padding="12 12"
+                            Background="#4F46E5" Foreground="White"
+                            FontWeight="Bold" FontSize="14">
+                        <Panel>
+                            <TextBlock Text="Procesando…" IsVisible="{Binding IsProcessing}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Confirmar Ajuste" IsVisible="{Binding !IsProcessing}" HorizontalAlignment="Center"/>
+                        </Panel>
+                    </Button>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- RIGHT: Kardex -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
+
+            <!-- Filtro Kardex -->
+            <Border Grid.Row="0" Background="White" Padding="16 12"
+                    BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBox Grid.Column="0" Text="{Binding ProductIdFilter}"
+                             Watermark="Filtrar por ID de producto (ej: 42)"
+                             CornerRadius="8" Padding="12 8" FontSize="13"/>
+                    <Button Grid.Column="1" Command="{Binding LoadKardexCommand}"
+                            Margin="8 0 0 0" CornerRadius="8" Padding="14 8"
+                            Background="#4F46E5" Foreground="White"
+                            FontWeight="SemiBold" FontSize="13">
+                        Filtrar
+                    </Button>
+                    <Button Grid.Column="2" Command="{Binding LoadKardexCommand}"
+                            Margin="6 0 0 0" CornerRadius="8" Padding="14 8"
+                            Background="#F1F5F9" Foreground="#64748B"
+                            FontSize="13">
+                        Todos
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Tabla kardex -->
+            <ScrollViewer Grid.Row="1">
+                <StackPanel>
+                    <TextBlock Text="Cargando Kardex…" Margin="20 14"
+                               FontSize="13" Foreground="#94A3B8"
+                               IsVisible="{Binding IsLoadingKardex}"/>
+
+                    <!-- Encabezado -->
+                    <Border Background="#F8FAFC" Padding="16 9"
+                            BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                        <Grid ColumnDefinitions="120,*,120,80,80,80">
+                            <TextBlock Grid.Column="0" Text="Fecha"     FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="1" Text="Producto"  FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="2" Text="Tipo"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="3" Text="Cant."     FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Right"/>
+                            <TextBlock Grid.Column="4" Text="Saldo"     FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Right"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Filas -->
+                    <ItemsControl ItemsSource="{Binding Kardex}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16 10"
+                                        BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                    <Grid ColumnDefinitions="120,*,120,80,80,80">
+                                        <TextBlock Grid.Column="0" Text="{Binding DateDisplay}"
+                                                   FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding ProductName}"
+                                                   FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding TypeDisplay}"
+                                                   FontSize="12" Foreground="{Binding TypeColor}"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding QtyDisplay}"
+                                                   FontSize="12" FontWeight="Bold"
+                                                   Foreground="{Binding TypeColor}"
+                                                   TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="4" Text="{Binding BalanceDisplay}"
+                                                   FontSize="12" Foreground="#1E293B"
+                                                   TextAlignment="Right" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Footer kardex -->
+            <Border Grid.Row="2" Background="White" Padding="16 10"
+                    BorderThickness="0 1 0 0" BorderBrush="#E2E8F0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" FontSize="12" Foreground="#64748B" VerticalAlignment="Center">
+                        <Run Text="{Binding Kardex.Count}"/>
+                        <Run Text=" de "/>
+                        <Run Text="{Binding KardexTotal}"/>
+                        <Run Text=" movimientos"/>
+                    </TextBlock>
+                    <Button Grid.Column="1" Command="{Binding LoadMoreKardexCommand}"
+                            IsVisible="{Binding HasMoreKardex}" IsEnabled="{Binding !IsLoadingKardex}"
+                            CornerRadius="8" Padding="14 7"
+                            Background="#EEF2FF" Foreground="#4F46E5"
+                            FontWeight="SemiBold" FontSize="12">
+                        Cargar más
+                    </Button>
+                </Grid>
+            </Border>
+
+        </Grid>
+    </Grid>
+</UserControl>

@@ -91,20 +91,73 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Reportes (próximamente) -->
-                    <Button IsEnabled="False"
+                    <!-- Clientes -->
+                    <Button Command="{Binding GoToCustomersCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="👤" FontSize="16"/>
+                            <TextBlock Text="Clientes"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Empleados -->
+                    <Button Command="{Binding GoToEmployeesCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="👷" FontSize="16"/>
+                            <TextBlock Text="Empleados"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Compras -->
+                    <Button Command="{Binding GoToPurchasesCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="🚚" FontSize="16"/>
+                            <TextBlock Text="Compras"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Inventario -->
+                    <Button Command="{Binding GoToInventoryCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="📋" FontSize="16"/>
+                            <TextBlock Text="Inventario"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Reportes -->
+                    <Button Command="{Binding GoToReportsCommand}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             CornerRadius="8" Padding="12 10"
                             Background="Transparent">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="📊" FontSize="16"/>
-                            <StackPanel>
-                                <TextBlock Text="Reportes"
-                                           FontSize="13" FontWeight="SemiBold"
-                                           Foreground="#475569"/>
-                                <TextBlock Text="Próximamente" FontSize="10" Foreground="#334155"/>
-                            </StackPanel>
+                            <TextBlock Text="Reportes"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -158,6 +211,21 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:POSViewModel">
                         <pages:POSPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:CustomersViewModel">
+                        <pages:CustomersPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:EmployeesViewModel">
+                        <pages:EmployeesPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:PurchasesViewModel">
+                        <pages:PurchasesPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:InventoryViewModel">
+                        <pages:InventoryPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ReportsViewModel">
+                        <pages:ReportsPage/>
                     </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>

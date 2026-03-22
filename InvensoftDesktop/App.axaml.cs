@@ -99,6 +99,11 @@ public partial class App : Application
         services.AddSingleton<ProductsViewModel>();
         services.AddSingleton<CashViewModel>();
         services.AddSingleton<POSViewModel>();
+        services.AddSingleton<CustomersViewModel>();
+        services.AddSingleton<EmployeesViewModel>();
+        services.AddSingleton<PurchasesViewModel>();
+        services.AddSingleton<InventoryViewModel>();
+        services.AddSingleton<ReportsViewModel>();
         services.AddTransient<MainWindowViewModel>();
     }
 

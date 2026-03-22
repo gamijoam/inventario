@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InvensoftDesktop.ViewModels"
+             x:Class="InvensoftDesktop.Views.Pages.EmployeesPage"
+             x:DataType="vm:EmployeesViewModel">
+
+    <Grid RowDefinitions="*,Auto">
+
+        <ScrollViewer Grid.Row="0">
+            <StackPanel>
+                <TextBlock Text="Cargando empleados…" Margin="24 16"
+                           FontSize="13" Foreground="#94A3B8"
+                           IsVisible="{Binding IsLoading}"/>
+                <Border Background="#FEF2F2" CornerRadius="8" Padding="14 10"
+                        Margin="20 12"
+                        IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="13"/>
+                </Border>
+
+                <!-- Encabezado -->
+                <Border Background="#F8FAFC" Padding="20 10"
+                        BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                    <Grid ColumnDefinitions="*,130,130,90,80">
+                        <TextBlock Grid.Column="0" Text="Nombre"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="1" Text="Cédula"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="2" Text="Teléfono"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="3" Text="Comisión"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Right"/>
+                        <TextBlock Grid.Column="4" Text="Estado"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- Filas -->
+                <ItemsControl ItemsSource="{Binding Employees}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="20 12"
+                                    BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                <Grid ColumnDefinitions="*,130,130,90,80">
+                                    <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                               FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding DocumentId}"
+                                               FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Phone}"
+                                               FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding CommissionDisplay}"
+                                               FontSize="12" FontWeight="SemiBold" Foreground="#4F46E5"
+                                               TextAlignment="Right" VerticalAlignment="Center"/>
+                                    <Border Grid.Column="4" CornerRadius="6" Padding="6 3"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Background="#F1F5F9">
+                                        <TextBlock Text="{Binding StatusDisplay}"
+                                                   FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="{Binding StatusColor}"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer count -->
+        <Border Grid.Row="1" Background="White" Padding="20 10"
+                BorderThickness="0 1 0 0" BorderBrush="#E2E8F0">
+            <TextBlock FontSize="12" Foreground="#64748B">
+                <Run Text="{Binding Employees.Count}"/>
+                <Run Text=" empleado(s) registrados"/>
+            </TextBlock>
+        </Border>
+
+    </Grid>
+</UserControl>
