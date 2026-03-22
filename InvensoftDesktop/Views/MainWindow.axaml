@@ -46,55 +46,48 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- POS (próximamente) -->
-                    <Button IsEnabled="False"
+                    <!-- POS -->
+                    <Button Command="{Binding GoToPOSCommand}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             CornerRadius="8" Padding="12 10"
                             Background="Transparent">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="🛒" FontSize="16"/>
-                            <StackPanel>
-                                <TextBlock Text="Punto de Venta"
-                                           FontSize="13" FontWeight="SemiBold"
-                                           Foreground="#475569"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Text="Próximamente" FontSize="10" Foreground="#334155"/>
-                            </StackPanel>
+                            <TextBlock Text="Punto de Venta"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White"
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
-                    <!-- Productos (próximamente) -->
-                    <Button IsEnabled="False"
+                    <!-- Productos -->
+                    <Button Command="{Binding GoToProductsCommand}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             CornerRadius="8" Padding="12 10"
                             Background="Transparent">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="📦" FontSize="16"/>
-                            <StackPanel>
-                                <TextBlock Text="Productos"
-                                           FontSize="13" FontWeight="SemiBold"
-                                           Foreground="#475569"/>
-                                <TextBlock Text="Próximamente" FontSize="10" Foreground="#334155"/>
-                            </StackPanel>
+                            <TextBlock Text="Productos"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White"
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
-                    <!-- Caja (próximamente) -->
-                    <Button IsEnabled="False"
+                    <!-- Caja -->
+                    <Button Command="{Binding GoToCashCommand}"
                             HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Left"
                             CornerRadius="8" Padding="12 10"
                             Background="Transparent">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="💰" FontSize="16"/>
-                            <StackPanel>
-                                <TextBlock Text="Caja"
-                                           FontSize="13" FontWeight="SemiBold"
-                                           Foreground="#475569"/>
-                                <TextBlock Text="Próximamente" FontSize="10" Foreground="#334155"/>
-                            </StackPanel>
+                            <TextBlock Text="Caja"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White"
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -156,6 +149,15 @@
                 <ContentControl.DataTemplates>
                     <DataTemplate DataType="vm:DashboardViewModel">
                         <pages:DashboardPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ProductsViewModel">
+                        <pages:ProductsPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:CashViewModel">
+                        <pages:CashPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:POSViewModel">
+                        <pages:POSPage/>
                     </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>

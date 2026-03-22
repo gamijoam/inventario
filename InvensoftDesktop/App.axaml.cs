@@ -96,6 +96,9 @@ public partial class App : Application
         // ViewModels
         services.AddTransient<LoginViewModel>();
         services.AddSingleton<DashboardViewModel>();
+        services.AddSingleton<ProductsViewModel>();
+        services.AddSingleton<CashViewModel>();
+        services.AddSingleton<POSViewModel>();
         services.AddTransient<MainWindowViewModel>();
     }
 

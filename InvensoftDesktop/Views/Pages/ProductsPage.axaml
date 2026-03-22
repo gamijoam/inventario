@@ -1,0 +1,130 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InvensoftDesktop.ViewModels"
+             x:Class="InvensoftDesktop.Views.Pages.ProductsPage"
+             x:DataType="vm:ProductsViewModel">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- Barra de búsqueda -->
+        <Border Grid.Row="0" Background="White" Padding="20 14"
+                BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0"
+                         Text="{Binding SearchText}"
+                         Watermark="Buscar por nombre, SKU o código…"
+                         CornerRadius="8" Padding="12 8"
+                         FontSize="13"/>
+                <Button Grid.Column="1"
+                        Command="{Binding SearchCommand}"
+                        Margin="10 0 0 0"
+                        CornerRadius="8" Padding="16 8"
+                        Background="#4F46E5" Foreground="White"
+                        FontWeight="SemiBold" FontSize="13">
+                    Buscar
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Lista de productos -->
+        <ScrollViewer Grid.Row="1">
+            <StackPanel>
+
+                <!-- Loading -->
+                <TextBlock Text="Cargando productos…"
+                           Margin="24 16" FontSize="13" Foreground="#94A3B8"
+                           IsVisible="{Binding IsLoading}"/>
+
+                <!-- Error -->
+                <Border Background="#FEF2F2" CornerRadius="8" Padding="14 10"
+                        Margin="20 12"
+                        IsVisible="{Binding ErrorMessage,
+                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               Foreground="#DC2626" FontSize="13"/>
+                </Border>
+
+                <!-- Tabla encabezado -->
+                <Border Background="#F8FAFC" Padding="20 10"
+                        BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                    <Grid ColumnDefinitions="*,100,80,90">
+                        <TextBlock Grid.Column="0" Text="Nombre"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="1" Text="SKU"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="2" Text="Precio"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                   TextAlignment="Right"/>
+                        <TextBlock Grid.Column="3" Text="Stock"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                   TextAlignment="Right"/>
+                    </Grid>
+                </Border>
+
+                <!-- Filas -->
+                <ItemsControl ItemsSource="{Binding Products}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="20 12"
+                                    BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                <Grid ColumnDefinitions="*,100,80,90">
+                                    <StackPanel Grid.Column="0" Spacing="2">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="#1E293B"/>
+                                        <TextBlock Text="{Binding CategoryName}"
+                                                   FontSize="11" Foreground="#94A3B8"
+                                                   IsVisible="{Binding CategoryName,
+                                                       Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Sku}"
+                                               FontSize="12" Foreground="#64748B"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding PriceDisplay}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="#059669"
+                                               TextAlignment="Right"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="3"
+                                               Text="{Binding StockDisplay}"
+                                               FontSize="13"
+                                               Foreground="#1E293B"
+                                               TextAlignment="Right"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer: total + cargar más -->
+        <Border Grid.Row="2" Background="White" Padding="20 10"
+                BorderThickness="0 1 0 0" BorderBrush="#E2E8F0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0"
+                           FontSize="12" Foreground="#64748B"
+                           VerticalAlignment="Center">
+                    <Run Text="{Binding Products.Count}"/>
+                    <Run Text=" de "/>
+                    <Run Text="{Binding TotalCount}"/>
+                    <Run Text=" productos"/>
+                </TextBlock>
+                <Button Grid.Column="1"
+                        Command="{Binding LoadMoreCommand}"
+                        IsVisible="{Binding HasMore}"
+                        IsEnabled="{Binding !IsLoading}"
+                        CornerRadius="8" Padding="14 7"
+                        Background="#EEF2FF" Foreground="#4F46E5"
+                        FontWeight="SemiBold" FontSize="12">
+                    Cargar más
+                </Button>
+            </Grid>
+        </Border>
+
+    </Grid>
+</UserControl>

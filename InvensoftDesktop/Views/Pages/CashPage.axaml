@@ -1,0 +1,111 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InvensoftDesktop.ViewModels"
+             x:Class="InvensoftDesktop.Views.Pages.CashPage"
+             x:DataType="vm:CashViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="28" Spacing="20" MaxWidth="480">
+
+            <!-- Loading -->
+            <TextBlock Text="Cargando caja…"
+                       FontSize="13" Foreground="#94A3B8"
+                       IsVisible="{Binding IsLoading}"/>
+
+            <!-- Error -->
+            <Border Background="#FEF2F2" CornerRadius="8" Padding="14 10"
+                    IsVisible="{Binding ErrorMessage,
+                        Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ErrorMessage}"
+                           Foreground="#DC2626" FontSize="13"/>
+            </Border>
+
+            <!-- Success -->
+            <Border Background="#F0FDF4" CornerRadius="8" Padding="14 10"
+                    IsVisible="{Binding SuccessMessage,
+                        Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding SuccessMessage}"
+                           Foreground="#15803D" FontSize="13"/>
+            </Border>
+
+            <!-- === CAJA CERRADA === -->
+            <Border Background="White" CornerRadius="14" Padding="28"
+                    BoxShadow="0 2 12 0 #10000000"
+                    IsVisible="{Binding IsClosed}">
+                <StackPanel Spacing="16">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Caja cerrada"
+                                   FontSize="18" FontWeight="Black" Foreground="#1E293B"/>
+                        <TextBlock Text="Ingresa el monto inicial para abrir la sesión."
+                                   FontSize="13" Foreground="#64748B"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Monto inicial (USD)" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBox Text="{Binding OpeningAmountText}"
+                                 Watermark="0.00"
+                                 CornerRadius="8" Padding="12 10" FontSize="14"/>
+                    </StackPanel>
+
+                    <Button Command="{Binding OpenSessionCommand}"
+                            IsEnabled="{Binding !IsLoading}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            CornerRadius="8" Padding="12 13"
+                            Background="#059669" Foreground="White"
+                            FontWeight="Bold" FontSize="14">
+                        Abrir Caja
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- === CAJA ABIERTA === -->
+            <Border Background="White" CornerRadius="14" Padding="28"
+                    BoxShadow="0 2 12 0 #10000000"
+                    IsVisible="{Binding IsOpen}">
+                <StackPanel Spacing="16">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Caja abierta"
+                                   FontSize="18" FontWeight="Black" Foreground="#059669"/>
+                        <TextBlock Text="La sesión de caja está activa."
+                                   FontSize="13" Foreground="#64748B"/>
+                    </StackPanel>
+
+                    <!-- Info de sesión -->
+                    <Border Background="#F0FDF4" CornerRadius="8" Padding="16">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="ID de sesión"
+                                           FontSize="12" Foreground="#64748B"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding CurrentSession.Id}"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#1E293B"/>
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0" Text="Monto inicial"
+                                           FontSize="12" Foreground="#64748B"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding CurrentSession.OpeningAmount, StringFormat=\{0:F2\}}"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#1E293B"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Command="{Binding CloseSessionCommand}"
+                            IsEnabled="{Binding !IsLoading}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            CornerRadius="8" Padding="12 13"
+                            Background="#DC2626" Foreground="White"
+                            FontWeight="Bold" FontSize="14">
+                        Cerrar Caja
+                    </Button>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
