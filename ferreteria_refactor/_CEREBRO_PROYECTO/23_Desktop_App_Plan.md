@@ -190,15 +190,18 @@ NavigationService.NavigateTo("Products"); // → ProductsPage
 
 ## Fases de Implementación
 
-### Fase 1 — MVP (implementar primero)
-- [ ] Proyecto WPF + DI setup
-- [ ] LoginWindow (server URL + tenant + user/pass)
-- [ ] ApiService + AuthService + TokenHandler
-- [ ] MainWindow shell (sidebar + navegación)
-- [ ] DashboardPage (stats de `/reports/dashboard/financials`)
-- [ ] POSPage (búsqueda + carrito + cobro)
-- [ ] CashPage (abrir/cerrar caja)
-- [ ] ProductsPage (listado + búsqueda)
+### Fase 1 — MVP
+- [x] Proyecto Avalonia + DI setup (.NET 8, CommunityToolkit.Mvvm)
+- [x] LoginWindow — selector Cloud/Local, campos condicionales
+- [x] ApiService + AuthService (JWT, x-tenant-id header automático)
+- [x] SettingsManager (persist en AppData)
+- [x] BackendLauncher — levanta invensoft_api.exe en local, espera respuesta
+- [x] MainWindow shell (sidebar oscuro + ContentControl navegación)
+- [x] DashboardPage (4 tarjetas: ventas, ingresos, costo, ganancia)
+- [x] Modelo híbrido Cloud/Local con build scripts (PyInstaller + Inno Setup)
+- [x] ProductsPage (listado + búsqueda + paginación)
+- [x] CashPage (abrir/cerrar sesión de caja)
+- [x] POSPage (búsqueda por código/nombre, carrito, cobro)
 
 ### Fase 2
 - [ ] CustomersPage
@@ -213,6 +216,12 @@ NavigationService.NavigateTo("Products"); // → ProductsPage
 - [ ] Devoluciones
 - [ ] Farmacia / Garantías / RMA
 - [ ] Integración con Bridge (impresión directa desde el Desktop)
+
+### Modelo de Distribución (definido 2026-03-22)
+- **Edición Cloud:** conecta a `api.miinventariofacil.com`, suscripción mensual
+- **Edición Local:** backend PyInstaller + PostgreSQL en PC del cliente, licencia única
+- Build: `InvensoftDesktop/build/build_local_edition.sh`
+- Instalador Windows: `InvensoftDesktop/build/installer.iss` (Inno Setup)
 
 ---
 
