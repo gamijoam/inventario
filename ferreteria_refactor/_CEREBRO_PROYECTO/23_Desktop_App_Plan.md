@@ -211,11 +211,12 @@ NavigationService.NavigateTo("Products"); // → ProductsPage
 - [x] ReportsPage (rango fechas + 5 tarjetas: ventas, USD, Bs, costo, ganancia)
 
 ### Fase 3
-- [ ] Módulo Servicios/Órdenes
-- [ ] Cotizaciones
-- [ ] Devoluciones
-- [ ] Farmacia / Garantías / RMA
-- [ ] Integración con Bridge (impresión directa desde el Desktop)
+- [x] Módulo Servicios/Órdenes (filtros estado, imprimir ticket, marcar lista)
+- [x] Cotizaciones (lista, convertir a venta, imprimir, eliminar)
+- [x] Devoluciones (búsqueda de ventas + historial de devoluciones)
+- [x] RMA (consulta por IMEI — status garantía, días transcurridos, precio)
+- [x] Garantías (políticas con duración/tipo + reclamos activos)
+- [x] Integración con Bridge (PrintService → llama /print/thermal → Backend notifica Bridge vía WebSocket)
 
 ### Modelo de Distribución (definido 2026-03-22)
 - **Edición Cloud:** conecta a `api.miinventariofacil.com`, suscripción mensual
