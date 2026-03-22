@@ -104,7 +104,15 @@ public partial class App : Application
         services.AddSingleton<PurchasesViewModel>();
         services.AddSingleton<InventoryViewModel>();
         services.AddSingleton<ReportsViewModel>();
+        services.AddSingleton<ServicesViewModel>();
+        services.AddSingleton<QuotesViewModel>();
+        services.AddSingleton<ReturnsViewModel>();
+        services.AddSingleton<RMAViewModel>();
+        services.AddSingleton<WarrantiesViewModel>();
         services.AddTransient<MainWindowViewModel>();
+
+        // Core services (Fase 3)
+        services.AddSingleton<PrintService>();
     }
 
     private static void DisableAvaloniaDataAnnotationValidation()

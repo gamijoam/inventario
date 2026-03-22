@@ -155,9 +155,76 @@
                             Background="Transparent">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="📊" FontSize="16"/>
-                            <TextBlock Text="Reportes"
-                                       FontSize="13" FontWeight="SemiBold"
+                            <TextBlock Text="Reportes" FontSize="13" FontWeight="SemiBold"
                                        Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Separador Fase 3 -->
+                    <Border Height="1" Background="#2D3F55" Margin="8 6"/>
+
+                    <!-- Servicios -->
+                    <Button Command="{Binding GoToServicesCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="🔧" FontSize="16"/>
+                            <TextBlock Text="Servicios" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Cotizaciones -->
+                    <Button Command="{Binding GoToQuotesCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="📄" FontSize="16"/>
+                            <TextBlock Text="Cotizaciones" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Devoluciones -->
+                    <Button Command="{Binding GoToReturnsCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="↩" FontSize="16"/>
+                            <TextBlock Text="Devoluciones" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- RMA -->
+                    <Button Command="{Binding GoToRMACommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="🛡" FontSize="16"/>
+                            <TextBlock Text="RMA / Garantía" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Políticas Garantía -->
+                    <Button Command="{Binding GoToWarrantiesCommand}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            CornerRadius="8" Padding="12 10"
+                            Background="Transparent">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="📋" FontSize="14"/>
+                            <TextBlock Text="Garantías" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="#94A3B8" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -226,6 +293,21 @@
                     </DataTemplate>
                     <DataTemplate DataType="vm:ReportsViewModel">
                         <pages:ReportsPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ServicesViewModel">
+                        <pages:ServicesPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:QuotesViewModel">
+                        <pages:QuotesPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:ReturnsViewModel">
+                        <pages:ReturnsPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:RMAViewModel">
+                        <pages:RMAPage/>
+                    </DataTemplate>
+                    <DataTemplate DataType="vm:WarrantiesViewModel">
+                        <pages:WarrantiesPage/>
                     </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>

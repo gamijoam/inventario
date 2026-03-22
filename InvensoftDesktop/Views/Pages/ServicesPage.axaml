@@ -1,0 +1,136 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InvensoftDesktop.ViewModels"
+             x:Class="InvensoftDesktop.Views.Pages.ServicesPage"
+             x:DataType="vm:ServicesViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- Búsqueda -->
+        <Border Grid.Row="0" Background="White" Padding="16 10"
+                BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" Text="{Binding SearchText}"
+                         Watermark="Buscar por ticket, cliente o dispositivo…"
+                         CornerRadius="8" Padding="12 8" FontSize="13"/>
+                <Button Grid.Column="1" Command="{Binding SearchCommand}"
+                        Margin="8 0 0 0" CornerRadius="8" Padding="14 8"
+                        Background="#4F46E5" Foreground="White" FontWeight="SemiBold" FontSize="13">
+                    Buscar
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Filtros de estado -->
+        <Border Grid.Row="1" Background="White" Padding="16 10"
+                BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Command="{Binding FilterAllCommand}"        CornerRadius="8" Padding="12 6" Background="#F1F5F9" Foreground="#64748B" FontSize="12">Todas</Button>
+                <Button Command="{Binding FilterReceivedCommand}"   CornerRadius="8" Padding="12 6" Background="#FEF3C7" Foreground="#D97706" FontSize="12" FontWeight="SemiBold">Recibidas</Button>
+                <Button Command="{Binding FilterInProgressCommand}" CornerRadius="8" Padding="12 6" Background="#EEF2FF" Foreground="#4F46E5" FontSize="12" FontWeight="SemiBold">En proceso</Button>
+                <Button Command="{Binding FilterReadyCommand}"      CornerRadius="8" Padding="12 6" Background="#F0FDF4" Foreground="#059669" FontSize="12" FontWeight="SemiBold">Listas</Button>
+            </StackPanel>
+        </Border>
+
+        <!-- Lista -->
+        <ScrollViewer Grid.Row="2">
+            <StackPanel>
+                <TextBlock Text="Cargando órdenes…" Margin="20 14" FontSize="13" Foreground="#94A3B8" IsVisible="{Binding IsLoading}"/>
+                <Border Background="#FEF2F2" CornerRadius="8" Padding="12 8" Margin="20 10"
+                        IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="12"/>
+                </Border>
+                <Border Background="#F0FDF4" CornerRadius="8" Padding="12 8" Margin="20 10"
+                        IsVisible="{Binding SuccessMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding SuccessMessage}" Foreground="#15803D" FontSize="12"/>
+                </Border>
+
+                <!-- Encabezado -->
+                <Border Background="#F8FAFC" Padding="16 9" BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                    <Grid ColumnDefinitions="90,70,*,130,90,80,100,80">
+                        <TextBlock Grid.Column="0" Text="Ticket"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="1" Text="Fecha"     FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="2" Text="Dispositivo" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="3" Text="Cliente"   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="4" Text="Tipo"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="5" Text="Prioridad" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                        <TextBlock Grid.Column="6" Text="Estado"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Center"/>
+                        <TextBlock Grid.Column="7" Text="Acciones"  FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                    </Grid>
+                </Border>
+
+                <!-- Filas -->
+                <ItemsControl ItemsSource="{Binding Orders}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Padding="16 10" BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                <Grid ColumnDefinitions="90,70,*,130,90,80,100,80">
+                                    <TextBlock Grid.Column="0" Text="{Binding TicketNumber}"
+                                               FontSize="12" FontWeight="Bold" Foreground="#4F46E5" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding DateDisplay}"
+                                               FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DeviceDisplay}"
+                                                   FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding ProblemDescription}"
+                                                   FontSize="11" Foreground="#94A3B8"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   IsVisible="{Binding ProblemDescription, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="3" Text="{Binding CustomerName}"
+                                               FontSize="12" Foreground="#64748B" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding ServiceTypeDisplay}"
+                                               FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="5" Text="{Binding Priority}"
+                                               FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{Binding PriorityColor}" VerticalAlignment="Center"/>
+                                    <Border Grid.Column="6" CornerRadius="6" Padding="8 3"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Background="#F1F5F9">
+                                        <TextBlock Text="{Binding StatusDisplay}" FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="{Binding StatusColor}"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <Button CommandParameter="{Binding}"
+                                                CornerRadius="6" Padding="6 4"
+                                                Background="#EEF2FF" Foreground="#4F46E5"
+                                                FontSize="11" ToolTip.Tip="Imprimir ticket">
+                                            🖨
+                                        </Button>
+                                        <Button CommandParameter="{Binding}"
+                                                CornerRadius="6" Padding="6 4"
+                                                Background="#F0FDF4" Foreground="#059669"
+                                                FontSize="11" ToolTip.Tip="Marcar como Lista">
+                                            ✓
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Footer -->
+        <Border Grid.Row="3" Background="White" Padding="16 10"
+                BorderThickness="0 1 0 0" BorderBrush="#E2E8F0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" FontSize="12" Foreground="#64748B" VerticalAlignment="Center">
+                    <Run Text="{Binding Orders.Count}"/>
+                    <Run Text=" de "/>
+                    <Run Text="{Binding TotalCount}"/>
+                    <Run Text=" órdenes"/>
+                </TextBlock>
+                <Button Grid.Column="1" Command="{Binding LoadMoreCommand}"
+                        IsVisible="{Binding HasMore}" IsEnabled="{Binding !IsLoading}"
+                        CornerRadius="8" Padding="14 7" Background="#EEF2FF" Foreground="#4F46E5"
+                        FontWeight="SemiBold" FontSize="12">
+                    Cargar más
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

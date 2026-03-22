@@ -1,0 +1,108 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InvensoftDesktop.ViewModels"
+             x:Class="InvensoftDesktop.Views.Pages.WarrantiesPage"
+             x:DataType="vm:WarrantiesViewModel">
+
+    <Grid ColumnDefinitions="*,*">
+
+        <!-- LEFT: Políticas -->
+        <Grid Grid.Column="0" RowDefinitions="Auto,*">
+            <Border Grid.Row="0" Background="#F8FAFC" Padding="20 12"
+                    BorderThickness="0 0 1 1" BorderBrush="#E2E8F0">
+                <TextBlock Text="Políticas de Garantía" FontSize="14" FontWeight="Bold" Foreground="#1E293B"/>
+            </Border>
+            <ScrollViewer Grid.Row="1">
+                <StackPanel>
+                    <TextBlock Text="Cargando…" Margin="20 14" FontSize="13" Foreground="#94A3B8"
+                               IsVisible="{Binding IsLoading}"/>
+                    <Border Background="#FEF2F2" CornerRadius="8" Padding="12 8" Margin="16 10"
+                            IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="12"/>
+                    </Border>
+
+                    <!-- Encabezado -->
+                    <Border Background="#F8FAFC" Padding="16 9" BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                        <Grid ColumnDefinitions="*,100,70,60">
+                            <TextBlock Grid.Column="0" Text="Nombre"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="1" Text="Duración"  FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="2" Text="Estado"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Text="Default"   FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding Policies}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16 11" BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                    <Grid ColumnDefinitions="*,100,70,60">
+                                        <StackPanel Grid.Column="0" Spacing="2">
+                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
+                                            <TextBlock Text="{Binding Description}" FontSize="11" Foreground="#94A3B8"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding DurationDisplay}"
+                                                   FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
+                                        <Border Grid.Column="2" CornerRadius="6" Padding="6 3"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                Background="#F1F5F9">
+                                            <TextBlock Text="{Binding ActiveDisplay}" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{Binding ActiveColor}"/>
+                                        </Border>
+                                        <TextBlock Grid.Column="3" Text="✓" FontSize="14" FontWeight="Bold" Foreground="#4F46E5"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                   IsVisible="{Binding IsDefault}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- RIGHT: Reclamos -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+            <Border Grid.Row="0" Background="#F8FAFC" Padding="20 12"
+                    BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                <TextBlock Text="Reclamos de Garantía" FontSize="14" FontWeight="Bold" Foreground="#1E293B"/>
+            </Border>
+            <ScrollViewer Grid.Row="1">
+                <StackPanel>
+                    <!-- Encabezado -->
+                    <Border Background="#F8FAFC" Padding="16 9" BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                        <Grid ColumnDefinitions="80,*,80">
+                            <TextBlock Grid.Column="0" Text="Fecha"  FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="1" Text="Motivo" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="2" Text="Estado" FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding Claims}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16 11" BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                    <Grid ColumnDefinitions="80,*,80">
+                                        <TextBlock Grid.Column="0" Text="{Binding DateDisplay}"
+                                                   FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Reason}"
+                                                   FontSize="13" Foreground="#1E293B" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <Border Grid.Column="2" CornerRadius="6" Padding="6 3"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                Background="#F1F5F9">
+                                            <TextBlock Text="{Binding StatusDisplay}" FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{Binding StatusColor}"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+    </Grid>
+</UserControl>
