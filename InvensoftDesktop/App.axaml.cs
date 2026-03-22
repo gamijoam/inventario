@@ -91,6 +91,7 @@ public partial class App : Application
         services.AddSingleton<SettingsManager>();
         services.AddSingleton<AuthService>();
         services.AddSingleton<ApiService>();
+        services.AddSingleton<BackendLauncher>();
 
         // ViewModels
         services.AddTransient<LoginViewModel>();
