@@ -1,14 +1,21 @@
-# 23 — Plan: InvensoftDesktop (App de Escritorio C# WPF)
+# 23 — Plan: InvensoftDesktop (App de Escritorio — Avalonia UI)
 
-**Fecha:** 2026-03-21
-**Estado:** 🔜 Futuras Actualizaciones — No iniciado
+**Fecha:** 2026-03-22
+**Estado:** 🚀 En Desarrollo — Rama: `feature/desktop-app`
 
 ---
 
 ## Concepto
 
-Aplicación de escritorio nativa Windows que consume **la misma API REST** del backend FastAPI.
-No es un wrapper web — es una app C# pura con WPF.
+Aplicación de escritorio **multiplataforma** (Ubuntu dev → Windows deploy) que consume
+la misma API REST del backend FastAPI. C# puro con Avalonia UI.
+
+**Por qué Avalonia y no WPF:**
+- WPF solo compila/ejecuta en Windows — no se puede desarrollar en Ubuntu
+- Avalonia UI es XAML casi idéntico a WPF, mismo MVVM, pero corre en Linux, Windows y macOS
+- Se desarrolla y prueba en Ubuntu directamente
+- `dotnet publish -r win-x64 --self-contained` genera `.exe` para clientes Windows
+
 Proyecto separado del Bridge (que sigue siendo solo el bridge de impresora).
 
 ---
@@ -17,15 +24,15 @@ Proyecto separado del Bridge (que sigue siendo solo el bridge de impresora).
 
 | Componente | Tecnología |
 |---|---|
-| Framework | .NET 8.0 Windows |
-| UI | WPF (XAML) |
+| Framework | .NET 8.0 (multiplataforma) |
+| UI | Avalonia UI 11 (XAML cross-platform) |
 | Patrón | MVVM |
 | MVVM helper | CommunityToolkit.Mvvm |
 | DI | Microsoft.Extensions.DependencyInjection |
 | HTTP | HttpClient (via DI) |
 | JSON | System.Text.Json (built-in .NET 8) |
-| Auth storage | Windows Credential Manager |
-| Config local | JSON en AppData (igual que el Bridge) |
+| Auth storage | Archivo JSON cifrado en AppData |
+| Config local | JSON en AppData |
 
 ---
 

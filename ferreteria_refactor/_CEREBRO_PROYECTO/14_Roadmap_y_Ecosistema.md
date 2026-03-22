@@ -80,17 +80,18 @@ Chatbot para clientes finales que permite buscar el catálogo de la tienda por l
 
 ## 5. App de Escritorio Nativa — Futuras Actualizaciones
 
-### 🔜 InvensoftDesktop — App Windows C# WPF (Planificado)
+### 🚀 InvensoftDesktop — App Escritorio C# Avalonia UI (En Desarrollo)
 
-Cliente de escritorio nativo para Windows que consume la misma API REST del backend.
-**No** es un wrapper web — es C# puro con WPF.
-Documentación completa del plan: `23_Desktop_App_Plan.md`
+Cliente de escritorio multiplataforma que consume la misma API REST del backend.
+**No** es un wrapper web — es C# puro con Avalonia UI (XAML cross-platform).
+Rama: `feature/desktop-app` | Documentación: `23_Desktop_App_Plan.md`
 
 | Componente | Tecnología |
 |---|---|
-| Framework | .NET 8.0 Windows + WPF |
+| Framework | .NET 8.0 multiplataforma |
+| UI | Avalonia UI 11 (desarrollar en Ubuntu, deploy en Windows) |
 | Patrón | MVVM + CommunityToolkit.Mvvm |
-| Auth | JWT via Windows Credential Manager |
+| Auth | JWT + config JSON en AppData |
 | HTTP | HttpClient con DI + header auto-injection |
 
 **Fases planificadas:**
