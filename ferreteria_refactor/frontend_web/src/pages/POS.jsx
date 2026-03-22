@@ -711,6 +711,7 @@ const POS = () => {
                         <Lock size={16} /> Cerrar Caja
                     </Button>
 
+                    {/* Botón Modo Express — temporalmente oculto
                     <Button
                         variant={isExpressMode ? 'default' : 'outline'}
                         size="sm"
@@ -723,6 +724,7 @@ const POS = () => {
                     >
                         <Zap size={16} /> {isExpressMode ? 'Modo Express' : 'Express'}
                     </Button>
+                    */}
 
                     <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
