@@ -42,7 +42,7 @@ public partial class ReportsViewModel : ViewModelBase
             OnPropertyChanged(nameof(RevenueBs));
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
-        catch { ErrorMessage = "No se pudo cargar el reporte."; }
+        catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
         finally { IsLoading = false; }
     }
 

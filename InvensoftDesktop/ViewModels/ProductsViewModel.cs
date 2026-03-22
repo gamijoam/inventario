@@ -81,7 +81,7 @@ public partial class ProductsViewModel : ViewModelBase
     private string BuildQuery(int page)
     {
         var skip = (page - 1) * PageSize;
-        var q = $"products/?skip={skip}&limit={PageSize}";
+        var q = $"products/catalog?skip={skip}&limit={PageSize}";
         if (!string.IsNullOrWhiteSpace(SearchText))
             q += $"&search={Uri.EscapeDataString(SearchText)}";
         return q;

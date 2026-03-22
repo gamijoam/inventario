@@ -2,23 +2,23 @@ using System.Text.Json.Serialization;
 
 namespace InvensoftDesktop.Models.Reports;
 
+public class CurrencyStat
+{
+    [JsonPropertyName("currency")]  public string Currency { get; set; } = "";
+    [JsonPropertyName("collected")] public decimal Collected { get; set; }
+    [JsonPropertyName("count")]     public int Count { get; set; }
+}
+
 public class DashboardStats
 {
-    [JsonPropertyName("total_revenue")]
-    public decimal TotalRevenue { get; set; }
+    [JsonPropertyName("sales_by_currency")]   public List<CurrencyStat> SalesByCurrency { get; set; } = new();
+    [JsonPropertyName("total_sales_base_usd")] public decimal TotalSalesBaseUsd { get; set; }
+    [JsonPropertyName("profit_estimated")]     public decimal ProfitEstimated { get; set; }
 
-    [JsonPropertyName("total_sales")]
-    public int TotalSales { get; set; }
-
-    [JsonPropertyName("total_cost")]
-    public decimal TotalCost { get; set; }
-
-    [JsonPropertyName("gross_profit")]
-    public decimal GrossProfit { get; set; }
-
-    [JsonPropertyName("total_revenue_bs")]
-    public decimal TotalRevenueBs { get; set; }
-
-    [JsonPropertyName("period")]
-    public string Period { get; set; } = "today";
+    // Computed helpers
+    public int    TotalSales   => SalesByCurrency.Sum(s => s.Count);
+    public decimal TotalRevenue => TotalSalesBaseUsd;
+    public decimal GrossProfit  => ProfitEstimated;
+    public decimal TotalCost    => TotalRevenue - GrossProfit;
+    public decimal TotalRevenueBs => SalesByCurrency.FirstOrDefault(s => s.Currency == "VES")?.Collected ?? 0;
 }

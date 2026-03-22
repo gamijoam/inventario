@@ -44,7 +44,7 @@ public partial class CustomersViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasMore));
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
-        catch { ErrorMessage = "No se pudo cargar los clientes."; }
+        catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
         finally { IsLoading = false; }
     }
 

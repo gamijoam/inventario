@@ -73,7 +73,7 @@ public partial class InventoryViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasMoreKardex));
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
-        catch { ErrorMessage = "No se pudo cargar el Kardex."; }
+        catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
         finally { IsLoadingKardex = false; }
     }
 

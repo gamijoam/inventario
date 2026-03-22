@@ -36,16 +36,16 @@ public partial class ReturnsViewModel : ViewModelBase
         ErrorMessage = "";
         try
         {
-            var result = await _api.GetAsync<ReturnListResponse>("returns?skip=0&limit=50");
+            var result = await _api.GetAsync<List<ReturnRecord>>("returns?skip=0&limit=50");
             Returns.Clear();
             if (result != null)
             {
-                TotalCount = result.Total;
-                foreach (var r in result.Items) Returns.Add(r);
+                
+                foreach (var r in result) Returns.Add(r);
             }
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
-        catch { ErrorMessage = "No se pudo cargar el historial."; }
+        catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
         finally { IsLoadingHistory = false; }
     }
 

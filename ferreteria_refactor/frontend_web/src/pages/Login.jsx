@@ -133,6 +133,7 @@ const Login = () => {
     };
 
     return (
+        <>
         <div className="min-h-screen w-full flex bg-white">
 
             {/* LEFT SIDE: Image & Branding (50%) - Hidden on mobile */}
@@ -417,6 +418,7 @@ const Login = () => {
                 </div>
             </div>
         )}
+        </>
     );
 };
 

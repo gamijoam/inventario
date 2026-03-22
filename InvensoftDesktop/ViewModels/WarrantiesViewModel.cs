@@ -38,7 +38,7 @@ public partial class WarrantiesViewModel : ViewModelBase
                 foreach (var c in claims) Claims.Add(c);
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
-        catch { ErrorMessage = "No se pudo cargar garantías."; }
+        catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
         finally { IsLoading = false; }
     }
 }

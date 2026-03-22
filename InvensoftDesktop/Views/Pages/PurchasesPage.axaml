@@ -96,21 +96,10 @@
         <!-- Footer -->
         <Border Grid.Row="2" Background="White" Padding="20 10"
                 BorderThickness="0 1 0 0" BorderBrush="#E2E8F0">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" FontSize="12" Foreground="#64748B" VerticalAlignment="Center">
-                    <Run Text="{Binding Purchases.Count}"/>
-                    <Run Text=" de "/>
-                    <Run Text="{Binding TotalCount}"/>
-                    <Run Text=" compras"/>
-                </TextBlock>
-                <Button Grid.Column="1" Command="{Binding LoadMoreCommand}"
-                        IsVisible="{Binding HasMore}" IsEnabled="{Binding !IsLoading}"
-                        CornerRadius="8" Padding="14 7"
-                        Background="#EEF2FF" Foreground="#4F46E5"
-                        FontWeight="SemiBold" FontSize="12">
-                    Cargar más
-                </Button>
-            </Grid>
+            <TextBlock FontSize="12" Foreground="#64748B">
+                <Run Text="{Binding Purchases.Count}"/>
+                <Run Text=" compras"/>
+            </TextBlock>
         </Border>
 
     </Grid>

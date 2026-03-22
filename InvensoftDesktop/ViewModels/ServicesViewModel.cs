@@ -37,17 +37,17 @@ public partial class ServicesViewModel : ViewModelBase
         ErrorMessage = "";
         try
         {
-            var result = await _api.GetAsync<ServiceOrderListResponse>(BuildQuery(1));
+            var result = await _api.GetAsync<List<ServiceOrder>>(BuildQuery(1));
             Orders.Clear();
             if (result != null)
             {
-                TotalCount = result.Total;
-                foreach (var o in result.Items) Orders.Add(o);
+                TotalCount = result.Count;
+                foreach (var o in result) Orders.Add(o);
             }
             OnPropertyChanged(nameof(HasMore));
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
-        catch { ErrorMessage = "No se pudieron cargar las órdenes."; }
+        catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
         finally { IsLoading = false; }
     }
 
@@ -59,9 +59,9 @@ public partial class ServicesViewModel : ViewModelBase
         try
         {
             CurrentPage++;
-            var result = await _api.GetAsync<ServiceOrderListResponse>(BuildQuery(CurrentPage));
+            var result = await _api.GetAsync<List<ServiceOrder>>(BuildQuery(CurrentPage));
             if (result != null)
-                foreach (var o in result.Items) Orders.Add(o);
+                foreach (var o in result) Orders.Add(o);
             OnPropertyChanged(nameof(HasMore));
         }
         finally { IsLoading = false; }

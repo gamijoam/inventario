@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InvensoftDesktop", "InvensoftDesktop\InvensoftDesktop.csproj", "{8BE0A996-D603-E5B8-E82A-7388C35AEFF7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Invensoft_Windows_Bridge", "Invensoft_Windows_Bridge\Invensoft_Windows_Bridge.csproj", "{0D4047BD-A406-F811-6C9B-FD86A9128C2D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8BE0A996-D603-E5B8-E82A-7388C35AEFF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8BE0A996-D603-E5B8-E82A-7388C35AEFF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8BE0A996-D603-E5B8-E82A-7388C35AEFF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8BE0A996-D603-E5B8-E82A-7388C35AEFF7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D4047BD-A406-F811-6C9B-FD86A9128C2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D4047BD-A406-F811-6C9B-FD86A9128C2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D4047BD-A406-F811-6C9B-FD86A9128C2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D4047BD-A406-F811-6C9B-FD86A9128C2D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {BDB517A9-60AE-40A7-8BCD-F180E121AA75}
+	EndGlobalSection
+EndGlobal

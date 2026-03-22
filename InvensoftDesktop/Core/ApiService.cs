@@ -34,7 +34,11 @@ public class ApiService
         var response = await _http.SendAsync(request);
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException();
-        if (!response.IsSuccessStatusCode) return default;
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode} en {endpoint}: {body}");
+        }
         return await response.Content.ReadFromJsonAsync<T>(JsonOpts);
     }
 
@@ -45,7 +49,11 @@ public class ApiService
         var response = await _http.SendAsync(request);
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException();
-        if (!response.IsSuccessStatusCode) return default;
+        if (!response.IsSuccessStatusCode)
+        {
+            var errBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode} en {endpoint}: {errBody}");
+        }
         return await response.Content.ReadFromJsonAsync<TRes>(JsonOpts);
     }
 

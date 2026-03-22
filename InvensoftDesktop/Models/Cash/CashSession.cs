@@ -7,19 +7,27 @@ public class CashSession
     [JsonPropertyName("id")]
     public int Id { get; set; }
 
-    [JsonPropertyName("opening_amount")]
+    [JsonPropertyName("initial_cash")]
     public decimal OpeningAmount { get; set; }
 
     [JsonPropertyName("status")]
     public string Status { get; set; } = "";
 
-    [JsonPropertyName("opened_at")]
+    [JsonPropertyName("start_time")]
     public DateTime OpenedAt { get; set; }
 
-    [JsonPropertyName("register_name")]
-    public string? RegisterName { get; set; }
+    [JsonPropertyName("register")]
+    public RegisterInfo? Register { get; set; }
 
     public bool IsOpen => Status == "OPEN";
+    public string RegisterName => Register?.Name ?? "";
+}
+
+public class RegisterInfo
+{
+    [JsonPropertyName("id")]   public int Id { get; set; }
+    [JsonPropertyName("name")] public string Name { get; set; } = "";
+    [JsonPropertyName("code")] public string Code { get; set; } = "";
 }
 
 public class OpenSessionRequest
