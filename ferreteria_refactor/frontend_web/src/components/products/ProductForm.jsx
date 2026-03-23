@@ -474,6 +474,38 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 </div>
                                             </div>
 
+                                            {/* Combo Toggle */}
+                                            <div className={cn(
+                                                "flex items-center gap-4 p-4 rounded-xl transition-all border",
+                                                formData.is_combo
+                                                    ? "bg-violet-50 border-violet-200 ring-1 ring-violet-500/10"
+                                                    : "bg-slate-50 border-slate-100 hover:border-slate-200"
+                                            )}>
+                                                <div className={cn(
+                                                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                                                    formData.is_combo ? "bg-violet-600 text-white" : "bg-slate-200 text-slate-400"
+                                                )}>
+                                                    <Layers size={20} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <Label htmlFor="is_combo" className="text-sm font-bold text-slate-800 cursor-pointer">Es un combo</Label>
+                                                        <input
+                                                            type="checkbox"
+                                                            id="is_combo"
+                                                            checked={formData.is_combo || false}
+                                                            onChange={(e) => setFormData(p => ({ ...p, is_combo: e.target.checked, combo_items: e.target.checked ? p.combo_items : [] }))}
+                                                            className="sr-only peer"
+                                                        />
+                                                        <div
+                                                            onClick={() => setFormData(p => ({ ...p, is_combo: !p.is_combo, combo_items: !p.is_combo ? p.combo_items : [] }))}
+                                                            className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600 peer-checked:after:translate-x-5"
+                                                        ></div>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-500 mt-0.5">Agrupa varios productos. El stock se calcula desde sus componentes en la pestaña Avanzado.</p>
+                                                </div>
+                                            </div>
+
                                             {/* Service Toggle - Integrated and clear */}
                                             <div className={cn(
                                                 "flex items-center gap-4 p-4 rounded-xl transition-all border",
