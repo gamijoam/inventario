@@ -399,7 +399,8 @@ document.addEventListener('DOMContentLoaded', function () {
             msgEl.style.display = 'none';
 
             try {
-                const resp = await fetch(`${API_URL}/api/v1/support/tickets/public-contact`, {
+                const normalizedApiUrl = API_URL.endsWith('/api/v1') ? API_URL : `${API_URL}/api/v1`;
+                const resp = await fetch(`${normalizedApiUrl}/support/tickets/public-contact`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

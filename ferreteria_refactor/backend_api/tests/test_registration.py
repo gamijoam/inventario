@@ -462,7 +462,7 @@ class TestTrialEndsAt:
     para testearla de forma aislada.
     """
 
-    TRIAL_DAYS_DEFAULT = 15  # Valor por defecto definido en config.py
+    TRIAL_DAYS_DEFAULT = 2  # Valor por defecto definido en config.py
 
     def _simular_campos_licencia(self, trial_days: int | None = None) -> dict:
         """
@@ -491,13 +491,13 @@ class TestTrialEndsAt:
         # Margen de 1 segundo para compensar tiempo de ejecución
         assert campos["trial_ends_at"] > datetime.utcnow() - timedelta(seconds=1)
 
-    def test_trial_ends_at_aproximadamente_15_dias(self):
-        """trial_ends_at debe estar entre 14 y 16 días desde ahora."""
+    def test_trial_ends_at_aproximadamente_2_dias(self):
+        """trial_ends_at debe estar entre 1 y 3 días desde ahora."""
         campos = self._simular_campos_licencia()
         ahora = datetime.utcnow()
         delta = campos["trial_ends_at"] - ahora
-        assert timedelta(days=14) <= delta <= timedelta(days=16), (
-            f"trial_ends_at debería estar entre 14 y 16 días; delta actual: {delta}"
+        assert timedelta(days=1) <= delta <= timedelta(days=3), (
+            f"trial_ends_at debería estar entre 1 y 3 días; delta actual: {delta}"
         )
 
     def test_license_type_es_trial_no_lifetime(self):
@@ -514,10 +514,10 @@ class TestTrialEndsAt:
         delta = campos["trial_ends_at"] - campos["_created_at"]
         assert abs(delta.days - campos["trial_days"]) <= 1  # tolerancia por segundos
 
-    def test_trial_days_por_defecto_es_15(self):
-        """El valor por defecto de trial_days debe ser 15 (según config.py)."""
+    def test_trial_days_por_defecto_es_2(self):
+        """El valor por defecto de trial_days debe ser 2 (según config.py)."""
         campos = self._simular_campos_licencia()
-        assert campos["trial_days"] == 15
+        assert campos["trial_days"] == 2
 
     def test_trial_ends_at_es_datetime(self):
         """trial_ends_at debe ser una instancia de datetime."""
@@ -527,10 +527,10 @@ class TestTrialEndsAt:
     def test_configuracion_desde_settings(self):
         """
         Verifica que el valor LICENSE_TRIAL_DAYS_DEFAULT en config.py
-        es exactamente 15, que es el valor esperado por el sistema.
+        es exactamente 2, que es el valor esperado por el sistema.
         """
         try:
             from backend_api.config import settings
-            assert settings.LICENSE_TRIAL_DAYS_DEFAULT == 15
+            assert settings.LICENSE_TRIAL_DAYS_DEFAULT == 2
         except ImportError:
             pytest.skip("config.py no disponible en este entorno.")

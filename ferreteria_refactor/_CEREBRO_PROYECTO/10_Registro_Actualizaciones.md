@@ -4,6 +4,44 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-23] — Fix: Multimoneda COP + Landing + Trial 2 días
+
+### Fix: Tasa COP 0.000269 redondeada incorrectamente a 0.0003
+**Causa:** `exchange_rates.rate` era `Numeric(14,4)` en PostgreSQL — solo 4 decimales. COP inverso requiere 8.
+**Fix:** Migración Alembic `d4e5f6a7b8c9` altera la columna a `Numeric(20,8)`. Config BCV scrap ahora guarda `round(float, 8)`. Frontend `step="0.00000001"` en MonedasTab.
+**Archivos:** `alembic/versions/d4e5f6a7b8c9_*`, `models/models.py`, `routers/config.py`, `MonedasTab.jsx`
+
+### Fix: Precio en COP no se mostraba en tarjetas del POS
+**Causa:** ProductCard no recibía moneda secundaria. POS usaba `currencies.find()` que retornaba VES si ambas estaban activas.
+**Fix:** `getPrimaryLocalCurrency()` respeta `is_default`. Toggle `showSecondaryPrice` (localStorage, default OFF) en toolbar del POS. ProductCard/POSCatalog pasan la moneda secundaria.
+**Archivos:** `POS.jsx`, `POSCatalog.jsx`, `ProductCard.jsx`
+
+### Fix: Modal de pago solo mostraba COP+USD, no mostraba Bs
+**Causa:** PaymentModal usaba `find()` — retornaba solo la primera moneda no-USD.
+**Fix:** Reemplazado por `map()` sobre el array completo de monedas deduplicadas.
+**Archivo:** `PaymentModal.jsx`
+
+### Fix: Vuelto, carrito y reportes no mostraban COP correctamente
+**Causa:** Cálculos hardcodeados para Bs (`subtotal_bs`, `totalBs`). ZReportPDF agrupaba todo lo no-USD como "Bs".
+**Fix:** Cart calcula on-the-fly con `subtotal_usd * secondaryCurrency.rate`. ZReportPDF agrupa por `currency_code` en objeto `localTotals`. CashClosingModal usa `data.symbol` dinámico.
+**Archivos:** `POSCart.jsx`, `ZReportPDF.jsx`, `CashClosingModal.jsx`
+
+### Fix: Formulario de contacto landing page — "no se pudo enviar mensaje"
+**Causa:** `API_URL` ya incluía `/api/v1` (bakeado en build), la URL resultante era `.../api/v1/api/v1/support/tickets/public-contact` → 404.
+**Fix:** Se agrega `normalizedApiUrl` igual que el formulario de registro.
+**Archivo:** `landing_page/main.js`
+
+### Cambio: Trial por defecto 15 → 2 días
+**Motivo:** Reducir período de prueba para mayor control comercial.
+**Fix:** Cambiado en `config.py` (`LICENSE_TRIAL_DAYS_DEFAULT=2`), `models/tenant.py`, `schemas/tenant.py`, `routers/admin.py`, `main.py`. Tests actualizados.
+
+### Tests añadidos
+- **Backend:** `test_exchange_rate_precision.py` (12 tests Numeric(20,8))
+- **Frontend:** `exchange-rate-precision.test.js`, `payment-modal-currencies.test.js`, `product-card-secondary-price.test.js`, `pos-cart-secondary-price.test.js`, `zreport-multi-currency.test.js` (~138 tests nuevos)
+- **CI:** Tests Jest integrados en `deploy_images.sh` y `Dockerfile.prod` (test-stage)
+
+---
+
 ## [2026-03-19] — Fix: Cotizaciones + Config empresa + POS + Eliminación tenant
 
 ### Fix: Botón "Nueva Cotización" no hacía nada

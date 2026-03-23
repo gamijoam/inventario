@@ -598,12 +598,12 @@ class TestCreateTenantLicense:
     def _build_tenant_like_create_tenant(self, db, *, trial_days_param=None):
         """
         Replica exactamente el fragmento de create_tenant que interesa:
-            trial_days = getattr(tenant_in, 'trial_days', 15) or 15
+            trial_days = getattr(tenant_in, 'trial_days', 2) or 2
             trial_ends_at = datetime.utcnow() + timedelta(days=trial_days)
             license_type = 'trial'
         """
-        trial_days = trial_days_param if trial_days_param is not None else 15
-        trial_days = trial_days or 15  # fallback idéntico al código real
+        trial_days = trial_days_param if trial_days_param is not None else 2
+        trial_days = trial_days or 2  # fallback idéntico al código real
 
         import uuid
         before = datetime.utcnow()
@@ -638,17 +638,17 @@ class TestCreateTenantLicense:
         assert tenant.trial_ends_at is not None
         assert tenant.trial_ends_at > now_before
 
-    def test_trial_days_default_es_15(self, db_session):
-        """Sin especificar trial_days, el valor por defecto es 15."""
+    def test_trial_days_default_es_2(self, db_session):
+        """Sin especificar trial_days, el valor por defecto es 2."""
         _skip_if_unavailable()
 
         tenant, before, after, trial_days = self._build_tenant_like_create_tenant(
             db_session, trial_days_param=None
         )
 
-        assert trial_days == 15
-        assert tenant.trial_days == 15
-        # trial_ends_at debe ser now + 15 días (con tolerancia de 2 segundos)
-        expected_min = before + timedelta(days=15)
-        expected_max = after + timedelta(days=15)
+        assert trial_days == 2
+        assert tenant.trial_days == 2
+        # trial_ends_at debe ser now + 2 días (con tolerancia de 2 segundos)
+        expected_min = before + timedelta(days=2)
+        expected_max = after + timedelta(days=2)
         assert expected_min <= tenant.trial_ends_at <= expected_max

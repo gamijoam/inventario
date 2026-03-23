@@ -30,7 +30,7 @@
 license_type             = Column(String(20), default="trial")
 # Valores: "trial" | "monthly" | "annual" | "lifetime"
 
-trial_days               = Column(Integer, default=15)
+trial_days               = Column(Integer, default=2)
 # Días de prueba configurables por el admin SaaS
 
 trial_ends_at            = Column(DateTime, nullable=True)
@@ -407,7 +407,7 @@ un enfoque más simple y operacional de inmediato:
 
 ```env
 # .env / .env.prod
-LICENSE_TRIAL_DAYS_DEFAULT=30        # Días de trial por defecto (editable por admin)
+LICENSE_TRIAL_DAYS_DEFAULT=2         # Días de trial por defecto (editable por admin)
 LICENSE_GRACE_DAYS_OFFLINE=5         # Días de gracia offline después del vencimiento
 LICENSE_RS256_PRIVATE_KEY=<key>      # Para firmar tokens de licencia desktop
 LICENSE_RS256_PUBLIC_KEY=<key>       # Pública (también embebida en .exe Tauri)

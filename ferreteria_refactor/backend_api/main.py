@@ -346,7 +346,7 @@ def repair_public_schema():
             ("has_services_module", "BOOLEAN DEFAULT FALSE"),
             ("has_barbershop_module", "BOOLEAN DEFAULT FALSE"),
             ("license_type", "VARCHAR(20) NOT NULL DEFAULT 'trial'"),
-            ("trial_days", "INTEGER NOT NULL DEFAULT 15"),
+            ("trial_days", "INTEGER NOT NULL DEFAULT 2"),
             ("trial_ends_at", "TIMESTAMP"),
             ("license_blocked_reason", "VARCHAR(50)"),
         ]

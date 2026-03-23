@@ -67,7 +67,7 @@ def create_tenant(
         
     try:
         # 3. Create Tenant Record
-        trial_days = getattr(tenant_in, 'trial_days', 15) or 15
+        trial_days = getattr(tenant_in, 'trial_days', 2) or 2
         new_tenant = Tenant(
             name=tenant_in.name,
             schema_name=schema,

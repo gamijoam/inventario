@@ -61,7 +61,7 @@ class TenantOut(TenantBase):
 
     # License fields
     license_type: str = "trial"
-    trial_days: int = 15
+    trial_days: int = 2
     trial_ends_at: Optional[datetime] = None
     license_blocked_reason: Optional[str] = None
 
