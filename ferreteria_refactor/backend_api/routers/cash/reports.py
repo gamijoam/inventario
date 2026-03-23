@@ -188,8 +188,9 @@ def get_session_details(
         # Also track total by currency (for backward compatibility)
         if curr and curr.upper() in ["BS", "VES", "VEF"]:
             sales_total_bs += amt
-        else:
+        elif curr in ("USD", "$", None, ""):
             sales_total_usd += amt
+        # Other currencies (COP, etc.) are intentionally excluded from legacy USD/Bs buckets
 
     # 1.5 Get Debt Payments (Abonos) linked to this session
     debt_payments = db.query(models.Payment).filter(models.Payment.session_id == session.id).all()
@@ -245,9 +246,13 @@ def get_session_details(
         # Flexible check: if "efectivo", "cash" or "divisa" is in the name (case-insensitive)
         if "efectivo" in method_name.lower() or "cash" in method_name.lower() or "divisa" in method_name.lower():
             for curr, amt in sales_by_method[method_name].items():
-                if curr not in cash_by_currency:
-                    cash_by_currency[curr] = Decimal("0.00")
-                cash_by_currency[curr] += amt
+                # Normalize currency key: Bs/VES/VEF → "Bs", USD/$/<empty> → "USD", others (COP…) → own key
+                curr_key = (
+                    "Bs" if curr and curr.upper() in ["BS", "VES", "VEF"]
+                    else "USD" if curr in ("USD", "$", None, "")
+                    else curr
+                )
+                cash_by_currency[curr_key] = cash_by_currency.get(curr_key, Decimal("0.00")) + amt
 
     # Legacy USD/Bs for backward compatibility
     cash_sales_usd = cash_by_currency.get("USD", Decimal("0.00"))
@@ -280,11 +285,49 @@ def get_session_details(
     final_reported_usd = session.final_cash_reported or Decimal("0.00")
     final_reported_bs = session.final_cash_reported_bs or Decimal("0.00")
 
-    # Build expected_by_currency dict for frontend
+    # Build per-currency movement dicts for non-USD/Bs currencies (e.g. COP)
+    def _norm_key(c):
+        """Return normalized currency key matching cash_by_currency keys."""
+        if c and c.upper() in ["BS", "VES", "VEF"]:
+            return "Bs"
+        if c in ("USD", "$", None, ""):
+            return "USD"
+        return c
+
+    initial_by_currency = {"USD": session.initial_cash or Decimal("0.00"), "Bs": session.initial_cash_bs or Decimal("0.00")}
+    # Multi-currency initial amounts from CashSessionCurrency rows (if present)
+    if session.currencies:
+        for sc in session.currencies:
+            k = _norm_key(sc.currency_symbol)
+            initial_by_currency[k] = initial_by_currency.get(k, Decimal("0.00")) + (sc.initial_amount or Decimal("0.00"))
+
+    change_by_currency = {"USD": total_change_usd, "Bs": total_change_bs}
+    deposits_by_currency = {"USD": deposits_usd, "Bs": deposits_bs}
+    expenses_by_currency = {"USD": expenses_usd + returns_usd + cash_advances_usd,
+                             "Bs": expenses_bs + returns_bs + cash_advances_bs}
+
+    for m in movements:
+        k = _norm_key(m.currency)
+        if k in ("USD", "Bs"):
+            continue  # Already handled in legacy buckets
+        if m.type in ["DEPOSIT", "IN"]:
+            deposits_by_currency[k] = deposits_by_currency.get(k, Decimal("0.00")) + m.amount
+        elif m.type in ["EXPENSE", "WITHDRAWAL", "OUT", "RETURN", "CASH_ADVANCE"]:
+            expenses_by_currency[k] = expenses_by_currency.get(k, Decimal("0.00")) + m.amount
+
+    # Build expected_by_currency dict for frontend — covers ALL currencies in cash_by_currency
     expected_by_currency = {
         "USD": float(expected_usd),
         "Bs": float(expected_bs)
     }
+    for currency, sales_amount in cash_by_currency.items():
+        if currency in ("USD", "Bs"):
+            continue  # Already populated above
+        initial = initial_by_currency.get(currency, Decimal("0.00"))
+        change = change_by_currency.get(currency, Decimal("0.00"))
+        deposits = deposits_by_currency.get(currency, Decimal("0.00"))
+        expenses = expenses_by_currency.get(currency, Decimal("0.00"))
+        expected_by_currency[currency] = float(initial + sales_amount - change + deposits - expenses)
 
     # Build cash_by_currency (only cash payments) - convert to float for JSON
     cash_by_currency_response = {curr: float(amt) for curr, amt in cash_by_currency.items()}

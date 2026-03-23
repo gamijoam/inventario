@@ -493,8 +493,30 @@ async def close_cash_session(
         models.CashSessionCurrency.session_id == session.id
     ).all()
 
-    for curr_record in currency_records:
-        symbol = curr_record.currency_symbol
+    # Build a lookup of existing currency records for this session
+    currency_records_by_symbol = {r.currency_symbol: r for r in currency_records}
+
+    # Collect ALL currencies that appear in sales, change, movements or existing records
+    all_currencies = set(currency_records_by_symbol.keys())
+    all_currencies.update(cash_sales_by_currency.keys())
+    all_currencies.update(change_by_currency.keys())
+    all_currencies.update(movements_by_currency.keys())
+
+    for symbol in all_currencies:
+        curr_record = currency_records_by_symbol.get(symbol)
+
+        # If no record exists for this currency (e.g. COP appeared in sales but wasn't
+        # registered at session open), create one dynamically
+        if curr_record is None:
+            curr_record = models.CashSessionCurrency(
+                session_id=session.id,
+                currency_symbol=symbol,
+                initial_amount=Decimal("0.00")
+            )
+            db.add(curr_record)
+            db.flush()
+            currency_records_by_symbol[symbol] = curr_record
+            currency_records.append(curr_record)
 
         # Calculate expected
         initial = curr_record.initial_amount or Decimal("0.00")

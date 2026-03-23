@@ -302,7 +302,7 @@ const ZReportPDF = ({ session, business }) => {
     const localTotals = (session.payment_breakdown || [])
         .filter(p => p.currency !== 'USD')
         .reduce((acc, p) => {
-            const key = p.currency || 'LOCAL';
+            const key = p.currency || 'USD';
             acc[key] = (acc[key] || 0) + parseFloat(p.amount || 0);
             return acc;
         }, {});
@@ -384,11 +384,13 @@ const ZReportPDF = ({ session, business }) => {
                             <Text style={styles.label}>Total Ventas USD</Text>
                             <Text style={styles.value}>{fmtUSD(totalUSD)}</Text>
                         </View>
-                        {totalBs > 0 && (
-                            <View style={[styles.row, styles.rowLast]}>
-                                <Text style={styles.label}>Total Ventas Bs</Text>
-                                <Text style={styles.value}>{fmtBs(totalBs)}</Text>
-                            </View>
+                        {Object.entries(localTotals).map(([cur, amt], idx, arr) =>
+                            amt > 0 ? (
+                                <View key={cur} style={idx === arr.length - 1 ? [styles.row, styles.rowLast] : styles.row}>
+                                    <Text style={styles.label}>Total Ventas {cur}</Text>
+                                    <Text style={styles.value}>{fmtCurrency(amt, cur)}</Text>
+                                </View>
+                            ) : null
                         )}
                     </View>
                 </View>
