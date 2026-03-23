@@ -48,7 +48,7 @@ const POS = () => {
     const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
-    const { getActiveCurrencies, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
+    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
     const {
         products: displayProducts, isLoading: catalogLoading, isLoadingMore,
@@ -68,7 +68,7 @@ const POS = () => {
             return next;
         });
     };
-    const secondaryCurrency = currencies.find(c => !c.is_anchor && c.is_active) || null;
+    const secondaryCurrency = getPrimaryLocalCurrency() || null;
 
     // Theme State - Resolve by ID to ensure latest styles
     const themeId = user?.preferences?.pos_theme?.id || 'default';

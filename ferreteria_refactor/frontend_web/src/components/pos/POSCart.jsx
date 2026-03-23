@@ -339,8 +339,8 @@ const POSCart = ({
                                                 </div>
                                                 {secondaryCurrency && (
                                                     <div className="text-[10px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 rounded-md border border-emerald-200/50">
-                                                        <span className="text-[8px] mr-1 italic opacity-60">{secondaryCurrency?.symbol || 'Bs'}</span>
-                                                        {formatLocalCurrency(item.subtotal_bs || 0)}
+                                                        <span className="text-[8px] mr-1 italic opacity-60">{secondaryCurrency.symbol}</span>
+                                                        {formatLocalCurrency(item.subtotal_usd * parseFloat(secondaryCurrency.rate || 1))}
                                                     </div>
                                                 )}
                                             </div>
@@ -446,11 +446,13 @@ const POSCart = ({
                             </div>
                         </div>
                         <div className="text-right animate-in slide-in-from-right-2 duration-500">
-                            <div className="bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-2xl">
-                                <span className="text-lg font-black text-emerald-500 tabular-nums tracking-tighter">
-                                    {formatLocalCurrency(totals.totalBs)} <span className="text-[10px] uppercase ml-0.5">{secondaryCurrency?.symbol || 'Bs'}</span>
-                                </span>
-                            </div>
+                            {secondaryCurrency && (
+                                <div className="bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-2xl">
+                                    <span className="text-lg font-black text-emerald-500 tabular-nums tracking-tighter">
+                                        {formatLocalCurrency(totals.totalUSD * parseFloat(secondaryCurrency.rate || 1))} <span className="text-[10px] uppercase ml-0.5">{secondaryCurrency.symbol}</span>
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
 

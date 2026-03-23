@@ -16,8 +16,12 @@ const fmtNum = (value) => {
 
 const fmtUSD = (value) => `$ ${fmtNum(value)}`;
 const fmtBs  = (value) => `Bs ${fmtNum(value)}`;
-const fmtCurrency = (value, symbol = '$') =>
-    symbol === 'Bs' || symbol === 'VES' ? fmtBs(value) : fmtUSD(value);
+// Formatea con cualquier símbolo de moneda (COP, EUR, etc.)
+const fmtCurrency = (value, symbol = '$') => {
+    if (!symbol || symbol === '$' || symbol === 'USD') return fmtUSD(value);
+    if (symbol === 'Bs' || symbol === 'VES') return fmtBs(value);
+    return `${symbol} ${fmtNum(value)}`;
+};
 
 const PAD2 = (n) => String(n).padStart(2, '0');
 
@@ -289,14 +293,21 @@ const ZReportPDF = ({ session, business }) => {
     const cashierName = session.user?.full_name || session.user?.username || 'N/A';
     const registerName = session.register?.name || session.register?.code || null;
 
-    // Compute totals from payment breakdown
+    // Compute totals from payment breakdown — group by currency
     const totalUSD = (session.payment_breakdown || [])
         .filter(p => p.currency === 'USD')
         .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
 
-    const totalBs = (session.payment_breakdown || [])
+    // Group non-USD payments by currency_code
+    const localTotals = (session.payment_breakdown || [])
         .filter(p => p.currency !== 'USD')
-        .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+        .reduce((acc, p) => {
+            const key = p.currency || 'LOCAL';
+            acc[key] = (acc[key] || 0) + parseFloat(p.amount || 0);
+            return acc;
+        }, {});
+    // Keep backward compat: totalBs = sum of all local (used in legacy sections)
+    const totalBs = Object.values(localTotals).reduce((s, v) => s + v, 0);
 
     // Transaction count (number of sale movements, fallback to breakdown count)
     const txCount = session.sales_count || session.transaction_count
@@ -391,34 +402,34 @@ const ZReportPDF = ({ session, business }) => {
                         {/* Table header */}
                         <View style={styles.tableHeader}>
                             <Text style={[styles.tableHeaderCell, styles.colMethod]}>Metodo</Text>
-                            <Text style={[styles.tableHeaderCell, styles.colAmountUSD, { textAlign: 'right' }]}>Monto USD</Text>
-                            <Text style={[styles.tableHeaderCell, styles.colAmountBs,  { textAlign: 'right' }]}>Monto Bs</Text>
+                            <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'right' }]}>Moneda</Text>
+                            <Text style={[styles.tableHeaderCell, styles.colAmountUSD, { textAlign: 'right' }]}>Monto</Text>
                         </View>
-                        {session.payment_breakdown.map((item, idx) => {
-                            const isUSD = item.currency === 'USD';
-                            return (
-                                <View
-                                    key={idx}
-                                    style={[
-                                        styles.tableRow,
-                                        idx % 2 !== 0 ? styles.tableRowAlt : null,
-                                    ]}
-                                >
-                                    <Text style={[styles.label, styles.colMethod]}>{item.method}</Text>
-                                    <Text style={[styles.value, styles.colAmountUSD]}>
-                                        {isUSD ? fmtUSD(item.amount) : '--'}
-                                    </Text>
-                                    <Text style={[styles.value, styles.colAmountBs]}>
-                                        {!isUSD ? fmtBs(item.amount) : '--'}
-                                    </Text>
-                                </View>
-                            );
-                        })}
+                        {session.payment_breakdown.map((item, idx) => (
+                            <View
+                                key={idx}
+                                style={[
+                                    styles.tableRow,
+                                    idx % 2 !== 0 ? styles.tableRowAlt : null,
+                                ]}
+                            >
+                                <Text style={[styles.label, styles.colMethod]}>{item.method}</Text>
+                                <Text style={[styles.value, { flex: 1, textAlign: 'right' }]}>
+                                    {item.currency || 'USD'}
+                                </Text>
+                                <Text style={[styles.value, styles.colAmountUSD]}>
+                                    {fmtCurrency(item.amount, item.currency === 'USD' ? '$' : (item.currency || '$'))}
+                                </Text>
+                            </View>
+                        ))}
                         {/* Totals row */}
                         <View style={styles.totalRow}>
                             <Text style={styles.totalLabel}>TOTAL</Text>
                             <Text style={styles.totalValue}>
-                                {fmtUSD(totalUSD)}{totalBs > 0 ? `  /  ${fmtBs(totalBs)}` : ''}
+                                {fmtUSD(totalUSD)}
+                                {Object.entries(localTotals).map(([cur, amt]) =>
+                                    `  /  ${fmtCurrency(amt, cur)}`
+                                ).join('')}
                             </Text>
                         </View>
                     </View>
@@ -434,8 +445,7 @@ const ZReportPDF = ({ session, business }) => {
                             {session.currencies.map((curr, idx) => {
                                 const diff = parseFloat(curr.difference || 0);
                                 const sym = curr.currency_symbol || '$';
-                                const isUSD = sym === '$' || sym === 'USD';
-                                const fmt = (v) => fmtCurrency(v, isUSD ? '$' : 'Bs');
+                                const fmt = (v) => fmtCurrency(v, sym);
                                 const initial  = parseFloat(curr.initial_amount || 0);
                                 const expected = parseFloat(curr.final_expected  || 0);
                                 const income   = expected - initial;

@@ -180,7 +180,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                                                         <div>
                                                             <div className="font-bold text-slate-900 text-lg">{data.name}</div>
                                                             <div className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-md inline-block mt-1">
-                                                                Esperado: <span className="font-mono text-slate-900">{data.symbol === 'USD' ? '$' : 'Bs'} {Number(data.expected).toFixed(2)}</span>
+                                                                Esperado: <span className="font-mono text-slate-900">{data.symbol === 'USD' ? '$' : data.symbol} {Number(data.expected).toFixed(2)}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -194,7 +194,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                                                     </label>
                                                     <div className="relative flex-1">
                                                         <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-bold pointer-events-none">
-                                                            {data.symbol === 'USD' ? '$' : 'Bs'}
+                                                            {data.symbol === 'USD' ? '$' : data.symbol}
                                                         </span>
                                                         <input
                                                             type="number"
