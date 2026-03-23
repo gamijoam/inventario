@@ -16,27 +16,52 @@ depends_on = None
 
 def upgrade() -> None:
     # desktop_licenses lives in the public schema
-    op.add_column(
-        'desktop_licenses',
-        sa.Column('tenant_id', sa.Integer(), nullable=True),
-        schema='public'
-    )
-    op.create_foreign_key(
-        'fk_desktop_licenses_tenant_id',
-        'desktop_licenses',
-        'tenants',
-        ['tenant_id'],
-        ['id'],
-        source_schema='public',
-        referent_schema='public',
-        ondelete='CASCADE'
-    )
-    op.create_index(
-        'ix_desktop_licenses_tenant_id',
-        'desktop_licenses',
-        ['tenant_id'],
-        schema='public'
-    )
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    tables = inspector.get_table_names(schema='public')
+
+    # Crear tabla si no existe (puede no estar en migraciones previas en fresh DB)
+    if 'desktop_licenses' not in tables:
+        op.create_table(
+            'desktop_licenses',
+            sa.Column('id', sa.Integer(), nullable=False),
+            sa.Column('license_key', sa.String(length=64), nullable=False),
+            sa.Column('hardware_id', sa.String(length=128), nullable=True),
+            sa.Column('is_active', sa.Boolean(), nullable=True, server_default='true'),
+            sa.Column('activated_at', sa.DateTime(), nullable=True),
+            sa.Column('expires_at', sa.DateTime(), nullable=True),
+            sa.Column('tenant_id', sa.Integer(), nullable=True),
+            sa.ForeignKeyConstraint(['tenant_id'], ['public.tenants.id'], ondelete='CASCADE',
+                                    name='fk_desktop_licenses_tenant_id'),
+            sa.PrimaryKeyConstraint('id'),
+            schema='public'
+        )
+        op.create_index('ix_desktop_licenses_tenant_id', 'desktop_licenses', ['tenant_id'], schema='public')
+        return
+
+    existing_cols = [c['name'] for c in inspector.get_columns('desktop_licenses', schema='public')]
+    if 'tenant_id' not in existing_cols:
+        op.add_column(
+            'desktop_licenses',
+            sa.Column('tenant_id', sa.Integer(), nullable=True),
+            schema='public'
+        )
+        op.create_foreign_key(
+            'fk_desktop_licenses_tenant_id',
+            'desktop_licenses',
+            'tenants',
+            ['tenant_id'],
+            ['id'],
+            source_schema='public',
+            referent_schema='public',
+            ondelete='CASCADE'
+        )
+        op.create_index(
+            'ix_desktop_licenses_tenant_id',
+            'desktop_licenses',
+            ['tenant_id'],
+            schema='public'
+        )
 
 
 def downgrade() -> None:
