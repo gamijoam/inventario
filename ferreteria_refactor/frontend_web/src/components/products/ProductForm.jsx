@@ -322,7 +322,12 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                     <div className="px-6 bg-white border-b border-slate-200 shadow-sm">
                         <TabsList className="w-full justify-start h-10 bg-transparent p-0 gap-8">
                             <TabsTrigger value="main" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all">GENERAL</TabsTrigger>
-                            <TabsTrigger value="advanced" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all">AVANZADO</TabsTrigger>
+                            <TabsTrigger value="advanced" className="data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:text-indigo-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all flex items-center gap-1.5">
+                                AVANZADO
+                                {formData.is_combo && (
+                                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 leading-none">COMBO</span>
+                                )}
+                            </TabsTrigger>
                             {initialData?.id && (
                                 <TabsTrigger value="precios" className="data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:text-amber-600 rounded-none bg-transparent h-full px-0 font-bold text-slate-500 shadow-none text-sm transition-all flex items-center gap-1.5">
                                     <Zap size={12} />PRECIOS POR VOLUMEN
@@ -738,8 +743,27 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                 </CardContent>
                             </Card>
 
-                            {/* SECTION 3: INVENTORY & STOCK (Collapsible) - Hidden for Services AND Serialized Products */}
-                            {!formData.is_service && !formData.has_imei && (
+                            {/* COMBO NOTICE: stock managed by components, not by the combo itself */}
+                            {formData.is_combo && (
+                                <Card className="border-indigo-200 bg-indigo-50/40 shadow-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                                    <div className="px-5 py-4 flex items-start gap-3">
+                                        <div className="w-9 h-9 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <Layers size={18} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-bold text-indigo-800 mb-0.5">Este producto es un Combo / Kit</p>
+                                            <p className="text-xs text-indigo-600 leading-relaxed">
+                                                El stock se calcula automáticamente en base a la disponibilidad de sus componentes.
+                                                No es necesario ingresar existencias manualmente — ve a la tab{' '}
+                                                <span className="font-bold">AVANZADO</span> para ver y editar los productos que lo conforman.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </Card>
+                            )}
+
+                            {/* SECTION 3: INVENTORY & STOCK (Collapsible) - Hidden for Services, Serialized AND Combo Products */}
+                            {!formData.is_service && !formData.has_imei && !formData.is_combo && (
                                 <Card className="border-slate-200 shadow-sm bg-white overflow-hidden animate-in zoom-in-95 duration-200">
                                     <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
                                         <div className="flex items-center gap-2">
