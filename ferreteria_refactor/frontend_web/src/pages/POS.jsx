@@ -57,9 +57,9 @@ const POS = () => {
     } = usePOSCatalog();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
-    // Toggle: mostrar precio en moneda secundaria en las tarjetas (default OFF)
+    // Toggle: mostrar precio en moneda secundaria en las tarjetas (default ON)
     const [showSecondaryPrice, setShowSecondaryPrice] = useState(
-        () => localStorage.getItem('pos_show_secondary_price') === 'true'
+        () => localStorage.getItem('pos_show_secondary_price') !== 'false'
     );
     const toggleSecondaryPrice = () => {
         setShowSecondaryPrice(prev => {

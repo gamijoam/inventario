@@ -162,9 +162,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         if (p.currency === 'USD' || p.currency === '$') {
             rate = 1;
         } else if (p.currency === 'Bs' || p.currency === 'VES') {
-            // UPDATED: Use Effective Rate derived from Cart Totals
-            // This ensures that paying the exact TotalBs amount covers the TotalUSD amount
-            const effectiveRate = (totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate;
+            // FIX: usar totalsByCurrency.VES (siempre tasa VES pura),
+            // no totalBs que puede ser COP si el producto tiene rate COP asignado
+            const vesTotal = totalsByCurrency?.VES || totalsByCurrency?.Bs;
+            const effectiveRate = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : defaultBsRate;
             rate = effectiveRate;
         } else {
             rate = getExchangeRate(p.currency) || 1;
