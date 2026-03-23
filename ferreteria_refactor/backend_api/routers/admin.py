@@ -148,7 +148,7 @@ def create_tenant(
         # 8. Send welcome email in background (non-blocking)
         try:
             if tenant_in.is_demo:
-                plan_label = "Demo Gratuita 15 días"
+                plan_label = f"Demo Gratuita {settings.LICENSE_TRIAL_DAYS_DEFAULT} días"
             elif tenant_in.subscription_expires_at:
                 plan_label = f"Suscripción activa hasta {tenant_in.subscription_expires_at.strftime('%d/%m/%Y')}"
             else:
