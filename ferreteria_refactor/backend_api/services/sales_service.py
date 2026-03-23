@@ -612,10 +612,11 @@ class SalesService:
                             )
 
                         db_rate_val = float(db_rate.rate)
-                        frontend_rate = float(p.exchange_rate or 0)
+                        frontend_rate = float(p.exchange_rate) if p.exchange_rate is not None else None
 
-                        # Validate tolerance: ±15% from DB rate
-                        if frontend_rate > 0 and db_rate_val > 0:
+                        # Validate tolerance ±15% ONLY when client explicitly sends a rate
+                        # (None = older client / desktop app that doesn't send rate → skip strict check)
+                        if frontend_rate is not None and frontend_rate > 0 and db_rate_val > 0:
                             diff_pct = abs(frontend_rate - db_rate_val) / db_rate_val
                             if diff_pct > 0.15:
                                 raise HTTPException(

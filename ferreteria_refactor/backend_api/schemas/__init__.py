@@ -308,7 +308,7 @@ class SalePaymentCreate(BaseModel):
     amount: Decimal
     currency: str = "USD"
     payment_method: str = "Efectivo"
-    exchange_rate: Decimal = Decimal("1.0")
+    exchange_rate: Optional[Decimal] = None  # None = not provided by client (skip strict validation)
     # NEW: Mobile/Laundry Support
     reference: Optional[str] = None
     payment_date: Optional[datetime] = None
