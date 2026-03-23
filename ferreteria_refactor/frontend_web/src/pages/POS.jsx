@@ -69,6 +69,7 @@ const POS = () => {
         });
     };
     const secondaryCurrency = getPrimaryLocalCurrency() || null;
+    const secondaryCurrencies = getActiveCurrencies().filter(c => !c.is_anchor && c.currency_code !== 'USD');
 
     // Theme State - Resolve by ID to ensure latest styles
     const themeId = user?.preferences?.pos_theme?.id || 'default';
@@ -747,15 +748,15 @@ const POS = () => {
                     <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
                     {/* Toggle precio moneda secundaria en tarjetas */}
-                    {secondaryCurrency && (
+                    {secondaryCurrencies.length > 0 && (
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={toggleSecondaryPrice}
-                            title={showSecondaryPrice ? `Ocultar precios en ${secondaryCurrency.symbol}` : `Mostrar precios en ${secondaryCurrency.symbol}`}
+                            title={showSecondaryPrice ? 'Ocultar precios secundarios en tarjetas' : 'Mostrar precios secundarios en tarjetas'}
                             className={`hidden md:flex items-center gap-1.5 rounded-full text-xs font-bold px-3 ${showSecondaryPrice ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
                         >
-                            <span>{secondaryCurrency.symbol}</span>
+                            <span>{secondaryCurrencies.map(c => c.symbol).join('/')}</span>
                             <span>{showSecondaryPrice ? 'ON' : 'OFF'}</span>
                         </Button>
                     )}
@@ -834,6 +835,7 @@ const POS = () => {
                                 onUpdateQuantity={updateQuantity}
                                 onClearCart={() => { if (confirm('¿Vaciar carrito?')) clearCart(); }}
                                 totals={{ totalUSD, totalBs }}
+                                totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
                                 onCheckout={() => setIsPaymentOpen(true)}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
@@ -860,6 +862,7 @@ const POS = () => {
                                 currencySymbol={anchorCurrency.symbol}
                                 // Secondary Currency Props
                                 secondaryCurrency={secondaryCurrency}
+                                secondaryCurrencies={secondaryCurrencies}
                                 convertProductPrice={convertProductPrice}
                                 showSecondaryPrice={showSecondaryPrice}
                                 // Server-side pagination props
@@ -882,6 +885,7 @@ const POS = () => {
                                     if (confirm('¿Vaciar carrito?')) clearCart();
                                 }}
                                 totals={{ totalUSD, totalBs }}
+                                totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
                                 onCheckout={() => setIsPaymentOpen(true)}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
@@ -923,6 +927,7 @@ const POS = () => {
                                     if (confirm('¿Vaciar carrito?')) clearCart();
                                 }}
                                 totals={{ totalUSD, totalBs }}
+                                totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
                                 onCheckout={() => { setIsMobileCartOpen(false); setIsPaymentOpen(true); }}
                                 onItemClick={(item) => { setIsMobileCartOpen(false); setSelectedItemForEdit(item); }}

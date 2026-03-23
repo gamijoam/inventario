@@ -36,10 +36,11 @@ const POSCart = ({
     onCheckout,
     onItemClick,
     secondaryCurrency,
-    convertPrice
+    convertPrice,
+    totalsByCurrency = {}
 }) => {
 
-    const { business } = useConfig();
+    const { business, currencies } = useConfig();
     const { cartDiscount, setCartDiscount, discountUSD, discountBs, rawTotalUSD, rawBs } = useCart();
 
     // Discount Panel state
@@ -337,12 +338,16 @@ const POSCart = ({
                                                     <span className="text-[10px] mr-0.5">$</span>
                                                     {formatLocalCurrency(item.subtotal_usd)}
                                                 </div>
-                                                {secondaryCurrency && (
-                                                    <div className="text-[10px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 rounded-md border border-emerald-200/50">
-                                                        <span className="text-[8px] mr-1 italic opacity-60">{secondaryCurrency.symbol}</span>
-                                                        {formatLocalCurrency(item.subtotal_usd * parseFloat(secondaryCurrency.rate || 1))}
-                                                    </div>
-                                                )}
+                                                {secondaryCurrency && item.subtotal_bs > 0 && (() => {
+                                                    const rateObj = currencies.find(r => r.id === item.exchange_rate_id);
+                                                    const localSym = rateObj?.currency_symbol || rateObj?.currency_code || secondaryCurrency.symbol;
+                                                    return (
+                                                        <div className="text-[10px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 rounded-md border border-emerald-200/50">
+                                                            <span className="text-[8px] mr-1 italic opacity-60">{localSym}</span>
+                                                            {formatLocalCurrency(item.subtotal_bs)}
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
 
@@ -445,14 +450,18 @@ const POSCart = ({
                                 </span>
                             </div>
                         </div>
-                        <div className="text-right animate-in slide-in-from-right-2 duration-500">
-                            {secondaryCurrency && (
-                                <div className="bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-2xl">
-                                    <span className="text-lg font-black text-emerald-500 tabular-nums tracking-tighter">
-                                        {formatLocalCurrency(totals.totalUSD * parseFloat(secondaryCurrency.rate || 1))} <span className="text-[10px] uppercase ml-0.5">{secondaryCurrency.symbol}</span>
-                                    </span>
-                                </div>
-                            )}
+                        <div className="text-right animate-in slide-in-from-right-2 duration-500 flex flex-col items-end gap-1">
+                            {Object.entries(totalsByCurrency).filter(([code, amt]) => code !== 'USD' && amt > 0.005).map(([code, amt]) => {
+                                const curr = currencies.find(c => c.currency_code === code && c.is_active);
+                                const sym = curr?.currency_symbol || code;
+                                return (
+                                    <div key={code} className="bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-2xl">
+                                        <span className="text-lg font-black text-emerald-500 tabular-nums tracking-tighter">
+                                            {formatLocalCurrency(amt)} <span className="text-[10px] uppercase ml-0.5">{sym}</span>
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 

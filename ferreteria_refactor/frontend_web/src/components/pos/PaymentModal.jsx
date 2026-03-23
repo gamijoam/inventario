@@ -480,17 +480,41 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         )}
                     </div>
 
-                    {/* Total in Bs Display - UPDATED to use Default Rate */}
-                    <div className="z-10 relative bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50 mb-auto hover:bg-slate-800/80 transition-colors group/card">
-                        <div className="flex justify-between items-start mb-1">
-                            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total en Bolívares</div>
-                            <span className="text-[9px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/20 font-mono">
-                                Tasa: {formatLocalCurrency(defaultBsRate)}
-                            </span>
-                        </div>
-                        <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
-                            {formatLocalCurrency(displayTotalBs)} <span className="text-xs">Bs</span>
-                        </div>
+                    {/* Totales por moneda activa — dinámico */}
+                    <div className="z-10 space-y-2 mb-auto">
+                        {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).map(([code, amt]) => {
+                            const activeCurrs = getActiveCurrencies();
+                            const curr = activeCurrs.find(c => c.currency_code === code);
+                            const sym = curr?.currency_symbol || code;
+                            const rate = getExchangeRate(code) || 1;
+                            return (
+                                <div key={code} className="relative bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50 hover:bg-slate-800/80 transition-colors group/card">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total en {curr?.name || code}</div>
+                                        <span className="text-[9px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/20 font-mono">
+                                            Tasa: {formatLocalCurrency(rate)}
+                                        </span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
+                                        {formatLocalCurrency(amt)} <span className="text-xs">{sym}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {/* Fallback: si no hay monedas no-USD activas */}
+                        {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).length === 0 && (
+                            <div className="relative bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50 hover:bg-slate-800/80 transition-colors group/card">
+                                <div className="flex justify-between items-start mb-1">
+                                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total en Bolívares</div>
+                                    <span className="text-[9px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/20 font-mono">
+                                        Tasa: {formatLocalCurrency(defaultBsRate)}
+                                    </span>
+                                </div>
+                                <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
+                                    {formatLocalCurrency(displayTotalBs)} <span className="text-xs">Bs</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Pending / Change Status */}
@@ -520,7 +544,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                             let changeLocalSymbol = '';
                                             if (!allUSD && localCurrency) {
                                                 if (localCurrency === 'Bs' || localCurrency === 'VES') {
-                                                    const effectiveRate = (totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate;
+                                                    const vesTotal = totalsByCurrency?.VES || totalsByCurrency?.Bs;
+                                                    const effectiveRate = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : defaultBsRate;
                                                     changeLocalAmount = changeUSD * effectiveRate;
                                                     changeLocalSymbol = 'Bs';
                                                 } else {
@@ -552,11 +577,28 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                 ${formatLocalCurrency(Math.abs(remainingUSD))}
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <div className="text-[9px] text-slate-500 uppercase font-bold">En Bolívares</div>
-                                            <div className="text-base font-bold text-slate-400 font-mono">
-                                                Bs {formatLocalCurrency(Math.abs(remainingUSD) * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate))}
-                                            </div>
+                                        <div className="text-right space-y-0.5">
+                                            {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).map(([code]) => {
+                                                const curr = getActiveCurrencies().find(c => c.currency_code === code);
+                                                const sym = curr?.currency_symbol || code;
+                                                const rate = getExchangeRate(code) || 1;
+                                                return (
+                                                    <div key={code}>
+                                                        <div className="text-[9px] text-slate-500 uppercase font-bold">{curr?.name || code}</div>
+                                                        <div className="text-base font-bold text-slate-400 font-mono">
+                                                            {sym} {formatLocalCurrency(Math.abs(remainingUSD) * rate)}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).length === 0 && (
+                                                <div>
+                                                    <div className="text-[9px] text-slate-500 uppercase font-bold">En Bolívares</div>
+                                                    <div className="text-base font-bold text-slate-400 font-mono">
+                                                        Bs {formatLocalCurrency(Math.abs(remainingUSD) * defaultBsRate)}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}

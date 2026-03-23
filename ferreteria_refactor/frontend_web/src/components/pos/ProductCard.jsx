@@ -19,6 +19,7 @@ const ProductCard = ({
     currencySymbol = '$',
     convertProductPrice,
     secondaryCurrency = null,
+    secondaryCurrencies = [],
     showSecondaryPrice = false,
     isSelected = false,
     nearExpiry = false
@@ -31,9 +32,20 @@ const ProductCard = ({
         setTimeout(() => setIsAnimating(false), 300);
     };
 
+    // Multi-currency prices (preferred when array provided)
+    const secondaryPrices = showSecondaryPrice && secondaryCurrencies.length > 0 && convertProductPrice
+        ? secondaryCurrencies.map(curr => {
+            const code = curr.currency_code || curr.symbol;
+            const sym = curr.currency_symbol || curr.symbol;
+            const price = convertProductPrice(product, code);
+            return { code, sym, price };
+        }).filter(p => p.price > 0)
+        : [];
+
+    // Fallback single currency
     const secCode = secondaryCurrency?.currency_code || secondaryCurrency?.symbol || null;
     const secSymbol = secondaryCurrency?.currency_symbol || secondaryCurrency?.symbol || null;
-    const priceBS = (showSecondaryPrice && secCode && convertProductPrice)
+    const priceBS = secondaryPrices.length === 0 && showSecondaryPrice && secCode && convertProductPrice
         ? convertProductPrice(product, secCode)
         : 0;
     const numStock = Number(currentStock);
@@ -143,11 +155,19 @@ const ProductCard = ({
                     <span className="text-sm font-black text-blue-600">
                         ${fmt(product.price)}
                     </span>
-                    {priceBS > 0 && secSymbol && (
+                    {secondaryPrices.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                            {secondaryPrices.map(({ code, sym, price }) => (
+                                <span key={code} className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                                    {sym} {fmt(price)}
+                                </span>
+                            ))}
+                        </div>
+                    ) : (priceBS > 0 && secSymbol && (
                         <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
                             {secSymbol} {fmt(priceBS)}
                         </span>
-                    )}
+                    ))}
                 </div>
             </div>
         </div>
