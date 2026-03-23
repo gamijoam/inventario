@@ -1,4 +1,17 @@
-# ETAPA 1: Construcción (Build)
+# ETAPA 1: Tests
+FROM node:22.14-alpine3.21 AS test-stage
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm install --legacy-peer-deps
+
+COPY . .
+
+# Falla el build si algún test falla
+RUN npx jest src/__tests__/ --no-coverage --ci
+
+# ETAPA 2: Construcción (Build)
 FROM node:22.14-alpine3.21 AS build-stage
 
 WORKDIR /app

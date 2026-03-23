@@ -83,7 +83,7 @@ if [ "$TEST_CHOICE" != "2" ]; then
     cd ferreteria_refactor
 
     echo ""
-    echo "Ejecutando suite de tests (~305 tests: 45 integridad BD + ~260 funcionales)..."
+    echo "Ejecutando suite de tests (~328 tests: 45 integridad BD + ~260 funcionales + 23 COP)..."
     echo ""
 
     set +e
@@ -120,6 +120,7 @@ if [ "$TEST_CHOICE" != "2" ]; then
         backend_api/tests/test_func_ajustes_inventario.py \
         backend_api/tests/test_func_traslados_internos.py \
         backend_api/tests/test_func_empleados.py \
+        backend_api/tests/test_cop_currency.py \
         -v --no-cov --tb=short 2>&1
     TEST_EXIT=$?
     set -e
@@ -137,8 +138,26 @@ if [ "$TEST_CHOICE" != "2" ]; then
         exit 1
     fi
 
+    # --- Tests Frontend (Jest) ---
     echo ""
-    echo "Tests pasaron. Continuando con el build..."
+    echo "Ejecutando tests frontend (Jest — 68 tests COP + monedas)..."
+    cd ferreteria_refactor/frontend_web
+    set +e
+    npx jest src/__tests__/ --no-coverage --ci 2>&1
+    JEST_EXIT=$?
+    set -e
+    cd "$REPO_ROOT"
+
+    if [ $JEST_EXIT -ne 0 ]; then
+        echo ""
+        echo "================================================"
+        echo "TESTS FRONTEND FALLARON. Deploy abortado."
+        echo "================================================"
+        exit 1
+    fi
+
+    echo ""
+    echo "Todos los tests pasaron. Continuando con el build..."
 else
     echo "[SKIP] Tests omitidos por el usuario."
 fi
