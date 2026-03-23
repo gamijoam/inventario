@@ -330,9 +330,15 @@ export const CartProvider = ({ children }) => {
                         if (itemRate) {
                             rateToUse = itemRate.rate;
                         } else {
+                            // Prefer default rate; fallback to any active rate for the currency
+                            // (matches convertProductPrice behavior — avoids rateToUse=1 when
+                            //  the currency exists but is_default is not set, e.g. COP)
                             const defaultRate = exchangeRates.find(r =>
                                 r.currency_code === currCode &&
                                 r.is_default &&
+                                r.is_active
+                            ) || exchangeRates.find(r =>
+                                r.currency_code === currCode &&
                                 r.is_active
                             );
                             rateToUse = defaultRate ? defaultRate.rate : 1;
@@ -373,11 +379,21 @@ export const CartProvider = ({ children }) => {
         const avgRate = rawUSD > 0 ? rawBs / rawUSD : 1;
         const discountBs = discountUSD * avgRate;
 
-        // Apply to byCurrency totals as well
+        // Apply discount to each currency using that currency's own rate
         const discountedByCurrency = {};
         Object.keys(totalsPerCurrency).forEach(curr => {
-            const rate = curr === 'USD' ? 1 : avgRate;
-            discountedByCurrency[curr] = Math.max(0, totalsPerCurrency[curr] - discountUSD * rate);
+            if (curr === 'USD') {
+                discountedByCurrency[curr] = Math.max(0, totalsPerCurrency[curr] - discountUSD);
+            } else {
+                // Use the actual rate for this currency (not VES avgRate)
+                const currRate = exchangeRates.find(r =>
+                    r.currency_code === curr && r.is_default && r.is_active
+                ) || exchangeRates.find(r =>
+                    r.currency_code === curr && r.is_active
+                );
+                const rate = currRate ? parseFloat(currRate.rate) : avgRate;
+                discountedByCurrency[curr] = Math.max(0, totalsPerCurrency[curr] - discountUSD * rate);
+            }
         });
 
         return {
