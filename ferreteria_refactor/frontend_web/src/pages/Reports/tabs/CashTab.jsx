@@ -52,6 +52,12 @@ const CashTab = ({ dateRange }) => {
         fetchHistory(startDate, endDate);
     }, [startDate, endDate, fetchHistory]);
 
+    // --- Currency Symbol Helper ---
+    const getSymbol = (currency) => {
+        const symbols = { 'USD': '$', 'VES': 'Bs', 'Bs': 'Bs', 'COP': 'COP', 'EUR': '€' };
+        return symbols[currency] || currency || 'Bs';
+    };
+
     // --- Helpers ---
     const toggleExpand = (id) => {
         setExpandedId(expandedId === id ? null : id);
@@ -106,7 +112,7 @@ const CashTab = ({ dateRange }) => {
             return (
                 <span className="px-2.5 py-1 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-rose-100">
                     <TrendingDown size={14} />
-                    Faltan {currencySymbol} {formatCurrency(Math.abs(diff), currencySymbol.replace('$', 'USD'))}
+                    Faltan {currencySymbol} {formatCurrency(Math.abs(diff), currencySymbol)}
                 </span>
             );
         }
@@ -114,7 +120,7 @@ const CashTab = ({ dateRange }) => {
         return (
             <span className="px-2.5 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-blue-100">
                 <TrendingUp size={14} />
-                Sobran {currencySymbol} {formatCurrency(diff, currencySymbol.replace('$', 'USD'))}
+                Sobran {currencySymbol} {formatCurrency(diff, currencySymbol)}
             </span>
         );
     };
@@ -339,7 +345,7 @@ const CashTab = ({ dateRange }) => {
                                             <div key={curr.id} className="flex items-center gap-2 bg-white border border-slate-100 px-3 py-1.5 rounded-lg shadow-sm">
                                                 <span className="text-xs font-bold text-slate-400">{curr.currency_symbol}</span>
                                                 <span className="text-sm font-bold text-slate-700">
-                                                    {formatCurrency(curr.final_reported || 0, curr.currency_symbol.replace('$', 'USD'))}
+                                                    {formatCurrency(curr.final_reported || 0, curr.currency_code || curr.currency_symbol)}
                                                 </span>
                                                 {isClosed && getDifferenceBadge(curr.difference, curr.currency_symbol || '$')}
                                             </div>
@@ -375,7 +381,7 @@ const CashTab = ({ dateRange }) => {
                                                             <div className="flex justify-between">
                                                                 <span className="text-slate-500 font-medium">Inicial</span>
                                                                 <span className="font-bold text-slate-700">
-                                                                    {formatCurrency(curr.initial_amount, curr.currency_symbol.replace('$', 'USD'))}
+                                                                    {formatCurrency(curr.initial_amount, curr.currency_code || curr.currency_symbol)}
                                                                 </span>
                                                             </div>
                                                             {isClosed && (
@@ -383,13 +389,13 @@ const CashTab = ({ dateRange }) => {
                                                                     <div className="flex justify-between">
                                                                         <span className="text-slate-500 font-medium">Esperado</span>
                                                                         <span className="font-bold text-indigo-600">
-                                                                            {formatCurrency(curr.final_expected, curr.currency_symbol.replace('$', 'USD'))}
+                                                                            {formatCurrency(curr.final_expected, curr.currency_code || curr.currency_symbol)}
                                                                         </span>
                                                                     </div>
                                                                     <div className="flex justify-between border-t border-dashed border-slate-200 pt-2 mt-2">
                                                                         <span className="text-slate-500 font-bold">Reportado</span>
                                                                         <span className="font-black text-slate-800 text-base">
-                                                                            {formatCurrency(curr.final_reported, curr.currency_symbol.replace('$', 'USD'))}
+                                                                            {formatCurrency(curr.final_reported, curr.currency_code || curr.currency_symbol)}
                                                                         </span>
                                                                     </div>
                                                                     {Math.abs(diff) >= 0.01 && (
@@ -405,7 +411,7 @@ const CashTab = ({ dateRange }) => {
                                                                                 "font-black",
                                                                                 diff > 0 ? "text-blue-700" : "text-rose-700"
                                                                             )}>
-                                                                                {diff > 0 ? '+' : ''}{formatCurrency(diff, curr.currency_symbol.replace('$', 'USD'))}
+                                                                                {diff > 0 ? '+' : ''}{formatCurrency(diff, curr.currency_code || curr.currency_symbol)}
                                                                             </span>
                                                                         </div>
                                                                     )}
@@ -434,7 +440,7 @@ const CashTab = ({ dateRange }) => {
                                                                     {item.currency}
                                                                 </span>
                                                                 <span className="font-bold text-slate-700">
-                                                                    {item.currency === 'USD' ? '$' : 'Bs'} {parseFloat(item.amount || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                                                                    {getSymbol(item.currency)} {parseFloat(item.amount || 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}
                                                                 </span>
                                                             </div>
                                                         </div>

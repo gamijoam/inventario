@@ -44,7 +44,7 @@ const ANALYSIS_TABS = [
 // Helpers
 // ---------------------------------------------------------------------------
 const getCurrencySymbol = (currency) => {
-    const symbols = { 'USD': '$', 'Bs': 'Bs', 'VES': 'Bs', 'COP': '$', 'EUR': '\u20ac' };
+    const symbols = { 'USD': '$', 'Bs': 'Bs', 'VES': 'Bs', 'COP': 'COP', 'EUR': '\u20ac' };
     return symbols[currency] || currency;
 };
 

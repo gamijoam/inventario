@@ -85,8 +85,14 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     useEffect(() => {
         if (isOpen) {
-            // FIXED: Default to "Efectivo Bolívares (Bs)" as requested
-            setPayments([{ amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)', payment_date: new Date().toISOString().split('T')[0] }]);
+            // Default to first non-USD active currency (e.g. COP, Bs), fallback to USD
+            const activeCurrencies = getActiveCurrencies();
+            const primaryLocal = activeCurrencies.find(c => c.symbol !== 'USD' && !c.is_anchor);
+            const defaultCurrency = primaryLocal ? primaryLocal.symbol : 'USD';
+            const defaultMethod = primaryLocal
+                ? (paymentMethods.find(m => m.is_active && m.name.toLowerCase().includes(defaultCurrency.toLowerCase()))?.name || paymentMethods.find(m => m.is_active)?.name || `Efectivo ${defaultCurrency}`)
+                : 'Efectivo USD';
+            setPayments([{ amount: '', currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split('T')[0] }]);
             setIsCreditSale(false);
 
             // Priority: Initial Customer > Null
@@ -172,7 +178,13 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const isComplete   = remainingUSD <= 0.005;
 
     const addPaymentRow = () => {
-        setPayments([...payments, { amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)', payment_date: new Date().toISOString().split('T')[0] }]);
+        const activeCurrencies = getActiveCurrencies();
+        const primaryLocal = activeCurrencies.find(c => c.symbol !== 'USD' && !c.is_anchor);
+        const defaultCurrency = primaryLocal ? primaryLocal.symbol : 'USD';
+        const defaultMethod = primaryLocal
+            ? (paymentMethods.find(m => m.is_active && m.name.toLowerCase().includes(defaultCurrency.toLowerCase()))?.name || paymentMethods.find(m => m.is_active)?.name || `Efectivo ${defaultCurrency}`)
+            : 'Efectivo USD';
+        setPayments([...payments, { amount: '', currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split('T')[0] }]);
     };
 
     const removePaymentRow = (index) => {
@@ -219,12 +231,24 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
                 // NEW: Register Change/Vuelto (Dynamic Currency)
                 change_amount: isCreditSale ? 0 : (() => {
+                    if (changeUSD <= 0.005) return 0;
                     const allUSD = payments.every(p => p.currency === '$' || p.currency === 'USD');
-                    return allUSD ? changeUSD : (changeUSD > 0.005 ? (changeUSD * defaultBsRate) : 0);
+                    if (allUSD) return changeUSD;
+                    // Find the first non-USD payment currency to determine change currency
+                    const firstLocalPayment = payments.find(p => p.currency !== '$' && p.currency !== 'USD');
+                    const localCurrency = firstLocalPayment?.currency;
+                    if (localCurrency === 'Bs' || localCurrency === 'VES') {
+                        return changeUSD * defaultBsRate;
+                    } else if (localCurrency) {
+                        return changeUSD * (getExchangeRate(localCurrency) || 1);
+                    }
+                    return changeUSD * defaultBsRate;
                 })(),
-                change_currency: isCreditSale ? "Bs" : (() => {
+                change_currency: isCreditSale ? "USD" : (() => {
                     const allUSD = payments.every(p => p.currency === '$' || p.currency === 'USD');
-                    return allUSD ? "USD" : "Bs";
+                    if (allUSD) return "USD";
+                    const firstLocalPayment = payments.find(p => p.currency !== '$' && p.currency !== 'USD');
+                    return firstLocalPayment?.currency || "USD";
                 })(),
 
                 currency: saleCurrency,
@@ -488,16 +512,35 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         </div>
                                         <div className="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1">Pago Completado</div>
 
-                                        {changeUSD > 0.005 ? (
-                                            <div className="flex flex-col items-center">
-                                                <div className="text-lg font-bold text-emerald-200">
-                                                    Su Vuelto: <span className="text-white text-xl">${formatLocalCurrency(changeUSD)}</span>
+                                        {changeUSD > 0.005 ? (() => {
+                                            const allUSD = payments.every(p => p.currency === '$' || p.currency === 'USD');
+                                            const firstLocalPayment = payments.find(p => p.currency !== '$' && p.currency !== 'USD');
+                                            const localCurrency = firstLocalPayment?.currency;
+                                            let changeLocalAmount = 0;
+                                            let changeLocalSymbol = '';
+                                            if (!allUSD && localCurrency) {
+                                                if (localCurrency === 'Bs' || localCurrency === 'VES') {
+                                                    const effectiveRate = (totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate;
+                                                    changeLocalAmount = changeUSD * effectiveRate;
+                                                    changeLocalSymbol = 'Bs';
+                                                } else {
+                                                    changeLocalAmount = changeUSD * (getExchangeRate(localCurrency) || 1);
+                                                    changeLocalSymbol = localCurrency;
+                                                }
+                                            }
+                                            return (
+                                                <div className="flex flex-col items-center">
+                                                    <div className="text-lg font-bold text-emerald-200">
+                                                        Su Vuelto: <span className="text-white text-xl">${formatLocalCurrency(changeUSD)}</span>
+                                                    </div>
+                                                    {!allUSD && changeLocalSymbol && (
+                                                        <div className="text-xs font-bold text-emerald-400 font-mono mt-0.5 bg-emerald-900/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                                            {changeLocalSymbol} {formatLocalCurrency(changeLocalAmount)}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="text-xs font-bold text-emerald-400 font-mono mt-0.5 bg-emerald-900/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                                    Bs {formatLocalCurrency(changeUSD * ((totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate))}
-                                                </div>
-                                            </div>
-                                        ) : (
+                                            );
+                                        })() : (
                                             <div className="text-lg font-bold text-white">Cuenta Saldada</div>
                                         )}
                                     </div>

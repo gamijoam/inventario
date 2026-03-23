@@ -205,6 +205,15 @@ export const ConfigProvider = ({ children }) => {
         });
     };
 
+    // Get the primary non-USD active currency (e.g., first active local currency)
+    // Priority: is_default local currency > first non-USD active currency
+    const getPrimaryLocalCurrency = () => {
+        const active = getActiveCurrencies();
+        return active.find(c => c.currency_code !== 'USD' && c.currency_symbol !== '$' && c.is_default)
+            || active.find(c => c.currency_code !== 'USD' && c.currency_symbol !== '$')
+            || null;
+    };
+
     const convertPrice = (priceInAnchor, targetSymbol) => {
         const rate = getExchangeRate(targetSymbol);
         return priceInAnchor * rate;
@@ -268,6 +277,7 @@ export const ConfigProvider = ({ children }) => {
             refreshConfig,
             getExchangeRate,
             getActiveCurrencies,
+            getPrimaryLocalCurrency,
             convertPrice,
             getProductExchangeRate,
             convertProductPrice,

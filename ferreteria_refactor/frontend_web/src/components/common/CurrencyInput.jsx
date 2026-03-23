@@ -3,10 +3,12 @@ import { useState, useEffect, useRef } from 'react';
 const CurrencyInput = ({ value, onChange, currencySymbol, placeholder, className, autoFocus }) => {
     // Determine configuration based on currency
     // USD: 1,234.56 (Decimal: '.', Thousands: ',')
-    // VES: 1.234,56 (Decimal: ',', Thousands: '.')
-    const isVES = currencySymbol === 'Bs';
-    const decimalSeparator = isVES ? ',' : '.';
-    const thousandsSeparator = isVES ? '.' : ',';
+    // VES/Bs: 1.234,56 (Decimal: ',', Thousands: '.')
+    // COP: 1.234,56 (Decimal: ',', Thousands: '.')
+    // EUR: 1.234,56 (Decimal: ',', Thousands: '.')
+    const usesCommaDecimal = ['Bs', 'VES', 'COP', 'EUR'].includes(currencySymbol);
+    const decimalSeparator = usesCommaDecimal ? ',' : '.';
+    const thousandsSeparator = usesCommaDecimal ? '.' : ',';
 
     const [displayValue, setDisplayValue] = useState('');
     const inputRef = useRef(null);
@@ -59,7 +61,7 @@ const CurrencyInput = ({ value, onChange, currencySymbol, placeholder, className
         let newValue = e.target.value;
 
         // Allow only valid characters: digits, decimal separator
-        const regex = isVES ? /^[0-9.,]*$/ : /^[0-9.,]*$/;
+        const regex = /^[0-9.,]*$/;
         if (!regex.test(newValue)) return;
 
         // Handle raw input logic to allow typing
