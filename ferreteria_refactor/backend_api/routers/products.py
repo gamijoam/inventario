@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, subqueryload
+from decimal import Decimal
 from typing import List
 import json
 import asyncio
@@ -66,9 +67,21 @@ def read_catalog_products(
     base_query = db.query(models.Product).filter(models.Product.is_active == True)
 
     if warehouse_id:
-        base_query = base_query.join(models.ProductStock).filter(
-            models.ProductStock.warehouse_id == warehouse_id,
-            models.ProductStock.quantity > 0
+        # Combos: always include (availability computed from components, not own stock)
+        # Non-combos: must have stock > 0 in the selected warehouse
+        has_stock_subq = (
+            db.query(models.ProductStock.product_id)
+            .filter(
+                models.ProductStock.warehouse_id == warehouse_id,
+                models.ProductStock.quantity > 0,
+            )
+            .subquery()
+        )
+        base_query = base_query.filter(
+            or_(
+                models.Product.is_combo == True,
+                models.Product.id.in_(has_stock_subq),
+            )
         )
 
     if category_id:
@@ -112,7 +125,34 @@ def read_catalog_products(
         joinedload(models.Product.units),
         joinedload(models.Product.stocks),
         joinedload(models.Product.prices),
+        # Combos: load components + their stocks to compute effective availability
+        subqueryload(models.Product.combo_items)
+            .subqueryload(models.ComboItem.child_product)
+            .subqueryload(models.Product.stocks),
     ).order_by(models.Product.name).offset(skip).limit(limit).all()
+
+    # For combo products, replace stock with the effective quantity computable
+    # from component availability: min(floor(child_stock / qty_needed))
+    for p in products:
+        if p.is_combo and p.combo_items:
+            min_available = float('inf')
+            for ci in p.combo_items:
+                child = ci.child_product
+                if not child:
+                    min_available = 0
+                    break
+                if warehouse_id:
+                    child_stock = next(
+                        (float(s.quantity) for s in child.stocks if s.warehouse_id == warehouse_id),
+                        0.0
+                    )
+                else:
+                    child_stock = sum(float(s.quantity) for s in child.stocks)
+                qty_needed = float(ci.quantity) if ci.quantity else 1.0
+                available = child_stock / qty_needed
+                if available < min_available:
+                    min_available = available
+            p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
 
     return {
         "items": products,
