@@ -301,8 +301,16 @@ def test_aislamiento(self, pg_db_for_schema):
 
 Ver plan detallado por módulo en `19_Tests_Funcionales.md`.
 
-**TOTAL SUITE COMPLETA: ~305/305 tests implementados ✅ (~10-15 segundos)**
-**Cobertura: 45 integridad BD + ~260 funcionales — 32 módulos funcionales cubiertos**
+**TOTAL SUITE COMPLETA: ~359/359 tests implementados ✅ (~10-15 segundos)**
+**Cobertura: 45 integridad BD + ~260 funcionales + 54 frontend multi-moneda — 32 módulos funcionales cubiertos**
+
+### Tests Frontend Jest — Multi-moneda POS (2026-03-23, 254 Jest total)
+
+| Archivo | Tests | Cubre |
+|---------|-------|-------|
+| `pos-multicurrency-cart-label.test.js` | ~18 | POSCart per-item label correcto, footer totalsByCurrency |
+| `pos-multicurrency-payment-modal.test.js` | ~20 | Paneles por moneda, vuelto Bs fix (VES vs COP), falta por pagar |
+| `product-card-multicurrency.test.js` | ~16 | secondaryCurrencies[], toggle label multi-moneda |
 
 ---
 

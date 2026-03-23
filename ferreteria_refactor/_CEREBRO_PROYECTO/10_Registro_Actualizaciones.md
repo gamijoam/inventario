@@ -4,6 +4,56 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-23] — Fix: Display multi-moneda POS (carrito, tarjetas, cobro)
+
+### Contexto
+Tenant con COP y VES (Bs) activos simultáneamente. Los productos asignados a tasa COP
+(exchange_rate_id = COP rate) almacenaban `subtotal_bs = price * COP_rate`. Sin embargo
+el POS mostraba todo con símbolo "Bs" y calculaba el vuelto en Bs usando `totalBs/totalUSD`
+que era en realidad la tasa COP, no VES.
+
+### Fix: Etiqueta correcta en carrito (POSCart per-item)
+**Causa:** El badge de moneda secundaria usaba `secondaryCurrency.symbol` + `subtotal_usd * secondaryCurrency.rate`, siempre "Bs 450" aunque el ítem fuera COP-priced.
+**Fix:** Resuelve `item.exchange_rate_id` → `currency_symbol` real del ítem → muestra "COP 37,107.60" para ítems COP-priced, "Bs 450" para VES-priced.
+**Archivo:** `POSCart.jsx`
+
+### Fix: Footer carrito multi-moneda
+**Causa:** Solo mostraba una moneda secundaria (`secondaryCurrency`) en el total.
+**Fix:** Itera `totalsByCurrency` → muestra total en CADA moneda no-USD activa (Bs + COP si ambas activas).
+**Archivo:** `POSCart.jsx`
+
+### Fix: PaymentModal resumen "Total en Bolívares" → multi-moneda dinámico
+**Causa:** Panel fijo "Total en Bolívares" siempre usaba `displayTotalBs` (que era COP cuando items eran COP-priced) con tasa VES (inconsistente).
+**Fix:** Loop sobre `totalsByCurrency` → un panel por cada moneda activa con su nombre, tasa y símbolo correctos. Fallback si no hay monedas no-USD.
+**Archivo:** `PaymentModal.jsx`
+
+### Fix: Vuelto Bs usaba tasa COP (bug crítico)
+**Causa:** `effectiveRate = totalBs/totalUSD` → con producto COP-priced daba tasa COP (3710.76) → vuelto en "Bs" era 7421 en lugar de 90.
+**Fix:** `effectiveRate = (totalsByCurrency.VES/totalUSD) || defaultBsRate` → siempre usa tasa VES real.
+**Archivo:** `PaymentModal.jsx`
+
+### Fix: "Falta por pagar en Bolívares" → dinámico por moneda
+**Causa:** Hardcodeado con fórmula `Bs X` usando `totalBs/totalUSD` (misma tasa errónea).
+**Fix:** Loop sobre `totalsByCurrency` → muestra faltante en cada moneda activa con tasa correcta.
+**Archivo:** `PaymentModal.jsx`
+
+### Fix: Tarjetas de producto — secondaryCurrencies[] (todas las monedas)
+**Causa:** `ProductCard` solo aceptaba una moneda secundaria → si VES era primaria, mostraba VES pero no COP.
+**Fix:** Acepta `secondaryCurrencies[]` (array). Cuando toggle ON, muestra badge de precio para CADA moneda activa.
+**Archivos:** `ProductCard.jsx`, `POSCatalog.jsx`, `POS.jsx`
+
+### Fix: Toggle toolbar — etiqueta multi-moneda
+**Causa:** Botón solo mostraba `secondaryCurrency.symbol` → "Bs OFF".
+**Fix:** Muestra todos los símbolos activos → "Bs/COP OFF" / "Bs/COP ON".
+**Archivo:** `POS.jsx`
+
+### Tests añadidos (254 total — todos pasan ✅)
+- `pos-multicurrency-cart-label.test.js` — etiqueta real del ítem, footer totalsByCurrency
+- `pos-multicurrency-payment-modal.test.js` — paneles por moneda, vuelto Bs fix, falta por pagar
+- `product-card-multicurrency.test.js` — secondaryCurrencies[], toggle label
+
+---
+
 ## [2026-03-23] — Fix: Multimoneda COP + Landing + Trial 2 días
 
 ### Fix: Tasa COP 0.000269 redondeada incorrectamente a 0.0003
