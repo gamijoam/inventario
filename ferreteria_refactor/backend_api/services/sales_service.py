@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from datetime import datetime, timedelta
 from fastapi import HTTPException, BackgroundTasks
 from decimal import Decimal
@@ -584,17 +584,24 @@ class SalesService:
                     validated_exchange_rate = p.exchange_rate  # Default: use what frontend sent
 
                     if p.currency not in ("USD", "$"):
-                        # Fetch the active (default) rate for this currency from DB
+                        # Fetch the active rate matching by currency_code OR currency_symbol
+                        # (frontend may send 'Bs' as symbol while DB stores code 'VES')
                         db_rate = db.query(models.ExchangeRate).filter(
-                            models.ExchangeRate.currency_code == p.currency,
+                            or_(
+                                models.ExchangeRate.currency_code == p.currency,
+                                models.ExchangeRate.currency_symbol == p.currency,
+                            ),
                             models.ExchangeRate.is_active == True,
                             models.ExchangeRate.is_default == True
                         ).first()
 
-                        # If no default found, fall back to any active rate for the currency
+                        # If no default found, fall back to any active rate
                         if not db_rate:
                             db_rate = db.query(models.ExchangeRate).filter(
-                                models.ExchangeRate.currency_code == p.currency,
+                                or_(
+                                    models.ExchangeRate.currency_code == p.currency,
+                                    models.ExchangeRate.currency_symbol == p.currency,
+                                ),
                                 models.ExchangeRate.is_active == True
                             ).first()
 
