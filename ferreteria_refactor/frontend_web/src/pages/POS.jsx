@@ -235,10 +235,15 @@ const POS = () => {
     // Enter: Add selected product to cart
     useHotkeys('enter', (e) => {
         if (selectedProductIndex >= 0 && selectedProductIndex < displayProducts.length) {
+            // Producto seleccionado con flechas → agregar ese
             e.preventDefault();
-            const selectedProduct = displayProducts[selectedProductIndex];
-            handleProductClick(selectedProduct);
-            setSelectedProductIndex(-1); // Reset selection
+            handleProductClick(displayProducts[selectedProductIndex]);
+            setSelectedProductIndex(-1);
+        } else if (displayProducts.length === 1 && searchTerm.trim().length > 0) {
+            // SKU exacto o código de barras → único resultado → agregar automáticamente
+            e.preventDefault();
+            handleProductClick(displayProducts[0]);
+            setSelectedProductIndex(-1);
         }
     }, { enableOnFormTags: true });
 

@@ -111,8 +111,11 @@ const usePOSCatalog = () => {
 
         // Cache miss — call server
         try {
-            const isNumeric = /^\d+$/.test(String(skuOrId));
-            const params = isNumeric ? { product_id: skuOrId } : { sku: skuOrId };
+            // Si es un número JS (llamada interna por product_id) usar product_id.
+            // Si es string —incluso numérico— tratarlo como SKU/barcode.
+            const params = typeof skuOrId === 'number'
+                ? { product_id: skuOrId }
+                : { sku: skuOrId };
             const { data } = await apiClient.get('/products/lookup', { params });
 
             if (data) {

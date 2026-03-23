@@ -142,7 +142,17 @@ def lookup_product(
     ).filter(models.Product.is_active == True)
 
     if sku:
+        # 1) Buscar por SKU exacto del producto
         product = query.filter(func.lower(models.Product.sku) == sku.lower()).first()
+        # 2) Si no encontró, buscar en el barcode de las unidades (ProductUnit.barcode)
+        if not product:
+            unit = (
+                db.query(models.ProductUnit)
+                .filter(func.lower(models.ProductUnit.barcode) == sku.lower())
+                .first()
+            )
+            if unit:
+                product = query.filter(models.Product.id == unit.product_id).first()
     else:
         product = query.filter(models.Product.id == product_id).first()
 
