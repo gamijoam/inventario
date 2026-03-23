@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:InvensoftDesktop.ViewModels"
+             xmlns:models="using:InvensoftDesktop.Models.Services"
              x:Class="InvensoftDesktop.Views.Pages.ServicesPage"
              x:DataType="vm:ServicesViewModel">
 
@@ -35,7 +36,8 @@
         <!-- Lista -->
         <ScrollViewer Grid.Row="2">
             <StackPanel>
-                <TextBlock Text="Cargando órdenes…" Margin="20 14" FontSize="13" Foreground="#94A3B8" IsVisible="{Binding IsLoading}"/>
+                <TextBlock Text="Cargando órdenes…" Margin="20 14" FontSize="13" Foreground="#94A3B8"
+                           IsVisible="{Binding IsLoading}"/>
                 <Border Background="#FEF2F2" CornerRadius="8" Padding="12 8" Margin="20 10"
                         IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                     <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="12"/>
@@ -47,7 +49,7 @@
 
                 <!-- Encabezado -->
                 <Border Background="#F8FAFC" Padding="16 9" BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
-                    <Grid ColumnDefinitions="90,70,*,130,90,80,100,80">
+                    <Grid ColumnDefinitions="90,70,*,130,90,80,110,110">
                         <TextBlock Grid.Column="0" Text="Ticket"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
                         <TextBlock Grid.Column="1" Text="Fecha"     FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
                         <TextBlock Grid.Column="2" Text="Dispositivo" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
@@ -59,12 +61,20 @@
                     </Grid>
                 </Border>
 
+                <!-- Estado vacío -->
+                <Border Background="#F8FAFC" CornerRadius="12" Padding="40 32" Margin="20 16"
+                        IsVisible="{Binding IsEmpty}" BorderThickness="1" BorderBrush="#E2E8F0">
+                    <TextBlock Text="Sin ordenes de servicio registradas."
+                               FontSize="14" FontWeight="SemiBold" Foreground="#64748B"
+                               HorizontalAlignment="Center"/>
+                </Border>
+
                 <!-- Filas -->
                 <ItemsControl ItemsSource="{Binding Orders}">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="models:ServiceOrder">
                             <Border Padding="16 10" BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
-                                <Grid ColumnDefinitions="90,70,*,130,90,80,100,80">
+                                <Grid ColumnDefinitions="90,70,*,130,90,80,110,110">
                                     <TextBlock Grid.Column="0" Text="{Binding TicketNumber}"
                                                FontSize="12" FontWeight="Bold" Foreground="#4F46E5" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="1" Text="{Binding DateDisplay}"
@@ -93,17 +103,19 @@
                                                    Foreground="{Binding StatusColor}"/>
                                     </Border>
                                     <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <Button CommandParameter="{Binding}"
+                                        <Button Command="{Binding $parent[UserControl].((vm:ServicesViewModel)DataContext).PrintOrderCommand}"
+                                                CommandParameter="{Binding}"
                                                 CornerRadius="6" Padding="6 4"
                                                 Background="#EEF2FF" Foreground="#4F46E5"
                                                 FontSize="11" ToolTip.Tip="Imprimir ticket">
-                                            🖨
+                                            Imp.
                                         </Button>
-                                        <Button CommandParameter="{Binding}"
+                                        <Button Command="{Binding $parent[UserControl].((vm:ServicesViewModel)DataContext).MarkReadyCommand}"
+                                                CommandParameter="{Binding}"
                                                 CornerRadius="6" Padding="6 4"
                                                 Background="#F0FDF4" Foreground="#059669"
                                                 FontSize="11" ToolTip.Tip="Marcar como Lista">
-                                            ✓
+                                            Lista
                                         </Button>
                                     </StackPanel>
                                 </Grid>
@@ -120,9 +132,7 @@
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0" FontSize="12" Foreground="#64748B" VerticalAlignment="Center">
                     <Run Text="{Binding Orders.Count}"/>
-                    <Run Text=" de "/>
-                    <Run Text="{Binding TotalCount}"/>
-                    <Run Text=" órdenes"/>
+                    <Run Text=" órdenes cargadas"/>
                 </TextBlock>
                 <Button Grid.Column="1" Command="{Binding LoadMoreCommand}"
                         IsVisible="{Binding HasMore}" IsEnabled="{Binding !IsLoading}"

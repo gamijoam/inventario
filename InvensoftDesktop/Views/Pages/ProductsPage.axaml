@@ -1,20 +1,23 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:InvensoftDesktop.ViewModels"
+             xmlns:models="using:InvensoftDesktop.Models.Products"
              x:Class="InvensoftDesktop.Views.Pages.ProductsPage"
              x:DataType="vm:ProductsViewModel">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <!-- Barra de búsqueda -->
+        <!-- ===== BARRA SUPERIOR: Búsqueda + Agregar ===== -->
         <Border Grid.Row="0" Background="White" Padding="20 14"
                 BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto">
+
                 <TextBox Grid.Column="0"
                          Text="{Binding SearchText}"
                          Watermark="Buscar por nombre, SKU o código…"
                          CornerRadius="8" Padding="12 8"
                          FontSize="13"/>
+
                 <Button Grid.Column="1"
                         Command="{Binding SearchCommand}"
                         Margin="10 0 0 0"
@@ -23,86 +26,249 @@
                         FontWeight="SemiBold" FontSize="13">
                     Buscar
                 </Button>
+
+                <Button Grid.Column="2"
+                        Command="{Binding OpenAddFormCommand}"
+                        Margin="8 0 0 0"
+                        CornerRadius="8" Padding="16 8"
+                        Background="#059669" Foreground="White"
+                        FontWeight="SemiBold" FontSize="13">
+                    + Agregar Producto
+                </Button>
+
             </Grid>
         </Border>
 
-        <!-- Lista de productos -->
-        <ScrollViewer Grid.Row="1">
-            <StackPanel>
+        <!-- ===== ÁREA PRINCIPAL ===== -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
 
-                <!-- Loading -->
-                <TextBlock Text="Cargando productos…"
-                           Margin="24 16" FontSize="13" Foreground="#94A3B8"
-                           IsVisible="{Binding IsLoading}"/>
+            <!-- Lista de productos -->
+            <ScrollViewer Grid.Column="0">
+                <StackPanel>
 
-                <!-- Error -->
-                <Border Background="#FEF2F2" CornerRadius="8" Padding="14 10"
-                        Margin="20 12"
-                        IsVisible="{Binding ErrorMessage,
-                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Text="{Binding ErrorMessage}"
-                               Foreground="#DC2626" FontSize="13"/>
-                </Border>
+                    <!-- Cargando -->
+                    <TextBlock Text="Cargando productos…"
+                               Margin="24 16" FontSize="13" Foreground="#94A3B8"
+                               IsVisible="{Binding IsLoading}"/>
 
-                <!-- Tabla encabezado -->
-                <Border Background="#F8FAFC" Padding="20 10"
-                        BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
-                    <Grid ColumnDefinitions="*,100,80,90">
-                        <TextBlock Grid.Column="0" Text="Nombre"
-                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                        <TextBlock Grid.Column="1" Text="SKU"
-                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                        <TextBlock Grid.Column="2" Text="Precio"
-                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
-                                   TextAlignment="Right"/>
-                        <TextBlock Grid.Column="3" Text="Stock"
-                                   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
-                                   TextAlignment="Right"/>
-                    </Grid>
-                </Border>
+                    <!-- Error de lista -->
+                    <Border Background="#FEF2F2" CornerRadius="8" Padding="14 10"
+                            Margin="20 12"
+                            IsVisible="{Binding ErrorMessage,
+                                Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding ErrorMessage}"
+                                   Foreground="#DC2626" FontSize="13"/>
+                    </Border>
 
-                <!-- Filas -->
-                <ItemsControl ItemsSource="{Binding Products}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Padding="20 12"
-                                    BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
-                                <Grid ColumnDefinitions="*,100,80,90">
-                                    <StackPanel Grid.Column="0" Spacing="2">
-                                        <TextBlock Text="{Binding Name}"
+                    <!-- Encabezado de tabla -->
+                    <Border Background="#F8FAFC" Padding="20 10"
+                            BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                        <Grid ColumnDefinitions="*,110,80,90">
+                            <TextBlock Grid.Column="0" Text="Nombre"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="1" Text="SKU"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="2" Text="Precio"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                       TextAlignment="Right"/>
+                            <TextBlock Grid.Column="3" Text="Stock"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                       TextAlignment="Right"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Filas de productos -->
+                    <ItemsControl ItemsSource="{Binding Products}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:Product">
+                                <Border Padding="20 12"
+                                        BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                    <Grid ColumnDefinitions="*,110,80,90">
+                                        <StackPanel Grid.Column="0" Spacing="2">
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="#1E293B"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding ResolvedCategoryName}"
+                                                       FontSize="11" Foreground="#94A3B8"
+                                                       IsVisible="{Binding ResolvedCategoryName,
+                                                           Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Sku}"
+                                                   FontSize="12" Foreground="#64748B"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding PriceDisplay}"
                                                    FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="#1E293B"/>
-                                        <TextBlock Text="{Binding CategoryName}"
-                                                   FontSize="11" Foreground="#94A3B8"
-                                                   IsVisible="{Binding CategoryName,
-                                                       Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding Sku}"
-                                               FontSize="12" Foreground="#64748B"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2"
-                                               Text="{Binding PriceDisplay}"
-                                               FontSize="13" FontWeight="SemiBold"
-                                               Foreground="#059669"
-                                               TextAlignment="Right"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="3"
-                                               Text="{Binding StockDisplay}"
-                                               FontSize="13"
-                                               Foreground="#1E293B"
-                                               TextAlignment="Right"
-                                               VerticalAlignment="Center"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                                                   Foreground="#059669"
+                                                   TextAlignment="Right"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3"
+                                                   Text="{Binding StockDisplay}"
+                                                   FontSize="13"
+                                                   Foreground="#1E293B"
+                                                   TextAlignment="Right"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-            </StackPanel>
-        </ScrollViewer>
+                </StackPanel>
+            </ScrollViewer>
 
-        <!-- Footer: total + cargar más -->
+            <!-- Panel lateral: Formulario Agregar Producto -->
+            <Border Grid.Column="1"
+                    IsVisible="{Binding ShowAddForm}"
+                    Width="340"
+                    Background="White"
+                    BorderThickness="1 0 0 0"
+                    BorderBrush="#E2E8F0">
+
+                <ScrollViewer>
+                    <StackPanel Margin="20 20 20 20" Spacing="14">
+
+                        <!-- Título del panel -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0"
+                                       Text="Nuevo Producto"
+                                       FontSize="15" FontWeight="Bold"
+                                       Foreground="#1E293B"
+                                       VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Command="{Binding CloseAddFormCommand}"
+                                    Background="Transparent"
+                                    Foreground="#64748B"
+                                    Padding="6 4"
+                                    FontSize="16"
+                                    CornerRadius="6">
+                                ✕
+                            </Button>
+                        </Grid>
+
+                        <!-- Separador -->
+                        <Border Height="1" Background="#E2E8F0"/>
+
+                        <!-- Error del formulario -->
+                        <Border Background="#FEF2F2" CornerRadius="8" Padding="12 8"
+                                IsVisible="{Binding FormErrorMessage,
+                                    Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding FormErrorMessage}"
+                                       Foreground="#DC2626" FontSize="12"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+
+                        <!-- Nombre -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Nombre *" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#374151"/>
+                            <TextBox Text="{Binding FormName}"
+                                     Watermark="Ej: Taladro Percutor 500W"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- SKU -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="SKU / Código" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#374151"/>
+                            <TextBox Text="{Binding FormSku}"
+                                     Watermark="Ej: TAL-001 (opcional)"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Precio -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Precio (USD) *" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#374151"/>
+                            <TextBox Text="{Binding FormPrice}"
+                                     Watermark="0.00"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Costo -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Costo (USD)" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#374151"/>
+                            <TextBox Text="{Binding FormCostPrice}"
+                                     Watermark="0.00"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Stock inicial -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Stock inicial" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#374151"/>
+                            <TextBox Text="{Binding FormStock}"
+                                     Watermark="0"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Stock mínimo -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Stock mínimo" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#374151"/>
+                            <TextBox Text="{Binding FormMinStock}"
+                                     Watermark="5"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Descripción -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Descripción" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#374151"/>
+                            <TextBox Text="{Binding FormDescription}"
+                                     Watermark="Descripción opcional…"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"
+                                     AcceptsReturn="True" Height="70"
+                                     TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- Es servicio -->
+                        <StackPanel Orientation="Horizontal" Spacing="10"
+                                    VerticalAlignment="Center">
+                            <CheckBox IsChecked="{Binding FormIsService}"/>
+                            <TextBlock Text="Es un servicio (no requiere stock)"
+                                       FontSize="12" Foreground="#374151"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Botones -->
+                        <StackPanel Spacing="8" Margin="0 6 0 0">
+                            <Button Command="{Binding SaveProductCommand}"
+                                    IsEnabled="{Binding !IsSaving}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    CornerRadius="8" Padding="12 10"
+                                    Background="#059669" Foreground="White"
+                                    FontWeight="SemiBold" FontSize="13">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Guardar Producto"
+                                               IsVisible="{Binding !IsSaving}"/>
+                                    <TextBlock Text="Guardando…"
+                                               IsVisible="{Binding IsSaving}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{Binding CloseAddFormCommand}"
+                                    IsEnabled="{Binding !IsSaving}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    CornerRadius="8" Padding="12 10"
+                                    Background="#F1F5F9" Foreground="#64748B"
+                                    FontWeight="SemiBold" FontSize="13">
+                                Cancelar
+                            </Button>
+                        </StackPanel>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+            </Border>
+
+        </Grid>
+
+        <!-- ===== FOOTER: total + cargar más ===== -->
         <Border Grid.Row="2" Background="White" Padding="20 10"
                 BorderThickness="0 1 0 0" BorderBrush="#E2E8F0">
             <Grid ColumnDefinitions="*,Auto">

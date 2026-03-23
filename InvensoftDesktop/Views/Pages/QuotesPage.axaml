@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:InvensoftDesktop.ViewModels"
+             xmlns:models="using:InvensoftDesktop.Models.Quotes"
              x:Class="InvensoftDesktop.Views.Pages.QuotesPage"
              x:DataType="vm:QuotesViewModel">
 
@@ -8,7 +9,8 @@
 
         <ScrollViewer Grid.Row="0">
             <StackPanel>
-                <TextBlock Text="Cargando cotizaciones…" Margin="20 14" FontSize="13" Foreground="#94A3B8" IsVisible="{Binding IsLoading}"/>
+                <TextBlock Text="Cargando cotizaciones…" Margin="20 14" FontSize="13" Foreground="#94A3B8"
+                           IsVisible="{Binding IsLoading}"/>
                 <Border Background="#FEF2F2" CornerRadius="8" Padding="12 8" Margin="20 10"
                         IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                     <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="12"/>
@@ -20,7 +22,7 @@
 
                 <!-- Encabezado -->
                 <Border Background="#F8FAFC" Padding="20 9" BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
-                    <Grid ColumnDefinitions="60,*,120,100,80,120">
+                    <Grid ColumnDefinitions="60,*,120,100,90,140">
                         <TextBlock Grid.Column="0" Text="#"          FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
                         <TextBlock Grid.Column="1" Text="Cliente"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
                         <TextBlock Grid.Column="2" Text="Fecha"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
@@ -30,12 +32,20 @@
                     </Grid>
                 </Border>
 
+                <!-- Estado vacío -->
+                <Border Background="#F8FAFC" CornerRadius="12" Padding="40 32" Margin="20 16"
+                        IsVisible="{Binding IsEmpty}" BorderThickness="1" BorderBrush="#E2E8F0">
+                    <TextBlock Text="Sin cotizaciones registradas."
+                               FontSize="14" FontWeight="SemiBold" Foreground="#64748B"
+                               HorizontalAlignment="Center"/>
+                </Border>
+
                 <!-- Filas -->
                 <ItemsControl ItemsSource="{Binding Quotes}">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="models:Quote">
                             <Border Padding="20 11" BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
-                                <Grid ColumnDefinitions="60,*,120,100,80,120">
+                                <Grid ColumnDefinitions="60,*,120,100,90,140">
                                     <TextBlock Grid.Column="0" Text="{Binding Id}"
                                                FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="1" Text="{Binding CustomerName}"
@@ -53,23 +63,26 @@
                                                    Foreground="{Binding StatusColor}"/>
                                     </Border>
                                     <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <Button CommandParameter="{Binding}"
+                                        <Button Command="{Binding $parent[UserControl].((vm:QuotesViewModel)DataContext).PrintQuoteCommand}"
+                                                CommandParameter="{Binding}"
                                                 CornerRadius="6" Padding="6 4"
                                                 Background="#EEF2FF" Foreground="#4F46E5"
-                                                FontSize="11" ToolTip.Tip="Imprimir">
-                                            🖨
+                                                FontSize="11" ToolTip.Tip="Imprimir cotización">
+                                            Imp.
                                         </Button>
-                                        <Button CommandParameter="{Binding}"
+                                        <Button Command="{Binding $parent[UserControl].((vm:QuotesViewModel)DataContext).ConvertQuoteCommand}"
+                                                CommandParameter="{Binding}"
                                                 CornerRadius="6" Padding="6 4"
                                                 Background="#F0FDF4" Foreground="#059669"
                                                 FontSize="11" ToolTip.Tip="Convertir en venta">
-                                            ✓ Venta
+                                            Venta
                                         </Button>
-                                        <Button CommandParameter="{Binding}"
+                                        <Button Command="{Binding $parent[UserControl].((vm:QuotesViewModel)DataContext).DeleteQuoteCommand}"
+                                                CommandParameter="{Binding}"
                                                 CornerRadius="6" Padding="6 4"
                                                 Background="#FEF2F2" Foreground="#DC2626"
-                                                FontSize="11" ToolTip.Tip="Eliminar">
-                                            ✕
+                                                FontSize="11" ToolTip.Tip="Eliminar cotización">
+                                            Elim.
                                         </Button>
                                     </StackPanel>
                                 </Grid>

@@ -7,10 +7,14 @@ using System.Text.Json.Serialization;
 
 namespace InvensoftDesktop.ViewModels;
 
+/// <summary>
+/// Cuerpo para POST /api/v1/inventory/add y /api/v1/inventory/remove.
+/// warehouse_id es requerido por el backend (StockAdjustmentCreate).
+/// </summary>
 public class StockAdjustmentRequest
 {
     [JsonPropertyName("product_id")]   public int ProductId { get; set; }
-    [JsonPropertyName("warehouse_id")] public int? WarehouseId { get; set; }
+    [JsonPropertyName("warehouse_id")] public int WarehouseId { get; set; } = 1;
     [JsonPropertyName("type")]         public string Type { get; set; } = "ADJUSTMENT_IN";
     [JsonPropertyName("quantity")]     public decimal Quantity { get; set; }
     [JsonPropertyName("reason")]       public string Reason { get; set; } = "";
@@ -21,11 +25,12 @@ public partial class InventoryViewModel : ViewModelBase
     private readonly ApiService _api;
 
     // ── Kardex ───────────────────────────────────────────────────────────
+    // El endpoint GET /api/v1/inventory/kardex retorna List<KardexRead> (lista plana).
+    // Parámetros soportados: product_id, start_date, end_date, limit (sin skip/paginación).
     [ObservableProperty] private ObservableCollection<KardexEntry> _kardex = new();
     [ObservableProperty] private string _productIdFilter = "";
     [ObservableProperty] private bool _isLoadingKardex = false;
-    [ObservableProperty] private int _kardexTotal = 0;
-    [ObservableProperty] private int _kardexPage = 1;
+    [ObservableProperty] private int _kardexCount = 0;
 
     // ── Ajuste ───────────────────────────────────────────────────────────
     [ObservableProperty] private string _adjProductId = "";
@@ -44,8 +49,9 @@ public partial class InventoryViewModel : ViewModelBase
     [ObservableProperty] private string _errorMessage = "";
     [ObservableProperty] private string _successMessage = "";
 
-    private const int PageSize = 50;
-    public bool HasMoreKardex => Kardex.Count < KardexTotal;
+    public bool HasKardex => Kardex.Count > 0;
+
+    private const int DefaultLimit = 200;
 
     public InventoryViewModel(ApiService api)
     {
@@ -58,38 +64,21 @@ public partial class InventoryViewModel : ViewModelBase
     [RelayCommand]
     public async Task LoadKardexAsync()
     {
-        KardexPage = 1;
         IsLoadingKardex = true;
         ErrorMessage = "";
         try
         {
-            var result = await _api.GetAsync<KardexListResponse>(BuildKardexQuery(1));
+            var result = await _api.GetAsync<List<KardexEntry>>(BuildKardexQuery());
             Kardex.Clear();
             if (result != null)
             {
-                KardexTotal = result.Total;
-                foreach (var k in result.Items) Kardex.Add(k);
+                foreach (var k in result) Kardex.Add(k);
             }
-            OnPropertyChanged(nameof(HasMoreKardex));
+            KardexCount = Kardex.Count;
+            OnPropertyChanged(nameof(HasKardex));
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
-        catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsLoadingKardex = false; }
-    }
-
-    [RelayCommand]
-    public async Task LoadMoreKardexAsync()
-    {
-        if (!HasMoreKardex || IsLoadingKardex) return;
-        IsLoadingKardex = true;
-        try
-        {
-            KardexPage++;
-            var result = await _api.GetAsync<KardexListResponse>(BuildKardexQuery(KardexPage));
-            if (result != null)
-                foreach (var k in result.Items) Kardex.Add(k);
-            OnPropertyChanged(nameof(HasMoreKardex));
-        }
+        catch (Exception ex) { ErrorMessage = $"Error al cargar kardex: {ex.Message}"; }
         finally { IsLoadingKardex = false; }
     }
 
@@ -116,8 +105,9 @@ public partial class InventoryViewModel : ViewModelBase
     {
         if (!int.TryParse(AdjProductId, out var productId) || productId <= 0)
         { ErrorMessage = "Ingresa un ID de producto válido."; return; }
-        if (!decimal.TryParse(AdjQuantity, out var qty) || qty <= 0)
-        { ErrorMessage = "Ingresa una cantidad válida."; return; }
+        if (!decimal.TryParse(AdjQuantity, System.Globalization.NumberStyles.Any,
+                              System.Globalization.CultureInfo.InvariantCulture, out var qty) || qty <= 0)
+        { ErrorMessage = "Ingresa una cantidad válida (mayor a 0)."; return; }
 
         IsProcessing = true;
         ErrorMessage = "";
@@ -127,30 +117,32 @@ public partial class InventoryViewModel : ViewModelBase
             var endpoint = IsAdjIn ? "inventory/add" : "inventory/remove";
             var req = new StockAdjustmentRequest
             {
-                ProductId = productId,
-                Type      = AdjType,
-                Quantity  = qty,
-                Reason    = AdjReason
+                ProductId   = productId,
+                WarehouseId = 1,   // almacén predeterminado; requerido por backend
+                Type        = AdjType,
+                Quantity    = qty,
+                Reason      = string.IsNullOrWhiteSpace(AdjReason) ? "Ajuste manual" : AdjReason
             };
             await _api.PostAsync<StockAdjustmentRequest, object>(endpoint, req);
 
-            SuccessMessage = $"Ajuste registrado: {(IsAdjIn ? "+" : "-")}{qty} unidades (producto #{productId})";
+            SuccessMessage = $"Ajuste registrado: {(IsAdjIn ? "+" : "-")}{qty:0.##} unidades — producto #{productId}";
             AdjProductId = "";
             AdjQuantity  = "";
             AdjReason    = "";
 
-            // Refresh kardex
+            // Refrescar kardex filtrado al mismo producto para feedback inmediato
+            ProductIdFilter = productId.ToString();
             await LoadKardexAsync();
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
-        catch { ErrorMessage = "Error al registrar el ajuste."; }
+        catch (HttpRequestException ex)     { ErrorMessage = $"Error del servidor: {ex.Message}"; }
+        catch                               { ErrorMessage = "Error al registrar el ajuste."; }
         finally { IsProcessing = false; }
     }
 
-    private string BuildKardexQuery(int page)
+    private string BuildKardexQuery()
     {
-        var skip = (page - 1) * PageSize;
-        var q = $"inventory/kardex?skip={skip}&limit={PageSize}";
+        var q = $"inventory/kardex?limit={DefaultLimit}";
         if (!string.IsNullOrWhiteSpace(ProductIdFilter) && int.TryParse(ProductIdFilter, out var pid))
             q += $"&product_id={pid}";
         return q;

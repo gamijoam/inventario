@@ -15,6 +15,10 @@ public partial class PurchasesViewModel : ViewModelBase
     [ObservableProperty] private string _errorMessage = "";
     [ObservableProperty] private string _statusFilter = "";
 
+    // Visibilidad del estado vacío
+    public bool HasPurchases => Purchases.Count > 0;
+    public bool IsEmpty      => !IsLoading && Purchases.Count == 0 && string.IsNullOrEmpty(ErrorMessage);
+
     public PurchasesViewModel(ApiService api) { _api = api; }
 
     [RelayCommand]
@@ -24,9 +28,11 @@ public partial class PurchasesViewModel : ViewModelBase
         ErrorMessage = "";
         try
         {
-            var q = "purchases/";
+            // GET /api/v1/purchases/?status=... → List<PurchaseOrderResponse> (lista plana)
+            var q = "purchases";
             if (!string.IsNullOrWhiteSpace(StatusFilter))
                 q += $"?status={StatusFilter}";
+
             var result = await _api.GetAsync<List<PurchaseOrder>>(q);
             Purchases.Clear();
             if (result != null)
@@ -34,10 +40,29 @@ public partial class PurchasesViewModel : ViewModelBase
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsLoading = false; }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(HasPurchases));
+            OnPropertyChanged(nameof(IsEmpty));
+        }
     }
 
-    [RelayCommand] private async Task FilterAllAsync()     { StatusFilter = "";       await LoadAsync(); }
-    [RelayCommand] private async Task FilterPendingAsync() { StatusFilter = "PENDING"; await LoadAsync(); }
-    [RelayCommand] private async Task FilterPaidAsync()    { StatusFilter = "PAID";    await LoadAsync(); }
+    [RelayCommand] private async Task FilterAllAsync()
+    {
+        StatusFilter = "";
+        await LoadAsync();
+    }
+
+    [RelayCommand] private async Task FilterPendingAsync()
+    {
+        StatusFilter = "PENDING";
+        await LoadAsync();
+    }
+
+    [RelayCommand] private async Task FilterPaidAsync()
+    {
+        StatusFilter = "PAID";
+        await LoadAsync();
+    }
 }

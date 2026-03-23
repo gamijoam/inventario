@@ -48,8 +48,22 @@
                 <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="13"/>
             </Border>
 
-            <!-- Tarjetas de métricas -->
-            <WrapPanel Orientation="Horizontal" IsVisible="{Binding !IsLoading}">
+            <!-- Sin datos (Stats ya cargó pero vacío) -->
+            <Border Background="#F8FAFC" CornerRadius="12" Padding="40 32"
+                    IsVisible="{Binding HasNoData}"
+                    BorderThickness="1" BorderBrush="#E2E8F0">
+                <StackPanel HorizontalAlignment="Center" Spacing="10">
+                    <TextBlock Text="Sin datos para el período seleccionado"
+                               FontSize="15" FontWeight="SemiBold" Foreground="#64748B"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="No se registraron ventas en ese rango de fechas."
+                               FontSize="13" Foreground="#94A3B8"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Tarjetas de métricas (solo cuando hay datos) -->
+            <WrapPanel Orientation="Horizontal" IsVisible="{Binding HasData}">
 
                 <!-- Ventas -->
                 <Border Background="White" CornerRadius="12" Padding="20"
@@ -69,11 +83,11 @@
                         Margin="0 0 16 16" Width="220"
                         BoxShadow="0 2 12 0 #10000000">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Ingresos (USD)" FontSize="12"
+                        <TextBlock Text="Ingresos (USD base)" FontSize="12"
                                    FontWeight="SemiBold" Foreground="#64748B"/>
                         <TextBlock Text="{Binding Revenue, StringFormat=\{0:F2\}}"
                                    FontSize="28" FontWeight="Black" Foreground="#059669"/>
-                        <TextBlock Text="dólares" FontSize="12" Foreground="#94A3B8"/>
+                        <TextBlock Text="dólares totales" FontSize="12" Foreground="#94A3B8"/>
                     </StackPanel>
                 </Border>
 
@@ -118,6 +132,75 @@
                 </Border>
 
             </WrapPanel>
+
+            <!-- Tabla ventas por moneda (solo cuando hay datos) -->
+            <Border Background="White" CornerRadius="12" Padding="0"
+                    IsVisible="{Binding HasData}"
+                    BoxShadow="0 2 12 0 #10000000">
+                <StackPanel>
+
+                    <!-- Título tabla -->
+                    <Border Padding="20 16"
+                            BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                        <TextBlock Text="Ventas por Moneda"
+                                   FontSize="14" FontWeight="Black" Foreground="#1E293B"/>
+                    </Border>
+
+                    <!-- Encabezado -->
+                    <Border Background="#F8FAFC" Padding="20 10"
+                            BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                        <Grid ColumnDefinitions="*,120,80,120">
+                            <TextBlock Grid.Column="0" Text="Moneda"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="1" Text="Cobrado (neto)"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                       TextAlignment="Right"/>
+                            <TextBlock Grid.Column="2" Text="Ventas"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                       TextAlignment="Right"/>
+                            <TextBlock Grid.Column="3" Text="Devoluciones"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                       TextAlignment="Right"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Filas por moneda -->
+                    <ItemsControl ItemsSource="{Binding SalesByCurrency}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="20 12"
+                                        BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                    <Grid ColumnDefinitions="*,120,80,120">
+                                        <TextBlock Grid.Column="0" Text="{Binding CurrencyLabel}"
+                                                   FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="#1E293B" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding CollectedDisplay}"
+                                                   FontSize="13" FontWeight="Bold"
+                                                   Foreground="#059669"
+                                                   TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Count}"
+                                                   FontSize="13" Foreground="#64748B"
+                                                   TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding ReturnsDisplay}"
+                                                   FontSize="13" Foreground="#DC2626"
+                                                   TextAlignment="Right" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Sin filas de moneda -->
+                    <Border Padding="20 16"
+                            IsVisible="{Binding SalesByCurrency.Count, Converter={x:Static ObjectConverters.IsNull}}">
+                        <TextBlock Text="Sin movimientos en el período."
+                                   FontSize="13" Foreground="#94A3B8"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+
+                </StackPanel>
+            </Border>
 
         </StackPanel>
     </ScrollViewer>

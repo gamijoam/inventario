@@ -6,90 +6,258 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <!-- Búsqueda -->
+        <!-- ═══ Barra superior: búsqueda + botón agregar ═══════════════════ -->
         <Border Grid.Row="0" Background="White" Padding="20 14"
                 BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBox Grid.Column="0" Text="{Binding SearchText}"
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBox Grid.Column="0"
+                         Text="{Binding SearchText}"
                          Watermark="Buscar por nombre, RIF/CI, teléfono…"
                          CornerRadius="8" Padding="12 8" FontSize="13"/>
-                <Button Grid.Column="1" Command="{Binding SearchCommand}"
+                <Button Grid.Column="1"
+                        Command="{Binding SearchCommand}"
                         Margin="10 0 0 0" CornerRadius="8" Padding="16 8"
                         Background="#4F46E5" Foreground="White"
                         FontWeight="SemiBold" FontSize="13">
                     Buscar
                 </Button>
+                <Button Grid.Column="2"
+                        Command="{Binding OpenAddPanelCommand}"
+                        Margin="8 0 0 0" CornerRadius="8" Padding="16 8"
+                        Background="#059669" Foreground="White"
+                        FontWeight="SemiBold" FontSize="13">
+                    + Nuevo cliente
+                </Button>
             </Grid>
         </Border>
 
-        <!-- Lista -->
-        <ScrollViewer Grid.Row="1">
-            <StackPanel>
-                <TextBlock Text="Cargando clientes…" Margin="24 16"
-                           FontSize="13" Foreground="#94A3B8"
-                           IsVisible="{Binding IsLoading}"/>
-                <Border Background="#FEF2F2" CornerRadius="8" Padding="14 10"
-                        Margin="20 12"
-                        IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="13"/>
-                </Border>
+        <!-- ═══ Contenido principal ════════════════════════════════════════ -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
 
-                <!-- Encabezado -->
-                <Border Background="#F8FAFC" Padding="20 10"
-                        BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
-                    <Grid ColumnDefinitions="*,110,110,80,80">
-                        <TextBlock Grid.Column="0" Text="Nombre"         FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                        <TextBlock Grid.Column="1" Text="RIF / CI"       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                        <TextBlock Grid.Column="2" Text="Teléfono"       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                        <TextBlock Grid.Column="3" Text="Crédito"        FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Right"/>
-                        <TextBlock Grid.Column="4" Text="Estado"         FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Center"/>
-                    </Grid>
-                </Border>
+            <!-- Lista de clientes -->
+            <ScrollViewer Grid.Column="0">
+                <StackPanel>
 
-                <!-- Filas -->
-                <ItemsControl ItemsSource="{Binding Customers}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Padding="20 11"
-                                    BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
-                                <Grid ColumnDefinitions="*,110,110,80,80">
-                                    <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                               FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"
-                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding IdNumber}"
-                                               FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Phone}"
-                                               FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding CreditDisplay}"
-                                               FontSize="12" FontWeight="SemiBold" Foreground="#1E293B"
-                                               TextAlignment="Right" VerticalAlignment="Center"/>
-                                    <Border Grid.Column="4" CornerRadius="6" Padding="6 3"
-                                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                                            Background="#F1F5F9">
-                                        <TextBlock Text="{Binding StatusDisplay}"
-                                                   FontSize="11" FontWeight="SemiBold"
-                                                   Foreground="{Binding StatusColor}"/>
-                                    </Border>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </ScrollViewer>
+                    <!-- Cargando -->
+                    <TextBlock Text="Cargando clientes…"
+                               Margin="24 16" FontSize="13" Foreground="#94A3B8"
+                               IsVisible="{Binding IsLoading}"/>
 
-        <!-- Footer -->
+                    <!-- Error -->
+                    <Border Background="#FEF2F2" CornerRadius="8" Padding="14 10"
+                            Margin="20 12 20 0"
+                            IsVisible="{Binding ErrorMessage,
+                                Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding ErrorMessage}"
+                                   Foreground="#DC2626" FontSize="13" TextWrapping="Wrap"/>
+                    </Border>
+
+                    <!-- Encabezado de tabla -->
+                    <Border Background="#F8FAFC" Padding="20 10"
+                            BorderThickness="0 0 0 1" BorderBrush="#E2E8F0"
+                            Margin="0 8 0 0">
+                        <Grid ColumnDefinitions="*,130,130,90,80">
+                            <TextBlock Grid.Column="0" Text="Nombre"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="1" Text="RIF / CI"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="2" Text="Teléfono"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="3" Text="Crédito (USD)"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                       TextAlignment="Right"/>
+                            <TextBlock Grid.Column="4" Text="Estado"
+                                       FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                       TextAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- Filas -->
+                    <ItemsControl ItemsSource="{Binding Customers}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="20 11"
+                                        BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                    <Grid ColumnDefinitions="*,130,130,90,80">
+                                        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="#1E293B"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Email}"
+                                                       FontSize="11" Foreground="#94A3B8"
+                                                       IsVisible="{Binding Email,
+                                                           Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding IdNumber}"
+                                                   FontSize="12" Foreground="#64748B"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Phone}"
+                                                   FontSize="12" Foreground="#64748B"
+                                                   VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding CreditDisplay}"
+                                                   FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="#1E293B"
+                                                   TextAlignment="Right" VerticalAlignment="Center"/>
+                                        <Border Grid.Column="4" CornerRadius="6" Padding="6 3"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                Background="#F1F5F9">
+                                            <TextBlock Text="{Binding StatusDisplay}"
+                                                       FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="{Binding StatusColor}"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Panel lateral: formulario nuevo cliente -->
+            <Border Grid.Column="1"
+                    IsVisible="{Binding ShowAddPanel}"
+                    Width="320"
+                    Background="White"
+                    BorderThickness="1 0 0 0"
+                    BorderBrush="#E2E8F0"
+                    Padding="20">
+                <ScrollViewer>
+                    <StackPanel Spacing="14">
+
+                        <TextBlock Text="Nuevo cliente"
+                                   FontSize="16" FontWeight="Bold"
+                                   Foreground="#1E293B" Margin="0 0 0 4"/>
+
+                        <!-- Error del formulario -->
+                        <Border Background="#FEF2F2" CornerRadius="8" Padding="12 8"
+                                IsVisible="{Binding ErrorMessage,
+                                    Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding ErrorMessage}"
+                                       Foreground="#DC2626" FontSize="12"
+                                       TextWrapping="Wrap"/>
+                        </Border>
+
+                        <!-- Nombre -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Nombre o razón social *"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="#374151"/>
+                            <TextBox Text="{Binding NewName}"
+                                     Watermark="Ej: Ferretería El Clavo C.A."
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- RIF / CI -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="RIF o Cédula"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="#374151"/>
+                            <TextBox Text="{Binding NewIdNumber}"
+                                     Watermark="Ej: J-12345678-9 o V-12345678"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Teléfono -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Teléfono"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="#374151"/>
+                            <TextBox Text="{Binding NewPhone}"
+                                     Watermark="Ej: 0412-5555555"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Correo -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Correo electrónico"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="#374151"/>
+                            <TextBox Text="{Binding NewEmail}"
+                                     Watermark="Ej: compras@empresa.com"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Dirección -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Dirección"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="#374151"/>
+                            <TextBox Text="{Binding NewAddress}"
+                                     Watermark="Ej: Av. Principal, Edif. Azul"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"
+                                     TextWrapping="Wrap" Height="60"/>
+                        </StackPanel>
+
+                        <!-- Límite de crédito -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Límite de crédito (USD)"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="#374151"/>
+                            <TextBox Text="{Binding NewCreditLimit}"
+                                     Watermark="100"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Días de crédito -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Días de plazo de pago"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="#374151"/>
+                            <TextBox Text="{Binding NewPaymentTermDays}"
+                                     Watermark="15"
+                                     CornerRadius="8" Padding="10 7" FontSize="13"/>
+                        </StackPanel>
+
+                        <!-- Botones -->
+                        <Grid ColumnDefinitions="*,*" Margin="0 6 0 0">
+                            <Button Grid.Column="0"
+                                    Command="{Binding CancelAddCommand}"
+                                    Margin="0 0 5 0"
+                                    CornerRadius="8" Padding="0 9"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    Background="#F1F5F9" Foreground="#374151"
+                                    FontWeight="SemiBold" FontSize="13">
+                                Cancelar
+                            </Button>
+                            <Button Grid.Column="1"
+                                    Command="{Binding SaveCustomerCommand}"
+                                    IsEnabled="{Binding !IsSaving}"
+                                    Margin="5 0 0 0"
+                                    CornerRadius="8" Padding="0 9"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    Background="#059669" Foreground="White"
+                                    FontWeight="SemiBold" FontSize="13">
+                                <Panel>
+                                    <TextBlock Text="Guardar"
+                                               IsVisible="{Binding !IsSaving}"
+                                               HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Guardando…"
+                                               IsVisible="{Binding IsSaving}"
+                                               HorizontalAlignment="Center"/>
+                                </Panel>
+                            </Button>
+                        </Grid>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+        </Grid>
+
+        <!-- ═══ Footer: contador + cargar más ════════════════════════════ -->
         <Border Grid.Row="2" Background="White" Padding="20 10"
                 BorderThickness="0 1 0 0" BorderBrush="#E2E8F0">
             <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" FontSize="12" Foreground="#64748B" VerticalAlignment="Center">
+                <TextBlock Grid.Column="0"
+                           FontSize="12" Foreground="#64748B"
+                           VerticalAlignment="Center">
                     <Run Text="{Binding Customers.Count}"/>
                     <Run Text=" de "/>
                     <Run Text="{Binding TotalCount}"/>
                     <Run Text=" clientes"/>
                 </TextBlock>
-                <Button Grid.Column="1" Command="{Binding LoadMoreCommand}"
-                        IsVisible="{Binding HasMore}" IsEnabled="{Binding !IsLoading}"
+                <Button Grid.Column="1"
+                        Command="{Binding LoadMoreCommand}"
+                        IsVisible="{Binding HasMore}"
+                        IsEnabled="{Binding !IsLoading}"
                         CornerRadius="8" Padding="14 7"
                         Background="#EEF2FF" Foreground="#4F46E5"
                         FontWeight="SemiBold" FontSize="12">

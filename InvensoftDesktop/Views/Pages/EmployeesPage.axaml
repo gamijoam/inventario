@@ -7,63 +7,222 @@
     <Grid RowDefinitions="*,Auto">
 
         <ScrollViewer Grid.Row="0">
-            <StackPanel>
-                <TextBlock Text="Cargando empleados…" Margin="24 16"
+            <StackPanel Margin="24" Spacing="16">
+
+                <!-- Cabecera + boton agregar -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2">
+                        <TextBlock Text="Empleados" FontSize="22" FontWeight="Black" Foreground="#1E293B"/>
+                        <TextBlock Text="Usuarios registrados en el negocio"
+                                   FontSize="13" Foreground="#64748B"/>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Command="{Binding ToggleCreateFormCommand}"
+                            CornerRadius="8" Padding="14 9"
+                            Background="#4F46E5" Foreground="White"
+                            FontWeight="SemiBold" FontSize="13"
+                            VerticalAlignment="Center">
+                        + Agregar empleado
+                    </Button>
+                </Grid>
+
+                <!-- Loading -->
+                <TextBlock Text="Cargando empleados..."
                            FontSize="13" Foreground="#94A3B8"
                            IsVisible="{Binding IsLoading}"/>
+
+                <!-- Error -->
                 <Border Background="#FEF2F2" CornerRadius="8" Padding="14 10"
-                        Margin="20 12"
-                        IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        IsVisible="{Binding ErrorMessage,
+                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                     <TextBlock Text="{Binding ErrorMessage}" Foreground="#DC2626" FontSize="13"/>
                 </Border>
 
-                <!-- Encabezado -->
-                <Border Background="#F8FAFC" Padding="20 10"
-                        BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
-                    <Grid ColumnDefinitions="*,130,130,90,80">
-                        <TextBlock Grid.Column="0" Text="Nombre"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                        <TextBlock Grid.Column="1" Text="Cédula"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                        <TextBlock Grid.Column="2" Text="Teléfono"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                        <TextBlock Grid.Column="3" Text="Comisión"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Right"/>
-                        <TextBlock Grid.Column="4" Text="Estado"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Center"/>
-                    </Grid>
+                <!-- Success -->
+                <Border Background="#F0FDF4" CornerRadius="8" Padding="14 10"
+                        IsVisible="{Binding SuccessMessage,
+                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding SuccessMessage}" Foreground="#15803D" FontSize="13"/>
                 </Border>
 
-                <!-- Filas -->
-                <ItemsControl ItemsSource="{Binding Employees}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Padding="20 12"
-                                    BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
-                                <Grid ColumnDefinitions="*,130,130,90,80">
-                                    <TextBlock Grid.Column="0" Text="{Binding Name}"
-                                               FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding DocumentId}"
-                                               FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Phone}"
-                                               FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding CommissionDisplay}"
-                                               FontSize="12" FontWeight="SemiBold" Foreground="#4F46E5"
-                                               TextAlignment="Right" VerticalAlignment="Center"/>
-                                    <Border Grid.Column="4" CornerRadius="6" Padding="6 3"
-                                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                                            Background="#F1F5F9">
-                                        <TextBlock Text="{Binding StatusDisplay}"
-                                                   FontSize="11" FontWeight="SemiBold"
-                                                   Foreground="{Binding StatusColor}"/>
+                <!-- === FORMULARIO CREAR EMPLEADO === -->
+                <Border Background="White" CornerRadius="14" Padding="24"
+                        BoxShadow="0 2 12 0 #10000000"
+                        IsVisible="{Binding ShowCreateForm}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="Nuevo empleado"
+                                   FontSize="15" FontWeight="Bold" Foreground="#1E293B"/>
+
+                        <!-- Fila 1: username + nombre completo -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="5">
+                                <TextBlock Text="Usuario *" FontSize="11"
+                                           FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBox Text="{Binding NewUsername}"
+                                         Watermark="ej: jperez"
+                                         CornerRadius="8" Padding="10 8" FontSize="13"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="5">
+                                <TextBlock Text="Nombre completo" FontSize="11"
+                                           FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBox Text="{Binding NewFullName}"
+                                         Watermark="Juan Perez"
+                                         CornerRadius="8" Padding="10 8" FontSize="13"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Fila 2: email + contrasena -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="5">
+                                <TextBlock Text="Correo electronico *" FontSize="11"
+                                           FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBox Text="{Binding NewEmail}"
+                                         Watermark="correo@empresa.com"
+                                         CornerRadius="8" Padding="10 8" FontSize="13"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="5">
+                                <TextBlock Text="Contrasena *" FontSize="11"
+                                           FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBox Text="{Binding NewPassword}"
+                                         PasswordChar="*"
+                                         Watermark="Minimo 4 caracteres"
+                                         CornerRadius="8" Padding="10 8" FontSize="13"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Fila 3: rol + comision -->
+                        <Grid ColumnDefinitions="*,16,*">
+                            <StackPanel Grid.Column="0" Spacing="5">
+                                <TextBlock Text="Rol" FontSize="11"
+                                           FontWeight="SemiBold" Foreground="#64748B"/>
+                                <ComboBox SelectedItem="{Binding NewRole}"
+                                          HorizontalAlignment="Stretch"
+                                          CornerRadius="8" Padding="10 8" FontSize="13">
+                                    <ComboBoxItem Content="CASHIER"/>
+                                    <ComboBoxItem Content="ADMIN"/>
+                                    <ComboBoxItem Content="MANAGER"/>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="5">
+                                <TextBlock Text="Comision %" FontSize="11"
+                                           FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBox Text="{Binding NewCommission}"
+                                         Watermark="0.00"
+                                         CornerRadius="8" Padding="10 8" FontSize="13"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Botones -->
+                        <Grid ColumnDefinitions="*,12,Auto">
+                            <Button Grid.Column="0"
+                                    Command="{Binding CreateEmployeeCommand}"
+                                    IsEnabled="{Binding !IsLoading}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    CornerRadius="8" Padding="12 10"
+                                    Background="#4F46E5" Foreground="White"
+                                    FontWeight="Bold" FontSize="13">
+                                Guardar empleado
+                            </Button>
+                            <Button Grid.Column="2"
+                                    Command="{Binding ToggleCreateFormCommand}"
+                                    CornerRadius="8" Padding="14 10"
+                                    Background="#F1F5F9" Foreground="#64748B"
+                                    FontSize="13">
+                                Cancelar
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- === TABLA DE EMPLEADOS === -->
+                <Border Background="White" CornerRadius="14" Padding="0"
+                        BoxShadow="0 2 12 0 #10000000">
+                    <StackPanel Spacing="0">
+
+                        <!-- Encabezado tabla -->
+                        <Border Background="#F8FAFC" CornerRadius="14 14 0 0" Padding="20 10"
+                                BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
+                            <Grid ColumnDefinitions="*,110,100,90,70">
+                                <TextBlock Grid.Column="0" Text="Nombre / Usuario"
+                                           FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBlock Grid.Column="1" Text="Rol"
+                                           FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                                <TextBlock Grid.Column="2" Text="Comision"
+                                           FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                           TextAlignment="Right"/>
+                                <TextBlock Grid.Column="3" Text="Estado"
+                                           FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                           TextAlignment="Center"/>
+                                <TextBlock Grid.Column="4" Text="ID"
+                                           FontSize="11" FontWeight="SemiBold" Foreground="#64748B"
+                                           TextAlignment="Right"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Filas -->
+                        <ItemsControl ItemsSource="{Binding Employees}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="20 12"
+                                            BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
+                                        <Grid ColumnDefinitions="*,110,100,90,70">
+
+                                            <!-- Nombre + username -->
+                                            <StackPanel Grid.Column="0" Spacing="1"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="#1E293B"/>
+                                                <TextBlock Text="{Binding Username}"
+                                                           FontSize="11" Foreground="#94A3B8"/>
+                                            </StackPanel>
+
+                                            <!-- Rol -->
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding RoleDisplay}"
+                                                       FontSize="12" Foreground="#4F46E5"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"/>
+
+                                            <!-- Comision -->
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding CommissionDisplay}"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="#1E293B"
+                                                       TextAlignment="Right"
+                                                       VerticalAlignment="Center"/>
+
+                                            <!-- Estado -->
+                                            <Border Grid.Column="3" CornerRadius="6" Padding="6 3"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                    Background="#F1F5F9">
+                                                <TextBlock Text="{Binding StatusDisplay}"
+                                                           FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{Binding StatusColor}"/>
+                                            </Border>
+
+                                            <!-- ID -->
+                                            <TextBlock Grid.Column="4"
+                                                       Text="{Binding Id}"
+                                                       FontSize="12" Foreground="#CBD5E1"
+                                                       TextAlignment="Right"
+                                                       VerticalAlignment="Center"/>
+
+                                        </Grid>
                                     </Border>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                    </StackPanel>
+                </Border>
 
             </StackPanel>
         </ScrollViewer>
 
         <!-- Footer count -->
-        <Border Grid.Row="1" Background="White" Padding="20 10"
+        <Border Grid.Row="1" Background="White" Padding="24 10"
                 BorderThickness="0 1 0 0" BorderBrush="#E2E8F0">
             <TextBlock FontSize="12" Foreground="#64748B">
                 <Run Text="{Binding Employees.Count}"/>

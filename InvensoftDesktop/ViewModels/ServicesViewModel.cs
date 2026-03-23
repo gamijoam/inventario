@@ -21,7 +21,8 @@ public partial class ServicesViewModel : ViewModelBase
     [ObservableProperty] private int _currentPage = 1;
 
     private const int PageSize = 40;
-    public bool HasMore => Orders.Count < TotalCount;
+    public bool HasMore  => Orders.Count < TotalCount;
+    public bool IsEmpty  => !IsLoading && Orders.Count == 0;
 
     public ServicesViewModel(ApiService api, PrintService print)
     {
@@ -37,18 +38,28 @@ public partial class ServicesViewModel : ViewModelBase
         ErrorMessage = "";
         try
         {
+            // Backend returns a raw List (no pagination wrapper) — TotalCount tracks loaded count
             var result = await _api.GetAsync<List<ServiceOrder>>(BuildQuery(1));
             Orders.Clear();
             if (result != null)
             {
-                TotalCount = result.Count;
                 foreach (var o in result) Orders.Add(o);
+                // HasMore indicates whether we might have more pages to load
+                TotalCount = result.Count < PageSize ? Orders.Count : Orders.Count + 1;
+            }
+            else
+            {
+                TotalCount = 0;
             }
             OnPropertyChanged(nameof(HasMore));
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsLoading = false; }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(IsEmpty));
+        }
     }
 
     [RelayCommand]
@@ -61,7 +72,14 @@ public partial class ServicesViewModel : ViewModelBase
             CurrentPage++;
             var result = await _api.GetAsync<List<ServiceOrder>>(BuildQuery(CurrentPage));
             if (result != null)
+            {
                 foreach (var o in result) Orders.Add(o);
+                TotalCount = result.Count < PageSize ? Orders.Count : Orders.Count + 1;
+            }
+            else
+            {
+                TotalCount = Orders.Count; // no more
+            }
             OnPropertyChanged(nameof(HasMore));
         }
         finally { IsLoading = false; }
@@ -91,7 +109,8 @@ public partial class ServicesViewModel : ViewModelBase
         try
         {
             var req = new UpdateStatusRequest { Status = "READY" };
-            await _api.PostAsync<UpdateStatusRequest, object>($"services/orders/{order.Id}/status", req);
+            // Backend uses PATCH /api/v1/services/orders/{id}/status
+            await _api.PatchAsync<UpdateStatusRequest, object>($"services/orders/{order.Id}/status", req);
             SuccessMessage = $"Orden #{order.TicketNumber} marcada como Lista.";
             await LoadAsync();
         }

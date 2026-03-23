@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using InvensoftDesktop.Core;
 using InvensoftDesktop.Models.Reports;
+using System.Collections.ObjectModel;
 
 namespace InvensoftDesktop.ViewModels;
 
@@ -16,6 +17,8 @@ public partial class DashboardViewModel : ViewModelBase
     [ObservableProperty] private bool _isLoading = true;
     [ObservableProperty] private string _errorMessage = "";
     [ObservableProperty] private string _greeting = "";
+    [ObservableProperty] private bool _hasData = false;
+    [ObservableProperty] private ObservableCollection<CurrencyStat> _salesByCurrency = new();
 
     public DashboardViewModel(ApiService api)
     {
@@ -28,6 +31,7 @@ public partial class DashboardViewModel : ViewModelBase
     {
         IsLoading = true;
         ErrorMessage = "";
+        HasData = false;
         try
         {
             var stats = await _api.GetAsync<DashboardStats>("reports/dashboard/financials");
@@ -37,15 +41,25 @@ public partial class DashboardViewModel : ViewModelBase
                 TotalSales = stats.TotalSales;
                 GrossProfit = stats.GrossProfit;
                 TotalCost = stats.TotalCost;
+
+                SalesByCurrency.Clear();
+                foreach (var c in stats.SalesByCurrency)
+                    SalesByCurrency.Add(c);
+
+                HasData = TotalSales > 0 || TotalRevenue > 0;
+            }
+            else
+            {
+                HasData = false;
             }
         }
         catch (UnauthorizedAccessException)
         {
-            ErrorMessage = "Sesión expirada. Por favor vuelve a iniciar sesión.";
+            ErrorMessage = "Sesion expirada. Por favor vuelve a iniciar sesion.";
         }
         catch
         {
-            ErrorMessage = "No se pudo cargar el resumen. Verifica la conexión.";
+            ErrorMessage = "No se pudo cargar el resumen. Verifica la conexion.";
         }
         finally
         {
@@ -56,6 +70,6 @@ public partial class DashboardViewModel : ViewModelBase
     private static string GetGreeting()
     {
         var hour = DateTime.Now.Hour;
-        return hour < 12 ? "Buenos días" : hour < 18 ? "Buenas tardes" : "Buenas noches";
+        return hour < 12 ? "Buenos dias" : hour < 18 ? "Buenas tardes" : "Buenas noches";
     }
 }

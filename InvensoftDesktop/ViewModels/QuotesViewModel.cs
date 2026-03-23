@@ -20,6 +20,7 @@ public partial class QuotesViewModel : ViewModelBase
 
     private const int PageSize = 40;
     public bool HasMore => Quotes.Count < TotalCount;
+    public bool IsEmpty => !IsLoading && Quotes.Count == 0;
 
     public QuotesViewModel(ApiService api, PrintService print)
     {
@@ -47,7 +48,11 @@ public partial class QuotesViewModel : ViewModelBase
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
         catch { ErrorMessage = "No se pudieron cargar las cotizaciones."; }
-        finally { IsLoading = false; }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(IsEmpty));
+        }
     }
 
     [RelayCommand]
@@ -84,7 +89,8 @@ public partial class QuotesViewModel : ViewModelBase
         SuccessMessage = "";
         try
         {
-            await _api.PostAsync<object, object>($"quotes/{quote.Id}/convert", new { });
+            // Backend uses PUT /{quote_id}/convert
+            await _api.PutAsync<object, object>($"quotes/{quote.Id}/convert", new { });
             SuccessMessage = $"Cotización #{quote.Id} marcada como convertida.";
             await LoadAsync();
         }

@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace InvensoftDesktop.Core;
 
@@ -9,7 +10,12 @@ public class ApiService
     private readonly HttpClient _http;
     private readonly SettingsManager _settings;
 
-    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+    // AllowReadingFromString: el backend Python/FastAPI serializa Decimal como string ("5.5")
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString
+    };
 
     public ApiService(IHttpClientFactory factory, SettingsManager settings)
     {
@@ -65,6 +71,36 @@ public class ApiService
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             throw new UnauthorizedAccessException();
         if (!response.IsSuccessStatusCode) return default;
+        return await response.Content.ReadFromJsonAsync<TRes>(JsonOpts);
+    }
+
+    public async Task<TRes?> PutAsync<TReq, TRes>(string endpoint, TReq body)
+    {
+        var content = JsonContent.Create(body);
+        var request = BuildRequest(HttpMethod.Put, endpoint, content);
+        var response = await _http.SendAsync(request);
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode} en {endpoint}: {errBody}");
+        }
+        return await response.Content.ReadFromJsonAsync<TRes>(JsonOpts);
+    }
+
+    public async Task<TRes?> PatchAsync<TReq, TRes>(string endpoint, TReq body)
+    {
+        var content = JsonContent.Create(body);
+        var request = BuildRequest(HttpMethod.Patch, endpoint, content);
+        var response = await _http.SendAsync(request);
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            throw new UnauthorizedAccessException();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errBody = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"HTTP {(int)response.StatusCode} en {endpoint}: {errBody}");
+        }
         return await response.Content.ReadFromJsonAsync<TRes>(JsonOpts);
     }
 

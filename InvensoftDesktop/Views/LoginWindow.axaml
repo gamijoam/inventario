@@ -4,7 +4,7 @@
         x:Class="InvensoftDesktop.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
         Title="Invensoft — Iniciar Sesión"
-        Width="440" Height="580"
+        Width="420" Height="540"
         WindowStartupLocation="CenterScreen"
         CanResize="False"
         Background="#F1F5F9">
@@ -14,79 +14,45 @@
                 Background="White"
                 CornerRadius="16"
                 Margin="24"
-                Padding="36 32"
+                Padding="32 28"
                 BoxShadow="0 8 32 0 #18000000">
             <StackPanel Spacing="0">
 
                 <!-- Logo -->
-                <StackPanel HorizontalAlignment="Center" Spacing="6" Margin="0 0 0 24">
-                    <Border Background="#EEF2FF" CornerRadius="16"
-                            Width="60" Height="60" HorizontalAlignment="Center">
-                        <TextBlock Text="📦" FontSize="30"
+                <StackPanel HorizontalAlignment="Center" Spacing="6" Margin="0 0 0 22">
+                    <Border Background="#EEF2FF" CornerRadius="14"
+                            Width="56" Height="56" HorizontalAlignment="Center">
+                        <TextBlock Text="📦" FontSize="28"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"/>
                     </Border>
                     <TextBlock Text="Invensoft"
-                               FontSize="24" FontWeight="Black"
+                               FontSize="22" FontWeight="Black"
                                Foreground="#1E293B" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Sistema de Gestión Empresarial"
+                    <TextBlock Text="Gestión Local de Negocios"
                                FontSize="12" Foreground="#94A3B8"
                                HorizontalAlignment="Center"/>
                 </StackPanel>
 
-                <!-- Selector de modo -->
-                <Border Background="#F8FAFC" CornerRadius="10"
-                        Padding="4" Margin="0 0 0 20">
-                    <Grid ColumnDefinitions="*,*">
-                        <Button Grid.Column="0"
-                                Command="{Binding SwitchToCloudCommand}"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"
-                                CornerRadius="8" Padding="8 7" FontSize="13" FontWeight="SemiBold"
-                                Background="{Binding CloudButtonBg}"
-                                Foreground="{Binding CloudButtonFg}">
-                            <TextBlock Text="Nube (SaaS)" VerticalAlignment="Center"/>
-                        </Button>
-                        <Button Grid.Column="1"
-                                Command="{Binding SwitchToLocalCommand}"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"
-                                CornerRadius="8" Padding="8 7" FontSize="13" FontWeight="SemiBold"
-                                Background="{Binding LocalButtonBg}"
-                                Foreground="{Binding LocalButtonFg}">
-                            <TextBlock Text="Local (PC)" VerticalAlignment="Center"/>
-                        </Button>
-                    </Grid>
-                </Border>
+                <!-- Servidor -->
+                <TextBlock Text="Servidor" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#64748B" Margin="0 0 0 4"/>
+                <TextBox Text="{Binding ServerUrl}"
+                         Watermark="http://localhost:8000"
+                         CornerRadius="8" Padding="12 10" Margin="0 0 0 12"/>
 
-                <!-- Campos Cloud (solo visibles en modo cloud) -->
-                <StackPanel IsVisible="{Binding IsCloudMode}" Spacing="0">
-                    <TextBlock Text="Servidor" FontSize="12" FontWeight="SemiBold"
-                               Foreground="#64748B" Margin="0 0 0 4"/>
-                    <TextBox Text="{Binding ServerUrl}"
-                             Watermark="https://api.miinventariofacil.com"
-                             CornerRadius="8" Padding="12 10" Margin="0 0 0 12"/>
-
-                    <TextBlock Text="Empresa (Tenant)" FontSize="12" FontWeight="SemiBold"
-                               Foreground="#64748B" Margin="0 0 0 4"/>
-                    <TextBox Text="{Binding TenantSlug}"
-                             Watermark="ej: laferreteria"
-                             CornerRadius="8" Padding="12 10" Margin="0 0 0 12"/>
-                </StackPanel>
-
-                <!-- Info modo local -->
-                <Border IsVisible="{Binding IsLocalMode}"
-                        Background="#EFF6FF" CornerRadius="8"
-                        Padding="12 10" Margin="0 0 0 12">
-                    <TextBlock Text="El servidor corre en esta PC. Solo necesitas usuario y contraseña."
-                               FontSize="12" Foreground="#1D4ED8" TextWrapping="Wrap"/>
-                </Border>
+                <!-- Tenant -->
+                <TextBlock Text="Empresa (Tenant)" FontSize="12" FontWeight="SemiBold"
+                           Foreground="#64748B" Margin="0 0 0 4"/>
+                <TextBox Text="{Binding TenantSlug}"
+                         Watermark="ej: ferreteria_demo"
+                         CornerRadius="8" Padding="12 10" Margin="0 0 0 12"/>
 
                 <!-- Usuario -->
                 <TextBlock Text="Usuario" FontSize="12" FontWeight="SemiBold"
                            Foreground="#64748B" Margin="0 0 0 4"/>
                 <TextBox Text="{Binding Username}"
-                         Watermark="nombre de usuario"
+                         Watermark="admin"
                          CornerRadius="8" Padding="12 10" Margin="0 0 0 12"/>
 
                 <!-- Contraseña -->
@@ -97,15 +63,7 @@
                          Watermark="contraseña"
                          CornerRadius="8" Padding="12 10" Margin="0 0 0 14"/>
 
-                <!-- Estado / Error -->
-                <Border Background="#EFF6FF" CornerRadius="8" Padding="10 8"
-                        Margin="0 0 0 10"
-                        IsVisible="{Binding StatusMessage,
-                            Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                    <TextBlock Text="{Binding StatusMessage}"
-                               Foreground="#1D4ED8" FontSize="12" TextWrapping="Wrap"/>
-                </Border>
-
+                <!-- Error -->
                 <Border Background="#FEF2F2" CornerRadius="8" Padding="10 8"
                         Margin="0 0 0 10"
                         IsVisible="{Binding ErrorMessage,
@@ -123,7 +81,7 @@
                         FontWeight="Bold" FontSize="14"
                         Background="#4F46E5" Foreground="White">
                     <Panel>
-                        <TextBlock Text="Iniciando…" IsVisible="{Binding IsLoading}"
+                        <TextBlock Text="Conectando…" IsVisible="{Binding IsLoading}"
                                    HorizontalAlignment="Center"/>
                         <TextBlock Text="Iniciar Sesión" IsVisible="{Binding !IsLoading}"
                                    HorizontalAlignment="Center"/>

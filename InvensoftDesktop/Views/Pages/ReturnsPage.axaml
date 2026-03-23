@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:InvensoftDesktop.ViewModels"
+             xmlns:models="using:InvensoftDesktop.Models.Returns"
              x:Class="InvensoftDesktop.Views.Pages.ReturnsPage"
              x:DataType="vm:ReturnsViewModel">
 
@@ -10,7 +11,7 @@
         <Border Grid.Column="0" Background="White" BorderThickness="0 0 1 0" BorderBrush="#E2E8F0">
             <StackPanel Margin="20" Spacing="14">
                 <TextBlock Text="Buscar Venta" FontSize="16" FontWeight="Black" Foreground="#1E293B"/>
-                <TextBlock Text="Ingresa el número de venta, ticket o nombre del cliente."
+                <TextBlock Text="Ingresa el número de venta o nombre del cliente."
                            FontSize="12" Foreground="#64748B" TextWrapping="Wrap"/>
 
                 <StackPanel Spacing="6">
@@ -38,21 +39,25 @@
                 <!-- Resultados búsqueda -->
                 <ItemsControl ItemsSource="{Binding SearchResults}">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="models:SaleSearchResult">
                             <Border Margin="0 2" CornerRadius="8" Padding="12 10"
                                     Background="#F8FAFC"
                                     BorderThickness="1" BorderBrush="#E2E8F0">
                                 <StackPanel Spacing="4">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Grid.Column="0" Text="{Binding DateDisplay}"
-                                                   FontSize="12" Foreground="#64748B"/>
+                                        <TextBlock Grid.Column="0" Text="{Binding CustomerDisplay}"
+                                                   FontSize="12" FontWeight="SemiBold" Foreground="#1E293B"/>
                                         <TextBlock Grid.Column="1" Text="{Binding TotalDisplay}"
                                                    FontSize="13" FontWeight="Bold" Foreground="#059669"/>
                                     </Grid>
-                                    <TextBlock Text="{Binding CashierName}"
-                                               FontSize="12" Foreground="#94A3B8"/>
-                                    <TextBlock Text="{Binding PaymentMethod}"
-                                               FontSize="11" Foreground="#CBD5E1"/>
+                                    <TextBlock Text="{Binding DateDisplay}"
+                                               FontSize="12" Foreground="#64748B"/>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="{Binding CashierName}"
+                                                   FontSize="11" Foreground="#94A3B8"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding PaymentMethod}"
+                                                   FontSize="11" Foreground="#CBD5E1"/>
+                                    </Grid>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
@@ -77,25 +82,36 @@
 
                     <!-- Encabezado -->
                     <Border Background="#F8FAFC" Padding="20 9" BorderThickness="0 0 0 1" BorderBrush="#E2E8F0">
-                        <Grid ColumnDefinitions="80,*,100">
-                            <TextBlock Grid.Column="0" Text="Fecha"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                            <TextBlock Grid.Column="1" Text="Motivo"   FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                            <TextBlock Grid.Column="2" Text="Total dev." FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Right"/>
+                        <Grid ColumnDefinitions="80,60,*,110">
+                            <TextBlock Grid.Column="0" Text="Fecha"      FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="1" Text="Venta #"    FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="2" Text="Motivo"     FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Grid.Column="3" Text="Total dev." FontSize="11" FontWeight="SemiBold" Foreground="#64748B" TextAlignment="Right"/>
                         </Grid>
+                    </Border>
+
+                    <!-- Estado vacío -->
+                    <Border Background="#F8FAFC" CornerRadius="12" Padding="32 24" Margin="16 12"
+                            IsVisible="{Binding IsHistoryEmpty}" BorderThickness="1" BorderBrush="#E2E8F0">
+                        <TextBlock Text="Sin devoluciones registradas."
+                                   FontSize="14" FontWeight="SemiBold" Foreground="#64748B"
+                                   HorizontalAlignment="Center"/>
                     </Border>
 
                     <!-- Filas -->
                     <ItemsControl ItemsSource="{Binding Returns}">
                         <ItemsControl.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="models:ReturnRecord">
                                 <Border Padding="20 11" BorderThickness="0 0 0 1" BorderBrush="#F1F5F9">
-                                    <Grid ColumnDefinitions="80,*,100">
+                                    <Grid ColumnDefinitions="80,60,*,110">
                                         <TextBlock Grid.Column="0" Text="{Binding DateDisplay}"
                                                    FontSize="12" Foreground="#64748B" VerticalAlignment="Center"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding Reason}"
+                                        <TextBlock Grid.Column="1" Text="{Binding SaleId}"
+                                                   FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding Reason}"
                                                    FontSize="13" Foreground="#1E293B"
                                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Grid.Column="2" Text="{Binding RefundDisplay}"
+                                        <TextBlock Grid.Column="3" Text="{Binding RefundDisplay}"
                                                    FontSize="13" FontWeight="Bold" Foreground="#DC2626"
                                                    TextAlignment="Right" VerticalAlignment="Center"/>
                                     </Grid>

@@ -15,6 +15,8 @@ public partial class ReturnsViewModel : ViewModelBase
     [ObservableProperty] private bool _isLoadingHistory = false;
     [ObservableProperty] private int _totalCount = 0;
 
+    public bool IsHistoryEmpty => !IsLoadingHistory && Returns.Count == 0;
+
     // ── Búsqueda de venta ─────────────────────────────────────────────
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private ObservableCollection<SaleSearchResult> _searchResults = new();
@@ -46,7 +48,11 @@ public partial class ReturnsViewModel : ViewModelBase
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsLoadingHistory = false; }
+        finally
+        {
+            IsLoadingHistory = false;
+            OnPropertyChanged(nameof(IsHistoryEmpty));
+        }
     }
 
     [RelayCommand]

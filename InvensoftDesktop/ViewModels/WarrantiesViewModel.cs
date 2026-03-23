@@ -15,6 +15,9 @@ public partial class WarrantiesViewModel : ViewModelBase
     [ObservableProperty] private bool _isLoading = false;
     [ObservableProperty] private string _errorMessage = "";
 
+    public bool ArePoliciesEmpty => !IsLoading && Policies.Count == 0;
+    public bool AreClaimsEmpty   => !IsLoading && Claims.Count == 0;
+
     public WarrantiesViewModel(ApiService api)
     {
         _api = api;
@@ -39,6 +42,11 @@ public partial class WarrantiesViewModel : ViewModelBase
         }
         catch (UnauthorizedAccessException) { ErrorMessage = "Sesión expirada."; }
         catch (Exception ex) { ErrorMessage = $"Error: {ex.Message}"; }
-        finally { IsLoading = false; }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(ArePoliciesEmpty));
+            OnPropertyChanged(nameof(AreClaimsEmpty));
+        }
     }
 }

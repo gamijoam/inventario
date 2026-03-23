@@ -5,12 +5,12 @@
              x:DataType="vm:RMAViewModel">
 
     <ScrollViewer>
-        <StackPanel Margin="28" Spacing="20" MaxWidth="500">
+        <StackPanel Margin="28" Spacing="20" MaxWidth="520">
 
             <StackPanel Spacing="4">
-                <TextBlock Text="Verificar Garantía / RMA"
+                <TextBlock Text="Verificar Garantia / RMA"
                            FontSize="20" FontWeight="Black" Foreground="#1E293B"/>
-                <TextBlock Text="Ingresa el IMEI o número de serie para consultar el estado de garantía."
+                <TextBlock Text="Ingresa el IMEI o numero de serie para consultar el estado de garantia."
                            FontSize="13" Foreground="#64748B" TextWrapping="Wrap"/>
             </StackPanel>
 
@@ -19,7 +19,7 @@
                     BoxShadow="0 2 12 0 #10000000">
                 <StackPanel Spacing="14">
                     <StackPanel Spacing="6">
-                        <TextBlock Text="IMEI / Número de Serie" FontSize="12"
+                        <TextBlock Text="IMEI / Numero de Serie" FontSize="12"
                                    FontWeight="SemiBold" Foreground="#64748B"/>
                         <TextBox Text="{Binding ImeiText}" Watermark="ej: 354951062345678"
                                  CornerRadius="8" Padding="12 10" FontSize="15"/>
@@ -38,7 +38,7 @@
                             FontWeight="Bold" FontSize="14">
                         <Panel>
                             <TextBlock Text="Consultando…" IsVisible="{Binding IsChecking}" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Consultar Garantía" IsVisible="{Binding !IsChecking}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Consultar Garantia" IsVisible="{Binding !IsChecking}" HorizontalAlignment="Center"/>
                         </Panel>
                     </Button>
                 </StackPanel>
@@ -48,14 +48,11 @@
             <Border Background="White" CornerRadius="14" Padding="24"
                     BoxShadow="0 2 12 0 #10000000"
                     IsVisible="{Binding HasResult}">
-                <StackPanel Spacing="14">
+                <StackPanel Spacing="16">
                     <TextBlock Text="Resultado" FontSize="14" FontWeight="Black" Foreground="#1E293B"/>
 
-                    <!-- Estado garantía -->
-                    <Border CornerRadius="10" Padding="16">
-                        <Border.Background>
-                            <SolidColorBrush Color="#F0FDF4"/>
-                        </Border.Background>
+                    <!-- Estado garantia -->
+                    <Border CornerRadius="10" Padding="16" Background="#F8FAFC">
                         <StackPanel Spacing="6">
                             <TextBlock Text="{Binding CheckResult.StatusDisplay}"
                                        FontSize="16" FontWeight="Black"
@@ -65,15 +62,29 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Detalles -->
-                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
-                        <StackPanel Grid.Column="0" Grid.Row="0" Spacing="4" Margin="0 0 8 8">
-                            <TextBlock Text="Días transcurridos" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
-                            <TextBlock Text="{Binding CheckResult.DaysElapsed}" FontSize="18" FontWeight="Black" Foreground="#1E293B"/>
+                    <!-- Datos producto/cliente -->
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto">
+                        <StackPanel Grid.Column="0" Grid.Row="0" Spacing="2" Margin="0 0 8 12">
+                            <TextBlock Text="Producto" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Text="{Binding CheckResult.ProductName}" FontSize="14" FontWeight="Bold" Foreground="#1E293B"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="1" Grid.Row="0" Spacing="4" Margin="8 0 0 8">
+                        <StackPanel Grid.Column="1" Grid.Row="0" Spacing="2" Margin="8 0 0 12">
+                            <TextBlock Text="Cliente" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Text="{Binding CheckResult.CustomerName}" FontSize="14" FontWeight="Bold" Foreground="#1E293B"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="0" Grid.Row="1" Spacing="2" Margin="0 0 8 12">
+                            <TextBlock Text="Dias transcurridos" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Text="{Binding CheckResult.DaysDisplay}" FontSize="18" FontWeight="Black" Foreground="#1E293B"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Grid.Row="1" Spacing="2" Margin="8 0 0 12">
                             <TextBlock Text="Precio original" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
                             <TextBlock Text="{Binding CheckResult.PriceDisplay}" FontSize="18" FontWeight="Black" Foreground="#059669"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="0" Grid.Row="2" Spacing="2" Margin="0 0 8 0">
+                            <TextBlock Text="Fecha de venta" FontSize="11" FontWeight="SemiBold" Foreground="#64748B"/>
+                            <TextBlock Text="{Binding CheckResult.SaleDateDisplay}" FontSize="14" FontWeight="SemiBold" Foreground="#64748B"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>
