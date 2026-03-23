@@ -681,19 +681,30 @@ PROBLEMA REPORTADO
 ================================
 GARANTIA DEL SERVICIO
 --------------------------------
-{{ order.warranty.name | string.slice 0 30 }}
+{{ order.warranty.name }}
 {{ if order.warranty.duration_text }}Vigencia: {{ order.warranty.duration_text }}{{ end }}
-{{ if order.warranty.description }}{{ order.warranty.description | string.slice 0 90 }}{{ end }}
+{{ if order.warranty.description }}
+{{ order.warranty.description }}
 {{ end }}
+{{ end }}
+================================
+<center>
+Al firmar acepta las condiciones
+descritas en este documento.
+</center>
+--------------------------------
+Nombre: _______________________
+
+C.I./RIF: _____________________
+
+Firma:  _______________________
+
+Fecha:  _______________________
 ================================
 <center>
 Conserve este ticket para retirar
 su equipo. ¡Gracias por elegirnos!
 </center>
-
-
-
-
 <cut>
 """
 
@@ -737,19 +748,30 @@ PROBLEMA REPORTADO
 ================================================
 GARANTIA DEL SERVICIO
 ------------------------------------------------
-{{ order.warranty.name | string.slice 0 46 }}
+{{ order.warranty.name }}
 {{ if order.warranty.duration_text }}Vigencia: {{ order.warranty.duration_text }}{{ end }}
-{{ if order.warranty.description }}{{ order.warranty.description | string.slice 0 140 }}{{ end }}
+{{ if order.warranty.description }}
+{{ order.warranty.description }}
 {{ end }}
+{{ end }}
+================================================
+<center>
+Al firmar, el cliente acepta las condiciones
+descritas en este documento.
+</center>
+------------------------------------------------
+Nombre: ________________________________
+
+C.I. / RIF: ____________________________
+
+Firma:  ________________________________
+
+Fecha:  ________________________________
 ================================================
 <center>
 Conserve este ticket para retirar su equipo.
 ¡Gracias por elegirnos!
 </center>
-
-
-
-
 <cut>
 """
 
