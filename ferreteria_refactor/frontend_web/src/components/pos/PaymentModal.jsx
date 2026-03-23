@@ -164,12 +164,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             rate = getExchangeRate(p.currency) || 1;
         }
 
-        return acc + (amount / rate);
+        return round2(acc + round2(amount / rate));
     }, 0);
 
-    const remainingUSD = Number((totalUSD - totalPaidUSD).toFixed(4));
-    const changeUSD = Number((totalPaidUSD - totalUSD).toFixed(4));
-    const isComplete = remainingUSD <= 0.001;
+    const remainingUSD = round2(Math.max(0, totalUSD - totalPaidUSD));
+    const changeUSD    = round2(Math.max(0, totalPaidUSD - totalUSD));
+    const isComplete   = remainingUSD <= 0.005;
 
     const addPaymentRow = () => {
         setPayments([...payments, { amount: '', currency: 'Bs', method: 'Efectivo Bolívares (Bs)', payment_date: new Date().toISOString().split('T')[0] }]);
@@ -488,7 +488,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         </div>
                                         <div className="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1">Pago Completado</div>
 
-                                        {changeUSD > 0.0001 ? (
+                                        {changeUSD > 0.005 ? (
                                             <div className="flex flex-col items-center">
                                                 <div className="text-lg font-bold text-emerald-200">
                                                     Su Vuelto: <span className="text-white text-xl">${formatLocalCurrency(changeUSD)}</span>
