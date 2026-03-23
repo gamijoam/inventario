@@ -7,6 +7,7 @@ import logging
 import traceback
 from ..services.tenant_service import TenantService
 from ..dependencies import limiter
+from ..utils.email_utils import send_welcome_email
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ class RegisterRequest(BaseModel):
 
 @router.post("/register")
 @limiter.limit("10/hour")
-async def register_tenant(request: Request, payload: RegisterRequest):
+async def register_tenant(request: Request, payload: RegisterRequest, background_tasks: BackgroundTasks):
     """
     Public endpoint to register a new tenant.
     Creates schema, user, and configures modules based on plan.
@@ -74,7 +75,21 @@ async def register_tenant(request: Request, payload: RegisterRequest):
             admin_password=payload.password,
             plan_type=final_plan
         )
-        
+
+        # Send welcome email in background (non-blocking)
+        try:
+            tenant_url = f"https://{schema_name}.miinventariofacil.com"
+            background_tasks.add_task(
+                send_welcome_email,
+                email_to=payload.email,
+                company_name=payload.company_name,
+                admin_password=payload.password,
+                tenant_url=tenant_url,
+                plan_label="Demo Gratuita",
+            )
+        except Exception as email_err:
+            logger.warning(f"⚠️ Could not schedule welcome email for {payload.email}: {email_err}")
+
         return {
             "status": "success",
             "message": "Empresa creada exitosamente",

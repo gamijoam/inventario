@@ -8,8 +8,11 @@ import os
 import sys
 import argparse
 import re
+import logging
 from alembic import command
 from alembic.config import Config
+
+logger = logging.getLogger(__name__)
 
 from ..database.db import get_db, engine, Base, _validate_schema_name
 from ..dependencies import get_current_superuser
@@ -31,6 +34,7 @@ from datetime import datetime, timedelta
 from ..security import get_password_hash, create_access_token
 from ..config import settings
 from ..utils.time_utils import get_venezuela_now
+from ..utils.email_utils import send_welcome_email
 
 router = APIRouter(
     prefix="/admin",
@@ -41,6 +45,7 @@ router = APIRouter(
 @router.post("/tenants", response_model=TenantOut, status_code=status.HTTP_201_CREATED)
 def create_tenant(
     tenant_in: TenantCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_superuser)
 ):
@@ -139,7 +144,27 @@ def create_tenant(
         TenantService.seed_cash_register(schema)
 
         print(f"✅ Seeding completed for {schema}")
-        
+
+        # 8. Send welcome email in background (non-blocking)
+        try:
+            if tenant_in.is_demo:
+                plan_label = "Demo Gratuita 15 días"
+            elif tenant_in.subscription_expires_at:
+                plan_label = f"Suscripción activa hasta {tenant_in.subscription_expires_at.strftime('%d/%m/%Y')}"
+            else:
+                plan_label = "Demo Gratuita"
+            tenant_url = f"https://{new_tenant.schema_name}.miinventariofacil.com"
+            background_tasks.add_task(
+                send_welcome_email,
+                email_to=tenant_in.admin_email,
+                company_name=tenant_in.name,
+                admin_password=tenant_in.admin_password,
+                tenant_url=tenant_url,
+                plan_label=plan_label,
+            )
+        except Exception as email_err:
+            logger.warning(f"⚠️ Could not schedule welcome email for {tenant_in.admin_email}: {email_err}")
+
         return new_tenant
         
     except Exception as e:

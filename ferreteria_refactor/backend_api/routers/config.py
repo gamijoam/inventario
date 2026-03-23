@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
-from ..dependencies import admin_only
+from ..dependencies import admin_only, get_current_active_user
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from ..template_presets import (
@@ -1016,3 +1016,62 @@ def debug_seed_currencies(db: Session = Depends(get_db)):
     except Exception as e:
         print(f"❌ Error in debug_seed: {e}")
         return {"status": "error", "detail": str(e)}
+
+
+# ========================================
+# SUBSCRIPTION STATUS (Tenant-Facing)
+# ========================================
+
+@router.get("/subscription")
+def get_subscription_status(
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_active_user),
+):
+    """Returns subscription status for the current tenant. Accessible by any authenticated tenant user."""
+    from datetime import datetime, timezone
+    from ..tenant_context import get_tenant_schema
+    from ..models.tenant import Tenant
+
+    current_schema = get_tenant_schema()
+    tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
+
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    now = datetime.now(timezone.utc)
+
+    if tenant.license_type == "lifetime":
+        return {
+            "license_type": "lifetime",
+            "is_demo": tenant.is_demo,
+            "days_remaining": None,
+            "expiry_date": None,
+            "is_expired": False,
+            "is_active": tenant.is_active,
+            "grace_period_active": False,
+        }
+
+    expiry = tenant.trial_ends_at if tenant.license_type == "trial" else tenant.subscription_expires_at
+
+    if expiry:
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        delta = expiry - now
+        days_remaining = max(0, delta.days)
+        is_expired = expiry < now
+        grace_period_active = is_expired and (now - expiry).days <= 5
+    else:
+        days_remaining = None
+        is_expired = False
+        grace_period_active = False
+
+    return {
+        "license_type": tenant.license_type,
+        "is_demo": tenant.is_demo,
+        "days_remaining": days_remaining,
+        "expiry_date": expiry.isoformat() if expiry else None,
+        "is_expired": is_expired,
+        "is_active": tenant.is_active,
+        "grace_period_active": grace_period_active,
+        "license_blocked_reason": tenant.license_blocked_reason,
+    }

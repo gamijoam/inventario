@@ -6,6 +6,7 @@ import GlobalBanner from '../components/common/GlobalBanner';
 import AnnouncementModal from '../components/common/AnnouncementModal';
 import OnboardingController from '../components/common/OnboardingController';
 import MobileBottomNav from '../components/layout/MobileBottomNav';
+import SubscriptionBanner from '../components/common/SubscriptionBanner';
 import { cn } from '../utils/cn';
 
 export default function DashboardLayout() {
@@ -60,6 +61,7 @@ export default function DashboardLayout() {
                 )}
             >
                 <OnboardingController />
+                <SubscriptionBanner />
                 <GlobalBanner />
                 <AnnouncementModal />
                 <div className="hidden md:block">

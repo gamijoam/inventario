@@ -16,13 +16,18 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
     const { register, handleSubmit, formState: { errors } } = useForm<CreateTenantDTO>();
 
     // Subscription Type Logic
-    const [planType, setPlanType] = useState('DEMO_15'); // DEMO_15, SUB_3, SUB_6, SUB_12
+    const [planType, setPlanType] = useState(''); // DEMO_15, SUB_3, SUB_6, SUB_12
 
     if (!isOpen) return null;
 
     const onSubmit = async (data: any) => {
         setIsLoading(true);
         try {
+            if (!planType) {
+                toast.error('Debes seleccionar un plan de suscripción');
+                setIsLoading(false);
+                return;
+            }
             // Calculate Subscription Dates based on selected Plan
             let isDemo = true;
             const now = new Date();
@@ -31,7 +36,7 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
             switch (planType) {
                 case 'DEMO_15':
                     isDemo = true;
-                    expiresAt.setDate(now.getDate() + 15);
+                    expiresAt.setDate(now.getDate() + 2);
                     break;
                 case 'SUB_3':
                     isDemo = false;
@@ -70,7 +75,7 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in fade-in zoom-in duration-200">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
@@ -84,7 +89,7 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
                 </div>
 
                 {/* Body */}
-                <form onSubmit={handleSubmit(onSubmit)} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <form onSubmit={handleSubmit(onSubmit)} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto flex-1">
 
                     {/* Left Column: Basic Info */}
                     <div className="space-y-4">
@@ -160,9 +165,14 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
                         <div className="pt-2">
                             <h4 className="font-medium text-gray-900 border-b pb-1 mb-3">Plan de Suscripción</h4>
                             <div className="space-y-2">
+                                {!planType && (
+                                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                        ⚠️ Selecciona un plan para continuar
+                                    </p>
+                                )}
                                 <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${planType === 'DEMO_15' ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
                                     <input type="radio" name="plan" value="DEMO_15" checked={planType === 'DEMO_15'} onChange={(e) => setPlanType(e.target.value)} className="w-4 h-4 text-blue-600" />
-                                    <span className="ml-2 text-sm font-medium text-gray-900">Demo Gratuita (15 Días)</span>
+                                    <span className="ml-2 text-sm font-medium text-gray-900">Demo Gratuita <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">2 días</span></span>
                                 </label>
                                 <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition-all ${planType === 'SUB_3' ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}>
                                     <input type="radio" name="plan" value="SUB_3" checked={planType === 'SUB_3'} onChange={(e) => setPlanType(e.target.value)} className="w-4 h-4 text-blue-600" />
