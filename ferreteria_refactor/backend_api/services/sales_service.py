@@ -575,16 +575,74 @@ class SalesService:
         
             # 3. Process Payments (New Multi-Payment Logic)
             if sale_data.payments:
+                total_paid_usd = Decimal("0.00")
+
                 for p in sale_data.payments:
+                    # =========================================================================
+                    # EXCHANGE RATE VALIDATION — Prevents frontend manipulation of rates
+                    # =========================================================================
+                    validated_exchange_rate = p.exchange_rate  # Default: use what frontend sent
+
+                    if p.currency not in ("USD", "$"):
+                        # Fetch the active (default) rate for this currency from DB
+                        db_rate = db.query(models.ExchangeRate).filter(
+                            models.ExchangeRate.currency_code == p.currency,
+                            models.ExchangeRate.is_active == True,
+                            models.ExchangeRate.is_default == True
+                        ).first()
+
+                        # If no default found, fall back to any active rate for the currency
+                        if not db_rate:
+                            db_rate = db.query(models.ExchangeRate).filter(
+                                models.ExchangeRate.currency_code == p.currency,
+                                models.ExchangeRate.is_active == True
+                            ).first()
+
+                        if not db_rate:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Moneda no válida o no activa: {p.currency}"
+                            )
+
+                        db_rate_val = float(db_rate.rate)
+                        frontend_rate = float(p.exchange_rate or 0)
+
+                        # Validate tolerance: ±15% from DB rate
+                        if frontend_rate > 0 and db_rate_val > 0:
+                            diff_pct = abs(frontend_rate - db_rate_val) / db_rate_val
+                            if diff_pct > 0.15:
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail=f"Tasa de cambio inválida para {p.currency}: recibida {frontend_rate:.2f}, esperada {db_rate_val:.2f}"
+                                )
+
+                        # Always use DB rate to calculate USD equivalent
+                        validated_exchange_rate = Decimal(str(db_rate_val))
+                        usd_equivalent = Decimal(str(float(p.amount))) / validated_exchange_rate
+                    else:
+                        # USD payments: 1:1 equivalent
+                        usd_equivalent = Decimal(str(float(p.amount)))
+
+                    total_paid_usd += usd_equivalent
+                    # =========================================================================
+
                     new_payment = models.SalePayment(
                         sale_id=new_sale_id, # Use captured ID
                         amount=p.amount,
                         currency=p.currency,
                         payment_method=p.payment_method,
-                        exchange_rate=p.exchange_rate,
+                        exchange_rate=validated_exchange_rate,
                         reference=p.reference # New: Mapped from frontend
                     )
                     db.add(new_payment)
+
+                # Validate total coverage (tolerance $0.05 for rounding)
+                if total_paid_usd < (sale_data.total_amount - Decimal("0.05")):
+                    faltante = float(sale_data.total_amount - total_paid_usd)
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Pago insuficiente. Faltan ${faltante:.2f} para cubrir el total de ${float(sale_data.total_amount):.2f}"
+                    )
             else:
                 # Fallback for legacy calls or single payment
                 # CRITICAL FIX: Only create auto-payment if it's NOT a credit sale.

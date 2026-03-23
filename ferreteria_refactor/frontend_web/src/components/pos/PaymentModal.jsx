@@ -168,7 +168,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             const effectiveRate = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : defaultBsRate;
             rate = effectiveRate;
         } else {
-            rate = getExchangeRate(p.currency) || 1;
+            // Tasa ponderada del carrito si existe, si no tasa global
+            const currTotal = totalsByCurrency?.[p.currency];
+            const weightedRate = (currTotal && totalUSD) ? (currTotal / totalUSD) : null;
+            rate = weightedRate || getExchangeRate(p.currency) || 1;
         }
 
         return round2(acc + round2(amount / rate));
@@ -826,6 +829,18 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                                 onChange={(val) => updatePayment(index, 'amount', val)}
                                                             />
                                                         </div>
+                                                        {/* Rate hint for non-USD currencies */}
+                                                        {payment.currency !== 'USD' && payment.currency !== '$' && (() => {
+                                                            const currTotal = totalsByCurrency?.[payment.currency];
+                                                            const displayRate = (currTotal && totalUSD)
+                                                                ? (currTotal / totalUSD)
+                                                                : (getExchangeRate(payment.currency) || 1);
+                                                            return (
+                                                                <div className="text-[10px] text-slate-400 font-mono mt-0.5 text-right pr-1">
+                                                                    Tasa: {displayRate.toFixed(2)} {payment.currency} / $
+                                                                </div>
+                                                            );
+                                                        })()}
 
                                                         {/* Remove Button */}
                                                         {payments.length > 1 && (

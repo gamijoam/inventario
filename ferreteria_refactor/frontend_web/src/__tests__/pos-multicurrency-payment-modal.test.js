@@ -342,3 +342,230 @@ describe('PaymentModal — resumen multi-moneda y vuelto Bs correcto', () => {
         });
     });
 });
+
+// =============================================================================
+// NUEVOS TESTS — Fix: COP usa tasa ponderada del carrito (igual que VES)
+// Fix: Backend valida tasas de cambio contra BD
+// =============================================================================
+
+/**
+ * Fix: COP (y cualquier moneda no-USD/no-VES) ahora usa tasa ponderada del carrito,
+ * igual que VES, en lugar de usar siempre la tasa global del ConfigContext.
+ *
+ * Escenario problemático:
+ *   - Producto con tasa COP específica 3500 (no la global 3710.76)
+ *   - CartContext calcula totalsByCurrency.COP = 35000 para $10
+ *   - Modal ANTES: usaba getExchangeRate('COP') = 3710.76 → error de conversión
+ *   - Modal AHORA: usa totalsByCurrency.COP / totalUSD = 3500 → correcto
+ */
+
+describe('PaymentModal — Fix: COP usa tasa ponderada del carrito', () => {
+
+    function calcTotalPaidUSDFixed(payments, totalUSD, totalsByCurrency, getExchangeRate) {
+        return payments.reduce((acc, p) => {
+            const amount = parseFloat(p.amount) || 0;
+            let rate = 1;
+            if (p.currency === 'USD' || p.currency === '$') {
+                rate = 1;
+            } else if (p.currency === 'Bs' || p.currency === 'VES') {
+                const vesTotal = totalsByCurrency?.VES || totalsByCurrency?.Bs;
+                rate = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : (getExchangeRate('VES') || 1);
+            } else {
+                const currTotal = totalsByCurrency?.[p.currency];
+                const weightedRate = (currTotal && totalUSD) ? (currTotal / totalUSD) : null;
+                rate = weightedRate || getExchangeRate(p.currency) || 1;
+            }
+            return round2(acc + round2(amount / rate));
+        }, 0);
+    }
+
+    function calcTotalPaidUSDBugCOP(payments, totalUSD, totalsByCurrency, getExchangeRate) {
+        return payments.reduce((acc, p) => {
+            const amount = parseFloat(p.amount) || 0;
+            let rate = 1;
+            if (p.currency === 'USD' || p.currency === '$') {
+                rate = 1;
+            } else if (p.currency === 'Bs' || p.currency === 'VES') {
+                const vesTotal = totalsByCurrency?.VES || totalsByCurrency?.Bs;
+                rate = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : (getExchangeRate('VES') || 1);
+            } else {
+                rate = getExchangeRate(p.currency) || 1; // BUG: siempre tasa global
+            }
+            return round2(acc + round2(amount / rate));
+        }, 0);
+    }
+
+    const totalUSD = 10.00;
+    const totalsByCurrencyEspecial = { USD: 10.00, VES: 450.00, COP: 35000.00 };
+    const getExchangeRateGlobal = (code) => ({ VES: 45, Bs: 45, COP: 3710.76 }[code] || 1);
+
+    test('BUG: pagar 35000 COP con tasa global 3710.76 cubre solo $9.43', () => {
+        const payments = [{ currency: 'COP', amount: '35000' }];
+        const paid = calcTotalPaidUSDBugCOP(payments, totalUSD, totalsByCurrencyEspecial, getExchangeRateGlobal);
+        expect(paid).toBeCloseTo(35000 / 3710.76, 1);
+        expect(paid).not.toBeCloseTo(10.00, 1);
+    });
+
+    test('FIX: pagar 35000 COP con tasa ponderada 3500 cubre exactamente $10.00', () => {
+        const payments = [{ currency: 'COP', amount: '35000' }];
+        const paid = calcTotalPaidUSDFixed(payments, totalUSD, totalsByCurrencyEspecial, getExchangeRateGlobal);
+        expect(paid).toBeCloseTo(10.00, 2);
+    });
+
+    test('FIX: remaining = $0 al pagar el total COP exacto con tasa especial', () => {
+        const payments = [{ currency: 'COP', amount: '35000' }];
+        const paid = calcTotalPaidUSDFixed(payments, totalUSD, totalsByCurrencyEspecial, getExchangeRateGlobal);
+        expect(round2(Math.max(0, totalUSD - paid))).toBe(0);
+    });
+
+    test('FIX: sin totalsByCurrency.COP -> fallback a tasa global 3710.76', () => {
+        const totalsNoCOP = { USD: 10, VES: 450 };
+        const payments = [{ currency: 'COP', amount: '37107.60' }];
+        const paid = calcTotalPaidUSDFixed(payments, totalUSD, totalsNoCOP, getExchangeRateGlobal);
+        expect(paid).toBeCloseTo(10.00, 1);
+    });
+
+    test('FIX: pago mixto Bs + COP (tasas especiales) + USD cubre $10', () => {
+        const payments = [
+            { currency: 'Bs', amount: String(3 * 45) },
+            { currency: 'COP', amount: String(3 * 3500) },
+            { currency: 'USD', amount: '4' },
+        ];
+        const paid = calcTotalPaidUSDFixed(payments, totalUSD, totalsByCurrencyEspecial, getExchangeRateGlobal);
+        expect(paid).toBeCloseTo(10.00, 1);
+    });
+
+    test('FIX: tasa mostrada en UI = tasa ponderada del carrito (no global)', () => {
+        const getDisplayRate = (currency, totalsByCurrency, totalUSD, getExchangeRate) => {
+            const currTotal = totalsByCurrency?.[currency];
+            return (currTotal && totalUSD) ? (currTotal / totalUSD) : (getExchangeRate(currency) || 1);
+        };
+        const displayed = getDisplayRate('COP', totalsByCurrencyEspecial, totalUSD, getExchangeRateGlobal);
+        expect(displayed).toBeCloseTo(3500, 0);
+        expect(displayed).not.toBeCloseTo(3710.76, 0);
+    });
+});
+
+// =============================================================================
+// TESTS — Fix Backend: validacion de tasas de cambio
+// =============================================================================
+
+describe('Backend — Validacion de tasa de cambio por pago', () => {
+
+    function validatePaymentRate(payment, dbRates) {
+        if (payment.currency === 'USD' || payment.currency === '$') {
+            return { valid: true, usdEquivalent: round2(parseFloat(payment.amount)), validatedRate: 1 };
+        }
+        const dbRate = dbRates.find(r => r.currency_code === payment.currency && r.is_active);
+        if (!dbRate) return { valid: false, error: `Moneda no valida o no activa: ${payment.currency}` };
+
+        const dbRateVal = parseFloat(dbRate.rate);
+        const frontendRate = parseFloat(payment.exchange_rate || 0);
+
+        if (frontendRate > 0 && dbRateVal > 0) {
+            const diffPct = Math.abs(frontendRate - dbRateVal) / dbRateVal;
+            if (diffPct > 0.15) {
+                return { valid: false, error: `Tasa invalida para ${payment.currency}: recibida ${frontendRate.toFixed(2)}, esperada ${dbRateVal.toFixed(2)}` };
+            }
+        }
+        return { valid: true, usdEquivalent: round2(parseFloat(payment.amount) / dbRateVal), validatedRate: dbRateVal };
+    }
+
+    function validateTotalPaid(payments, totalAmount, dbRates) {
+        let totalPaidUSD = 0;
+        for (const p of payments) {
+            const result = validatePaymentRate(p, dbRates);
+            if (!result.valid) return { valid: false, error: result.error };
+            totalPaidUSD = round2(totalPaidUSD + result.usdEquivalent);
+        }
+        if (totalPaidUSD < totalAmount - 0.05) {
+            const faltante = round2(totalAmount - totalPaidUSD);
+            return { valid: false, error: `Pago insuficiente. Faltan $${faltante.toFixed(2)}` };
+        }
+        return { valid: true, totalPaidUSD };
+    }
+
+    const dbRates = [
+        { currency_code: 'VES', rate: 45.00, is_active: true },
+        { currency_code: 'COP', rate: 3710.76, is_active: true },
+    ];
+
+    test('USD: siempre valido, equivalente 1:1', () => {
+        const r = validatePaymentRate({ currency: 'USD', amount: '10', exchange_rate: null }, dbRates);
+        expect(r.valid).toBe(true);
+        expect(r.usdEquivalent).toBeCloseTo(10.00, 2);
+    });
+
+    test('Bs con tasa correcta 45: valido, usdEquivalent = $10', () => {
+        const r = validatePaymentRate({ currency: 'VES', amount: '450', exchange_rate: 45 }, dbRates);
+        expect(r.valid).toBe(true);
+        expect(r.usdEquivalent).toBeCloseTo(10.00, 2);
+    });
+
+    test('Bs con tasa dentro de +-15% (47, diff 4.4%): valido', () => {
+        const r = validatePaymentRate({ currency: 'VES', amount: '450', exchange_rate: 47 }, dbRates);
+        expect(r.valid).toBe(true);
+    });
+
+    test('Bs con tasa fuera de +-15% (tasa 1 vs 45, diff 97%): invalido', () => {
+        const r = validatePaymentRate({ currency: 'VES', amount: '450', exchange_rate: 1 }, dbRates);
+        expect(r.valid).toBe(false);
+        expect(r.error).toContain('Tasa invalida');
+    });
+
+    test('Moneda no registrada en BD (EUR): invalido', () => {
+        const r = validatePaymentRate({ currency: 'EUR', amount: '10', exchange_rate: 1.1 }, dbRates);
+        expect(r.valid).toBe(false);
+        expect(r.error).toContain('Moneda no valida');
+    });
+
+    test('Backend usa tasa de BD aunque frontend envie distinta (dentro +-15%)', () => {
+        const r = validatePaymentRate({ currency: 'VES', amount: '450', exchange_rate: 42 }, dbRates);
+        expect(r.valid).toBe(true);
+        expect(r.validatedRate).toBeCloseTo(45.00, 2); // tasa de BD
+    });
+
+    test('Intento de fraude: tasa 1 para Bs rechazada por backend', () => {
+        const r = validatePaymentRate({ currency: 'VES', amount: '450', exchange_rate: 1 }, dbRates);
+        expect(r.valid).toBe(false);
+    });
+
+    test('Pago completo Bs (450 Bs = $10): valido', () => {
+        const r = validateTotalPaid([{ currency: 'VES', amount: '450', exchange_rate: 45 }], 10.00, dbRates);
+        expect(r.valid).toBe(true);
+        expect(r.totalPaidUSD).toBeCloseTo(10.00, 2);
+    });
+
+    test('Pago mixto Bs + COP + USD que cubre $30: valido', () => {
+        const payments = [
+            { currency: 'VES', amount: '450', exchange_rate: 45 },
+            { currency: 'COP', amount: '37107.60', exchange_rate: 3710.76 },
+            { currency: 'USD', amount: '10', exchange_rate: null },
+        ];
+        const r = validateTotalPaid(payments, 30.00, dbRates);
+        expect(r.valid).toBe(true);
+        expect(r.totalPaidUSD).toBeCloseTo(30.00, 1);
+    });
+
+    test('Pago insuficiente $8 para factura $10: error con faltante', () => {
+        const r = validateTotalPaid([{ currency: 'USD', amount: '8', exchange_rate: null }], 10.00, dbRates);
+        expect(r.valid).toBe(false);
+        expect(r.error).toContain('Pago insuficiente');
+        expect(r.error).toContain('$2.00');
+    });
+
+    test('Tolerancia $0.05 por redondeo: $9.96 cubre $10.00 (diff $0.04)', () => {
+        const r = validateTotalPaid([{ currency: 'USD', amount: '9.96', exchange_rate: null }], 10.00, dbRates);
+        expect(r.valid).toBe(true);
+    });
+
+    test('Pago con tasa manipulada en uno de los metodos: rechaza todo', () => {
+        const payments = [
+            { currency: 'USD', amount: '5', exchange_rate: null },
+            { currency: 'VES', amount: '225', exchange_rate: 1 }, // manipulada
+        ];
+        const r = validateTotalPaid(payments, 10.00, dbRates);
+        expect(r.valid).toBe(false);
+        expect(r.error).toContain('Tasa invalida');
+    });
+});
