@@ -209,6 +209,119 @@ describe('PaymentModal — resumen multi-moneda y vuelto Bs correcto', () => {
         });
     });
 
+    // ─── calcTotalPaidUSD — cuánto USD cubre un pago en Bs ───────────────────
+
+    /**
+     * Bug: el reduce de totalPaidUSD también usaba totalBs/totalUSD = tasa COP.
+     * Al pagar 450 Bs (exactamente el total VES) solo cubría $0.12 en vez de $10.
+     * Fix: usa totalsByCurrency.VES igual que calcChangeLocal.
+     */
+
+    /** BUG: effectiveRate = totalBs / totalUSD (puede ser tasa COP) */
+    function calcTotalPaidUSDBug(payments, totalUSD, totalBs, defaultBsRate) {
+        return payments.reduce((acc, p) => {
+            const amount = parseFloat(p.amount) || 0;
+            let rate = 1;
+            if (p.currency === 'USD' || p.currency === '$') {
+                rate = 1;
+            } else if (p.currency === 'Bs' || p.currency === 'VES') {
+                rate = (totalBs && totalUSD) ? (totalBs / totalUSD) : defaultBsRate;
+            } else {
+                rate = getExchangeRate(p.currency) || 1;
+            }
+            return round2(acc + round2(amount / rate));
+        }, 0);
+    }
+
+    /** FIX: effectiveRate = totalsByCurrency.VES / totalUSD (tasa VES pura) */
+    function calcTotalPaidUSD(payments, totalUSD, totalsByCurrency, defaultBsRate) {
+        return payments.reduce((acc, p) => {
+            const amount = parseFloat(p.amount) || 0;
+            let rate = 1;
+            if (p.currency === 'USD' || p.currency === '$') {
+                rate = 1;
+            } else if (p.currency === 'Bs' || p.currency === 'VES') {
+                const vesTotal = totalsByCurrency?.VES || totalsByCurrency?.Bs;
+                rate = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : defaultBsRate;
+            } else {
+                rate = getExchangeRate(p.currency) || 1;
+            }
+            return round2(acc + round2(amount / rate));
+        }, 0);
+    }
+
+    describe('totalPaidUSD — BUG: pago Bs con tasa COP interna', () => {
+        test('BUG: pagar 450 Bs (total VES) → solo cubre $0.12 con tasa COP interna', () => {
+            const payments = [{ currency: 'Bs', amount: '450' }];
+            // totalBs = 37107.60 (COP), effectiveRate = 37107.60/10 = 3710.76
+            const paid = calcTotalPaidUSDBug(payments, totalUSD, totalBs, defaultBsRate);
+            expect(paid).toBeCloseTo(450 / 3710.76, 1); // ~$0.12 INCORRECTO
+            expect(paid).not.toBeCloseTo(10.00, 0);
+        });
+
+        test('BUG: remainingUSD resulta ~$9.88 en vez de $0 al pagar el total en Bs', () => {
+            const payments = [{ currency: 'Bs', amount: '450' }];
+            const paid = calcTotalPaidUSDBug(payments, totalUSD, totalBs, defaultBsRate);
+            const remaining = round2(Math.max(0, totalUSD - paid));
+            expect(remaining).toBeGreaterThan(9.00); // debería ser 0
+        });
+    });
+
+    describe('totalPaidUSD — FIX: pago Bs usa totalsByCurrency.VES', () => {
+        test('FIX: pagar 450 Bs (total VES) → cubre exactamente $10.00', () => {
+            const payments = [{ currency: 'Bs', amount: '450' }];
+            const paid = calcTotalPaidUSD(payments, totalUSD, totalsByCurrency, defaultBsRate);
+            expect(paid).toBeCloseTo(10.00, 2);
+        });
+
+        test('FIX: remainingUSD = $0 al pagar el total exacto en Bs', () => {
+            const payments = [{ currency: 'Bs', amount: '450' }];
+            const paid = calcTotalPaidUSD(payments, totalUSD, totalsByCurrency, defaultBsRate);
+            const remaining = round2(Math.max(0, totalUSD - paid));
+            expect(remaining).toBe(0);
+        });
+
+        test('FIX: pago parcial Bs — remaining correcto (225 Bs = $5)', () => {
+            const payments = [{ currency: 'Bs', amount: '225' }];
+            const paid = calcTotalPaidUSD(payments, totalUSD, totalsByCurrency, defaultBsRate);
+            expect(paid).toBeCloseTo(5.00, 2);
+            const remaining = round2(Math.max(0, totalUSD - paid));
+            expect(remaining).toBeCloseTo(5.00, 2);
+        });
+
+        test('FIX: pago USD no se ve afectado por el fix (rate = 1)', () => {
+            const payments = [{ currency: 'USD', amount: '10' }];
+            const paid = calcTotalPaidUSD(payments, totalUSD, totalsByCurrency, defaultBsRate);
+            expect(paid).toBeCloseTo(10.00, 2);
+        });
+
+        test('FIX: pago COP usa tasa COP del exchangeRate (no VES)', () => {
+            const payments = [{ currency: 'COP', amount: '37107.60' }];
+            const paid = calcTotalPaidUSD(payments, totalUSD, totalsByCurrency, defaultBsRate);
+            expect(paid).toBeCloseTo(10.00, 1);
+        });
+
+        test('FIX: pago mixto Bs + USD cubre el total', () => {
+            const payments = [
+                { currency: 'Bs', amount: '225' },   // $5
+                { currency: 'USD', amount: '5' },     // $5
+            ];
+            const paid = calcTotalPaidUSD(payments, totalUSD, totalsByCurrency, defaultBsRate);
+            expect(paid).toBeCloseTo(10.00, 2);
+        });
+
+        // Escenario exacto del screenshot: tasa BCV = 100, totalBs legacy = COP
+        test('FIX screenshot: tasa BCV 100, pagar 1000 Bs → cubre $10.00 exacto', () => {
+            const totalUSD_sc = 10.00;
+            const totalsByCurrency_sc = { USD: 10, VES: 1000, COP: 37107.60 };
+            const payments = [{ currency: 'Bs', amount: '1000' }];
+            const paid = calcTotalPaidUSD(payments, totalUSD_sc, totalsByCurrency_sc, 100);
+            expect(paid).toBeCloseTo(10.00, 2);
+            const remaining = round2(Math.max(0, totalUSD_sc - paid));
+            expect(remaining).toBe(0); // NO más "$9.73 faltante"
+        });
+    });
+
     // ─── Consistencia: totalsByCurrency.VES vs totalBs ───────────────────────
 
     describe('Consistencia: totalsByCurrency.VES es siempre VES puro', () => {

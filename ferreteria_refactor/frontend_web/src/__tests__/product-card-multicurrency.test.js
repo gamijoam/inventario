@@ -172,6 +172,52 @@ describe('ProductCard — secondaryCurrencies[] multi-precio (fix)', () => {
         });
     });
 
+    // ─── Toggle default: ON en vez de OFF ────────────────────────────────────
+
+    /**
+     * Bug: showSecondaryPrice usaba localStorage === 'true' (default OFF).
+     * Fix: ahora usa localStorage !== 'false' (default ON).
+     * Si no hay preferencia guardada, los precios Bs/COP se muestran por defecto.
+     */
+
+    /** Simula el useState inicial de POS.jsx */
+    function getDefaultShowSecondaryPrice(localStorageValue) {
+        // BUG (antes): return localStorageValue === 'true';
+        // FIX (ahora): return localStorageValue !== 'false';
+        return localStorageValue !== 'false';
+    }
+
+    function getDefaultShowSecondaryPriceBug(localStorageValue) {
+        return localStorageValue === 'true';
+    }
+
+    describe('showSecondaryPrice — default ON (fix)', () => {
+        test('BUG: sin preferencia guardada → OFF (precios Bs/COP ocultos)', () => {
+            expect(getDefaultShowSecondaryPriceBug(null)).toBe(false); // era el bug
+        });
+
+        test('FIX: sin preferencia guardada → ON (precios Bs/COP visibles)', () => {
+            expect(getDefaultShowSecondaryPrice(null)).toBe(true);
+        });
+
+        test('FIX: localStorage = "false" → OFF (usuario lo apagó explícitamente)', () => {
+            expect(getDefaultShowSecondaryPrice('false')).toBe(false);
+        });
+
+        test('FIX: localStorage = "true" → ON', () => {
+            expect(getDefaultShowSecondaryPrice('true')).toBe(true);
+        });
+
+        test('FIX: valor desconocido → ON (seguro por defecto)', () => {
+            expect(getDefaultShowSecondaryPrice('cualquier_cosa')).toBe(true);
+        });
+
+        test('FIX: con toggle ON + 2 monedas → secondaryPrices generados por defecto', () => {
+            const prices = buildSecondaryPrices(copProduct, secondaryCurrencies, true, currencies);
+            expect(prices).toHaveLength(2); // Bs y COP visibles sin acción del usuario
+        });
+    });
+
     describe('convertProductPrice — lógica correcta', () => {
         test('producto COP + target COP → usa tasa asignada al producto', () => {
             const price = convertProductPrice(copProduct, 'COP', currencies);
