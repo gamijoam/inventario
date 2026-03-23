@@ -753,25 +753,17 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                             ))}
                                                         </select>
                                                         <div className="flex gap-1">
-                                                            {(() => {
-                                                                // Show only USD + one local Bs entry (exclude BCV/Paralelo duplicates)
-                                                                const usdEntry = currencies.find(c => c.symbol === 'USD');
-                                                                const localEntry = currencies.find(c => c.symbol !== 'USD' && !c.is_anchor);
-                                                                return [
-                                                                    ...(usdEntry ? [usdEntry] : []),
-                                                                    ...(localEntry ? [localEntry] : []),
-                                                                ].map(c => (
-                                                                    <Button
-                                                                        key={c.symbol}
-                                                                        size="sm"
-                                                                        variant={payment.currency === c.symbol ? "default" : "outline"}
-                                                                        onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                                        className={`flex-1 h-7 text-[11px] font-bold px-2 rounded-md min-w-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
-                                                                    >
-                                                                        {c.symbol}
-                                                                    </Button>
-                                                                ));
-                                                            })()}
+                                                            {currencies.map(c => (
+                                                                <Button
+                                                                    key={c.symbol}
+                                                                    size="sm"
+                                                                    variant={payment.currency === c.symbol ? "default" : "outline"}
+                                                                    onClick={() => updatePayment(index, 'currency', c.symbol)}
+                                                                    className={`flex-1 h-7 text-[11px] font-bold px-2 rounded-md min-w-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
+                                                                >
+                                                                    {c.symbol}
+                                                                </Button>
+                                                            ))}
                                                         </div>
                                                     </div>
 

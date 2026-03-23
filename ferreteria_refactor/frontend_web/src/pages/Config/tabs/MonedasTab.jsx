@@ -348,6 +348,7 @@ const MonedasTab = () => {
                                                 <ArrowRight className="mx-4 text-slate-300 group-hover:text-indigo-400 transition-colors" size={18} />
                                                 <input
                                                     type="number"
+                                                    step="0.00000001"
                                                     defaultValue={rate.rate}
                                                     onBlur={(e) => {
                                                         const val = parseFloat(e.target.value);
@@ -423,7 +424,7 @@ const MonedasTab = () => {
                                 <div className="relative">
                                     <input
                                         type="number"
-                                        step="0.0001"
+                                        step="0.00000001"
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-12 py-3 font-black text-xl text-slate-900 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                                         value={newRate.rate}
                                         onChange={e => setNewRate({ ...newRate, rate: e.target.value })}

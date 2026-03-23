@@ -29,6 +29,7 @@ const POSCatalog = forwardRef(({
     currencySymbol = '$',
     secondaryCurrency = null,
     convertProductPrice = null,
+    showSecondaryPrice = false,
     // New infinite scroll props
     onLoadMore = null,
     hasMore = false,
@@ -169,10 +170,12 @@ const POSCatalog = forwardRef(({
                     currentStock={product.stock}
                     currencySymbol={currencySymbol}
                     convertProductPrice={convertProductPrice}
+                    secondaryCurrency={secondaryCurrency}
+                    showSecondaryPrice={showSecondaryPrice}
                 />
             </div>
         );
-    }, [products, columnCount, onAddToCart, currencySymbol, convertProductPrice]);
+    }, [products, columnCount, onAddToCart, currencySymbol, convertProductPrice, secondaryCurrency, showSecondaryPrice]);
 
     const showTotalCount = isServerSide && totalCount != null && products.length > 0;
 

@@ -83,7 +83,7 @@ class ExchangeRate(Base):
     name = Column(String, nullable=False)  # "BCV", "Paralelo", "Preferencial"
     currency_code = Column(String, nullable=False)  # "VES", "COP", "PEN"
     currency_symbol = Column(String, nullable=False)  # "Bs", "COP", "S/"
-    rate = Column(Numeric(14, 4), nullable=False)  # Exchange rate to USD
+    rate = Column(Numeric(20, 8), nullable=False)  # Exchange rate to USD (8 decimals for micro-currencies like COP)
     is_default = Column(Boolean, default=False)  # Default rate for this currency
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=get_venezuela_now)

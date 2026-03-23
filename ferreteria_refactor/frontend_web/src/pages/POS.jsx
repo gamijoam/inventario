@@ -57,6 +57,19 @@ const POS = () => {
     } = usePOSCatalog();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
+    // Toggle: mostrar precio en moneda secundaria en las tarjetas (default OFF)
+    const [showSecondaryPrice, setShowSecondaryPrice] = useState(
+        () => localStorage.getItem('pos_show_secondary_price') === 'true'
+    );
+    const toggleSecondaryPrice = () => {
+        setShowSecondaryPrice(prev => {
+            const next = !prev;
+            localStorage.setItem('pos_show_secondary_price', next);
+            return next;
+        });
+    };
+    const secondaryCurrency = currencies.find(c => !c.is_anchor && c.is_active) || null;
+
     // Theme State - Resolve by ID to ensure latest styles
     const themeId = user?.preferences?.pos_theme?.id || 'default';
     const currentTheme = POS_THEMES.find(t => t.id === themeId) || DEFAULT_THEME;
@@ -733,6 +746,20 @@ const POS = () => {
 
                     <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
+                    {/* Toggle precio moneda secundaria en tarjetas */}
+                    {secondaryCurrency && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={toggleSecondaryPrice}
+                            title={showSecondaryPrice ? `Ocultar precios en ${secondaryCurrency.symbol}` : `Mostrar precios en ${secondaryCurrency.symbol}`}
+                            className={`hidden md:flex items-center gap-1.5 rounded-full text-xs font-bold px-3 ${showSecondaryPrice ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
+                        >
+                            <span>{secondaryCurrency.symbol}</span>
+                            <span>{showSecondaryPrice ? 'ON' : 'OFF'}</span>
+                        </Button>
+                    )}
+
                     <Button
                         id="tour-pos-settings"
                         variant="ghost"
@@ -810,7 +837,7 @@ const POS = () => {
                                 anchorCurrency={anchorCurrency}
                                 onCheckout={() => setIsPaymentOpen(true)}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
-                                secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                                secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
                             />
                         </div>
@@ -832,8 +859,9 @@ const POS = () => {
                                 searchTerm={searchTerm}
                                 currencySymbol={anchorCurrency.symbol}
                                 // Secondary Currency Props
-                                secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                                secondaryCurrency={secondaryCurrency}
                                 convertProductPrice={convertProductPrice}
+                                showSecondaryPrice={showSecondaryPrice}
                                 // Server-side pagination props
                                 onLoadMore={loadMore}
                                 hasMore={hasMore}
@@ -857,7 +885,7 @@ const POS = () => {
                                 anchorCurrency={anchorCurrency}
                                 onCheckout={() => setIsPaymentOpen(true)}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
-                                secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                                secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
                             />
                         </div>
@@ -898,7 +926,7 @@ const POS = () => {
                                 anchorCurrency={anchorCurrency}
                                 onCheckout={() => { setIsMobileCartOpen(false); setIsPaymentOpen(true); }}
                                 onItemClick={(item) => { setIsMobileCartOpen(false); setSelectedItemForEdit(item); }}
-                                secondaryCurrency={currencies.find(c => !c.is_anchor && c.is_active)}
+                                secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
                             />
                         </div>

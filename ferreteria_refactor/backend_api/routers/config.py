@@ -269,7 +269,7 @@ def fetch_bcv_rates():
             return None
         raw = m.group(1).strip().replace(",", ".")
         try:
-            return round(float(raw), 4)
+            return round(float(raw), 8)
         except ValueError:
             return None
 
