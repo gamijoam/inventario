@@ -57,19 +57,31 @@ const POS = () => {
     } = usePOSCatalog();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
-    // Toggle: mostrar precio en moneda secundaria en las tarjetas (default ON)
-    const [showSecondaryPrice, setShowSecondaryPrice] = useState(
-        () => localStorage.getItem('pos_show_secondary_price') !== 'false'
-    );
-    const toggleSecondaryPrice = () => {
-        setShowSecondaryPrice(prev => {
-            const next = !prev;
-            localStorage.setItem('pos_show_secondary_price', next);
+    // Toggle por moneda: { VES: true, COP: false } — default ON para todas
+    const [showCurrencies, setShowCurrencies] = useState(() => {
+        try {
+            const s = localStorage.getItem('pos_show_currencies');
+            return s ? JSON.parse(s) : {};
+        } catch { return {}; }
+    });
+    const isCurrencyVisible = (code) => showCurrencies[code] !== false;
+    const toggleCurrency = (code) => {
+        setShowCurrencies(prev => {
+            const next = { ...prev, [code]: !isCurrencyVisible(code) };
+            localStorage.setItem('pos_show_currencies', JSON.stringify(next));
             return next;
         });
     };
     const secondaryCurrency = getPrimaryLocalCurrency() || null;
-    const secondaryCurrencies = getActiveCurrencies().filter(c => !c.is_anchor && c.currency_code !== 'USD');
+    // Deduplicar por currency_code (evita duplicados si hay 2 entradas VES en BD)
+    const secondaryCurrencies = [...new Map(
+        getActiveCurrencies()
+            .filter(c => !c.is_anchor && c.currency_code !== 'USD')
+            .map(c => [c.currency_code, c])
+    ).values()];
+    // Solo las monedas que el usuario habilitó
+    const visibleSecondaryCurrencies = secondaryCurrencies.filter(c => isCurrencyVisible(c.currency_code));
+    const showSecondaryPrice = visibleSecondaryCurrencies.length > 0;
 
     // Theme State - Resolve by ID to ensure latest styles
     const themeId = user?.preferences?.pos_theme?.id || 'default';
@@ -747,18 +759,24 @@ const POS = () => {
 
                     <div className="h-8 w-[1px] bg-slate-200 mx-1 hidden md:block"></div>
 
-                    {/* Toggle precio moneda secundaria en tarjetas */}
+                    {/* Pills por moneda — activa/desactiva cada una en tarjetas */}
                     {secondaryCurrencies.length > 0 && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={toggleSecondaryPrice}
-                            title={showSecondaryPrice ? 'Ocultar precios secundarios en tarjetas' : 'Mostrar precios secundarios en tarjetas'}
-                            className={`hidden md:flex items-center gap-1.5 rounded-full text-xs font-bold px-3 ${showSecondaryPrice ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'}`}
-                        >
-                            <span>{secondaryCurrencies.map(c => c.symbol).join('/')}</span>
-                            <span>{showSecondaryPrice ? 'ON' : 'OFF'}</span>
-                        </Button>
+                        <div className="hidden md:flex items-center gap-1">
+                            {secondaryCurrencies.map(c => (
+                                <button
+                                    key={c.currency_code}
+                                    onClick={() => toggleCurrency(c.currency_code)}
+                                    title={isCurrencyVisible(c.currency_code) ? `Ocultar precios en ${c.currency_symbol}` : `Mostrar precios en ${c.currency_symbol}`}
+                                    className={`text-xs font-black px-2.5 py-1 rounded-full transition-all ${
+                                        isCurrencyVisible(c.currency_code)
+                                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                            : 'text-slate-400 bg-slate-100 hover:bg-slate-200 line-through'
+                                    }`}
+                                >
+                                    {c.currency_symbol}
+                                </button>
+                            ))}
+                        </div>
                     )}
 
                     <Button
@@ -862,7 +880,7 @@ const POS = () => {
                                 currencySymbol={anchorCurrency.symbol}
                                 // Secondary Currency Props
                                 secondaryCurrency={secondaryCurrency}
-                                secondaryCurrencies={secondaryCurrencies}
+                                secondaryCurrencies={visibleSecondaryCurrencies}
                                 convertProductPrice={convertProductPrice}
                                 showSecondaryPrice={showSecondaryPrice}
                                 // Server-side pagination props
@@ -939,7 +957,13 @@ const POS = () => {
                 </Sheet>
 
                 {/* --- MODALS --- */}
-                <POSSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+                <POSSettingsModal
+                    isOpen={isSettingsOpen}
+                    onClose={() => setIsSettingsOpen(false)}
+                    secondaryCurrencies={secondaryCurrencies}
+                    isCurrencyVisible={isCurrencyVisible}
+                    onToggleCurrency={toggleCurrency}
+                />
                 <UnitSelectionModal isOpen={!!selectedProductForUnits} product={selectedProductForUnits} onClose={() => setSelectedProductForUnits(null)} onSelect={handleUnitSelect} />
                 <EditItemModal
                     isOpen={!!selectedItemForEdit}
