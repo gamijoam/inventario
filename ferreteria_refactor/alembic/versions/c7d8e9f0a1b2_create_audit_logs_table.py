@@ -1,6 +1,6 @@
 """create_audit_logs_table
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: c7d8e9f0a1b2
 Revises: eeffd027992c
 Create Date: 2026-03-23 22:30:00.000000
 
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.engine.reflection import Inspector
 
-revision = 'a1b2c3d4e5f6'
+revision = 'c7d8e9f0a1b2'
 down_revision = 'eeffd027992c'
 branch_labels = None
 depends_on = None
@@ -24,7 +24,7 @@ def upgrade():
         op.create_table(
             'audit_logs',
             sa.Column('id', sa.Integer(), nullable=False),
-            sa.Column('user_id', sa.Integer(), sa.ForeignKey('public.users.id', ondelete='SET NULL'), nullable=True),
+            sa.Column('user_id', sa.Integer(), nullable=True),
             sa.Column('action', sa.String(), nullable=False),
             sa.Column('table_name', sa.String(), nullable=False),
             sa.Column('record_id', sa.Integer(), nullable=True),
