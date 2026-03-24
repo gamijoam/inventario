@@ -1,13 +1,11 @@
-import { Search, Bell, ShoppingCart, PackageSearch, DollarSign, RefreshCw, User, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown } from 'lucide-react';
+import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useCash } from '../../context/CashContext';
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { cn } from '../../utils/cn';
-import apiClient from '../../config/axios';
-import toast from 'react-hot-toast';
 
 // ─── Rate freshness helper ───────────────────────────────────────────────────
 function getRateFreshness(updatedAt) {
@@ -36,30 +34,19 @@ const FRESHNESS_DOT = {
 const FLAG = { VES: '🇻🇪', COP: '🇨🇴', EUR: '🇪🇺', USD: '🇺🇸', BRL: '🇧🇷' };
 
 // ─── Bottom Sheet ─────────────────────────────────────────────────────────────
-function RateBottomSheet({ currencies, onClose, onRefreshed }) {
-    const [loading, setLoading] = useState(false);
+function RateBottomSheet({ currencies, onClose }) {
+    // Todas las tasas activas no-ancla, agrupadas por currency_code
+    const allRates = currencies.filter(c => !c.is_anchor && c.is_active);
 
-    const secondaryCurrencies = currencies.filter(c => !c.is_anchor && c.is_active);
+    // Agrupar: { VES: [bcv, paralelo, ...], COP: [...] }
+    const grouped = allRates.reduce((acc, c) => {
+        const key = c.currency_code;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(c);
+        return acc;
+    }, {});
 
-    const handleBcvUpdate = useCallback(async () => {
-        setLoading(true);
-        try {
-            const { data } = await apiClient.get('/config/exchange-rates/bcv');
-            if (data?.usd_ves) {
-                // Find active VES rate and update it
-                const vesRate = currencies.find(c => (c.currency_code === 'VES' || c.symbol === 'Bs') && c.is_default);
-                if (vesRate) {
-                    await apiClient.patch(`/config/exchange-rates/${vesRate.id}`, { rate: data.usd_ves });
-                    toast.success(`BCV actualizado: Bs ${parseFloat(data.usd_ves).toFixed(2)}`);
-                    onRefreshed();
-                }
-            }
-        } catch {
-            toast.error('No se pudo conectar con el BCV');
-        } finally {
-            setLoading(false);
-        }
-    }, [currencies, onRefreshed]);
+    const currencyCodes = Object.keys(grouped);
 
     return (
         <>
@@ -94,43 +81,60 @@ function RateBottomSheet({ currencies, onClose, onRefreshed }) {
                 </div>
 
                 {/* Currency list */}
-                <div className="overflow-y-auto flex-1 px-4 py-3 space-y-3">
-                    {secondaryCurrencies.length === 0 && (
+                <div className="overflow-y-auto flex-1 px-4 py-3 space-y-4">
+                    {currencyCodes.length === 0 && (
                         <p className="text-center text-sm text-slate-400 py-8">No hay monedas activas configuradas</p>
                     )}
-                    {secondaryCurrencies.map(c => {
-                        const freshness = getRateFreshness(c.updated_at);
-                        const rate = parseFloat(c.rate);
-                        const formattedRate = rate >= 1000
-                            ? rate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                            : rate.toFixed(4);
-
+                    {currencyCodes.map(code => {
+                        const rates = grouped[code];
                         return (
-                            <div
-                                key={c.id}
-                                className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <span className="text-2xl">{FLAG[c.currency_code] || '💱'}</span>
-                                    <div>
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="font-bold text-slate-800 text-sm">{c.name || c.currency_code}</span>
-                                            {c.is_default && (
-                                                <span className="text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-bold uppercase">Principal</span>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-1 mt-0.5">
-                                            <div className={cn('w-1.5 h-1.5 rounded-full', FRESHNESS_DOT[freshness])} />
-                                            <span className="text-[11px] text-slate-400">{freshnessLabel(c.updated_at)}</span>
-                                        </div>
-                                    </div>
+                            <div key={code}>
+                                {/* Currency header */}
+                                <div className="flex items-center gap-2 mb-2 px-1">
+                                    <span className="text-lg">{FLAG[code] || '💱'}</span>
+                                    <span className="text-xs font-black text-slate-500 uppercase tracking-widest">{code}</span>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-slate-400 mb-0.5">1 USD =</div>
-                                    <div className="font-black text-slate-800 text-lg leading-none">
-                                        {formattedRate}
-                                        <span className="text-xs font-bold text-slate-400 ml-1">{c.currency_symbol || c.symbol}</span>
-                                    </div>
+                                {/* Rate cards */}
+                                <div className="space-y-2">
+                                    {rates.map(c => {
+                                        const freshness = getRateFreshness(c.updated_at);
+                                        const rate = parseFloat(c.rate);
+                                        const formattedRate = rate >= 1000
+                                            ? rate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                            : rate.toFixed(4);
+
+                                        return (
+                                            <div
+                                                key={c.id}
+                                                className={cn(
+                                                    "flex items-center justify-between p-3.5 rounded-2xl border",
+                                                    c.is_default
+                                                        ? "bg-indigo-50 border-indigo-200"
+                                                        : "bg-slate-50 border-slate-100"
+                                                )}
+                                            >
+                                                <div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="font-bold text-slate-800 text-sm">{c.name || c.currency_code}</span>
+                                                        {c.is_default && (
+                                                            <span className="text-[9px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full font-bold uppercase">Principal</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-1 mt-0.5">
+                                                        <div className={cn('w-1.5 h-1.5 rounded-full', FRESHNESS_DOT[freshness])} />
+                                                        <span className="text-[11px] text-slate-400">{freshnessLabel(c.updated_at)}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-xs text-slate-400 mb-0.5">1 USD =</div>
+                                                    <div className="font-black text-slate-800 text-lg leading-none">
+                                                        {formattedRate}
+                                                        <span className="text-xs font-bold text-slate-400 ml-1">{c.currency_symbol || c.symbol}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         );
@@ -138,19 +142,11 @@ function RateBottomSheet({ currencies, onClose, onRefreshed }) {
                 </div>
 
                 {/* Actions */}
-                <div className="px-4 pb-6 pt-3 border-t border-slate-100 space-y-2">
-                    <button
-                        onClick={handleBcvUpdate}
-                        disabled={loading}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-60"
-                    >
-                        <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-                        {loading ? 'Consultando BCV...' : 'Actualizar desde BCV'}
-                    </button>
+                <div className="px-4 pb-6 pt-3 border-t border-slate-100">
                     <Link
-                        to="/settings?tab=currencies"
+                        to="/config-center?tab=monedas"
                         onClick={onClose}
-                        className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200 active:scale-[0.98] transition-all"
+                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 active:scale-[0.98] transition-all"
                     >
                         <Settings size={15} />
                         Gestionar tasas
@@ -163,7 +159,7 @@ function RateBottomSheet({ currencies, onClose, onRefreshed }) {
 
 // ─── Main Header ──────────────────────────────────────────────────────────────
 export default function Header() {
-    const { currencies, refreshConfig } = useConfig();
+    const { currencies } = useConfig();
     const { user, logout } = useAuth();
     const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
     const { isSessionOpen, session } = useCash();
@@ -175,11 +171,6 @@ export default function Header() {
     const primaryRate = secondaryCurrencies.find(c => c.is_default) || secondaryCurrencies[0];
     const rate = primaryRate ? parseFloat(primaryRate.rate) : 0;
     const freshness = primaryRate ? getRateFreshness(primaryRate.updated_at) : 'unknown';
-
-    const handleRefreshed = useCallback(() => {
-        if (refreshConfig) refreshConfig();
-        setIsRateSheetOpen(false);
-    }, [refreshConfig]);
 
     return (
         <>
@@ -391,7 +382,6 @@ export default function Header() {
                 <RateBottomSheet
                     currencies={currencies}
                     onClose={() => setIsRateSheetOpen(false)}
-                    onRefreshed={handleRefreshed}
                 />
             )}
         </>

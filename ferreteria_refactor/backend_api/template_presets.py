@@ -832,7 +832,7 @@ Gracias por su compra!
 {{ if item.serial_numbers && item.serial_numbers.size > 0 }}IMEI:    {{ item.serial_numbers | array.join ", " | string.slice 0 23 }}
 {{ end }}Tipo:    {{ item.warranty.name | string.slice 0 23 }}
 Tiempo:  {{ item.warranty.duration_text }}
-{{ if item.warranty.description }}{{ item.warranty.description | string.slice 0 120 }}
+{{ if item.warranty.description }}{{ item.warranty.description }}
 {{ end }}{{ end }}{{ end }}--------------------------------
 <center>
 Presente este ticket y su
@@ -898,7 +898,7 @@ Gracias por su compra!
 {{ end }}Tipo de garantia: {{ item.warranty.name | string.slice 0 30 }}
 Vigencia:         {{ item.warranty.duration_text }}
 {{ if item.warranty.description }}Condiciones:
-{{ item.warranty.description | string.slice 0 200 }}
+{{ item.warranty.description }}
 {{ end }}{{ end }}{{ end }}------------------------------------------------
 <center>
 Para reclamar su garantia presente

@@ -283,9 +283,12 @@ def add_service_order_item(
 
     # Reload BEFORE commit (while search_path is still set)
     result = db.query(models.ServiceOrder).options(
-         joinedload(models.ServiceOrder.details),
-         joinedload(models.ServiceOrder.payments)
-    ).get(order_id)
+        joinedload(models.ServiceOrder.customer),
+        joinedload(models.ServiceOrder.technician),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
+        joinedload(models.ServiceOrder.payments)
+    ).filter(models.ServiceOrder.id == order_id).first()
 
     db.commit()
     return result
@@ -320,9 +323,12 @@ def delete_service_order_item(
     db.flush()
 
     result = db.query(models.ServiceOrder).options(
-         joinedload(models.ServiceOrder.details),
-         joinedload(models.ServiceOrder.payments)
-    ).get(order_id)
+        joinedload(models.ServiceOrder.customer),
+        joinedload(models.ServiceOrder.technician),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
+        joinedload(models.ServiceOrder.payments)
+    ).filter(models.ServiceOrder.id == order_id).first()
 
     db.commit()
     return result
@@ -391,7 +397,8 @@ def update_service_order_status(
     final_order = db.query(models.ServiceOrder).options(
         joinedload(models.ServiceOrder.customer),
         joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
         joinedload(models.ServiceOrder.payments)
     ).filter(models.ServiceOrder.id == order_id).first()
     
