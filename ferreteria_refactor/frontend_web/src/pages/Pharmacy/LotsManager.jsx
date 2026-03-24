@@ -7,6 +7,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { getLots, createLot, updateLot } from '../../services/pharmacyService';
 import apiClient from '../../config/axios';
+import { useAuth } from '../../context/AuthContext';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -490,6 +491,7 @@ const EditQtyModal = ({ lot, onClose, onSuccess }) => {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const LotsManager = () => {
+    const { user } = useAuth();
     const [lots, setLots] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showReceiveModal, setShowReceiveModal] = useState(false);
@@ -766,11 +768,13 @@ const LotsManager = () => {
                                                 {getStatusBadge(lot.status)}
                                             </td>
                                             <td className="px-4 py-3 text-center">
-                                                <ActionsMenu
-                                                    lot={lot}
-                                                    onStatusChange={handleStatusChange}
-                                                    onEditQty={setEditQtyLot}
-                                                />
+                                                {user?.role === 'ADMIN' && (
+                                                    <ActionsMenu
+                                                        lot={lot}
+                                                        onStatusChange={handleStatusChange}
+                                                        onEditQty={setEditQtyLot}
+                                                    />
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

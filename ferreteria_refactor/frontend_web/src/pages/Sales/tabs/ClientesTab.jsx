@@ -3,6 +3,7 @@ import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTrian
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
+import { useAuth } from '../../../context/AuthContext';
 import {
     Sheet,
     SheetContent,
@@ -17,6 +18,7 @@ import { Label } from '../../../components/ui/label';
 import { Textarea } from '../../../components/ui/textarea';
 
 const ClientesTab = () => {
+    const { user } = useAuth();
     const [customers, setCustomers] = useState([]);
     const [totalCustomers, setTotalCustomers] = useState(0);
     const [hasMoreCustomers, setHasMoreCustomers] = useState(false);
@@ -325,6 +327,7 @@ const ClientesTab = () => {
                                                 </Button>
                                             ) : (
                                                 <>
+                                                    {['ADMIN', 'CASHIER'].includes(user?.role) && (
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -336,6 +339,8 @@ const ClientesTab = () => {
                                                     >
                                                         <Edit2 size={16} />
                                                     </Button>
+                                                    )}
+                                                    {user?.role === 'ADMIN' && (
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -348,6 +353,7 @@ const ClientesTab = () => {
                                                     >
                                                         <UserX size={16} />
                                                     </Button>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -431,6 +437,7 @@ const ClientesTab = () => {
                                         </div>
                                     </div>
 
+                                    {user?.role === 'ADMIN' && (
                                     <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center">
                                         <label className={clsx(
                                             "flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all select-none",
@@ -451,6 +458,7 @@ const ClientesTab = () => {
                                             <span className="font-bold text-xs uppercase tracking-wider">Bloqueo Crédito</span>
                                         </label>
                                     </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -466,7 +474,7 @@ const ClientesTab = () => {
                                     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 group hover:border-indigo-200 transition-colors">
                                         <div className="flex items-center justify-between mb-3">
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Límite Crédito</p>
-                                            {!editingCredit ? (
+                                            {user?.role === 'ADMIN' && (!editingCredit ? (
                                                 <button
                                                     onClick={() => { setEditingCredit(true); setTempCreditLimit(financialStatus.credit_limit); }}
                                                     className="text-indigo-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -478,7 +486,7 @@ const ClientesTab = () => {
                                                     <button onClick={handleUpdateCreditLimit} className="text-emerald-600 hover:bg-emerald-50 rounded p-1"><CheckCircle size={14} /></button>
                                                     <button onClick={() => setEditingCredit(false)} className="text-rose-600 hover:bg-rose-50 rounded p-1"><X size={14} /></button>
                                                 </div>
-                                            )}
+                                            ))}
                                         </div>
                                         {editingCredit ? (
                                             <Input

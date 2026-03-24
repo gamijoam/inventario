@@ -25,6 +25,7 @@ import {
 } from 'recharts';
 import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
+import { useAuth } from '../context/AuthContext';
 import unifiedReportService from '../services/unifiedReportService';
 import MultiCurrencyDisplay from '../components/dashboard/MultiCurrencyDisplay';
 import { cn } from '../utils/cn';
@@ -204,6 +205,7 @@ const Dashboard = () => {
     const { modules } = useConfig();
     const { subscribe } = useWebSocket();
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     // State
     const [loading, setLoading] = useState(true);
@@ -334,6 +336,7 @@ const Dashboard = () => {
                     value={<MultiCurrencyDisplay amountUSD={salesSummary?.total_revenue || 0} showRate={false} placeholderIfZero />}
                     icon={DollarSign}
                 />
+                {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                 <KPICard
                     title="Ganancia Real"
                     value={<MultiCurrencyDisplay amountUSD={profitData?.realized_profit || profitData?.total_profit || 0} showRate={false} placeholderIfZero />}
@@ -341,6 +344,7 @@ const Dashboard = () => {
                     trend="up"
                     trendValue="12.5%"
                 />
+                )}
                 <KPICard
                     title="Créditos Pendientes"
                     value={<MultiCurrencyDisplay amountUSD={creditsSummary?.total_pending_usd || 0} showRate={false} placeholderIfZero />}

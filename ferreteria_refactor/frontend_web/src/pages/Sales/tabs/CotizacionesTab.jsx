@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
+import { useAuth } from '../../../context/AuthContext';
 import { useConfig } from '../../../context/ConfigContext';
 import { API_BASE_URL } from '../../../config/constants';
 import clsx from 'clsx';
@@ -12,6 +13,7 @@ import printerService from '../../../services/printerService';
 
 
 const CotizacionesTab = ({ onCreateNew, onEdit }) => {
+    const { user } = useAuth();
     const [quotes, setQuotes] = useState([]);
     const [filteredQuotes, setFilteredQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -274,12 +276,14 @@ const CotizacionesTab = ({ onCreateNew, onEdit }) => {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <button
-                        onClick={onCreateNew}
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all"
-                    >
-                        <FileText size={16} /> Nueva Cotización
-                    </button>
+                    {['ADMIN', 'CASHIER'].includes(user?.role) && (
+                        <button
+                            onClick={onCreateNew}
+                            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all"
+                        >
+                            <FileText size={16} /> Nueva Cotización
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -292,12 +296,14 @@ const CotizacionesTab = ({ onCreateNew, onEdit }) => {
                         </div>
                         <h3 className="text-xl font-bold text-slate-500 mb-2">No se encontraron cotizaciones</h3>
                         <p className="text-sm font-medium mb-6">Intenta con otro término de búsqueda o crea una nueva.</p>
-                        <button
-                            onClick={onCreateNew}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2"
-                        >
-                            <FileText size={18} /> Crear Cotización
-                        </button>
+                        {['ADMIN', 'CASHIER'].includes(user?.role) && (
+                            <button
+                                onClick={onCreateNew}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all flex items-center gap-2"
+                            >
+                                <FileText size={18} /> Crear Cotización
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
@@ -355,13 +361,15 @@ const CotizacionesTab = ({ onCreateNew, onEdit }) => {
                                 {/* Actions Footer - Slide up on hover */}
                                 <div className="bg-slate-50 p-3 border-t border-slate-100 flex justify-between items-center group-hover:bg-indigo-50/30 transition-colors pl-7">
                                     <div className="flex gap-1">
-                                        <button
-                                            onClick={(e) => handleDelete(quote.id, e)}
-                                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                                            title="Eliminar"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
+                                        {user?.role === 'ADMIN' && (
+                                            <button
+                                                onClick={(e) => handleDelete(quote.id, e)}
+                                                className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                                title="Eliminar"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        )}
                                         <button
                                             onClick={(e) => handlePrint(quote, e)}
                                             className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -404,7 +412,7 @@ const CotizacionesTab = ({ onCreateNew, onEdit }) => {
                                         </button>
                                     </div>
 
-                                    {quote.status !== 'CONVERTED' && (
+                                    {quote.status !== 'CONVERTED' && ['ADMIN', 'CASHIER'].includes(user?.role) && (
                                         <button
                                             onClick={(e) => handleConvertToSale(quote, e)}
                                             className="flex items-center gap-1 px-3 py-1.5 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95"

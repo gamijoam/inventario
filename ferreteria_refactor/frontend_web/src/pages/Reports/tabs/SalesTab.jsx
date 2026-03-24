@@ -571,7 +571,7 @@ const SalesTab = ({ dateRange }) => {
                                                 <DropdownMenuItem onClick={() => handleReprint(sale)}>
                                                     <Printer className="mr-2 h-4 w-4" /> Reimprimir Ticket
                                                 </DropdownMenuItem>
-                                                {sale.status !== 'VOIDED' && (
+                                                {sale.status !== 'VOIDED' && user?.role === 'ADMIN' && (
                                                     <>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem onClick={() => handleVoidClick(sale)} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50">

@@ -533,12 +533,14 @@ const ServiceManager = () => {
                                             <td className="text-right p-2">{formatCurrency(detail.unit_price)}</td>
                                             <td className="text-right p-2 font-medium">{formatCurrency(Number(detail.quantity) * Number(detail.unit_price))}</td>
                                             <td className="text-right p-2">
-                                                <button
-                                                    onClick={() => handleDeleteItem(detail.id)}
-                                                    className="text-gray-400 hover:text-red-500 p-1"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                                {user?.role === 'ADMIN' && (
+                                                    <button
+                                                        onClick={() => handleDeleteItem(detail.id)}
+                                                        className="text-gray-400 hover:text-red-500 p-1"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}

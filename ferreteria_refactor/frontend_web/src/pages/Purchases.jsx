@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Plus, FileText, DollarSign, Calendar, TrendingUp, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import apiClient from '../config/axios';
 import toast from 'react-hot-toast';
 
 const Purchases = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [purchases, setPurchases] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL'); // ALL, PENDING, PARTIAL, PAID
@@ -70,14 +72,16 @@ const Purchases = () => {
                     <h1 className="text-xl md:text-2xl font-bold text-gray-800">Compras</h1>
                     <p className="text-gray-600 text-sm">Gestión de compras y cuentas por pagar</p>
                 </div>
-                <button
-                    id="tour-purchases-add-btn"
-                    onClick={() => navigate('/purchases/new')}
-                    className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors text-sm whitespace-nowrap"
-                >
-                    <Plus size={18} className="mr-1.5" />
-                    Nueva Compra
-                </button>
+                {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
+                    <button
+                        id="tour-purchases-add-btn"
+                        onClick={() => navigate('/purchases/new')}
+                        className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors text-sm whitespace-nowrap"
+                    >
+                        <Plus size={18} className="mr-1.5" />
+                        Nueva Compra
+                    </button>
+                )}
             </div>
 
             {/* Filters */}
@@ -185,13 +189,15 @@ const Purchases = () => {
                                             >
                                                 {purchase.payment_status === 'PAID' ? 'Ver Detalles' : 'Ver / Pagar'}
                                             </button>
-                                            <button
-                                                onClick={() => handleVoid(purchase)}
-                                                title="Anular factura"
-                                                className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
-                                            >
-                                                <Trash2 size={15} />
-                                            </button>
+                                            {user?.role === 'ADMIN' && (
+                                                <button
+                                                    onClick={() => handleVoid(purchase)}
+                                                    title="Anular factura"
+                                                    className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

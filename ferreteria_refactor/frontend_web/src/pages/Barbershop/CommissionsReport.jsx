@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useAuth } from '../../context/AuthContext';
 
 // Inline confirmation modal
 const ConfirmPayModal = ({ commission, onConfirm, onCancel, isProcessing }) => {
@@ -84,6 +85,7 @@ const ConfirmPayModal = ({ commission, onConfirm, onCancel, isProcessing }) => {
 };
 
 const CommissionsReport = () => {
+    const { user } = useAuth();
     const [commissions, setCommissions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -261,7 +263,7 @@ const CommissionsReport = () => {
                                             }
                                         </td>
                                         <td className="p-4 text-center">
-                                            {comm.status === 'PENDING' && (
+                                            {comm.status === 'PENDING' && user?.role === 'ADMIN' && (
                                                 <button
                                                     onClick={() => handlePayClick(comm)}
                                                     className="inline-flex items-center gap-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors shadow-sm disabled:opacity-50"

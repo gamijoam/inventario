@@ -4,8 +4,10 @@ import { toast } from 'react-hot-toast';
 import {
     Plus, Pencil, Trash2, Users, Search, X, Save
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const EmployeeManager = () => {
+    const { user } = useAuth();
     const [employees, setEmployees] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -117,13 +119,15 @@ const EmployeeManager = () => {
                         <p className="text-slate-500 text-sm mt-1">Gestión de personal y comisiones base</p>
                     </div>
                 </div>
-                <button
-                    onClick={() => handleOpenModal()}
-                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-indigo-200 hover:shadow-lg font-medium"
-                >
-                    <Plus className="w-5 h-5" />
-                    <span>Nuevo Personal</span>
-                </button>
+                {user?.role === 'ADMIN' && (
+                    <button
+                        onClick={() => handleOpenModal()}
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-indigo-200 hover:shadow-lg font-medium"
+                    >
+                        <Plus className="w-5 h-5" />
+                        <span>Nuevo Personal</span>
+                    </button>
+                )}
             </div>
 
             {/* Content list */}
@@ -186,14 +190,16 @@ const EmployeeManager = () => {
                                             }
                                         </td>
                                         <td className="p-4 text-right space-x-2">
-                                            <button
-                                                onClick={() => handleOpenModal(emp)}
-                                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
-                                                title="Editar"
-                                            >
-                                                <Pencil className="w-5 h-5" />
-                                            </button>
-                                            {emp.status === 'ACTIVE' && (
+                                            {user?.role === 'ADMIN' && (
+                                                <button
+                                                    onClick={() => handleOpenModal(emp)}
+                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
+                                                    title="Editar"
+                                                >
+                                                    <Pencil className="w-5 h-5" />
+                                                </button>
+                                            )}
+                                            {user?.role === 'ADMIN' && emp.status === 'ACTIVE' && (
                                                 <button
                                                     onClick={() => handleDelete(emp.id)}
                                                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
@@ -212,7 +218,7 @@ const EmployeeManager = () => {
             </div>
 
             {/* Modal */}
-            {isModalOpen && (
+            {isModalOpen && user?.role === 'ADMIN' && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
                         <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50">

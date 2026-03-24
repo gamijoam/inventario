@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Building2, Phone, Mail, Search, Truck, MapPin, FileText, Check, X, CreditCard, ChevronRight } from 'lucide-react';
 import { useWebSocket } from '../context/WebSocketContext';
+import { useAuth } from '../context/AuthContext';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
@@ -19,6 +20,7 @@ import { Textarea } from '../components/ui/textarea';
 
 const Suppliers = () => {
     const { subscribe } = useWebSocket();
+    const { user } = useAuth();
     const [suppliers, setSuppliers] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
@@ -102,10 +104,12 @@ const Suppliers = () => {
                     </h1>
                     <p className="text-slate-500 font-medium mt-1">Gestión de proveedores, contactos y términos de crédito</p>
                 </div>
-                <Button id="tour-suppliers-add-btn" onClick={handleCreate}>
-                    <Plus size={20} className="mr-2" />
-                    Nuevo Proveedor
-                </Button>
+                {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
+                    <Button id="tour-suppliers-add-btn" onClick={handleCreate}>
+                        <Plus size={20} className="mr-2" />
+                        Nuevo Proveedor
+                    </Button>
+                )}
             </div>
 
             {/* Search Bar */}
@@ -196,22 +200,26 @@ const Suppliers = () => {
                                     </td>
                                     <td className="py-4 px-6">
                                         <div className="flex justify-end gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => handleEdit(supplier)}
-                                                className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                                            >
-                                                <Edit2 size={16} />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => handleDelete(supplier.id, supplier.name)}
-                                                className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
-                                            >
-                                                <Trash2 size={16} />
-                                            </Button>
+                                            {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleEdit(supplier)}
+                                                    className="h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                                >
+                                                    <Edit2 size={16} />
+                                                </Button>
+                                            )}
+                                            {user?.role === 'ADMIN' && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleDelete(supplier.id, supplier.name)}
+                                                    className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </Button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -269,20 +277,24 @@ const Suppliers = () => {
                             </div>
 
                             <div className="flex justify-end gap-3 pt-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={() => handleEdit(supplier)}
-                                    className="flex-1 text-indigo-600 border-indigo-100 hover:bg-indigo-50"
-                                >
-                                    <Edit2 size={16} className="mr-2" /> Editar
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => handleDelete(supplier.id, supplier.name)}
-                                    className="flex-1 text-rose-600 border-rose-100 hover:bg-rose-50"
-                                >
-                                    <Trash2 size={16} className="mr-2" /> Eliminar
-                                </Button>
+                                {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => handleEdit(supplier)}
+                                        className="flex-1 text-indigo-600 border-indigo-100 hover:bg-indigo-50"
+                                    >
+                                        <Edit2 size={16} className="mr-2" /> Editar
+                                    </Button>
+                                )}
+                                {user?.role === 'ADMIN' && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => handleDelete(supplier.id, supplier.name)}
+                                        className="flex-1 text-rose-600 border-rose-100 hover:bg-rose-50"
+                                    >
+                                        <Trash2 size={16} className="mr-2" /> Eliminar
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     ))

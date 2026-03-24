@@ -6,6 +6,7 @@ import {
 import unifiedReportService from '../../../services/unifiedReportService';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
+import { useAuth } from '../../../context/AuthContext';
 
 // ---------------------------------------------------------------------------
 // Currency helpers
@@ -50,6 +51,7 @@ const KPICard = ({ title, value, subtitle, icon: Icon, color = 'bg-indigo-500' }
 // MAIN COMPONENT
 // ---------------------------------------------------------------------------
 const InventoryTab = ({ dateRange }) => {
+    const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [inventoryData, setInventoryData] = useState(null);
     const [lowStock, setLowStock] = useState([]);
@@ -165,6 +167,7 @@ const InventoryTab = ({ dateRange }) => {
                     icon={Package}
                     color="bg-indigo-500"
                 />
+                {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                 <KPICard
                     title="Inversion en Inventario"
                     value={formatUSD(totalCost)}
@@ -172,6 +175,7 @@ const InventoryTab = ({ dateRange }) => {
                     icon={DollarSign}
                     color="bg-slate-500"
                 />
+                )}
                 <KPICard
                     title="Valor Venta Potencial"
                     value={formatUSD(totalRevenue)}
@@ -179,6 +183,7 @@ const InventoryTab = ({ dateRange }) => {
                     icon={TrendingUp}
                     color="bg-emerald-500"
                 />
+                {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                 <KPICard
                     title="Ganancia Potencial"
                     value={formatUSD(potentialProfit)}
@@ -186,6 +191,8 @@ const InventoryTab = ({ dateRange }) => {
                     icon={BarChart3}
                     color="bg-teal-500"
                 />
+                )}
+                {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                 <KPICard
                     title="Margen %"
                     value={`${marginPct.toFixed(1)}%`}
@@ -193,10 +200,11 @@ const InventoryTab = ({ dateRange }) => {
                     icon={TrendingUp}
                     color="bg-purple-500"
                 />
+                )}
             </div>
 
             {/* Valuation summary banner */}
-            {inventoryData && (
+            {inventoryData && ['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-center">
                     <h3 className="text-lg font-bold text-slate-800 mb-2">Valoracion de Inventario</h3>
                     <p className="text-slate-500 max-w-lg mx-auto">

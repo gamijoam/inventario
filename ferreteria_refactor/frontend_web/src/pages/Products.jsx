@@ -11,6 +11,7 @@ import ProductThumbnail from '../components/products/ProductThumbnail';
 import ProductInstancesModal from '../components/products/ProductInstancesModal';
 import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
+import { useAuth } from '../context/AuthContext';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
 import { cn } from '../utils/cn';
@@ -41,6 +42,7 @@ const formatStock = (stock) => {
 };
 
 const Products = () => {
+    const { user } = useAuth();
     const { getActiveCurrencies, convertProductPrice, modules } = useConfig();
     const { subscribe } = useWebSocket();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -173,14 +175,16 @@ const Products = () => {
                             <span className="hidden sm:inline">Recepción</span>
                         </Link>
                     )}
-                    <Button
-                        id="tour-products-add-btn"
-                        onClick={() => setIsModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-10 px-4"
-                    >
-                        <Plus size={16} className="mr-2" />
-                        Nuevo Producto
-                    </Button>
+                    {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
+                        <Button
+                            id="tour-products-add-btn"
+                            onClick={() => setIsModalOpen(true)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-10 px-4"
+                        >
+                            <Plus size={16} className="mr-2" />
+                            Nuevo Producto
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -401,38 +405,46 @@ const Products = () => {
                                             })()}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-100 shadow-none hover:shadow-sm rounded-xl transition-all">
-                                                        <MoreHorizontal size={20} />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
-                                                    <DropdownMenuLabel className="text-xs uppercase text-slate-400 tracking-widest">Opciones</DropdownMenuLabel>
-                                                    {product.has_imei && modules.services && (
-                                                        <DropdownMenuItem
-                                                            onClick={() => { setSelectedProductForInstances(product); setIsInstancesModalOpen(true); }}
-                                                            className="py-2.5 rounded-lg cursor-pointer font-medium text-slate-700 hover:text-indigo-600 hover:bg-indigo-50"
-                                                        >
-                                                            <div className="flex items-center w-full">
-                                                                <div className="w-8 flex justify-center"><Search size={16} /></div>
-                                                                <span>Ver Seriales / IMEIs</span>
-                                                            </div>
-                                                        </DropdownMenuItem>
-                                                    )}
-                                                    <DropdownMenuItem onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }} className="py-2.5 rounded-lg cursor-pointer">
-                                                        <Pencil size={16} className="mr-3 text-indigo-500" />
-                                                        <span className="font-bold">Editar</span>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem
-                                                        onClick={() => handleDelete(product)}
-                                                        className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 focus:bg-rose-50 py-2.5 rounded-lg cursor-pointer font-bold"
-                                                    >
-                                                        <Trash2 size={16} className="mr-3" /> Eliminar
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                            {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-100 shadow-none hover:shadow-sm rounded-xl transition-all">
+                                                            <MoreHorizontal size={20} />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="rounded-xl border-slate-200 shadow-xl min-w-[160px]">
+                                                        <DropdownMenuLabel className="text-xs uppercase text-slate-400 tracking-widest">Opciones</DropdownMenuLabel>
+                                                        {product.has_imei && modules.services && (
+                                                            <DropdownMenuItem
+                                                                onClick={() => { setSelectedProductForInstances(product); setIsInstancesModalOpen(true); }}
+                                                                className="py-2.5 rounded-lg cursor-pointer font-medium text-slate-700 hover:text-indigo-600 hover:bg-indigo-50"
+                                                            >
+                                                                <div className="flex items-center w-full">
+                                                                    <div className="w-8 flex justify-center"><Search size={16} /></div>
+                                                                    <span>Ver Seriales / IMEIs</span>
+                                                                </div>
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
+                                                            <DropdownMenuItem onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }} className="py-2.5 rounded-lg cursor-pointer">
+                                                                <Pencil size={16} className="mr-3 text-indigo-500" />
+                                                                <span className="font-bold">Editar</span>
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                        {user?.role === 'ADMIN' && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem
+                                                                    onClick={() => handleDelete(product)}
+                                                                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 focus:bg-rose-50 py-2.5 rounded-lg cursor-pointer font-bold"
+                                                                >
+                                                                    <Trash2 size={16} className="mr-3" /> Eliminar
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))
