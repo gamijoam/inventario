@@ -691,7 +691,6 @@ GARANTIA DEL SERVICIO
 <center>
 Al firmar acepta las condiciones
 descritas en este documento.
-</center>
 --------------------------------
 Nombre: _______________________
 
@@ -701,10 +700,8 @@ Firma:  _______________________
 
 Fecha:  _______________________
 ================================
-<center>
 Conserve este ticket para retirar
-su equipo. ¡Gracias por elegirnos!
-</center>
+su equipo. Gracias por elegirnos!
 <cut>
 """
 
@@ -758,7 +755,6 @@ GARANTIA DEL SERVICIO
 <center>
 Al firmar, el cliente acepta las condiciones
 descritas en este documento.
-</center>
 ------------------------------------------------
 Nombre: ________________________________
 
@@ -768,10 +764,8 @@ Firma:  ________________________________
 
 Fecha:  ________________________________
 ================================================
-<center>
 Conserve este ticket para retirar su equipo.
-¡Gracias por elegirnos!
-</center>
+Gracias por elegirnos!
 <cut>
 """
 

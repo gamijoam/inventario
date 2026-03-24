@@ -14,6 +14,14 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy import desc
 from enum import Enum
 import traceback
+import unicodedata
+
+
+def _ascii_safe(text: str) -> str:
+    """Normaliza caracteres acentuados a ASCII para compatibilidad con impresoras ESC/POS."""
+    if not text:
+        return text
+    return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
 
 router = APIRouter(
     prefix="/services",
@@ -504,9 +512,9 @@ def get_laundry_thermal_payload(
             if wp.duration else unit_map.get(str(wp.type).split('.')[-1], str(wp.type))
         )
         return {
-            "name": wp.name,
-            "duration_text": dur_text,
-            "description": wp.description or "",
+            "name": _ascii_safe(wp.name or ""),
+            "duration_text": _ascii_safe(dur_text),
+            "description": _ascii_safe(wp.description or ""),
         }
 
     try:
@@ -534,19 +542,19 @@ def get_laundry_thermal_payload(
         },
         "order": {
             "ticket_number": order.ticket_number or str(order.id),
-            "date": order.created_at.strftime("%d/%m/%Y %H:%M") if order.created_at else "",
+            "date": order.created_at.strftime("%d/%m/%Y %I:%M %p") if order.created_at else "",
             "customer": {
-                "name": order.customer.name if order.customer else "Sin cliente",
+                "name": _ascii_safe(order.customer.name) if order.customer else "Sin cliente",
                 "phone": order.customer.phone if order.customer else "",
                 "id_number": order.customer.id_number if order.customer else "",
             },
             # Device info (repair orders)
-            "device_type": order.device_type or "",
-            "brand": order.brand or "",
-            "model": order.model or "",
+            "device_type": _ascii_safe(order.device_type or ""),
+            "brand": _ascii_safe(order.brand or ""),
+            "model": _ascii_safe(order.model or ""),
             "serial_imei": order.serial_imei or "",
-            "physical_condition": order.physical_condition or "",
-            "problem_description": order.problem_description or "",
+            "physical_condition": _ascii_safe(order.physical_condition or ""),
+            "problem_description": _ascii_safe(order.problem_description or ""),
             # Items
             "items": [
                 {

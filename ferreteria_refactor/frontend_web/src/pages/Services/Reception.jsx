@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import QuickCustomerModal from '../../components/pos/QuickCustomerModal';
 import printerService from '../../services/printerService';
+import { useConfig } from '../../context/ConfigContext';
 
 const DEVICE_TYPES = [
     { id: 'SMARTPHONE', label: 'Celular', icon: Smartphone },
@@ -17,6 +18,8 @@ const DEVICE_TYPES = [
 ];
 
 const Reception = () => {
+    const { business } = useConfig();
+    const paperWidth = business?.paper_width || '80';
     const [loading, setLoading] = useState(false);
     const [ticketNumber, setTicketNumber] = useState(null);
     const [lastOrderId, setLastOrderId] = useState(null);
@@ -131,7 +134,7 @@ const Reception = () => {
 
             // Auto-print reception ticket
             try {
-                const printRes = await apiClient.get(`/services/orders/${res.data.id}/print/thermal`);
+                const printRes = await apiClient.get(`/services/orders/${res.data.id}/print/thermal?width=${paperWidth}`);
                 await printerService.printRaw(printRes.data);
             } catch (printErr) {
                 console.warn('Print error (non-blocking):', printErr);
@@ -164,7 +167,7 @@ const Reception = () => {
     const handleReprint = async (orderId) => {
         if (!orderId) return;
         try {
-            const printRes = await apiClient.get(`/services/orders/${orderId}/print/thermal`);
+            const printRes = await apiClient.get(`/services/orders/${orderId}/print/thermal?width=${paperWidth}`);
             await printerService.printRaw(printRes.data);
             toast.success('Ticket enviado a impresora');
         } catch (err) {
