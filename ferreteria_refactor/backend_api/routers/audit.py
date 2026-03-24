@@ -4,6 +4,7 @@ from typing import List, Optional
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
+from ..dependencies import admin_only
 import datetime
 
 router = APIRouter(
@@ -19,7 +20,8 @@ def get_audit_logs(
     table_name: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(admin_only)
 ):
     from sqlalchemy.orm import joinedload
     query = db.query(models.AuditLog).options(joinedload(models.AuditLog.user))

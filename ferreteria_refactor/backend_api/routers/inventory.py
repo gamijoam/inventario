@@ -15,8 +15,8 @@ router = APIRouter(
     dependencies=[]  # Dependencies moved to individual endpoints
 )
 
-@router.post("/add", dependencies=[Depends(warehouse_or_admin)])
-async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Depends(get_db)):
+@router.post("/add")
+async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Depends(get_db), current_user: models.User = Depends(warehouse_or_admin)):
     """Add stock (Purchase/Entry) - Multi-Warehouse Support"""
     product = db.query(models.Product).filter(models.Product.id == adjustment.product_id).first()
     if not product:
@@ -71,7 +71,7 @@ async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Dep
     
     # AUDIT LOG
     from ..audit_utils import log_action
-    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product_id, changes=f"Stock Adjustment (IN) [Wh:{adjustment.warehouse_id}]: +{adjustment.quantity}. Reason: {adjustment.reason}")
+    log_action(db, user_id=current_user.id, action="UPDATE", table_name="products", record_id=product_id, changes=f"Stock Adjustment (IN) [Wh:{adjustment.warehouse_id}]: +{adjustment.quantity}. Reason: {adjustment.reason}")
 
     await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, {
         "id": product_id,
@@ -88,8 +88,8 @@ async def add_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Dep
     
     return {"status": "success", "new_stock": product_stock, "product_id": product_id}
 
-@router.post("/remove", dependencies=[Depends(warehouse_or_admin)])
-async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Depends(get_db)):
+@router.post("/remove")
+async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = Depends(get_db), current_user: models.User = Depends(warehouse_or_admin)):
     """Remove stock (Adjustment/Loss) - Multi-Warehouse Support"""
     product = db.query(models.Product).filter(models.Product.id == adjustment.product_id).first()
     if not product:
@@ -150,7 +150,7 @@ async def remove_stock(adjustment: schemas.StockAdjustmentCreate, db: Session = 
     
     # AUDIT LOG
     from ..audit_utils import log_action
-    log_action(db, user_id=1, action="UPDATE", table_name="products", record_id=product_id, changes=f"Stock Adjustment (OUT) [Wh:{adjustment.warehouse_id}]: -{adjustment.quantity}. Reason: {adjustment.reason}")
+    log_action(db, user_id=current_user.id, action="UPDATE", table_name="products", record_id=product_id, changes=f"Stock Adjustment (OUT) [Wh:{adjustment.warehouse_id}]: -{adjustment.quantity}. Reason: {adjustment.reason}")
 
     await manager.broadcast(WebSocketEvents.PRODUCT_UPDATED, {
         "id": product_id,

@@ -349,7 +349,7 @@ async def update_exchange_rate(
     import json
     # Since we didn't capture 'old_state' easily, we'll log the new state.
     # Ideally we'd do the diff, but this is a quick action.
-    log_action(db, user_id=1, action="UPDATE", table_name="exchange_rates", record_id=response_data["id"], changes=json.dumps({"rate": response_data["rate"], "is_active": response_data["is_active"]}, default=str))
+    log_action(db, user_id=user.id, action="UPDATE", table_name="exchange_rates", record_id=response_data["id"], changes=json.dumps({"rate": response_data["rate"], "is_active": response_data["is_active"]}, default=str))
 
     # Broadcast event
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_UPDATED, {

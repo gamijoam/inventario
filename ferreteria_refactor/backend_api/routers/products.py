@@ -248,7 +248,7 @@ def read_products(
 
 @router.post("/", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
 @router.post("", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))], include_in_schema=False)
-async def create_product(product: schemas.ProductCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def create_product(product: schemas.ProductCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
     # 1. Operaciones DB (Síncronas en Threadpool)
     # 1. Operaciones DB (Transaction Wrapper)
     try:
@@ -393,7 +393,10 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
 
         # FINAL COMMIT
         db.commit()
-    
+
+        # Audit log
+        log_action(db, user_id=current_user.id, action="CREATE", table_name="products", record_id=db_product.id, changes=None, ip_address=None)
+
         # 2. WebSocket en Background (Moved inside success path)
         payload = {
             "id": response_data["id"],
@@ -407,7 +410,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
             "combo_items": response_data["combo_items"]
         }
         background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
-        
+
         return response_data
 
     except Exception as e:
@@ -448,7 +451,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
     return db_product
 
 @router.put("/{product_id}", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
-async def update_product(product_id: int, product_update: schemas.ProductUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def update_product(product_id: int, product_update: schemas.ProductUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
     # 1. Eager Load Initial State (Robustness)
     db_product = db.query(models.Product).options(
         joinedload(models.Product.units), 
@@ -643,16 +646,15 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
 
     # Logic Refactor: Audit (Using the fresh object state in memory)
     # We can rely on db_product because we just flushed updates to it.
-    user_id = 1 
     new_state = {c.name: getattr(db_product, c.name) for c in db_product.__table__.columns}
-    
+
     changes = {}
     for k, v in new_state.items():
         if k in old_state and old_state[k] != v:
             changes[k] = {"old": old_state[k], "new": v}
-            
+
     if changes:
-        log_action(db, user_id=user_id, action="UPDATE", table_name="products", record_id=db_product.id, changes=json.dumps(changes, default=str))
+        log_action(db, user_id=current_user.id, action="UPDATE", table_name="products", record_id=db_product.id, changes=json.dumps(changes, default=str))
 
     # FINAL COMMIT
     db.commit()
@@ -945,7 +947,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
     return product
 
 @router.delete("/{product_id}", dependencies=[Depends(has_role([UserRole.ADMIN]))])
-def delete_product(product_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def delete_product(product_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -957,14 +959,17 @@ def delete_product(product_id: int, background_tasks: BackgroundTasks, db: Sessi
     # Soft delete (set inactive)
     product.is_active = False
     db.commit()
-    
+
+    # Audit log
+    log_action(db, user_id=current_user.id, action="DELETE", table_name="products", record_id=product_id_val, changes=None, ip_address=None)
+
     # Broadcast product deleted/deactivated
     payload = {
         "id": product_id_val,
         "name": product_name_val
     }
     background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_DELETED, payload)
-    
+
     return {"status": "success", "message": "Product deactivated"}
 
 @router.delete("/{product_id}/image", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])

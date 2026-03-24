@@ -11,6 +11,7 @@ from datetime import timedelta
 from ..security import verify_password, get_password_hash, create_access_token, pwd_context
 from ..config import settings
 from ..dependencies import get_current_active_user, limiter
+from ..audit_utils import log_action
 
 
 class PinVerifyRequest(BaseModel):
@@ -96,6 +97,7 @@ def create_user(
     }
     
     db.commit()
+    log_action(db, user_id=current_user.id, action="CREATE", table_name="users", record_id=response_data["id"])
     return response_data
 
 @router.get("/me", response_model=schemas.UserRead)
@@ -282,6 +284,7 @@ def update_user(
     }
 
     db.commit()
+    log_action(db, user_id=current_user.id, action="UPDATE", table_name="users", record_id=user_id)
     # db.refresh(user)
     return response_data
 
@@ -320,6 +323,7 @@ def delete_user(
     
     user.is_active = False
     db.commit()
+    log_action(db, user_id=current_user.id, action="DELETE", table_name="users", record_id=user_id)
     return {"message": "User deactivated successfully"}
 
 @router.post("/login")

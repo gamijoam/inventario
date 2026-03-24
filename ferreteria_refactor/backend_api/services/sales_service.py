@@ -17,6 +17,7 @@ from ..template_presets import (
     get_services_sale_58_template,
     get_services_sale_80_template,
 )
+from ..audit_utils import log_action
 
 # DUPLICATED HELPER due to circular import risks if we try to import from routers
 def run_broadcast(event: str, data: dict):
@@ -666,7 +667,10 @@ class SalesService:
                     db.add(fallback_payment)
             
             db.commit()
-            
+
+            # Audit log
+            log_action(db, user_id=user_id, action="CREATE", table_name="sales", record_id=new_sale_id, changes=None, ip_address=None)
+
             # NO db.refresh(new_sale) here! It causes "ObjectDeletedError" if session is unclean.
             # We already have all data captured in local variables.
             

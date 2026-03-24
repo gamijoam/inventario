@@ -22,6 +22,7 @@ from ...models import models
 from ...websocket.manager import manager
 from ...tenant_context import get_tenant_schema
 from ... import schemas
+from ...audit_utils import log_action
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +276,7 @@ async def open_cash_session(
         print(f"   - Committing session #{new_session_id} with {len(currencies_response)} currencies...")
         db.commit()
         print(f"✅ [CASH] Commit OK for session #{new_session_id}")
+        log_action(db, user_id=current_user.id, action="CREATE", table_name="cash_sessions", record_id=new_session_id)
 
         print(f"💰 [CASH] Commit OK. Rebuilding response for session #{captured_id}...")
 
@@ -618,6 +620,14 @@ async def close_cash_session(
 
     db.commit()
     # NO db.refresh(session) calls!
+    log_action(
+        db,
+        user_id=current_user.id,
+        action="UPDATE",
+        table_name="cash_sessions",
+        record_id=broadcast_session_id,
+        changes=f'{{"status": "CLOSED", "final_cash_reported": {broadcast_final_reported}, "final_cash_reported_bs": {broadcast_final_reported_bs}, "difference": {broadcast_difference}, "difference_bs": {broadcast_difference_bs}}}'
+    )
 
     # Broadcast cash session closed event
     from ...services.sales_service import SalesService
