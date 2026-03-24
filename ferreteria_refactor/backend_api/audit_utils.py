@@ -43,24 +43,22 @@ def calculate_diff(before_model, after_model):
 
 def log_action(db: Session, user_id: int, action: str, table_name: str, record_id: int, changes: str = None, ip_address: str = None):
     """
-    Creates an Audit Log entry.
+    Creates an Audit Log entry using a savepoint so that a failure
+    never contaminates the caller's transaction.
     """
     try:
-        log = AuditLog(
-            user_id=user_id,
-            action=action,
-            table_name=table_name,
-            record_id=record_id,
-            changes=changes,
-            ip_address=ip_address
-        )
-        db.add(log)
-        # We assume strict commit control in the caller, but for audit logs 
-        # specifically, we might want to flush to get ID if needed.
-        # Generally, it will be committed along with the main transaction.
-        db.flush() 
-        db.commit() # Ensure log is persisted immediately 
+        # Use a nested transaction (SAVEPOINT) so any failure here
+        # is rolled back to the savepoint without affecting the outer tx.
+        with db.begin_nested():
+            log = AuditLog(
+                user_id=user_id,
+                action=action,
+                table_name=table_name,
+                record_id=record_id,
+                changes=changes,
+                ip_address=ip_address
+            )
+            db.add(log)
     except Exception as e:
-        print(f"FAILED TO CREATE AUDIT LOG: {e}")
-        # Don't crash main app for logging failure
-        pass
+        print(f"FAILED TO CREATE AUDIT LOG (non-blocking): {e}")
+        # Savepoint was automatically rolled back; outer session is intact.
