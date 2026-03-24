@@ -91,13 +91,31 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const forceAll = import.meta.env.VITE_FORCE_ALL_MODULES === 'true';
     const effectiveModules = forceAll ? { ...modules, services: true, barbershop: true, restaurant: true, pharmacy: true } : modules;
 
+    // Helpers de rol
+    const role = user?.role;
+    const isAdmin = role === 'ADMIN';
+    const isAdminOrWarehouse = ['ADMIN', 'WAREHOUSE'].includes(role);
+    const isAdminOrCashier = ['ADMIN', 'CASHIER'].includes(role);
+
+    // Finanzas: items filtrados por rol (si quedan 0 items, el grupo no aparece)
+    const finanzasItems = [
+        ...(isAdminOrWarehouse ? [
+            { icon: Briefcase, label: 'Compras', path: '/purchases' },
+            { icon: Truck, label: 'Proveedores', path: '/suppliers' },
+        ] : []),
+        ...(isAdmin ? [
+            { icon: BarChart2, label: 'Centro de Reportes', path: '/reports' },
+            { icon: LayoutGrid, label: 'Gestión de Cajas', path: '/cash-registers' },
+        ] : []),
+    ];
+
     const menuStructure = [
         {
             type: 'single',
             item: { icon: LayoutDashboard, label: 'Resumen', path: '/' }
         },
-        // RESTAURANT MODULE
-        ...(effectiveModules?.restaurant ? [{
+        // RESTAURANT MODULE — ADMIN, CASHIER, WAITER, KITCHEN
+        ...(effectiveModules?.restaurant && ['ADMIN', 'CASHIER', 'WAITER', 'KITCHEN'].includes(role) ? [{
             type: 'group',
             label: 'Restaurante',
             icon: Utensils,
@@ -105,12 +123,14 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 { icon: Utensils, label: 'Mapa de Mesas', path: '/restaurant/tables' },
                 { icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' },
                 { icon: Smartphone, label: 'Comandera Móvil', path: '/mobile/login' },
-                { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
-                { icon: ClipboardList, label: 'Recetas', path: '/restaurant/recipes' },
+                ...(isAdmin ? [
+                    { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
+                    { icon: ClipboardList, label: 'Recetas', path: '/restaurant/recipes' },
+                ] : []),
             ]
         }] : []),
-        // SERVICE & LAUNDRY MODULES
-        ...((effectiveModules?.services || effectiveModules?.laundry) ? [{
+        // SERVICE & LAUNDRY MODULES — ADMIN, CASHIER
+        ...((effectiveModules?.services || effectiveModules?.laundry) && isAdminOrCashier ? [{
             type: 'group',
             label: effectiveModules?.services ? 'Servicios' : 'Lavandería',
             icon: effectiveModules?.services ? Wrench : Smartphone,
@@ -124,20 +144,22 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 ] : []),
             ]
         }] : []),
-        // PHARMACY MODULE
+        // PHARMACY MODULE — ADMIN, CASHIER, WAREHOUSE
         ...(effectiveModules?.pharmacy ? [{
             type: 'group',
             label: 'Farmacia',
             icon: Pill,
             items: [
                 { icon: LayoutDashboard, label: 'Dashboard Farmacia', path: '/pharmacy' },
-                { icon: Package, label: 'Gestión de Lotes', path: '/pharmacy/lots' },
-                { icon: BookOpen, label: 'Libro de Control', path: '/pharmacy/control-log' },
+                ...(isAdminOrWarehouse ? [
+                    { icon: Package, label: 'Gestión de Lotes', path: '/pharmacy/lots' },
+                    { icon: BookOpen, label: 'Libro de Control', path: '/pharmacy/control-log' },
+                ] : []),
                 { icon: FileText, label: 'Recetas', path: '/pharmacy/prescriptions' },
             ]
         }] : []),
-        // BARBERSHOP MODULE
-        ...(effectiveModules?.barbershop ? [{
+        // BARBERSHOP MODULE — ADMIN, CASHIER
+        ...(effectiveModules?.barbershop && isAdminOrCashier ? [{
             type: 'single',
             item: {
                 icon: Scissors,
@@ -149,22 +171,20 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             type: 'single',
             item: { icon: ShoppingCart, label: 'Centro de Ventas', path: '/sales-center' }
         },
-        {
+        // INVENTARIO — ADMIN, WAREHOUSE
+        ...(isAdminOrWarehouse ? [{
             type: 'single',
             item: { icon: Package, label: 'Centro de Inventario', path: '/inventory-center' }
-        },
-        {
+        }] : []),
+        // FINANZAS — filtrado por rol (no se muestra si no hay items)
+        ...(finanzasItems.length > 0 ? [{
             type: 'group',
             label: 'Finanzas',
             icon: DollarSign,
-            items: [
-                { icon: Briefcase, label: 'Compras', path: '/purchases' },
-                { icon: Truck, label: 'Proveedores', path: '/suppliers' },
-                { icon: BarChart2, label: 'Centro de Reportes', path: '/reports' },
-                { icon: LayoutGrid, label: 'Gestión de Cajas', path: '/cash-registers' },
-            ]
-        },
-        ...(user?.role === 'ADMIN' ? [{
+            items: finanzasItems
+        }] : []),
+        // CONFIGURACIÓN — solo ADMIN
+        ...(isAdmin ? [{
             type: 'single',
             item: { icon: Settings, label: 'Configuración', path: '/config-center' }
         }] : [])

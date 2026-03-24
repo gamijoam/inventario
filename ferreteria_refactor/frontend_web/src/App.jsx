@@ -401,12 +401,12 @@ function App() {
 
                               {/* Restaurant Module - Phase 1 */}
                               <Route path="/restaurant/tables" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER', 'WAITER']}>
                                   <TableMap />
                                 </ProtectedRoute>
                               } />
                               <Route path="/restaurant/kitchen" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'KITCHEN']}>
                                   <KitchenDisplay />
                                 </ProtectedRoute>
                               } />
@@ -427,80 +427,80 @@ function App() {
                               <Route path="/support" element={<SupportTickets />} />
                               <Route path="/mi-suscripcion" element={<MiSuscripcion />} />
 
-                              {/* Service Module Routes */}
+                              {/* Service Module Routes — ADMIN + CASHIER */}
                               <Route path="/services" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <ServicesDashboard />
                                 </ProtectedRoute>
                               } />
                               <Route path="/services/list" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <ServiceList />
                                 </ProtectedRoute>
                               } />
                               <Route path="/services/reception" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <Reception />
                                 </ProtectedRoute>
                               } />
                               <Route path="/services/orders/:id" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <ServiceManager />
                                 </ProtectedRoute>
                               } />
 
-                              {/* Laundry Routes - Decoupled */}
+                              {/* Laundry Routes — ADMIN + CASHIER */}
                               <Route path="/laundry" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <LaundryDashboard />
                                 </ProtectedRoute>
                               } />
                               <Route path="/laundry/new" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <LaundryForm />
                                 </ProtectedRoute>
                               } />
                               <Route path="/laundry/ticket/:orderId" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <LaundryTicket />
                                 </ProtectedRoute>
                               } />
 
-                              {/* Barbershop Routes - Unified Section */}
+                              {/* Barbershop Routes — ADMIN + CASHIER */}
                               <Route path="/barbershop" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
                                   <BarbershopDashboard />
                                 </ProtectedRoute>
                               } />
                               <Route path="/barbershop/employees" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN']}>
                                   <EmployeeManager />
                                 </ProtectedRoute>
                               } />
                               <Route path="/barbershop/commissions" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN']}>
                                   <CommissionsReport />
                                 </ProtectedRoute>
                               } />
 
-                              {/* Pharmacy Module Routes */}
+                              {/* Pharmacy Module Routes — ADMIN + CASHIER + WAREHOUSE */}
                               <Route path="/pharmacy" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER', 'WAREHOUSE']}>
                                   <PharmacyDashboard />
                                 </ProtectedRoute>
                               } />
                               <Route path="/pharmacy/lots" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                   <LotsManager />
                                 </ProtectedRoute>
                               } />
                               <Route path="/pharmacy/control-log" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
                                   <ControlLog />
                                 </ProtectedRoute>
                               } />
                               <Route path="/pharmacy/prescriptions" element={
-                                <ProtectedRoute>
+                                <ProtectedRoute roles={['ADMIN', 'CASHIER', 'WAREHOUSE']}>
                                   <PrescriptionsHistory />
                                 </ProtectedRoute>
                               } />
