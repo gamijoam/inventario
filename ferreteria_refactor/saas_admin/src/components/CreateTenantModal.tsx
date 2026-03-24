@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Plus, Trash2 } from 'lucide-react';
 import { createTenant } from '../api/tenants';
 import type { CreateTenantDTO } from '../types/tenant';
 import toast from 'react-hot-toast';
@@ -17,6 +17,9 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
 
     // Subscription Type Logic
     const [planType, setPlanType] = useState(''); // DEMO_15, SUB_3, SUB_6, SUB_12
+
+    // CC emails adicionales (máx 3)
+    const [ccEmails, setCcEmails] = useState<string[]>([]);
 
     if (!isOpen) return null;
 
@@ -57,7 +60,8 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
                 // Ensure schema name is lowercase/safe
                 schema_name: data.schema_name.toLowerCase().replace(/[^a-z0-9]/g, ''),
                 is_demo: isDemo,
-                subscription_expires_at: expiresAt.toISOString()
+                subscription_expires_at: expiresAt.toISOString(),
+                cc_emails: ccEmails.filter(e => e.trim() !== ''),
             };
 
             await createTenant(payload);
@@ -146,6 +150,47 @@ const CreateTenantModal: React.FC<CreateTenantModalProps> = ({ isOpen, onClose, 
                                 placeholder="admin@empresa.com"
                             />
                             {errors.admin_email && <span className="text-xs text-red-500">{errors.admin_email.message}</span>}
+                        </div>
+
+                        {/* CC Emails adicionales */}
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <label className="block text-sm font-medium text-gray-700">Enviar copia a (opcional)</label>
+                                {ccEmails.length < 3 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setCcEmails([...ccEmails, ''])}
+                                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                        <Plus className="w-3 h-3" /> Agregar correo
+                                    </button>
+                                )}
+                            </div>
+                            {ccEmails.length === 0 && (
+                                <p className="text-xs text-gray-400">El correo de bienvenida llegará solo al email admin. Puedes agregar hasta 3 copias.</p>
+                            )}
+                            {ccEmails.map((email, idx) => (
+                                <div key={idx} className="flex gap-2 mb-2">
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={e => {
+                                            const updated = [...ccEmails];
+                                            updated[idx] = e.target.value;
+                                            setCcEmails(updated);
+                                        }}
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all"
+                                        placeholder={`correo${idx + 1}@ejemplo.com`}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setCcEmails(ccEmails.filter((_, i) => i !== idx))}
+                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
                         </div>
 
                         <div>

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, HttpUrl, field_validator, ConfigDict
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 class TenantBase(BaseModel):
@@ -17,6 +17,7 @@ class TenantCreate(TenantBase):
     # Extra fields for initial admin creation (not in Tenant model)
     admin_email: str
     admin_password: str
+    cc_emails: Optional[List[str]] = []  # Correos adicionales que recibirán el email de bienvenida
 
     @field_validator('domain')
     @classmethod

@@ -72,7 +72,8 @@ def send_welcome_email(
     company_name: str,
     admin_password: str,
     tenant_url: str,
-    plan_label: str = "Demo Gratuita"
+    plan_label: str = "Demo Gratuita",
+    cc_emails: list = None
 ):
     """
     Sends a welcome email to the new tenant admin with their credentials.
@@ -169,11 +170,17 @@ def send_welcome_email(
 
     subject = f"¡Bienvenido/a a Invensoft! Tu empresa {company_name} ya está lista"
 
+    valid_cc = [e.strip() for e in (cc_emails or []) if e and e.strip() and e.strip() != email_to]
+
     message = MIMEMultipart()
     message["From"] = f"{settings.EMAILS_FROM_NAME} <{settings.EMAILS_FROM_EMAIL}>"
     message["To"] = email_to
+    if valid_cc:
+        message["Cc"] = ", ".join(valid_cc)
     message["Subject"] = subject
     message.attach(MIMEText(html_content, "html"))
+
+    all_recipients = [email_to] + valid_cc
 
     try:
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
@@ -183,8 +190,8 @@ def send_welcome_email(
                 server.ehlo()
             if settings.SMTP_USER and settings.SMTP_PASSWORD:
                 server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.send_message(message)
-            logger.info(f"✅ Welcome email sent successfully to {email_to}")
+            server.sendmail(settings.EMAILS_FROM_EMAIL, all_recipients, message.as_string())
+            logger.info(f"✅ Welcome email sent to {email_to}" + (f" + CC: {valid_cc}" if valid_cc else ""))
     except Exception as e:
         logger.error(f"❌ Failed to send welcome email to {email_to}. Detail: {str(e)}")
 

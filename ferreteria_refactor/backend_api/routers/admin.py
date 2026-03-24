@@ -161,6 +161,7 @@ def create_tenant(
                 admin_password=tenant_in.admin_password,
                 tenant_url=tenant_url,
                 plan_label=plan_label,
+                cc_emails=getattr(tenant_in, 'cc_emails', None) or [],
             )
         except Exception as email_err:
             logger.warning(f"⚠️ Could not schedule welcome email for {tenant_in.admin_email}: {email_err}")
