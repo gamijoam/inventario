@@ -207,6 +207,12 @@ const Dashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
+    // Cajero → POS, Bodega → Inventario (no tienen uso para el dashboard gerencial)
+    useEffect(() => {
+        if (user?.role === 'CASHIER') { navigate('/pos', { replace: true }); return; }
+        if (user?.role === 'WAREHOUSE') { navigate('/inventory-center', { replace: true }); return; }
+    }, [user, navigate]);
+
     // State
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
