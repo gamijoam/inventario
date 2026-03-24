@@ -978,20 +978,72 @@ class SalesService:
         # ------------------------------------------------------------
         
         # Flatten for Template usage
-        # list of {method, usd_amount, bs_amount} ? Or just list of lines
+        # list of {method, usd_amount, bs_amount, amounts} — multi-currency aware
         payments_detail = []
-        for method, currencies in breakdown_raw.items():
-             usd_amt = float(currencies.get("USD", 0))
-             bs_amt = float(currencies.get("Bs", currencies.get("VES", 0)))
-             
-             if usd_amt > 0 or bs_amt > 0:
-                 payments_detail.append({
-                     "method": method,
-                     "usd": f"{usd_amt:,.2f}",
-                     "bs": f"{bs_amt:,.2f}",
-                     "has_usd": usd_amt > 0,
-                     "has_bs": bs_amt > 0
-                 })
+        for method, currencies_dict in breakdown_raw.items():
+            usd_amt = float(currencies_dict.get("USD", 0))
+            bs_amt = float(currencies_dict.get("Bs", currencies_dict.get("VES", 0)))
+
+            amounts = []
+            for curr_sym, amt in currencies_dict.items():
+                if float(amt) > 0.001:
+                    amounts.append({"symbol": curr_sym, "value": f"{float(amt):,.2f}"})
+
+            if amounts:
+                payments_detail.append({
+                    "method": method,
+                    "amounts": amounts,
+                    # backward compat fields
+                    "usd": f"{usd_amt:,.2f}",
+                    "bs": f"{bs_amt:,.2f}",
+                    "has_usd": usd_amt > 0.001,
+                    "has_bs": bs_amt > 0.001,
+                })
+
+        # Obtener todos los currency records de la sesión (multi-moneda dinámica)
+        currency_records = db.query(models.CashSessionCurrency).filter(
+            models.CashSessionCurrency.session_id == session.id
+        ).all()
+
+        # Construir array dinámico para el template
+        session_currencies_ctx = []
+        for curr in currency_records:
+            sym = curr.currency_symbol or "?"
+            exp = float(curr.final_expected or 0)
+            rep = float(curr.final_reported or 0)
+            diff = float(curr.difference or 0)
+            diff_sign = "+" if diff >= 0 else ""
+            session_currencies_ctx.append({
+                "symbol": sym,
+                "initial": f"{float(curr.initial_amount or 0):,.2f}",
+                "expected": f"{exp:,.2f}",
+                "reported": f"{rep:,.2f}",
+                "difference": f"{diff_sign}{diff:,.2f}",
+                "diff_ok": diff >= -0.05,
+            })
+
+        # Fallback: si no hay CashSessionCurrency, usar los campos legacy USD/Bs
+        if not session_currencies_ctx:
+            usd_diff = float(session.difference or 0)
+            bs_diff = float(session.difference_bs or 0)
+            session_currencies_ctx = [
+                {
+                    "symbol": "USD",
+                    "initial": f"{float(session.initial_cash or 0):,.2f}",
+                    "expected": f"{float(session.final_cash_expected or 0):,.2f}",
+                    "reported": f"{float(session.final_cash_reported or 0):,.2f}",
+                    "difference": f"{usd_diff:+,.2f}",
+                    "diff_ok": usd_diff >= -0.05,
+                },
+                {
+                    "symbol": "Bs",
+                    "initial": f"{float(session.initial_cash_bs or 0):,.2f}",
+                    "expected": f"{float(session.final_cash_expected_bs or 0):,.2f}",
+                    "reported": f"{float(session.final_cash_reported_bs or 0):,.2f}",
+                    "difference": f"{bs_diff:+,.2f}",
+                    "diff_ok": bs_diff >= -0.05,
+                },
+            ]
 
         # Build Context
         context = {
@@ -1006,6 +1058,7 @@ class SalesService:
                 "register_code": session.register.code if session.register else "C01",
                 "start_time": session.start_time.strftime("%d/%m/%Y %H:%M"),
                 "end_time": session.end_time.strftime("%d/%m/%Y %H:%M") if session.end_time else "N/A",
+                # legacy fields — kept for backward compat with older templates
                 "initial_usd": f"{float(session.initial_cash or 0):,.2f}",
                 "initial_bs": f"{float(session.initial_cash_bs or 0):,.2f}",
                 "sales_usd": f"{(float(session.final_cash_expected or 0) - float(session.initial_cash or 0)):,.2f}",
@@ -1016,10 +1069,11 @@ class SalesService:
                 "total_reported_bs": f"{float(session.final_cash_reported_bs or 0):,.2f}",
                 "diff_usd": f"{float(session.difference or 0):+,.2f}",
                 "diff_bs": f"{float(session.difference_bs or 0):+,.2f}",
-                "payments_detail": payments_detail # NEW FIELD
+                "payments_detail": payments_detail,
+                "currencies": session_currencies_ctx,
             }
         }
-        
+
         template = """
 <center>
 <bold>{{ business.name }}</bold>
@@ -1034,30 +1088,27 @@ Cajero: {{ session.user }}
 Apertura: {{ session.start_time }}
 Cierre:   {{ session.end_time }}
 {{ separator_equal }}
-<bold>RESUMEN DE PAGOS</bold>
+<bold>PAGOS</bold>
 {{ separator_equal }}
 {{ for pay in session.payments_detail }}
 {{ pay.method }}
-{{ if pay.has_usd }}   USD: ${{ pay.usd }}{{ end }}
-{{ if pay.has_bs }}   Bs:  {{ pay.bs }}{{ end }}
+{{ for a in pay.amounts }}  {{ a.symbol }}: {{ a.value }}
+{{ end }}
 {{ end }}
 {{ separator_equal }}
 <bold>FONDOS INICIALES</bold>
 {{ separator_equal }}
-USD:  ${{ session.initial_usd }}
-Bs:   Bs {{ session.initial_bs }}
+{{ for curr in session.currencies }}{{ curr.symbol }}: {{ curr.initial }}
+{{ end }}
 {{ separator_equal }}
-<bold>ARQUEO DE CAJA (TOTALES)</bold>
+<bold>ARQUEO (TOTALES)</bold>
 {{ separator_equal }}
-<bold>DOLARES ($)</bold>
-  Esperado:  ${{ session.total_expected_usd }}
-  Reportado: ${{ session.total_reported_usd }}
-  Diferencia: {{ session.diff_usd }}
-
-<bold>BOLIVARES (Bs)</bold>
-  Esperado:  Bs {{ session.total_expected_bs }}
-  Reportado: Bs {{ session.total_reported_bs }}
-  Diferencia: {{ session.diff_bs }}
+{{ for curr in session.currencies }}
+<bold>{{ curr.symbol }}</bold>
+  Esperado:   {{ curr.expected }}
+  Reportado:  {{ curr.reported }}
+  Diferencia: {{ curr.difference }}
+{{ end }}
 {{ separator_equal }}
 <center>
 <bold>FIN DEL REPORTE</bold>
