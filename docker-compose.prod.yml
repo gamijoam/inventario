@@ -97,6 +97,7 @@ services:
       - ferreteria_net
     volumes:
       - media_data_prod:/app/media
+      - backups_data_prod:/app/backups
     environment:
       - DOCKER_CONTAINER: "true"
       - TZ=America/Caracas
@@ -132,6 +133,7 @@ services:
 volumes:
   postgres_data_prod:
   media_data_prod:
+  backups_data_prod:
   letsencrypt:
 
 networks:

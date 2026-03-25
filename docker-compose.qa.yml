@@ -83,6 +83,7 @@ services:
       - ferreteria_qa_net
     volumes:
       - media_data_qa:/app/media
+      - backups_data_qa:/app/backups
     depends_on:
       db:
         condition: service_healthy
@@ -131,6 +132,7 @@ services:
 volumes:
   postgres_data_qa:
   media_data_qa:
+  backups_data_qa:
   letsencrypt:
 
 networks:
