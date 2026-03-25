@@ -128,6 +128,7 @@ def get_sale_valuation(sale_id: int, db: Session = Depends(get_db)):
     }
 
 from datetime import datetime, timedelta
+from ..utils.time_utils import get_venezuela_now
 
 @router.get("/aging-report")
 def get_aging_report(db: Session = Depends(get_db)):
@@ -147,7 +148,7 @@ def get_aging_report(db: Session = Depends(get_db)):
     
     report = {}
     
-    now = datetime.now()
+    now = get_venezuela_now()
     
     for sale in pending_sales:
         client_id = sale.customer_id

@@ -819,6 +819,7 @@ def get_credit_sales(
     and status filter (pending, overdue, paid).
     """
     from datetime import date as date_type
+    from ..utils.time_utils import get_venezuela_now as _get_vzla_now
     base_query = db.query(models.Sale).filter(
         models.Sale.is_credit == True
     )
@@ -839,7 +840,7 @@ def get_credit_sales(
     elif status == "overdue":
         base_query = base_query.filter(
             models.Sale.paid == False,
-            models.Sale.due_date < date_type.today()
+            models.Sale.due_date < _get_vzla_now().date()
         )
     elif status == "paid":
         base_query = base_query.filter(models.Sale.paid == True)

@@ -104,12 +104,16 @@ const CreditsTab = ({ dateRange }) => {
     // -----------------------------------------------------------------------
     // FETCH FUNCTIONS
     // -----------------------------------------------------------------------
-    const fetchInvoices = async (currentPage = 0, append = false) => {
+    const fetchInvoices = async (currentPage = 0, append = false, overrideFilter, overrideSearch) => {
         setLoading(true);
         try {
+            const activeFilter = overrideFilter !== undefined ? overrideFilter : cxcFilter;
+            const activeSearch = overrideSearch !== undefined ? overrideSearch : searchTerm;
             const params = { skip: currentPage * 100, limit: 100 };
             if (dateRange?.start) params.start_date = dateRange.start;
             if (dateRange?.end) params.end_date = dateRange.end;
+            if (activeFilter && activeFilter !== 'all') params.status = activeFilter;
+            if (activeSearch) params.q = activeSearch;
 
             const response = await apiClient.get('/products/credits', { params });
             const data = response.data;
@@ -182,35 +186,29 @@ const CreditsTab = ({ dateRange }) => {
         if (ledgerClientId) fetchLedger(ledgerClientId);
     }, [ledgerClientId]);
 
-    // Apply filter on CXC invoices
+    // When filter changes: reset and refetch from backend (server-side filtering)
     useEffect(() => {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
+        if (activeSubTab !== 'cxc') return;
+        setPage(0);
+        setInvoices([]);
+        fetchInvoices(0, false, cxcFilter, searchTerm);
+    }, [cxcFilter]);
 
-        let filtered = [];
-        if (cxcFilter === 'pending') {
-            filtered = invoices.filter(inv => !inv.paid);
-        } else if (cxcFilter === 'overdue') {
-            filtered = invoices.filter(inv => {
-                if (inv.paid) return false;
-                if (!inv.due_date) return false;
-                return new Date(inv.due_date + 'T23:59:59') < now;
-            });
-        } else if (cxcFilter === 'paid') {
-            filtered = invoices.filter(inv => inv.paid);
-        }
+    // Debounced search: send to backend after 400ms
+    useEffect(() => {
+        if (activeSubTab !== 'cxc') return;
+        const timer = setTimeout(() => {
+            setPage(0);
+            setInvoices([]);
+            fetchInvoices(0, false, cxcFilter, searchTerm);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(inv =>
-                inv.id.toString().includes(term) ||
-                (inv.customer?.name || '').toLowerCase().includes(term) ||
-                (inv.customer?.id_number || '').toLowerCase().includes(term)
-            );
-        }
-
-        setFilteredInvoices(filtered);
-    }, [invoices, cxcFilter, searchTerm]);
+    // filteredInvoices = invoices (already filtered server-side)
+    useEffect(() => {
+        setFilteredInvoices(invoices);
+    }, [invoices]);
 
     // -----------------------------------------------------------------------
     // CXC HELPERS
