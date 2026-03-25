@@ -219,10 +219,10 @@ const CashierDashboard = () => {
 
     const quickLinks = [
         { label: 'Punto de Venta', icon: Monitor, path: '/pos', color: 'bg-indigo-600 hover:bg-indigo-700 text-white', primary: true },
-        { label: 'Registrar Cliente', icon: UserPlus, path: '/sales-center', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
-        { label: 'Cotizaciones', icon: FileText, path: '/quotations', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
-        { label: 'Apertura / Cierre Caja', icon: Landmark, path: '/cash-register', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
-        ...(effectiveModules?.services ? [{ label: 'Taller / Servicios', icon: Wrench, path: '/service-orders', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+        { label: 'Registrar Cliente', icon: UserPlus, path: '/sales-center?tab=clientes', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
+        { label: 'Cotizaciones', icon: FileText, path: '/quotes', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
+        { label: 'Apertura / Cierre Caja', icon: Landmark, path: '/cash-close', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
+        ...(effectiveModules?.services ? [{ label: 'Taller / Servicios', icon: Wrench, path: '/services', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
         ...(effectiveModules?.laundry ? [{ label: 'Lavandería', icon: Droplets, path: '/laundry', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
         ...(effectiveModules?.barbershop ? [{ label: 'Barbería', icon: Scissors, path: '/barbershop', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
         ...(effectiveModules?.pharmacy ? [{ label: 'Farmacia', icon: FlaskConical, path: '/pharmacy', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
@@ -330,15 +330,17 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
+        if (!user || user.role === 'CASHIER' || user.role === 'WAREHOUSE') return;
         fetchDashboardData();
-    }, []);
+    }, [user]);
 
     // WebSocket real-time updates
     useEffect(() => {
+        if (!user || user.role === 'CASHIER' || user.role === 'WAREHOUSE') return;
         return subscribe('sale:created', () => {
             fetchDashboardData(true);
         });
-    }, [subscribe]);
+    }, [subscribe, user]);
 
     // Cajero ve su propio panel simplificado
     if (user?.role === 'CASHIER') {

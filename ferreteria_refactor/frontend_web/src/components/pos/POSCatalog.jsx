@@ -159,8 +159,8 @@ const POSCatalog = forwardRef(({
         return (
             <div style={{
                 ...style,
-                left: style.left + PADDING + columnIndex * GAP,
-                top: style.top + PADDING + rowIndex * GAP,
+                left: style.left + PADDING,
+                top: style.top + PADDING,
                 width: style.width - GAP,
                 height: style.height - GAP,
             }}>

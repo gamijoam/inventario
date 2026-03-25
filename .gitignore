@@ -86,5 +86,9 @@ ferreteria_refactor/backend_api/data/images/products/*
 !ferreteria_refactor/backend_api/data/images/products/.gitkeep
 hardware_bridge/dist/*.exe
 security_module/credentials.json
+# Coverage
+.coverage
+htmlcov/
+
 # AI Tools
 .claude/
