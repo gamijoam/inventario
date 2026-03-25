@@ -12,7 +12,15 @@ import {
     UtensilsCrossed,
     RefreshCw,
     ArrowRight,
-    Monitor
+    Monitor,
+    UserPlus,
+    FileText,
+    Wrench,
+    Scissors,
+    Droplets,
+    FlaskConical,
+    Landmark,
+    ClipboardList
 } from 'lucide-react';
 import {
     AreaChart,
@@ -201,15 +209,55 @@ const LowStockWidget = () => {
     );
 };
 
+/* --- DASHBOARD SIMPLIFICADO PARA CAJERO --- */
+const CashierDashboard = () => {
+    const { modules } = useConfig();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+
+    const effectiveModules = modules;
+
+    const quickLinks = [
+        { label: 'Punto de Venta', icon: Monitor, path: '/pos', color: 'bg-indigo-600 hover:bg-indigo-700 text-white', primary: true },
+        { label: 'Registrar Cliente', icon: UserPlus, path: '/sales-center', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
+        { label: 'Cotizaciones', icon: FileText, path: '/quotations', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
+        { label: 'Apertura / Cierre Caja', icon: Landmark, path: '/cash-register', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
+        ...(effectiveModules?.services ? [{ label: 'Taller / Servicios', icon: Wrench, path: '/service-orders', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+        ...(effectiveModules?.laundry ? [{ label: 'Lavandería', icon: Droplets, path: '/laundry', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+        ...(effectiveModules?.barbershop ? [{ label: 'Barbería', icon: Scissors, path: '/barbershop', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+        ...(effectiveModules?.pharmacy ? [{ label: 'Farmacia', icon: FlaskConical, path: '/pharmacy', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+    ];
+
+    return (
+        <div className="space-y-6 animate-in fade-in duration-500 max-w-2xl mx-auto pb-10">
+            <div>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Bienvenido, {user?.username}</h1>
+                <p className="text-slate-500 text-sm">¿Qué vas a hacer hoy?</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {quickLinks.map(({ label, icon: Icon, path, color, primary }) => (
+                    <button
+                        key={path}
+                        onClick={() => navigate(path)}
+                        className={`flex flex-col items-center justify-center gap-2 p-5 rounded-xl font-medium shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 ${color} ${primary ? 'col-span-2 sm:col-span-3 flex-row gap-3 py-4' : ''}`}
+                    >
+                        <Icon size={primary ? 22 : 26} />
+                        <span className={primary ? 'text-base' : 'text-sm text-center'}>{label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const Dashboard = () => {
     const { modules } = useConfig();
     const { subscribe } = useWebSocket();
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    // Cajero → POS, Bodega → Inventario (no tienen uso para el dashboard gerencial)
+    // Bodega → Inventario (no tienen uso para el dashboard gerencial)
     useEffect(() => {
-        if (user?.role === 'CASHIER') { navigate('/pos', { replace: true }); return; }
         if (user?.role === 'WAREHOUSE') { navigate('/inventory-center', { replace: true }); return; }
     }, [user, navigate]);
 
@@ -291,6 +339,11 @@ const Dashboard = () => {
             fetchDashboardData(true);
         });
     }, [subscribe]);
+
+    // Cajero ve su propio panel simplificado
+    if (user?.role === 'CASHIER') {
+        return <CashierDashboard />;
+    }
 
     if (loading) {
         return (
