@@ -136,6 +136,30 @@ def _send_expiry_warnings(db_session_factory):
         db.close()
 
 
+def _auto_backup(keep_last: int = 7):
+    """Genera respaldo automático diario y elimina los más antiguos. Corre a las 02:00 UTC."""
+    try:
+        from .services import backup_service
+        logger.info("[BACKUP] Starting automatic daily backup...")
+        result = backup_service.create_backup()
+        logger.info(f"[BACKUP] Created: {result['filename']} ({result['size']})")
+
+        # Auto-cleanup: keep only the last `keep_last` backups
+        all_backups = backup_service.list_backups()
+        if len(all_backups) > keep_last:
+            to_delete = all_backups[keep_last:]  # already sorted desc by date
+            for b in to_delete:
+                try:
+                    backup_service.delete_backup(b["filename"])
+                    logger.info(f"[BACKUP] Auto-deleted old backup: {b['filename']}")
+                except Exception as del_err:
+                    logger.warning(f"[BACKUP] Could not delete {b['filename']}: {del_err}")
+
+        logger.info(f"[BACKUP] Done. Kept last {keep_last} backups.")
+    except Exception as e:
+        logger.exception(f"[BACKUP] Error in auto_backup: {e}")
+
+
 def start_scheduler(db_session_factory):
     """Registra los jobs y arranca el scheduler."""
     scheduler.add_job(
@@ -156,10 +180,19 @@ def start_scheduler(db_session_factory):
         id="send_expiry_warnings",
         replace_existing=True,
     )
+    scheduler.add_job(
+        _auto_backup,
+        trigger="cron",
+        hour=2,
+        minute=0,
+        id="auto_backup",
+        replace_existing=True,
+    )
     scheduler.start()
     logger.info(
         "[SCHEDULER] Started. Jobs: auto_expire_tenants @ 00:05 UTC daily, "
-        "send_expiry_warnings @ 09:00 UTC daily"
+        "send_expiry_warnings @ 09:00 UTC daily, "
+        "auto_backup @ 02:00 UTC daily (keeps last 7)"
     )
 
 
