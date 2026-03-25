@@ -1,124 +1,217 @@
-# Sistema de Gestión de Ferretería (Refactor)
+# Invensoft — Sistema SaaS de Gestión de Negocios
 
-Este repositorio contiene el código fuente del sistema de gestión para ferreterías, refactorizado para separar el Backend (Python/FastAPI) y el Frontend (React/Vite).
+> Plataforma multi-tenant para ferretería, restaurante, barbería, lavandería, servicio técnico y farmacia. Desarrollada para el mercado latinoamericano con soporte multimoneda nativo (USD / VES / COP) y tasas BCV automáticas.
 
-## 📋 Requisitos Previos
+---
 
-Para ejecutar este proyecto necesitas tener instalado:
+## Stack Tecnológico
 
-*   **Python 3.10+**: Para el backend.
-*   **Node.js 18+ y npm**: Para el frontend.
-*   **Git**: Para el control de versiones.
+| Capa | Tecnología |
+|------|-----------|
+| **Backend** | FastAPI · Python 3.12 · PostgreSQL 15+ |
+| **Frontend** | React 18 · Vite · Tailwind CSS |
+| **SaaS Admin** | React + TypeScript · Vite |
+| **Hardware Bridge** | C# .NET WPF · WebSocket · ESC/POS |
+| **Infraestructura** | Docker Compose · Traefik · Let's Encrypt |
 
-## 🚀 Instalación y Configuración
+---
 
-Sigue estos pasos para configurar el entorno de desarrollo desde cero.
+## Módulos de Negocio
 
-### 1. Backend (API Python)
+| Módulo | Descripción |
+|--------|-------------|
+| **POS Multi-moneda** | Ventas en USD / VES / COP con tasas BCV en tiempo real, IGTF automático |
+| **Inventario** | Stock por almacén, Kardex valorado, transferencias, combos con escandallo |
+| **Cuentas por Cobrar** | Créditos con límite configurable, aging report, bloqueo automático |
+| **Caja Multicaja** | Múltiples cajas simultáneas, Reporte Z, cierre archivable multi-moneda |
+| **Servicio Técnico** | Recepción con diagnóstico, garantías RMA, tickets 58mm/80mm |
+| **Restaurante** | Mapa de mesas, KDS (pantalla cocina), takeout, menú digital, escandallo |
+| **Barbería** | Comisiones automáticas por empleado, dashboard integrado con POS |
+| **Lavandería** | Órdenes de servicio con estados de entrega |
+| **Farmacia** | Lotes con vencimiento, recetas, control regulatorio |
+| **Cotizaciones** | Generación, envío por email, conversión directa a venta |
 
-El backend maneja la lógica de negocio y la base de datos.
+---
 
-1.  Abre una terminal en la carpeta raíz del proyecto (`ferreteria/`).
-2.  (Opcional pero recomendado) Crea y activa un entorno virtual:
-    ```bash
-    python -m venv venv
-    # En Windows:
-    .\venv\Scripts\activate
-    # En macOS/Linux:
-    source venv/bin/activate
-    ```
-3.  Instala las dependencias:
-    ```bash
-    pip install -r requirements.txt
-    ```
-4.  El backend está listo para ejecutarse.
+## Arquitectura Multi-Tenant
 
-### 2. Frontend (Interfaz Web)
+Cada empresa tiene su propio **schema PostgreSQL** aislado. La detección del tenant se realiza por **subdominio** (`empresa.miinventariofacil.com`) o header `X-Tenant-ID`.
 
-El frontend es una aplicación React ubicada en `ferreteria_refactor/frontend_web`.
-
-1.  Navega a la carpeta del frontend:
-    ```bash
-    cd ferreteria_refactor/frontend_web
-    ```
-2.  Instala las dependencias de Node.js:
-    ```bash
-    npm install
-    ```
-
-## ▶️ Ejecución del Proyecto
-
-Necesitarás dos terminales abiertas para correr el sistema completo (una para backend y otra para frontend).
-
-### Terminal 1: Iniciar Backend
-
-Desde la carpeta raíz del proyecto:
-
-```bash
-# Asegúrate de tener el entorno virtual activado si creaste uno
-python run_backend.py
+```
+public schema     → datos globales (tenants, users, audit_logs)
+{empresa} schema  → datos del negocio (productos, ventas, caja, etc.)
 ```
 
-El servidor API iniciará generalmente en `http://localhost:8000` (o `0.0.0.0:8000`).
+---
 
-### Terminal 2: Iniciar Frontend
+## Estructura del Proyecto
 
-Desde la carpeta `ferreteria_refactor/frontend_web`:
+```
+inventario/
+├── ferreteria_refactor/
+│   ├── backend_api/           # FastAPI + Python
+│   │   ├── routers/           # Endpoints por dominio
+│   │   ├── services/          # Lógica de negocio
+│   │   ├── models/            # SQLAlchemy ORM
+│   │   ├── middleware/        # TenantMiddleware, LicenseGuard
+│   │   ├── scheduler.py       # APScheduler (backups, licencias)
+│   │   └── tests/             # 800+ tests (pytest)
+│   ├── frontend_web/          # React 18 + Vite
+│   │   └── src/
+│   │       ├── pages/         # 58 páginas lazy-loaded
+│   │       ├── components/    # Componentes reutilizables
+│   │       └── context/       # Auth, Cart, Config, WebSocket
+│   ├── saas_admin/            # Panel superadmin (TypeScript)
+│   ├── alembic/               # Migraciones de base de datos
+│   └── _CEREBRO_PROYECTO/     # Documentación técnica detallada
+├── Invensoft_Windows_Bridge/  # Bridge C# para impresoras ESC/POS
+├── landing_page/              # Landing page estática
+├── docker-compose.prod.yml
+├── docker-compose.qa.yml
+└── deploy_images.sh           # Build + push + deploy automatizado
+```
+
+---
+
+## Sistema de Licencias
+
+| Tipo | Duración |
+|------|----------|
+| `trial` | 2 días (configurable) |
+| `monthly` | Mensual |
+| `annual` | Anual |
+| `lifetime` | Vitalicio |
+
+- Auto-expiración con **5 días de gracia** (scheduler a las 00:05 UTC)
+- Email de aviso cuando quedan ≤7 días
+- Backup automático diario a las 01:00 AM Venezuela
+
+---
+
+## RBAC — Control de Acceso
+
+| Rol | Permisos |
+|-----|---------|
+| `ADMIN` | Acceso total al tenant |
+| `CASHIER` | POS, Ventas, Clientes, Caja, Servicios, Cotizaciones |
+| `WAREHOUSE` | Inventario, Compras, Proveedores, Farmacia |
+| `superuser` | Solo panel SaaS admin |
+
+---
+
+## Desarrollo Local
+
+### Requisitos
+
+- Python 3.12+
+- Node.js 22+
+- PostgreSQL 15+
+- Docker (opcional)
+
+### Backend
 
 ```bash
+cd ferreteria_refactor/backend_api
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+# Configurar .env (ver .env.example)
+alembic upgrade head
+uvicorn main:app --reload --port 8000
+```
+
+### Frontend
+
+```bash
+cd ferreteria_refactor/frontend_web
+npm install
+# Configurar .env.development (ver .env.example)
 npm run dev
 ```
 
-La aplicación web estará disponible en la URL que indique Vite (usualmente `http://localhost:5173`).
+### Con Docker (stack completo)
 
-## 📦 Estructura de Carpetas
-
-*   `ferreteria_refactor/backend_api`: Código fuente de la API (FastAPI).
-*   `ferreteria_refactor/frontend_web`: Código fuente del Frontend (React).
-*   `run_backend.py`: Script de entrada para iniciar el servidor backend.
-*   `requirements.txt`: Lista de dependencias de Python.
-
-## ⚠️ Notas Adicionales
-
-*   **Base de Datos**: El sistema utiliza SQLite por defecto. El archivo de base de datos se creará/buscará automáticamente según la configuración en `backend_api`.
-*   **Variables de Entorno**: Revisa si existen archivos `.env.example` para configurar variables de entorno necesarias.
-
-## 🧺 Módulo de Lavandería (Nuevo)
-
-El sistema ahora cuenta con un módulo de lavandería inteligente:
-*   **Gestión de Unidades**: Soporte para servicios por *Pieza* (ej. Planchado) y por *Peso* (ej. Lavado).
-*   **Cobro Automático**: El sistema detecta el tipo de servicio y calcula el total basándose en el peso de la orden o la cantidad de piezas, según corresponda.
-*   **Configuración**: Desde el inventario puedes marcar productos como `Servicio (Por Pieza)` o `Servicio (Por Peso)`.
-
-## 🛠️ Módulo de Taller y Reparaciones (Celulares)
-
-Diseñado para servicios técnicos y reparación de equipos:
-*   **Recepción Detallada**: Registro de IMEI/Serial, Marca, Modelo y estado físico.
-*   **Seguridad**: Campo para registrar el **Patrón de Desbloqueo** o PIN del dispositivo.
-*   **Flujo de Estado**: Seguimiento desde Recepción -> Diagnóstico -> Reparación -> Entrega.
-*   **Diagnóstico**: Espacio para notas técnicas y presupuesto.
-
-## 🍽️ Módulo de Restaurante (Beta)
-
-*En desarrollo activo.* Este módulo ofrece:
-*   **Mapa de Mesas**: Visualización gráfica del estado de las mesas (Libre, Ocupada, Pagando).
-*   **Comandera Móvil**: Interfaz ligera para que los meseros tomen pedidos desde el celular.
-*   **Pantalla de Cocina**: Vista en tiempo real para que los cocineros reciban las órdenes.
-
-## 🐳 Despliegue con Docker
-
-Para desplegar usando la imagen oficial `gamijoam/ferreteria-saas`, utiliza las variables de entorno para activar/desactivar módulos. No es necesario reconstruir la imagen.
-
-**Ejemplo de configuración (docker-compose.yml):**
-
-```yaml
-services:
-  app:
-    image: gamijoam/ferreteria-saas:latest
-    environment:
-      # Feature Flags (Controlan qué módulos ve el usuario)
-      - MODULE_LAUNDRY_ENABLED=true
-      - MODULE_RESTAURANT_ENABLED=false
-      - MODULE_SERVICES_ENABLED=true
-      # ... base de datos y secretos ...
+```bash
+docker-compose -f docker-compose.qa.yml up -d
 ```
+
+### Multi-tenancy local
+
+Agregar a `/etc/hosts`:
+```
+127.0.0.1 demo.localhost
+127.0.0.1 miempresa.localhost
+```
+
+---
+
+## Tests
+
+```bash
+cd ferreteria_refactor/backend_api
+pytest tests/ -v --cov=. --cov-report=term-missing
+```
+
+El suite incluye 800+ tests con fixtures para PostgreSQL real y SQLite.
+
+---
+
+## Deploy
+
+```bash
+./deploy_images.sh
+```
+
+El script:
+1. Ejecuta tests pre-flight (328 tests)
+2. Construye imágenes Docker multi-stage
+3. Publica en DockerHub con tag versionado
+4. Conecta al VPS y hace pull + restart
+
+---
+
+## Documentación
+
+La documentación técnica detallada vive en [`ferreteria_refactor/_CEREBRO_PROYECTO/`](ferreteria_refactor/_CEREBRO_PROYECTO/):
+
+| Documento | Contenido |
+|-----------|-----------|
+| `01_Arquitectura.md` | Flujo de peticiones, WebSockets, middleware |
+| `02_Base_De_Datos.md` | Modelos, índices, provisioning de tenant |
+| `05_Guia_Despliegue.md` | Docker, Traefik, rollback, variables de entorno |
+| `08_Seguridad_y_Auditoria.md` | RBAC, AuditLog, hardening, CORS |
+| `12_Manual_de_Desarrollo_Local.md` | Setup local, multi-tenancy en localhost |
+| `17_Deuda_Tecnica_y_Plan_de_Mejoras.md` | Roadmap técnico |
+| `24_Auditoria_Integral_2026-03-25.md` | Auditoría completa del sistema |
+
+---
+
+## Variables de Entorno Clave
+
+```env
+DATABASE_URL=postgresql://user:pass@localhost:5432/invensoft
+SECRET_KEY=your-secret-key-here
+ENVIRONMENT=production
+SMTP_HOST=privateemail.com
+SMTP_PORT=587
+SMTP_USER=soporte@miinventariofacil.com
+CF_DNS_API_TOKEN=your-cloudflare-token
+```
+
+Ver `.env.example` para la lista completa.
+
+---
+
+## Contribuir
+
+1. Crear rama desde `main`: `git checkout -b feature/nombre`
+2. Commits en español con prefijo convencional: `feat:`, `fix:`, `chore:`, `test:`
+3. Todos los tests deben pasar antes del merge
+4. PR con descripción del cambio y capturas si aplica
+
+---
+
+## Contacto y Soporte
+
+- **WhatsApp:** +58 422-741-0094
+- **Email:** soporte@miinventariofacil.com
+- **Web:** [miinventariofacil.com](https://miinventariofacil.com)
