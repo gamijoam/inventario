@@ -137,7 +137,7 @@ def _send_expiry_warnings(db_session_factory):
 
 
 def _auto_backup(keep_last: int = 7):
-    """Genera respaldo automático diario y elimina los más antiguos. Corre a las 02:00 UTC."""
+    """Genera respaldo automático diario y elimina los más antiguos. Corre a las 05:00 UTC (01:00 Venezuela)."""
     try:
         from .services import backup_service
         logger.info("[BACKUP] Starting automatic daily backup...")
@@ -183,7 +183,7 @@ def start_scheduler(db_session_factory):
     scheduler.add_job(
         _auto_backup,
         trigger="cron",
-        hour=2,
+        hour=5,
         minute=0,
         id="auto_backup",
         replace_existing=True,
@@ -192,7 +192,7 @@ def start_scheduler(db_session_factory):
     logger.info(
         "[SCHEDULER] Started. Jobs: auto_expire_tenants @ 00:05 UTC daily, "
         "send_expiry_warnings @ 09:00 UTC daily, "
-        "auto_backup @ 02:00 UTC daily (keeps last 7)"
+        "auto_backup @ 05:00 UTC (01:00 Venezuela) daily (keeps last 7)"
     )
 
 
