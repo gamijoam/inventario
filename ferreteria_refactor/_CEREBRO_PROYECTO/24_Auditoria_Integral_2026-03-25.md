@@ -399,3 +399,62 @@ La base es sólida (ORM parametrizado, bcrypt, RBAC, aislamiento por schema), pe
 ---
 
 > **Nota:** Este documento es un snapshot al 2026-03-25. Las recomendaciones deben re-evaluarse conforme se implementen cambios. Marcar items completados con ✅ y fecha.
+
+---
+
+## Estado de Implementación — Modo Offline / Local (.exe)
+
+**Branch:** `main` (mergeado desde `feat/offline-local-mode`)
+**Estado:** ✅ Backend funcional, probado localmente
+**Fecha:** 2026-03-26
+**Commits:** `5f6ce45`, `6a4f5f3`
+
+### Concepto
+El mismo código sirve para SaaS (VPS/Docker) y offline (.exe Windows). La diferencia es solo el `.env`:
+- SaaS: `SINGLE_TENANT=false` (default) → multi-tenant, subdominios, emails, licencias
+- Offline: `SINGLE_TENANT=true` → schema fijo, sin emails, sin licencias, sin internet
+
+### Cambios al backend (mínimos, condicionales)
+- `config.py`: flags `SINGLE_TENANT` + `SINGLE_TENANT_SCHEMA`
+- `tenant_middleware.py`: bypass detección subdominio cuando `SINGLE_TENANT=true`
+- `auth.py`: login respeta `SINGLE_TENANT` sin necesitar header `X-Tenant-ID`
+- `scheduler.py`: skip jobs de licencias/email en single-tenant (backup se mantiene)
+- `backup_service.py`: path inteligente Docker/local (antes crasheaba fuera de Docker)
+- `admin.py`: imports muertos eliminados (`notas`, `DesktopLicense`)
+
+### Archivos nuevos (no afectan Docker)
+- `setup_offline.py`: inicializa BD + crea tenant "default" con licencia lifetime
+- `local/start.bat`: inicia PostgreSQL portable + FastAPI + abre navegador
+- `local/stop.bat`: detiene todo
+- `local/.env.offline`: config de referencia
+
+### Probado localmente
+- PostgreSQL local + uvicorn → Frontend 200, API health 200, Login OK sin headers
+- El deploy al VPS NO se ve afectado (SINGLE_TENANT no existe en .env del VPS)
+
+### Pendiente para producto final (.exe)
+- Empaquetar con InnoSetup: PostgreSQL portable + Python embebido + backend + frontend build
+- Probar en Windows limpio
+- Generar `requirements.txt` actualizado (bcrypt debe ser v4.x por compatibilidad con passlib)
+
+---
+
+## Estado de Implementación — Responsive Mobile/Tablet
+
+**Branch:** `feat/barcode-camera-scanner` (pendiente merge)
+**Estado:** ✅ Completado
+**Fecha:** 2026-03-26
+**Commit:** `e04a848`
+
+### Fase 1 — Tabs responsive (4 archivos)
+ConfigCenter (9 tabs), ReportsCenter (8 tabs), InventoryCenter (6 tabs), SalesCenter (5 tabs)
+→ Dropdown `<select>` en mobile (`md:hidden`), tabs horizontales en desktop (`hidden md:flex`)
+
+### Fase 2 — POS responsive (3 archivos)
+- PaymentModal: sidebar `max-h` 35vh→45vh, `safe-area-inset-bottom` en footer, crédito info `grid-cols-3`
+- POSCart: botones cantidad `h-10` en mobile, delete button visible en touch, footer `p-4`
+- POSSettingsModal: tabs `overflow-x-auto`, padding responsive
+
+### Fase 3 — Tablas scrollables (5 archivos)
+CreditosTab, ClientesTab, CreditsTab (Reports), CustomerManager, SupplierLedger
+→ `min-w` reducido (700→600, 550→480, 500→420px) + `scrollbar-thin` visible

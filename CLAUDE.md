@@ -1,4 +1,4 @@
-# CLAUDE.md — Mi Inventario Fácil / Invensoft
+# CLAUDE.md — Mi Inventario Fácil
 > Guía de contexto rápido. Para detalle profundo: `ferreteria_refactor/_CEREBRO_PROYECTO/`
 
 ---
@@ -11,8 +11,32 @@
 | Frontend | React 18 + Vite + Tailwind CSS, Context API, react-hot-toast, Lucide React |
 | SaaS Admin | React + Vite (TypeScript) en `saas_admin/` |
 | Hardware Bridge | C# .NET WPF + WebSocket ESC/POS |
-| Deploy | Docker Compose + Traefik en VPS 212.28.176.157 |
+| Deploy SaaS | Docker Compose + Traefik en VPS 212.28.176.157 |
+| Deploy Offline | `.exe` Windows — PostgreSQL portable + Python embebido |
 | Router React | **HashRouter** — rutas con `/#/` |
+
+---
+
+## Modo Offline / Local
+
+El mismo código sirve para SaaS y offline. La diferencia es el `.env`:
+
+| Variable | SaaS (VPS) | Offline (.exe) |
+|----------|-----------|----------------|
+| `SINGLE_TENANT` | `false` (default) | `true` |
+| `SINGLE_TENANT_SCHEMA` | N/A | `default` |
+| `SMTP_HOST` | Configurado | Vacío (emails se saltan) |
+
+**Cuando `SINGLE_TENANT=true`:**
+- Middleware usa schema fijo (sin subdominios)
+- Login no necesita `X-Tenant-ID` header
+- Scheduler no registra jobs de licencias/email
+- Backup automático sigue funcionando
+
+**Archivos offline (no afectan Docker):**
+- `setup_offline.py` — Inicializa BD + crea tenant "default"
+- `local/start.bat` / `local/stop.bat` — Scripts Windows
+- `local/.env.offline` — Config de referencia
 
 ---
 
