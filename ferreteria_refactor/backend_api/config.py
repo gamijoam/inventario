@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "/app/media"
     
     # Feature Flags
+    SINGLE_TENANT: bool = False                       # True = modo offline, schema fijo sin detección por subdominio
+    SINGLE_TENANT_SCHEMA: str = "default"             # Schema a usar cuando SINGLE_TENANT=True
 
     # Email / SMTP Settings
     # Quitamos el '= None' para forzar a Pydantic a buscar en el entorno

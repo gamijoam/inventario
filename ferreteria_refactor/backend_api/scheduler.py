@@ -162,24 +162,29 @@ def _auto_backup(keep_last: int = 7):
 
 def start_scheduler(db_session_factory):
     """Registra los jobs y arranca el scheduler."""
-    scheduler.add_job(
-        _auto_expire_tenants,
-        trigger="cron",
-        hour=0,
-        minute=5,
-        args=[db_session_factory],
-        id="auto_expire_tenants",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        _send_expiry_warnings,
-        trigger="cron",
-        hour=9,
-        minute=0,
-        args=[db_session_factory],
-        id="send_expiry_warnings",
-        replace_existing=True,
-    )
+    from .config import settings
+
+    # En modo single-tenant/offline, no expiramos licencias ni enviamos emails
+    if not settings.SINGLE_TENANT:
+        scheduler.add_job(
+            _auto_expire_tenants,
+            trigger="cron",
+            hour=0,
+            minute=5,
+            args=[db_session_factory],
+            id="auto_expire_tenants",
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            _send_expiry_warnings,
+            trigger="cron",
+            hour=9,
+            minute=0,
+            args=[db_session_factory],
+            id="send_expiry_warnings",
+            replace_existing=True,
+        )
+
     scheduler.add_job(
         _auto_backup,
         trigger="cron",

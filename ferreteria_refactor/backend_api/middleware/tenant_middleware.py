@@ -13,15 +13,23 @@ class TenantMiddleware(BaseHTTPMiddleware):
         self.schema_validator = re.compile(r'^[a-z0-9_-]+$')
 
     async def dispatch(self, request: Request, call_next):
-        
+
+        # Single-tenant mode: skip all detection, use fixed schema
+        if settings.SINGLE_TENANT:
+            tenant_slug = settings.SINGLE_TENANT_SCHEMA
+            set_tenant_schema(tenant_slug)
+            request.state.tenant_schema = tenant_slug
+            response = await call_next(request)
+            return response
+
         # 1. Determine Host
         # Priority: X-Forwarded-Host (from Traefik/Nginx) -> Host Header
         host = request.headers.get("x-forwarded-host", request.headers.get("host", "")).split(":")[0]
-        
-        
+
+
         # 2. Extract Tenant Slug
         tenant_slug = None
-        
+
         # PRIORITY 1: Explicit Header (e.g. from axios interceptor or internal services)
         if "x-tenant-id" in request.headers:
             candidate = request.headers.get("x-tenant-id")
