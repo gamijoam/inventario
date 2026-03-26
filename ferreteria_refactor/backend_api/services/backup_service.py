@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import List, Dict, Optional, Any
 
 # Backup Directory — uses env var for local dev, defaults to Docker path
-BACKUP_DIR = os.environ.get("BACKUP_DIR", "/app/backups")
+_default_backup = "/app/backups" if os.path.exists("/.dockerenv") else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backups")
+BACKUP_DIR = os.environ.get("BACKUP_DIR", _default_backup)
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
 import gzip

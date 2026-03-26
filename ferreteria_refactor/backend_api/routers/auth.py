@@ -128,14 +128,18 @@ async def login_for_access_token(
     Clients can use either method for authentication.
     """
     # 1. Resolve Tenant
-    # Matching logic in TenantMiddleware
-    host = request.headers.get("x-forwarded-host", request.headers.get("host", "")).split(":")[0]
-    tenant_slug = None
-    
-    # PRIORITY 1: Explicit Header
-    if "x-tenant-id" in request.headers:
-        tenant_slug = request.headers.get("x-tenant-id")
-    
+    # Single-tenant mode: skip detection, use fixed schema
+    if settings.SINGLE_TENANT:
+        tenant_slug = settings.SINGLE_TENANT_SCHEMA
+    else:
+        # Matching logic in TenantMiddleware
+        host = request.headers.get("x-forwarded-host", request.headers.get("host", "")).split(":")[0]
+        tenant_slug = None
+
+        # PRIORITY 1: Explicit Header
+        if "x-tenant-id" in request.headers:
+            tenant_slug = request.headers.get("x-tenant-id")
+
     # PRIORITY 2: Subdomain Parsing
     if not tenant_slug:
         # Prevent IP addresses (e.g. 127.0.0.1) from being parsed as subdomains
