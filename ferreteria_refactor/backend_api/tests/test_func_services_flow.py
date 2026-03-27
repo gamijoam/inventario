@@ -768,3 +768,173 @@ class TestServiceSaleVisibility:
         assert sale.notes is not None, "Sale notes must not be None"
         assert f"Orden de Servicio #{order.ticket_number}" in sale.notes, \
             f"Sale notes must contain the order ticket number, got: '{sale.notes}'"
+
+
+# ===========================================================================
+# Class 7: TestPartialPayments (abonos)
+# ===========================================================================
+
+class TestPartialPayments:
+    """Tests for partial payments (abonos) on service orders."""
+
+    def test_single_abono_partial(self, db_session):
+        """One abono < total leaves order partially paid."""
+        customer = _make_customer(db_session)
+        order = _make_service_order(db_session, customer.id, items=[
+            {"description": "Cambio pantalla", "unit_price": 50.00, "is_manual": True},
+        ])
+
+        # Add a partial payment (abono)
+        abono = ServicePayment(
+            tenant_id="default", service_order_id=order.id,
+            amount=Decimal("20.00"), currency="USD", payment_method="Efectivo",
+        )
+        db_session.add(abono)
+        db_session.flush()
+
+        payments = db_session.query(ServicePayment).filter_by(service_order_id=order.id).all()
+        total_paid = sum(p.amount for p in payments)
+        order_total = Decimal("50.00")
+
+        assert total_paid == Decimal("20.0000"), f"Paid must be 20, got {total_paid}"
+        assert total_paid < order_total, "Must be partially paid"
+        pending = order_total - total_paid
+        assert pending == Decimal("30.0000"), f"Pending must be 30, got {pending}"
+
+    def test_multiple_abonos_accumulate(self, db_session):
+        """Multiple abonos accumulate correctly."""
+        customer = _make_customer(db_session)
+        order = _make_service_order(db_session, customer.id, items=[
+            {"description": "Reparación", "unit_price": 100.00, "is_manual": True},
+        ])
+
+        amounts = [Decimal("25.00"), Decimal("30.00"), Decimal("15.00")]
+        for amt in amounts:
+            db_session.add(ServicePayment(
+                tenant_id="default", service_order_id=order.id,
+                amount=amt, currency="USD", payment_method="Efectivo",
+            ))
+        db_session.flush()
+
+        payments = db_session.query(ServicePayment).filter_by(service_order_id=order.id).all()
+        total_paid = sum(p.amount for p in payments)
+
+        assert len(payments) == 3, f"Must have 3 payments, got {len(payments)}"
+        assert total_paid == Decimal("70.0000"), f"25+30+15=70, got {total_paid}"
+        pending = Decimal("100.00") - total_paid
+        assert pending == Decimal("30.0000"), f"Pending must be 30, got {pending}"
+
+    def test_abono_then_checkout_uses_remaining(self, db_session):
+        """After abonos, checkout only charges the remaining amount."""
+        customer = _make_customer(db_session)
+        generic = _make_generic_service_product(db_session)
+        warehouse = _make_warehouse(db_session)
+        user = _make_user(db_session)
+
+        order = _make_service_order(db_session, customer.id, status="READY", items=[
+            {"description": "Servicio completo", "unit_price": 80.00, "is_manual": True},
+        ], payments=[
+            {"amount": 30.00, "currency": "USD", "method": "Efectivo"},
+        ])
+
+        from backend_api.services.service_checkout_service import ServiceCheckoutService
+        from backend_api.schemas import ServiceCheckoutPayment
+
+        # Checkout with remaining 50
+        checkout_data = ServiceCheckoutPayment(
+            total_amount=Decimal("80.00"),
+            total_amount_bs=Decimal("0.00"),
+            payment_method="Transferencia",
+            payments=[SalePaymentCreate(
+                amount=Decimal("50.00"),
+                currency="USD",
+                payment_method="Transferencia",
+            )],
+        )
+        sale = ServiceCheckoutService.convert_order_to_sale(
+            db_session, order.id, checkout_data, user.id
+        )
+
+        # Verify sale has both payments
+        sale_payments = db_session.query(SalePayment).filter_by(sale_id=sale.id).all()
+        assert len(sale_payments) == 2, f"Must have 2 payments (1 abono + 1 checkout), got {len(sale_payments)}"
+
+        total_sale_payments = sum(p.amount for p in sale_payments)
+        assert total_sale_payments == Decimal("80.0000"), \
+            f"Total payments must equal order total 80, got {total_sale_payments}"
+
+        # Verify one is labeled as ABONO
+        abono_payments = [p for p in sale_payments if "ABONO" in (p.payment_method or "").upper()]
+        assert len(abono_payments) == 1, "Must have 1 ABONO-labeled payment"
+
+    def test_abonos_with_different_methods(self, db_session):
+        """Abonos can use different payment methods."""
+        customer = _make_customer(db_session)
+        order = _make_service_order(db_session, customer.id, items=[
+            {"description": "Reparación", "unit_price": 60.00, "is_manual": True},
+        ])
+
+        methods = [
+            ("Efectivo", Decimal("20.00")),
+            ("Transferencia", Decimal("15.00")),
+            ("Pago Móvil", Decimal("10.00")),
+        ]
+        for method, amt in methods:
+            db_session.add(ServicePayment(
+                tenant_id="default", service_order_id=order.id,
+                amount=amt, currency="USD", payment_method=method,
+            ))
+        db_session.flush()
+
+        payments = db_session.query(ServicePayment).filter_by(service_order_id=order.id).all()
+        assert len(payments) == 3
+        payment_methods = {p.payment_method for p in payments}
+        assert payment_methods == {"Efectivo", "Transferencia", "Pago Móvil"}, \
+            f"All 3 methods must be present, got {payment_methods}"
+
+    def test_abono_with_reference(self, db_session):
+        """Abonos can store a reference number."""
+        customer = _make_customer(db_session)
+        order = _make_service_order(db_session, customer.id, items=[
+            {"description": "Servicio", "unit_price": 40.00, "is_manual": True},
+        ])
+
+        db_session.add(ServicePayment(
+            tenant_id="default", service_order_id=order.id,
+            amount=Decimal("15.00"), currency="USD",
+            payment_method="Transferencia", reference="REF-12345",
+        ))
+        db_session.flush()
+
+        payment = db_session.query(ServicePayment).filter_by(service_order_id=order.id).first()
+        assert payment.reference == "REF-12345", \
+            f"Reference must be preserved, got {payment.reference}"
+
+    def test_full_payment_equals_total(self, db_session):
+        """When abonos sum equals total, order is fully paid."""
+        customer = _make_customer(db_session)
+        order = _make_service_order(db_session, customer.id, items=[
+            {"description": "Servicio A", "unit_price": 25.00, "is_manual": True},
+            {"description": "Servicio B", "unit_price": 25.00, "is_manual": True},
+        ])
+
+        # Pay exactly the total in two abonos
+        db_session.add(ServicePayment(
+            tenant_id="default", service_order_id=order.id,
+            amount=Decimal("25.00"), currency="USD", payment_method="Efectivo",
+        ))
+        db_session.add(ServicePayment(
+            tenant_id="default", service_order_id=order.id,
+            amount=Decimal("25.00"), currency="USD", payment_method="Pago Móvil",
+        ))
+        db_session.flush()
+
+        payments = db_session.query(ServicePayment).filter_by(service_order_id=order.id).all()
+        items = db_session.query(ServiceOrderDetail).filter_by(service_order_id=order.id).all()
+        total_paid = sum(p.amount for p in payments)
+        order_total = sum(d.unit_price * d.quantity for d in items)
+
+        assert total_paid == order_total, \
+            f"Total paid ({total_paid}) must equal order total ({order_total})"
+        pending = order_total - total_paid
+        assert pending == 0, f"Pending must be 0 when fully paid, got {pending}"

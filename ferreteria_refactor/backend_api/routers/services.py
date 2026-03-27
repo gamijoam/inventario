@@ -435,6 +435,58 @@ def get_ready_service_orders(
     
     return [o for o in orders if (o.order_metadata or {}).get("payment_status") != "PAID"]
 
+
+@router.post("/orders/{order_id}/payments")
+def add_service_payment(
+    order_id: int,
+    payment: schemas.ServicePaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Registrar un abono/pago parcial a una orden de servicio."""
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    order = db.query(models.ServiceOrder).options(
+        joinedload(models.ServiceOrder.payments),
+        joinedload(models.ServiceOrder.details),
+        joinedload(models.ServiceOrder.customer),
+        joinedload(models.ServiceOrder.technician),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
+    ).filter(
+        models.ServiceOrder.id == order_id,
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+
+    if (order.order_metadata or {}).get("payment_status") == "PAID":
+        raise HTTPException(status_code=400, detail="Esta orden ya está completamente pagada")
+
+    new_payment = models.ServicePayment(
+        tenant_id=tenant_id,
+        service_order_id=order.id,
+        amount=payment.amount,
+        currency=payment.currency,
+        payment_method=payment.payment_method,
+        reference=payment.reference,
+    )
+    db.add(new_payment)
+    db.flush()
+
+    # Recalcular si quedó pagada
+    order_total = sum(float(d.quantity * d.unit_price) for d in order.details)
+    total_paid = sum(float(p.amount) for p in order.payments) + float(payment.amount)
+
+    if total_paid >= order_total and order_total > 0:
+        meta = order.order_metadata or {}
+        meta["payment_status"] = "PAID"
+        order.order_metadata = meta
+
+    db.commit()
+    db.refresh(order)
+    return order
+
+
 @router.post("/orders/{order_id}/checkout")
 def checkout_service_order(
     order_id: int, 

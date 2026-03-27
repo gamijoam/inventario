@@ -66,6 +66,12 @@ const ServicesUnified = () => {
     // Diagnosis
     const [diagnosisNotes, setDiagnosisNotes] = useState('');
 
+    // Abono/Payment form
+    const [showPaymentForm, setShowPaymentForm] = useState(false);
+    const [paymentAmount, setPaymentAmount] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('Efectivo');
+    const [paymentRef, setPaymentRef] = useState('');
+
     // Item form
     const [showItemForm, setShowItemForm] = useState(false);
     const [productSearchTerm, setProductSearchTerm] = useState('');
@@ -283,6 +289,26 @@ const ServicesUnified = () => {
             fetchOrders();
         } catch {
             toast.error('Pago registrado pero falló la vinculación con la orden');
+        }
+    };
+
+    const handleAddPayment = async () => {
+        if (!selectedOrder || !paymentAmount || parseFloat(paymentAmount) <= 0) return;
+        try {
+            await apiClient.post(`/services/orders/${selectedOrder.id}/payments`, {
+                amount: parseFloat(paymentAmount),
+                currency: 'USD',
+                payment_method: paymentMethod,
+                reference: paymentRef || null,
+            });
+            toast.success(`Abono de ${formatCurrency(parseFloat(paymentAmount))} registrado`);
+            setShowPaymentForm(false);
+            setPaymentAmount('');
+            setPaymentRef('');
+            fetchOrderDetail(selectedOrder.id);
+            fetchOrders();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error registrando el pago');
         }
     };
 
@@ -881,24 +907,85 @@ const ServicesUnified = () => {
                             </div>
                         )}
 
-                        {/* Cobrar Pendiente button */}
+                        {/* Abono / Cobrar */}
                         {paymentStatus !== 'paid' && orderTotal > 0 && (
-                            <button
-                                onClick={() => {
-                                    setPaymentData({
-                                        product_id: null,
-                                        description: `Servicio #${selectedOrder.ticket_number}`,
-                                        quantity: 1,
-                                        unit_price: orderPending,
-                                        is_manual: true,
-                                    });
-                                    setShowPaymentModal(true);
-                                }}
-                                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
-                            >
-                                <DollarSign size={16} />
-                                Cobrar Pendiente ({formatCurrency(orderPending)})
-                            </button>
+                            <div className="space-y-2">
+                                {!showPaymentForm ? (
+                                    <button
+                                        onClick={() => {
+                                            setPaymentAmount(orderPending);
+                                            setPaymentMethod('Efectivo');
+                                            setPaymentRef('');
+                                            setShowPaymentForm(true);
+                                        }}
+                                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <DollarSign size={16} />
+                                        Registrar Pago ({formatCurrency(orderPending)} pendiente)
+                                    </button>
+                                ) : (
+                                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-bold text-blue-700 uppercase">Registrar Abono</span>
+                                            <button onClick={() => setShowPaymentForm(false)} className="text-slate-400 hover:text-slate-600">
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Monto ($)</label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0.01"
+                                                max={orderPending}
+                                                value={paymentAmount}
+                                                onChange={(e) => setPaymentAmount(e.target.value)}
+                                                className="w-full mt-0.5 px-3 py-2 border border-slate-200 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Método de Pago</label>
+                                            <select
+                                                value={paymentMethod}
+                                                onChange={(e) => setPaymentMethod(e.target.value)}
+                                                className="w-full mt-0.5 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="Efectivo">Efectivo</option>
+                                                <option value="Transferencia">Transferencia</option>
+                                                <option value="Pago Móvil">Pago Móvil</option>
+                                                <option value="Punto de Venta">Punto de Venta</option>
+                                                <option value="Zelle">Zelle</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-semibold text-slate-500 uppercase">Referencia (opcional)</label>
+                                            <input
+                                                type="text"
+                                                value={paymentRef}
+                                                onChange={(e) => setPaymentRef(e.target.value)}
+                                                placeholder="Nro. referencia"
+                                                className="w-full mt-0.5 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => setShowPaymentForm(false)}
+                                                className="flex-1 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50"
+                                            >
+                                                Cancelar
+                                            </button>
+                                            <button
+                                                onClick={handleAddPayment}
+                                                disabled={!paymentAmount || parseFloat(paymentAmount) <= 0}
+                                                className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                                            >
+                                                <CheckCircle size={14} />
+                                                Confirmar {parseFloat(paymentAmount) >= orderPending ? '' : 'Abono'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         )}
                     </div>
                 </div>
