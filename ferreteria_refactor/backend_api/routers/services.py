@@ -15,6 +15,8 @@ from sqlalchemy import desc
 from enum import Enum
 import traceback
 import unicodedata
+from decimal import Decimal
+from ..services.service_checkout_service import ServiceCheckoutService
 
 
 def _service_order_options():
@@ -404,21 +406,46 @@ def update_service_order_status(
              
     if update_data.technician_id:
         order.technician_id = update_data.technician_id
-        
+
     if update_data.priority:
         order.priority = update_data.priority
-        
+
+    # Auto-checkout: si se marca como DELIVERED y ya tiene abonos que cubren el total,
+    # crear la Sale automáticamente (sin requerir checkout manual)
+    if (order.status == models.ServiceOrderStatus.DELIVERED
+            and (order.order_metadata or {}).get("payment_status") != "PAID"):
+        order_total = sum(float(d.quantity * d.unit_price) for d in order.details)
+        total_paid = sum(float(p.amount) for p in order.payments)
+        if total_paid >= order_total and order_total > 0:
+            db.flush()
+            try:
+                checkout_data = schemas.ServiceCheckoutPayment(
+                    total_amount=Decimal(str(order_total)),
+                    total_amount_bs=Decimal("0.00"),
+                    payment_method="Efectivo",
+                    payments=[],
+                )
+                sale = ServiceCheckoutService.convert_order_to_sale(
+                    db, order.id, checkout_data, current_user.id
+                )
+                return schemas.ServiceOrderRead.model_validate(
+                    db.query(models.ServiceOrder).options(
+                        *_service_order_options()
+                    ).filter(models.ServiceOrder.id == order_id).first()
+                )
+            except Exception:
+                pass  # Si falla, continua con el flujo normal
+
     db.flush()
     # Eager Load for status update response BEFORE commit
     final_order = db.query(models.ServiceOrder).options(
         *_service_order_options()
     ).filter(models.ServiceOrder.id == order_id).first()
-    
+
     db.commit()
-    
+
     return schemas.ServiceOrderRead.model_validate(final_order)
 
-from ..services.service_checkout_service import ServiceCheckoutService
 
 @router.get("/orders/status/ready", response_model=List[schemas.ServiceOrderRead])
 def get_ready_service_orders(
