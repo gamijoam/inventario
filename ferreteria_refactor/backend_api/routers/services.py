@@ -99,7 +99,7 @@ def create_service_order(
             for item in order_data.items:
                 if item.product_id:
                     # PRODUCT ITEM
-                    product = db.query(models.Product).get(item.product_id)
+                    product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
                     if not product:
                         continue
                     description = product.name
@@ -259,10 +259,10 @@ def add_service_order_item(
         raise HTTPException(status_code=404, detail="Service Order not found")
         
     if item_data.product_id:
-        product = db.query(models.Product).get(item_data.product_id)
+        product = db.query(models.Product).filter(models.Product.id == item_data.product_id).first()
         if not product:
             raise HTTPException(status_code=400, detail="Product not found")
-            
+
         description = product.name
         cost = product.cost_price
         is_manual = False
@@ -401,6 +401,7 @@ def update_service_order_status(
     if update_data.priority:
         order.priority = update_data.priority
         
+    db.flush()
     # Eager Load for status update response BEFORE commit
     final_order = db.query(models.ServiceOrder).options(
         joinedload(models.ServiceOrder.customer),
