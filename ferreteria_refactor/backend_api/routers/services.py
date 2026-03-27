@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from .. import schemas
 from ..models import models
 from ..database.db import get_db
@@ -15,6 +15,22 @@ from sqlalchemy import desc
 from enum import Enum
 import traceback
 import unicodedata
+
+
+def _service_order_options():
+    """Eager loading options para ServiceOrder — evita lazy loads post-commit que pierden search_path."""
+    return [
+        joinedload(models.ServiceOrder.customer),
+        joinedload(models.ServiceOrder.technician),
+        joinedload(models.ServiceOrder.payments),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.category),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.stocks),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.units),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.prices),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.combo_items),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.discount_rules),
+    ]
 
 
 def _ascii_safe(text: str) -> str:
@@ -141,10 +157,7 @@ def create_service_order(
         db.flush()
 
         final_order = db.query(models.ServiceOrder).options(
-            joinedload(models.ServiceOrder.customer),
-            joinedload(models.ServiceOrder.technician),
-            joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-            joinedload(models.ServiceOrder.payments)
+            *_service_order_options()
         ).filter(models.ServiceOrder.id == new_order.id).first()
 
         db.commit()
@@ -291,11 +304,7 @@ def add_service_order_item(
 
     # Reload BEFORE commit (while search_path is still set)
     result = db.query(models.ServiceOrder).options(
-        joinedload(models.ServiceOrder.customer),
-        joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
-        joinedload(models.ServiceOrder.payments)
+        *_service_order_options()
     ).filter(models.ServiceOrder.id == order_id).first()
 
     db.commit()
@@ -331,11 +340,7 @@ def delete_service_order_item(
     db.flush()
 
     result = db.query(models.ServiceOrder).options(
-        joinedload(models.ServiceOrder.customer),
-        joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
-        joinedload(models.ServiceOrder.payments)
+        *_service_order_options()
     ).filter(models.ServiceOrder.id == order_id).first()
 
     db.commit()
@@ -404,11 +409,7 @@ def update_service_order_status(
     db.flush()
     # Eager Load for status update response BEFORE commit
     final_order = db.query(models.ServiceOrder).options(
-        joinedload(models.ServiceOrder.customer),
-        joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
-        joinedload(models.ServiceOrder.payments)
+        *_service_order_options()
     ).filter(models.ServiceOrder.id == order_id).first()
     
     db.commit()
@@ -447,12 +448,7 @@ def add_service_payment(
     """Registrar un abono/pago parcial a una orden de servicio."""
     tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
     order = db.query(models.ServiceOrder).options(
-        joinedload(models.ServiceOrder.payments),
-        joinedload(models.ServiceOrder.details),
-        joinedload(models.ServiceOrder.customer),
-        joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
+        *_service_order_options()
     ).filter(
         models.ServiceOrder.id == order_id,
         models.ServiceOrder.tenant_id == tenant_id
@@ -486,11 +482,7 @@ def add_service_payment(
     db.flush()
     # Re-query con eager loading ANTES del commit (search_path se pierde después)
     result = db.query(models.ServiceOrder).options(
-        joinedload(models.ServiceOrder.customer),
-        joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
-        joinedload(models.ServiceOrder.payments),
+        *_service_order_options(),
     ).filter(models.ServiceOrder.id == order.id).first()
     db.commit()
     return result
