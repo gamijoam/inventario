@@ -64,3 +64,8 @@ node_modules/
 # Build artifacts
 *.pyc
 *.pyo
+
+# Offline build (generated)
+frontend/
+local/cache/
+local/dist/
