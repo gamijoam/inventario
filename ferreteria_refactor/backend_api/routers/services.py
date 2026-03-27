@@ -18,7 +18,8 @@ import unicodedata
 
 
 def _service_order_options():
-    """Eager loading options para ServiceOrder — evita lazy loads post-commit que pierden search_path."""
+    """Eager loading completo para ServiceOrder — carga TODAS las sub-relaciones
+    que ProductRead necesita para evitar lazy loads post-commit (search_path lost)."""
     return [
         joinedload(models.ServiceOrder.customer),
         joinedload(models.ServiceOrder.technician),
@@ -30,6 +31,7 @@ def _service_order_options():
         joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.prices),
         joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.combo_items),
         joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.discount_rules),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.price_rules),
     ]
 
 
@@ -470,14 +472,8 @@ def add_service_payment(
     db.add(new_payment)
     db.flush()
 
-    # Recalcular si quedó pagada
-    order_total = sum(float(d.quantity * d.unit_price) for d in order.details)
-    total_paid = sum(float(p.amount) for p in order.payments) + float(payment.amount)
-
-    if total_paid >= order_total and order_total > 0:
-        meta = order.order_metadata or {}
-        meta["payment_status"] = "PAID"
-        order.order_metadata = meta
+    # Nota: payment_status=PAID solo se marca en el checkout (cuando se crea la Sale).
+    # Los abonos se acumulan como ServicePayment y se migran al checkout.
 
     db.flush()
     # Re-query con eager loading ANTES del commit (search_path se pierde después)
