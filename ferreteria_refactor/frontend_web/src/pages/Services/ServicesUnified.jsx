@@ -18,9 +18,9 @@ const STATUS_FLOW = ['RECEIVED', 'DIAGNOSING', 'IN_PROGRESS', 'READY', 'DELIVERE
 
 const STATUS_LABELS = {
     RECEIVED: 'Recibido',
-    DIAGNOSING: 'Diagn\u00f3stico',
+    DIAGNOSING: 'Diagnóstico',
     APPROVED: 'Aprobado',
-    IN_PROGRESS: 'Reparaci\u00f3n',
+    IN_PROGRESS: 'Reparación',
     READY: 'Listo',
     DELIVERED: 'Entregado',
     CANCELLED: 'Anulado',
@@ -38,7 +38,7 @@ const STATUS_COLORS = {
 const FILTER_STATUSES = [
     { value: '', label: 'Todos' },
     { value: 'RECEIVED', label: 'Recibido' },
-    { value: 'DIAGNOSING', label: 'Diagn\u00f3stico' },
+    { value: 'DIAGNOSING', label: 'Diagnóstico' },
     { value: 'IN_PROGRESS', label: 'Reparando' },
     { value: 'READY', label: 'Listo' },
     { value: 'DELIVERED', label: 'Entregado' },
@@ -96,7 +96,7 @@ const ServicesUnified = () => {
             const res = await apiClient.get('/services/orders', { params });
             setOrders(res.data);
         } catch {
-            toast.error('Error al cargar \u00f3rdenes');
+            toast.error('Error al cargar órdenes');
         } finally {
             setLoadingList(false);
         }
@@ -210,7 +210,7 @@ const ServicesUnified = () => {
         if (!selectedOrder) return;
         const isValid = newItem.product ? true : (newItem.description && newItem.technician_id);
         if (!isValid) {
-            toast.error('Complete los campos requeridos (Producto/Descripci\u00f3n y T\u00e9cnico)');
+            toast.error('Complete los campos requeridos (Producto/Descripción y Técnico)');
             return;
         }
         try {
@@ -222,7 +222,7 @@ const ServicesUnified = () => {
                 technician_id: newItem.technician_id ? parseInt(newItem.technician_id) : null,
             };
             await apiClient.post(`/services/orders/${selectedOrder.id}/items`, payload);
-            toast.success('\u00cdtem agregado');
+            toast.success('Ítem agregado');
             setNewItem({ product: null, description: '', quantity: 1, price: 0, technician_id: '', is_manual: false });
             setShowItemForm(false);
             setProductSearchTerm('');
@@ -230,20 +230,20 @@ const ServicesUnified = () => {
             fetchOrderDetail(selectedOrder.id);
             fetchOrders();
         } catch {
-            toast.error('Error al agregar \u00edtem');
+            toast.error('Error al agregar ítem');
         }
     };
 
     const handleDeleteItem = async (itemId) => {
         if (!selectedOrder) return;
-        if (!confirm('\u00bfEliminar este \u00edtem?')) return;
+        if (!confirm('¿Eliminar este ítem?')) return;
         try {
             await apiClient.delete(`/services/orders/${selectedOrder.id}/items/${itemId}`);
-            toast.success('\u00cdtem eliminado');
+            toast.success('Ítem eliminado');
             fetchOrderDetail(selectedOrder.id);
             fetchOrders();
         } catch {
-            toast.error('Error al eliminar \u00edtem');
+            toast.error('Error al eliminar ítem');
         }
     };
 
@@ -282,7 +282,7 @@ const ServicesUnified = () => {
             fetchOrderDetail(selectedOrder.id);
             fetchOrders();
         } catch {
-            toast.error('Pago registrado pero fall\u00f3 la vinculaci\u00f3n con la orden');
+            toast.error('Pago registrado pero falló la vinculación con la orden');
         }
     };
 
@@ -398,7 +398,7 @@ const ServicesUnified = () => {
                 </div>
 
                 {/* Status filter pills */}
-                <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+                <div className="flex flex-wrap gap-1.5 pb-1">
                     {FILTER_STATUSES.map((f) => (
                         <button
                             key={f.value}
@@ -422,7 +422,7 @@ const ServicesUnified = () => {
                 ) : orders.length === 0 ? (
                     <div className="p-8 text-center">
                         <Wrench className="mx-auto text-slate-300 mb-3" size={36} />
-                        <p className="text-sm text-slate-500">No hay \u00f3rdenes</p>
+                        <p className="text-sm text-slate-500">No hay órdenes</p>
                         <p className="text-xs text-slate-400 mt-1">Cambie el filtro o cree una nueva orden</p>
                     </div>
                 ) : (
@@ -564,7 +564,7 @@ const ServicesUnified = () => {
                                     onClick={() => setExpandProblem(!expandProblem)}
                                     className="text-xs text-blue-500 hover:text-blue-700 mt-0.5"
                                 >
-                                    {expandProblem ? 'Ver menos' : 'Ver m\u00e1s'}
+                                    {expandProblem ? 'Ver menos' : 'Ver más'}
                                 </button>
                             )}
                         </div>
@@ -658,7 +658,7 @@ const ServicesUnified = () => {
                                         <div>
                                             <input
                                                 autoFocus
-                                                placeholder="Descripci\u00f3n del servicio..."
+                                                placeholder="Descripción del servicio..."
                                                 className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                                 value={newItem.description}
                                                 onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
@@ -688,7 +688,7 @@ const ServicesUnified = () => {
                                             />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <label className="text-[10px] text-slate-500 font-semibold">T\u00e9cnico</label>
+                                            <label className="text-[10px] text-slate-500 font-semibold">Técnico</label>
                                             {!newItem.product ? (
                                                 <select
                                                     className="w-full p-2 border border-slate-200 rounded-lg text-sm"
@@ -731,11 +731,11 @@ const ServicesUnified = () => {
                             <table className="w-full text-sm">
                                 <thead className="bg-slate-50 text-slate-500">
                                     <tr>
-                                        <th className="text-left p-2.5 font-medium text-xs">Descripci\u00f3n</th>
+                                        <th className="text-left p-2.5 font-medium text-xs">Descripción</th>
                                         <th className="text-right p-2.5 font-medium text-xs w-14">Cant</th>
                                         <th className="text-right p-2.5 font-medium text-xs w-20">Precio</th>
                                         <th className="text-right p-2.5 font-medium text-xs w-20">Total</th>
-                                        <th className="text-right p-2.5 font-medium text-xs w-24 hidden sm:table-cell">T\u00e9cnico</th>
+                                        <th className="text-right p-2.5 font-medium text-xs w-24 hidden sm:table-cell">Técnico</th>
                                         <th className="w-8"></th>
                                     </tr>
                                 </thead>
@@ -889,7 +889,7 @@ const ServicesUnified = () => {
                         <div className="flex items-center justify-between mb-2">
                             <h3 className="font-semibold text-slate-800 text-sm flex items-center gap-2">
                                 <FileText size={16} className="text-yellow-600" />
-                                Diagn\u00f3stico y Notas
+                                Diagnóstico y Notas
                             </h3>
                             <button
                                 onClick={handleSaveNotes}
@@ -903,7 +903,7 @@ const ServicesUnified = () => {
                             rows={4}
                             value={diagnosisNotes}
                             onChange={(e) => setDiagnosisNotes(e.target.value)}
-                            placeholder="Escriba aqu\u00ed los hallazgos t\u00e9cnicos..."
+                            placeholder="Escriba aquí los hallazgos técnicos..."
                         />
                     </div>
                 </div>
@@ -920,7 +920,7 @@ const ServicesUnified = () => {
     return (
         <div className="h-[calc(100vh-64px)] flex flex-col md:flex-row bg-slate-100">
             {/* LEFT PANEL — Order List */}
-            <div className={`md:w-80 md:flex-shrink-0 md:border-r border-slate-200 bg-white md:flex md:flex-col h-full
+            <div className={`md:w-[420px] lg:w-[460px] md:flex-shrink-0 md:border-r border-slate-200 bg-white md:flex md:flex-col h-full
                 ${mobileView === 'list' ? 'flex flex-col' : 'hidden md:flex md:flex-col'}`}
             >
                 {renderOrderList()}
