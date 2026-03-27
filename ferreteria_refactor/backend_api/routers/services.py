@@ -482,9 +482,17 @@ def add_service_payment(
         meta["payment_status"] = "PAID"
         order.order_metadata = meta
 
+    db.flush()
+    # Re-query con eager loading ANTES del commit (search_path se pierde después)
+    result = db.query(models.ServiceOrder).options(
+        joinedload(models.ServiceOrder.customer),
+        joinedload(models.ServiceOrder.technician),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
+        joinedload(models.ServiceOrder.payments),
+    ).filter(models.ServiceOrder.id == order.id).first()
     db.commit()
-    db.refresh(order)
-    return order
+    return result
 
 
 @router.post("/orders/{order_id}/checkout")
