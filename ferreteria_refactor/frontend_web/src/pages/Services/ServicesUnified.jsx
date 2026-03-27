@@ -880,6 +880,26 @@ const ServicesUnified = () => {
                                 <span className="text-slate-400 text-xs">Agregue items para generar el total</span>
                             </div>
                         )}
+
+                        {/* Cobrar Pendiente button */}
+                        {paymentStatus !== 'paid' && orderTotal > 0 && (
+                            <button
+                                onClick={() => {
+                                    setPaymentData({
+                                        product_id: null,
+                                        description: `Servicio #${selectedOrder.ticket_number}`,
+                                        quantity: 1,
+                                        unit_price: orderPending,
+                                        is_manual: true,
+                                    });
+                                    setShowPaymentModal(true);
+                                }}
+                                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
+                            >
+                                <DollarSign size={16} />
+                                Cobrar Pendiente ({formatCurrency(orderPending)})
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -936,6 +956,7 @@ const ServicesUnified = () => {
             {/* Modals */}
             {showNewOrderModal && (
                 <NewOrderModal
+                    isOpen={showNewOrderModal}
                     onClose={() => setShowNewOrderModal(false)}
                     onCreated={(order) => {
                         fetchOrders();
