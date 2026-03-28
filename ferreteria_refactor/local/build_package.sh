@@ -118,6 +118,38 @@ fi
 echo "  ✅ Backend listo"
 
 # ============================================================
+# 3b. Pre-descargar wheels de pip para instalación offline
+# ============================================================
+echo "[3b/6] Pre-descargando wheels de pip (instalación offline)..."
+WHEELS_DIR="$DIST_DIR/wheels"
+mkdir -p "$WHEELS_DIR"
+WHEELS_CACHE="$SCRIPT_DIR/cache/wheels"
+mkdir -p "$WHEELS_CACHE"
+
+# Descargar wheels para Windows x86_64 / cp312
+pip download \
+    --platform win_amd64 \
+    --python-version 312 \
+    --implementation cp \
+    --abi cp312 \
+    --only-binary=:all: \
+    --dest "$WHEELS_CACHE" \
+    -r "$ROOT_DIR/../requirements.txt" \
+    --quiet 2>&1 | grep -v "^$" || true
+
+# Algunos paquetes solo tienen source dist — descargarlos también
+pip download \
+    --no-deps \
+    --dest "$WHEELS_CACHE" \
+    -r "$ROOT_DIR/../requirements.txt" \
+    --quiet 2>&1 | grep -v "^$" || true
+
+cp "$WHEELS_CACHE"/*.whl "$WHEELS_DIR/" 2>/dev/null || true
+cp "$WHEELS_CACHE"/*.tar.gz "$WHEELS_DIR/" 2>/dev/null || true
+WHEEL_COUNT=$(ls "$WHEELS_DIR" 2>/dev/null | wc -l)
+echo "  ✅ $WHEEL_COUNT wheels listos en wheels/"
+
+# ============================================================
 # 4. Build frontend
 # ============================================================
 echo "[4/6] Frontend (Vite build)..."

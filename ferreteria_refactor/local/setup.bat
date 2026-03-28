@@ -1,10 +1,13 @@
 @echo off
-title Mi Inventario Facil - Setup Inicial
-color 0A
 cd /d "%~dp0"
 
 set PYTHONIOENCODING=utf-8
 set PYTHONUTF8=1
+
+:: Detectar si fue lanzado desde InnoSetup (sin ventana / sin usuario interactivo)
+:: Si se pasa el argumento /silent, no mostramos pauses
+set SILENT=0
+if "%1"=="/silent" set SILENT=1
 
 echo.
 echo  ============================================================
@@ -22,9 +25,7 @@ if %ERRORLEVEL% NEQ 0 (
         redist\vc_redist.x64.exe /install /quiet /norestart
         echo         OK
     ) else (
-        echo         [!] vc_redist.x64.exe no encontrado
-        pause
-        exit /b 1
+        echo         [!] vc_redist.x64.exe no encontrado - continuando...
     )
 ) else (
     echo         OK
@@ -40,13 +41,16 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo         OK
 
-:: PASO 3: Dependencias
-echo  [3/5] Instalando dependencias (puede tardar unos minutos)...
-python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt >nul 2>&1
+:: PASO 3: Dependencias (usa wheels locales si existen, sino descarga)
+echo  [3/5] Instalando dependencias...
+if exist "wheels" (
+    python\python.exe -m pip install --no-index --find-links=wheels --no-warn-script-location -r backend\requirements.txt >nul 2>&1
+) else (
+    python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt >nul 2>&1
+)
 if %ERRORLEVEL% NEQ 0 (
     echo         [ERROR] Fallo instalando dependencias.
-    echo         Ejecute: python\python.exe -m pip install -r backend\requirements.txt
-    pause
+    if %SILENT%==0 pause
     exit /b 1
 )
 echo         OK
@@ -61,18 +65,18 @@ if not exist "postgresql\data\PG_VERSION" (
     postgresql\bin\initdb.exe -D postgresql\data -U postgres -E UTF8 --locale=C >nul 2>&1
     if %ERRORLEVEL% NEQ 0 (
         echo         [ERROR] initdb fallo.
-        pause
+        if %SILENT%==0 pause
         exit /b 1
     )
 )
 
 postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w
-timeout /t 2 /nobreak >nul
+timeout /t 3 /nobreak >nul
 
 postgresql\bin\pg_isready.exe -h localhost -p 5432 -U postgres >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo         [ERROR] PostgreSQL no inicio. Revise postgresql\log.txt
-    pause
+    if %SILENT%==0 pause
     exit /b 1
 )
 
@@ -82,7 +86,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo         OK
 
-:: PASO 5: Crear empresa
+:: PASO 5: Crear empresa por defecto
 echo  [5/5] Configurando empresa por defecto...
 
 if not exist "backend\media" mkdir backend\media
@@ -102,11 +106,12 @@ echo  ============================================================
 echo   Setup completado!
 echo.
 echo   Para iniciar: doble click en MiInventarioFacil.exe
-echo   O ejecute start.bat
 echo.
 echo   Credenciales:
 echo     Usuario: admin
 echo     Clave:   admin123
 echo  ============================================================
 echo.
-pause
+
+:: Solo pausar si el usuario abrió el bat manualmente (no desde el instalador)
+if %SILENT%==0 pause
