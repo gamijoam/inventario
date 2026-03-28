@@ -150,9 +150,12 @@ MEDIA_ROOT=./media
 TIMEZONE=America/Caracas
 ENVEOF
 
-# start.bat
+# Scripts de respaldo (por si el launcher falla)
 cp "$SCRIPT_DIR/start.bat" "$DIST_DIR/"
 cp "$SCRIPT_DIR/stop.bat" "$DIST_DIR/"
+
+# Launcher Python (se compila a .exe en Windows con PyInstaller)
+cp "$SCRIPT_DIR/launcher.py" "$DIST_DIR/"
 
 # setup.bat — primera ejecución
 cat > "$DIST_DIR/setup.bat" << 'SETUPEOF'
