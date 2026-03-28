@@ -70,10 +70,19 @@ echo  [4/5] Inicializando base de datos...
 taskkill /f /im postgres.exe >nul 2>&1
 timeout /t 2 /nobreak >nul
 
+:: Limpiar data incompleto si existe pero sin PG_VERSION
+if exist "postgresql\data" (
+    if not exist "postgresql\data\PG_VERSION" (
+        echo         Limpiando directorio data incompleto...
+        rmdir /s /q "postgresql\data"
+    )
+)
+
 if not exist "postgresql\data\PG_VERSION" (
-    postgresql\bin\initdb.exe -D postgresql\data -U postgres -E UTF8 --locale=C >nul 2>&1
+    echo         Ejecutando initdb...
+    postgresql\bin\initdb.exe -D postgresql\data -U postgres -E UTF8 --locale=C
     if %ERRORLEVEL% NEQ 0 (
-        echo         [ERROR] initdb fallo.
+        echo         [ERROR] initdb fallo. Ver salida arriba.
         if %SILENT%==0 pause
         exit /b 1
     )
@@ -82,9 +91,13 @@ if not exist "postgresql\data\PG_VERSION" (
 postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w
 timeout /t 3 /nobreak >nul
 
-postgresql\bin\pg_isready.exe -h localhost -p 5432 -U postgres >nul 2>&1
+postgresql\bin\pg_isready.exe -h localhost -p 5432 -U postgres
 if %ERRORLEVEL% NEQ 0 (
-    echo         [ERROR] PostgreSQL no inicio. Revise postgresql\log.txt
+    echo         [ERROR] PostgreSQL no inicio.
+    if exist "postgresql\log.txt" (
+        echo         Contenido de log.txt:
+        type postgresql\log.txt
+    )
     if %SILENT%==0 pause
     exit /b 1
 )
