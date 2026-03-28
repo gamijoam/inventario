@@ -103,6 +103,10 @@ rsync -a --exclude='venv/' --exclude='__pycache__/' --exclude='*.pyc' \
     --exclude='media/' --exclude='backups/' --exclude='frontend/' \
     "$ROOT_DIR/backend_api/" "$DIST_DIR/backend/"
 
+# Crear directorios necesarios que el backend espera
+mkdir -p "$DIST_DIR/backend/media"
+mkdir -p "$DIST_DIR/backend/backups"
+
 # Copiar requirements.txt
 cp "$ROOT_DIR/../requirements.txt" "$DIST_DIR/backend/requirements.txt"
 

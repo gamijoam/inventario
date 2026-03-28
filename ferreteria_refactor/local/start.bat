@@ -24,21 +24,30 @@ if not exist "postgresql\data\PG_VERSION" (
     exit /b 1
 )
 
+:: Crear directorio media si no existe
+if not exist "backend\media" mkdir backend\media
+
 :: Iniciar PostgreSQL
 echo [1/2] Iniciando PostgreSQL...
 postgresql\bin\pg_isready.exe -h localhost -p 5432 -U postgres >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo   Ya esta corriendo.
-) else (
-    :: Iniciar SIN start /B — pg_ctl -w espera a que este listo antes de continuar
-    postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w
-    if %ERRORLEVEL% NEQ 0 (
-        echo   [ERROR] PostgreSQL no pudo iniciar. Revise postgresql\log.txt
-        pause
-        exit /b 1
-    )
-    echo   OK
+    goto pg_ready
 )
+
+postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w
+timeout /t 2 /nobreak >nul
+
+:: Verificar con pg_isready (mas confiable que ERRORLEVEL de pg_ctl)
+postgresql\bin\pg_isready.exe -h localhost -p 5432 -U postgres >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo   [ERROR] PostgreSQL no pudo iniciar. Revise postgresql\log.txt
+    pause
+    exit /b 1
+)
+echo   OK
+
+:pg_ready
 
 :: Iniciar FastAPI
 echo [2/2] Iniciando servidor web...
