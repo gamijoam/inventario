@@ -86,6 +86,14 @@ ferreteria_refactor/backend_api/data/images/products/*
 !ferreteria_refactor/backend_api/data/images/products/.gitkeep
 hardware_bridge/dist/*.exe
 security_module/credentials.json
+
+# Offline package — archivos pesados (no subir al repo)
+ferreteria_refactor/local/dist/
+ferreteria_refactor/local/cache/
+ferreteria_refactor/local/launcher/bin/
+ferreteria_refactor/local/launcher/obj/
+ferreteria_refactor/local/launcher/publish/
+ferreteria_refactor/local/output/
 # Coverage
 .coverage
 htmlcov/

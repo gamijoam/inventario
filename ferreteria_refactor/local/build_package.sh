@@ -129,9 +129,25 @@ cd "$SCRIPT_DIR"
 echo "  ✅ Frontend listo"
 
 # ============================================================
-# 5. Copiar scripts y configs
+# 5. Copiar launcher C# compilado
 # ============================================================
-echo "[5/6] Scripts y configuración..."
+echo "[5/6] Launcher C# + scripts..."
+
+LAUNCHER_PUBLISH="$SCRIPT_DIR/launcher/publish"
+
+if [ -f "$LAUNCHER_PUBLISH/MiInventarioFacil.exe" ]; then
+    cp "$LAUNCHER_PUBLISH/MiInventarioFacil.exe" "$DIST_DIR/"
+    echo "  ✅ Launcher copiado desde publish/"
+else
+    echo "  ⚠️  Launcher C# no encontrado en launcher/publish/"
+    echo "     Para compilarlo en Windows:"
+    echo "       cd local\\launcher"
+    echo "       dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish"
+    echo "     O en Linux (requiere dotnet SDK):"
+    echo "       dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish"
+    echo ""
+    echo "  El paquete quedará sin el .exe principal hasta que se compile el launcher."
+fi
 
 # .env para modo offline
 GENERATED_KEY=$(openssl rand -hex 32)
@@ -151,14 +167,11 @@ MEDIA_ROOT=./media
 TIMEZONE=America/Caracas
 ENVEOF
 
-# Scripts de respaldo (por si el launcher falla)
+# Scripts de respaldo (por si el usuario prefiere línea de comandos)
 cp "$SCRIPT_DIR/start.bat" "$DIST_DIR/"
 cp "$SCRIPT_DIR/stop.bat" "$DIST_DIR/"
 
-# Launcher Python (se compila a .exe en Windows con PyInstaller)
-cp "$SCRIPT_DIR/launcher.py" "$DIST_DIR/"
-
-# setup.bat — copiado desde archivo separado (heredoc corrompe caracteres en Windows)
+# setup.bat — inicializa la BD (ejecutado por InnoSetup en instalación)
 cp "$SCRIPT_DIR/setup.bat" "$DIST_DIR/"
 
 echo "  ✅ Scripts listos"
@@ -197,11 +210,12 @@ echo ""
 echo "  Contenido:"
 du -sh "$DIST_DIR"/* 2>/dev/null | sed 's|.*/||'
 echo ""
-echo "  Siguiente paso:"
-echo "    1. Copiar dist/MiInventarioFacil/ a Windows"
-echo "    2. Ejecutar setup.bat (primera vez)"
-echo "    3. Ejecutar start.bat"
-echo ""
-echo "  O para generar .exe instalador:"
-echo "    Abrir innosetup.iss con InnoSetup en Windows y compilar"
+echo "  Para generar el instalador .exe:"
+echo "    1. Compilar el launcher (si no está en launcher/publish/):"
+echo "       cd local/launcher"
+echo "       dotnet publish -c Release -r win-x64 --self-contained true \\"
+echo "         /p:PublishSingleFile=true -o publish"
+echo "    2. Copiar dist/MiInventarioFacil/ a Windows"
+echo "    3. Abrir innosetup.iss con InnoSetup 6 y compilar (Ctrl+F9)"
+echo "       → genera local/output/MiInventarioFacil-Setup.exe"
 echo "============================================================"
