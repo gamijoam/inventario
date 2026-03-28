@@ -194,8 +194,37 @@ class LauncherForm : Form
         }
         if (!Directory.Exists(PgData))
         {
-            ShowError("Base de datos no inicializada.\nEjecute setup.bat primero.");
-            return;
+            var setupBat = Path.Combine(BaseDir, "setup.bat");
+            if (!File.Exists(setupBat))
+            {
+                ShowError("Base de datos no inicializada y setup.bat no encontrado.\nReinstale la aplicación.");
+                return;
+            }
+
+            var result = MessageBox.Show(
+                "La base de datos no ha sido inicializada todavía.\n\n" +
+                "¿Desea configurarla ahora? (puede tardar 1-2 minutos)",
+                "Mi Inventario Fácil — Primera vez",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result != DialogResult.Yes) return;
+
+            SetStatus("Configurando base de datos (primera vez)...", 0, 0);
+            _lblInfo.Text = "Este proceso puede tardar 1-2 minutos.\nNo cierre esta ventana.";
+
+            bool setupOk = await RunSetupAsync(setupBat);
+            if (!setupOk)
+            {
+                var logPath = Path.Combine(BaseDir, "setup.log");
+                var logMsg = File.Exists(logPath)
+                    ? $"\n\nLog de error:\n{File.ReadAllText(logPath)[..Math.Min(500, File.ReadAllText(logPath).Length)]}"
+                    : "";
+                ShowError("El setup inicial falló." + logMsg);
+                return;
+            }
+
+            _lblInfo.Text = "";
         }
         if (!File.Exists(PythonExe))
         {
@@ -239,6 +268,35 @@ class LauncherForm : Form
         catch (Exception ex)
         {
             ShowError($"Error inesperado:\n{ex.Message}");
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // Setup inicial (primera vez)
+    // ══════════════════════════════════════════════════════════════════════
+    async Task<bool> RunSetupAsync(string setupBat)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName         = "cmd.exe",
+                Arguments        = $"/c \"{setupBat}\" /silent > \"{Path.Combine(BaseDir, "setup.log")}\" 2>&1",
+                WorkingDirectory = BaseDir,
+                UseShellExecute  = false,
+                CreateNoWindow   = true,
+            };
+            var p = Process.Start(psi);
+            if (p == null) return false;
+
+            // Esperar hasta 5 minutos (pip install puede tardar)
+            await Task.Run(() => p.WaitForExit(300_000));
+            return p.ExitCode == 0 && Directory.Exists(PgData);
+        }
+        catch (Exception ex)
+        {
+            ShowError($"Error ejecutando setup:\n{ex.Message}");
+            return false;
         }
     }
 

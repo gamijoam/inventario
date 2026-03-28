@@ -51,7 +51,8 @@ Name: "{autodesktop}\{#MyAppName}";    Filename: "{app}\{#MyAppExeName}"; Workin
 ; 1. Instalar VC++ Redistributable si falta (requerido por PostgreSQL)
 Filename: "{app}\redist\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Instalando Visual C++ Redistributable..."; Check: VCRedistNotInstalled; Flags: waituntilterminated
 ; 2. Inicializar base de datos (solo primera vez)
-Filename: "{app}\setup.bat"; Parameters: "/silent"; StatusMsg: "Configurando base de datos (puede tardar 1-2 minutos)..."; Flags: waituntilterminated shellexec runhidden
+; Usamos cmd.exe directamente (shellexec no garantiza WorkingDir correcto para .bat)
+Filename: "{cmd}"; Parameters: "/c ""{app}\setup.bat"" /silent > ""{app}\setup.log"" 2>&1"; WorkingDir: "{app}"; StatusMsg: "Configurando base de datos (puede tardar 1-2 minutos)..."; Flags: waituntilterminated runhidden
 ; 3. Lanzar la app al terminar de instalar
 Filename: "{app}\{#MyAppExeName}"; Description: "Iniciar {#MyAppName} ahora"; Flags: nowait postinstall skipifsilent
 
