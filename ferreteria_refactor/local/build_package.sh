@@ -53,6 +53,7 @@ echo "  ✅ PostgreSQL listo"
 # ============================================================
 # 2. Descargar Python embebido para Windows
 # ============================================================
+# Python embebido (solo para uvicorn — launcher es C# nativo)
 PY_ZIP="python-${PY_VERSION}-embed-amd64.zip"
 PY_URL="https://www.python.org/ftp/python/${PY_VERSION}/${PY_ZIP}"
 PIP_URL="https://bootstrap.pypa.io/get-pip.py"
@@ -64,20 +65,33 @@ if [ ! -f "$SCRIPT_DIR/cache/$PY_ZIP" ]; then
     wget -q --show-progress -O "$SCRIPT_DIR/cache/$PY_ZIP" "$PY_URL"
 fi
 mkdir -p "$DIST_DIR/python"
-unzip -q "$SCRIPT_DIR/cache/$PY_ZIP" -d "$DIST_DIR/python/"
+unzip -qo "$SCRIPT_DIR/cache/$PY_ZIP" -d "$DIST_DIR/python/"
 
-# Habilitar pip: descomentar import site en python312._pth
+# Habilitar pip
 PY_PTH="$DIST_DIR/python/python312._pth"
 if [ -f "$PY_PTH" ]; then
     sed -i 's/#import site/import site/' "$PY_PTH"
 fi
 
-# Descargar get-pip.py
+# get-pip.py
 if [ ! -f "$SCRIPT_DIR/cache/get-pip.py" ]; then
     wget -q -O "$SCRIPT_DIR/cache/get-pip.py" "$PIP_URL"
 fi
 cp "$SCRIPT_DIR/cache/get-pip.py" "$DIST_DIR/python/"
 echo "  ✅ Python listo"
+
+# ============================================================
+# 2b. Descargar Visual C++ Redistributable (requerido por PostgreSQL)
+# ============================================================
+VCREDIST_URL="https://aka.ms/vs/17/release/vc_redist.x64.exe"
+echo "[2b/6] Visual C++ Redistributable..."
+if [ ! -f "$SCRIPT_DIR/cache/vc_redist.x64.exe" ]; then
+    echo "  Descargando (~25MB)..."
+    wget -q --show-progress -O "$SCRIPT_DIR/cache/vc_redist.x64.exe" "$VCREDIST_URL"
+fi
+mkdir -p "$DIST_DIR/redist"
+cp "$SCRIPT_DIR/cache/vc_redist.x64.exe" "$DIST_DIR/redist/"
+echo "  ✅ VC++ Redistributable listo"
 
 # ============================================================
 # 3. Copiar backend
@@ -89,6 +103,10 @@ rsync -a --exclude='venv/' --exclude='__pycache__/' --exclude='*.pyc' \
     --exclude='.env' --exclude='.env.backup*' --exclude='tests/' \
     --exclude='media/' --exclude='backups/' --exclude='frontend/' \
     "$ROOT_DIR/backend_api/" "$DIST_DIR/backend/"
+
+# Crear directorios necesarios que el backend espera
+mkdir -p "$DIST_DIR/backend/media"
+mkdir -p "$DIST_DIR/backend/backups"
 
 # Copiar requirements.txt
 cp "$ROOT_DIR/../requirements.txt" "$DIST_DIR/backend/requirements.txt"
@@ -116,10 +134,11 @@ echo "  ✅ Frontend listo"
 echo "[5/6] Scripts y configuración..."
 
 # .env para modo offline
-cat > "$DIST_DIR/backend/.env" << 'ENVEOF'
+GENERATED_KEY=$(openssl rand -hex 32)
+cat > "$DIST_DIR/backend/.env" << ENVEOF
 # Mi Inventario Fácil — Modo Offline
 DATABASE_URL=postgresql://postgres:@localhost:5432/miinventariofacil
-SECRET_KEY=offline-local-cambiar-en-produccion-$(openssl rand -hex 32)
+SECRET_KEY=${GENERATED_KEY}
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
 SINGLE_TENANT=true
@@ -132,77 +151,15 @@ MEDIA_ROOT=./media
 TIMEZONE=America/Caracas
 ENVEOF
 
-# start.bat
+# Scripts de respaldo (por si el launcher falla)
 cp "$SCRIPT_DIR/start.bat" "$DIST_DIR/"
 cp "$SCRIPT_DIR/stop.bat" "$DIST_DIR/"
 
-# setup.bat — primera ejecución
-cat > "$DIST_DIR/setup.bat" << 'SETUPEOF'
-@echo off
-title Mi Inventario Facil - Setup Inicial
-color 0A
-cd /d "%~dp0"
+# Launcher Python (se compila a .exe en Windows con PyInstaller)
+cp "$SCRIPT_DIR/launcher.py" "$DIST_DIR/"
 
-echo ============================================================
-echo   Mi Inventario Facil - Configuracion Inicial
-echo ============================================================
-echo.
-
-:: 1. Instalar pip en Python embebido
-echo [1/4] Instalando pip...
-python\python.exe python\get-pip.py --no-warn-script-location >nul 2>&1
-echo   OK
-
-:: 2. Instalar dependencias Python
-echo [2/4] Instalando dependencias (puede tardar unos minutos)...
-python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo   [ERROR] Fallo instalando dependencias.
-    echo   Ejecute manualmente: python\python.exe -m pip install -r backend\requirements.txt
-    pause
-    exit /b 1
-)
-echo   OK
-
-:: 3. Inicializar PostgreSQL
-echo [3/4] Inicializando base de datos...
-if not exist "postgresql\data\PG_VERSION" (
-    postgresql\bin\initdb.exe -D postgresql\data -U postgres -E UTF8 --locale=C >nul 2>&1
-)
-
-:: Iniciar PostgreSQL temporalmente
-start /B postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w >nul 2>&1
-timeout /t 3 /nobreak >nul
-
-:: Crear base de datos
-postgresql\bin\psql.exe -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='miinventariofacil'" | findstr "1" >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    postgresql\bin\createdb.exe -U postgres miinventariofacil
-)
-echo   OK
-
-:: 4. Crear tenant por defecto
-echo [4/4] Configurando empresa por defecto...
-set PYTHONPATH=%~dp0
-python\python.exe -m backend.setup_offline 2>nul
-if %ERRORLEVEL% NEQ 0 (
-    :: Intentar con cd al directorio
-    cd backend
-    ..\python\python.exe setup_offline.py 2>nul
-    cd ..
-)
-
-:: Detener PostgreSQL
-postgresql\bin\pg_ctl.exe stop -D postgresql\data -m fast >nul 2>&1
-
-echo.
-echo ============================================================
-echo   Setup completado!
-echo.
-echo   Ejecute start.bat para iniciar la aplicacion.
-echo ============================================================
-pause
-SETUPEOF
+# setup.bat — copiado desde archivo separado (heredoc corrompe caracteres en Windows)
+cp "$SCRIPT_DIR/setup.bat" "$DIST_DIR/"
 
 echo "  ✅ Scripts listos"
 
