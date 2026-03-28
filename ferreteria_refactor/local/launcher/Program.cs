@@ -192,6 +192,8 @@ class Program
             RedirectStandardError = true,
         };
         psi.EnvironmentVariables["PYTHONPATH"] = BaseDir;
+        psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+        psi.EnvironmentVariables["PYTHONUTF8"] = "1";
 
         uvicornProcess = Process.Start(psi);
 

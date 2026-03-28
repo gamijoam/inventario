@@ -74,6 +74,8 @@ start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:8000"
 
 :: Iniciar uvicorn (bloquea esta ventana)
 set PYTHONPATH=%~dp0
+set PYTHONIOENCODING=utf-8
+set PYTHONUTF8=1
 python\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
 :: Al cerrar uvicorn, detener PostgreSQL
