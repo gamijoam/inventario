@@ -173,92 +173,140 @@ cp "$SCRIPT_DIR/stop.bat" "$DIST_DIR/"
 # Launcher Python (se compila a .exe en Windows con PyInstaller)
 cp "$SCRIPT_DIR/launcher.py" "$DIST_DIR/"
 
-# setup.bat — primera ejecución
+# setup.bat — primera ejecución (reescrito con todos los fixes)
 cat > "$DIST_DIR/setup.bat" << 'SETUPEOF'
 @echo off
 title Mi Inventario Facil - Setup Inicial
 color 0A
 cd /d "%~dp0"
 
-echo ============================================================
+:: Encoding UTF-8 para evitar errores con emojis del backend
+set PYTHONIOENCODING=utf-8
+set PYTHONUTF8=1
+chcp 65001 >nul 2>&1
+
+echo.
+echo  ============================================================
 echo   Mi Inventario Facil - Configuracion Inicial
 echo   Esto puede tardar unos minutos. No cierre esta ventana.
-echo ============================================================
+echo  ============================================================
 echo.
 
-:: 0. Instalar Python completo (incluye tkinter para la interfaz)
-echo [1/6] Verificando Python...
-python\python.exe -c "import tkinter" >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo   Instalando Python completo con interfaz grafica...
-    if exist "redist\python-3.12.9-amd64.exe" (
-        redist\python-3.12.9-amd64.exe /quiet TargetDir="%~dp0python" Include_launcher=0 Include_test=0 AssociateFiles=0 Shortcuts=0 Include_doc=0
-        echo   OK
-    ) else (
-        echo   [AVISO] Instalador de Python no encontrado. La interfaz grafica no estara disponible.
-        echo   Use start.bat como alternativa.
-    )
-) else (
-    echo   OK - tkinter disponible
-)
-
-:: 1. Instalar Visual C++ Redistributable (requerido por PostgreSQL)
-echo [2/6] Verificando Visual C++ Redistributable...
+:: ── PASO 1: Visual C++ Redistributable ──
+echo  [1/6] Verificando Visual C++ Redistributable...
 reg query "HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo   Instalando Visual C++ Redistributable...
+    echo         Instalando...
     if exist "redist\vc_redist.x64.exe" (
         redist\vc_redist.x64.exe /install /quiet /norestart
-        echo   OK - Instalado
+        echo         OK
     ) else (
-        echo   [AVISO] No se encontro vc_redist.x64.exe
-        echo   Descargue de: https://aka.ms/vs/17/release/vc_redist.x64.exe
-        echo   e instalelo manualmente antes de continuar.
+        echo         [!] vc_redist.x64.exe no encontrado
         pause
+        exit /b 1
     )
 ) else (
-    echo   OK - Ya instalado
+    echo         OK
 )
 
-:: 1. Instalar pip en Python embebido
-echo [3/6] Instalando pip...
-python\python.exe python\get-pip.py --no-warn-script-location >nul 2>&1
-echo   OK
+:: ── PASO 2: Python completo (borrar embebido, instalar con tkinter) ──
+echo  [2/6] Verificando Python...
+python\python.exe -c "import tkinter" >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo         Instalando Python completo...
+    if exist "redist\python-3.12.9-amd64.exe" (
+        :: Borrar Python embebido para que el instalador pueda escribir
+        if exist "python\python312._pth" (
+            rmdir /S /Q python >nul 2>&1
+            mkdir python >nul 2>&1
+        )
+        :: Instalar Python completo en la carpeta python\
+        redist\python-3.12.9-amd64.exe /quiet TargetDir="%~dp0python" Include_launcher=0 Include_test=0 AssociateFiles=0 Shortcuts=0 Include_doc=0 InstallAllUsers=0
+        :: Esperar a que termine
+        timeout /t 10 /nobreak >nul
+        :: Verificar
+        python\python.exe -c "import tkinter" >nul 2>&1
+        if %ERRORLEVEL% NEQ 0 (
+            echo         [!] Python se instalo pero tkinter no disponible.
+            echo         El launcher usara la consola como alternativa.
+        ) else (
+            echo         OK
+        )
+    ) else (
+        echo         [!] Instalador de Python no encontrado. Usando version basica.
+    )
+) else (
+    echo         OK
+)
 
-:: 2. Instalar dependencias Python
-echo [4/6] Instalando dependencias (puede tardar unos minutos)...
+:: ── PASO 3: pip ──
+echo  [3/6] Instalando pip...
+python\python.exe -m pip --version >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    python\python.exe python\get-pip.py --no-warn-script-location >nul 2>&1
+    if exist "%~dp0python\get-pip.py" (
+        python\python.exe "%~dp0python\get-pip.py" --no-warn-script-location >nul 2>&1
+    )
+)
+echo         OK
+
+:: ── PASO 4: Dependencias Python ──
+echo  [4/6] Instalando dependencias (puede tardar unos minutos)...
 python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    echo   [ERROR] Fallo instalando dependencias.
-    echo   Ejecute manualmente: python\python.exe -m pip install -r backend\requirements.txt
+    echo         [ERROR] Fallo instalando dependencias.
+    echo         Ejecute: python\python.exe -m pip install -r backend\requirements.txt
     pause
     exit /b 1
 )
-echo   OK
+echo         OK
 
-:: 3. Inicializar PostgreSQL
-echo [5/6] Inicializando base de datos...
+:: ── PASO 5: PostgreSQL ──
+echo  [5/6] Inicializando base de datos...
+
+:: Matar PostgreSQL si quedo corriendo de antes
+taskkill /f /im postgres.exe >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+:: Inicializar data directory
 if not exist "postgresql\data\PG_VERSION" (
     postgresql\bin\initdb.exe -D postgresql\data -U postgres -E UTF8 --locale=C >nul 2>&1
+    if %ERRORLEVEL% NEQ 0 (
+        echo         [ERROR] initdb fallo. Revise que VC++ este instalado.
+        pause
+        exit /b 1
+    )
 )
 
-:: Iniciar PostgreSQL temporalmente
-start /B postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w >nul 2>&1
-timeout /t 4 /nobreak >nul
+:: Iniciar PostgreSQL
+postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w
+timeout /t 2 /nobreak >nul
+
+:: Verificar que esta corriendo
+postgresql\bin\pg_isready.exe -h localhost -p 5432 -U postgres >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo         [ERROR] PostgreSQL no inicio. Revise postgresql\log.txt
+    pause
+    exit /b 1
+)
 
 :: Crear base de datos
 postgresql\bin\psql.exe -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='miinventariofacil'" 2>nul | findstr "1" >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
-    postgresql\bin\createdb.exe -U postgres miinventariofacil
+    postgresql\bin\createdb.exe -U postgres miinventariofacil >nul 2>&1
 )
-echo   OK
+echo         OK
 
-:: 4. Crear tenant por defecto
-echo [6/6] Configurando empresa por defecto...
+:: ── PASO 6: Crear empresa ──
+echo  [6/6] Configurando empresa por defecto...
+
+:: Crear directorio media
+if not exist "backend\media" mkdir backend\media
+
+:: Ejecutar setup_offline.py
 set PYTHONPATH=%~dp0
 python\python.exe -m backend.setup_offline 2>nul
 if %ERRORLEVEL% NEQ 0 (
-    :: Intentar con cd al directorio
     cd backend
     ..\python\python.exe setup_offline.py 2>nul
     cd ..
@@ -268,10 +316,16 @@ if %ERRORLEVEL% NEQ 0 (
 postgresql\bin\pg_ctl.exe stop -D postgresql\data -m fast >nul 2>&1
 
 echo.
-echo ============================================================
+echo  ============================================================
 echo   Setup completado!
 echo.
-echo   Ejecute start.bat para iniciar la aplicacion.
+echo   Para iniciar: doble click en MiInventarioFacil.exe
+echo   O ejecute start.bat
+echo.
+echo   Credenciales:
+echo     Usuario: admin
+echo     Clave:   admin123
+echo  ============================================================
 echo ============================================================
 pause
 SETUPEOF
