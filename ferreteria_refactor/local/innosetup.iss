@@ -36,7 +36,7 @@ ExtraDiskSpaceRequired=314572800
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Crear acceso directo en el Escritorio"; GroupDescription: "Accesos directos:"; Flags: checked
+Name: "desktopicon"; Description: "Crear acceso directo en el Escritorio"; GroupDescription: "Accesos directos:"
 
 [Files]
 ; Todo el contenido del paquete armado por build_package.sh

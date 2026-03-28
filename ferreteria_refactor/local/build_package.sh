@@ -136,17 +136,15 @@ echo "[5/6] Launcher C# + scripts..."
 LAUNCHER_PUBLISH="$SCRIPT_DIR/launcher/publish"
 
 if [ -f "$LAUNCHER_PUBLISH/MiInventarioFacil.exe" ]; then
-    cp "$LAUNCHER_PUBLISH/MiInventarioFacil.exe" "$DIST_DIR/"
+    # Copiar todos los archivos del publish (exe + DLLs nativas requeridas)
+    cp "$LAUNCHER_PUBLISH"/*.exe "$DIST_DIR/" 2>/dev/null || true
+    cp "$LAUNCHER_PUBLISH"/*.dll "$DIST_DIR/" 2>/dev/null || true
     echo "  ✅ Launcher copiado desde publish/"
 else
     echo "  ⚠️  Launcher C# no encontrado en launcher/publish/"
-    echo "     Para compilarlo en Windows:"
-    echo "       cd local\\launcher"
+    echo "     Compilar con:"
+    echo "       cd local/launcher"
     echo "       dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish"
-    echo "     O en Linux (requiere dotnet SDK):"
-    echo "       dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish"
-    echo ""
-    echo "  El paquete quedará sin el .exe principal hasta que se compile el launcher."
 fi
 
 # .env para modo offline
