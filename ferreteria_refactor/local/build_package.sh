@@ -53,26 +53,42 @@ echo "  ✅ PostgreSQL listo"
 # ============================================================
 # 2. Descargar Python embebido para Windows
 # ============================================================
+# Python embebido + instalador completo para tkinter
 PY_ZIP="python-${PY_VERSION}-embed-amd64.zip"
 PY_URL="https://www.python.org/ftp/python/${PY_VERSION}/${PY_ZIP}"
+PY_INSTALLER="python-${PY_VERSION}-amd64.exe"
+PY_INSTALLER_URL="https://www.python.org/ftp/python/${PY_VERSION}/${PY_INSTALLER}"
 PIP_URL="https://bootstrap.pypa.io/get-pip.py"
 
-echo "[2/6] Python embebido ${PY_VERSION}..."
+echo "[2/6] Python ${PY_VERSION}..."
+
+# Python embebido (base)
 if [ ! -f "$SCRIPT_DIR/cache/$PY_ZIP" ]; then
     mkdir -p "$SCRIPT_DIR/cache"
-    echo "  Descargando (~12MB)..."
+    echo "  Descargando embebido (~12MB)..."
     wget -q --show-progress -O "$SCRIPT_DIR/cache/$PY_ZIP" "$PY_URL"
 fi
 mkdir -p "$DIST_DIR/python"
-unzip -q "$SCRIPT_DIR/cache/$PY_ZIP" -d "$DIST_DIR/python/"
+unzip -qo "$SCRIPT_DIR/cache/$PY_ZIP" -d "$DIST_DIR/python/"
 
-# Habilitar pip: descomentar import site en python312._pth
-PY_PTH="$DIST_DIR/python/python312._pth"
-if [ -f "$PY_PTH" ]; then
-    sed -i 's/#import site/import site/' "$PY_PTH"
+# Habilitar pip + paths
+cat > "$DIST_DIR/python/python312._pth" << 'PTHEOF'
+python312.zip
+.
+Lib
+DLLs
+import site
+PTHEOF
+
+# Instalador de Python (para que setup.bat instale tkinter en Windows)
+if [ ! -f "$SCRIPT_DIR/cache/$PY_INSTALLER" ]; then
+    echo "  Descargando instalador completo (~26MB, para tkinter)..."
+    wget -q --show-progress -O "$SCRIPT_DIR/cache/$PY_INSTALLER" "$PY_INSTALLER_URL"
 fi
+mkdir -p "$DIST_DIR/redist"
+cp "$SCRIPT_DIR/cache/$PY_INSTALLER" "$DIST_DIR/redist/"
 
-# Descargar get-pip.py
+# get-pip.py
 if [ ! -f "$SCRIPT_DIR/cache/get-pip.py" ]; then
     wget -q -O "$SCRIPT_DIR/cache/get-pip.py" "$PIP_URL"
 fi
@@ -166,11 +182,28 @@ cd /d "%~dp0"
 
 echo ============================================================
 echo   Mi Inventario Facil - Configuracion Inicial
+echo   Esto puede tardar unos minutos. No cierre esta ventana.
 echo ============================================================
 echo.
 
-:: 0. Instalar Visual C++ Redistributable (requerido por PostgreSQL)
-echo [1/5] Verificando Visual C++ Redistributable...
+:: 0. Instalar Python completo (incluye tkinter para la interfaz)
+echo [1/6] Verificando Python...
+python\python.exe -c "import tkinter" >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo   Instalando Python completo con interfaz grafica...
+    if exist "redist\python-3.12.9-amd64.exe" (
+        redist\python-3.12.9-amd64.exe /quiet TargetDir="%~dp0python" Include_launcher=0 Include_test=0 AssociateFiles=0 Shortcuts=0 Include_doc=0
+        echo   OK
+    ) else (
+        echo   [AVISO] Instalador de Python no encontrado. La interfaz grafica no estara disponible.
+        echo   Use start.bat como alternativa.
+    )
+) else (
+    echo   OK - tkinter disponible
+)
+
+:: 1. Instalar Visual C++ Redistributable (requerido por PostgreSQL)
+echo [2/6] Verificando Visual C++ Redistributable...
 reg query "HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo   Instalando Visual C++ Redistributable...
@@ -188,12 +221,12 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 :: 1. Instalar pip en Python embebido
-echo [2/5] Instalando pip...
+echo [3/6] Instalando pip...
 python\python.exe python\get-pip.py --no-warn-script-location >nul 2>&1
 echo   OK
 
 :: 2. Instalar dependencias Python
-echo [3/5] Instalando dependencias (puede tardar unos minutos)...
+echo [4/6] Instalando dependencias (puede tardar unos minutos)...
 python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo   [ERROR] Fallo instalando dependencias.
@@ -204,7 +237,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo   OK
 
 :: 3. Inicializar PostgreSQL
-echo [4/5] Inicializando base de datos...
+echo [5/6] Inicializando base de datos...
 if not exist "postgresql\data\PG_VERSION" (
     postgresql\bin\initdb.exe -D postgresql\data -U postgres -E UTF8 --locale=C >nul 2>&1
 )
@@ -221,7 +254,7 @@ if %ERRORLEVEL% NEQ 0 (
 echo   OK
 
 :: 4. Crear tenant por defecto
-echo [5/5] Configurando empresa por defecto...
+echo [6/6] Configurando empresa por defecto...
 set PYTHONPATH=%~dp0
 python\python.exe -m backend.setup_offline 2>nul
 if %ERRORLEVEL% NEQ 0 (
