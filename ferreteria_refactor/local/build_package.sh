@@ -129,10 +129,11 @@ echo "  ✅ Frontend listo"
 echo "[5/6] Scripts y configuración..."
 
 # .env para modo offline
-cat > "$DIST_DIR/backend/.env" << 'ENVEOF'
+GENERATED_KEY=$(openssl rand -hex 32)
+cat > "$DIST_DIR/backend/.env" << ENVEOF
 # Mi Inventario Fácil — Modo Offline
 DATABASE_URL=postgresql://postgres:@localhost:5432/miinventariofacil
-SECRET_KEY=offline-local-cambiar-en-produccion-$(openssl rand -hex 32)
+SECRET_KEY=${GENERATED_KEY}
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
 SINGLE_TENANT=true
