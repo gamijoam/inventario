@@ -14,7 +14,7 @@ echo  ============================================================
 echo.
 
 :: PASO 1: Visual C++
-echo  [1/6] Verificando Visual C++ Redistributable...
+echo  [1/5] Verificando Visual C++ Redistributable...
 reg query "HKLM\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo         Instalando...
@@ -30,33 +30,8 @@ if %ERRORLEVEL% NEQ 0 (
     echo         OK
 )
 
-:: PASO 2: Python completo
-echo  [2/6] Verificando Python...
-python\python.exe -c "import tkinter" >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo         Instalando Python completo...
-    if exist "redist\python-3.12.9-amd64.exe" (
-        if exist "python\python312._pth" (
-            rmdir /S /Q python >nul 2>&1
-            mkdir python >nul 2>&1
-        )
-        redist\python-3.12.9-amd64.exe /quiet TargetDir="%~dp0python" Include_launcher=0 Include_test=0 AssociateFiles=0 Shortcuts=0 Include_doc=0 InstallAllUsers=0
-        timeout /t 15 /nobreak >nul
-        python\python.exe -c "import tkinter" >nul 2>&1
-        if %ERRORLEVEL% NEQ 0 (
-            echo         [!] tkinter no disponible. Launcher usara consola.
-        ) else (
-            echo         OK
-        )
-    ) else (
-        echo         [!] Instalador de Python no encontrado. Usando version basica.
-    )
-) else (
-    echo         OK
-)
-
-:: PASO 3: pip
-echo  [3/6] Instalando pip...
+:: PASO 2: pip
+echo  [2/5] Instalando pip...
 python\python.exe -m pip --version >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     if exist "python\get-pip.py" (
@@ -65,8 +40,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo         OK
 
-:: PASO 4: Dependencias
-echo  [4/6] Instalando dependencias (puede tardar unos minutos)...
+:: PASO 3: Dependencias
+echo  [3/5] Instalando dependencias (puede tardar unos minutos)...
 python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo         [ERROR] Fallo instalando dependencias.
@@ -76,8 +51,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo         OK
 
-:: PASO 5: PostgreSQL
-echo  [5/6] Inicializando base de datos...
+:: PASO 4: PostgreSQL
+echo  [4/5] Inicializando base de datos...
 
 taskkill /f /im postgres.exe >nul 2>&1
 timeout /t 2 /nobreak >nul
@@ -107,8 +82,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo         OK
 
-:: PASO 6: Crear empresa
-echo  [6/6] Configurando empresa por defecto...
+:: PASO 5: Crear empresa
+echo  [5/5] Configurando empresa por defecto...
 
 if not exist "backend\media" mkdir backend\media
 

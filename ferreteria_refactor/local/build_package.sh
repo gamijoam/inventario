@@ -53,40 +53,25 @@ echo "  ✅ PostgreSQL listo"
 # ============================================================
 # 2. Descargar Python embebido para Windows
 # ============================================================
-# Python embebido + instalador completo para tkinter
+# Python embebido (solo para uvicorn — launcher es C# nativo)
 PY_ZIP="python-${PY_VERSION}-embed-amd64.zip"
 PY_URL="https://www.python.org/ftp/python/${PY_VERSION}/${PY_ZIP}"
-PY_INSTALLER="python-${PY_VERSION}-amd64.exe"
-PY_INSTALLER_URL="https://www.python.org/ftp/python/${PY_VERSION}/${PY_INSTALLER}"
 PIP_URL="https://bootstrap.pypa.io/get-pip.py"
 
-echo "[2/6] Python ${PY_VERSION}..."
-
-# Python embebido (base)
+echo "[2/6] Python embebido ${PY_VERSION}..."
 if [ ! -f "$SCRIPT_DIR/cache/$PY_ZIP" ]; then
     mkdir -p "$SCRIPT_DIR/cache"
-    echo "  Descargando embebido (~12MB)..."
+    echo "  Descargando (~12MB)..."
     wget -q --show-progress -O "$SCRIPT_DIR/cache/$PY_ZIP" "$PY_URL"
 fi
 mkdir -p "$DIST_DIR/python"
 unzip -qo "$SCRIPT_DIR/cache/$PY_ZIP" -d "$DIST_DIR/python/"
 
-# Habilitar pip + paths
-cat > "$DIST_DIR/python/python312._pth" << 'PTHEOF'
-python312.zip
-.
-Lib
-DLLs
-import site
-PTHEOF
-
-# Instalador de Python (para que setup.bat instale tkinter en Windows)
-if [ ! -f "$SCRIPT_DIR/cache/$PY_INSTALLER" ]; then
-    echo "  Descargando instalador completo (~26MB, para tkinter)..."
-    wget -q --show-progress -O "$SCRIPT_DIR/cache/$PY_INSTALLER" "$PY_INSTALLER_URL"
+# Habilitar pip
+PY_PTH="$DIST_DIR/python/python312._pth"
+if [ -f "$PY_PTH" ]; then
+    sed -i 's/#import site/import site/' "$PY_PTH"
 fi
-mkdir -p "$DIST_DIR/redist"
-cp "$SCRIPT_DIR/cache/$PY_INSTALLER" "$DIST_DIR/redist/"
 
 # get-pip.py
 if [ ! -f "$SCRIPT_DIR/cache/get-pip.py" ]; then
