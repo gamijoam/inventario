@@ -523,7 +523,11 @@ class LauncherForm : Form
             Dock   = DockStyle.Bottom,
             Height = 32,
         };
-        btnCopy.Click += (_, _) => Clipboard.SetText(logContent);
+        btnCopy.Click += (_, _) =>
+        {
+            try { Clipboard.SetText(logContent); }
+            catch { MessageBox.Show("No se pudo copiar al portapapeles.\nAbra el archivo manualmente:\n" + logPath); }
+        };
         dlg.Controls.Add(txt);
         dlg.Controls.Add(lblTop);
         dlg.Controls.Add(btnCopy);
