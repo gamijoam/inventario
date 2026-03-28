@@ -41,17 +41,26 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo         OK
 
-:: PASO 3: Dependencias (usa wheels locales si existen, sino descarga)
-echo  [3/5] Instalando dependencias...
+:: PASO 3: Dependencias
+echo  [3/5] Instalando dependencias (requiere internet la primera vez)...
+
+:: Intentar con wheels locales primero
+set PIP_OK=0
 if exist "wheels" (
     python\python.exe -m pip install --no-index --find-links=wheels --no-warn-script-location -r backend\requirements.txt >nul 2>&1
-) else (
-    python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt >nul 2>&1
+    if %ERRORLEVEL% EQU 0 set PIP_OK=1
 )
-if %ERRORLEVEL% NEQ 0 (
-    echo         [ERROR] Fallo instalando dependencias.
-    if %SILENT%==0 pause
-    exit /b 1
+
+:: Si los wheels locales fallan (ej: son de plataforma incorrecta), descargar de internet
+if %PIP_OK%==0 (
+    echo         Descargando dependencias de internet...
+    python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt
+    if %ERRORLEVEL% NEQ 0 (
+        echo         [ERROR] Fallo instalando dependencias.
+        echo         Verifique su conexion a internet e intente de nuevo.
+        if %SILENT%==0 pause
+        exit /b 1
+    )
 )
 echo         OK
 

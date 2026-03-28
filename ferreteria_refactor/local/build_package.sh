@@ -127,6 +127,7 @@ WHEELS_CACHE="$SCRIPT_DIR/cache/wheels"
 mkdir -p "$WHEELS_CACHE"
 
 # Descargar wheels para Windows x86_64 / cp312
+# Primero: wheels binarios específicos de Windows
 pip download \
     --platform win_amd64 \
     --python-version 312 \
@@ -137,9 +138,12 @@ pip download \
     -r "$ROOT_DIR/../requirements.txt" \
     --quiet 2>&1 | grep -v "^$" || true
 
-# Algunos paquetes solo tienen source dist — descargarlos también
+# Segundo: paquetes pure-python (sin binarios) — solo .whl py3-none-any
 pip download \
-    --no-deps \
+    --platform win_amd64 \
+    --python-version 312 \
+    --implementation cp \
+    --abi cp312 \
     --dest "$WHEELS_CACHE" \
     -r "$ROOT_DIR/../requirements.txt" \
     --quiet 2>&1 | grep -v "^$" || true

@@ -217,10 +217,7 @@ class LauncherForm : Form
             if (!setupOk)
             {
                 var logPath = Path.Combine(BaseDir, "setup.log");
-                var logMsg = File.Exists(logPath)
-                    ? $"\n\nLog de error:\n{File.ReadAllText(logPath)[..Math.Min(500, File.ReadAllText(logPath).Length)]}"
-                    : "";
-                ShowError("El setup inicial falló." + logMsg);
+                ShowSetupError(logPath);
                 return;
             }
 
@@ -276,26 +273,42 @@ class LauncherForm : Form
     // ══════════════════════════════════════════════════════════════════════
     async Task<bool> RunSetupAsync(string setupBat)
     {
+        var logPath = Path.Combine(BaseDir, "setup.log");
+        var logLines = new System.Text.StringBuilder();
+
         try
         {
             var psi = new ProcessStartInfo
             {
-                FileName         = "cmd.exe",
-                Arguments        = $"/c \"{setupBat}\" /silent > \"{Path.Combine(BaseDir, "setup.log")}\" 2>&1",
-                WorkingDirectory = BaseDir,
-                UseShellExecute  = false,
-                CreateNoWindow   = true,
+                FileName               = "cmd.exe",
+                Arguments              = $"/c \"{setupBat}\" /silent",
+                WorkingDirectory       = BaseDir,
+                UseShellExecute        = false,
+                CreateNoWindow         = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError  = true,
             };
+
             var p = Process.Start(psi);
             if (p == null) return false;
 
-            // Esperar hasta 5 minutos (pip install puede tardar)
+            // Capturar stdout y stderr
+            p.OutputDataReceived += (_, e) => { if (e.Data != null) logLines.AppendLine(e.Data); };
+            p.ErrorDataReceived  += (_, e) => { if (e.Data != null) logLines.AppendLine("[ERR] " + e.Data); };
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+
+            // Esperar hasta 5 minutos
             await Task.Run(() => p.WaitForExit(300_000));
+
+            // Guardar log
+            File.WriteAllText(logPath, logLines.ToString());
+
             return p.ExitCode == 0 && Directory.Exists(PgData);
         }
         catch (Exception ex)
         {
-            ShowError($"Error ejecutando setup:\n{ex.Message}");
+            File.WriteAllText(logPath, $"Excepción: {ex}");
             return false;
         }
     }
@@ -465,6 +478,64 @@ class LauncherForm : Form
         _tray.Visible = true;
         _tray.ShowBalloonTip(3000, "Mi Inventario Fácil",
             "La aplicación está corriendo.\nHaz doble click para restaurar.", ToolTipIcon.Info);
+    }
+
+    void ShowSetupError(string logPath)
+    {
+        if (InvokeRequired) { Invoke(() => ShowSetupError(logPath)); return; }
+
+        var logContent = File.Exists(logPath) && new FileInfo(logPath).Length > 0
+            ? File.ReadAllText(logPath)
+            : "(setup.log vacío — el proceso no generó salida)";
+
+        // Ventana con log scrollable
+        var dlg = new Form
+        {
+            Text            = "Mi Inventario Fácil — Error en setup",
+            Size            = new Size(620, 440),
+            StartPosition   = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox     = false,
+        };
+        var txt = new TextBox
+        {
+            Multiline  = true,
+            ScrollBars = ScrollBars.Vertical,
+            ReadOnly   = true,
+            Dock       = DockStyle.Fill,
+            Font       = new Font("Consolas", 9),
+            Text       = logContent,
+            BackColor  = Color.FromArgb(30, 30, 30),
+            ForeColor  = Color.FromArgb(220, 220, 220),
+        };
+        var lblTop = new Label
+        {
+            Text      = "El setup inicial falló. Contenido de setup.log:",
+            Dock      = DockStyle.Top,
+            Height    = 26,
+            Font      = new Font("Segoe UI", 9, FontStyle.Bold),
+            ForeColor = Color.DarkRed,
+            Padding   = new Padding(4),
+        };
+        var btnCopy = new Button
+        {
+            Text   = "Copiar log",
+            Dock   = DockStyle.Bottom,
+            Height = 32,
+        };
+        btnCopy.Click += (_, _) => Clipboard.SetText(logContent);
+        dlg.Controls.Add(txt);
+        dlg.Controls.Add(lblTop);
+        dlg.Controls.Add(btnCopy);
+        dlg.ShowDialog(this);
+
+        // Actualizar estado en ventana principal
+        _lblStatus.Text      = "Error en setup inicial";
+        _lblStatus.ForeColor = Color.FromArgb(220, 38, 38);
+        _progress.Style      = ProgressBarStyle.Continuous;
+        _progress.Value      = 0;
+        _lblInfo.Text        = $"Revise setup.log en:\n{logPath}";
+        _btnStop.Enabled     = true;
     }
 
     void ShowError(string msg)
