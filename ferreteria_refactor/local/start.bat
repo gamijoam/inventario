@@ -12,7 +12,6 @@ cd /d "%~dp0"
 :: Verificar que PostgreSQL existe
 if not exist "postgresql\bin\pg_ctl.exe" (
     echo [ERROR] No se encontro PostgreSQL portable.
-    echo Asegurese de que la carpeta postgresql\ existe.
     pause
     exit /b 1
 )
@@ -27,14 +26,12 @@ if not exist "postgresql\data\PG_VERSION" (
 
 :: Iniciar PostgreSQL
 echo [1/2] Iniciando PostgreSQL...
-postgresql\bin\pg_isready.exe -h localhost -p 5432 >nul 2>&1
+postgresql\bin\pg_isready.exe -h localhost -p 5432 -U postgres >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo   Ya esta corriendo.
 ) else (
-    start /B postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w
-    timeout /t 4 /nobreak >nul
-
-    postgresql\bin\pg_isready.exe -h localhost -p 5432 >nul 2>&1
+    :: Iniciar SIN start /B — pg_ctl -w espera a que este listo antes de continuar
+    postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w
     if %ERRORLEVEL% NEQ 0 (
         echo   [ERROR] PostgreSQL no pudo iniciar. Revise postgresql\log.txt
         pause
@@ -66,11 +63,11 @@ echo.
 :: Abrir navegador
 start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:8000"
 
-:: Iniciar uvicorn (bloquea esta ventana — muestra logs)
+:: Iniciar uvicorn (bloquea esta ventana)
 set PYTHONPATH=%~dp0
 python\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
-:: Si uvicorn se cierra, detener PostgreSQL
+:: Al cerrar uvicorn, detener PostgreSQL
 echo.
 echo [INFO] Servidor detenido. Cerrando PostgreSQL...
 postgresql\bin\pg_ctl.exe stop -D postgresql\data -m fast >nul 2>&1
