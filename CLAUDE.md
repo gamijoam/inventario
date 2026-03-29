@@ -219,3 +219,5 @@ Backups persistentes: /root/deploy/prod/backups/  (bind mount → /app/backups e
 | `19_Sistema_Licencias.md` | Planes, trial, scheduler de expiración |
 | `20_Migraciones_SQL_Pendientes.md` | Alembic, migraciones pendientes |
 | `24_Auditoria_Integral_2026-03-25.md` | Auditoría completa: seguridad, backend, frontend, DevOps, negocio |
+| `25_Modo_Offline_Windows.md` | Instalador .exe Windows — build, launcher C#, setup BD, troubleshooting |
+| `26_Soporte_BD_Clientes_Offline.md` | Acceso y mantenimiento BD en clientes con .exe — DBeaver, psql, acceso remoto, reset pass |

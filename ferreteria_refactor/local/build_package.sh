@@ -67,11 +67,17 @@ fi
 mkdir -p "$DIST_DIR/python"
 unzip -qo "$SCRIPT_DIR/cache/$PY_ZIP" -d "$DIST_DIR/python/"
 
-# Habilitar pip
+# Habilitar pip y agregar Lib\site-packages al path del Python embebido
+# Sin esto, los paquetes instalados con --target=python\Lib\site-packages
+# no son encontrados por el intérprete.
 PY_PTH="$DIST_DIR/python/python312._pth"
 if [ -f "$PY_PTH" ]; then
     sed -i 's/#import site/import site/' "$PY_PTH"
+    # Agregar site-packages explícitamente (Python embebido no lo hace automático)
+    grep -q "Lib\\\\site-packages" "$PY_PTH" || \
+        sed -i '1a Lib\\site-packages' "$PY_PTH"
 fi
+mkdir -p "$DIST_DIR/python/Lib/site-packages"
 
 # get-pip.py
 if [ ! -f "$SCRIPT_DIR/cache/get-pip.py" ]; then
@@ -118,6 +124,57 @@ fi
 echo "  ✅ Backend listo"
 
 # ============================================================
+# 3b. Pre-instalar dependencias en site-packages del Python embebido
+# ============================================================
+# Descargamos wheels para Windows win_amd64/cp312 desde Linux y los
+# extraemos directamente en python/Lib/site-packages — sin pip en Windows.
+echo "[3b/6] Pre-instalando dependencias en site-packages..."
+
+SITE_PKG="$DIST_DIR/python/Lib/site-packages"
+mkdir -p "$SITE_PKG"
+
+WHEELS_CACHE="$SCRIPT_DIR/cache/wheels_win"
+mkdir -p "$WHEELS_CACHE"
+
+REQS="$ROOT_DIR/../requirements.txt"
+
+# Generar requirements para Windows: reemplaza uvicorn[standard] por uvicorn
+# (uvloop es Linux-only y causa error al resolver dependencias para win_amd64)
+REQS_WIN="$SCRIPT_DIR/cache/requirements.windows.txt"
+sed 's/uvicorn\[standard\]/uvicorn/' "$REQS" > "$REQS_WIN"
+
+echo "  Descargando wheels Windows (win_amd64, cp312) con todas las dependencias..."
+
+pip download \
+    --platform win_amd64 \
+    --python-version 312 \
+    --implementation cp \
+    --abi cp312 \
+    --only-binary=:all: \
+    --dest "$WHEELS_CACHE" \
+    -r "$REQS_WIN" \
+    2>&1 | grep -E "^(ERROR|Saved|Downloading)" || true
+
+echo "  Total wheels descargados: $(ls "$WHEELS_CACHE"/*.whl 2>/dev/null | wc -l)"
+
+# Paso 3: extraer cada wheel en site-packages
+# Un .whl es un zip — lo extraemos directo, sin pip
+EXTRACTED=0
+for WHL in "$WHEELS_CACHE"/*.whl; do
+    [ -f "$WHL" ] || continue
+    unzip -qo "$WHL" -d "$SITE_PKG/" 2>/dev/null && EXTRACTED=$((EXTRACTED+1))
+done
+
+echo "  ✅ $EXTRACTED paquetes instalados en python/Lib/site-packages/"
+
+# Verificar que uvicorn quedó instalado
+if [ -d "$SITE_PKG/uvicorn" ]; then
+    echo "  ✅ uvicorn OK"
+else
+    echo "  ⚠️  uvicorn no encontrado — revisar requirements.txt"
+fi
+
+# ============================================================
 # 4. Build frontend
 # ============================================================
 echo "[4/6] Frontend (Vite build)..."
@@ -129,9 +186,23 @@ cd "$SCRIPT_DIR"
 echo "  ✅ Frontend listo"
 
 # ============================================================
-# 5. Copiar scripts y configs
+# 5. Copiar launcher C# compilado
 # ============================================================
-echo "[5/6] Scripts y configuración..."
+echo "[5/6] Launcher C# + scripts..."
+
+LAUNCHER_PUBLISH="$SCRIPT_DIR/launcher/publish"
+
+if [ -f "$LAUNCHER_PUBLISH/MiInventarioFacil.exe" ]; then
+    # Copiar todos los archivos del publish (exe + DLLs nativas requeridas)
+    cp "$LAUNCHER_PUBLISH"/*.exe "$DIST_DIR/" 2>/dev/null || true
+    cp "$LAUNCHER_PUBLISH"/*.dll "$DIST_DIR/" 2>/dev/null || true
+    echo "  ✅ Launcher copiado desde publish/"
+else
+    echo "  ⚠️  Launcher C# no encontrado en launcher/publish/"
+    echo "     Compilar con:"
+    echo "       cd local/launcher"
+    echo "       dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish"
+fi
 
 # .env para modo offline
 GENERATED_KEY=$(openssl rand -hex 32)
@@ -151,14 +222,11 @@ MEDIA_ROOT=./media
 TIMEZONE=America/Caracas
 ENVEOF
 
-# Scripts de respaldo (por si el launcher falla)
+# Scripts de respaldo (por si el usuario prefiere línea de comandos)
 cp "$SCRIPT_DIR/start.bat" "$DIST_DIR/"
 cp "$SCRIPT_DIR/stop.bat" "$DIST_DIR/"
 
-# Launcher Python (se compila a .exe en Windows con PyInstaller)
-cp "$SCRIPT_DIR/launcher.py" "$DIST_DIR/"
-
-# setup.bat — copiado desde archivo separado (heredoc corrompe caracteres en Windows)
+# setup.bat — inicializa la BD (ejecutado por InnoSetup en instalación)
 cp "$SCRIPT_DIR/setup.bat" "$DIST_DIR/"
 
 echo "  ✅ Scripts listos"
@@ -197,11 +265,12 @@ echo ""
 echo "  Contenido:"
 du -sh "$DIST_DIR"/* 2>/dev/null | sed 's|.*/||'
 echo ""
-echo "  Siguiente paso:"
-echo "    1. Copiar dist/MiInventarioFacil/ a Windows"
-echo "    2. Ejecutar setup.bat (primera vez)"
-echo "    3. Ejecutar start.bat"
-echo ""
-echo "  O para generar .exe instalador:"
-echo "    Abrir innosetup.iss con InnoSetup en Windows y compilar"
+echo "  Para generar el instalador .exe:"
+echo "    1. Compilar el launcher (si no está en launcher/publish/):"
+echo "       cd local/launcher"
+echo "       dotnet publish -c Release -r win-x64 --self-contained true \\"
+echo "         /p:PublishSingleFile=true -o publish"
+echo "    2. Copiar dist/MiInventarioFacil/ a Windows"
+echo "    3. Abrir innosetup.iss con InnoSetup 6 y compilar (Ctrl+F9)"
+echo "       → genera local/output/MiInventarioFacil-Setup.exe"
 echo "============================================================"
