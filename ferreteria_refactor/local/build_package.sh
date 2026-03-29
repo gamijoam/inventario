@@ -124,40 +124,61 @@ fi
 echo "  ✅ Backend listo"
 
 # ============================================================
-# 3b. Pre-descargar wheels de pip para instalación offline
+# 3b. Pre-instalar dependencias en site-packages del Python embebido
 # ============================================================
-echo "[3b/6] Pre-descargando wheels de pip (instalación offline)..."
-WHEELS_DIR="$DIST_DIR/wheels"
-mkdir -p "$WHEELS_DIR"
-WHEELS_CACHE="$SCRIPT_DIR/cache/wheels"
+# Descargamos wheels para Windows win_amd64/cp312 desde Linux y los
+# extraemos directamente en python/Lib/site-packages — sin pip en Windows.
+echo "[3b/6] Pre-instalando dependencias en site-packages..."
+
+SITE_PKG="$DIST_DIR/python/Lib/site-packages"
+mkdir -p "$SITE_PKG"
+
+WHEELS_CACHE="$SCRIPT_DIR/cache/wheels_win"
 mkdir -p "$WHEELS_CACHE"
 
-# Descargar wheels para Windows x86_64 / cp312
-# Primero: wheels binarios específicos de Windows
+REQS="$ROOT_DIR/../requirements.txt"
+
+echo "  Descargando wheels Windows (win_amd64, cp312)..."
+
+# Paso 1: wheels binarios cp312 para Windows
 pip download \
     --platform win_amd64 \
     --python-version 312 \
     --implementation cp \
     --abi cp312 \
     --only-binary=:all: \
+    --no-deps \
     --dest "$WHEELS_CACHE" \
-    -r "$ROOT_DIR/../requirements.txt" \
-    --quiet 2>&1 | grep -v "^$" || true
+    -r "$REQS" \
+    --quiet 2>&1 | grep -E "^(ERROR|WARNING)" || true
 
-# Segundo: paquetes pure-python (sin binarios) — solo .whl py3-none-any
+# Paso 2: paquetes pure-python (none-any) — no dependen de plataforma
 pip download \
     --platform win_amd64 \
     --python-version 312 \
     --implementation cp \
     --abi cp312 \
+    --no-deps \
     --dest "$WHEELS_CACHE" \
-    -r "$ROOT_DIR/../requirements.txt" \
-    --quiet 2>&1 | grep -v "^$" || true
+    -r "$REQS" \
+    --quiet 2>&1 | grep -E "^(ERROR|WARNING)" || true
 
-cp "$WHEELS_CACHE"/*.whl "$WHEELS_DIR/" 2>/dev/null || true
-cp "$WHEELS_CACHE"/*.tar.gz "$WHEELS_DIR/" 2>/dev/null || true
-WHEEL_COUNT=$(ls "$WHEELS_DIR" 2>/dev/null | wc -l)
-echo "  ✅ $WHEEL_COUNT wheels listos en wheels/"
+# Paso 3: extraer cada wheel en site-packages
+# Un .whl es un zip — lo extraemos directo, sin pip
+EXTRACTED=0
+for WHL in "$WHEELS_CACHE"/*.whl; do
+    [ -f "$WHL" ] || continue
+    unzip -qo "$WHL" -d "$SITE_PKG/" 2>/dev/null && EXTRACTED=$((EXTRACTED+1))
+done
+
+echo "  ✅ $EXTRACTED paquetes instalados en python/Lib/site-packages/"
+
+# Verificar que uvicorn quedó instalado
+if [ -d "$SITE_PKG/uvicorn" ]; then
+    echo "  ✅ uvicorn OK"
+else
+    echo "  ⚠️  uvicorn no encontrado — revisar requirements.txt"
+fi
 
 # ============================================================
 # 4. Build frontend
