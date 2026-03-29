@@ -352,6 +352,7 @@ const TenantDetails: React.FC = () => {
             {/* Tab Content */}
             <div className="mt-6">
                 {activeTab === 'general' && (
+                    <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {/* Info Cards */}
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -462,6 +463,7 @@ const TenantDetails: React.FC = () => {
                             </div>
                         )}
                     </div>
+                    </>
                 )}
 
                 {activeTab === 'users' && (
