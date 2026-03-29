@@ -19,7 +19,8 @@ AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={autopf}\{#MyAppName}
+; Instalar en AppData\Local — siempre tiene permisos de escritura (PostgreSQL los necesita)
+DefaultDirName={localappdata}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=output
@@ -27,7 +28,9 @@ OutputBaseFilename=MiInventarioFacil-Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-PrivilegesRequired=admin
+; lowest = no requiere UAC, pero puede escalar si el usuario elige C:\Program Files
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
 DisableProgramGroupPage=yes
 ; Espacio aprox: PostgreSQL ~100MB + Python ~60MB + backend + frontend
 ExtraDiskSpaceRequired=314572800
@@ -48,8 +51,8 @@ Name: "{group}\Detener {#MyAppName}";  Filename: "{app}\stop.bat";        Workin
 Name: "{autodesktop}\{#MyAppName}";    Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-; 1. Instalar VC++ Redistributable si falta (requerido por PostgreSQL)
-Filename: "{app}\redist\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Instalando Visual C++ Redistributable..."; Check: VCRedistNotInstalled; Flags: waituntilterminated
+; 1. Instalar VC++ Redistributable si falta — requiere elevar privilegios
+Filename: "{app}\redist\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Instalando Visual C++ Redistributable..."; Check: VCRedistNotInstalled; Flags: waituntilterminated runascurrentuser
 ; 2. Inicializar base de datos (solo primera vez)
 ; Usamos cmd.exe directamente (shellexec no garantiza WorkingDir correcto para .bat)
 Filename: "{cmd}"; Parameters: "/c ""{app}\setup.bat"" /silent > ""{app}\setup.log"" 2>&1"; WorkingDir: "{app}"; StatusMsg: "Configurando base de datos (puede tardar 1-2 minutos)..."; Flags: waituntilterminated runhidden
