@@ -42,19 +42,24 @@ if %ERRORLEVEL% NEQ 0 (
 echo         OK
 
 :: PASO 3: Dependencias
+:: IMPORTANTE: --target apunta al site-packages del Python embebido
+:: Sin esto, pip instala en el Python del sistema (AppData\Roaming) y el embebido no los ve
 echo  [3/5] Instalando dependencias (requiere internet la primera vez)...
+
+set SITE_PKG=python\Lib\site-packages
+if not exist "%SITE_PKG%" mkdir "%SITE_PKG%"
 
 :: Intentar con wheels locales primero
 set PIP_OK=0
 if exist "wheels" (
-    python\python.exe -m pip install --no-index --find-links=wheels --no-warn-script-location -r backend\requirements.txt >nul 2>&1
+    python\python.exe -m pip install --target="%SITE_PKG%" --no-index --find-links=wheels --no-warn-script-location -r backend\requirements.txt >nul 2>&1
     if %ERRORLEVEL% EQU 0 set PIP_OK=1
 )
 
-:: Si los wheels locales fallan (ej: son de plataforma incorrecta), descargar de internet
+:: Si los wheels locales fallan, descargar de internet
 if %PIP_OK%==0 (
     echo         Descargando dependencias de internet...
-    python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt
+    python\python.exe -m pip install --target="%SITE_PKG%" --no-warn-script-location -r backend\requirements.txt
     if %ERRORLEVEL% NEQ 0 (
         echo         [ERROR] Fallo instalando dependencias.
         echo         Verifique su conexion a internet e intente de nuevo.
