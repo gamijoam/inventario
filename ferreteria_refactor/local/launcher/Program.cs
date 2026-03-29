@@ -273,7 +273,8 @@ class LauncherForm : Form
     // ══════════════════════════════════════════════════════════════════════
     async Task<bool> RunSetupAsync(string setupBat)
     {
-        var logPath = Path.Combine(BaseDir, "setup.log");
+        // Escribir log en %TEMP% por si BaseDir (Program Files) es de solo lectura
+        var logPath = Path.Combine(Path.GetTempPath(), "MiInventarioFacil_setup.log");
         var logLines = new System.Text.StringBuilder();
 
         try
