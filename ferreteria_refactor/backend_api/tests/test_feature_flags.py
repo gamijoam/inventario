@@ -169,15 +169,23 @@ class TestFF01Registry:
 
     @_skip
     def test_flags_de_prueba_existen_en_registry(self):
-        """FF01c: Las 3 flags de prueba del sistema deben estar en el registry."""
+        """FF01c: Las flags de prueba del sistema deben estar en el registry."""
         expected = [
             "descuento_cliente_especial",
             "exportar_excel_inventario",
             "precio_costo_visible_cajero",
+            "precio_libre_pos",
         ]
         for flag in expected:
             assert flag in REGISTRY, \
                 f"Flag de prueba '{flag}' no está en REGISTRY — agrégala a feature_flags_registry.py"
+
+    @_skip
+    def test_precio_libre_pos_categoria_correcta(self):
+        """FF01e: precio_libre_pos debe estar en la categoría 'pos'."""
+        assert "precio_libre_pos" in REGISTRY, "Flag 'precio_libre_pos' no encontrada"
+        assert REGISTRY["precio_libre_pos"]["category"] == "pos", \
+            "precio_libre_pos debe estar en categoría 'pos'"
 
     @_skip
     def test_endpoint_registry_devuelve_200(self, db_session, superuser):

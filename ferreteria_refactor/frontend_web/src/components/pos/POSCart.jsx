@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2, ShoppingCart, CreditCard, Minus, Plus, MapPin, Tag, X, Percent, DollarSign, ShieldCheck, Users } from 'lucide-react';
+import { Trash2, ShoppingCart, CreditCard, Minus, Plus, MapPin, Tag, X, Percent, DollarSign, ShieldCheck, Users, Pencil, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast';
 
 import { useConfig } from '../../context/ConfigContext';
 import { useCart } from '../../context/CartContext';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 const formatLocalCurrency = (amount) => {
     try {
@@ -41,7 +42,8 @@ const POSCart = ({
 }) => {
 
     const { business, currencies } = useConfig();
-    const { cartDiscount, setCartDiscount, discountUSD, discountBs, rawTotalUSD, rawBs } = useCart();
+    const { cartDiscount, setCartDiscount, discountUSD, discountBs, rawTotalUSD, rawBs, updateCartItem } = useCart();
+    const precioLibre = useFeatureFlag('precio_libre_pos');
 
     // Discount Panel state
     const [showDiscountPanel, setShowDiscountPanel] = useState(false);
@@ -51,6 +53,42 @@ const POSCart = ({
     // PIN Auth State
     const [showPinModal, setShowPinModal] = useState(false);
     const [pendingDiscount, setPendingDiscount] = useState(null);
+
+    // Precio libre — edición inline por item
+    const [editingPriceItemId, setEditingPriceItemId] = useState(null);
+    const [priceInputValue, setPriceInputValue] = useState('');
+
+    // Precio libre — edición de total final
+    const [showTotalEdit, setShowTotalEdit] = useState(false);
+    const [totalEditInput, setTotalEditInput] = useState('');
+
+    const handleStartPriceEdit = (e, item) => {
+        e.stopPropagation();
+        setEditingPriceItemId(item.id);
+        setPriceInputValue(String(item.unit_price_usd));
+    };
+
+    const handleConfirmPriceEdit = (e, item) => {
+        e.stopPropagation();
+        const newPrice = parseFloat(priceInputValue);
+        if (!isNaN(newPrice) && newPrice > 0) {
+            updateCartItem(item.id, {
+                unit_price_usd: newPrice,
+                price_overridden: true,
+                original_price_usd: item.original_price_usd ?? item.unit_price_usd,
+            });
+        }
+        setEditingPriceItemId(null);
+    };
+
+    const handleConfirmTotalEdit = () => {
+        const val = parseFloat(totalEditInput);
+        if (isNaN(val) || val <= 0) { toast.error('Ingresa un monto válido'); return; }
+        if (val >= rawTotalUSD) { toast.error('El total debe ser menor al subtotal actual'); return; }
+        setCartDiscount({ type: 'target', value: val, active: true });
+        setShowTotalEdit(false);
+        setTotalEditInput('');
+    };
 
     // Calculate Taxes dynamically based on business config
     const taxRate = parseFloat(business?.default_tax_rate || 0);
@@ -333,11 +371,56 @@ const POSCart = ({
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="text-right flex flex-col items-end">
-                                                <div className="text-sm font-black text-blue-600 tabular-nums">
-                                                    <span className="text-[10px] mr-0.5">$</span>
-                                                    {formatLocalCurrency(item.subtotal_usd)}
-                                                </div>
+                                            <div className="text-right flex flex-col items-end gap-0.5">
+                                                {/* Precio — editable si precio_libre_pos está activo */}
+                                                {precioLibre && editingPriceItemId === item.id ? (
+                                                    <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                        <span className="text-[10px] text-blue-400">$</span>
+                                                        <input
+                                                            autoFocus
+                                                            type="number"
+                                                            min="0"
+                                                            step="0.01"
+                                                            value={priceInputValue}
+                                                            onChange={e => setPriceInputValue(e.target.value)}
+                                                            onKeyDown={e => {
+                                                                if (e.key === 'Enter') handleConfirmPriceEdit(e, item);
+                                                                if (e.key === 'Escape') { e.stopPropagation(); setEditingPriceItemId(null); }
+                                                            }}
+                                                            onBlur={e => handleConfirmPriceEdit(e, item)}
+                                                            className="w-20 text-right text-sm font-black text-blue-600 border border-blue-300 rounded-lg px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50 tabular-nums"
+                                                        />
+                                                        <button
+                                                            onMouseDown={e => handleConfirmPriceEdit(e, item)}
+                                                            className="w-5 h-5 flex items-center justify-center rounded-md bg-blue-500 text-white hover:bg-blue-600"
+                                                        >
+                                                            <Check size={10} strokeWidth={3} />
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <div
+                                                        className={cn(
+                                                            "flex items-center gap-1 group/price",
+                                                            precioLibre && "cursor-pointer"
+                                                        )}
+                                                        onClick={precioLibre ? e => handleStartPriceEdit(e, item) : undefined}
+                                                        title={precioLibre ? "Clic para editar precio" : undefined}
+                                                    >
+                                                        {item.price_overridden && (
+                                                            <span className="text-[8px] font-black text-orange-500 bg-orange-50 border border-orange-200 px-1 rounded">MOD</span>
+                                                        )}
+                                                        <div className={cn(
+                                                            "text-sm font-black text-blue-600 tabular-nums",
+                                                            precioLibre && "group-hover/price:text-blue-400 transition-colors"
+                                                        )}>
+                                                            <span className="text-[10px] mr-0.5">$</span>
+                                                            {formatLocalCurrency(item.subtotal_usd)}
+                                                        </div>
+                                                        {precioLibre && (
+                                                            <Pencil size={9} className="text-blue-300 opacity-0 group-hover/price:opacity-100 transition-opacity flex-shrink-0" />
+                                                        )}
+                                                    </div>
+                                                )}
                                                 {secondaryCurrency && item.subtotal_bs > 0 && (() => {
                                                     const rateObj = currencies.find(r => r.id === item.exchange_rate_id);
                                                     const localSym = rateObj?.currency_symbol || rateObj?.currency_code || secondaryCurrency.symbol;
@@ -464,6 +547,44 @@ const POSCart = ({
                             })}
                         </div>
                     </div>
+
+                    {/* Edición libre de total final */}
+                    {precioLibre && cartItems.length > 0 && (
+                        <div className="mb-3">
+                            {!showTotalEdit ? (
+                                <button
+                                    onClick={() => { setShowTotalEdit(true); setTotalEditInput(String(totals.totalUSD.toFixed(2))); }}
+                                    className="w-full flex items-center justify-center gap-1.5 text-[10px] font-black text-orange-500 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl py-2 transition-colors"
+                                >
+                                    <Pencil size={10} />
+                                    EDITAR TOTAL FINAL
+                                </button>
+                            ) : (
+                                <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2">
+                                    <span className="text-[10px] font-black text-orange-600 whitespace-nowrap">Total $</span>
+                                    <input
+                                        autoFocus
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={totalEditInput}
+                                        onChange={e => setTotalEditInput(e.target.value)}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter') handleConfirmTotalEdit();
+                                            if (e.key === 'Escape') setShowTotalEdit(false);
+                                        }}
+                                        className="flex-1 text-right text-sm font-black text-orange-700 bg-white border border-orange-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-400 tabular-nums"
+                                    />
+                                    <button onClick={handleConfirmTotalEdit} className="w-7 h-7 flex items-center justify-center rounded-lg bg-orange-500 text-white hover:bg-orange-600 flex-shrink-0">
+                                        <Check size={12} strokeWidth={3} />
+                                    </button>
+                                    <button onClick={() => setShowTotalEdit(false)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-white border border-orange-200 text-orange-400 hover:bg-orange-100 flex-shrink-0">
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <Button
                         id="tour-pos-pay-btn"

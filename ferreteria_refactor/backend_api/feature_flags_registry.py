@@ -24,6 +24,11 @@ REGISTRY: dict[str, dict] = {
         "description": "El cajero puede ver el precio de costo de los productos en el POS.",
         "category": "pos",
     },
+    "precio_libre_pos": {
+        "label": "Edición libre de precios en POS",
+        "description": "Permite al cajero modificar el precio unitario de cualquier producto en el carrito y editar el total final, sin requerir autorización adicional.",
+        "category": "pos",
+    },
 }
 
 CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "otros"]
