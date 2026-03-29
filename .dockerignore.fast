@@ -1,0 +1,59 @@
+# Docker Ignore - Sistema de Ferretería (FAST MODE)
+
+# 1. Configuración y Secretos
+**/.env
+*.env
+.env.prod
+.env.local
+.env.test
+
+# 2. Entornos Virtuales
+venv/
+env/
+.venv/
+
+# 3. Control de Versiones
+.git/
+.gitignore
+
+# 4. Caché de Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 5. Node.js (Frontend & Landing)
+**/node_modules/
+**/dist/
+**/build/
+.npm/
+
+# 6. Sistema e IDEs
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 7. Otros
+*.log
+docker-compose.override.yml
+
+# 8. Archivos Grandes y Binarios (OPTIMIZACIÓN)
+# Windows Bridge (app escritorio — no va en Docker)
+Invensoft_Windows_Bridge/
+hardware_bridge/
+_herramientas_dev/
+migration_guide.pdf
+*.exe
+*.dll
+*.iso
+*.apk
+*.msi
+*.zip
+*.rar
+ferreteria.db
+sql_app.db

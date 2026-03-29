@@ -1,0 +1,48 @@
+# Docker Ignore - Sistema de Ferretería (FULL MODE)
+# Incluye binarios — usa solo cuando necesitas empaquetar el bridge o .exe
+
+# 1. Configuración y Secretos
+**/.env
+*.env
+.env.prod
+.env.local
+.env.test
+
+# 2. Entornos Virtuales
+venv/
+env/
+.venv/
+
+# 3. Control de Versiones
+.git/
+.gitignore
+
+# 4. Caché de Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 5. Node.js (Frontend & Landing)
+**/node_modules/
+**/dist/
+**/build/
+.npm/
+
+# 6. Sistema e IDEs
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 7. Otros
+*.log
+docker-compose.override.yml
+
+# FULL MODE: binarios incluidos (Invensoft_Windows_Bridge/, *.exe, etc.)
+ferreteria.db
+sql_app.db
