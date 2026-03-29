@@ -1,5 +1,4 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, JSON
-from sqlalchemy.dialects.postgresql import JSONB
 from ..database.db import Base
 from ..utils.time_utils import get_venezuela_now
 
@@ -38,7 +37,8 @@ class Tenant(Base):
 
     # Feature flags a la carta — activadas individualmente por tenant desde el panel admin
     # Ejemplo: {"descuento_especial": true, "reporte_avanzado": false}
-    feature_flags = Column(JSONB, nullable=False, server_default='{}')
+    # Tipo JSON (cross-DB); la migración declara JSONB en PostgreSQL
+    feature_flags = Column(JSON, nullable=False, server_default='{}')
 
     def __repr__(self):
         return f"<Tenant(name={self.name}, schema={self.schema_name})>"

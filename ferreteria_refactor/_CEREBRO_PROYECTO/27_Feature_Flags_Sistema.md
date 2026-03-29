@@ -150,20 +150,90 @@ Sección nueva en `TenantDetails.tsx` — **Features Premium**:
 
 ---
 
-## Convención para nuevas features
+## Instrucciones: Cómo crear una nueva feature flag
 
-Al desarrollar cualquier función nueva que sea "a la carta" o "premium":
+### Paso 1 — Agregar al registry
 
-1. **Crear el flag** en `feature_flags_registry.py`
-2. **Wrappearlo** en el frontend con `useFeatureFlag('nombre_flag')`
-3. **Protegerlo** en backend si aplica (verificar en el endpoint)
-4. **Documentarlo** aquí en la tabla de flags conocidos
+Abrir `ferreteria_refactor/backend_api/feature_flags_registry.py` y agregar:
 
-### Flags conocidos (actualizar esta tabla)
+```python
+REGISTRY: dict[str, dict] = {
+    # ... flags existentes ...
 
-| Flag | Label | Categoría | Primer cliente |
-|------|-------|-----------|----------------|
-| *(pendiente primera implementación)* | | | |
+    "nombre_del_flag": {
+        "label": "Texto visible en el panel admin",
+        "description": "Qué hace esta feature cuando está activa.",
+        "category": "ventas",  # ventas | pos | inventario | reportes | config | otros
+    },
+}
+```
+
+> El flag aparece automáticamente en el panel admin al guardar. Sin restart necesario si el backend está en modo dev; en prod hay que hacer deploy.
+
+### Paso 2 — Usar en el frontend
+
+```javascript
+// En cualquier componente
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
+
+const MiComponente = () => {
+    const tieneFlag = useFeatureFlag('nombre_del_flag');
+
+    if (!tieneFlag) return null;  // o mostrar versión básica
+
+    return <FuncionalidadEspecial />;
+};
+```
+
+Para envolver un bloque grande:
+
+```javascript
+// Componente wrapper (opcional — puedes crear uno si lo necesitas frecuentemente)
+const tieneFlag = useFeatureFlag('nombre_del_flag');
+{tieneFlag && <SeccionCompleta />}
+```
+
+### Paso 3 — Proteger en backend (si aplica)
+
+Si el endpoint mismo debe verificar el flag (no solo la UI):
+
+```python
+# En el router correspondiente
+from ..models.tenant import Tenant
+from ..tenant_context import get_tenant_schema
+
+@router.post("/mi-endpoint")
+def mi_endpoint(db: Session = Depends(get_db), ...):
+    tenant = db.query(Tenant).filter(
+        Tenant.schema_name == get_tenant_schema()
+    ).first()
+    if not (tenant and tenant.feature_flags.get("nombre_del_flag")):
+        raise HTTPException(403, "Feature no disponible para este tenant")
+    # ... lógica normal
+```
+
+> No es necesario para todos los flags — solo si quieres protección a nivel API además de la UI.
+
+### Paso 4 — Activar para el cliente
+
+1. Ir al Panel SaaS Admin → Tenants → seleccionar el tenant
+2. Tab "Vista General" → sección **Features Premium**
+3. Activar el toggle del flag
+4. El cliente ve la funcionalidad al instante (sin reload, sin deploy)
+
+### Paso 5 — Agregar a la tabla de flags conocidos
+
+Actualizar la tabla al final de este documento.
+
+---
+
+## Flags conocidos (actualizar esta tabla)
+
+| Flag | Label | Categoría | Estado |
+|------|-------|-----------|--------|
+| `descuento_cliente_especial` | Descuento especial por cliente | ventas | Registro listo — UI pendiente |
+| `exportar_excel_inventario` | Exportar inventario a Excel | reportes | Registro listo — UI pendiente |
+| `precio_costo_visible_cajero` | Precio de costo visible para cajero | pos | Registro listo — UI pendiente |
 
 ---
 

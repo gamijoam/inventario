@@ -9,12 +9,21 @@ Para agregar una nueva feature flag:
 """
 
 REGISTRY: dict[str, dict] = {
-    # Ejemplo de estructura — descomentar cuando se implemente la primera feature real
-    # "descuento_especial": {
-    #     "label": "Descuento especial por cliente",
-    #     "description": "Permite asignar un % de descuento fijo a clientes VIP.",
-    #     "category": "ventas",
-    # },
+    "descuento_cliente_especial": {
+        "label": "Descuento especial por cliente",
+        "description": "Permite asignar un % de descuento fijo a clientes VIP directamente en su ficha.",
+        "category": "ventas",
+    },
+    "exportar_excel_inventario": {
+        "label": "Exportar inventario a Excel",
+        "description": "Agrega botón de exportación Excel en el módulo de inventario.",
+        "category": "reportes",
+    },
+    "precio_costo_visible_cajero": {
+        "label": "Precio de costo visible para cajero",
+        "description": "El cajero puede ver el precio de costo de los productos en el POS.",
+        "category": "pos",
+    },
 }
 
 CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "otros"]
