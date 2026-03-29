@@ -64,16 +64,17 @@ def get_public_config(db: Session = Depends(get_db)):
     
     # 3. DB Entitlements (Override for Tenants)
     tenant_found = False
-    
+    feature_flags: dict = {}
+
     if current_schema != "public":
         try:
             # Query tenant in public schema table
             tenant_obj = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
-            
+
             if tenant_obj:
                 tenant_found = True
                 tenant_name = tenant_obj.name
-                
+
                 # REFACTOR: Use the NEW boolean columns instead of .env or JSON config
                 modules = {
                     "restaurant": tenant_obj.has_restaurant_module,
@@ -83,16 +84,19 @@ def get_public_config(db: Session = Depends(get_db)):
                     "barbershop": tenant_obj.has_barbershop_module,
                     "pharmacy": tenant_obj.has_pharmacy_module,
                 }
-                
+
                 # Falling back to JSON config if all booleans are False (for existing tenants)
                 if not any(modules.values()) and tenant_obj.config:
                     db_modules = tenant_obj.config.get("modules", {})
                     for mod, enabled in db_modules.items():
                         if mod in modules:
                             modules[mod] = enabled
+
+                # Feature flags a la carta
+                feature_flags = tenant_obj.feature_flags or {}
             else:
                 print(f"⚠️ Warning: Schema '{current_schema}' detected but not found in DB. Falling back to public defaults.")
-                
+
         except Exception as e:
             print(f"⚠️ Error fetching tenant config: {e}")
 
@@ -110,8 +114,9 @@ def get_public_config(db: Session = Depends(get_db)):
 
     return {
         "modules": modules,
+        "feature_flags": feature_flags,
         "tenant_name": tenant_name,
-        "tenant": current_schema 
+        "tenant": current_schema,
     }
 
 # ========================================

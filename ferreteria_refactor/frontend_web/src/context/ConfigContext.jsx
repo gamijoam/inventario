@@ -17,6 +17,9 @@ export const ConfigProvider = ({ children }) => {
         return ['true', '1', 'yes', 'on'].includes(String(val).toLowerCase().trim());
     };
 
+    // Feature flags a la carta (activados por tenant desde panel admin)
+    const [featureFlags, setFeatureFlags] = useState({});
+
     // Module Feature Flags
     const [modules, setModules] = useState({
         restaurant: parseBool(import.meta.env.VITE_MODULE_RESTAURANT_ENABLED),
@@ -116,6 +119,11 @@ export const ConfigProvider = ({ children }) => {
                         }
                         setModules(prev => ({ ...prev, ...backendModules }));
                     }
+                    // Feature flags a la carta
+                    if (publicConfig.data.feature_flags) {
+                        setFeatureFlags(publicConfig.data.feature_flags);
+                    }
+
                     // Update Business Name (Priority set)
                     if (publicConfig.data.tenant_name) {
                         setBusiness(prev => ({
@@ -284,7 +292,8 @@ export const ConfigProvider = ({ children }) => {
 
             paymentMethods,
             formatCurrency,
-            modules // Expose modules
+            modules,
+            featureFlags,
         }}>
             {children}
         </ConfigContext.Provider>

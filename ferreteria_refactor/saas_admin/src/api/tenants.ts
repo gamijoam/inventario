@@ -1,5 +1,5 @@
 import api from './axios';
-import type { Tenant, TenantListResponse, CreateTenantDTO, UpdateTenantDTO } from '../types/tenant';
+import type { Tenant, TenantListResponse, CreateTenantDTO, UpdateTenantDTO, FeatureFlagsRegistry } from '../types/tenant';
 
 // Define User interface here for now, or move to types/user.ts
 export interface TenantUser {
@@ -62,5 +62,18 @@ export const seedTenant = async (id: number): Promise<any> => {
 
 export const updateTenantUserEmail = async (tenantId: number, userId: number, email: string): Promise<TenantUser> => {
     const response = await api.patch<TenantUser>(`/admin/tenants/${tenantId}/users/${userId}/email`, { email });
+    return response.data;
+};
+
+export const getFeatureFlagsRegistry = async (): Promise<FeatureFlagsRegistry> => {
+    const response = await api.get<FeatureFlagsRegistry>('/admin/feature-flags/registry');
+    return response.data;
+};
+
+export const updateTenantFeatureFlags = async (
+    tenantId: number,
+    flags: Record<string, boolean>
+): Promise<{ tenant_id: number; feature_flags: Record<string, boolean> }> => {
+    const response = await api.patch(`/admin/tenants/${tenantId}/feature-flags`, flags);
     return response.data;
 };

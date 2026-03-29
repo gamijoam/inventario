@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from ..database.db import Base
 from ..utils.time_utils import get_venezuela_now
 
@@ -34,6 +35,10 @@ class Tenant(Base):
     has_services_module = Column(Boolean, default=False)
     has_barbershop_module = Column(Boolean, default=False)
     has_pharmacy_module = Column(Boolean, default=False)
+
+    # Feature flags a la carta — activadas individualmente por tenant desde el panel admin
+    # Ejemplo: {"descuento_especial": true, "reporte_avanzado": false}
+    feature_flags = Column(JSONB, nullable=False, server_default='{}')
 
     def __repr__(self):
         return f"<Tenant(name={self.name}, schema={self.schema_name})>"

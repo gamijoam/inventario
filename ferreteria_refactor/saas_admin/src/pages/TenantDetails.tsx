@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle, DollarSign, Monitor, Mail, Check, X } from 'lucide-react';
-import { getTenantById, getTenantUsers, seedTenant, updateTenantUserEmail } from '../api/tenants';
+import { ArrowLeft, Building, Hash, Calendar, Edit, Plus, Clock, Crown, AlertTriangle, DollarSign, Monitor, Mail, Check, X, Zap } from 'lucide-react';
+import { getTenantById, getTenantUsers, seedTenant, updateTenantUserEmail, getFeatureFlagsRegistry, updateTenantFeatureFlags } from '../api/tenants';
 import { billingApi } from '../api/billing';
 import { getTenantDevices, revokeDevice, reactivateDevice } from '../api/licenses';
 import type { TenantUser } from '../api/tenants';
-import type { Tenant } from '../types/tenant';
+import type { Tenant, FeatureFlagDef, FeatureFlagsRegistry } from '../types/tenant';
 import type { Payment } from '../types/billing';
 import type { DesktopDevice } from '../api/licenses';
 import toast from 'react-hot-toast';
@@ -32,6 +32,10 @@ const TenantDetails: React.FC = () => {
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
+    // Feature flags
+    const [flagsRegistry, setFlagsRegistry] = useState<FeatureFlagsRegistry | null>(null);
+    const [togglingFlag, setTogglingFlag] = useState<string | null>(null);
 
     // Edición inline de email
     const [editingEmailUserId, setEditingEmailUserId] = useState<number | null>(null);
@@ -62,7 +66,22 @@ const TenantDetails: React.FC = () => {
         if (id) {
             loadData(parseInt(id));
         }
+        getFeatureFlagsRegistry().then(setFlagsRegistry).catch(() => {});
     }, [id]);
+
+    const handleToggleFlag = async (flagName: string, current: boolean) => {
+        if (!tenant || !id) return;
+        setTogglingFlag(flagName);
+        try {
+            const result = await updateTenantFeatureFlags(parseInt(id), { [flagName]: !current });
+            setTenant(prev => prev ? { ...prev, feature_flags: result.feature_flags } : prev);
+            toast.success(`${flagName}: ${!current ? 'activado' : 'desactivado'}`);
+        } catch {
+            toast.error('Error al actualizar el flag');
+        } finally {
+            setTogglingFlag(null);
+        }
+    };
 
     const loadData = async (tenantId: number) => {
         try {
@@ -389,6 +408,59 @@ const TenantDetails: React.FC = () => {
                             </div>
                             <p className="text-gray-600">{new Date(tenant.created_at).toLocaleDateString()}</p>
                         </div>
+                    </div>
+
+                    {/* Feature Flags a la carta */}
+                    <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-100">
+                        <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100">
+                            <div className="p-2 bg-violet-50 rounded-lg">
+                                <Zap className="w-5 h-5 text-violet-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900">Features Premium</h3>
+                                <p className="text-xs text-gray-500">Activa funciones individuales para este tenant</p>
+                            </div>
+                        </div>
+
+                        {!flagsRegistry || Object.keys(flagsRegistry.registry).length === 0 ? (
+                            <div className="px-6 py-8 text-center text-gray-400 text-sm">
+                                No hay features registradas aún.<br />
+                                <span className="text-xs">Agregar entradas en <code className="bg-gray-100 px-1 rounded">feature_flags_registry.py</code></span>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-50">
+                                {flagsRegistry.categories
+                                    .filter(cat => Object.values(flagsRegistry.registry).some(f => f.category === cat))
+                                    .map(cat => (
+                                        <div key={cat} className="px-6 py-4">
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{cat}</p>
+                                            <div className="space-y-3">
+                                                {Object.entries(flagsRegistry.registry)
+                                                    .filter(([, def]) => def.category === cat)
+                                                    .map(([flagName, def]: [string, FeatureFlagDef]) => {
+                                                        const isOn = tenant.feature_flags?.[flagName] === true;
+                                                        const isToggling = togglingFlag === flagName;
+                                                        return (
+                                                            <div key={flagName} className="flex items-center justify-between gap-4">
+                                                                <div className="min-w-0">
+                                                                    <p className="text-sm font-medium text-gray-800">{def.label}</p>
+                                                                    <p className="text-xs text-gray-500 truncate">{def.description}</p>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleToggleFlag(flagName, isOn)}
+                                                                    disabled={isToggling}
+                                                                    className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${isOn ? 'bg-violet-600' : 'bg-gray-200'} ${isToggling ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                                                                >
+                                                                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${isOn ? 'translate-x-5' : 'translate-x-0'}`} />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
                     </div>
                 )}
 
