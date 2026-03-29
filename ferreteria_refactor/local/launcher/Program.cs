@@ -373,6 +373,62 @@ class LauncherForm : Form
     // ══════════════════════════════════════════════════════════════════════
     string UvicornLogPath => Path.Combine(Path.GetTempPath(), "MiInventarioFacil_server.log");
 
+    // Lee o crea el .env offline y devuelve el diccionario de variables
+    Dictionary<string, string> LoadOrCreateEnv()
+    {
+        var envFile = Path.Combine(BackendDir, ".env");
+        var vars = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (File.Exists(envFile))
+        {
+            foreach (var line in File.ReadAllLines(envFile))
+            {
+                if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("#")) continue;
+                var idx = line.IndexOf('=');
+                if (idx < 0) continue;
+                var key = line[..idx].Trim();
+                var val = line[(idx + 1)..].Trim();
+                if (!string.IsNullOrEmpty(key)) vars[key] = val;
+            }
+        }
+
+        // Si faltan las variables críticas, generar el .env completo
+        if (!vars.ContainsKey("DATABASE_URL") || !vars.ContainsKey("SECRET_KEY"))
+        {
+            var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+            var bytes = new byte[32];
+            rng.GetBytes(bytes);
+            var secret = BitConverter.ToString(bytes).Replace("-", "").ToLower();
+
+            vars["DATABASE_URL"]                 = "postgresql://postgres:@localhost:5432/miinventariofacil";
+            vars["SECRET_KEY"]                   = secret;
+            vars["ALGORITHM"]                    = "HS256";
+            vars["ACCESS_TOKEN_EXPIRE_MINUTES"]  = "480";
+            vars["SINGLE_TENANT"]                = "true";
+            vars["SINGLE_TENANT_SCHEMA"]         = "default";
+            vars["ENVIRONMENT"]                  = "production";
+            vars["APP_DOMAIN"]                   = "localhost";
+            vars["PROTOCOL"]                     = "http";
+            vars["FRONTEND_URL"]                 = "http://localhost:8000";
+            vars["MEDIA_ROOT"]                   = "./media";
+            vars["TIMEZONE"]                     = "America/Caracas";
+
+            // Guardar para que la clave sea consistente entre reinicios
+            try
+            {
+                Directory.CreateDirectory(BackendDir);
+                var lines = new System.Text.StringBuilder();
+                lines.AppendLine("# Mi Inventario Facil - Modo Offline");
+                foreach (var kv in vars)
+                    lines.AppendLine($"{kv.Key}={kv.Value}");
+                File.WriteAllText(envFile, lines.ToString());
+            }
+            catch { /* no es crítico — las vars ya están en memoria */ }
+        }
+
+        return vars;
+    }
+
     void StartUvicorn()
     {
         try { File.WriteAllText(UvicornLogPath, $"[{DateTime.Now}] Iniciando uvicorn...\n"); } catch { }
@@ -390,6 +446,11 @@ class LauncherForm : Form
         psi.EnvironmentVariables["PYTHONPATH"]       = BaseDir;
         psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
         psi.EnvironmentVariables["PYTHONUTF8"]       = "1";
+
+        // Cargar o generar el .env e inyectar TODAS las variables en el entorno
+        // del proceso — así pydantic-settings las lee sin depender de la ruta del .env
+        foreach (var kv in LoadOrCreateEnv())
+            psi.EnvironmentVariables[kv.Key] = kv.Value;
 
         _uvicorn = Process.Start(psi);
         if (_uvicorn != null)

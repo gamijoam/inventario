@@ -7,7 +7,7 @@ from sqlalchemy import or_, and_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(timezone="UTC")
 
 
 def _auto_expire_tenants(db_session_factory):

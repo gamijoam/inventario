@@ -76,6 +76,17 @@ start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:8000"
 set PYTHONPATH=%~dp0
 set PYTHONIOENCODING=utf-8
 set PYTHONUTF8=1
+
+:: Cargar variables del backend\.env (pydantic-settings las necesita)
+if not exist "backend\.env" (
+    echo [ERROR] Falta backend\.env — reinstale la aplicacion.
+    pause
+    exit /b 1
+)
+for /f "usebackq eol=# tokens=1* delims==" %%A in ("backend\.env") do (
+    if not "%%A"=="" set "%%A=%%B"
+)
+
 python\python.exe -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
 :: Al cerrar uvicorn, detener PostgreSQL
