@@ -67,11 +67,17 @@ fi
 mkdir -p "$DIST_DIR/python"
 unzip -qo "$SCRIPT_DIR/cache/$PY_ZIP" -d "$DIST_DIR/python/"
 
-# Habilitar pip
+# Habilitar pip y agregar Lib\site-packages al path del Python embebido
+# Sin esto, los paquetes instalados con --target=python\Lib\site-packages
+# no son encontrados por el intérprete.
 PY_PTH="$DIST_DIR/python/python312._pth"
 if [ -f "$PY_PTH" ]; then
     sed -i 's/#import site/import site/' "$PY_PTH"
+    # Agregar site-packages explícitamente (Python embebido no lo hace automático)
+    grep -q "Lib\\\\site-packages" "$PY_PTH" || \
+        sed -i '1a Lib\\site-packages' "$PY_PTH"
 fi
+mkdir -p "$DIST_DIR/python/Lib/site-packages"
 
 # get-pip.py
 if [ ! -f "$SCRIPT_DIR/cache/get-pip.py" ]; then
