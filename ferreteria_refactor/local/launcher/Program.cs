@@ -250,8 +250,8 @@ class LauncherForm : Form
             bool ready = await WaitForServerAsync(50, _cts.Token);
             if (!ready)
             {
-                ShowError("El servidor no respondió en 50 segundos.\nRevise los logs del servidor.");
                 StopAll();
+                ShowSetupError(UvicornLogPath);
                 return;
             }
 
@@ -371,8 +371,12 @@ class LauncherForm : Form
     // ══════════════════════════════════════════════════════════════════════
     // Uvicorn
     // ══════════════════════════════════════════════════════════════════════
+    string UvicornLogPath => Path.Combine(Path.GetTempPath(), "MiInventarioFacil_server.log");
+
     void StartUvicorn()
     {
+        try { File.WriteAllText(UvicornLogPath, $"[{DateTime.Now}] Iniciando uvicorn...\n"); } catch { }
+
         var psi = new ProcessStartInfo
         {
             FileName         = PythonExe,
@@ -388,12 +392,25 @@ class LauncherForm : Form
         psi.EnvironmentVariables["PYTHONUTF8"]       = "1";
 
         _uvicorn = Process.Start(psi);
-        // Consumir streams para que el proceso no se bloquee
         if (_uvicorn != null)
         {
-            Task.Run(() => _uvicorn.StandardOutput.ReadToEnd());
-            Task.Run(() => _uvicorn.StandardError.ReadToEnd());
+            Task.Run(() => AppendStream(_uvicorn.StandardOutput, "[OUT] "));
+            Task.Run(() => AppendStream(_uvicorn.StandardError,  "[ERR] "));
         }
+    }
+
+    void AppendStream(StreamReader reader, string prefix)
+    {
+        try
+        {
+            while (!reader.EndOfStream)
+            {
+                var line = reader.ReadLine();
+                if (line != null)
+                    try { File.AppendAllText(UvicornLogPath, $"{prefix}{line}\n"); } catch { }
+            }
+        }
+        catch { }
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -487,12 +504,12 @@ class LauncherForm : Form
 
         var logContent = File.Exists(logPath) && new FileInfo(logPath).Length > 0
             ? File.ReadAllText(logPath)
-            : "(setup.log vacío — el proceso no generó salida)";
+            : $"(log vacío — el proceso no generó salida)\nRuta: {logPath}";
 
         // Ventana con log scrollable
         var dlg = new Form
         {
-            Text            = "Mi Inventario Fácil — Error en setup",
+            Text            = "Mi Inventario Fácil — Log de error",
             Size            = new Size(620, 440),
             StartPosition   = FormStartPosition.CenterParent,
             FormBorderStyle = FormBorderStyle.FixedDialog,
@@ -511,7 +528,7 @@ class LauncherForm : Form
         };
         var lblTop = new Label
         {
-            Text      = "El setup inicial falló. Contenido de setup.log:",
+            Text      = $"Error. Log: {Path.GetFileName(logPath)}",
             Dock      = DockStyle.Top,
             Height    = 26,
             Font      = new Font("Segoe UI", 9, FontStyle.Bold),
