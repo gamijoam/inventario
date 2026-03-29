@@ -43,6 +43,7 @@ htmlcov/
 docker-compose.override.yml
 
 # 8. Archivos Grandes y Binarios (OPTIMIZACIÓN)
+# Windows Bridge (app escritorio — no va en Docker)
 Invensoft_Windows_Bridge/
 hardware_bridge/
 _herramientas_dev/

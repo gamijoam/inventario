@@ -87,6 +87,11 @@ ferreteria_refactor/backend_api/data/images/products/*
 hardware_bridge/dist/*.exe
 security_module/credentials.json
 
+# Windows Bridge (app escritorio C# WPF) — artefactos de build
+Invensoft_Windows_Bridge/bin/
+Invensoft_Windows_Bridge/obj/
+Invensoft_Windows_Bridge/dist/
+
 # Offline package — archivos pesados (no subir al repo)
 ferreteria_refactor/local/dist/
 ferreteria_refactor/local/cache/
