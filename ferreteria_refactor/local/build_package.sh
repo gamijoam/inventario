@@ -138,30 +138,24 @@ mkdir -p "$WHEELS_CACHE"
 
 REQS="$ROOT_DIR/../requirements.txt"
 
-echo "  Descargando wheels Windows (win_amd64, cp312)..."
+# Generar requirements para Windows: reemplaza uvicorn[standard] por uvicorn
+# (uvloop es Linux-only y causa error al resolver dependencias para win_amd64)
+REQS_WIN="$SCRIPT_DIR/cache/requirements.windows.txt"
+sed 's/uvicorn\[standard\]/uvicorn/' "$REQS" > "$REQS_WIN"
 
-# Paso 1: wheels binarios cp312 para Windows
+echo "  Descargando wheels Windows (win_amd64, cp312) con todas las dependencias..."
+
 pip download \
     --platform win_amd64 \
     --python-version 312 \
     --implementation cp \
     --abi cp312 \
     --only-binary=:all: \
-    --no-deps \
     --dest "$WHEELS_CACHE" \
-    -r "$REQS" \
-    --quiet 2>&1 | grep -E "^(ERROR|WARNING)" || true
+    -r "$REQS_WIN" \
+    2>&1 | grep -E "^(ERROR|Saved|Downloading)" || true
 
-# Paso 2: paquetes pure-python (none-any) — no dependen de plataforma
-pip download \
-    --platform win_amd64 \
-    --python-version 312 \
-    --implementation cp \
-    --abi cp312 \
-    --no-deps \
-    --dest "$WHEELS_CACHE" \
-    -r "$REQS" \
-    --quiet 2>&1 | grep -E "^(ERROR|WARNING)" || true
+echo "  Total wheels descargados: $(ls "$WHEELS_CACHE"/*.whl 2>/dev/null | wc -l)"
 
 # Paso 3: extraer cada wheel en site-packages
 # Un .whl es un zip — lo extraemos directo, sin pip
