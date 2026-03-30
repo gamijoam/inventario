@@ -400,24 +400,32 @@ const POSCart = ({
                                                 ) : (
                                                     <div
                                                         className={cn(
-                                                            "flex items-center gap-1 group/price",
+                                                            "flex flex-col items-end gap-0 group/price",
                                                             precioLibre && "cursor-pointer"
                                                         )}
                                                         onClick={precioLibre ? e => handleStartPriceEdit(e, item) : undefined}
-                                                        title={precioLibre ? "Clic para editar precio" : undefined}
+                                                        onMouseDown={precioLibre ? e => e.stopPropagation() : undefined}
+                                                        title={precioLibre ? "Clic para editar precio unitario" : undefined}
                                                     >
-                                                        {item.price_overridden && (
-                                                            <span className="text-[8px] font-black text-orange-500 bg-orange-50 border border-orange-200 px-1 rounded">MOD</span>
-                                                        )}
-                                                        <div className={cn(
-                                                            "text-sm font-black text-blue-600 tabular-nums",
-                                                            precioLibre && "group-hover/price:text-blue-400 transition-colors"
-                                                        )}>
-                                                            <span className="text-[10px] mr-0.5">$</span>
-                                                            {formatLocalCurrency(item.subtotal_usd)}
+                                                        <div className="flex items-center gap-1">
+                                                            {item.price_overridden && (
+                                                                <span className="text-[8px] font-black text-orange-500 bg-orange-50 border border-orange-200 px-1 rounded">MOD</span>
+                                                            )}
+                                                            <div className={cn(
+                                                                "text-sm font-black text-blue-600 tabular-nums",
+                                                                precioLibre && "group-hover/price:text-blue-400 transition-colors"
+                                                            )}>
+                                                                <span className="text-[10px] mr-0.5">$</span>
+                                                                {formatLocalCurrency(item.subtotal_usd)}
+                                                            </div>
+                                                            {precioLibre && (
+                                                                <Pencil size={9} className="text-blue-300 opacity-0 group-hover/price:opacity-100 transition-opacity flex-shrink-0" />
+                                                            )}
                                                         </div>
-                                                        {precioLibre && (
-                                                            <Pencil size={9} className="text-blue-300 opacity-0 group-hover/price:opacity-100 transition-opacity flex-shrink-0" />
+                                                        {item.qty > 1 && (
+                                                            <span className="text-[9px] text-slate-400 tabular-nums">
+                                                                ${formatLocalCurrency(item.unit_price_usd)} c/u
+                                                            </span>
                                                         )}
                                                     </div>
                                                 )}
