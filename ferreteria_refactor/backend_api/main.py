@@ -264,6 +264,8 @@ v1_router.include_router(admin_tasks_router, tags=["Admin Tasks"]) # NEW: Admin 
 v1_router.include_router(support_client_router, tags=["Soporte"])
 v1_router.include_router(support_admin_router, tags=["Admin Soporte"])
 v1_router.include_router(desktop_licenses_router, tags=["Admin - Desktop Licenses"])  # Desktop licenses
+from .routers.admin_flags import router as admin_flags_router
+v1_router.include_router(admin_flags_router, tags=["Feature Flags"])
 
 
 # Include Public Auth and Restaurant in v1 hierarchy too
@@ -572,6 +574,130 @@ def startup_event():
         print(f"[WARN] Nota de Inicializacion: {e}")
     finally:
         db.close()
+
+    # ── Modo Offline / Desktop ─────────────────────────────────────────────
+    # Cuando SINGLE_TENANT=true, asegurar que el tenant 'default' tenga su
+    # schema, tablas y datos base (métodos de pago, monedas, almacén, caja).
+    # Idempotente: se puede ejecutar en cada arranque sin duplicar datos.
+    if settings.SINGLE_TENANT:
+        _ensure_single_tenant_seeded()
+
+
+def _ensure_single_tenant_seeded():
+    """
+    Modo offline: verifica que el tenant 'default' esté completamente
+    provisionado (schema + tablas + seed data). Se ejecuta en cada arranque.
+    Idempotente — cada paso verifica si ya existe antes de crear.
+    """
+    from .config import settings as _s
+    from .database.db import engine as _engine, SessionLocal as _SL, _validate_schema_name
+    from .models.tenant import Tenant
+    from .services.tenant_service import TenantService
+    from sqlalchemy import text, inspect as sa_inspect
+
+    schema = getattr(_s, "SINGLE_TENANT_SCHEMA", "default")
+    print(f"[OFFLINE] Verificando tenant '{schema}'...")
+
+    # 1. Migración: columna feature_flags (IF NOT EXISTS → seguro re-ejecutar)
+    try:
+        with _engine.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS "
+                "feature_flags JSONB NOT NULL DEFAULT '{}'"
+            ))
+            conn.commit()
+    except Exception:
+        pass  # tabla puede no existir aún en primera instalación
+
+    # 2. Tenant row
+    db = _SL()
+    try:
+        tenant = db.query(Tenant).filter(Tenant.schema_name == schema).first()
+        if not tenant:
+            print(f"[OFFLINE] Tenant row no existe — ejecutando setup completo...")
+            db.close()
+            TenantService.create_tenant(
+                name="Mi Negocio",
+                schema_name=schema,
+                admin_email="admin@local.com",
+                admin_password="admin123",
+                plan_type="FERRETERIA",
+            )
+            _patch_lifetime(schema)
+            print(f"[OFFLINE] ✅ Tenant '{schema}' creado con datos base.")
+            return
+        tenant_id = tenant.id
+    finally:
+        db.close()
+
+    # 3. Schema PostgreSQL
+    schema_exists = False
+    try:
+        with _engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :s"),
+                {"s": schema}
+            ).fetchone()
+            schema_exists = row is not None
+    except Exception as e:
+        print(f"[OFFLINE] ⚠️ Error verificando schema: {e}")
+
+    if not schema_exists:
+        print(f"[OFFLINE] Schema '{schema}' no existe — creando tablas...")
+        try:
+            from .database.db import Base
+            _validate_schema_name(schema)
+            with _engine.connect() as conn:
+                with conn.begin():
+                    conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
+                    conn.execute(text(f'SET search_path TO "{schema}"'))
+                    Base.metadata.create_all(conn)
+            print(f"[OFFLINE] ✅ Schema '{schema}' provisionado.")
+        except Exception as e:
+            print(f"[OFFLINE] ❌ Error creando schema: {e}")
+            return
+
+    # 4. Seeds (cada función ya verifica "skip if exists")
+    try:
+        # Admin user
+        db = _SL()
+        try:
+            _validate_schema_name(schema)
+            db.execute(text(f'SET search_path TO "{schema}", public'))
+            from .models.models import User
+            if not db.query(User).filter(User.username == "admin", User.tenant_id == tenant_id).first():
+                TenantService.seed_tenant_admin(schema, "admin@local.com", "admin123", "Mi Negocio", tenant_id)
+        finally:
+            db.close()
+
+        TenantService.seed_exchange_rates(schema)
+        TenantService.seed_payment_methods(schema)
+        TenantService.seed_currencies(schema)
+        TenantService.seed_tenant_warehouse(schema)
+        TenantService.seed_cash_register(schema)
+        print(f"[OFFLINE] ✅ Datos base verificados para tenant '{schema}'.")
+    except Exception as e:
+        print(f"[OFFLINE] ⚠️ Error en seeding: {e}")
+
+    _patch_lifetime(schema)
+
+
+def _patch_lifetime(schema: str):
+    from .database.db import SessionLocal as _SL
+    from .models.tenant import Tenant
+    db = _SL()
+    try:
+        t = db.query(Tenant).filter(Tenant.schema_name == schema).first()
+        if t and t.license_type != "lifetime":
+            t.license_type = "lifetime"
+            t.is_active = True
+            t.trial_ends_at = None
+            db.commit()
+    except Exception:
+        pass
+    finally:
+        db.close()
+
 
 # ============================================
 # STATIC FILES - ORDER MATTERS!

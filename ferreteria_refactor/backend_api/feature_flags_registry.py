@@ -29,6 +29,11 @@ REGISTRY: dict[str, dict] = {
         "description": "Permite al cajero modificar el precio unitario de cualquier producto en el carrito y editar el total final, sin requerir autorización adicional.",
         "category": "pos",
     },
+    "impresion_factura_a4": {
+        "label": "Impresión factura A4 (impresora normal)",
+        "description": "Habilita botón 'Imprimir Factura' en A4/Carta al finalizar venta. Para clientes con impresora de hoja normal en lugar de térmica.",
+        "category": "pos",
+    },
 }
 
 CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "otros"]
