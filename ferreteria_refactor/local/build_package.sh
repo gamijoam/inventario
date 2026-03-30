@@ -53,6 +53,7 @@ echo "  ✅ PostgreSQL listo"
 # ============================================================
 # 2. Descargar Python embebido para Windows
 # ============================================================
+# Python embebido (solo para uvicorn — launcher es C# nativo)
 PY_ZIP="python-${PY_VERSION}-embed-amd64.zip"
 PY_URL="https://www.python.org/ftp/python/${PY_VERSION}/${PY_ZIP}"
 PIP_URL="https://bootstrap.pypa.io/get-pip.py"
@@ -64,20 +65,39 @@ if [ ! -f "$SCRIPT_DIR/cache/$PY_ZIP" ]; then
     wget -q --show-progress -O "$SCRIPT_DIR/cache/$PY_ZIP" "$PY_URL"
 fi
 mkdir -p "$DIST_DIR/python"
-unzip -q "$SCRIPT_DIR/cache/$PY_ZIP" -d "$DIST_DIR/python/"
+unzip -qo "$SCRIPT_DIR/cache/$PY_ZIP" -d "$DIST_DIR/python/"
 
-# Habilitar pip: descomentar import site en python312._pth
+# Habilitar pip y agregar Lib\site-packages al path del Python embebido
+# Sin esto, los paquetes instalados con --target=python\Lib\site-packages
+# no son encontrados por el intérprete.
 PY_PTH="$DIST_DIR/python/python312._pth"
 if [ -f "$PY_PTH" ]; then
     sed -i 's/#import site/import site/' "$PY_PTH"
+    # Agregar site-packages explícitamente (Python embebido no lo hace automático)
+    grep -q "Lib\\\\site-packages" "$PY_PTH" || \
+        sed -i '1a Lib\\site-packages' "$PY_PTH"
 fi
+mkdir -p "$DIST_DIR/python/Lib/site-packages"
 
-# Descargar get-pip.py
+# get-pip.py
 if [ ! -f "$SCRIPT_DIR/cache/get-pip.py" ]; then
     wget -q -O "$SCRIPT_DIR/cache/get-pip.py" "$PIP_URL"
 fi
 cp "$SCRIPT_DIR/cache/get-pip.py" "$DIST_DIR/python/"
 echo "  ✅ Python listo"
+
+# ============================================================
+# 2b. Descargar Visual C++ Redistributable (requerido por PostgreSQL)
+# ============================================================
+VCREDIST_URL="https://aka.ms/vs/17/release/vc_redist.x64.exe"
+echo "[2b/6] Visual C++ Redistributable..."
+if [ ! -f "$SCRIPT_DIR/cache/vc_redist.x64.exe" ]; then
+    echo "  Descargando (~25MB)..."
+    wget -q --show-progress -O "$SCRIPT_DIR/cache/vc_redist.x64.exe" "$VCREDIST_URL"
+fi
+mkdir -p "$DIST_DIR/redist"
+cp "$SCRIPT_DIR/cache/vc_redist.x64.exe" "$DIST_DIR/redist/"
+echo "  ✅ VC++ Redistributable listo"
 
 # ============================================================
 # 3. Copiar backend
@@ -90,6 +110,10 @@ rsync -a --exclude='venv/' --exclude='__pycache__/' --exclude='*.pyc' \
     --exclude='media/' --exclude='backups/' --exclude='frontend/' \
     "$ROOT_DIR/backend_api/" "$DIST_DIR/backend/"
 
+# Crear directorios necesarios que el backend espera
+mkdir -p "$DIST_DIR/backend/media"
+mkdir -p "$DIST_DIR/backend/backups"
+
 # Copiar requirements.txt
 cp "$ROOT_DIR/../requirements.txt" "$DIST_DIR/backend/requirements.txt"
 
@@ -97,7 +121,67 @@ cp "$ROOT_DIR/../requirements.txt" "$DIST_DIR/backend/requirements.txt"
 if [ -d "$ROOT_DIR/alembic" ]; then
     cp -r "$ROOT_DIR/alembic" "$DIST_DIR/backend/alembic"
 fi
+
+# Parchar setup_offline.py: en el dist el paquete se llama 'backend', no 'backend_api'
+# Los imports absolutos deben apuntar al nombre correcto del paquete
+if [ -f "$DIST_DIR/backend/setup_offline.py" ]; then
+    sed -i 's/from backend_api\./from backend./g' "$DIST_DIR/backend/setup_offline.py"
+    sed -i 's/import backend_api\./import backend./g' "$DIST_DIR/backend/setup_offline.py"
+    sed -i "s/uvicorn backend_api\.main:app/uvicorn backend.main:app/g" "$DIST_DIR/backend/setup_offline.py"
+fi
+
 echo "  ✅ Backend listo"
+
+# ============================================================
+# 3b. Pre-instalar dependencias en site-packages del Python embebido
+# ============================================================
+# Descargamos wheels para Windows win_amd64/cp312 desde Linux y los
+# extraemos directamente en python/Lib/site-packages — sin pip en Windows.
+echo "[3b/6] Pre-instalando dependencias en site-packages..."
+
+SITE_PKG="$DIST_DIR/python/Lib/site-packages"
+mkdir -p "$SITE_PKG"
+
+WHEELS_CACHE="$SCRIPT_DIR/cache/wheels_win"
+mkdir -p "$WHEELS_CACHE"
+
+REQS="$ROOT_DIR/../requirements.txt"
+
+# Generar requirements para Windows: reemplaza uvicorn[standard] por uvicorn
+# (uvloop es Linux-only y causa error al resolver dependencias para win_amd64)
+REQS_WIN="$SCRIPT_DIR/cache/requirements.windows.txt"
+sed 's/uvicorn\[standard\]/uvicorn/' "$REQS" > "$REQS_WIN"
+
+echo "  Descargando wheels Windows (win_amd64, cp312) con todas las dependencias..."
+
+pip download \
+    --platform win_amd64 \
+    --python-version 312 \
+    --implementation cp \
+    --abi cp312 \
+    --only-binary=:all: \
+    --dest "$WHEELS_CACHE" \
+    -r "$REQS_WIN" \
+    2>&1 | grep -E "^(ERROR|Saved|Downloading)" || true
+
+echo "  Total wheels descargados: $(ls "$WHEELS_CACHE"/*.whl 2>/dev/null | wc -l)"
+
+# Paso 3: extraer cada wheel en site-packages
+# Un .whl es un zip — lo extraemos directo, sin pip
+EXTRACTED=0
+for WHL in "$WHEELS_CACHE"/*.whl; do
+    [ -f "$WHL" ] || continue
+    unzip -qo "$WHL" -d "$SITE_PKG/" 2>/dev/null && EXTRACTED=$((EXTRACTED+1))
+done
+
+echo "  ✅ $EXTRACTED paquetes instalados en python/Lib/site-packages/"
+
+# Verificar que uvicorn quedó instalado
+if [ -d "$SITE_PKG/uvicorn" ]; then
+    echo "  ✅ uvicorn OK"
+else
+    echo "  ⚠️  uvicorn no encontrado — revisar requirements.txt"
+fi
 
 # ============================================================
 # 4. Build frontend
@@ -111,15 +195,30 @@ cd "$SCRIPT_DIR"
 echo "  ✅ Frontend listo"
 
 # ============================================================
-# 5. Copiar scripts y configs
+# 5. Copiar launcher C# compilado
 # ============================================================
-echo "[5/6] Scripts y configuración..."
+echo "[5/6] Launcher C# + scripts..."
+
+LAUNCHER_PUBLISH="$SCRIPT_DIR/launcher/publish"
+
+if [ -f "$LAUNCHER_PUBLISH/MiInventarioFacil.exe" ]; then
+    # Copiar todos los archivos del publish (exe + DLLs nativas requeridas)
+    cp "$LAUNCHER_PUBLISH"/*.exe "$DIST_DIR/" 2>/dev/null || true
+    cp "$LAUNCHER_PUBLISH"/*.dll "$DIST_DIR/" 2>/dev/null || true
+    echo "  ✅ Launcher copiado desde publish/"
+else
+    echo "  ⚠️  Launcher C# no encontrado en launcher/publish/"
+    echo "     Compilar con:"
+    echo "       cd local/launcher"
+    echo "       dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish"
+fi
 
 # .env para modo offline
-cat > "$DIST_DIR/backend/.env" << 'ENVEOF'
+GENERATED_KEY=$(openssl rand -hex 32)
+cat > "$DIST_DIR/backend/.env" << ENVEOF
 # Mi Inventario Fácil — Modo Offline
 DATABASE_URL=postgresql://postgres:@localhost:5432/miinventariofacil
-SECRET_KEY=offline-local-cambiar-en-produccion-$(openssl rand -hex 32)
+SECRET_KEY=${GENERATED_KEY}
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
 SINGLE_TENANT=true
@@ -132,77 +231,12 @@ MEDIA_ROOT=./media
 TIMEZONE=America/Caracas
 ENVEOF
 
-# start.bat
+# Scripts de respaldo (por si el usuario prefiere línea de comandos)
 cp "$SCRIPT_DIR/start.bat" "$DIST_DIR/"
 cp "$SCRIPT_DIR/stop.bat" "$DIST_DIR/"
 
-# setup.bat — primera ejecución
-cat > "$DIST_DIR/setup.bat" << 'SETUPEOF'
-@echo off
-title Mi Inventario Facil - Setup Inicial
-color 0A
-cd /d "%~dp0"
-
-echo ============================================================
-echo   Mi Inventario Facil - Configuracion Inicial
-echo ============================================================
-echo.
-
-:: 1. Instalar pip en Python embebido
-echo [1/4] Instalando pip...
-python\python.exe python\get-pip.py --no-warn-script-location >nul 2>&1
-echo   OK
-
-:: 2. Instalar dependencias Python
-echo [2/4] Instalando dependencias (puede tardar unos minutos)...
-python\python.exe -m pip install --no-warn-script-location -r backend\requirements.txt >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo   [ERROR] Fallo instalando dependencias.
-    echo   Ejecute manualmente: python\python.exe -m pip install -r backend\requirements.txt
-    pause
-    exit /b 1
-)
-echo   OK
-
-:: 3. Inicializar PostgreSQL
-echo [3/4] Inicializando base de datos...
-if not exist "postgresql\data\PG_VERSION" (
-    postgresql\bin\initdb.exe -D postgresql\data -U postgres -E UTF8 --locale=C >nul 2>&1
-)
-
-:: Iniciar PostgreSQL temporalmente
-start /B postgresql\bin\pg_ctl.exe start -D postgresql\data -l postgresql\log.txt -w >nul 2>&1
-timeout /t 3 /nobreak >nul
-
-:: Crear base de datos
-postgresql\bin\psql.exe -U postgres -tc "SELECT 1 FROM pg_database WHERE datname='miinventariofacil'" | findstr "1" >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    postgresql\bin\createdb.exe -U postgres miinventariofacil
-)
-echo   OK
-
-:: 4. Crear tenant por defecto
-echo [4/4] Configurando empresa por defecto...
-set PYTHONPATH=%~dp0
-python\python.exe -m backend.setup_offline 2>nul
-if %ERRORLEVEL% NEQ 0 (
-    :: Intentar con cd al directorio
-    cd backend
-    ..\python\python.exe setup_offline.py 2>nul
-    cd ..
-)
-
-:: Detener PostgreSQL
-postgresql\bin\pg_ctl.exe stop -D postgresql\data -m fast >nul 2>&1
-
-echo.
-echo ============================================================
-echo   Setup completado!
-echo.
-echo   Ejecute start.bat para iniciar la aplicacion.
-echo ============================================================
-pause
-SETUPEOF
+# setup.bat — inicializa la BD (ejecutado por InnoSetup en instalación)
+cp "$SCRIPT_DIR/setup.bat" "$DIST_DIR/"
 
 echo "  ✅ Scripts listos"
 
@@ -240,11 +274,12 @@ echo ""
 echo "  Contenido:"
 du -sh "$DIST_DIR"/* 2>/dev/null | sed 's|.*/||'
 echo ""
-echo "  Siguiente paso:"
-echo "    1. Copiar dist/MiInventarioFacil/ a Windows"
-echo "    2. Ejecutar setup.bat (primera vez)"
-echo "    3. Ejecutar start.bat"
-echo ""
-echo "  O para generar .exe instalador:"
-echo "    Abrir innosetup.iss con InnoSetup en Windows y compilar"
+echo "  Para generar el instalador .exe:"
+echo "    1. Compilar el launcher (si no está en launcher/publish/):"
+echo "       cd local/launcher"
+echo "       dotnet publish -c Release -r win-x64 --self-contained true \\"
+echo "         /p:PublishSingleFile=true -o publish"
+echo "    2. Copiar dist/MiInventarioFacil/ a Windows"
+echo "    3. Abrir innosetup.iss con InnoSetup 6 y compilar (Ctrl+F9)"
+echo "       → genera local/output/MiInventarioFacil-Setup.exe"
 echo "============================================================"

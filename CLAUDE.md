@@ -109,6 +109,26 @@ Frontend usa `effectiveModules` del `ConfigContext` para mostrar/ocultar seccion
 
 ---
 
+## Feature Flags por Tenant (CRÍTICO — leer antes de crear features nuevas)
+
+Sistema para activar/desactivar funciones individuales por tenant desde el panel SaaS admin, sin deploy. Diferente a los módulos de negocio (que controlan secciones completas).
+
+**Columna en BD:** `tenants.feature_flags JSONB` — `{"flag_name": true}`
+
+**Registro central:** `backend_api/feature_flags_registry.py` — define todos los flags conocidos con label, descripción y categoría. Agregar un flag aquí lo hace aparecer automáticamente en el panel admin.
+
+**Hook en frontend:** `useFeatureFlag('flag_name')` → `true/false`
+
+**Flujo para nueva feature a la carta:**
+1. Agregar flag al registry
+2. Wrapear UI con `useFeatureFlag('nombre')` (o `<FeatureFlag flag="nombre">`)
+3. Proteger endpoint backend si aplica
+4. Activar por tenant desde panel SaaS admin → sin deploy, sin restart
+
+**Regla:** Toda función nueva que no sea para todos los tenants DEBE usar feature flags. No hardcodear visibilidad ni hacer deploys especiales por cliente.
+
+---
+
 ## Gotchas Técnicos Importantes
 
 ```python
@@ -219,3 +239,6 @@ Backups persistentes: /root/deploy/prod/backups/  (bind mount → /app/backups e
 | `19_Sistema_Licencias.md` | Planes, trial, scheduler de expiración |
 | `20_Migraciones_SQL_Pendientes.md` | Alembic, migraciones pendientes |
 | `24_Auditoria_Integral_2026-03-25.md` | Auditoría completa: seguridad, backend, frontend, DevOps, negocio |
+| `25_Modo_Offline_Windows.md` | Instalador .exe Windows — build, launcher C#, setup BD, troubleshooting |
+| `26_Soporte_BD_Clientes_Offline.md` | Acceso y mantenimiento BD en clientes con .exe — DBeaver, psql, acceso remoto, reset pass |
+| `27_Feature_Flags_Sistema.md` | Sistema de feature flags por tenant — arquitectura, registro, hook, panel admin |

@@ -86,6 +86,7 @@ const LaundryForm = React.lazy(() => import('./pages/Laundry/LaundryForm'));
 const LaundryTicket = React.lazy(() => import('./pages/Laundry/components/LaundryTicket'));
 const SupportTickets = React.lazy(() => import('./pages/SupportTickets'));
 const MiSuscripcion = React.lazy(() => import('./pages/MiSuscripcion'));
+const FuncionesPage = React.lazy(() => import('./pages/Settings/FuncionesPage'));
 
 // Suspense fallback spinner
 const SuspenseFallback = (
@@ -424,6 +425,11 @@ function App() {
                               <Route path="/help" element={<Help />} />
                               <Route path="/support" element={<SupportTickets />} />
                               <Route path="/mi-suscripcion" element={<MiSuscripcion />} />
+                              <Route path="/funciones" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <FuncionesPage />
+                                </ProtectedRoute>
+                              } />
 
                               {/* Service Module Routes — ADMIN + CASHIER */}
                               <Route path="/services" element={

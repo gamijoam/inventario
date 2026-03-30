@@ -74,6 +74,9 @@ class TenantOut(TenantBase):
     has_barbershop_module: bool = False
     has_pharmacy_module: bool = False
 
+    # Feature flags a la carta
+    feature_flags: Dict[str, bool] = {}
+
     # Optional computed fields
     user_count: Optional[int] = None
 

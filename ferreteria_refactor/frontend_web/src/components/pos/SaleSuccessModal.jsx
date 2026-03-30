@@ -1,11 +1,16 @@
 import { useState } from 'react';
-import { CheckCircle, Printer, X } from 'lucide-react';
+import { CheckCircle, Printer, FileText } from 'lucide-react';
 import printerService from '../../services/printerService';
 import toast from 'react-hot-toast';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { useConfig } from '../../context/ConfigContext';
+import { printFacturaA4 } from './FacturaA4';
 
 const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     const [printing, setPrinting] = useState(false);
     const [printStatus, setPrintStatus] = useState(null); // 'success' | 'error'
+    const facturaA4Active = useFeatureFlag('impresion_factura_a4');
+    const { business } = useConfig();
 
     if (!isOpen || !saleData) return null;
 
@@ -75,7 +80,17 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                     </button>
 
                     {printStatus === 'success' && (
-                        <p className="text-xs text-green-600 font-medium">✨ Ticket enviado a cola de impresión.</p>
+                        <p className="text-xs text-green-600 font-medium">Ticket enviado a cola de impresión.</p>
+                    )}
+
+                    {facturaA4Active && (
+                        <button
+                            onClick={() => printFacturaA4(saleData, business)}
+                            className="w-full py-3 px-4 rounded-lg shadow font-bold flex items-center justify-center transition-colors bg-orange-500 hover:bg-orange-600 text-white"
+                        >
+                            <FileText size={20} className="mr-2" />
+                            Imprimir Factura A4
+                        </button>
                     )}
 
                     <button

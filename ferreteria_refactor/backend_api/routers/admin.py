@@ -437,6 +437,46 @@ def update_tenant(
     db.refresh(tenant)
     return tenant
 
+
+@router.get("/feature-flags/registry")
+def get_feature_flags_registry():
+    """
+    Devuelve el registro completo de feature flags conocidas.
+    El panel admin usa esto para mostrar los toggles dinámicamente.
+    """
+    from ..feature_flags_registry import REGISTRY, CATEGORIES
+    return {"registry": REGISTRY, "categories": CATEGORIES}
+
+
+@router.patch("/tenants/{tenant_id}/feature-flags")
+def update_tenant_feature_flags(
+    tenant_id: int,
+    flags: Dict[str, bool],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Activa o desactiva feature flags individuales para un tenant.
+    Body: {"nombre_flag": true/false, ...}
+    Hace merge con los flags existentes (no reemplaza todo).
+    """
+    from ..feature_flags_registry import REGISTRY
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+
+    unknown = [k for k in flags if k not in REGISTRY]
+    if unknown:
+        raise HTTPException(400, f"Feature flags desconocidas: {unknown}")
+
+    current = dict(tenant.feature_flags or {})
+    current.update(flags)
+    tenant.feature_flags = current
+    db.commit()
+    db.refresh(tenant)
+    return {"tenant_id": tenant_id, "feature_flags": tenant.feature_flags}
+
+
 @router.delete("/tenants/{tenant_id}", status_code=204)
 def delete_tenant(
     tenant_id: int,

@@ -43,9 +43,27 @@ htmlcov/
 docker-compose.override.yml
 
 # 8. Archivos Grandes y Binarios (OPTIMIZACIÓN)
+# Windows Bridge (app escritorio — no va en Docker)
 MiInventarioFacil_Windows_Bridge/
 hardware_bridge/
+
+# Modo offline / instalador .exe — artefactos de build (no van en Docker)
+ferreteria_refactor/local/dist/
+ferreteria_refactor/local/cache/
+ferreteria_refactor/local/output/
+ferreteria_refactor/local/launcher/bin/
+ferreteria_refactor/local/launcher/obj/
+ferreteria_refactor/local/launcher/publish/
+
+# Módulos no Docker
+security_module/
+telegram_bot/
 _herramientas_dev/
+_archive/
+
+# Frontend legacy (reemplazado por frontend_web)
+ferreteria_refactor/frontend/
+
 migration_guide.pdf
 *.exe
 *.dll
@@ -56,9 +74,3 @@ migration_guide.pdf
 *.rar
 ferreteria.db
 sql_app.db
-
-# 9. Modo Offline (no va en Docker — 620MB+)
-**/local/cache/
-**/local/dist/
-**/frontend/
-**/venv/

@@ -1,0 +1,2 @@
+/home/gamijoam/Documentos/inventario/ferreteria_refactor/local/launcher/publish/MiInventarioFacil.pdb
+/home/gamijoam/Documentos/inventario/ferreteria_refactor/local/launcher/publish/MiInventarioFacil.exe

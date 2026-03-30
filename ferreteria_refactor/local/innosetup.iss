@@ -1,25 +1,26 @@
 ; ============================================================
 ; Mi Inventario Fácil — InnoSetup Installer Script
 ;
-; Para compilar: abrir este archivo con InnoSetup y hacer click
-; en "Compile" (Ctrl+F9). Genera MiInventarioFacil-Setup.exe
-;
-; Prerequisito: ejecutar build_package.sh primero para generar
-; la carpeta dist/MiInventarioFacil/ con todos los archivos.
+; Para compilar (en Windows):
+;   1. Armar el paquete desde Linux: bash build_package.sh
+;   2. Copiar dist/MiInventarioFacil/ a Windows
+;   3. Abrir este archivo con InnoSetup 6 y compilar (Ctrl+F9)
+;      → genera output/MiInventarioFacil-Setup.exe
 ; ============================================================
 
-#define MyAppName "Mi Inventario Facil"
-#define MyAppVersion "1.0"
-#define MyAppPublisher "Mi Inventario Fácil"
-#define MyAppURL "http://localhost:8000"
-#define MyAppExeName "start.bat"
+#define MyAppName      "Mi Inventario Facil"
+#define MyAppVersion   "1.0"
+#define MyAppPublisher "Mi Inventario Facil"
+#define MyAppURL       "http://localhost:8000"
+#define MyAppExeName   "MiInventarioFacil.exe"
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={autopf}\{#MyAppName}
+; Instalar en AppData\Local — siempre tiene permisos de escritura (PostgreSQL los necesita)
+DefaultDirName={localappdata}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 OutputDir=output
@@ -27,45 +28,56 @@ OutputBaseFilename=MiInventarioFacil-Setup
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=
-PrivilegesRequired=admin
+; lowest = no requiere UAC, pero puede escalar si el usuario elige C:\Program Files
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
 DisableProgramGroupPage=yes
-LicenseFile=
-; Espacio estimado en KB (~180MB)
-ExtraDiskSpaceRequired=188743680
+; Espacio aprox: PostgreSQL ~100MB + Python ~60MB + backend + frontend
+ExtraDiskSpaceRequired=314572800
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Crear acceso directo en el Escritorio"; GroupDescription: "Accesos directos:"; Flags: checked
+Name: "desktopicon"; Description: "Crear acceso directo en el Escritorio"; GroupDescription: "Accesos directos:"
 
 [Files]
-; Copiar TODO el contenido de dist/MiInventarioFacil/
+; Todo el contenido del paquete armado por build_package.sh
 Source: "dist\MiInventarioFacil\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\frontend\favicon.svg"
-Name: "{group}\Detener {#MyAppName}"; Filename: "{app}\stop.bat"; WorkingDir: "{app}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\{#MyAppName}";          Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
+Name: "{group}\Detener {#MyAppName}";  Filename: "{app}\stop.bat";        WorkingDir: "{app}"
+Name: "{autodesktop}\{#MyAppName}";    Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-; Ejecutar setup.bat después de instalar (solo primera vez)
-Filename: "{app}\setup.bat"; Description: "Configurar base de datos (primera vez)"; Flags: nowait postinstall shellexec skipifsilent
-; Opción: abrir la app después de instalar
-Filename: "{app}\{#MyAppExeName}"; Description: "Iniciar {#MyAppName}"; Flags: nowait postinstall skipifsilent unchecked
+; 1. Instalar VC++ Redistributable si falta — requiere elevar privilegios
+Filename: "{app}\redist\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "Instalando Visual C++ Redistributable..."; Check: VCRedistNotInstalled; Flags: waituntilterminated runascurrentuser
+; 2. Inicializar base de datos (solo primera vez)
+; Usamos cmd.exe directamente (shellexec no garantiza WorkingDir correcto para .bat)
+Filename: "{cmd}"; Parameters: "/c ""{app}\setup.bat"" /silent > ""{app}\setup.log"" 2>&1"; WorkingDir: "{app}"; StatusMsg: "Configurando base de datos (puede tardar 1-2 minutos)..."; Flags: waituntilterminated runhidden
+; 3. Lanzar la app al terminar de instalar
+Filename: "{app}\{#MyAppExeName}"; Description: "Iniciar {#MyAppName} ahora"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-; Detener servicios antes de desinstalar
-Filename: "{app}\stop.bat"; Flags: runhidden
+Filename: "{app}\stop.bat"; Flags: runhidden waituntilterminated
 
 [UninstallDelete]
-; Limpiar archivos generados (data de PostgreSQL, logs, etc.)
 Type: filesandordirs; Name: "{app}\postgresql\data"
 Type: filesandordirs; Name: "{app}\postgresql\log.txt"
 Type: filesandordirs; Name: "{app}\backend\media"
 Type: filesandordirs; Name: "{app}\backend\backups"
 
+[Code]
+function VCRedistNotInstalled: Boolean;
+var
+  installed: Cardinal;
+begin
+  Result := True;
+  if RegQueryDWordValue(HKLM, 'SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'Installed', installed) then
+    Result := (installed <> 1);
+end;
+
 [Messages]
-WelcomeLabel2=Este asistente instalará [name] en su computadora.%n%nLa aplicación funcionará completamente sin internet.%n%nDespués de instalar, se configurará la base de datos automáticamente.
-FinishedLabel=La instalación de [name] ha finalizado.%n%nEjecute "Mi Inventario Fácil" desde el escritorio para comenzar.%n%nCredenciales: admin / admin123
+WelcomeLabel2=Este asistente instalará [name] en su computadora.%n%nLa aplicación funciona completamente sin internet ni configuración adicional.%n%nSe configurará la base de datos automáticamente al finalizar.
+FinishedLabel=La instalación de [name] ha finalizado.%n%nHaga doble click en el acceso directo del Escritorio para iniciar.%n%nCredenciales iniciales:%n  Usuario:     admin%n  Contraseña:  admin123

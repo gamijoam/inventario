@@ -27,6 +27,20 @@ export interface Tenant {
     has_services_module: boolean;
     has_barbershop_module: boolean;
     has_pharmacy_module: boolean;
+
+    // Feature flags a la carta
+    feature_flags: Record<string, boolean>;
+}
+
+export interface FeatureFlagDef {
+    label: string;
+    description: string;
+    category: string;
+}
+
+export interface FeatureFlagsRegistry {
+    registry: Record<string, FeatureFlagDef>;
+    categories: string[];
 }
 
 export interface TenantListResponse {
