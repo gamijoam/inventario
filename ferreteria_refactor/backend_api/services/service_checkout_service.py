@@ -43,7 +43,7 @@ class ServiceCheckoutService:
         try:
             print(f"[DEBUG] Checkout Service Order ID: {order_id}")
             # 1. Fetch Order with Payments
-            order = db.query(models.ServiceOrder).get(order_id)
+            order = db.query(models.ServiceOrder).filter(models.ServiceOrder.id == order_id).first()
             if not order:
                 raise HTTPException(status_code=404, detail="Orden de servicio no encontrada")
             
@@ -115,13 +115,13 @@ class ServiceCheckoutService:
                     qty = item.quantity
                     cost = item.cost or 0 
                     
-                    prod = db.query(models.Product).get(product_id)
+                    prod = db.query(models.Product).filter(models.Product.id == product_id).first()
                     if prod:
                         cost = prod.cost_price
                         deduct_stock = True
                     else:
                         cost = 0
-                        deduct_stock = False 
+                        deduct_stock = False
                     
                     price = item.unit_price
 
@@ -144,7 +144,7 @@ class ServiceCheckoutService:
 
                 # COMMISSION LOGIC
                 if item.technician_id and item.is_manual:
-                    technician = db.query(models.User).get(item.technician_id)
+                    technician = db.query(models.User).filter(models.User.id == item.technician_id).first()
                     if technician and technician.commission_percentage and technician.commission_percentage > 0:
                         commission_amount = subtotal * (technician.commission_percentage / 100)
                         
@@ -168,7 +168,7 @@ class ServiceCheckoutService:
                     if stock_record:
                         stock_record.quantity -= qty
                         
-                    prod = db.query(models.Product).get(product_id)
+                    prod = db.query(models.Product).filter(models.Product.id == product_id).first()
                     if prod:
                         prod.stock -= qty
                         kardex = models.Kardex(

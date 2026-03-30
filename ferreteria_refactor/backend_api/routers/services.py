@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy import text
 from .. import schemas
 from ..models import models
 from ..database.db import get_db
+from ..tenant_context import get_tenant_schema
 from ..dependencies import get_current_active_user
 from ..security import pwd_context
 from ..utils.time_utils import get_venezuela_now
@@ -411,12 +413,16 @@ def update_service_order_status(
         order.priority = update_data.priority
 
     # Auto-checkout: si se marca como DELIVERED y ya tiene abonos que cubren el total,
-    # crear la Sale automáticamente (sin requerir checkout manual)
-    if (order.status == models.ServiceOrderStatus.DELIVERED
+    # crear la Sale automáticamente (sin requerir checkout manual).
+    # IMPORTANTE: convert_order_to_sale requiere status=READY, así que revertimos
+    # temporalmente, hacemos checkout, y luego volvemos a DELIVERED.
+    if (update_data.status == "DELIVERED"
             and (order.order_metadata or {}).get("payment_status") != "PAID"):
         order_total = sum(float(d.quantity * d.unit_price) for d in order.details)
         total_paid = sum(float(p.amount) for p in order.payments)
         if total_paid >= order_total and order_total > 0:
+            # Restaurar a READY para que checkout funcione, luego vuelve a DELIVERED
+            order.status = models.ServiceOrderStatus.READY
             db.flush()
             try:
                 checkout_data = schemas.ServiceCheckoutPayment(
@@ -425,16 +431,23 @@ def update_service_order_status(
                     payment_method="Efectivo",
                     payments=[],
                 )
-                sale = ServiceCheckoutService.convert_order_to_sale(
+                ServiceCheckoutService.convert_order_to_sale(
                     db, order.id, checkout_data, current_user.id
                 )
+                # convert_order_to_sale hace db.commit() internamente → search_path se pierde
+                # Re-setear search_path antes de cualquier query post-checkout
+                _schema = get_tenant_schema()
+                if _schema and _schema != "public":
+                    db.execute(text(f'SET search_path TO "{_schema}", public'))
                 return schemas.ServiceOrderRead.model_validate(
                     db.query(models.ServiceOrder).options(
                         *_service_order_options()
                     ).filter(models.ServiceOrder.id == order_id).first()
                 )
-            except Exception:
-                pass  # Si falla, continua con el flujo normal
+            except Exception as _e:
+                # Checkout falló — rollback y continuar con flujo normal (status DELIVERED sin Sale)
+                db.rollback()
+                order.status = models.ServiceOrderStatus.DELIVERED
 
     db.flush()
     # Eager Load for status update response BEFORE commit
