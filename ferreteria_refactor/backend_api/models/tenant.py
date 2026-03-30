@@ -35,5 +35,10 @@ class Tenant(Base):
     has_barbershop_module = Column(Boolean, default=False)
     has_pharmacy_module = Column(Boolean, default=False)
 
+    # Feature flags a la carta — activadas individualmente por tenant desde el panel admin
+    # Ejemplo: {"descuento_especial": true, "reporte_avanzado": false}
+    # Tipo JSON (cross-DB); la migración declara JSONB en PostgreSQL
+    feature_flags = Column(JSON, nullable=False, server_default='{}')
+
     def __repr__(self):
         return f"<Tenant(name={self.name}, schema={self.schema_name})>"

@@ -121,6 +121,15 @@ cp "$ROOT_DIR/../requirements.txt" "$DIST_DIR/backend/requirements.txt"
 if [ -d "$ROOT_DIR/alembic" ]; then
     cp -r "$ROOT_DIR/alembic" "$DIST_DIR/backend/alembic"
 fi
+
+# Parchar setup_offline.py: en el dist el paquete se llama 'backend', no 'backend_api'
+# Los imports absolutos deben apuntar al nombre correcto del paquete
+if [ -f "$DIST_DIR/backend/setup_offline.py" ]; then
+    sed -i 's/from backend_api\./from backend./g' "$DIST_DIR/backend/setup_offline.py"
+    sed -i 's/import backend_api\./import backend./g' "$DIST_DIR/backend/setup_offline.py"
+    sed -i "s/uvicorn backend_api\.main:app/uvicorn backend.main:app/g" "$DIST_DIR/backend/setup_offline.py"
+fi
+
 echo "  ✅ Backend listo"
 
 # ============================================================

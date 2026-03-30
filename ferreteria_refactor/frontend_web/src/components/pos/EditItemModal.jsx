@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Trash2, Save, X, DollarSign, Hash, Tag, Users } from 'lucide-react';
+import { Trash2, Save, X, DollarSign, Hash, Tag, Users, Pencil } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { useConfig } from '../../context/ConfigContext';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import apiClient from '../../config/axios';
 
 const formatLocalCurrency = (amount, decimals = 2) => {
@@ -25,6 +26,9 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
     const [selectedCurrency, setSelectedCurrency] = useState('VES');
     const [priceListId, setPriceListId] = useState(null);
     const [price, setPrice] = useState(0);
+    const [priceInput, setPriceInput] = useState('');
+
+    const precioLibre = useFeatureFlag('precio_libre_pos');
 
     // NEW: Employee (Barber/Stylist) Selection
     const [employees, setEmployees] = useState([]);
@@ -91,6 +95,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
 
             setPriceListId(item.price_list_id || null);
             setPrice(item.unit_price_usd || 0);
+            setPriceInput(String(item.unit_price_usd || 0));
             setEmployeeId(item.employee_id || '');
 
             // Fetch employees if it's a barbershop service
@@ -409,6 +414,31 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
                     </div>
                 )}
 
+                {/* Precio libre — solo si el flag está activo */}
+                {precioLibre && (
+                    <div className="mb-6 space-y-1.5">
+                        <Label className="text-xs font-bold text-orange-600 uppercase flex items-center gap-1.5">
+                            <Pencil size={12} />
+                            Precio Unitario (USD)
+                        </Label>
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={priceInput}
+                            onChange={e => setPriceInput(e.target.value)}
+                            onFocus={e => e.target.select()}
+                            className="w-full text-center text-2xl font-bold border-2 border-orange-300 rounded-xl px-4 py-2 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 bg-orange-50 text-orange-700 tabular-nums"
+                            placeholder="0.00"
+                        />
+                        {parseFloat(priceInput) !== item.unit_price_usd && parseFloat(priceInput) > 0 && (
+                            <p className="text-[10px] text-orange-500 font-bold text-center">
+                                Precio original: ${formatLocalCurrency(item.unit_price_usd, 4)}
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {/* Actions */}
                 <div className="flex gap-3">
                     <Button
@@ -420,7 +450,14 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
                     </Button>
                     <Button
                         onClick={() => {
-                            onUpdate(item.id, quantity, { employee_id: employeeId || null });
+                            const newPrice = parseFloat(priceInput);
+                            const extra = { employee_id: employeeId || null };
+                            if (precioLibre && !isNaN(newPrice) && newPrice > 0 && newPrice !== item.unit_price_usd) {
+                                extra.unit_price_usd = newPrice;
+                                extra.price_overridden = true;
+                                extra.original_price_usd = item.original_price_usd ?? item.unit_price_usd;
+                            }
+                            onUpdate(item.id, quantity, extra);
                             onClose();
                         }}
                         className="flex-[2] h-12 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:-translate-y-1 transition-all"
