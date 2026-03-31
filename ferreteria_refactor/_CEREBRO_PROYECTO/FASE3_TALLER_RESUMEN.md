@@ -420,3 +420,27 @@ GET  /products/?q={term}&limit=10 ← búsqueda repuestos inventario
 GET  /customers/?q={term}        ← búsqueda cliente (existente)
 POST /services/orders            ← crea orden con items[] precargados
 ```
+
+---
+
+## 🔧 FIXES POST-FASE 4 (Sesión continua)
+
+### Fix: Crash al abrir orden (toFixed sobre strings)
+- **Síntoma:** Error Boundary global al abrir cualquier orden existente
+- **Causa:** `item.unit_price.toFixed(2)` y `(item.unit_price * item.quantity).toFixed(2)` en `ServiceOrderDetail.jsx` — el API devuelve Decimal de Python como strings
+- **Fix:** `Number(item.unit_price).toFixed(2)` y `(Number(item.unit_price) * Number(item.quantity)).toFixed(2)`
+- **Regla:** Siempre envolver campos Decimal del API con `Number()` antes de operar
+
+### Fix: Abono mostraba error falso pero sí se registraba
+- **Síntoma:** Toast de error al registrar abono, pero el pago quedaba guardado en BD
+- **Causa:** `onAddPayment` en `ServiceOrderDetail` era un placeholder `toast.info('Abrir formulario de pago')` — nunca implementado correctamente. El toast confuso aparecía justo después del éxito.
+- **Fix:** Renombrado a `onPaymentSuccess={fetchOrder}`. Ahora tras el abono: recarga la orden automáticamente y muestra `toast.success('✅ Abono registrado correctamente')`
+- **Commits:** `fe2c9e7`, `cf1fb16`
+
+### Historial de commits QA (sesión)
+```
+cf1fb16  fix(taller): abono mostraba error falso — onPaymentSuccess llama fetchOrder()
+fe2c9e7  fix(taller): unit_price/quantity son strings del API — Number() en toFixed()
+b3944ed  fix(taller): eliminar DashboardLayout interno — Outlet no children
+032044a  feat(taller): conectar ServicesDashboard al router — Workshop Board v2 activo
+```
