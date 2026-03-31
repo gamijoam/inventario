@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Plus, Download, MoreVertical, Check, AlertCircle } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
-import DashboardLayout from '../../layouts/DashboardLayout';
 import DiagnosisPanel from './components/DiagnosisPanel';
 import PaymentTimeline from './components/PaymentTimeline';
 import QuickItemForm from './components/QuickItemForm';
@@ -66,20 +65,20 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
 
     if (loading) {
         return (
-            <DashboardLayout>
+            <>
                 <div className="min-h-screen bg-slate-50 flex items-center justify-center">
                     <div className="text-center">
                         <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
                         <p className="text-slate-600">Cargando orden...</p>
                     </div>
                 </div>
-            </DashboardLayout>
+            </>
         );
     }
 
     if (error || !order) {
         return (
-            <DashboardLayout>
+            <>
                 <div className="min-h-screen bg-slate-50 p-6">
                     <div className="max-w-2xl mx-auto">
                         <button
@@ -95,12 +94,12 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                         </div>
                     </div>
                 </div>
-            </DashboardLayout>
+            </>
         );
     }
 
     return (
-        <DashboardLayout>
+        <>
             <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
                 <div className="max-w-6xl mx-auto">
                     {/* Header */}
@@ -277,7 +276,7 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                     }}
                 />
             )}
-        </DashboardLayout>
+        </>
     );
 };
 

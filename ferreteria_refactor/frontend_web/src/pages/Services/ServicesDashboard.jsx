@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Zap, Wrench, TrendingUp } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
-import DashboardLayout from '../../layouts/DashboardLayout';
 import ServiceCard from './components/ServiceCard';
 import ServiceOrderWizard from './ServiceOrderWizard';
 import ServiceOrderDetail from './ServiceOrderDetail';
@@ -146,7 +145,7 @@ const ServicesDashboard = () => {
     };
 
     return (
-        <DashboardLayout>
+        <>
             <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
                 <div className="max-w-7xl mx-auto space-y-8">
                     {/* Header */}
@@ -316,7 +315,7 @@ const ServicesDashboard = () => {
                     </div>
                 </div>
             )}
-        </DashboardLayout>
+        </>
     );
 };
 
