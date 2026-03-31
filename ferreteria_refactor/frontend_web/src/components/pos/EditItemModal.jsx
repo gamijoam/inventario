@@ -347,7 +347,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
                 )}
 
                 {/* Price List Selector */}
-                {modules?.services && (
+                {priceLists.length > 0 && (
                     <div className="mb-6 space-y-1.5">
                         <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
                             <Tag size={12} />
