@@ -201,8 +201,8 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                                                         <p className="text-sm text-slate-600">Cantidad: {item.quantity}</p>
                                                     </div>
                                                     <div className="text-right mr-4">
-                                                        <p className="font-bold text-slate-900">${(item.unit_price * item.quantity).toFixed(2)}</p>
-                                                        <p className="text-xs text-slate-600">${item.unit_price.toFixed(2)} c/u</p>
+                                                        <p className="font-bold text-slate-900">${(Number(item.unit_price) * Number(item.quantity)).toFixed(2)}</p>
+                                                        <p className="text-xs text-slate-600">${Number(item.unit_price).toFixed(2)} c/u</p>
                                                     </div>
                                                     <button
                                                         onClick={() => handleDeleteItem(item.id)}
