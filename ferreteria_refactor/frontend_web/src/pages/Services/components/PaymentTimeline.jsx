@@ -3,7 +3,7 @@ import { Plus, TrendingUp, DollarSign } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 
-const PaymentTimeline = ({ order, calculations, onAddPayment }) => {
+const PaymentTimeline = ({ order, calculations, onPaymentSuccess }) => {
     const [showPaymentForm, setShowPaymentForm] = useState(false);
     const [paymentForm, setPaymentForm] = useState({
         amount: '',
@@ -26,10 +26,10 @@ const PaymentTimeline = ({ order, calculations, onAddPayment }) => {
                 payment_method: paymentForm.payment_method,
                 reference: paymentForm.reference,
             });
-            toast.success('Pago registrado');
+            toast.success('✅ Abono registrado correctamente');
             setPaymentForm({ amount: '', payment_method: 'CASH', reference: '' });
             setShowPaymentForm(false);
-            onAddPayment?.();
+            onPaymentSuccess?.();   // Recarga la orden para reflejar el nuevo pago
         } catch (err) {
             toast.error('Error al registrar pago');
         } finally {

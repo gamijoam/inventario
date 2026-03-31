@@ -254,9 +254,7 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                                 <PaymentTimeline
                                     order={order}
                                     calculations={calculations}
-                                    onAddPayment={() => {
-                                        toast.info('Abrir formulario de pago');
-                                    }}
+                                    onPaymentSuccess={fetchOrder}
                                 />
                             </div>
                         </div>

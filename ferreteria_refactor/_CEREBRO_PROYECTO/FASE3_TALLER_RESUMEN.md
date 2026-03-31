@@ -372,3 +372,51 @@ Este proyecto es un **éxito rotundo**:
 **Última actualización:** 31 Marzo 2026 22:45 UTC  
 **Próxima actualización:** Post FASE 4 Deploy  
 **Status:** ✅ LISTO PARA PRODUCCIÓN
+
+---
+
+## 🚀 FASE 4 — Mejoras Post-Deploy (31 Marzo 2026, Sesión IA-MCP)
+
+### Cambios aplicados en esta sesión
+
+#### 1. Conexión al Router (`App.jsx`)
+- **Problema:** Los componentes FASE 1/2/3 existían pero nunca se conectaron al router. `App.jsx` seguía usando `ServicesUnified` (sistema viejo).
+- **Fix:** `App.jsx` actualizado — `/services` ahora apunta a `ServicesDashboard`. `ServicesUnified` y `ServiceManager` conservados como LEGACY para rollback.
+- **Bug adicional:** `DashboardLayout` usa `<Outlet />` (React Router), no `{children}`. Los nuevos componentes lo usaban como wrapper → pantalla en blanco. Eliminado de `ServicesDashboard` y `ServiceOrderDetail`.
+
+#### 2. Fix de import (`useServiceOrder.js`)
+- `../../config/axios` → `../../../config/axios` (el hook está 3 niveles abajo, no 2).
+
+#### 3. Wizard v2 — Kit de Servicios y Repuestos
+**Archivo:** `ServiceOrderWizard.jsx` (778 líneas, reescritura completa del Paso 3)
+
+**Nuevas funcionalidades:**
+- **Tarjetas rápidas de plantillas:** muestra las primeras 3 plantillas activas cargadas desde `/service-templates`. Un clic = agrega todos sus ítems al carrito.
+- **Drawer "Ver todas":** botón que abre un panel lateral con buscador por nombre + filtro por categoría. Muestra todas las plantillas sin límite.
+- **Buscador de repuestos:** input con debounce 400ms contra `/products/?q=`. Muestra nombre, stock y precio. Botón `+` agrega al carrito.
+- **Carrito en tiempo real:** lista acumulativa de ítems (servicios ⚡ y repuestos 🔩) con total estimado y opción de eliminar.
+- **Paso 4 - Confirmación:** muestra resumen del carrito con total.
+- **Submit:** los ítems del carrito se envían en `items[]` del `POST /services/orders`.
+
+**Regla de datos:** El backend devuelve `unit_price` y `quantity` como strings (Decimal de Python). Todos los cálculos usan `Number()` para evitar crash.
+
+#### 4. Fix crítico — `ServiceOrderDetail.jsx`
+- **Bug:** `item.unit_price.toFixed(2)` y `(item.unit_price * item.quantity).toFixed(2)` crasheaban porque `unit_price`/`quantity` son strings del API → activaba Error Boundary global ("Reintentar").
+- **Fix:** Envueltos con `Number()`: `Number(item.unit_price).toFixed(2)`.
+
+### Estado actual QA
+- **Imagen:** `gamijoam/ferreteria-app:qa-version-16`
+- **URL:** `https://solucionescodecraft.qa.miinventariofacil.com/#/services`
+- **Commits:** `032044a`, `b3944ed`, `fe2c9e7` (más anteriores de FASE 1-3)
+- **Pendiente:** Push a GitHub + aprobación para PROD
+
+### Regla importante aprendida
+> `DashboardLayout` en este proyecto usa `<Outlet />` de React Router — es un layout de ruta, NO un componente wrapper. Nunca usarlo como `<DashboardLayout><Contenido /></DashboardLayout>` dentro de una página. Las páginas deben retornar su JSX directamente sin envolver en DashboardLayout.
+
+### Endpoints usados por el Wizard
+```
+GET  /service-templates          ← plantillas activas del tenant
+GET  /products/?q={term}&limit=10 ← búsqueda repuestos inventario
+GET  /customers/?q={term}        ← búsqueda cliente (existente)
+POST /services/orders            ← crea orden con items[] precargados
+```
