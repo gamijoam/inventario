@@ -62,8 +62,9 @@ const MobileWaiterLayout = React.lazy(() => import('./layouts/MobileWaiterLayout
 const WaiterLogin = React.lazy(() => import('./pages/Mobile/WaiterLogin'));
 const MobileTableGrid = React.lazy(() => import('./pages/Mobile/MobileTableGrid'));
 const MobileOrderTaker = React.lazy(() => import('./pages/Mobile/MobileOrderTaker'));
-const ServicesUnified = React.lazy(() => import('./pages/Services/ServicesUnified'));
-const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // Fallback para links directos
+const ServicesUnified = React.lazy(() => import('./pages/Services/ServicesUnified')); // LEGACY
+const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // LEGACY
+const ServicesDashboard = React.lazy(() => import('./pages/Services/ServicesDashboard')); // NEW v2
 const ReportsCenter = React.lazy(() => import('./pages/Reports/ReportsCenter')); // NEW: Unified Reports Center
 const InventoryCenter = React.lazy(() => import('./pages/Inventory/InventoryCenter')); // NEW: Unified Inventory Center
 const SalesCenter = React.lazy(() => import('./pages/Sales/SalesCenter')); // NEW: Unified Sales Center
@@ -434,12 +435,13 @@ function App() {
                               {/* Service Module Routes — ADMIN + CASHIER */}
                               <Route path="/services" element={
                                 <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <ServicesUnified />
+                                  <ServicesDashboard />
                                 </ProtectedRoute>
                               } />
+                              {/* LEGACY routes — kept for direct-link compatibility */}
                               <Route path="/services/orders/:id" element={
                                 <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <ServiceManager />
+                                  <ServicesDashboard />
                                 </ProtectedRoute>
                               } />
 
