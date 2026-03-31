@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Save, Trash2, Plus, Minus, User, MapPin, Layers, UserPlus, FileText, ChevronRight, ShoppingCart, ArrowLeft } from 'lucide-react';
+import { Search, Save, Trash2, Plus, Minus, User, MapPin, Layers, UserPlus, FileText, ChevronRight, ShoppingCart, ArrowLeft, Printer, ArrowRight, CheckCircle } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import ProductThumbnail from '../../components/products/ProductThumbnail';
 import QuickCustomerModal from '../../components/pos/QuickCustomerModal';
 import CustomerSearch from '../../components/pos/CustomerSearch';
 import { useConfig } from '../../context/ConfigContext';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { printCotizacionA4 } from '../../components/pos/FacturaA4';
 import clsx from 'clsx';
 
 const QuoteEditor = ({ quoteId, onBack }) => {
@@ -23,9 +25,12 @@ const QuoteEditor = ({ quoteId, onBack }) => {
     // Refs
     const searchRef = useRef(null);
 
+    const [savedQuoteId, setSavedQuoteId] = useState(null); // id de la cotización recién guardada
+
     // Config
-    const { currencies } = useConfig();
+    const { currencies, business } = useConfig();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
+    const facturaA4Active = useFeatureFlag('impresion_factura_a4');
 
     // Load initial data
     useEffect(() => {
@@ -145,12 +150,13 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                 // Update existing
                 await apiClient.put(`/quotes/${quoteId}`, payload);
                 toast.success("Cotización Actualizada Exitosamente");
+                setSavedQuoteId(quoteId);
             } else {
                 // Create new
-                await apiClient.post('/quotes', payload);
+                const { data: created } = await apiClient.post('/quotes', payload);
                 toast.success("Cotización Guardada Exitosamente");
+                setSavedQuoteId(created.id);
             }
-            onBack();
         } catch (error) {
             console.error(error);
             toast.error("Error al guardar cotización");
@@ -165,6 +171,66 @@ const QuoteEditor = ({ quoteId, onBack }) => {
         setCustomers(prev => [...prev, newCustomer]);
         setSelectedCustomer(newCustomer);
     };
+
+    // Panel post-guardado
+    if (savedQuoteId) {
+        const handlePrintSaved = async () => {
+            try {
+                const { data: fullQuote } = await apiClient.get(`/quotes/${savedQuoteId}`);
+                if (facturaA4Active) {
+                    printCotizacionA4(fullQuote, business);
+                } else {
+                    const items = fullQuote.details || fullQuote.items || [];
+                    const printWindow = window.open('', '_blank');
+                    if (!printWindow) return toast.error("Permite pop-ups para imprimir");
+                    const itemsHtml = items.map(item => `
+                        <tr style="border-bottom:1px solid #eee;">
+                            <td style="padding:8px;font-family:monospace;font-size:12px;color:#555;">${item.product?.sku || '-'}</td>
+                            <td style="padding:8px;font-weight:bold;">${item.product?.name || 'Item'}</td>
+                            <td style="padding:8px;text-align:center;">${item.quantity}</td>
+                            <td style="padding:8px;text-align:right;">${anchorCurrency.symbol}${Number(item.unit_price).toFixed(2)}</td>
+                            <td style="padding:8px;text-align:right;">${anchorCurrency.symbol}${Number(item.subtotal).toFixed(2)}</td>
+                        </tr>`).join('');
+                    printWindow.document.write(`<!DOCTYPE html><html><head><title>Cotización #${fullQuote.id}</title><style>body{font-family:sans-serif;padding:20px;}table{width:100%;border-collapse:collapse;}th{background:#f1f5f9;padding:8px;text-align:left;}@media print{.no-print{display:none;}}</style></head><body><h2>Cotización #${fullQuote.id} — Documento no fiscal</h2><p><strong>Cliente:</strong> ${fullQuote.customer?.name || 'Consumidor Final'}</p><table><thead><tr><th>Código</th><th>Descripción</th><th style="text-align:center">Cant.</th><th style="text-align:right">Precio</th><th style="text-align:right">Total</th></tr></thead><tbody>${itemsHtml}</tbody></table><p style="text-align:right;font-size:18px;font-weight:bold;margin-top:16px;">Total: ${anchorCurrency.symbol}${Number(fullQuote.total_amount).toFixed(2)}</p><div class="no-print" style="margin-top:20px;text-align:center;"><button onclick="window.print()" style="padding:10px 20px;font-size:16px;cursor:pointer;">Imprimir</button><button onclick="window.close()" style="padding:10px 20px;margin-left:10px;font-size:16px;cursor:pointer;">Cerrar</button></div><script>window.onload=function(){window.print();}</script></body></html>`);
+                    printWindow.document.close();
+                }
+            } catch {
+                toast.error("Error al generar impresión");
+            }
+        };
+
+        return (
+            <div className="h-full flex flex-col items-center justify-center p-8 bg-slate-50">
+                <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 max-w-md w-full text-center">
+                    <div className="flex items-center justify-center w-16 h-16 bg-emerald-100 rounded-full mx-auto mb-4">
+                        <CheckCircle size={32} className="text-emerald-600" />
+                    </div>
+                    <h2 className="text-xl font-black text-slate-800 mb-1">Cotización #{savedQuoteId}</h2>
+                    <p className="text-slate-500 text-sm mb-6">Guardada exitosamente. ¿Qué deseas hacer ahora?</p>
+                    <div className="flex flex-col gap-3">
+                        <button
+                            onClick={() => { window.location.href = `/#/pos?quote_id=${savedQuoteId}`; }}
+                            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-sm"
+                        >
+                            <ArrowRight size={18} /> Cargar en Caja (POS)
+                        </button>
+                        <button
+                            onClick={handlePrintSaved}
+                            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition-all"
+                        >
+                            <Printer size={18} /> Imprimir Cotización
+                        </button>
+                        <button
+                            onClick={onBack}
+                            className="w-full px-4 py-2.5 text-slate-500 hover:text-slate-700 font-medium text-sm rounded-xl hover:bg-slate-100 transition-all"
+                        >
+                            Volver al listado
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="h-full flex flex-col md:flex-row gap-4 p-4 lg:p-0 pb-20 md:pb-4">

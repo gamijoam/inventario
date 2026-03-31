@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Wrench, Plus, Search, Save, CheckCircle, Clock, AlertTriangle,
     User, Package, Trash2, DollarSign, CreditCard, FileText, Printer,
-    ChevronRight, X, Smartphone, ChevronLeft, ArrowLeft
+    ChevronRight, X, Smartphone, ChevronLeft, ArrowLeft, Zap
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -12,6 +12,7 @@ import { useConfig } from '../../context/ConfigContext';
 import printerService from '../../services/printerService';
 import NewOrderModal from './components/NewOrderModal';
 import ServiceDeliveryModal from './components/ServiceDeliveryModal';
+import ServiceTemplatesManager from './components/ServiceTemplatesManager';
 import PaymentModal from '../../components/pos/PaymentModal';
 
 const STATUS_FLOW = ['RECEIVED', 'DIAGNOSING', 'IN_PROGRESS', 'READY', 'DELIVERED'];
@@ -59,6 +60,7 @@ const ServicesUnified = () => {
 
     // Modals
     const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+    const [showTemplatesManager, setShowTemplatesManager] = useState(false);
     const [showDeliveryModal, setShowDeliveryModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentData, setPaymentData] = useState(null);
@@ -415,12 +417,21 @@ const ServicesUnified = () => {
                         <Wrench size={20} className="text-blue-600" />
                         Servicios
                     </h1>
-                    <button
-                        onClick={() => setShowNewOrderModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
-                    >
-                        <Plus size={16} /> Nueva
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowTemplatesManager(true)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-sm font-semibold rounded-lg shadow-sm border border-yellow-200 transition-colors"
+                            title="Gestionar plantillas de servicio"
+                        >
+                            <Zap size={16} /> Plantillas
+                        </button>
+                        <button
+                            onClick={() => setShowNewOrderModal(true)}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                        >
+                            <Plus size={16} /> Nueva
+                        </button>
+                    </div>
                 </div>
 
                 {/* Status filter pills */}
@@ -1041,6 +1052,10 @@ const ServicesUnified = () => {
             </div>
 
             {/* Modals */}
+            {showTemplatesManager && (
+                <ServiceTemplatesManager onClose={() => setShowTemplatesManager(false)} />
+            )}
+
             {showNewOrderModal && (
                 <NewOrderModal
                     isOpen={showNewOrderModal}

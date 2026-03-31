@@ -4,6 +4,44 @@ Este documento actúa como la bitácora oficial de cambios de **Mi Inventario F�
 
 ---
 
+## [2026-03-31] — feat/services-redesign: Rediseño módulo servicios + fixes cotizaciones
+
+### Servicios — Abonos parciales
+- `POST /services/orders/{id}/payments` — endpoint para abonos anticipados (monto, método, referencia)
+- Formulario de abono inline en `ServicesUnified.jsx`
+- Los abonos NO marcan `payment_status=PAID` — solo el checkout lo hace
+- Auto-checkout al marcar `DELIVERED`: si abonos ≥ total → crea `Sale` automáticamente → aparece en reportes
+
+### Servicios — Plantillas de servicio (`service_templates`)
+- Tablas `service_templates` + `service_template_items` por schema de tenant (migración `f0a1b2c3d4e5`)
+- Router `service_templates.py`: CRUD completo, admin solo para crear/editar/borrar, cualquier auth para listar
+- Modelo `ServiceTemplate` + `ServiceTemplateItem` en `models.py`
+- Schemas en `schemas/__init__.py`: `ServiceTemplateCreate`, `ServiceTemplateUpdate`, `ServiceTemplateRead`
+- UI `ServiceTemplatesManager.jsx`: gestión de plantillas desde el módulo de servicios
+- `NewOrderModal.jsx`: integración para precargar ítems desde plantilla al crear orden
+
+### Servicios — Fixes críticos search_path
+- `.get()` legacy → `.filter().first()` en `add_item` / `create` (search_path compatible)
+- `db.flush()` antes de eager loading en `update_status`
+- Helper `_service_order_options()` con joinedload completo de todas las sub-relaciones — evita lazy loads post-commit
+
+### Feature Flags sistema (migración `a3b4c5d6e7f8`)
+- Columna `tenants.feature_flags JSONB` en schema public
+- `feature_flags_registry.py`: registro central de flags conocidos (label, descripción, categoría)
+- Hook `useFeatureFlag('flag_name')` en frontend
+- Panel SaaS admin muestra/activa flags por tenant sin deploy
+
+### Cotizaciones — Fixes UX y layout
+- **Post-save panel**: `QuoteEditor.jsx` ya no hace `onBack()` inmediato al guardar. Muestra panel con opciones: "Cargar en Caja (POS)", "Imprimir", "Volver al listado"
+- **HashRouter URL**: `window.location.href` corregido a `'/#/pos?quote_id=...'` en `QuoteList.jsx` y `CotizacionesTab.jsx`
+- **Botones invisibles en tarjetas**: `h-[260px]` removido de ambas listas — el footer de acciones ya no queda cortado por `overflow-hidden`
+
+### Tests
+- 18 tests PostgreSQL para auto-checkout + regresiones (suite `test_services_pg_*.py`)
+- Todos los tests pasando ✅
+
+---
+
 ## [2026-03-23] — Fix: Display multi-moneda POS (carrito, tarjetas, cobro)
 
 ### Contexto

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, Plus, Smartphone, Tablet, Monitor, Save, ShieldCheck } from 'lucide-react';
+import { X, Search, Plus, Smartphone, Tablet, Monitor, Save, ShieldCheck, Zap, ChevronRight } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import { useConfig } from '../../../context/ConfigContext';
@@ -32,6 +32,11 @@ const NewOrderModal = ({ isOpen, onClose, onCreated }) => {
     const [warrantyPolicies, setWarrantyPolicies] = useState([]);
     const [selectedWarrantyId, setSelectedWarrantyId] = useState('');
 
+    // Service Templates
+    const [templates, setTemplates] = useState([]);
+    const [appliedTemplate, setAppliedTemplate] = useState(null);
+    const [templateItems, setTemplateItems] = useState([]);
+
     // Form Data
     const [formData, setFormData] = useState({
         device_type: 'SMARTPHONE',
@@ -43,13 +48,17 @@ const NewOrderModal = ({ isOpen, onClose, onCreated }) => {
         physical_condition: '',
     });
 
-    // Load warranty policies on mount
+    // Load warranty policies and templates on mount
     useEffect(() => {
         if (!isOpen) return;
         apiClient.get('/warranties/policies').then(res => {
             setWarrantyPolicies(res.data || []);
             const def = (res.data || []).find(p => p.is_default);
             if (def) setSelectedWarrantyId(String(def.id));
+        }).catch(() => {});
+
+        apiClient.get('/service-templates').then(res => {
+            setTemplates(res.data || []);
         }).catch(() => {});
     }, [isOpen]);
 
@@ -91,6 +100,8 @@ const NewOrderModal = ({ isOpen, onClose, onCreated }) => {
             setCustomers([]);
             setShowResults(false);
             setSelectedWarrantyId('');
+            setAppliedTemplate(null);
+            setTemplateItems([]);
         }
     }, [isOpen]);
 
@@ -103,6 +114,21 @@ const NewOrderModal = ({ isOpen, onClose, onCreated }) => {
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleApplyTemplate = (template) => {
+        if (appliedTemplate?.id === template.id) {
+            // Deselect
+            setAppliedTemplate(null);
+            setTemplateItems([]);
+            return;
+        }
+        setAppliedTemplate(template);
+        setTemplateItems(template.items || []);
+        // Auto-fill problem description if empty
+        if (!formData.problem_description && template.description) {
+            setFormData(prev => ({ ...prev, problem_description: template.description }));
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -118,12 +144,20 @@ const NewOrderModal = ({ isOpen, onClose, onCreated }) => {
 
         setLoading(true);
         try {
+            const items = templateItems.map(item => ({
+                description: item.description,
+                unit_price: parseFloat(item.unit_price),
+                quantity: parseFloat(item.quantity),
+                product_id: null,
+                technician_id: null,
+            }));
+
             const payload = {
                 customer_id: selectedCustomer.id,
                 service_type: 'REPAIR',
                 ...formData,
                 warranty_policy_id: selectedWarrantyId ? parseInt(selectedWarrantyId) : null,
-                items: [],
+                items,
                 payments: [],
             };
 
@@ -183,6 +217,49 @@ const NewOrderModal = ({ isOpen, onClose, onCreated }) => {
 
                 {/* Body — scrollable */}
                 <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+                    {/* Quick Templates */}
+                    {templates.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
+                                <Zap size={14} className="text-yellow-500" />
+                                Plantillas rápidas
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {templates.map(t => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        onClick={() => handleApplyTemplate(t)}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1 ${
+                                            appliedTemplate?.id === t.id
+                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                                        }`}
+                                    >
+                                        {t.name}
+                                        {appliedTemplate?.id === t.id && <X size={10} />}
+                                    </button>
+                                ))}
+                            </div>
+                            {appliedTemplate && (
+                                <div className="mt-2 p-2.5 bg-indigo-50 rounded-lg border border-indigo-100 text-xs text-indigo-700">
+                                    <span className="font-semibold">{appliedTemplate.name}</span>
+                                    {' — '}
+                                    {templateItems.length} ítem(s) pre-cargado(s)
+                                    {appliedTemplate.estimated_days && ` · ~${appliedTemplate.estimated_days} días`}
+                                    <ul className="mt-1 space-y-0.5 text-indigo-600">
+                                        {templateItems.map((item, i) => (
+                                            <li key={i} className="flex justify-between">
+                                                <span>{item.description}</span>
+                                                <span>${parseFloat(item.unit_price).toFixed(2)}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {/* Customer Search */}
                     <div>

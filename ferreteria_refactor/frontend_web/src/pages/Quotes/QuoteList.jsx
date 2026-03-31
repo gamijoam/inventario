@@ -9,6 +9,8 @@ import { useConfig } from '../../context/ConfigContext';
 import { API_BASE_URL } from '../../config/constants';
 import clsx from 'clsx';
 import printerService from '../../services/printerService';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { printCotizacionA4 } from '../../components/pos/FacturaA4';
 
 
 const QuoteList = ({ onCreateNew, onEdit }) => {
@@ -21,8 +23,9 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [thermalMenuId, setThermalMenuId] = useState(null); // id de la cotización con dropdown abierto
 
-    const { currencies } = useConfig();
+    const { currencies, business } = useConfig();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
+    const facturaA4Active = useFeatureFlag('impresion_factura_a4');
 
     useEffect(() => {
         fetchQuotes();
@@ -90,7 +93,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
     const handleConvertToSale = async (quote, e) => {
         e.stopPropagation();
         if (confirm(`¿Cargar cotización #${quote.id} en Caja para facturar?`)) {
-            window.location.href = `/pos?quote_id=${quote.id}`;
+            window.location.href = `/#/pos?quote_id=${quote.id}`;
         }
     };
 
@@ -106,6 +109,11 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
 
             if (items.length === 0) {
                 toast.error("La cotización está vacía");
+                return;
+            }
+
+            if (facturaA4Active) {
+                printCotizacionA4(fullQuote, business);
                 return;
             }
 
@@ -298,7 +306,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                         {filteredQuotes.map(quote => (
                             <div
                                 key={quote.id}
-                                className="bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 transition-all group overflow-hidden flex flex-col h-[260px] relative"
+                                className="bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-200 transition-all group overflow-hidden flex flex-col relative"
                             >
                                 {/* Status Indicator Line */}
                                 <div className={clsx(

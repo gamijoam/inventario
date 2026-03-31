@@ -1145,6 +1145,37 @@ class ServiceOrderDetail(Base):
         return f"<ServiceOrderDetail(order={self.service_order_id}, product={self.product_id})>"
 
 # ==========================================
+# SERVICE TEMPLATES
+# ==========================================
+
+class ServiceTemplate(Base):
+    """Pre-built service templates for quick order creation."""
+    __tablename__ = "service_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    category = Column(String, nullable=True)
+    estimated_days = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    items = relationship("ServiceTemplateItem", back_populates="template", cascade="all, delete-orphan")
+
+
+class ServiceTemplateItem(Base):
+    """Individual line items belonging to a ServiceTemplate."""
+    __tablename__ = "service_template_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    template_id = Column(Integer, ForeignKey("service_templates.id"), nullable=False)
+    description = Column(String, nullable=False)
+    unit_price = Column(Numeric(12, 2), nullable=False)
+    quantity = Column(Numeric(12, 3), default=1.000)
+
+    template = relationship("ServiceTemplate", back_populates="items")
+
+# ==========================================
 # BARBERSHOP & SALON MODULE
 # ==========================================
 

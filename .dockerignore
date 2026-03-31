@@ -74,9 +74,3 @@ migration_guide.pdf
 *.rar
 ferreteria.db
 sql_app.db
-
-# 9. Modo Offline (no va en Docker — 620MB+)
-**/local/cache/
-**/local/dist/
-**/frontend/
-**/venv/

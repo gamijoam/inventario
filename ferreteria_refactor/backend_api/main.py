@@ -43,6 +43,7 @@ from .routers.sync import router as sync_router
 from .routers.cloud import router as cloud_router
 from .routers.credits import router as credits_router
 from .routers.services import router as services_router
+from .routers.service_templates import router as service_templates_router
 from .routers.commissions import router as commissions_router
 from .routers.rma import router as rma_router
 from .routers.price_lists import router as price_lists_router
@@ -247,6 +248,7 @@ v1_router.include_router(sync_router, tags=["Sincronización Híbrida"])
 v1_router.include_router(warehouses_router, tags=["Almacenes"])
 v1_router.include_router(transfers_router, tags=["Traslados"])
 v1_router.include_router(services_router, tags=["Servicios Técnicos"])
+v1_router.include_router(service_templates_router, tags=["Plantillas de Servicio"])
 v1_router.include_router(commissions_router, tags=["Comisiones"])
 v1_router.include_router(rma_router, tags=["Garantías RMA"])
 v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
