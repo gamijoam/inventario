@@ -62,10 +62,8 @@ const MobileWaiterLayout = React.lazy(() => import('./layouts/MobileWaiterLayout
 const WaiterLogin = React.lazy(() => import('./pages/Mobile/WaiterLogin'));
 const MobileTableGrid = React.lazy(() => import('./pages/Mobile/MobileTableGrid'));
 const MobileOrderTaker = React.lazy(() => import('./pages/Mobile/MobileOrderTaker'));
-const Reception = React.lazy(() => import('./pages/Services/Reception')); // NEW: Service Reception
-const ServicesDashboard = React.lazy(() => import('./pages/Services/ServicesDashboard')); // NEW: Dashboard
-const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // NEW: Service Manager
-const ServiceList = React.lazy(() => import('./pages/Services/ServiceList')); // NEW: Service List
+const ServicesUnified = React.lazy(() => import('./pages/Services/ServicesUnified'));
+const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // Fallback para links directos
 const ReportsCenter = React.lazy(() => import('./pages/Reports/ReportsCenter')); // NEW: Unified Reports Center
 const InventoryCenter = React.lazy(() => import('./pages/Inventory/InventoryCenter')); // NEW: Unified Inventory Center
 const SalesCenter = React.lazy(() => import('./pages/Sales/SalesCenter')); // NEW: Unified Sales Center
@@ -436,17 +434,7 @@ function App() {
                               {/* Service Module Routes — ADMIN + CASHIER */}
                               <Route path="/services" element={
                                 <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <ServicesDashboard />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/services/list" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <ServiceList />
-                                </ProtectedRoute>
-                              } />
-                              <Route path="/services/reception" element={
-                                <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <Reception />
+                                  <ServicesUnified />
                                 </ProtectedRoute>
                               } />
                               <Route path="/services/orders/:id" element={

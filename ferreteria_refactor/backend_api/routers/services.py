@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy import text
 from .. import schemas
 from ..models import models
 from ..database.db import get_db
+from ..tenant_context import get_tenant_schema
 from ..dependencies import get_current_active_user
 from ..security import pwd_context
 from ..utils.time_utils import get_venezuela_now
@@ -15,6 +17,26 @@ from sqlalchemy import desc
 from enum import Enum
 import traceback
 import unicodedata
+from decimal import Decimal
+from ..services.service_checkout_service import ServiceCheckoutService
+
+
+def _service_order_options():
+    """Eager loading completo para ServiceOrder — carga TODAS las sub-relaciones
+    que ProductRead necesita para evitar lazy loads post-commit (search_path lost)."""
+    return [
+        joinedload(models.ServiceOrder.customer),
+        joinedload(models.ServiceOrder.technician),
+        joinedload(models.ServiceOrder.payments),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.category),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.stocks),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.units),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.prices),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.combo_items),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.discount_rules),
+        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product).selectinload(models.Product.price_rules),
+    ]
 
 
 def _ascii_safe(text: str) -> str:
@@ -99,7 +121,7 @@ def create_service_order(
             for item in order_data.items:
                 if item.product_id:
                     # PRODUCT ITEM
-                    product = db.query(models.Product).get(item.product_id)
+                    product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
                     if not product:
                         continue
                     description = product.name
@@ -141,10 +163,7 @@ def create_service_order(
         db.flush()
 
         final_order = db.query(models.ServiceOrder).options(
-            joinedload(models.ServiceOrder.customer),
-            joinedload(models.ServiceOrder.technician),
-            joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-            joinedload(models.ServiceOrder.payments)
+            *_service_order_options()
         ).filter(models.ServiceOrder.id == new_order.id).first()
 
         db.commit()
@@ -259,10 +278,10 @@ def add_service_order_item(
         raise HTTPException(status_code=404, detail="Service Order not found")
         
     if item_data.product_id:
-        product = db.query(models.Product).get(item_data.product_id)
+        product = db.query(models.Product).filter(models.Product.id == item_data.product_id).first()
         if not product:
             raise HTTPException(status_code=400, detail="Product not found")
-            
+
         description = product.name
         cost = product.cost_price
         is_manual = False
@@ -291,11 +310,7 @@ def add_service_order_item(
 
     # Reload BEFORE commit (while search_path is still set)
     result = db.query(models.ServiceOrder).options(
-        joinedload(models.ServiceOrder.customer),
-        joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
-        joinedload(models.ServiceOrder.payments)
+        *_service_order_options()
     ).filter(models.ServiceOrder.id == order_id).first()
 
     db.commit()
@@ -331,11 +346,7 @@ def delete_service_order_item(
     db.flush()
 
     result = db.query(models.ServiceOrder).options(
-        joinedload(models.ServiceOrder.customer),
-        joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
-        joinedload(models.ServiceOrder.payments)
+        *_service_order_options()
     ).filter(models.ServiceOrder.id == order_id).first()
 
     db.commit()
@@ -397,24 +408,57 @@ def update_service_order_status(
              
     if update_data.technician_id:
         order.technician_id = update_data.technician_id
-        
+
     if update_data.priority:
         order.priority = update_data.priority
-        
+
+    # Auto-checkout: si se marca como DELIVERED y ya tiene abonos que cubren el total,
+    # crear la Sale automáticamente (sin requerir checkout manual).
+    # IMPORTANTE: convert_order_to_sale requiere status=READY, así que revertimos
+    # temporalmente, hacemos checkout, y luego volvemos a DELIVERED.
+    if (update_data.status == "DELIVERED"
+            and (order.order_metadata or {}).get("payment_status") != "PAID"):
+        order_total = sum(float(d.quantity * d.unit_price) for d in order.details)
+        total_paid = sum(float(p.amount) for p in order.payments)
+        if total_paid >= order_total and order_total > 0:
+            # Restaurar a READY para que checkout funcione, luego vuelve a DELIVERED
+            order.status = models.ServiceOrderStatus.READY
+            db.flush()
+            try:
+                checkout_data = schemas.ServiceCheckoutPayment(
+                    total_amount=Decimal(str(order_total)),
+                    total_amount_bs=Decimal("0.00"),
+                    payment_method="Efectivo",
+                    payments=[],
+                )
+                ServiceCheckoutService.convert_order_to_sale(
+                    db, order.id, checkout_data, current_user.id
+                )
+                # convert_order_to_sale hace db.commit() internamente → search_path se pierde
+                # Re-setear search_path antes de cualquier query post-checkout
+                _schema = get_tenant_schema()
+                if _schema and _schema != "public":
+                    db.execute(text(f'SET search_path TO "{_schema}", public'))
+                return schemas.ServiceOrderRead.model_validate(
+                    db.query(models.ServiceOrder).options(
+                        *_service_order_options()
+                    ).filter(models.ServiceOrder.id == order_id).first()
+                )
+            except Exception as _e:
+                # Checkout falló — rollback y continuar con flujo normal (status DELIVERED sin Sale)
+                db.rollback()
+                order.status = models.ServiceOrderStatus.DELIVERED
+
+    db.flush()
     # Eager Load for status update response BEFORE commit
     final_order = db.query(models.ServiceOrder).options(
-        joinedload(models.ServiceOrder.customer),
-        joinedload(models.ServiceOrder.technician),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.product),
-        joinedload(models.ServiceOrder.details).joinedload(models.ServiceOrderDetail.technician),
-        joinedload(models.ServiceOrder.payments)
+        *_service_order_options()
     ).filter(models.ServiceOrder.id == order_id).first()
-    
+
     db.commit()
-    
+
     return schemas.ServiceOrderRead.model_validate(final_order)
 
-from ..services.service_checkout_service import ServiceCheckoutService
 
 @router.get("/orders/status/ready", response_model=List[schemas.ServiceOrderRead])
 def get_ready_service_orders(
@@ -434,6 +478,51 @@ def get_ready_service_orders(
         ).all()
     
     return [o for o in orders if (o.order_metadata or {}).get("payment_status") != "PAID"]
+
+
+@router.post("/orders/{order_id}/payments")
+def add_service_payment(
+    order_id: int,
+    payment: schemas.ServicePaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Registrar un abono/pago parcial a una orden de servicio."""
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    order = db.query(models.ServiceOrder).options(
+        *_service_order_options()
+    ).filter(
+        models.ServiceOrder.id == order_id,
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+
+    if (order.order_metadata or {}).get("payment_status") == "PAID":
+        raise HTTPException(status_code=400, detail="Esta orden ya está completamente pagada")
+
+    new_payment = models.ServicePayment(
+        tenant_id=tenant_id,
+        service_order_id=order.id,
+        amount=payment.amount,
+        currency=payment.currency,
+        payment_method=payment.payment_method,
+        reference=payment.reference,
+    )
+    db.add(new_payment)
+    db.flush()
+
+    # Nota: payment_status=PAID solo se marca en el checkout (cuando se crea la Sale).
+    # Los abonos se acumulan como ServicePayment y se migran al checkout.
+
+    db.flush()
+    # Re-query con eager loading ANTES del commit (search_path se pierde después)
+    result = db.query(models.ServiceOrder).options(
+        *_service_order_options(),
+    ).filter(models.ServiceOrder.id == order.id).first()
+    db.commit()
+    return result
+
 
 @router.post("/orders/{order_id}/checkout")
 def checkout_service_order(

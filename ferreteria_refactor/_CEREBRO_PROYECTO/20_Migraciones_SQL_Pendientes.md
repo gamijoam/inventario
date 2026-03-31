@@ -210,6 +210,56 @@ EOF
 
 ---
 
+### [M005] feature_flags JSONB en tenants + service_templates (feat/services-redesign)
+- **Fecha:** 2026-03-31
+- **Rama:** feat/services-redesign
+- **Propósito:** Columna `feature_flags` para activar/desactivar funciones por tenant desde panel SaaS. Tablas `service_templates` y `service_template_items` para plantillas de servicio técnico.
+- **QA:** ✅ Aplicado via Alembic (`a3b4c5d6e7f8` + `f0a1b2c3d4e5`)
+- **PROD:** ❌ Pendiente — aplicar con el próximo deploy de esta rama
+
+#### Paso 1: feature_flags en tenants (schema public)
+```sql
+docker exec db_prod_server psql -U postgres -d invensoft_prod -c "
+  ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS feature_flags JSONB DEFAULT '{}';
+"
+```
+
+#### Paso 2: service_templates + service_template_items (por schema de tenant)
+```sql
+docker exec db_prod_server psql -U postgres -d invensoft_prod << 'EOF'
+DO $$
+DECLARE s TEXT;
+BEGIN
+  FOR s IN
+    SELECT table_schema FROM information_schema.tables
+    WHERE table_name = 'service_orders' AND table_schema NOT IN ('public','information_schema','pg_catalog')
+  LOOP
+    EXECUTE format('
+      CREATE TABLE IF NOT EXISTS %I.service_templates (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR NOT NULL,
+        description VARCHAR,
+        category VARCHAR,
+        estimated_days INTEGER,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS %I.service_template_items (
+        id SERIAL PRIMARY KEY,
+        template_id INTEGER NOT NULL REFERENCES %I.service_templates(id) ON DELETE CASCADE,
+        description VARCHAR NOT NULL,
+        unit_price NUMERIC(12,2) NOT NULL,
+        quantity NUMERIC(12,3) DEFAULT 1.000
+      );
+    ', s, s, s);
+  END LOOP;
+END;
+$$;
+EOF
+```
+
+---
+
 ## Resumen rápido
 
 | ID | Descripción | QA | PROD | Cuándo ejecutar |
@@ -218,6 +268,7 @@ EOF
 | M002 | Índices en `sales` | ✅ | ❌ | Al subir imagen con ReportsCenter |
 | M003 | Módulo Farmacia completo | ⏳ | ⏳ | Al subir imagen con módulo farmacia |
 | M004 | Re-hashear PINs en texto plano | ✅ | ✅ | Ejecutado 2026-03-20 |
+| M005 | feature_flags + service_templates | ✅ | ❌ | Al deploy de feat/services-redesign |
 
 ---
 

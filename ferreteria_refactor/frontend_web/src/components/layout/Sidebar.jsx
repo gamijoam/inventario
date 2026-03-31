@@ -136,8 +136,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             icon: effectiveModules?.services ? Wrench : Smartphone,
             items: [
                 ...(effectiveModules?.services ? [
-                    { icon: FileText, label: 'Taller', path: '/services/list' },
-                    { icon: Plus, label: 'Nueva Recepción', path: '/services/reception' }
+                    { icon: Wrench, label: 'Servicios', path: '/services' },
                 ] : []),
                 ...(effectiveModules?.laundry ? [
                     { icon: Smartphone, label: 'Tablero Lavandería', path: '/laundry' },

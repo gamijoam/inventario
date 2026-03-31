@@ -1288,6 +1288,47 @@ class ServiceOrderRead(ServiceOrderBase):
     model_config = ConfigDict(from_attributes=True)
 
 # ========================
+# SERVICE TEMPLATE SCHEMAS
+# ========================
+
+class ServiceTemplateItemBase(BaseModel):
+    description: str
+    unit_price: Decimal
+    quantity: Decimal = Decimal("1.000")
+
+class ServiceTemplateItemCreate(ServiceTemplateItemBase):
+    pass
+
+class ServiceTemplateItemRead(ServiceTemplateItemBase):
+    id: int
+    template_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+class ServiceTemplateBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    category: Optional[str] = None
+    estimated_days: Optional[int] = None
+    is_active: bool = True
+
+class ServiceTemplateCreate(ServiceTemplateBase):
+    items: List[ServiceTemplateItemCreate] = []
+
+class ServiceTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    estimated_days: Optional[int] = None
+    is_active: Optional[bool] = None
+    items: Optional[List[ServiceTemplateItemCreate]] = None
+
+class ServiceTemplateRead(ServiceTemplateBase):
+    id: int
+    created_at: datetime
+    items: List[ServiceTemplateItemRead] = []
+    model_config = ConfigDict(from_attributes=True)
+
+# ========================
 # COMMISSION & CASH SCHEMAS
 # ========================
 

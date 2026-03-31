@@ -26,7 +26,9 @@ Esta lógica reside en `TenantService.create_tenant()`.
 
 ### B. Servicio Técnico (Celulares / Electrónica)
 *   **Recepción y Diagnóstico**: Captura detallada de dispositivos (Marca, Modelo, IMEI/Serial, Estado Visual).
-*   **Abonos (Pagos Anticipados)**: Registro de pagos previos a la reparación que se descuentan automáticamente del total final en el POS.
+*   **Abonos (Pagos Anticipados)**: Registro de pagos previos a la reparación que se descuentan automáticamente del total final en el POS. Endpoint `POST /services/orders/{id}/payments`. Los abonos NO marcan `payment_status=PAID` — solo el checkout lo hace.
+*   **Auto-Checkout al Entregar**: Al marcar una orden como `DELIVERED`, si los abonos cubren el total, el sistema crea automáticamente la `Sale` correspondiente (checkout). Esto asegura que la reparación aparezca en reportes de ventas aunque se haya cobrado por adelantado.
+*   **Plantillas de Servicio**: Tablas `service_templates` + `service_template_items` (por schema de tenant). Permiten precargar ítems estándar al abrir una orden (ej: "Cambio de pantalla iPhone 12 → pantalla $45 + mano de obra $15"). CRUD en `/service-templates`, admin only para crear/editar/borrar, cualquier usuario autenticado puede listar activas. Migración: `f0a1b2c3d4e5`.
 *   **Garantías RMA**: Sistema de garantías y devoluciones con estados de resolución.
 *   **Impresión de Ticket de Recepción**: Al crear una orden, se imprime automáticamente el ticket con datos del equipo (marca, modelo, IMEI, problema reportado). Si falla la impresora, aparece un toast informativo sin interrumpir el flujo. Botón "Reimprimir" disponible en la vista de éxito.
 *   **Política de Garantía en Tickets**: El ticket de recepción incluye automáticamente la política de garantía por defecto del tenant (nombre, vigencia, descripción).
