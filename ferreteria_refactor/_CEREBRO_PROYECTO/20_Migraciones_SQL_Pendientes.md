@@ -215,7 +215,7 @@ EOF
 - **Rama:** feat/services-redesign
 - **Propósito:** Columna `feature_flags` para activar/desactivar funciones por tenant desde panel SaaS. Tablas `service_templates` y `service_template_items` para plantillas de servicio técnico.
 - **QA:** ✅ Aplicado via Alembic (`a3b4c5d6e7f8` + `f0a1b2c3d4e5`)
-- **PROD:** ❌ Pendiente — aplicar con el próximo deploy de esta rama
+- **PROD:** ✅ Aplicado 2026-03-31 (SQL directo + alembic_version stampeado)
 
 #### Paso 1: feature_flags en tenants (schema public)
 ```sql
@@ -268,7 +268,7 @@ EOF
 | M002 | Índices en `sales` | ✅ | ❌ | Al subir imagen con ReportsCenter |
 | M003 | Módulo Farmacia completo | ⏳ | ⏳ | Al subir imagen con módulo farmacia |
 | M004 | Re-hashear PINs en texto plano | ✅ | ✅ | Ejecutado 2026-03-20 |
-| M005 | feature_flags + service_templates | ✅ | ❌ | Al deploy de feat/services-redesign |
+| M005 | feature_flags + service_templates | ✅ | ✅ | Aplicado 2026-03-31 |
 
 ---
 
