@@ -78,8 +78,10 @@ def create_template(
         )
         db.add(item)
 
+    db.flush()
+    result = _get_or_404(db, template.id)
     db.commit()
-    return _get_or_404(db, template.id)
+    return result
 
 
 @router.put("/{template_id}", response_model=schemas.ServiceTemplateRead)
@@ -116,8 +118,10 @@ def update_template(
             )
             db.add(item)
 
+    db.flush()
+    result = _get_or_404(db, template_id)
     db.commit()
-    return _get_or_404(db, template_id)
+    return result
 
 
 @router.delete("/{template_id}", status_code=204)
