@@ -396,7 +396,24 @@ def update_service_order_status(
         if update_data.status not in models.ServiceOrderStatus.__members__:
              raise HTTPException(status_code=400, detail=f"Invalid status")
         order.status = models.ServiceOrderStatus[update_data.status]
-    
+
+        # WhatsApp — notificar al cliente cuando su equipo está listo
+        if update_data.status == "READY" and order.customer:
+            customer = order.customer
+            if customer.phone:
+                total = sum(float(d.quantity * d.unit_price) for d in order.details)
+                paid  = sum(float(p.amount) for p in order.payments)
+                webhook_service.fire("order.ready", tenant_id, {
+                    "order_id":       order.id,
+                    "ticket_number":  order.ticket_number,
+                    "customer_name":  customer.name,
+                    "customer_phone": customer.phone,
+                    "device":         f"{order.brand or ''} {order.model or ''}".strip() or order.device_type or "Equipo",
+                    "total":          total,
+                    "paid":           paid,
+                    "pending":        max(0, total - paid),
+                })
+
     if update_data.diagnosis_notes:
         order.diagnosis_notes = update_data.diagnosis_notes
         

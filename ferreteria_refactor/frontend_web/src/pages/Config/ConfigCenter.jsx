@@ -2,6 +2,7 @@ import React, { Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
+import MessageCircle from 'lucide-react/dist/esm/icons/message-circle';
 import {
     Building2, Users, DollarSign, Percent, CreditCard, Printer,
     ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X
@@ -17,6 +18,7 @@ const GarantiasConfigTab = React.lazy(() => import('./tabs/GarantiasConfigTab'))
 const AuditoriaTab      = React.lazy(() => import('./tabs/AuditoriaTab'));
 const EstacionPOSTab    = React.lazy(() => import('./tabs/EstacionPOSTab'));
 const ComisionesTab     = React.lazy(() => import('./tabs/ComisionesTab'));
+const WhatsAppTab       = React.lazy(() => import('./tabs/WhatsAppTab'));
 
 // ── Grupos del menú lateral ──────────────────────────────────────────────────
 const GROUPS = [
@@ -43,6 +45,7 @@ const GROUPS = [
             { id: 'garantias',  label: 'Garantías',         icon: ShieldCheck,  desc: 'Políticas de garantía' },
             { id: 'pos',        label: 'Estación POS',      icon: Monitor,      desc: 'Opciones avanzadas del POS' },
             { id: 'auditoria',  label: 'Auditoría',         icon: ClipboardList, desc: 'Registro de actividad' },
+            { id: 'whatsapp',   label: 'WhatsApp',          icon: MessageCircle, desc: 'Notificaciones y mensajes' },
         ],
     },
 ];
@@ -71,6 +74,7 @@ const renderTabContent = (activeTab) => {
         case 'impresoras': return wrap(ImpresorasTab);
         case 'garantias':  return wrap(GarantiasConfigTab);
         case 'auditoria':  return wrap(AuditoriaTab);
+        case 'whatsapp':   return wrap(WhatsAppTab);
         case 'pos':        return wrap(EstacionPOSTab);
         case 'comisiones': return wrap(ComisionesTab);
         default:           return null;

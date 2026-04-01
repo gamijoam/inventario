@@ -9,6 +9,7 @@ from ..models.restaurant import RestaurantRecipe
 from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
+from . import webhook_service
 import asyncio
 import asyncio
 import uuid
@@ -693,7 +694,7 @@ class SalesService:
                         "stock": p_info["stock"]
                     })
                 
-                # Emit Sale Event
+                # Emit Sale Event (WebSocket frontend)
                 background_tasks.add_task(run_broadcast, WebSocketEvents.SALE_COMPLETED, {
                     "id": new_sale_id,
                     "total_amount": sale_total_amount,
@@ -702,6 +703,26 @@ class SalesService:
                     "customer_id": sale_customer_id,
                     "date": sale_date_iso
                 })
+
+                # WhatsApp webhook — notificar al cliente si tiene teléfono
+                if sale_customer_id:
+                    customer = db.query(models.Customer).filter(
+                        models.Customer.id == sale_customer_id
+                    ).first()
+                    if customer and customer.phone:
+                        tenant_id = db.info.get("tenant_id", "public")
+                        webhook_service.fire("sale.completed", tenant_id, {
+                            "sale_id":        new_sale_id,
+                            "customer_name":  customer.name,
+                            "customer_phone": customer.phone,
+                            "total":          float(sale_total_amount),
+                            "currency":       sale_currency,
+                            "payment_method": sale_payment_method,
+                            "items":          [
+                                {"name": d.get("product_name",""), "qty": float(d.get("quantity",1)), "price": float(d.get("unit_price",0))}
+                                for d in sale_details_for_broadcast[:5]
+                            ] if sale_details_for_broadcast else [],
+                        })
                 
                 # AUTO-PRINT TICKET
                 # REMOVED: Server-side printing is incompatible with SaaS architecture.

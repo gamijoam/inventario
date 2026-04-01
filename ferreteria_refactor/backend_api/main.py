@@ -24,6 +24,7 @@ from .config import settings
 from .database.db import engine
 from .routers.products import router as products_router
 from .routers.customers import router as customers_router
+from .routers.whatsapp import router as whatsapp_router
 from .routers.quotes import router as quotes_router
 from .routers.cash import router as cash_router
 from .routers.suppliers import router as suppliers_router
