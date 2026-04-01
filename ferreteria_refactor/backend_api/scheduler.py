@@ -1,6 +1,7 @@
 """APScheduler para tareas programadas del sistema."""
 import logging
 from datetime import datetime, timedelta
+from .services import whatsapp_scheduler as _wa_sched
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import or_, and_
@@ -193,6 +194,19 @@ def start_scheduler(db_session_factory):
         id="auto_backup",
         replace_existing=True,
     )
+
+    # WhatsApp — recordatorio de deuda diario a las 09:00 Venezuela
+    scheduler.add_job(
+        _wa_sched.job_credit_reminders,
+        trigger="cron",
+        hour=9,
+        minute=0,
+        timezone="America/Caracas",
+        id="whatsapp_credit_reminders",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     scheduler.start()
     logger.info(
         "[SCHEDULER] Started. Jobs: auto_expire_tenants @ 00:05 UTC daily, "

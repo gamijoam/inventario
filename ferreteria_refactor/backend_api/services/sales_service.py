@@ -1332,7 +1332,50 @@ Cierre:   {{ session.end_time }}
         
         db.commit()
         db.expunge(payment)
-        
+
+        # WhatsApp — confirmar recepción del abono al cliente
+        try:
+            import httpx as _httpx
+            from sqlalchemy import text as _text
+            from ..tenant_context import get_tenant_schema as _gs
+            _s = _gs()
+            if sale.customer_id:
+                _cust = db.execute(
+                    _text(f'SELECT name, phone FROM "{_s}".customers WHERE id = :cid'),
+                    {"cid": sale.customer_id}
+                ).fetchone()
+                if _cust and _cust[1]:
+                    _wa = {r[0]: r[1] for r in db.execute(
+                        _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                              "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                              "'whatsapp_notify_sale','business_name')")).fetchall()}
+                    _inst   = _wa.get("whatsapp_instance_name","")
+                    _status = _wa.get("whatsapp_instance_status","")
+                    _notify = _wa.get("whatsapp_notify_sale") != "false"
+                    _biz    = _wa.get("business_name") or "Mi Inventario"
+                    if _inst and _status == "CONNECTED" and _notify:
+                        _cur = payment_data.currency
+                        if _cur in ("VES","Bs","BS"):
+                            _amt_str = f"Bs {float(payment_data.amount):,.2f}"
+                        else:
+                            _amt_str = f"$ {float(payment_data.amount):,.2f}"
+                        _status_str = "✅ *¡Saldo cancelado completamente!*" if sale.paid else f"📋 Saldo restante: $ {new_balance:,.2f}"
+                        _msg = (
+                            f"💳 *{_biz}*\n"
+                            f"Hola {_cust[0]}, confirmamos tu abono:\n\n"
+                            f"💰 Pago recibido: {_amt_str}\n"
+                            f"📄 Factura #{sale.id}\n"
+                            f"{_status_str}\n\n"
+                            f"¡Gracias por tu puntualidad! 🙏"
+                        )
+                        _phone = "".join(c for c in _cust[1] if c.isdigit())
+                        with _httpx.Client(timeout=5) as _c:
+                            _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                    json={"phone": _phone, "message": _msg})
+        except Exception as _e:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[WA] Confirmación abono falló: {_e}")
+
         return {
             "status": "success",
             "payment_id": payment.id,

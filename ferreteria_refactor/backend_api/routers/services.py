@@ -168,6 +168,52 @@ def create_service_order(
 
         db.commit()
 
+        # WhatsApp — confirmar recepción del equipo al cliente
+        try:
+            import httpx as _httpx
+            from sqlalchemy import text as _text
+            from ..tenant_context import get_tenant_schema as _gs
+            _s = _gs()
+            if new_order.customer_id:
+                _cust = db.execute(
+                    _text(f'SELECT name, phone FROM "{_s}".customers WHERE id = :cid'),
+                    {"cid": new_order.customer_id}
+                ).fetchone()
+                if _cust and _cust[1]:
+                    _wa = {r[0]: r[1] for r in db.execute(
+                        _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                              "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                              "'whatsapp_notify_order_ready','business_name')")).fetchall()}
+                    _inst   = _wa.get("whatsapp_instance_name","")
+                    _status = _wa.get("whatsapp_instance_status","")
+                    _notify = _wa.get("whatsapp_notify_order_ready") != "false"
+                    _biz    = _wa.get("business_name") or "Mi Inventario"
+                    if _inst and _status == "CONNECTED" and _notify:
+                        _device = (f"{new_order.brand or ''} {new_order.model or ''}".strip()
+                                   or new_order.device_type or "Equipo")
+                        _eta = ""
+                        if new_order.estimated_delivery:
+                            try:
+                                _eta = f"\n📅 Entrega estimada: {new_order.estimated_delivery.strftime('%d/%m/%Y')}"
+                            except Exception:
+                                pass
+                        _msg = (
+                            f"📥 *{_biz}*\n"
+                            f"Hola {_cust[0]}, hemos recibido tu equipo:\n\n"
+                            f"📱 {_device}\n"
+                            f"🎫 Orden: {ticket_number}\n"
+                            f"🔍 {new_order.problem_description or 'En diagnóstico'}\n"
+                            f"{_eta}\n\n"
+                            f"Te avisaremos cuando esté listo. ¡Gracias por tu preferencia!"
+                        )
+                        _phone = "".join(c for c in _cust[1] if c.isdigit())
+                        with _httpx.Client(timeout=5) as _c:
+                            _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                    json={"phone": _phone, "message": _msg})
+        except Exception as _wa_e:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[WA] Notif recepción taller falló: {_wa_e}")
+
         return schemas.ServiceOrderRead.model_validate(final_order)
         
     except Exception as e:

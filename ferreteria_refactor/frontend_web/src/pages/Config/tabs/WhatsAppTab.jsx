@@ -235,6 +235,22 @@ export default function WhatsAppTab() {
             vars: null,
         },
         {
+            icon: Package, iconColor: 'bg-teal-100 text-teal-600',
+            label: 'Orden recibida en taller', recipientType: 'cliente',
+            trigger: 'Al crear una nueva orden de servicio',
+            recipient: 'El cliente de la orden (si tiene teléfono registrado)',
+            example: `📥 *Mi Negocio*\nHola Juan, hemos recibido tu equipo:\n\n📱 Samsung Galaxy A54\n🎫 Orden: SRV-00042\n🔍 Pantalla rota\n📅 Entrega estimada: 05/04/2026\n\nTe avisaremos cuando esté listo. ¡Gracias!`,
+            vars: null,
+        },
+        {
+            icon: CreditCard, iconColor: 'bg-indigo-100 text-indigo-600',
+            label: 'Confirmación de abono', recipientType: 'cliente',
+            trigger: 'Al registrar un abono parcial a una venta de crédito',
+            recipient: 'El cliente de la venta a crédito (si tiene teléfono)',
+            example: `💳 *Mi Negocio*\nHola Pedro, confirmamos tu abono:\n\n💰 Pago recibido: Bs 50.000,00\n📄 Factura #38\n📋 Saldo restante: $ 30,00\n\n¡Gracias por tu puntualidad! 🙏`,
+            vars: null,
+        },
+        {
             icon: Wrench, iconColor: 'bg-amber-100 text-amber-600',
             label: 'Equipo listo en taller', recipientType: 'cliente',
             trigger: 'Al cambiar el estado de una orden de servicio a LISTO',
@@ -245,8 +261,8 @@ export default function WhatsAppTab() {
         {
             icon: CreditCard, iconColor: 'bg-rose-100 text-rose-600',
             label: 'Recordatorio de deuda', recipientType: 'cliente',
-            trigger: 'Automático cada día (próximamente) — o manual desde la ficha del cliente',
-            recipient: 'Clientes con saldo de crédito pendiente',
+            trigger: 'Automático todos los días a las 9:00am — clientes con crédito vencido +1 día',
+            recipient: 'Clientes con saldo de crédito vencido (más de 1 día sin pagar)',
             example: `💳 Hola Pedro, te recordamos que tienes un saldo pendiente de *$150,00*.\n\n📅 Por favor regularizar a la brevedad.\n\n¡Gracias!`,
             vars: ['{{cliente}}','{{monto}}'],
         },
@@ -317,7 +333,7 @@ export default function WhatsAppTab() {
                             <GuideRow key={item.label} {...item} />
                         ))}
                         <p className="text-[11px] text-slate-400 text-center pt-1">
-                            Los mensajes marcados con <span className="text-violet-600 font-bold">"próximamente"</span> están en desarrollo y se activarán en próximas versiones.
+                            Los mensajes de <span className="text-amber-600 font-bold">Alerta de stock</span> y <span className="text-amber-600 font-bold">Resumen de caja</span> están en desarrollo y se activarán en la próxima actualización.
                         </p>
                     </div>
                 )}
@@ -431,7 +447,13 @@ export default function WhatsAppTab() {
                         placeholder="Ej: 584121234567"
                         className="w-full px-3 py-2 text-sm border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-300 outline-none bg-white"
                     />
-                    <p className="text-[10px] text-amber-600">Formato: código de país + número sin espacios (ej: 584121234567). Se guarda al salir del campo.</p>
+                    <div className="grid grid-cols-1 gap-1.5 text-[11px] text-amber-700 bg-amber-100 rounded-lg p-2.5 mt-1">
+                        <p className="font-black uppercase tracking-wide text-amber-800 mb-0.5">📋 Formato del número</p>
+                        <p>• <span className="font-mono font-bold">584141234567</span> → Venezuela (04XX = 584XX)</p>
+                        <p>• <span className="font-mono font-bold">573001234567</span> → Colombia</p>
+                        <p>• <span className="font-mono font-bold">521234567890</span> → México</p>
+                        <p className="text-amber-600 mt-0.5">Regla: código de país <strong>sin el +</strong> + número completo, sin espacios ni guiones. Para Venezuela: <strong>58</strong> + operador (414, 424, 416, 412, 426) + 7 dígitos.</p>
+                    </div>
                 </div>
             )}
 
