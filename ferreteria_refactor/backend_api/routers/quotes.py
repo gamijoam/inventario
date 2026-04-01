@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -140,6 +141,53 @@ def update_quote(quote_id: int, quote_data: schemas.QuoteCreate, db: Session = D
     db.commit()
     # db.refresh(db_quote)
     return response_data
+
+
+@router.post("/{quote_id}/duplicate", response_model=schemas.QuoteRead)
+def duplicate_quote(quote_id: int, db: Session = Depends(get_db)):
+    """Duplica una cotización existente creando una nueva en estado PENDING."""
+    original = db.query(models.Quote).options(
+        joinedload(models.Quote.details)
+    ).filter(models.Quote.id == quote_id).first()
+    if not original:
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+
+    new_quote = models.Quote(
+        customer_id=original.customer_id,
+        user_id=original.user_id,
+        total_amount=original.total_amount,
+        notes=original.notes,
+        status="PENDING",
+        date=datetime.utcnow(),
+        valid_until=original.valid_until,
+        tenant_id=original.tenant_id,
+    )
+    db.add(new_quote)
+    db.flush()
+
+    for detail in original.details:
+        new_detail = models.QuoteDetail(
+            quote_id=new_quote.id,
+            product_id=detail.product_id,
+            quantity=detail.quantity,
+            unit_price=detail.unit_price,
+            subtotal=detail.subtotal,
+        )
+        db.add(new_detail)
+
+    db.flush()
+    result = schemas.QuoteRead(
+        id=new_quote.id,
+        customer_id=new_quote.customer_id,
+        user_id=new_quote.user_id,
+        total_amount=new_quote.total_amount,
+        notes=new_quote.notes,
+        status=new_quote.status,
+        date=new_quote.date,
+        valid_until=new_quote.valid_until,
+    )
+    db.commit()
+    return result
 
 
 @router.get("/{quote_id}/print/thermal")
