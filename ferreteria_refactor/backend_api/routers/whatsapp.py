@@ -31,6 +31,7 @@ KEY_NOTIFY_SALE   = "whatsapp_notify_sale"
 KEY_NOTIFY_ORDER  = "whatsapp_notify_order_ready"
 KEY_NOTIFY_CREDIT = "whatsapp_notify_credit_reminder"
 KEY_NOTIFY_QUOTE  = "whatsapp_notify_quote"
+KEY_ADMIN_PHONE   = "whatsapp_admin_phone"   # Número del dueño para alertas internas
 KEY_TPL_SALE      = "whatsapp_template_sale"
 KEY_TPL_ORDER     = "whatsapp_template_order"
 KEY_TPL_CREDIT    = "whatsapp_template_credit"
@@ -65,6 +66,7 @@ DEFAULTS = {
     KEY_NOTIFY_ORDER:  "true",
     KEY_NOTIFY_CREDIT: "true",
     KEY_NOTIFY_QUOTE:  "false",
+    KEY_ADMIN_PHONE:   "",
     KEY_TPL_SALE:      TPL_SALE_DEFAULT,
     KEY_TPL_ORDER:     TPL_ORDER_DEFAULT,
     KEY_TPL_CREDIT:    TPL_CREDIT_DEFAULT,
@@ -155,6 +157,7 @@ def get_config(
         "template_sale":  _get(db, KEY_TPL_SALE),
         "template_order": _get(db, KEY_TPL_ORDER),
         "template_credit":_get(db, KEY_TPL_CREDIT),
+        "admin_phone":    _get(db, KEY_ADMIN_PHONE),
     }
 
 
@@ -173,6 +176,10 @@ def update_config(
     ]:
         if field in config:
             _set(db, key, "true" if config[field] else "false")
+
+    # Número del admin
+    if "admin_phone" in config and isinstance(config["admin_phone"], str):
+        _set(db, KEY_ADMIN_PHONE, config["admin_phone"].strip())
 
     # Plantillas de texto
     for field, key in [
