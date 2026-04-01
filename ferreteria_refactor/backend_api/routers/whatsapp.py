@@ -51,13 +51,16 @@ DEFAULTS = {
 
 
 # ── Helpers BD ────────────────────────────────────────────────
-def _ensure_schema(db: Session, tenant_id: str):
+def _ensure_schema(db: Session):
     """Re-establece el search_path antes de queries. Necesario después de awaits largos."""
     from sqlalchemy import text
+    from ..tenant_context import get_tenant_schema
+    schema = get_tenant_schema()
     try:
-        db.execute(text(f'SET search_path TO "{tenant_id}", public'))
-    except Exception:
-        pass
+        db.execute(text(f'SET search_path TO "{schema}", public'))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"[WA] _ensure_schema failed for schema={schema}: {e}")
 
 
 def _get(db: Session, key: str) -> str:
@@ -236,10 +239,24 @@ async def create_instance(
     """
     Crea la instancia en Evolution API y configura el webhook.
     El QR llegará automáticamente al endpoint /webhook/{tenant_id}.
+    IMPORTANTE: Todo el trabajo de BD se hace ANTES del await largo.
     """
-    tenant_id     = str(current_user.tenant_id)
-    instance_name = tenant_id.replace(".", "-").replace(" ", "-").lower()
+    from ..tenant_context import get_tenant_schema
 
+    tenant_id     = str(current_user.tenant_id)
+    schema_name   = get_tenant_schema()  # Guardar ANTES del await
+    instance_name = schema_name.replace(".", "-").replace(" ", "-").lower()
+
+    # ── 1. Operaciones de BD ANTES del await ──────────────────
+    _set(db, KEY_INSTANCE,  instance_name)
+    _set(db, KEY_STATUS,    "PENDING_QR")
+    _set(db, KEY_ENABLED,   "true")
+    _set(db, KEY_QR_BASE64, "")
+    db.commit()
+    db.close()  # Cerrar sesión antes del await — evita contaminación del pool
+
+    # ── 2. Llamada a Evolution API (puede tardar ~20s) ─────────
+    already_exists = False
     try:
         await _evo_post("/instance/create", {
             "instanceName": instance_name,
@@ -264,25 +281,16 @@ async def create_instance(
                 status_code=500,
                 detail=f"Error en Evolution API: {e.response.status_code}"
             )
-        # Si ya existe, continúa — solo reconfigura el webhook
 
-    # Re-establecer search_path después del await largo a Evolution API
-    _ensure_schema(db, tenant_id)
-
-    # Guardar en BD
-    _set(db, KEY_INSTANCE, instance_name)
-    _set(db, KEY_STATUS,   "PENDING_QR")
-    _set(db, KEY_ENABLED,  "true")
-    _set(db, KEY_QR_BASE64, "")  # Limpiar QR anterior
-
-    # Configurar el webhook para recibir el QR
-    _configure_webhook(instance_name, tenant_id)
+    # ── 3. Configurar webhook (síncrono, rápido) ───────────────
+    _configure_webhook(instance_name, schema_name)
 
     return {
-        "ok":           True,
+        "ok":            True,
         "instance_name": instance_name,
         "status":        "PENDING_QR",
-        "message":       "Instancia creada. El QR aparecerá en pantalla en segundos."
+        "message":       "Instancia configurada. El QR aparecerá en pantalla en segundos.",
+        "already_existed": already_exists
     }
 
 
