@@ -49,6 +49,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
     const [thermalMenuId, setThermalMenuId] = useState(null);
+    const [sendingWa, setSendingWa] = useState(null);
     const [duplicating, setDuplicating] = useState(null);
 
     const { currencies, business } = useConfig();
@@ -100,6 +101,21 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             setQuotes(prev => prev.filter(q => q.id !== id));
             toast.success('Cotización eliminada');
         } catch { toast.error('No se pudo eliminar'); }
+    };
+
+    const handleSendWhatsApp = async (quote, e) => {
+        e.stopPropagation();
+        if (sendingWa === quote.id) return;
+        setSendingWa(quote.id);
+        try {
+            const { data } = await apiClient.post(`/quotes/${quote.id}/send-whatsapp`);
+            toast.success(data.message || '✅ Cotización enviada por WhatsApp');
+        } catch (err) {
+            const msg = err?.response?.data?.detail || err.message;
+            toast.error('Error: ' + msg);
+        } finally {
+            setSendingWa(null);
+        }
     };
 
     const handleDuplicate = async (quote, e) => {
@@ -318,6 +334,15 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                                             <button onClick={e => { e.stopPropagation(); onEdit?.(quote.id); }} title="Editar"
                                                 className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors">
                                                 <Edit size={15} />
+                                            </button>
+                                            {/* WhatsApp */}
+                                            <button onClick={e => handleSendWhatsApp(quote, e)}
+                                                title="Enviar por WhatsApp (PDF)"
+                                                disabled={sendingWa === quote.id}
+                                                className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-40">
+                                                {sendingWa === quote.id
+                                                    ? <div className="w-[15px] h-[15px] border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"/>
+                                                    : <MessageCircle size={15} />}
                                             </button>
                                             {/* Duplicar */}
                                             <button onClick={e => handleDuplicate(quote, e)} title="Duplicar cotización"
