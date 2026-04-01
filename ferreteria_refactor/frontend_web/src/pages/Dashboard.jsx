@@ -374,8 +374,8 @@ const Dashboard = () => {
             {/* ── HEADER ── */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-1">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Command Center</h1>
-                    <p className="text-slate-500 text-sm mt-0.5">Vista ejecutiva de tu negocio</p>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Resumen del Negocio</h1>
+                    <p className="text-slate-500 text-sm mt-0.5">Vista general de tu actividad</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* Selector de periodo */}
