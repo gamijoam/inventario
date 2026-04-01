@@ -215,7 +215,7 @@ const PurchaseDetail = () => {
                             <Package className="text-indigo-600" size={20} />
                             Productos Comprados
                         </h3>
-                        <span className="text-xs font-bold text-slate-400 uppercase bg-white border border-slate-200 px-2 py-1 rounded-md">
+                        <span className="text-xs font-bold text-slate-400 uppercase bg-white border border-slate-200 px-2 py-1 rounded-lg">
                             {purchase.items?.length || 0} Items
                         </span>
                     </div>

@@ -386,7 +386,7 @@ const CreatePurchase = () => {
                             <div className="flex flex-col md:flex-row items-end md:items-center justify-between bg-slate-800/50 rounded-lg p-2 backdrop-blur-sm gap-2">
                                 <span className="text-xs text-slate-400 font-medium whitespace-nowrap">Items: {purchaseItems.length}</span>
                                 <span className={clsx(
-                                    "text-xs font-bold px-2 py-0.5 rounded-md",
+                                    "text-xs font-bold px-2 py-0.5 rounded-lg",
                                     paymentType === 'CREDIT' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
                                 )}>
                                     {paymentType === 'CREDIT' ? 'Crédito' : 'Contado'}
@@ -618,10 +618,10 @@ const CreatePurchase = () => {
                                                 </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <div className="text-xs flex flex-col gap-1 items-center">
-                                                        <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold whitespace-nowrap border border-indigo-100">
+                                                        <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-lg font-bold whitespace-nowrap border border-indigo-100">
                                                             M: {item.profit_margin}%
                                                         </span>
-                                                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold whitespace-nowrap border border-slate-200">
+                                                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg font-bold whitespace-nowrap border border-slate-200">
                                                             IVA: {item.tax_rate}%
                                                         </span>
                                                     </div>

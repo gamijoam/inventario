@@ -244,7 +244,7 @@ const SupportTickets = () => {
                                             {ticket.admin_response ? (
                                                 <div className="bg-emerald-50 border-l-4 border-emerald-400 p-5 rounded-r-2xl">
                                                     <div className="flex items-center gap-2 mb-3">
-                                                        <div className="bg-emerald-600 text-white p-1 rounded-md shadow-sm">
+                                                        <div className="bg-emerald-600 text-white p-1 rounded-lg shadow-sm">
                                                             <MessageSquare size={14} />
                                                         </div>
                                                         <div className="text-[11px] uppercase font-black text-emerald-800 tracking-wider">Respuesta de Soporte</div>

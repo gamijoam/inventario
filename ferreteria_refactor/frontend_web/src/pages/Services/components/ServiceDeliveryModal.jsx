@@ -196,7 +196,7 @@ const ServiceDeliveryModal = ({ order, onClose, onDeliver, onPaymentRequest }) =
 
                     <button
                         onClick={handleConfirm}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl text-lg shadow-lg shadow-blue-200 transition-all active:scale-95 flex justify-center items-center gap-2"
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-lg shadow-lg shadow-indigo-200 transition-all active:scale-95 flex justify-center items-center gap-2"
                     >
                         {showPaymentUI && pending > 0.01 ? (
                             <>

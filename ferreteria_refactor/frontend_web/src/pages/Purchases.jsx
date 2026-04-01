@@ -76,7 +76,7 @@ const Purchases = () => {
                     <button
                         id="tour-purchases-add-btn"
                         onClick={() => navigate('/purchases/new')}
-                        className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors text-sm whitespace-nowrap"
+                        className="flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow transition-colors text-sm whitespace-nowrap"
                     >
                         <Plus size={18} className="mr-1.5" />
                         Nueva Compra
@@ -150,7 +150,7 @@ const Purchases = () => {
             </div>
 
             {/* Desktop Table View */}
-            <div className="hidden md:block bg-white rounded-lg shadow">
+            <div className="hidden md:block bg-white rounded-xl shadow">
                 <table className="w-full">
                     <thead className="bg-gray-50 border-b">
                         <tr>

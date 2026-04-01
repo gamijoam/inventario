@@ -184,7 +184,7 @@ const Suppliers = () => {
                                         </div>
                                     </td>
                                     <td className="py-4 px-6 text-center">
-                                        <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-xs font-bold">
+                                        <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold">
                                             {supplier.payment_terms || 0} días
                                         </span>
                                     </td>

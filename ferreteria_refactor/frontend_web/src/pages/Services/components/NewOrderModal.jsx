@@ -460,7 +460,7 @@ const NewOrderModal = ({ isOpen, onClose, onCreated }) => {
                         type="submit"
                         disabled={loading}
                         onClick={handleSubmit}
-                        className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg shadow-blue-200 flex items-center gap-2 disabled:opacity-50 transition-all"
+                        className="px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:opacity-50 transition-all"
                     >
                         {loading ? 'Procesando...' : (
                             <>

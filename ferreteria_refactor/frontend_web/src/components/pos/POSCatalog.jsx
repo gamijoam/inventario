@@ -221,7 +221,7 @@ const POSCatalog = forwardRef(({
                             className={cn(
                                 "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest whitespace-nowrap",
                                 selectedCategoryId === cat.id
-                                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20"
+                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-300/20"
                                     : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
                             )}
                         >

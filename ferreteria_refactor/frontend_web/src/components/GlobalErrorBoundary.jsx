@@ -40,7 +40,7 @@ class GlobalErrorBoundary extends React.Component {
                         <div className="flex gap-4">
                             <button
                                 onClick={() => window.location.reload()}
-                                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors shadow-sm"
+                                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-colors shadow-sm"
                             >
                                 Recargar Aplicación
                             </button>

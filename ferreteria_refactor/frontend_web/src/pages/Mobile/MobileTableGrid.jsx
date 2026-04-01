@@ -182,7 +182,7 @@ const MobileTableGrid = () => {
 
                                 <div className="space-y-1">
                                     <p className="text-[11px] text-slate-400 font-bold truncate">{table.zone || 'General'}</p>
-                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black ${table.status === 'OCCUPIED'
+                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-black ${table.status === 'OCCUPIED'
                                             ? 'bg-red-100 text-red-600'
                                             : table.status === 'AVAILABLE'
                                                 ? 'bg-emerald-100 text-emerald-600'

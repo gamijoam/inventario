@@ -242,7 +242,7 @@ const KitchenDisplay = () => {
                                             <div key={item.id} className="bg-slate-800 rounded-lg p-3 space-y-2">
                                                 <div className="flex justify-between items-start">
                                                     <span className="text-base font-bold text-white flex gap-2 items-center">
-                                                        <span className="bg-slate-700 px-2.5 py-0.5 rounded-md text-orange-300 font-black text-lg min-w-[32px] text-center">
+                                                        <span className="bg-slate-700 px-2.5 py-0.5 rounded-lg text-orange-300 font-black text-lg min-w-[32px] text-center">
                                                             {item.quantity}
                                                         </span>
                                                         <span className="leading-tight">{item.product_name}</span>
@@ -250,7 +250,7 @@ const KitchenDisplay = () => {
                                                 </div>
 
                                                 {item.notes && (
-                                                    <div className="bg-amber-950/50 text-amber-200 px-3 py-1.5 rounded-md text-sm font-semibold border border-amber-800/50 flex items-start gap-1.5">
+                                                    <div className="bg-amber-950/50 text-amber-200 px-3 py-1.5 rounded-lg text-sm font-semibold border border-amber-800/50 flex items-start gap-1.5">
                                                         <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                                                         <span>{item.notes}</span>
                                                     </div>

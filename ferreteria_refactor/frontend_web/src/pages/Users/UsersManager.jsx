@@ -196,7 +196,7 @@ const UsersManager = () => {
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
-                        <div className="p-2.5 bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/30">
+                        <div className="p-2.5 bg-blue-600 rounded-2xl shadow-lg shadow-indigo-300/30">
                             <Users className="text-white" size={28} />
                         </div>
                         Gestión de Usuarios
@@ -571,7 +571,7 @@ const UsersManager = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-all shadow-lg shadow-blue-500/30 active:scale-95 disabled:opacity-50"
+                                    className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black transition-all shadow-lg shadow-indigo-300/30 active:scale-95 disabled:opacity-50"
                                 >
                                     {modalMode === 'create' && 'Crear Usuario'}
                                     {modalMode === 'edit' && 'Guardar Cambios'}

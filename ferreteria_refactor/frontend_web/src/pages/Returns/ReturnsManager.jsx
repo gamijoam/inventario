@@ -321,7 +321,7 @@ const ReturnsManager = () => {
                                                             onClick={() => handleConditionChange(index, 'GOOD')}
                                                             title="Buen Estado"
                                                             className={clsx(
-                                                                "p-1.5 rounded-md transition-all",
+                                                                "p-1.5 rounded-lg transition-all",
                                                                 item.condition === 'GOOD' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
                                                             )}
                                                         >
@@ -331,7 +331,7 @@ const ReturnsManager = () => {
                                                             onClick={() => handleConditionChange(index, 'DAMAGED')}
                                                             title="Dañado"
                                                             className={clsx(
-                                                                "p-1.5 rounded-md transition-all",
+                                                                "p-1.5 rounded-lg transition-all",
                                                                 item.condition === 'DAMAGED' ? "bg-white text-rose-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
                                                             )}
                                                         >

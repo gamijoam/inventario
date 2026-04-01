@@ -423,7 +423,7 @@ const CustomerManager = () => {
                                         <div className="flex items-center gap-3 mb-2">
                                             <h2 className="text-xl md:text-3xl font-bold tracking-tight">{selectedCustomer.name}</h2>
                                             {selectedCustomer.is_blocked && (
-                                                <span className="bg-rose-500/20 text-rose-200 border border-rose-500/30 px-3 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                                <span className="bg-rose-500/20 text-rose-200 border border-rose-500/30 px-3 py-0.5 rounded-xl text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
                                                     Bloqueado
                                                 </span>
                                             )}

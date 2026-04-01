@@ -120,7 +120,7 @@ const ConfigCenter = () => {
                                     <button key={item.id} onClick={() => setTab(item.id)}
                                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all text-left group ${
                                             active
-                                                ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
+                                                ? 'bg-blue-600 text-white shadow-sm shadow-indigo-200'
                                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                                         }`}>
                                         <Icon size={16} className={active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'} />

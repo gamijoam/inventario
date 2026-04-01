@@ -466,7 +466,7 @@ const SuppliersTab = ({ dateRange }) => {
                                         <td className="p-4 font-bold text-slate-700">{supplier.name}</td>
                                         <td className="p-4 text-slate-500 font-medium">{supplier.phone || '-'}</td>
                                         <td className="p-4 text-right">
-                                            <span className="bg-rose-50 text-rose-700 font-black px-2 py-1 rounded-md border border-rose-100">
+                                            <span className="bg-rose-50 text-rose-700 font-black px-2 py-1 rounded-lg border border-rose-100">
                                                 {formatUSD(supplier.current_balance)}
                                             </span>
                                         </td>

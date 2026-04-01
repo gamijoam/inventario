@@ -403,7 +403,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     <button
                                                         type="button"
                                                         onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                                                        className="w-full h-11 px-3 text-left border rounded-md bg-slate-50/30 border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"
+                                                        className="w-full h-11 px-3 text-left border rounded-lg bg-slate-50/30 border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"
                                                     >
                                                         <span className={formData.category_id ? "text-slate-900" : "text-slate-500"}>
                                                             {formData.category_id
@@ -435,7 +435,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                 </div>
                                                                 <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
                                                                     <div
-                                                                        className="flex items-center px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md cursor-pointer transition-colors"
+                                                                        className="flex items-center px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
                                                                         onClick={() => {
                                                                             setFormData({ ...formData, category_id: null });
                                                                             setIsCategoryOpen(false);
@@ -451,7 +451,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                                 <div
                                                                                     key={c.id}
                                                                                     className={cn(
-                                                                                        "flex items-center justify-between px-3 py-2 text-sm rounded-md cursor-pointer transition-colors font-medium",
+                                                                                        "flex items-center justify-between px-3 py-2 text-sm rounded-lg cursor-pointer transition-colors font-medium",
                                                                                         isSelected ? "bg-indigo-50 text-indigo-700" : "text-slate-700 hover:bg-slate-100"
                                                                                     )}
                                                                                     onClick={() => {

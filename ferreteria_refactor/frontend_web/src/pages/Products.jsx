@@ -243,7 +243,7 @@ const Products = () => {
                     <select
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
-                        className="h-9 px-3 rounded-md border border-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-slate-50/50 text-slate-600 font-medium"
+                        className="h-9 px-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-slate-50/50 text-slate-600 font-medium"
                     >
                         <option value="">Todas las Categorías</option>
                         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -252,7 +252,7 @@ const Products = () => {
                     <select
                         value={filterWarehouse}
                         onChange={(e) => setFilterWarehouse(e.target.value)}
-                        className="h-9 px-3 rounded-md border border-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-slate-50/50 text-slate-600 font-medium"
+                        className="h-9 px-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-slate-50/50 text-slate-600 font-medium"
                     >
                         <option value="">Todas las Bodegas</option>
                         {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}

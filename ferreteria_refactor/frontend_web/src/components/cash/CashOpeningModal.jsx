@@ -182,7 +182,7 @@ const CashOpeningModal = ({ onOpen }) => {
                                 size="lg"
                                 disabled={!selectedRegister}
                                 onClick={handleContinue}
-                                className="w-full h-14 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 rounded-xl disabled:opacity-50"
+                                className="w-full h-14 text-base font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 rounded-xl disabled:opacity-50"
                             >
                                 Continuar <ArrowRight className="ml-2 h-5 w-5" />
                             </Button>
@@ -230,7 +230,7 @@ const CashOpeningModal = ({ onOpen }) => {
                             <Button
                                 type="submit"
                                 size="lg"
-                                className="w-full h-14 text-base font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/20 rounded-xl"
+                                className="w-full h-14 text-base font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 dark:shadow-blue-900/20 rounded-xl"
                                 disabled={isSubmitting}
                             >
                                 {isSubmitting ? 'Abriendo...' : 'Abrir Turno'}

@@ -24,7 +24,7 @@ const Unauthorized = () => {
 
                 <button
                     onClick={() => navigate('/')}
-                    className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
+                    className="flex items-center justify-center gap-2 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
                 >
                     <Home size={20} />
                     Volver al Dashboard

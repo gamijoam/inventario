@@ -95,7 +95,7 @@ const DEFAULT_PIE_COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f97316', '#06b6d4
 
 // --- Skeleton components ---
 const SkeletonCard = () => (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
+    <div className="ui-card p-6 animate-pulse">
         <div className="h-3 w-24 bg-slate-200 rounded mb-4" />
         <div className="h-8 w-32 bg-slate-200 rounded mb-3" />
         <div className="h-3 w-20 bg-slate-100 rounded" />
@@ -103,7 +103,7 @@ const SkeletonCard = () => (
 );
 
 const SkeletonChart = () => (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
+    <div className="ui-card p-6 animate-pulse">
         <div className="h-4 w-40 bg-slate-200 rounded mb-2" />
         <div className="h-3 w-56 bg-slate-100 rounded mb-6" />
         <div className="h-64 bg-slate-50 rounded-lg" />
@@ -111,7 +111,7 @@ const SkeletonChart = () => (
 );
 
 const SkeletonTable = () => (
-    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
+    <div className="ui-card p-6 animate-pulse">
         <div className="h-4 w-40 bg-slate-200 rounded mb-6" />
         {[...Array(5)].map((_, i) => (
             <div key={i} className="flex gap-4 mb-3">
@@ -461,7 +461,7 @@ const ReportsCenter = () => {
                 {/* Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Area Chart: Ventas por Dia */}
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="ui-card p-6">
                         <div className="mb-4">
                             <h3 className="text-base font-bold text-slate-900">Ventas por Día</h3>
                             <p className="text-sm text-slate-500">Ingresos diarios en el periodo seleccionado</p>
@@ -513,7 +513,7 @@ const ReportsCenter = () => {
                     </div>
 
                     {/* Donut Chart: Metodos de Pago */}
-                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="ui-card p-6">
                         <div className="mb-4">
                             <h3 className="text-base font-bold text-slate-900">Métodos de Pago</h3>
                             <p className="text-sm text-slate-500">Distribución por método de pago</p>
@@ -773,7 +773,7 @@ const ReportsCenter = () => {
                                     <button
                                         key={p.id}
                                         onClick={() => applyPreset(p.id)}
-                                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                                        className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
                                             activePreset === p.id
                                                 ? 'bg-white text-slate-900 shadow-sm'
                                                 : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'

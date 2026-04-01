@@ -146,7 +146,7 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
                                 </h3>
                                 <button
                                     onClick={() => setShowNewCategory(!showNewCategory)}
-                                    className={`p-1 rounded-md transition-colors ${showNewCategory ? 'bg-rose-100 text-rose-500' : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'}`}
+                                    className={`p-1 rounded-lg transition-colors ${showNewCategory ? 'bg-rose-100 text-rose-500' : 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'}`}
                                     title={showNewCategory ? 'Cancelar' : 'Nueva categoría'}
                                 >
                                     {showNewCategory ? <X size={14} /> : <Plus size={14} />}

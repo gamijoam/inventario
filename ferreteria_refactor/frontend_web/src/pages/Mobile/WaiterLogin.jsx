@@ -64,7 +64,7 @@ const WaiterLogin = () => {
     return (
         <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4">
             <div className="mb-8 text-center">
-                <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/50">
+                <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-300/50">
                     <UserCheck size={40} className="text-white" />
                 </div>
                 <h1 className="text-2xl font-bold text-white mb-1">Acceso Meseros</h1>
