@@ -291,3 +291,93 @@ INSERT INTO business_config (key, value) VALUES
   ('whatsapp_template_sale', '...plantilla default...')
 ON CONFLICT (key) DO NOTHING;
 ```
+
+---
+
+## 13. Sprint 1 y Sprint 2 — Automatizaciones completadas
+
+> **Fecha:** 2026-04-01
+
+### Sprint 1 ✅
+
+#### Recordatorio de deuda (cron diario configurable)
+- **Job:** `job_credit_reminders()` en `services/whatsapp_scheduler.py`
+- **Registrado en:** `scheduler.py` → APScheduler
+- **Config por tenant en business_config:**
+  - `whatsapp_credit_reminder_auto` — true/false (activar envío automático)
+  - `whatsapp_credit_reminder_hour` — hora del envío (0–23, default 9)
+  - `whatsapp_credit_reminder_days` — días de gracia antes de enviar (1–30, default 1)
+- **Endpoint manual:** `POST /whatsapp/credit-reminders/send-now` — envío inmediato
+- **UI:** Sección expandible en WhatsApp tab con toggle auto/manual, selector de hora y slider de días
+
+#### Orden recibida en taller
+- **Inyectado en:** `routers/services.py` → `create_service_order()` tras `db.commit()`
+- **Mensaje incluye:** nombre del equipo, número de ticket, descripción del problema, fecha estimada
+- **Condición:** cliente con teléfono + WhatsApp CONNECTED + `whatsapp_notify_order_ready != "false"`
+
+#### Confirmación de abono de crédito
+- **Inyectado en:** `services/sales_service.py` → `register_payment()` tras `db.commit()`
+- **Mensaje incluye:** monto pagado (con moneda), número de factura, saldo restante
+- **Si saldo = 0:** *"¡Saldo cancelado completamente!"*
+- **Condición:** cliente con teléfono + WhatsApp CONNECTED + `whatsapp_notify_sale != "false"`
+
+---
+
+### Sprint 2 ✅
+
+#### Alerta de stock bajo (cron diario)
+- **Job:** `job_stock_alerts()` en `services/whatsapp_scheduler.py`
+- **Horario:** 8:00am Venezuela (antes de abrir) — `id="whatsapp_stock_alerts"`
+- **Destinatario:** número del admin (`whatsapp_admin_phone` en business_config)
+- **Lógica:** Productos donde `stock <= min_stock AND min_stock > 0 AND is_active`
+- **Config:** `whatsapp_notify_stock` — true por defecto, false para desactivar
+- **Muestra:** top 20 productos más críticos (ordenados por stock/min_stock ASC)
+
+#### Resumen de cierre de caja
+- **Función:** `send_cash_session_summary(schema, session_id)` en `whatsapp_scheduler.py`
+- **Disparador:** `routers/cash/sessions.py` → al final del endpoint de cierre de sesión
+- **Destinatario:** número del admin (`whatsapp_admin_phone`)
+- **Incluye:** fecha, hora inicio-fin, total ventas, total USD y Bs
+- **Config:** `whatsapp_notify_cash_summary` — true por defecto
+
+---
+
+## 14. Claves nuevas en business_config (Sprint 1+2)
+
+```sql
+INSERT INTO business_config (key, value) VALUES
+  ('whatsapp_credit_reminder_auto',    'true'),
+  ('whatsapp_credit_reminder_hour',    '9'),
+  ('whatsapp_credit_reminder_days',    '1'),
+  ('whatsapp_notify_stock',            'true'),
+  ('whatsapp_notify_cash_summary',     'true')
+ON CONFLICT (key) DO NOTHING;
+```
+
+---
+
+## 15. Roadmap de automatizaciones — estado actualizado
+
+| Sprint | Feature | Estado |
+|---|---|---|
+| 1 | Recordatorio de deuda (configurable) | ✅ Completado |
+| 1 | Orden recibida en taller | ✅ Completado |
+| 1 | Confirmación de abono | ✅ Completado |
+| 2 | Alerta de stock bajo (admin) | ✅ Completado |
+| 2 | Resumen de cierre de caja (admin) | ✅ Completado |
+| 3 | Bienvenida cliente nuevo | ⏳ Pendiente |
+| 3 | Cotización por vencer | ⏳ Pendiente |
+| 3 | Garantía próxima a vencer | ⏳ Pendiente |
+
+---
+
+## 16. Configuración de recordatorio de deuda — UI
+
+La pantalla de WhatsApp Business muestra una sección expandible de configuración:
+
+- **Toggle Automático/Manual:** si está en Manual, el admin decide cuándo enviar pulsando "Enviar ahora"
+- **Hora del envío:** dropdown 00:00 → 23:00 (solo si automático está activo)
+- **Días de gracia:** slider 1–30 días — "enviar recordatorio a partir de X días vencido"
+- **Botón "Enviar ahora":** dispara `POST /whatsapp/credit-reminders/send-now` — envío inmediato para todos los clientes con saldo vencido
+
+El scheduler respeta la configuración de CADA tenant individualmente. Tenants con `credit_reminder_auto=false` no reciben el cron aunque el scheduler esté corriendo.

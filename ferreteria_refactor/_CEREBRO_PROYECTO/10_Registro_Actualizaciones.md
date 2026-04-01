@@ -1393,3 +1393,35 @@ ferreteria_refactor/backend_api/routers/whatsapp.py
 src/pages/Config/tabs/WhatsAppTab.jsx
 _CEREBRO_PROYECTO/32_WhatsApp_Baileys.md
 ```
+
+---
+
+## 2026-04-01 (2) — Sprint 1+2 WhatsApp Automations
+
+**Rama:** `feature/customer-360-whatsapp`
+
+### Sprint 1
+- **Recordatorio deuda configurable:** cron diario + toggle auto/manual + hora + días de gracia + botón manual
+- **Orden recibida en taller:** mensaje automático al crear cualquier orden de servicio
+- **Confirmación de abono:** al registrar pago parcial de crédito, cliente recibe confirmación con saldo restante
+
+### Sprint 2
+- **Alerta stock bajo:** job cron 8:00am VE, envía al admin lista de productos bajo mínimo
+- **Resumen cierre de caja:** al cerrar sesión, admin recibe total del día en WhatsApp
+
+### Pendiente (Sprint 3)
+- Bienvenida cliente nuevo
+- Cotización por vencer
+- Garantía próxima a vencer
+
+### Archivos modificados
+```
+backend_api/services/whatsapp_scheduler.py  ← job_credit_reminders + job_stock_alerts + send_cash_session_summary
+backend_api/scheduler.py                    ← 2 jobs nuevos registrados
+backend_api/routers/whatsapp.py             ← config recordatorio + endpoint manual
+backend_api/routers/cash/sessions.py        ← trigger resumen caja en cierre
+backend_api/services/sales_service.py       ← confirmación abono
+backend_api/routers/services.py             ← orden recibida en taller
+src/pages/Config/tabs/WhatsAppTab.jsx       ← UI config recordatorio (hora/días/auto)
+_CEREBRO_PROYECTO/32_WhatsApp_Baileys.md    ← secciones 13–16 añadidas
+```
