@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 from decimal import Decimal
 from ..database.db import get_db
-from ..dependencies import has_role
+from ..dependencies import has_role, get_current_active_user
 from ..models import models
 from ..models.models import UserRole
 
@@ -198,11 +198,12 @@ def delete_rule(
 @router.get("/user-rates")
 def list_user_rates(
     db: Session = Depends(get_db),
-    _=Depends(has_role([UserRole.ADMIN]))
+    current_user: models.User = Depends(has_role([UserRole.ADMIN]))
 ):
-    """Retorna todos los usuarios con sus tasas de comisión."""
+    """Retorna usuarios del mismo tenant con sus tasas de comisión."""
     users = db.query(models.User).filter(
         models.User.is_active == True,
+        models.User.tenant_id == current_user.tenant_id,
         models.User.role.in_([UserRole.ADMIN, UserRole.CASHIER])
     ).all()
     return [
@@ -222,9 +223,12 @@ def update_user_rates(
     user_id: int,
     data: UserCommissionRates,
     db: Session = Depends(get_db),
-    _=Depends(has_role([UserRole.ADMIN]))
+    current_user: models.User = Depends(has_role([UserRole.ADMIN]))
 ):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
+    user = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.tenant_id == current_user.tenant_id
+    ).first()
     if not user:
         raise HTTPException(404, "Usuario no encontrado")
     user.commission_vendor_pct = Decimal(str(data.commission_vendor_pct))
