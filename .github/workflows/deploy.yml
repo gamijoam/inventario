@@ -5,19 +5,43 @@ on:
     branches: [main]
 
 jobs:
-  # ─────────────────────────────────────────────
-  # JOB 1: Build y push de imágenes Docker
-  # Se ejecuta automáticamente en cada push a main
-  # ─────────────────────────────────────────────
+  # ──────────────────────────────────────────────
+  # JOB 1: Tests del frontend
+  # ──────────────────────────────────────────────
+  test:
+    name: 🧪 Tests frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ferreteria_refactor/frontend_web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: ferreteria_refactor/frontend_web/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm install --legacy-peer-deps
+
+      - name: Correr tests
+        run: npx jest src/__tests__/ --no-coverage --ci
+
+  # ──────────────────────────────────────────────
+  # JOB 2: Build y push imágenes Docker
+  # ──────────────────────────────────────────────
   build:
     name: 🔨 Build imágenes
     runs-on: ubuntu-latest
+    needs: test
     outputs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Generar versión
         id: version
@@ -71,33 +95,79 @@ jobs:
           build-args: VITE_API_URL=https://api.miinventariofacil.com/api/v1
 
       # Notificar en Telegram con botones de aprobación
-      - name: Notificar build listo → botones en Telegram
+      - name: ✅ Notificar build listo
         if: success()
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          COMMITS=$(git log --oneline -5 --pretty="• %s" | head -5)
-          
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
-              \"parse_mode\": \"Markdown\",
-              \"text\": \"🔨 *Build listo para deploy*\n\nVersión: \`${VERSION}\`\n\n*Cambios:*\n${COMMITS}\n\n¿Desplegar a producción?\",
-              \"reply_markup\": {
-                \"inline_keyboard\": [[
-                  {\"text\": \"✅ Aprobar deploy\", \"callback_data\": \"approve:${VERSION}\"},
-                  {\"text\": \"❌ Cancelar\", \"callback_data\": \"cancel:${VERSION}\"}
-                ]]
-              }
-            }"
+          COMMITS=$(git log --oneline -5 --pretty="• %s")
+          python3 - << PYEOF
+          import json, urllib.request
+          payload = {
+            "chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}",
+            "parse_mode": "Markdown",
+            "text": (
+              "🔨 *Build listo para deploy*\n\n"
+              "Versión: \`${VERSION}\`\n\n"
+              "*Cambios:*\n${COMMITS}\n\n"
+              "¿Desplegar a producción?"
+            ),
+            "reply_markup": {"inline_keyboard": [[
+              {"text": "✅ Aprobar deploy", "callback_data": "approve:${VERSION}"},
+              {"text": "❌ Cancelar",       "callback_data": "cancel:${VERSION}"}
+            ]]}
+          }
+          req = urllib.request.Request(
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"})
+          with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.loads(r.read())
+            print("✅ Telegram OK" if d.get("ok") else f"❌ {d}")
+          PYEOF
 
-      - name: Notificar fallo de build
+      # Notificar fallo — cualquier job que falle
+      - name: ❌ Notificar fallo
         if: failure()
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
-              \"text\": \"❌ *Build fallido*\n\nRevisa GitHub Actions para ver el error.\",
-              \"parse_mode\": \"Markdown\"
-            }"
+          python3 - << PYEOF
+          import json, urllib.request
+          payload = {
+            "chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}",
+            "parse_mode": "Markdown",
+            "text": "❌ *Build fallido*\n\nRevisa los errores en GitHub Actions:\nhttps://github.com/gamijoam/inventario/actions"
+          }
+          req = urllib.request.Request(
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"})
+          with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.loads(r.read())
+            print("✅ Alerta enviada" if d.get("ok") else f"❌ {d}")
+          PYEOF
+
+  # ──────────────────────────────────────────────
+  # Notificar fallo de tests
+  # ──────────────────────────────────────────────
+  notify-test-failure:
+    name: ❌ Notificar fallo de tests
+    runs-on: ubuntu-latest
+    needs: test
+    if: failure()
+    steps:
+      - name: Avisar en Telegram
+        run: |
+          python3 - << PYEOF
+          import json, urllib.request
+          payload = {
+            "chat_id": "${{ secrets.TELEGRAM_CHAT_ID }}",
+            "parse_mode": "Markdown",
+            "text": "🧪 *Tests fallaron*\n\nAlgún test del frontend está roto.\nDeploy bloqueado hasta que se corrijan.\n\nhttps://github.com/gamijoam/inventario/actions"
+          }
+          req = urllib.request.Request(
+            "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"})
+          with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.loads(r.read())
+            print("Alerta enviada" if d.get("ok") else str(d))
+          PYEOF
