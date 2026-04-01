@@ -400,7 +400,7 @@ def get_customer_360(
     # ── 5. Pagos de crédito ───────────────────────────────────
     credit_payments = db.query(models.Payment).filter(
         models.Payment.customer_id == customer_id
-    ).order_by(desc(models.Payment.created_at)).limit(limit).all()
+    ).order_by(desc(models.Payment.date)).limit(limit).all()
 
     # ── 6. Top productos más comprados ────────────────────────
     top_products = db.query(
@@ -477,7 +477,7 @@ def get_customer_360(
             "type": "credit_payment",
             "id": payment.id,
             "ref": f"PAG-{str(payment.id).zfill(5)}",
-            "date": payment.created_at.isoformat() if payment.created_at else None,
+            "date": payment.date.isoformat() if payment.date else None,
             "amount": float(payment.amount),
             "method": payment.payment_method,
             "status": "PAID",
