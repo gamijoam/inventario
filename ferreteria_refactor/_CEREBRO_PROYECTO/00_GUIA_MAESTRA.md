@@ -435,3 +435,66 @@ WHERE schema_name='nombre_tenant';
 - Archivo: `pages/Reports/tabs/SalesTab.jsx`
 - Causa: el modal de detalle no tenía sección de pagos
 - Fix: sección `💳 Detalle de pagos` agregada antes del footer del modal
+
+---
+
+## 12. Catálogo Público
+
+**Rama:** `feature/catalogo-publico`
+**URL:** `{tenant}.miinventariofacil.com/#/catalogo` (sin login)
+
+### ¿Qué es?
+Página pública que muestra el inventario del negocio a clientes sin necesidad de registrarse. Se accede por el mismo subdominio del tenant.
+
+### Features implementadas
+| Feature | Descripción |
+|---|---|
+| QR + Link compartible | Modal con QR generado + botón copiar + compartir por WhatsApp |
+| Carrito de WhatsApp | Agregar productos, ver carrito flotante, enviar pedido completo |
+| Productos destacados | Columna `featured` en products, badge ⭐ en tarjeta, orden prioritario |
+| Vista detalle | Modal con foto grande, descripción, selector de cantidad, botones |
+| Modo agotado configurable | `catalog_show_out_of_stock` en business_config |
+| Horario del negocio | `catalog_business_hours` en business_config, mostrado en header |
+| Búsqueda dinámica | Debounce 400ms — busca mientras el usuario escribe |
+| Validación de stock | No deja agregar más unidades de las disponibles en inventario |
+
+### Archivos clave
+| Archivo | Rol |
+|---|---|
+| `backend_api/routers/public_catalog.py` | 3 endpoints públicos sin auth |
+| `frontend_web/src/pages/Catalog/PublicCatalog.jsx` | Página del catálogo (628 líneas) |
+| `frontend_web/src/pages/Config/tabs/CatalogTab.jsx` | Config: QR, opciones, horario |
+| `components/products/ProductForm.jsx` | Toggle "Destacar en catálogo" |
+| `pages/Config/ConfigCenter.jsx` | Tab "Catálogo Público" registrado |
+
+### BD — nuevas columnas y config
+```sql
+-- En products (por tenant)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS featured boolean DEFAULT false;
+
+-- En business_config (por tenant)
+INSERT INTO business_config (key, value) VALUES
+  ('catalog_show_out_of_stock', 'false'),
+  ('catalog_business_hours',    ''),
+  ('catalog_whatsapp_cart',     'true')
+ON CONFLICT DO NOTHING;
+```
+
+### Endpoints públicos (sin autenticación)
+```
+GET  /api/v1/public/catalog                  → productos + info del negocio
+GET  /api/v1/public/catalog/categories       → categorías disponibles
+POST /api/v1/public/catalog/config           → actualizar config del catálogo
+```
+
+### Cómo funciona el tenant sin login
+El frontend lee `window.location.hostname`, extrae el subdominio y lo pasa como `?_tenant=schema` en el API. El backend lo usa cuando el middleware no detecta el tenant por el host (porque el API está en otro subdominio).
+
+### Cómo el guard del catálogo funciona en App.jsx
+```js
+// En App() — antes del árbol de providers de auth
+const hash = window.location.hash;
+if (hash === '#/catalogo' || hash.startsWith('#/catalogo?')) {
+  return <PublicCatalog />;  // Sin AuthProvider, CloudConfigProvider, etc.
+}
+```

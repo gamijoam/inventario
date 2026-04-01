@@ -79,13 +79,19 @@ const GeneralTab = () => {
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="bizPhone">Teléfono Principal</Label>
+                        <Label htmlFor="bizPhone">Teléfono / WhatsApp del negocio</Label>
                         <Input
                             id="bizPhone"
                             value={bizForm.phone}
                             onChange={e => setBizForm({ ...bizForm, phone: e.target.value })}
-                            placeholder="+58 412 1234567"
+                            placeholder="584121234567"
+                            className="font-mono"
                         />
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                            Incluye el código de país <strong>sin el signo +</strong>.
+                            Este número se usa para el botón WhatsApp del catálogo público.<br/>
+                            🇻🇪 Venezuela: <strong>58</strong> + número · 🇨🇴 Colombia: <strong>57</strong> · 🇲🇽 México: <strong>52</strong>
+                        </p>
                     </div>
                     <div className="grid gap-2 md:col-span-2">
                         <Label htmlFor="bizEmail">Correo Electrónico</Label>

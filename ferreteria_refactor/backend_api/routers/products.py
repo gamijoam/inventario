@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, joinedload, subqueryload
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import subqueryload
 from decimal import Decimal
 from typing import List
 import json
@@ -254,6 +256,9 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
     try:
         # A. Create Base Product
         product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks", "prices"})
+        # Fix: SKU vacío "" → None (evita violación del índice UNIQUE)
+        if 'sku' in product_data and (product_data['sku'] == '' or (product_data['sku'] and str(product_data['sku']).strip() == '')):
+            product_data['sku'] = None
         db_product = models.Product(**product_data)
         db.add(db_product)
         db.flush() # Generate ID
@@ -486,6 +491,10 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     # Capture Current State (Old) for Audit
     old_state = {c.name: getattr(db_product, c.name) for c in db_product.__table__.columns}
 
+    # Fix: SKU vacío "" → None (evita violación del índice UNIQUE ix_products_sku)
+    if 'sku' in update_data and (update_data['sku'] == '' or update_data['sku'] is not None and str(update_data['sku']).strip() == ''):
+        update_data['sku'] = None
+
     # Apply Scalar Updates
     for key, value in update_data.items():
         setattr(db_product, key, value)
@@ -657,7 +666,22 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
         log_action(db, user_id=current_user.id, action="UPDATE", table_name="products", record_id=db_product.id, changes=json.dumps(changes, default=str))
 
     # FINAL COMMIT
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        err = str(e.orig).lower()
+        if 'sku' in err or 'ix_products_sku' in err:
+            raise HTTPException(
+                status_code=400,
+                detail="El SKU ingresado ya está siendo usado por otro producto. Usa un código diferente o déjalo vacío para que se asigne automáticamente."
+            )
+        elif 'unique' in err or 'duplicate' in err:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe un producto con ese valor. Verifica el SKU o el nombre del producto."
+            )
+        raise HTTPException(status_code=500, detail="Error al guardar el producto. Intenta de nuevo.")
 
     # Broadcast
     payload = {
