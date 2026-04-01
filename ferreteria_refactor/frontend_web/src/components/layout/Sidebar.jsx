@@ -155,7 +155,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                             <p className="font-black text-sm text-slate-900 truncate leading-none">
                                 {business?.name || 'Mi Inventario'}
                             </p>
-                            <p className="text-[10px] text-emerald-500 font-bold mt-0.5">✓ v2.1 activo</p>
+                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Sistema de gestión</p>
                         </div>
                     </div>
                 ) : (
