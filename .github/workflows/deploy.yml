@@ -31,10 +31,20 @@ jobs:
         run: npx jest src/__tests__/ --no-coverage --ci
 
       - name: 🔨 Build frontend
-        run: npm run build
+        run: |
+          echo "=== Ambiente ==="
+          node --version && npm --version
+          echo "PWD: $(pwd)"
+          echo "Files: $(ls | tr '
+' ' ')"
+          echo "CI=$CI GITHUB_ACTIONS=$GITHUB_ACTIONS"
+          echo "=== Build ==="
+          npx vite build --logLevel info 2>&1
+          echo "Exit code: $?"
         env:
           VITE_API_URL: https://api.miinventariofacil.com/api/v1
           NODE_OPTIONS: --max-old-space-size=4096
+          CI: "false"
 
       - name: Subir dist como artefacto
         uses: actions/upload-artifact@v4
