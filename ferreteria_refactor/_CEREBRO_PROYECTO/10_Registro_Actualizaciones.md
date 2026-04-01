@@ -1311,3 +1311,37 @@ Panel Admin → Tenant → Features Premium → "Sistema de Comisiones Global" �
 | yamachu | CASHIER | 10% | 0% | (existente) |
 | tecnico1 | CASHIER | 0% | 15% | tecnico123 |
 | admin | ADMIN | 0% | 0% | (existente) |
+
+---
+
+## [2026-04-01] Deploy a Producción — prod-taller-comisiones-20260401
+
+### Contenido del deploy
+Todo el trabajo de la sesión del 31 de Marzo / 1 de Abril 2026:
+- Módulo Taller rediseñado (FASES 1-3 + fixes post-deploy)
+- Sistema de Comisiones Global v2
+- ConfigCenter con sidebar lateral
+- Campo "Aplica Comisión" oculto en ProductForm
+- Guía interactiva de comisiones integrada en la app
+
+### Proceso ejecutado
+1. ✅ Docker login con Access Token desde MCP
+2. ✅ Migración BD: 37 schemas en invensoft_prod
+   - `public.users`: +commission_vendor_pct, +commission_technician_pct
+   - Cada schema: +commission_settings (tabla), +commission_rules (tabla)
+   - Cada schema commission_logs: +commission_role, +voided_at, +sale_id
+3. ✅ Build de 4 imágenes Docker (backend, app, landing, admin-panel)
+4. ✅ Push a DockerHub tag: `prod-taller-comisiones-20260401`
+5. ✅ TAG actualizado en /root/deploy/prod/.env
+6. ✅ Operador ejecutó `docker compose up -d --force-recreate` desde SSH
+7. ✅ Smoke tests: 4 containers up, API health 200, imports OK
+8. ✅ 23 commits pusheados a GitHub
+
+### Aprendizaje crítico del deploy
+- El MCP corre en contenedor propio — credenciales Docker del SSH del host NO son visibles
+- La red interna de prod se llama `prod_prod_internal` (prefijo docker-compose)
+- `docker compose` no está disponible como plugin en el VPS desde el MCP — el paso de restart lo ejecuta el operador desde SSH
+- Ver documento `30_Proceso_Deploy_Produccion.md` para el procedimiento completo
+
+### Tenants en prod al momento del deploy
+37 tenants activos, incluyendo OscarCell (3 locales), La Lavandería, Moto Repuestos, etc.
