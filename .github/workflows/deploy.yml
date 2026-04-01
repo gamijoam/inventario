@@ -66,6 +66,9 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Versión: $VERSION"
 
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Login DockerHub
         uses: docker/login-action@v3
         with:
@@ -87,7 +90,8 @@ jobs:
           file: ferreteria_refactor/frontend_web/Dockerfile.prod
           push: true
           tags: gamijoam/ferreteria-app:${{ steps.version.outputs.version }}
-          build-args: VITE_API_URL=https://api.miinventariofacil.com/api/v1
+          build-args: |
+            VITE_API_URL=https://api.miinventariofacil.com/api/v1
 
       - name: Build y push Landing
         uses: docker/build-push-action@v5
@@ -104,7 +108,8 @@ jobs:
           file: ferreteria_refactor/saas_admin/Dockerfile
           push: true
           tags: gamijoam/ferreteria-admin-panel:${{ steps.version.outputs.version }}
-          build-args: VITE_API_URL=https://api.miinventariofacil.com/api/v1
+          build-args: |
+            VITE_API_URL=https://api.miinventariofacil.com/api/v1
 
       - name: ✅ Notificar build listo — botones Telegram
         if: success()
