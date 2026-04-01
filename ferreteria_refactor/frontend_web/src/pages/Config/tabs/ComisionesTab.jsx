@@ -214,10 +214,11 @@ const ComisionesTab = () => {
                     <h3 className="text-base font-bold text-slate-800 mb-3 flex items-center gap-2">
                         <Zap size={18} className="text-blue-600" /> Módulos activos
                     </h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {[
-                            { key: 'pos_module_enabled', label: 'Ventas POS', icon: <Tag size={20} />, desc: 'Comisión al vendedor por cada venta' },
-                            { key: 'taller_module_enabled', label: 'Taller', icon: <Wrench size={20} />, desc: 'Comisión al técnico por cada servicio' },
+                            { key: 'pos_module_enabled',              label: 'Ventas POS',          icon: <Tag size={20} />,   desc: 'Comisión al vendedor asignado por cada ítem vendido en el POS' },
+                            { key: 'taller_module_enabled',           label: 'Taller — Técnico',    icon: <Wrench size={20} />, desc: 'Comisión al técnico asignado por cada servicio en el taller' },
+                            { key: 'taller_vendor_commission_enabled', label: 'Taller — Vendedor',  icon: <Users size={20} />,  desc: 'Comisión adicional a quien creó/facturó la orden (si es diferente al técnico)' },
                         ].map(m => (
                             <div key={m.key} className={`border-2 rounded-xl p-4 flex items-start justify-between transition-all ${settings[m.key] ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white'}`}>
                                 <div className="flex items-start gap-3">
