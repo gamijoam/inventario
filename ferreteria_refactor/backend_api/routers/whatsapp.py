@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
 # ── Configuración de Evolution API ────────────────────────────
-EVO_URL = "https://evo.miinventariofacil.com"
+EVO_URL = "http://172.18.0.18:8080"  # IP interna Evolution API — red Docker web_publica
 EVO_KEY = "3dae0a60c42c32a42cecbc23e2620802a3797b97e6476aa5d5f1530881ef66af"
 EVO_HEADERS = {"apikey": EVO_KEY, "Content-Type": "application/json"}
 EVO_TIMEOUT = 10
