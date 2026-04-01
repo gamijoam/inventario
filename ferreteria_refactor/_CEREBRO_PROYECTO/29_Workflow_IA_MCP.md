@@ -236,3 +236,49 @@ git_status()
 ```
 
 Si hay cambios sin commitear del trabajo anterior, decide si deben commitearse o descartarse antes de continuar.
+
+---
+
+## ⚠️ REGLA CRÍTICA — Patrón correcto para endpoints con multi-tenant
+
+**Problema descubierto:** hacer `db.commit()` en el medio de un endpoint y luego re-querying causa `UndefinedTable` porque el `search_path` del tenant se pierde al iniciar una nueva transacción implícita post-commit.
+
+**Patrón INCORRECTO (rompe el search_path):**
+```python
+db.add(obj)
+db.commit()
+db.refresh(obj)          # ❌ SELECT falla — search_path perdido
+obj2 = db.query(...).first()  # ❌ mismo problema
+```
+
+**Patrón CORRECTO — flush → query → commit:**
+```python
+db.add(obj)
+db.flush()               # ✅ obtiene ID sin romper search_path
+result_data = build_response(obj)  # ✅ capturar datos antes del commit
+db.commit()              # ✅ siempre AL FINAL
+return result_data       # ✅ no re-query necesario
+```
+
+**Si necesitas relaciones cargadas (joinedload):**
+```python
+db.add(obj)
+db.flush()
+obj_with_rels = db.query(Model).options(joinedload(Model.relation)).filter_by(id=obj.id).first()
+result = serialize(obj_with_rels)  # capturar ANTES del commit
+db.commit()
+return result
+```
+
+**Para updates con relaciones:**
+```python
+obj = db.query(Model).options(joinedload(Model.rel)).filter_by(id=id).first()
+obj.field = new_value
+obj.rel = db.query(Related).filter_by(id=new_rel_id).first()  # cargar en memoria
+db.flush()
+result = serialize(obj)   # capturar con relaciones ya en memoria
+db.commit()
+return result
+```
+
+Esta regla aplica a TODOS los routers del proyecto.
