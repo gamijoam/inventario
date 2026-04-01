@@ -704,28 +704,64 @@ class SalesService:
                     "date": sale_date_iso
                 })
 
-                # WhatsApp — notificar al cliente (aislado para no afectar la venta)
+                # WhatsApp — enviar ticket al cliente directamente vía servicio Baileys
                 if sale_customer_id:
                     try:
                         from sqlalchemy import text as _text
                         from ..tenant_context import get_tenant_schema as _get_schema
+                        import httpx as _httpx
                         _schema = _get_schema()
+
+                        # Obtener datos del cliente y config del negocio
                         _row = db.execute(
                             _text(f'SELECT name, phone FROM "{_schema}".customers WHERE id = :cid'),
                             {"cid": sale_customer_id}
                         ).fetchone()
+
                         if _row and _row[1]:
-                            webhook_service.fire("sale.completed", _schema, {
-                                "sale_id":        new_sale_id,
-                                "customer_name":  _row[0],
-                                "customer_phone": _row[1],
-                                "total":          float(sale_total_amount),
-                                "currency":       sale_currency,
-                                "payment_method": sale_payment_method,
-                            })
+                            _name, _phone = _row[0], _row[1]
+
+                            # Verificar que WhatsApp está conectado
+                            _inst_row = db.execute(
+                                _text(f'SELECT value FROM "{_schema}".business_config WHERE key=''whatsapp_instance_name'''),
+                            ).fetchone()
+                            _stat_row = db.execute(
+                                _text(f'SELECT value FROM "{_schema}".business_config WHERE key=''whatsapp_instance_status'''),
+                            ).fetchone()
+                            _notify_row = db.execute(
+                                _text(f'SELECT value FROM "{_schema}".business_config WHERE key=''whatsapp_notify_sale'''),
+                            ).fetchone()
+
+                            _inst   = _inst_row[0] if _inst_row else ""
+                            _status = _stat_row[0] if _stat_row else ""
+                            _notify = (_notify_row[0] if _notify_row else "true") == "true"
+
+                            if _inst and _status == "CONNECTED" and _notify:
+                                # Obtener nombre del negocio
+                                _biz_row = db.execute(
+                                    _text(f'SELECT value FROM "{_schema}".business_config WHERE key=''business_name'''),
+                                ).fetchone()
+                                _biz_name = _biz_row[0] if _biz_row else "Mi Inventario"
+
+                                _clean_phone = "".join(c for c in _phone if c.isdigit())
+                                _msg = (
+                                    f"🧾 *{_biz_name}*\n"
+                                    f"¡Gracias por tu compra, {_name}!\n\n"
+                                    f"📋 Venta #{new_sale_id}\n"
+                                    f"💵 Total: {sale_currency} {float(sale_total_amount):,.2f}\n"
+                                    f"✅ Pago: {sale_payment_method}\n\n"
+                                    f"¡Gracias por preferirnos! 😊"
+                                )
+                                # httpx síncrono — no bloquea significativamente (timeout 5s)
+                                with _httpx.Client(timeout=5) as _c:
+                                    _c.post(
+                                        f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                        json={"phone": _clean_phone, "message": _msg}
+                                    )
+
                     except Exception as _wa_err:
                         import logging as _log
-                        _log.getLogger(__name__).warning(f"[WA] Notificación venta falló (no afecta la venta): {_wa_err}")
+                        _log.getLogger(__name__).warning(f"[WA] Ticket venta falló (no afecta la venta): {_wa_err}")
                 
                 # AUTO-PRINT TICKET
                 # REMOVED: Server-side printing is incompatible with SaaS architecture.
