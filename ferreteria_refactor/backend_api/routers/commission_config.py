@@ -70,8 +70,7 @@ def _get_or_create_settings(db: Session) -> models.CommissionSettings:
     if not s:
         s = models.CommissionSettings(global_enabled=False)
         db.add(s)
-        db.commit()
-        db.refresh(s)
+        db.flush()  # NO commit — evita perder search_path del tenant
     return s
 
 # ── Settings ───────────────────────────────────────────────────────────────
@@ -99,7 +98,7 @@ def update_settings(
     if data.strict_mode is not None:
         s.strict_mode = data.strict_mode
     db.commit()
-    db.refresh(s)
+    # No refresh — expire_on_commit=False mantiene los valores actualizados
     return s
 
 # ── Rules ──────────────────────────────────────────────────────────────────
@@ -142,7 +141,9 @@ def create_rule(
     )
     db.add(rule)
     db.commit()
-    db.refresh(rule)
+    # Re-query limpio para obtener relaciones sin depender de lazy load post-commit
+    rule_id_created = rule.id
+    rule = db.query(models.CommissionRule).filter(models.CommissionRule.id == rule_id_created).first()
     cat_name = rule.category.name if rule.category else None
     return CommissionRuleRead(
         id=rule.id, name=rule.name, category_id=rule.category_id,
@@ -170,7 +171,8 @@ def update_rule(
     if data.priority is not None: rule.priority = data.priority
 
     db.commit()
-    db.refresh(rule)
+    rule_id_updated = rule.id
+    rule = db.query(models.CommissionRule).filter(models.CommissionRule.id == rule_id_updated).first()
     cat_name = rule.category.name if rule.category else None
     return CommissionRuleRead(
         id=rule.id, name=rule.name, category_id=rule.category_id,
