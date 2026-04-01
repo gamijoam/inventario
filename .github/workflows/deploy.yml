@@ -5,158 +5,70 @@ on:
     branches: [main]
 
 jobs:
-  # ─────────────────────────────────────────────
-  # JOB 1: Tests + Build frontend
-  # ─────────────────────────────────────────────
-  frontend:
-    name: 🎨 Frontend
+  deploy:
+    name: 🔨 Build en VPS + notificar Telegram
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ferreteria_refactor/frontend_web
+
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: Conectar al VPS y ejecutar build
+        uses: appleboy/ssh-action@v1
         with:
-          node-version: '22'
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          command_timeout: 30m
+          script: |
+            # Obtener descripción del último commit
+            cd /root/deploy/qa/code
+            git pull origin main
+            DESC=$(git log -1 --pretty=%s | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30 | sed 's/-*$//')
+            VERSION="prod-${DESC}-$(date +%Y%m%d%H%M)"
 
-      - name: Instalar dependencias
-        run: npm install --legacy-peer-deps
+            echo "🔨 Iniciando build: $VERSION"
 
-      - name: 🧪 Tests
-        run: npx jest src/__tests__/ --no-coverage --ci
+            # Guardar rollback TAG
+            OLD_TAG=$(grep "^TAG=" /root/deploy/prod/.env | cut -d= -f2)
+            echo "$OLD_TAG" > /tmp/rollback_tag.txt
 
-      - name: 🔨 Build
-        run: npx vite build
-        env:
-          VITE_API_URL: https://api.miinventariofacil.com/api/v1
-          NODE_OPTIONS: --max-old-space-size=4096
+            # Build de las 4 imágenes
+            cd /root/deploy/qa/code
 
-      - name: Subir dist
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: ferreteria_refactor/frontend_web/dist
-          retention-days: 1
+            echo "Building backend..."
+            docker build --network host \
+              -f ferreteria_refactor/backend_api/Dockerfile \
+              -t gamijoam/ferreteria-backend:$VERSION \
+              . > /tmp/build.log 2>&1 || { echo "Backend FALLÓ"; cat /tmp/build.log | tail -20; exit 1; }
 
-      - name: ❌ Notificar fallo
-        if: failure()
-        env:
-          BOT_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          python3 -c "
-          import json,urllib.request,os
-          t=os.environ.get('BOT_TOKEN','')
-          c=os.environ.get('CHAT_ID','')
-          if not t or not c: print('Secretos vacios'); exit()
-          d=json.dumps({'chat_id':c,'text':'\u274c *Frontend fallido*\nhttps://github.com/gamijoam/inventario/actions','parse_mode':'Markdown'}).encode()
-          r=json.loads(urllib.request.urlopen(urllib.request.Request('https://api.telegram.org/bot'+t+'/sendMessage',d,{'Content-Type':'application/json'}),timeout=10).read())
-          print('OK' if r.get('ok') else r)
-          "
+            echo "Building frontend..."
+            docker build --network host \
+              --build-arg VITE_API_URL="https://api.miinventariofacil.com/api/v1" \
+              -f ferreteria_refactor/frontend_web/Dockerfile.prod \
+              -t gamijoam/ferreteria-app:$VERSION \
+              ferreteria_refactor/frontend_web >> /tmp/build.log 2>&1 || { echo "Frontend FALLÓ"; cat /tmp/build.log | tail -20; exit 1; }
 
-  # ─────────────────────────────────────────────
-  # JOB 2: Build y push imágenes Docker
-  # ─────────────────────────────────────────────
-  build:
-    name: 🔨 Docker Images
-    runs-on: ubuntu-latest
-    needs: frontend
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
+            echo "Building landing..."
+            docker build --network host \
+              --build-arg VITE_API_URL="https://api.miinventariofacil.com/api/v1" \
+              -t gamijoam/ferreteria-landing:$VERSION \
+              landing_page >> /tmp/build.log 2>&1 || { echo "Landing FALLÓ"; exit 1; }
 
-      - name: Descargar dist frontend
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: ferreteria_refactor/frontend_web/dist
+            echo "Building admin panel..."
+            docker build --network host \
+              --build-arg VITE_API_URL="https://api.miinventariofacil.com/api/v1" \
+              -f ferreteria_refactor/saas_admin/Dockerfile \
+              -t gamijoam/ferreteria-admin-panel:$VERSION \
+              ferreteria_refactor/saas_admin >> /tmp/build.log 2>&1 || { echo "Admin FALLÓ"; exit 1; }
 
-      - name: Versión
-        id: version
-        run: |
-          DESC=$(git log -1 --pretty=%s | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30 | sed 's/-*$//')
-          echo "version=prod-${DESC}-$(date +%Y%m%d%H%M)" >> $GITHUB_OUTPUT
+            # Push a DockerHub
+            echo "Subiendo imágenes a DockerHub..."
+            for img in ferreteria-backend ferreteria-app ferreteria-landing ferreteria-admin-panel; do
+              docker push gamijoam/$img:$VERSION >> /tmp/build.log 2>&1 || { echo "Push $img FALLÓ"; exit 1; }
+            done
 
-      - uses: docker/login-action@v3
-        with:
-          username: gamijoam
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+            # Guardar versión para el bot
+            echo "$VERSION" > /tmp/pending_deploy_version.txt
 
-      - name: 🐍 Backend
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ferreteria_refactor/backend_api/Dockerfile
-          push: true
-          tags: gamijoam/ferreteria-backend:${{ steps.version.outputs.version }}
+            # Notificar en Telegram con botones de aprobación
+            python3 /root/deploy/notify_build_ready.py "$VERSION"
 
-      - name: 🎨 Frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ferreteria_refactor/frontend_web
-          file: ferreteria_refactor/frontend_web/Dockerfile.ci
-          push: true
-          tags: gamijoam/ferreteria-app:${{ steps.version.outputs.version }}
-
-      - name: 🌐 Landing
-        uses: docker/build-push-action@v5
-        with:
-          context: landing_page
-          push: true
-          tags: gamijoam/ferreteria-landing:${{ steps.version.outputs.version }}
-          build-args: VITE_API_URL=https://api.miinventariofacil.com/api/v1
-
-      - name: 🔧 Admin Panel
-        uses: docker/build-push-action@v5
-        with:
-          context: ferreteria_refactor/saas_admin
-          file: ferreteria_refactor/saas_admin/Dockerfile
-          push: true
-          tags: gamijoam/ferreteria-admin-panel:${{ steps.version.outputs.version }}
-          build-args: VITE_API_URL=https://api.miinventariofacil.com/api/v1
-
-      - name: ✅ Listo — Telegram
-        if: success()
-        env:
-          BOT_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          python3 -c "
-          import json,urllib.request,os
-          t=os.environ.get('BOT_TOKEN','')
-          c=os.environ.get('CHAT_ID','')
-          v=os.environ.get('VERSION','')
-          if not t or not c: print('Secretos vacios'); exit()
-          payload={
-            'chat_id':c,'parse_mode':'Markdown',
-            'text':f'\U0001f528 *Build listo*\n\nVersion: \`{v}\`\n\n\u00bfDesplegar a producci\u00f3n?',
-            'reply_markup':{'inline_keyboard':[[
-              {'text':'\u2705 Aprobar','callback_data':f'approve:{v}'},
-              {'text':'\u274c Cancelar','callback_data':f'cancel:{v}'}
-            ]]}
-          }
-          d=json.dumps(payload).encode()
-          r=json.loads(urllib.request.urlopen(urllib.request.Request('https://api.telegram.org/bot'+t+'/sendMessage',d,{'Content-Type':'application/json'}),timeout=10).read())
-          print('Botones enviados' if r.get('ok') else r)
-          "
-
-      - name: ❌ Falló — Telegram
-        if: failure()
-        env:
-          BOT_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          python3 -c "
-          import json,urllib.request,os
-          t=os.environ.get('BOT_TOKEN','')
-          c=os.environ.get('CHAT_ID','')
-          if not t or not c: print('Secretos vacios'); exit()
-          d=json.dumps({'chat_id':c,'text':'\u274c *Build Docker fallido*\nhttps://github.com/gamijoam/inventario/actions','parse_mode':'Markdown'}).encode()
-          r=json.loads(urllib.request.urlopen(urllib.request.Request('https://api.telegram.org/bot'+t+'/sendMessage',d,{'Content-Type':'application/json'}),timeout=10).read())
-          print('OK' if r.get('ok') else r)
-          "
+            echo "✅ Build completo: $VERSION"
