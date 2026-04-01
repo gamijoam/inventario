@@ -160,7 +160,15 @@ class CommissionEngine:
         subtotal = Decimal(str(sale_detail.subtotal))
         tech_pct = Decimal(str(technician.commission_technician_pct or 0))
 
-        pct = self._get_percentage(category_id, "TALLER", tech_pct)
+        # TALLER: los ítems manuales (mano de obra) no tienen categoría.
+        # Para el rol TÉCNICO, si no hay categoría pero el técnico tiene %
+        # configurado, se usa ese % directamente — el trabajo existe aunque
+        # el ítem sea "genérico". El modo estricto aplica solo a VENDEDOR en POS.
+        if category_id is None:
+            pct = tech_pct if tech_pct > 0 else None
+        else:
+            pct = self._get_percentage(category_id, "TALLER", tech_pct)
+
         if not pct:
             return None
 
