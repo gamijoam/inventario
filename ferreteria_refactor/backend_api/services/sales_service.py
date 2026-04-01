@@ -704,25 +704,28 @@ class SalesService:
                     "date": sale_date_iso
                 })
 
-                # WhatsApp webhook — notificar al cliente si tiene teléfono
+                # WhatsApp — notificar al cliente (aislado para no afectar la venta)
                 if sale_customer_id:
-                    customer = db.query(models.Customer).filter(
-                        models.Customer.id == sale_customer_id
-                    ).first()
-                    if customer and customer.phone:
-                        tenant_id = db.info.get("tenant_id", "public")
-                        webhook_service.fire("sale.completed", tenant_id, {
-                            "sale_id":        new_sale_id,
-                            "customer_name":  customer.name,
-                            "customer_phone": customer.phone,
-                            "total":          float(sale_total_amount),
-                            "currency":       sale_currency,
-                            "payment_method": sale_payment_method,
-                            "items":          [
-                                {"name": d.get("product_name",""), "qty": float(d.get("quantity",1)), "price": float(d.get("unit_price",0))}
-                                for d in sale_details_for_broadcast[:5]
-                            ] if sale_details_for_broadcast else [],
-                        })
+                    try:
+                        from sqlalchemy import text as _text
+                        from ..tenant_context import get_tenant_schema as _get_schema
+                        _schema = _get_schema()
+                        _row = db.execute(
+                            _text(f'SELECT name, phone FROM "{_schema}".customers WHERE id = :cid'),
+                            {"cid": sale_customer_id}
+                        ).fetchone()
+                        if _row and _row[1]:
+                            webhook_service.fire("sale.completed", _schema, {
+                                "sale_id":        new_sale_id,
+                                "customer_name":  _row[0],
+                                "customer_phone": _row[1],
+                                "total":          float(sale_total_amount),
+                                "currency":       sale_currency,
+                                "payment_method": sale_payment_method,
+                            })
+                    except Exception as _wa_err:
+                        import logging as _log
+                        _log.getLogger(__name__).warning(f"[WA] Notificación venta falló (no afecta la venta): {_wa_err}")
                 
                 # AUTO-PRINT TICKET
                 # REMOVED: Server-side printing is incompatible with SaaS architecture.

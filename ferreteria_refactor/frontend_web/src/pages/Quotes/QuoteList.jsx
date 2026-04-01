@@ -191,12 +191,18 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
                         ))}
                     </div>
 
-                    {/* Buscador */}
-                    <div className="relative flex-1 sm:max-w-xs ml-auto">
-                        <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
-                        <input type="text" placeholder="Buscar por cliente o #..."
-                            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-                            value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    {/* Buscador + Botón Nueva Cotización */}
+                    <div className="flex items-center gap-2 flex-1 sm:max-w-sm ml-auto">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-2.5 text-slate-400" size={15} />
+                            <input type="text" placeholder="Buscar por cliente o #..."
+                                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                                value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        </div>
+                        <button onClick={onCreateNew}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm whitespace-nowrap shrink-0">
+                            <Plus size={15} /> Nueva
+                        </button>
                     </div>
                 </div>
             </div>
