@@ -226,6 +226,17 @@ const Suppliers = () => {
                             ))
                         )}
                     </tbody>
+                {suppliers?.length === 0 && !loading && (
+                    <tr>
+                        <td colSpan="10" className="py-16 text-center">
+                            <div className="flex flex-col items-center gap-2 text-slate-400">
+                                <span className="text-4xl">🏭</span>
+                                <p className="font-semibold text-slate-600">No hay proveedores registrados</p>
+                                <p className="text-sm">Agrega tu primer proveedor para comenzar</p>
+                            </div>
+                        </td>
+                    </tr>
+                )}
                 </table>
             </div>
 

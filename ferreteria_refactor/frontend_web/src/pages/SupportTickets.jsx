@@ -178,7 +178,16 @@ const SupportTickets = () => {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {tickets.map((ticket) => (
+                            {tickets.length === 0 && !loading && (
+                <div className="col-span-full py-20 text-center">
+                    <div className="flex flex-col items-center gap-3 text-slate-400">
+                        <span className="text-5xl">🎫</span>
+                        <p className="font-bold text-slate-600 text-lg">Sin tickets de soporte</p>
+                        <p className="text-sm">Cuando necesites ayuda, crea un ticket aquí</p>
+                    </div>
+                </div>
+            )}
+            {tickets.map((ticket) => (
                                 <div
                                     key={ticket.id}
                                     className={clsx(
