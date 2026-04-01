@@ -1,3 +1,11 @@
+# ~~32 — WhatsApp Business: Evolution API + n8n~~ [DEPRECATED]
+
+> ⚠️ **DEPRECADO** — Este documento describe la arquitectura original con Evolution API + n8n.  
+> **Ver el documento actualizado:** `32_WhatsApp_Baileys.md`  
+> La implementación actual usa un servicio Baileys propio sin Evolution API ni n8n.
+
+---
+
 # 32 — WhatsApp Business: Evolution API + n8n
 
 > **Creado:** 2026-04-01  

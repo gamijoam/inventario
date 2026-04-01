@@ -1345,3 +1345,51 @@ Todo el trabajo de la sesión del 31 de Marzo / 1 de Abril 2026:
 
 ### Tenants en prod al momento del deploy
 37 tenants activos, incluyendo OscarCell (3 locales), La Lavandería, Moto Repuestos, etc.
+
+---
+
+## 2026-04-01 — Integración WhatsApp Business (Baileys Propio)
+
+**Rama:** `feature/customer-360-whatsapp`  
+**Estado:** ✅ Completo en QA — pendiente merge a prod
+
+### Lo implementado
+
+**Infraestructura:**
+- Servicio WhatsApp propio con Baileys (`/root/deploy/whatsapp-service/`) — imagen `mi-inventario-whatsapp:1.1`
+- Sin Evolution API, sin n8n — Baileys directo reduce latencia y elimina dependencias externas
+
+**Backend:**
+- `routers/whatsapp.py` — 7 endpoints (config, QR, status, connect, disconnect, test, plantillas)
+- `routers/quotes.py` — endpoint `/quotes/{id}/send-whatsapp` genera PDF con ReportLab y lo envía
+- `services/sales_service.py` — ticket de venta automático al cliente (Bs real, vuelto, plantilla)
+- `routers/services.py` — notificación taller listo con plantilla configurable
+- SQL con schema explícito en todas las queries de business_config (fix bug search_path SQLAlchemy)
+
+**Frontend:**
+- `Config/tabs/WhatsAppTab.jsx` — 3 estados (desconectado/QR/conectado), polling automático, barra progreso QR
+- Editor de 3 plantillas con variables dinámicas, guardado automático
+- `Quotes/QuoteList.jsx` — botón WhatsApp (PDF) en cada cotización, botón "Nueva" siempre visible
+
+**Notificaciones automáticas:**
+- Venta completada → ticket con moneda real (Bs/USD/mixto), vuelto, sin tasa de cambio
+- Equipo listo en taller → mensaje con equipo, número de orden, total pendiente
+- Cotización → PDF profesional (ReportLab) enviado como documento
+
+**Fixes críticos en esta sesión:**
+- Venta con cliente fallaba: query ORM sin search_path → SQL explícito + try/except aislado
+- Botón "Nueva Cotización" solo aparecía sin cotizaciones → movido al header siempre visible
+- `NameError webhook_service` en taller → eliminado, reemplazado con httpx directo
+- `NameError sale_payments_snapshot` en ventas → variables definidas en scope correcto
+- SQL `WHERE key=''nombre''` → comillas Python mal escapadas → corregido con `IN (...)`
+- `None != "true"` para toggles → cambio a `!= "false"`
+
+### Archivos nuevos
+```
+ferreteria_refactor/backend_api/routers/whatsapp.py
+/root/deploy/whatsapp-service/server.js
+/root/deploy/whatsapp-service/Dockerfile
+/root/deploy/whatsapp-service/package.json
+src/pages/Config/tabs/WhatsAppTab.jsx
+_CEREBRO_PROYECTO/32_WhatsApp_Baileys.md
+```
