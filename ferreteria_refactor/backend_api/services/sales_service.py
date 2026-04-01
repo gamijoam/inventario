@@ -721,27 +721,22 @@ class SalesService:
                         if _row and _row[1]:
                             _name, _phone = _row[0], _row[1]
 
-                            # Verificar que WhatsApp está conectado
-                            _inst_row = db.execute(
-                                _text(f'SELECT value FROM "{_schema}".business_config WHERE key=''whatsapp_instance_name'''),
-                            ).fetchone()
-                            _stat_row = db.execute(
-                                _text(f'SELECT value FROM "{_schema}".business_config WHERE key=''whatsapp_instance_status'''),
-                            ).fetchone()
-                            _notify_row = db.execute(
-                                _text(f'SELECT value FROM "{_schema}".business_config WHERE key=''whatsapp_notify_sale'''),
-                            ).fetchone()
-
-                            _inst   = _inst_row[0] if _inst_row else ""
-                            _status = _stat_row[0] if _stat_row else ""
-                            _notify = (_notify_row[0] if _notify_row else "true") == "true"
+                            # Verificar config WhatsApp en una sola query
+                            _wa_rows = db.execute(
+                                _text(
+                                    f"SELECT key, value FROM \"{_schema}\".business_config "
+                                    "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                                    "'whatsapp_notify_sale','business_name')"
+                                )
+                            ).fetchall()
+                            _wa_cfg = {r[0]: r[1] for r in _wa_rows}
+                            _inst   = _wa_cfg.get("whatsapp_instance_name", "")
+                            _status = _wa_cfg.get("whatsapp_instance_status", "")
+                            _notify = _wa_cfg.get("whatsapp_notify_sale") != "false"  # None o "true" = habilitado
 
                             if _inst and _status == "CONNECTED" and _notify:
                                 # Obtener nombre del negocio
-                                _biz_row = db.execute(
-                                    _text(f'SELECT value FROM "{_schema}".business_config WHERE key=''business_name'''),
-                                ).fetchone()
-                                _biz_name = _biz_row[0] if _biz_row else "Mi Inventario"
+                                _biz_name = _wa_cfg.get("business_name") or "Mi Inventario"
 
                                 _clean_phone = "".join(c for c in _phone if c.isdigit())
                                 _msg = (
