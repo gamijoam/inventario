@@ -555,7 +555,9 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False) # Login ID
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)  # NEW: Superuser flag for admin panel
-    commission_percentage = Column(Numeric(5, 2), default=0.00) # NEW: Commission %
+    commission_percentage = Column(Numeric(5, 2), default=0.00)     # LEGACY — kept for compatibility
+    commission_vendor_pct = Column(Numeric(5, 2), default=0.00)       # % que gana como VENDEDOR (POS)
+    commission_technician_pct = Column(Numeric(5, 2), default=0.00)   # % que gana como TÉCNICO (Taller)
     
     # User Preferences (Theme, shortcuts, etc.)
     preferences = Column(JSON, default={}, nullable=True) # NEW: JSON Configuration
@@ -599,11 +601,56 @@ class CommissionLog(Base):
     paid_at = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)
 
+    # v2 — Commission Engine
+    commission_role = Column(String, default="VENDOR")          # VENDOR | TECHNICIAN
+    voided_at = Column(DateTime, nullable=True)                  # Fecha anulación (si aplica)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=True)  # Link directo a venta
+
     user = relationship("User")
     sale_detail = relationship("SaleDetail")
 
     def __repr__(self):
         return f"<CommissionLog(user={self.user_id}, amount={self.amount}, status='{self.status}')>"
+
+
+class CommissionSettings(Base):
+    """
+    Configuración de comisiones por tenant.
+    Una sola fila por tenant. Se crea automáticamente al primer acceso.
+    """
+    __tablename__ = "commission_settings"
+
+    id = Column(Integer, primary_key=True)
+    global_enabled = Column(Boolean, default=False)           # Master ON/OFF
+    pos_module_enabled = Column(Boolean, default=True)        # POS activo
+    taller_module_enabled = Column(Boolean, default=True)     # Taller activo
+    strict_mode = Column(Boolean, default=True)               # Sin categoría = sin comisión
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=get_venezuela_now)
+
+    def __repr__(self):
+        return f"<CommissionSettings(global={self.global_enabled})>"
+
+
+class CommissionRule(Base):
+    """
+    Reglas de comisión por categoría de producto.
+    Permiten % específico por categoría que sobrescriben el % del usuario.
+    """
+    __tablename__ = "commission_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)                     # "Celulares 10%"
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    module = Column(String, nullable=True)                    # 'POS' | 'TALLER' | None = ambos
+    percentage = Column(Numeric(5, 2), nullable=False)
+    is_active = Column(Boolean, default=True)
+    priority = Column(Integer, default=0)                     # Mayor = gana sobre otras
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    category = relationship("Category")
+
+    def __repr__(self):
+        return f"<CommissionRule(cat={self.category_id}, pct={self.percentage})>"
 
 class Return(Base):
     __tablename__ = "returns"

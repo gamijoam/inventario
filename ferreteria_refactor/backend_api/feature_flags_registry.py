@@ -29,6 +29,11 @@ REGISTRY: dict[str, dict] = {
         "description": "Permite al cajero modificar el precio unitario de cualquier producto en el carrito y editar el total final, sin requerir autorización adicional.",
         "category": "pos",
     },
+    "sistema_comisiones": {
+        "label": "Sistema de Comisiones Global",
+        "description": "Habilita el panel de configuración de comisiones para vendedores y técnicos. Aplica a ventas POS y Taller con reglas por categoría.",
+        "category": "ventas",
+    },
     "impresion_factura_a4": {
         "label": "Impresión factura A4 (impresora normal)",
         "description": "Habilita botón 'Imprimir Factura' en A4/Carta al finalizar venta. Para clientes con impresora de hoja normal en lugar de térmica.",
