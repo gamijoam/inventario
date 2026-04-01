@@ -35,10 +35,18 @@ jobs:
         run: npx jest src/__tests__/ --no-coverage --ci
 
       - name: 🔨 Build frontend
-        run: npm run build
+        run: |
+          echo "Node: $(node --version)"
+          echo "NPM: $(npm --version)"
+          echo "CI=$CI"
+          npm run build 2>&1 || {
+            echo "=== BUILD FAILED ==="
+            exit 1
+          }
         env:
           VITE_API_URL: https://api.miinventariofacil.com/api/v1
           NODE_OPTIONS: --max-old-space-size=4096
+          CI: ""
 
       - name: Subir dist como artefacto
         uses: actions/upload-artifact@v4
