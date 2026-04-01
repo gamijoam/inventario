@@ -13,6 +13,7 @@ const ImpresorasTab = React.lazy(() => import('./tabs/ImpresorasTab'));
 const GarantiasConfigTab = React.lazy(() => import('./tabs/GarantiasConfigTab'));
 const AuditoriaTab = React.lazy(() => import('./tabs/AuditoriaTab'));
 const EstacionPOSTab = React.lazy(() => import('./tabs/EstacionPOSTab'));
+const ComisionesTab = React.lazy(() => import('./tabs/ComisionesTab'));
 
 // --- Tab descriptions ---
 const TAB_DESCRIPTIONS = {
@@ -38,6 +39,7 @@ const TABS = [
     { id: 'garantias', label: 'Políticas de Garantía', icon: ShieldCheck },
     { id: 'auditoria', label: 'Auditoría', icon: ClipboardList },
     { id: 'pos', label: 'Estación POS', icon: Monitor },
+    { id: 'comisiones', label: 'Comisiones', icon: DollarSign },
 ];
 
 // --- Loading spinner for Suspense ---
@@ -127,6 +129,12 @@ const ConfigCenter = () => {
                 return (
                     <Suspense fallback={<TabSpinner />}>
                         <EstacionPOSTab />
+                    </Suspense>
+                );
+            case 'comisiones':
+                return (
+                    <Suspense fallback={<TabSpinner />}>
+                        <ComisionesTab />
                     </Suspense>
                 );
             default: {

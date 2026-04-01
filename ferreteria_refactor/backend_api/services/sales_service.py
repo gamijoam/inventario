@@ -18,6 +18,8 @@ from ..template_presets import (
     get_services_sale_80_template,
 )
 from ..audit_utils import log_action
+from ..commission_engine import CommissionEngine
+from ..models.tenant import Tenant
 
 # DUPLICATED HELPER due to circular import risks if we try to import from routers
 def run_broadcast(event: str, data: dict):
@@ -45,7 +47,16 @@ class SalesService:
     def create_sale(db: Session, sale_data: schemas.SaleCreate, user_id: int, background_tasks: BackgroundTasks = None):
         try:
             updated_products_info = []
-            
+
+            # ── Commission Engine: cargar feature flags del tenant ──────────
+            _user_obj = db.query(models.User).filter(models.User.id == user_id).first()
+            _tenant_flags = {}
+            if _user_obj and _user_obj.tenant_id:
+                _tenant = db.query(Tenant).filter(Tenant.id == _user_obj.tenant_id).first()
+                _tenant_flags = _tenant.feature_flags or {} if _tenant else {}
+            commission_engine = CommissionEngine(db, _tenant_flags)
+            # ────────────────────────────────────────────────────────────────
+
             # Credit Validation for Credit Sales
             if sale_data.is_credit and sale_data.customer_id:
                 customer = db.query(models.Customer).filter(models.Customer.id == sale_data.customer_id).first()
@@ -559,20 +570,19 @@ class SalesService:
                         )
                         db.add(sdi)
 
-                # AUTO-COMMISSION: Based on logged-in user's rate and product flag
-                if product.is_commissionable and user_id:
-                    salesperson = db.query(models.User).filter(models.User.id == user_id).first()
-                    if salesperson and salesperson.commission_percentage and salesperson.commission_percentage > 0:
-                        commission_amount = subtotal * (salesperson.commission_percentage / 100)
-                        if commission_amount > 0:
-                            comm_log = models.CommissionLog(
-                                user_id=salesperson.id,
-                                sale_detail_id=detail.id,
-                                amount=commission_amount,
-                                currency=new_sale.currency,
-                                percentage_applied=salesperson.commission_percentage
-                            )
-                            db.add(comm_log)
+                # ── COMMISSION ENGINE v2 ────────────────────────────────────
+                # Usa salesperson_id del ítem (no el usuario logueado)
+                # Jerarquía: regla de categoría > % del usuario > sin comisión
+                _sp_id = getattr(item, 'salesperson_id', None) or user_id
+                if _sp_id:
+                    _salesperson = db.query(models.User).filter(models.User.id == _sp_id).first()
+                    if _salesperson:
+                        commission_engine.record_vendor_commission(
+                            sale_id=new_sale.id,
+                            detail=detail,
+                            salesperson=_salesperson,
+                        )
+                # ────────────────────────────────────────────────────────────
         
             # 3. Process Payments (New Multi-Payment Logic)
             if sale_data.payments:
