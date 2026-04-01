@@ -445,7 +445,7 @@ const CustomerManager = () => {
                                     <div className="flex items-center gap-2">
                                         <button
                                             onClick={() => setShow360(true)}
-                                            className="flex items-center gap-2 px-3 py-2 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold transition-all border border-white/20"
+                                            className="flex items-center gap-2 px-3 py-2 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-900/40"
                                         >
                                             <Zap size={14} />
                                             Vista 360°
