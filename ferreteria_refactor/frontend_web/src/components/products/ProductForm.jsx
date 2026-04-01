@@ -1021,6 +1021,30 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 <p className="text-[11px] text-slate-500 mt-0.5">El POS solicitará confirmación antes de agregar al carrito.</p>
                                             </div>
                                         </div>
+
+                                        {/* Destacar en catálogo público */}
+                                        <div className="flex items-start gap-3 pt-3 border-t border-slate-100">
+                                            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                                                <span className="text-base">⭐</span>
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <Label htmlFor="featured" className="text-sm font-bold text-slate-800 cursor-pointer">Destacar en catálogo público</Label>
+                                                    <input
+                                                        type="checkbox"
+                                                        id="featured"
+                                                        checked={formData.featured || false}
+                                                        onChange={(e) => setFormData(p => ({ ...p, featured: e.target.checked }))}
+                                                        className="sr-only peer"
+                                                    />
+                                                    <div
+                                                        onClick={() => setFormData(p => ({ ...p, featured: !p.featured }))}
+                                                        className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400 peer-checked:after:translate-x-5"
+                                                    ></div>
+                                                </div>
+                                                <p className="text-[11px] text-slate-500 mt-0.5">Aparece primero en el catálogo con una etiqueta dorada ⭐.</p>
+                                            </div>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             )}
