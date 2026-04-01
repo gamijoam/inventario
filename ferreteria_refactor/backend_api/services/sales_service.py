@@ -212,6 +212,15 @@ class SalesService:
             sale_payment_method = new_sale.payment_method
             sale_customer_id = new_sale.customer_id
             sale_date_iso = current_time.isoformat()
+            sale_change_amount   = float(new_sale.change_amount)   if new_sale.change_amount   else 0.0
+            sale_change_currency = new_sale.change_currency or ""
+            sale_exchange_rate   = float(new_sale.exchange_rate_used) if new_sale.exchange_rate_used else 1.0
+            sale_total_bs        = float(new_sale.total_amount_bs) if new_sale.total_amount_bs else 0.0
+            # Snapshot de pagos para el ticket WhatsApp (sale_data disponible aquí)
+            sale_payments_snapshot = [
+                {"currency": p.currency, "amount": float(p.amount)}
+                for p in (sale_data.payments or [])
+            ]
 
             # Update Quote Status if this sale comes from a quote
             if sale_data.quote_id:
