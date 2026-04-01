@@ -739,12 +739,59 @@ class SalesService:
                                 _biz_name = _wa_cfg.get("business_name") or "Mi Inventario"
 
                                 _clean_phone = "".join(c for c in _phone if c.isdigit())
+
+                                # Construir líneas de pago con moneda real
+                                _pay_lines = []
+                                for _p in sale_payments_snapshot:
+                                    _cur = _p["currency"]
+                                    _amt = _p["amount"]
+                                    # Si pagó en bolívares mostrar Bs, si en USD mostrar $
+                                    if _cur in ("VES", "Bs", "BS", "BsF"):
+                                        _pay_lines.append(f"  💳 Bs {_amt:,.2f}")
+                                    elif _cur in ("USD", "$"):
+                                        _pay_lines.append(f"  💵 $ {_amt:,.2f}")
+                                    else:
+                                        _pay_lines.append(f"  💰 {_cur} {_amt:,.2f}")
+
+                                if not _pay_lines:
+                                    # Fallback: mostrar el total en la moneda correcta
+                                    if sale_currency in ("VES", "Bs", "BS"):
+                                        _pay_lines = [f"  💳 Bs {sale_total_bs:,.2f}"]
+                                    else:
+                                        _pay_lines = [f"  💵 $ {sale_total_amount:,.2f}"]
+
+                                _pay_str = "\n".join(_pay_lines)
+
+                                # Línea de total según moneda de la venta
+                                if sale_currency in ("VES", "Bs", "BS", "BsF"):
+                                    _total_str = f"Bs {sale_total_bs:,.2f}"
+                                else:
+                                    _total_str = f"$ {sale_total_amount:,.2f}"
+
+                                # Vuelto
+                                _change_str = ""
+                                if sale_change_amount and sale_change_amount > 0.005:
+                                    if sale_change_currency in ("VES", "Bs", "BS", "BsF"):
+                                        _change_str = f"\n🔄 Vuelto: Bs {sale_change_amount:,.2f}"
+                                    elif sale_change_currency in ("USD", "$"):
+                                        _change_str = f"\n🔄 Vuelto: $ {sale_change_amount:,.2f}"
+                                    else:
+                                        _change_str = f"\n🔄 Vuelto: {sale_change_amount:,.2f}"
+
+                                # Tasa de cambio (mostrar solo si la venta es en Bs o hay pagos mixtos)
+                                _rate_str = ""
+                                if sale_exchange_rate and sale_exchange_rate > 1:
+                                    _rate_str = f"\n📊 Tasa: Bs {sale_exchange_rate:,.2f}"
+
                                 _msg = (
                                     f"🧾 *{_biz_name}*\n"
                                     f"¡Gracias por tu compra, {_name}!\n\n"
-                                    f"📋 Venta #{new_sale_id}\n"
-                                    f"💵 Total: {sale_currency} {float(sale_total_amount):,.2f}\n"
-                                    f"✅ Pago: {sale_payment_method}\n\n"
+                                    f"📋 Venta #{new_sale_id:04d}\n"
+                                    f"📦 {sale_payment_method}\n\n"
+                                    f"*PAGOS:*\n{_pay_str}\n\n"
+                                    f"*TOTAL: {_total_str}*"
+                                    f"{_rate_str}"
+                                    f"{_change_str}\n\n"
                                     f"¡Gracias por preferirnos! 😊"
                                 )
                                 # httpx síncrono — no bloquea significativamente (timeout 5s)
