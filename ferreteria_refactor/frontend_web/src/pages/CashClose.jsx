@@ -71,13 +71,7 @@ const CashClose = () => {
         returns_usd = 0,
         returns_bs = 0,
         cash_advances_usd = 0,
-        cash_advances_bs = 0,
-        expenses_by_currency = null,
-        cash_advances_by_currency = null,
-        returns_by_currency = null,
-        deposits_by_currency = null,
-        deposits_usd = 0,
-        deposits_bs = 0
+        cash_advances_bs = 0
     } = details;
 
     const handleClose = async () => {
@@ -187,35 +181,14 @@ const CashClose = () => {
                                 <span className="font-bold text-rose-800 text-sm uppercase">Avances de Efectivo</span>
                                 <span className="text-xs bg-rose-200 text-rose-800 px-2 py-0.5 rounded-full font-bold">Separado</span>
                             </div>
-                            {cash_advances_by_currency
-                                ? Object.entries(cash_advances_by_currency)
-                                    .filter(([, v]) => parseFloat(v) > 0)
-                                    .map(([sym, val]) => (
-                                        <div key={sym} className="flex justify-between text-sm mb-1">
-                                            <span className="text-gray-600">{sym}</span>
-                                            <span className="font-bold text-gray-800">{parseFloat(val).toFixed(2)}</span>
-                                        </div>
-                                    ))
-                                : (
-                                    <>
-                                        {parseFloat(cash_advances_usd) > 0 && (
-                                            <div className="flex justify-between text-sm mb-1">
-                                                <span className="text-gray-600">USD</span>
-                                                <span className="font-bold text-gray-800">${Number(cash_advances_usd).toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        {parseFloat(cash_advances_bs) > 0 && (
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-gray-600">Bolívares</span>
-                                                <span className="font-bold text-gray-800">Bs {Number(cash_advances_bs).toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        {parseFloat(cash_advances_usd) === 0 && parseFloat(cash_advances_bs) === 0 && (
-                                            <p className="text-sm text-gray-400 italic">Sin avances registrados</p>
-                                        )}
-                                    </>
-                                )
-                            }
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-600">USD</span>
+                                <span className="font-bold text-gray-800">${Number(cash_advances_usd).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Bolívares</span>
+                                <span className="font-bold text-gray-800">Bs {Number(cash_advances_bs).toFixed(2)}</span>
+                            </div>
                         </div>
 
                         {/* Operational Expenses Section */}
@@ -223,35 +196,14 @@ const CashClose = () => {
                             <div className="flex justify-between items-center mb-1">
                                 <span className="font-bold text-gray-700 text-sm uppercase">Gastos Operativos</span>
                             </div>
-                            {expenses_by_currency
-                                ? Object.entries(expenses_by_currency)
-                                    .filter(([, v]) => parseFloat(v) > 0)
-                                    .map(([sym, val]) => (
-                                        <div key={sym} className="flex justify-between text-sm mb-1">
-                                            <span className="text-gray-600">{sym}</span>
-                                            <span className="font-bold text-gray-800">{parseFloat(val).toFixed(2)}</span>
-                                        </div>
-                                    ))
-                                : (
-                                    <>
-                                        {parseFloat(expenses_usd) > 0 && (
-                                            <div className="flex justify-between text-sm mb-1">
-                                                <span className="text-gray-600">USD</span>
-                                                <span className="font-bold text-gray-800">${Number(expenses_usd).toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        {parseFloat(expenses_bs) > 0 && (
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-gray-600">Bolívares</span>
-                                                <span className="font-bold text-gray-800">Bs {Number(expenses_bs).toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        {parseFloat(expenses_usd) === 0 && parseFloat(expenses_bs) === 0 && (
-                                            <p className="text-sm text-gray-400 italic">Sin gastos registrados</p>
-                                        )}
-                                    </>
-                                )
-                            }
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-600">USD</span>
+                                <span className="font-bold text-gray-800">${Number(expenses_usd || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Bolívares</span>
+                                <span className="font-bold text-gray-800">Bs {Number(expenses_bs || 0).toFixed(2)}</span>
+                            </div>
                         </div>
 
                         {/* Returns / Refunds Section */}
@@ -259,35 +211,14 @@ const CashClose = () => {
                             <div className="flex justify-between items-center mb-1">
                                 <span className="font-bold text-orange-800 text-sm uppercase">Devoluciones / Reembolsos</span>
                             </div>
-                            {returns_by_currency
-                                ? Object.entries(returns_by_currency)
-                                    .filter(([, v]) => parseFloat(v) > 0)
-                                    .map(([sym, val]) => (
-                                        <div key={sym} className="flex justify-between text-sm mb-1">
-                                            <span className="text-gray-600">{sym}</span>
-                                            <span className="font-bold text-gray-800">{parseFloat(val).toFixed(2)}</span>
-                                        </div>
-                                    ))
-                                : (
-                                    <>
-                                        {parseFloat(returns_usd) > 0 && (
-                                            <div className="flex justify-between text-sm mb-1">
-                                                <span className="text-gray-600">USD</span>
-                                                <span className="font-bold text-gray-800">${Number(returns_usd).toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        {parseFloat(returns_bs) > 0 && (
-                                            <div className="flex justify-between text-sm">
-                                                <span className="text-gray-600">Bolívares</span>
-                                                <span className="font-bold text-gray-800">Bs {Number(returns_bs).toFixed(2)}</span>
-                                            </div>
-                                        )}
-                                        {parseFloat(returns_usd) === 0 && parseFloat(returns_bs) === 0 && (
-                                            <p className="text-sm text-gray-400 italic">Sin devoluciones registradas</p>
-                                        )}
-                                    </>
-                                )
-                            }
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-600">USD</span>
+                                <span className="font-bold text-gray-800">${Number(returns_usd || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Bolívares</span>
+                                <span className="font-bold text-gray-800">Bs {Number(returns_bs || 0).toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>
                 </div>

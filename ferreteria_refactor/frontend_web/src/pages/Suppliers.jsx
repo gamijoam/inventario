@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
+import { useHelp } from '../help/useHelp';
 import { Plus, Edit2, Trash2, Building2, Phone, Mail, Search, Truck, MapPin, FileText, Check, X, CreditCard, ChevronRight } from 'lucide-react';
 import { useWebSocket } from '../context/WebSocketContext';
 import { useAuth } from '../context/AuthContext';
@@ -21,6 +23,8 @@ import { Textarea } from '../components/ui/textarea';
 const Suppliers = () => {
     const { subscribe } = useWebSocket();
     const { user } = useAuth();
+    const help = useHelp();
+    const helpKey = 'suppliers';
     const [suppliers, setSuppliers] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
@@ -103,6 +107,7 @@ const Suppliers = () => {
                         <Truck className="text-indigo-600" size={32} /> Proveedores
                     </h1>
                     <p className="text-slate-500 font-medium mt-1">Gestión de proveedores, contactos y términos de crédito</p>
+                <HelpButton contextKey={helpKey} onClick={help.open} />
                 </div>
                 {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                     <Button id="tour-suppliers-add-btn" onClick={handleCreate}>
@@ -337,6 +342,7 @@ const Suppliers = () => {
                     )}
                 </SheetContent>
             </Sheet>
+        {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check, RotateCcw, Eye, EyeOff, UserX } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -17,6 +19,8 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 
 const CustomerManager = () => {
+    const help = useHelp();
+    const helpKey = 'sales/clientes';
     const [customers, setCustomers] = useState([]);
     const [totalCustomers, setTotalCustomers] = useState(0);
     const [hasMoreCustomers, setHasMoreCustomers] = useState(false);
@@ -223,6 +227,7 @@ const CustomerManager = () => {
                         Gestión de Clientes
                     </h1>
                     <p className="text-slate-500 font-medium">Administra clientes, límites de crédito y estados de cuenta</p>
+                <HelpButton contextKey={helpKey} onClick={help.open} />
                 </div>
                 <Button id="tour-customers-add-btn" onClick={handleCreateClick} className="shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all">
                     <Plus size={20} className="mr-2" />
@@ -651,6 +656,7 @@ const CustomerManager = () => {
                     )}
                 </SheetContent>
             </Sheet>
+        {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

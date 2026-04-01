@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import {
     BarChart3, ShoppingCart, Landmark, CreditCard, Truck,
     Package, DollarSign, Calendar, Download, RefreshCw,
@@ -12,8 +14,6 @@ import { toast } from 'react-hot-toast';
 import unifiedReportService from '../../services/unifiedReportService';
 import reportService from '../../services/reportService';
 import { useConfig } from '../../context/ConfigContext';
-import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
-import { useHelp } from '../../help/useHelp';
 
 const SalesTab = lazy(() => import('./tabs/SalesTab'));
 const CashTab = lazy(() => import('./tabs/CashTab'));
@@ -97,7 +97,7 @@ const DEFAULT_PIE_COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f97316', '#06b6d4
 
 // --- Skeleton components ---
 const SkeletonCard = () => (
-    <div className="ui-card p-6 animate-pulse">
+    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
         <div className="h-3 w-24 bg-slate-200 rounded mb-4" />
         <div className="h-8 w-32 bg-slate-200 rounded mb-3" />
         <div className="h-3 w-20 bg-slate-100 rounded" />
@@ -105,7 +105,7 @@ const SkeletonCard = () => (
 );
 
 const SkeletonChart = () => (
-    <div className="ui-card p-6 animate-pulse">
+    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
         <div className="h-4 w-40 bg-slate-200 rounded mb-2" />
         <div className="h-3 w-56 bg-slate-100 rounded mb-6" />
         <div className="h-64 bg-slate-50 rounded-lg" />
@@ -113,7 +113,7 @@ const SkeletonChart = () => (
 );
 
 const SkeletonTable = () => (
-    <div className="ui-card p-6 animate-pulse">
+    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
         <div className="h-4 w-40 bg-slate-200 rounded mb-6" />
         {[...Array(5)].map((_, i) => (
             <div key={i} className="flex gap-4 mb-3">
@@ -199,17 +199,8 @@ const ReportsCenter = () => {
     const { modules } = useConfig();
 
     // --- State ---
-    const help = useHelp();
-    const helpKey = {
-        'resumen': 'reports/resumen',
-        'ventas': 'reports/ventas',
-        'caja': 'reports/caja',
-        'creditos': 'reports/creditos',
-        'proveedores': 'reports/proveedores',
-        'inventario': 'reports/inventario',
-        'comisiones': 'reports/comisiones',
-    }[activeTab] || null;
     const [activeTab, setActiveTab] = useState('resumen');
+    const help = useHelp();
     const [activePreset, setActivePreset] = useState('month');
     const [loading, setLoading] = useState(false);
     const [dateRange, setDateRange] = useState({
@@ -227,6 +218,16 @@ const ReportsCenter = () => {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [topProducts, setTopProducts] = useState([]);
     const [topCustomers, setTopCustomers] = useState([]);
+    const helpKey = {
+        resumen:     'reports/resumen',
+        ventas:      'reports/ventas',
+        caja:        'reports/caja',
+        creditos:    'reports/creditos',
+        proveedores: 'reports/proveedores',
+        inventario:  'reports/inventario',
+        comisiones:  'reports/comisiones',
+        farmacia:    'reports/inventario',
+    }[activeTab] || null;
 
     // --- Compute previous period ---
     const prevPeriod = useMemo(() => {
@@ -473,7 +474,7 @@ const ReportsCenter = () => {
                 {/* Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Area Chart: Ventas por Dia */}
-                    <div className="ui-card p-6">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                         <div className="mb-4">
                             <h3 className="text-base font-bold text-slate-900">Ventas por Día</h3>
                             <p className="text-sm text-slate-500">Ingresos diarios en el periodo seleccionado</p>
@@ -525,7 +526,7 @@ const ReportsCenter = () => {
                     </div>
 
                     {/* Donut Chart: Metodos de Pago */}
-                    <div className="ui-card p-6">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                         <div className="mb-4">
                             <h3 className="text-base font-bold text-slate-900">Métodos de Pago</h3>
                             <p className="text-sm text-slate-500">Distribución por método de pago</p>
@@ -776,17 +777,17 @@ const ReportsCenter = () => {
                         <div>
                             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Centro de Reportes</h1>
                             <p className="text-slate-500 text-sm font-medium">Analítica avanzada de tu negocio</p>
-                        
-                    {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}</div>
+                        </div>
 
                         <div className="flex flex-wrap items-center gap-2">
+                            {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}
                             {/* Date presets */}
                             <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
                                 {presets.map(p => (
                                     <button
                                         key={p.id}
                                         onClick={() => applyPreset(p.id)}
-                                        className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all ${
+                                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
                                             activePreset === p.id
                                                 ? 'bg-white text-slate-900 shadow-sm'
                                                 : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'

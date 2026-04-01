@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import { Users, Plus, Edit, Trash2, Key, Shield, X, Check, Lock } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -10,6 +12,8 @@ import toast from 'react-hot-toast';
 const UsersManager = () => {
     const { user: currentUser } = useAuth();
     const { modules } = useConfig();
+    const help = useHelp();
+    const helpKey = 'config/usuarios';
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -196,7 +200,7 @@ const UsersManager = () => {
             <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
-                        <div className="p-2.5 bg-blue-600 rounded-2xl shadow-lg shadow-indigo-300/30">
+                        <div className="p-2.5 bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/30">
                             <Users className="text-white" size={28} />
                         </div>
                         Gestión de Usuarios
@@ -204,6 +208,8 @@ const UsersManager = () => {
                     <p className="text-slate-500 mt-2 font-medium">Controle los accesos y roles del personal técnico y ventas</p>
                 </div>
 
+                <div className="flex items-center gap-3">
+                <HelpButton contextKey={helpKey} onClick={help.open} />
                 <button
                     id="tour-users-add-btn"
                     onClick={() => handleOpenModal('create')}
@@ -212,6 +218,7 @@ const UsersManager = () => {
                     <Plus size={22} className="group-hover:rotate-90 transition-transform" />
                     <span>Nuevo Usuario</span>
                 </button>
+                </div>
             </div>
 
             {/* Users List: Mobile Cards / Desktop Table */}
@@ -571,7 +578,7 @@ const UsersManager = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black transition-all shadow-lg shadow-indigo-300/30 active:scale-95 disabled:opacity-50"
+                                    className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-all shadow-lg shadow-blue-500/30 active:scale-95 disabled:opacity-50"
                                 >
                                     {modalMode === 'create' && 'Crear Usuario'}
                                     {modalMode === 'edit' && 'Guardar Cambios'}
@@ -593,6 +600,7 @@ const UsersManager = () => {
                 user={selectedUserForPin}
                 onSuccess={handlePinUpdate}
             />
+        {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

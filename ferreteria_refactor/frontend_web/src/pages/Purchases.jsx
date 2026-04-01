@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
+import { useHelp } from '../help/useHelp';
 import { Plus, FileText, DollarSign, Calendar, TrendingUp, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +10,8 @@ import toast from 'react-hot-toast';
 const Purchases = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const help = useHelp();
+    const helpKey = 'purchases';
     const [purchases, setPurchases] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL'); // ALL, PENDING, PARTIAL, PAID
@@ -70,6 +74,7 @@ const Purchases = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
                 <div>
                     <h1 className="text-xl md:text-2xl font-bold text-gray-800">Compras</h1>
+                        <HelpButton contextKey={helpKey} onClick={help.open} />
                     <p className="text-gray-600 text-sm">Gestión de compras y cuentas por pagar</p>
                 </div>
                 {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
@@ -206,6 +211,7 @@ const Purchases = () => {
                     </tbody>
                 </table>
             </div>
+            {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

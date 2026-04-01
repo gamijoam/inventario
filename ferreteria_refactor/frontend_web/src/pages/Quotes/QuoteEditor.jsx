@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import { Search, Save, Trash2, Plus, Minus, User, MapPin, Layers, UserPlus, FileText, ChevronRight, ShoppingCart, ArrowLeft, Printer, ArrowRight, CheckCircle } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -12,6 +14,8 @@ import clsx from 'clsx';
 
 const QuoteEditor = ({ quoteId, onBack }) => {
     // State
+    const help = useHelp();
+    const helpKey = 'sales/cotizaciones';
     const [searchTerm, setSearchTerm] = useState('');
     const [catalog, setCatalog] = useState([]);
     const [cart, setCart] = useState([]);
@@ -226,6 +230,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                         >
                             Volver al listado
                         </button>
+                <HelpButton contextKey={helpKey} onClick={help.open} />
                     </div>
                 </div>
             </div>
@@ -463,6 +468,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                     )}
                 </button>
             </div>
+        {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };
