@@ -8,6 +8,7 @@ import ServiceOrderDetail from './ServiceOrderDetail';
 import ServiceTemplatesManager from './components/ServiceTemplatesManager';
 import printerService from '../../services/printerService';
 import { useConfig } from '../../context/ConfigContext';
+import { useAuth } from '../../context/AuthContext';
 
 const FILTER_OPTIONS = [
     { id: 'today', label: '📅 Hoy', filter: 'today' },
@@ -19,6 +20,8 @@ const FILTER_OPTIONS = [
 
 const ServicesDashboard = () => {
     const { business } = useConfig();
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'ADMIN';
     const paperWidth = business?.paper_width || '80';
 
     // State
@@ -161,12 +164,14 @@ const ServicesDashboard = () => {
                         </div>
 
                         <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowTemplates(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-lg font-semibold hover:bg-amber-100 border border-amber-200 transition-colors"
-                            >
-                                <Zap size={18} /> Plantillas
-                            </button>
+                            {isAdmin && (
+                                <button
+                                    onClick={() => setShowTemplates(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-lg font-semibold hover:bg-amber-100 border border-amber-200 transition-colors"
+                                >
+                                    <Zap size={18} /> Plantillas
+                                </button>
+                            )}
                             <button
                                 onClick={() => setShowWizard(true)}
                                 className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-colors"

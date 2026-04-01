@@ -221,7 +221,7 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
         const t = setTimeout(async () => {
             setPartLoading(true);
             try {
-                const res = await apiClient.get(`/products/?q=${partSearch}&limit=10`);
+                const res = await apiClient.get(`/products/?search=${encodeURIComponent(partSearch)}&limit=50`);
                 const items = res.data?.items || res.data || [];
                 setPartResults(Array.isArray(items) ? items : []);
             } catch { setPartResults([]); }
