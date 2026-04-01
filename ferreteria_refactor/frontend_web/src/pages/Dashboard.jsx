@@ -95,6 +95,14 @@ const CashierDashboard = () => {
                 <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Bienvenido, {user?.username}</h1>
                 <p className="text-slate-500 text-sm">¿Qué vas a hacer hoy?</p>
             </div>
+
+            {/* Banner de onboarding — solo visible si no está completado */}
+            {!onboardingDone && !onboardingDismissed && (
+                <OnboardingBanner
+                    currentStep={onboardingStep}
+                    onDismiss={() => setOnboardingDismissed(true)}
+                />
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {quickLinks.map(({ label, icon: Icon, path, color, primary }) => (
                     <button key={path} onClick={() => navigate(path)}
