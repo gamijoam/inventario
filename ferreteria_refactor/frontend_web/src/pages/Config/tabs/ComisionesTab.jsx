@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { DollarSign, Plus, Trash2, Edit2, Save, X, ToggleLeft, ToggleRight, Zap, Wrench, Users, Tag } from 'lucide-react';
+import { DollarSign, Plus, Trash2, Edit2, Save, X, ToggleLeft, ToggleRight, Zap, Wrench, Users, Tag, BookOpen } from 'lucide-react';
+import GuiaComisiones from './GuiaComisiones';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
@@ -110,6 +111,7 @@ const ComisionesTab = () => {
     const [showRuleModal, setShowRuleModal] = useState(false);
     const [editingRule, setEditingRule] = useState(null);
     const [savingUser, setSavingUser] = useState(null);
+    const [showGuia, setShowGuia]     = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -190,6 +192,14 @@ const ComisionesTab = () => {
     return (
         <div className="space-y-8 max-w-4xl">
             {/* ── MASTER SWITCH ── */}
+            {/* Botón guía */}
+            <div className="flex justify-end">
+                <button onClick={() => setShowGuia(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-colors">
+                    <BookOpen size={16} /> Ver Guía
+                </button>
+            </div>
+
             <div className={`rounded-2xl border-2 p-6 ${settings?.global_enabled ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -389,6 +399,8 @@ const ComisionesTab = () => {
             </>)}
 
             {/* ── Modal ── */}
+            {showGuia && <GuiaComisiones onClose={() => setShowGuia(false)} />}
+
             {showRuleModal && (
                 <RuleModal
                     rule={editingRule}
