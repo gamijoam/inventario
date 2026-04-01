@@ -61,12 +61,22 @@ function Step1({ onNext }) {
             className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none" />
         </div>
         <div>
-          <label className="text-xs font-bold text-slate-600 block mb-1.5">Teléfono del negocio <span className="font-normal text-slate-400">(opcional)</span></label>
-          <p className="text-[11px] text-slate-400 mb-1.5">El cliente podrá contactarte a este número desde el ticket</p>
+          <label className="text-xs font-bold text-slate-600 block mb-1.5">
+            Teléfono / WhatsApp del negocio <span className="font-normal text-slate-400">(opcional)</span>
+          </label>
+          <p className="text-[11px] text-slate-400 mb-1.5">
+            Este número se usará para el botón "Pedir por WhatsApp" del catálogo público.<br/>
+            <strong>Incluye el código de país</strong> sin el signo +
+          </p>
           <input type="text" value={form.phone}
             onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-            placeholder="Ej: +58 412 000 0000"
-            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none" />
+            placeholder="Ej: 584121234567 (Venezuela) | 573001234567 (Colombia)"
+            className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none font-mono" />
+          <div className="mt-2 grid grid-cols-3 gap-1.5 text-[10px] text-slate-400">
+            <span className="bg-slate-50 px-2 py-1 rounded-lg text-center">🇻🇪 58 + número</span>
+            <span className="bg-slate-50 px-2 py-1 rounded-lg text-center">🇨🇴 57 + número</span>
+            <span className="bg-slate-50 px-2 py-1 rounded-lg text-center">🇲🇽 52 + número</span>
+          </div>
         </div>
         <div className="flex items-center gap-2.5 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
           <span className="text-lg">💵</span>

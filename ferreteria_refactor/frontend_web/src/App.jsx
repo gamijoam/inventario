@@ -21,6 +21,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
 // Lazy-loaded pages (all non-critical-path pages)
+const PublicCatalog = React.lazy(() => import('./pages/Catalog/PublicCatalog'));
 const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 const Unauthorized = React.lazy(() => import('./pages/Unauthorized'));
@@ -204,6 +205,20 @@ function App() {
     );
   }
 
+  // ── Catálogo público — sin providers de autenticación ──
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  if (hash === '#/catalogo' || hash.startsWith('#/catalogo?') || hash.startsWith('#/catalogo/')) {
+    return (
+      <React.Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        </div>
+      }>
+        <PublicCatalog />
+      </React.Suspense>
+    );
+  }
+
   return (
     <CloudConfigProvider>
       <AuthProvider>
@@ -229,6 +244,7 @@ function App() {
 
                           {/* Mobile Waiter Routes */}
                           <Route path="/mobile/login" element={<WaiterLogin />} />
+
                           <Route path="/mobile" element={
                             <ProtectedRoute>
                               <MobileWaiterLayout />
