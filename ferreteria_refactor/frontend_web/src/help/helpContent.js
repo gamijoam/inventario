@@ -1,919 +1,776 @@
 /**
- * Help Content Data Structure
- * Organized by module with step-by-step guides
+ * Sistema de Ayuda Contextual — Mi Inventario Fácil
+ * Guías completas para operación autónoma del sistema.
  */
 
-export const helpContent = [
-    // ========================================
-    // PUNTO DE VENTA (POS)
-    // ========================================
-    {
-        id: 'pos',
-        title: 'Punto de Venta (POS)',
-        icon: '🛒',
-        color: 'blue',
-        sections: [
-            {
-                id: 'pos-search',
-                title: 'Buscar Productos',
-                steps: [
-                    'Haga clic en la barra de búsqueda en la parte superior',
-                    'Escriba el nombre o código del producto',
-                    'Seleccione el producto de la lista de resultados',
-                    'El producto se agregará automáticamente al carrito'
-                ],
-                tips: [
-                    'Puede usar el lector de código de barras para búsqueda rápida',
-                    'La búsqueda es en tiempo real, no necesita presionar Enter'
-                ]
-            },
-            {
-                id: 'pos-presentations',
-                title: 'Usar Presentaciones (Unidades)',
-                steps: [
-                    'Cuando un producto tiene múltiples presentaciones, aparecerá un modal',
-                    'Seleccione la presentación deseada (Ej: Unidad, Caja, Docena)',
-                    'Verifique el precio de la presentación seleccionada',
-                    'Haga clic en "Agregar al Carrito"'
-                ],
-                tips: [
-                    'Cada presentación puede tener un precio diferente',
-                    'Las presentaciones se configuran en la sección de Productos'
-                ]
-            },
-            {
-                id: 'pos-discounts',
-                title: 'Aplicar Descuentos',
-                steps: [
-                    'Los descuentos se aplican automáticamente si están activos',
-                    'Verá el precio original tachado y el precio con descuento',
-                    'El porcentaje de descuento se muestra en el carrito',
-                    'El descuento se refleja en el ticket impreso'
-                ],
-                tips: [
-                    'Los descuentos se configuran por producto en la sección de Productos',
-                    'Puede activar/desactivar descuentos sin eliminarlos'
-                ]
-            },
-            {
-                id: 'pos-payment',
-                title: 'Procesar Pagos',
-                steps: [
-                    'Verifique el total en el carrito',
-                    'Haga clic en "Procesar Venta"',
-                    'Seleccione el método de pago (Efectivo, Tarjeta, Transferencia)',
-                    'Ingrese el monto recibido',
-                    'El sistema calculará el cambio automáticamente',
-                    'Haga clic en "Confirmar Venta"'
-                ],
-                tips: [
-                    'Puede usar múltiples métodos de pago en una sola venta',
-                    'El sistema soporta pagos en USD y Bs simultáneamente',
-                    'El cambio se calcula en la misma moneda del pago'
-                ]
-            },
-            {
-                id: 'pos-print',
-                title: 'Imprimir Tickets',
-                steps: [
-                    'Después de procesar la venta, aparecerá el botón "Imprimir"',
-                    'Haga clic en "Imprimir Ticket"',
-                    'El ticket se enviará a la impresora configurada',
-                    'Puede reimprimir desde el historial de ventas'
-                ],
-                tips: [
-                    'Asegúrese de que BridgeInvensoft.exe esté ejecutándose',
-                    'Configure el ID de la caja en la primera impresión',
-                    'Si falla, verifique que el ID coincida con config.ini del Hardware Bridge'
-                ]
-            }
-        ]
-    },
-
-    // ========================================
-    // PRODUCTOS E INVENTARIO
-    // ========================================
-    {
-        id: 'products',
-        title: 'Productos e Inventario',
-        icon: '📦',
-        color: 'green',
-        sections: [
-            {
-                id: 'products-create',
-                title: 'Crear Nuevo Producto',
-                steps: [
-                    'Vaya a "Productos" en el menú',
-                    'Haga clic en "Nuevo Producto"',
-                    'Complete la información básica: Nombre, SKU, Precio',
-                    'Opcional: Agregue descripción, categoría, proveedor',
-                    'Configure el stock inicial',
-                    'Haga clic en "Guardar"'
-                ],
-                tips: [
-                    'El SKU es opcional pero recomendado para búsqueda rápida',
-                    'El precio se ingresa en USD',
-                    'El stock puede ser decimal (ej: 2.5 para productos fraccionables)'
-                ]
-            },
-            {
-                id: 'products-presentations',
-                title: 'Configurar Presentaciones',
-                steps: [
-                    'Edite un producto existente',
-                    'Vaya a la sección "Presentaciones"',
-                    'Haga clic en "Agregar Presentación"',
-                    'Ingrese: Nombre (ej: Caja), Factor de conversión (ej: 12)',
-                    'Ingrese el precio de la presentación',
-                    'Guarde los cambios'
-                ],
-                tips: [
-                    'El factor indica cuántas unidades base contiene',
-                    'Ejemplo: 1 Caja = 12 Unidades → Factor: 12',
-                    'Cada presentación puede tener su propia tasa de cambio'
-                ]
-            },
-            {
-                id: 'products-exchange-rate',
-                title: 'Asignar Tasas de Cambio Específicas',
-                steps: [
-                    'Edite un producto',
-                    'En "Tasa de Cambio", seleccione una tasa específica',
-                    'Ejemplo: Seleccione "Paralelo" en lugar de "BCV"',
-                    'Guarde los cambios',
-                    'El producto usará esa tasa en el POS'
-                ],
-                tips: [
-                    'Si no selecciona una tasa, usará la tasa por defecto del sistema',
-                    'Las presentaciones pueden tener tasas diferentes al producto base',
-                    'Útil para productos importados o con precios especiales'
-                ]
-            },
-            {
-                id: 'products-combos',
-                title: 'Crear y Gestionar Combos',
-                steps: [
-                    'Cree o edite un producto',
-                    'Vaya a la pestaña "Combos" (o marque "Este producto es un Combo" en General)',
-                    'Haga clic en "Convertir en Combo" si aún no lo es',
-                    'Use el buscador para agregar productos componentes',
-                    'Defina la cantidad de cada componente (ej: 2 Refrescos + 1 Snack)',
-                    'El costo se calcula automáticamente, pero usted define el precio de venta'
-                ],
-                tips: [
-                    'DIFERENCIA CLAVE: Use "Combos" para agrupar PRODUCTOS DIFERENTES. Use "Presentaciones" para el MISMO producto en diferentes cantidades (Cajas/Bultos).',
-                    'El stock del combo es "Virtual": El sistema calcula cuántos puede armar basándose en el stock de los componentes.',
-                    'Al vender un combo, se descuentan los componentes del inventario automáticamente.'
-                ]
-            },
-            {
-                id: 'products-discounts',
-                title: 'Configurar Descuentos',
-                steps: [
-                    'Edite un producto',
-                    'Active "Descuento Activo"',
-                    'Ingrese el porcentaje de descuento (ej: 10 para 10%)',
-                    'Guarde los cambios',
-                    'El descuento se aplicará automáticamente en el POS'
-                ],
-                tips: [
-                    'Puede desactivar el descuento sin eliminarlo',
-                    'El descuento se muestra en el ticket',
-                    'El precio con descuento se calcula automáticamente'
-                ]
-            }
-        ]
-    },
-
-    // ========================================
-    // CAJA REGISTRADORA
-    // ========================================
-    {
-        id: 'cash',
-        title: 'Caja Registradora',
-        icon: '💰',
-        color: 'yellow',
-        sections: [
-            {
-                id: 'cash-open',
-                title: 'Abrir Caja',
-                steps: [
-                    'Vaya a "Caja" en el menú',
-                    'Haga clic en "Abrir Caja"',
-                    'Ingrese el monto inicial en USD y/o Bs',
-                    'Agregue un comentario opcional (ej: "Turno mañana")',
-                    'Haga clic en "Abrir Caja"'
-                ],
-                tips: [
-                    'Debe abrir caja antes de realizar ventas',
-                    'Solo puede haber una caja abierta a la vez por usuario',
-                    'El monto inicial debe coincidir con el efectivo físico'
-                ]
-            },
-            {
-                id: 'cash-movements',
-                title: 'Registrar Movimientos',
-                steps: [
-                    'Con la caja abierta, haga clic en "Nuevo Movimiento"',
-                    'Seleccione el tipo: Ingreso o Egreso',
-                    'Ingrese el monto y la moneda',
-                    'Agregue una descripción (ej: "Pago de servicios")',
-                    'Haga clic en "Registrar"'
-                ],
-                tips: [
-                    'Los ingresos suman al total de caja',
-                    'Los egresos restan del total de caja',
-                    'Las ventas se registran automáticamente, no las registre manualmente'
-                ]
-            },
-            {
-                id: 'cash-close',
-                title: 'Cerrar Caja (Arqueo)',
-                steps: [
-                    'Haga clic en "Cerrar Caja"',
-                    'Cuente el efectivo físico en la caja',
-                    'Ingrese los montos reales en USD y Bs',
-                    'El sistema mostrará la diferencia (faltante o sobrante)',
-                    'Agregue un comentario si hay diferencia',
-                    'Haga clic en "Cerrar Caja"'
-                ],
-                tips: [
-                    'Verifique el reporte antes de cerrar',
-                    'El sistema calcula automáticamente el total esperado',
-                    'Puede imprimir el reporte de cierre'
-                ]
-            }
-        ]
-    },
-
-    // ========================================
-    // VENTAS Y REPORTES
-    // ========================================
-    {
-        id: 'sales',
-        title: 'Ventas y Reportes',
-        icon: '📊',
-        color: 'purple',
-        sections: [
-            {
-                id: 'sales-history',
-                title: 'Ver Historial de Ventas',
-                steps: [
-                    'Vaya a "Ventas" en el menú',
-                    'Use los filtros para buscar: Fecha, Cliente, Usuario',
-                    'Haga clic en una venta para ver detalles',
-                    'Puede reimprimir el ticket desde aquí'
-                ],
-                tips: [
-                    'El historial muestra todas las ventas del sistema',
-                    'Puede filtrar por rango de fechas',
-                    'Los totales se muestran en USD y Bs'
-                ]
-            },
-            {
-                id: 'sales-reports',
-                title: 'Generar Reportes',
-                steps: [
-                    'Vaya a "Reportes" en el menú',
-                    'Seleccione el tipo de reporte',
-                    'Configure el rango de fechas',
-                    'Haga clic en "Generar"',
-                    'Puede exportar a Excel o PDF'
-                ],
-                tips: [
-                    'Los reportes se generan en tiempo real',
-                    'Puede ver ventas por producto, usuario, o período',
-                    'Los gráficos son interactivos'
-                ]
-            }
-        ]
-    },
-
-    // ========================================
-    // CLIENTES
-    // ========================================
-    {
-        id: 'customers',
-        title: 'Clientes',
-        icon: '👥',
-        color: 'indigo',
-        sections: [
-            {
-                id: 'customers-create',
-                title: 'Registrar Nuevo Cliente',
-                steps: [
-                    'Vaya a "Clientes" en el menú',
-                    'Haga clic en "Nuevo Cliente"',
-                    'Complete: Nombre, Documento, Teléfono, Email',
-                    'Agregue dirección si es necesario',
-                    'Haga clic en "Guardar"'
-                ],
-                tips: [
-                    'El documento puede ser RIF, CI, o Pasaporte',
-                    'El email es opcional pero útil para enviar facturas',
-                    'Puede editar la información después'
-                ]
-            },
-            {
-                id: 'customers-credit',
-                title: 'Ventas a Crédito',
-                steps: [
-                    'En el POS, seleccione "Crédito" como método de pago',
-                    'Seleccione el cliente',
-                    'Ingrese el monto del abono inicial (opcional)',
-                    'Complete la venta',
-                    'El saldo pendiente se registra automáticamente'
-                ],
-                tips: [
-                    'Puede ver el saldo pendiente en la ficha del cliente',
-                    'Los abonos se registran en "Cuentas por Cobrar"',
-                    'El sistema calcula intereses si está configurado'
-                ]
-            }
-        ]
-    },
-
-    // ========================================
-    // SERVICIOS TÉCNICOS
-    // ========================================
-    {
-        id: 'services',
-        title: 'Servicios Técnicos',
-        icon: '🔧',
-        color: 'purple',
-        sections: [
-            {
-                id: 'new-order',
-                title: 'Recepción de Equipos (Nueva Orden)',
-                steps: [
-                    'Vaya a "Servicios Técnicos" > "Nueva Orden" en el menú lateral.',
-                    'Busque o seleccione el Cliente existente (o cree uno nuevo).',
-                    'Seleccione el Técnico asignado (opcional en esta etapa).',
-                    'Complete los datos del equipo: Tipo, Marca, Modelo, Serial/IMEI, Patrón/PIN.',
-                    'Describa la falla reportada por el cliente y el estado físico del equipo (rayones, golpes).',
-                    'Indique una fecha estimada de entrega.',
-                    'Haga clic en "Crear Orden de Servicio". Se imprimirá un ticket de recepción.'
-                ],
-                tips: [
-                    'Sea detallado en el estado físico para evitar reclamos futuros.',
-                    'El ticket de recepción incluye un código QR y los términos del servicio.'
-                ]
-            },
-            {
-                id: 'service-management',
-                title: 'Gestión y Diagnóstico (El Técnico)',
-                steps: [
-                    'Vaya a "Servicios Técnicos" > "Bandeja de Entrada".',
-                    'Busque la orden por número de ticket, cliente o serial. Haga clic en "Gestionar".',
-                    'En la pantalla de gestión, actualice el estado a "Diagnosticando" o "En Progreso".',
-                    'En "Diagnóstico Técnico", escriba los hallazgos.',
-                    'Para agregar repuestos o mano de obra, use el botón "+ Agregar".',
-                    'Para REPUESTOS: Seleccione "Inventario", busque el producto. El precio se carga automáticamente.',
-                    'Para MANO DE OBRA: Seleccione "Servicio Manual", escriba la descripción y asigne el TÉCNICO que ganará la comisión.',
-                    'Haga clic en "Guardar Notas" o cambie el estado a "Listo" cuando termine.'
-                ],
-                tips: [
-                    'Solo los "Servicios Manuales" permiten asignar un técnico para comisión.',
-                    'Los repuestos descuentan stock del inventario automáticamente al facturar.'
-                ]
-            },
-            {
-                id: 'service-checkout',
-                title: 'Facturación y Entrega (Caja)',
-                steps: [
-                    'Cuando el cliente venga a retirar, vaya a POS (Punto de Venta).',
-                    'Haga clic en el botón "Cargar Servicio" (ícono de llave inglesa) en la parte superior.',
-                    'Busque la orden lista o selecciónela de la lista "Listas para Entregar".',
-                    'Los ítems de la orden se cargarán al carrito de compras automáticamente.',
-                    'Si el cliente lleva otros productos, agréguelos normalmente al carrito.',
-                    'Proceda al pago (Efectivo, Tarjeta, etc.) y finalice la venta.',
-                    'La orden de servicio cambiará automáticamente a estado "Entregado".'
-                ]
-            }
-        ]
-    },
-
-    // ========================================
-    // COMISIONES Y PERSONAL
-    // ========================================
-    {
-        id: 'commissions',
-        title: 'Comisiones y Personal',
-        icon: '👥',
-        color: 'indigo',
-        sections: [
-            {
-                id: 'users-setup',
-                title: 'Creación de Usuarios (Técnicos y Vendedores)',
-                steps: [
-                    'Vaya a "Sistema" > "Usuarios".',
-                    'Haga clic en "Nuevo Usuario".',
-                    'Para VENDEDORES: Asigne un Rol de "Vendedor" o "Cajero". Estos aparecerán en el POS.',
-                    'Para TÉCNICOS: Asigne un Rol de "Técnico" (o el que corresponda). Estos aparecerán para asignar en Servicios.',
-                    'Asegúrese de que el usuario esté "Activo".'
-                ],
-                tips: [
-                    'Cada empleado debe tener su propio usuario para rastrear sus comisiones correctamente.'
-                ]
-            },
-            {
-                id: 'pos-commission',
-                title: 'Venta con Comisión (POS)',
-                steps: [
-                    'En la pantalla de POS, agregue productos al carrito.',
-                    'En la lista de productos del carrito, verá un selector de "Vendedor".',
-                    'Por defecto, se asigna al usuario que inició sesión.',
-                    'Si la venta es de otro vendedor, cambie el nombre en el selector CADA ÍTEM o en el selector global si estuviera disponible.',
-                    'Al finalizar la venta, el sistema registrará la comisión para ese vendedor.'
-                ]
-            },
-            {
-                id: 'service-commission',
-                title: 'Comisión por Servicio Técnico',
-                steps: [
-                    'Las comisiones de servicio se asignan ITEM por ITEM.',
-                    'Al agregar una "Mano de Obra" o "Servicio Manual" en la gestión de la orden, debe seleccionar el Técnico.',
-                    'Los repuestos NO generan comisión para el técnico (generalmente).',
-                    'Al facturar en caja, estas comisiones se registran a nombre del técnico seleccionado.'
-                ]
-            }
-        ]
-    },
-
-    // ========================================
-    // TRANSFERENCIAS INTER-SEDES
-    // ========================================
-    {
-        id: 'transfers',
-        title: 'Transferencias Inter-Sedes',
-        icon: '🚚',
-        color: 'indigo',
-        sections: [
-            {
-                id: 'transfers-export',
-                title: 'Exportar Inventario (Salida)',
-                steps: [
-                    'Vaya a "Inventario" → "Exportar (Salida)"',
-                    'Seleccione el "Almacén de Origen" desde donde saldrá la mercancía',
-                    'Busque los productos que desea transferir',
-                    'Ajuste las cantidades a enviar',
-                    'Haga clic en "Generar y Descargar Paquete"',
-                    'Se descargará un archivo .JSON con los datos'
-                ],
-                tips: [
-                    'El stock se descuenta automáticamente del almacén seleccionado',
-                    'Envíe el archivo descargado por correo o WhatsApp a la otra sede',
-                    'Solo puede transferir productos que tengan Código de Barras (SKU)'
-                ]
-            },
-            {
-                id: 'transfers-import',
-                title: 'Importar Inventario (Entrada)',
-                steps: [
-                    'Vaya a "Inventario" → "Importar (Entrada)"',
-                    'Haga clic en "Seleccionar Archivo JSON"',
-                    'Busque y cargue el archivo que recibió de la otra sede',
-                    'El sistema verificará los productos automáticamente',
-                    'Si todo está correcto, haga clic en "Confirmar Importación"'
-                ],
-                tips: [
-                    'El stock importado se suma al inventario global y se registra en el Kardex',
-                    'Si un producto no existe por SKU, deberá crearlo manualmente primero',
-                    'El proceso registra un movimiento "Entrada Externa"'
-                ]
-            }
-        ]
-    },
-
-    // ========================================
-    // CONFIGURACIÓN
-    // ========================================
-    {
-        id: 'settings',
-        title: 'Configuración',
-        icon: '⚙️',
-        color: 'gray',
-        sections: [
-            {
-                id: 'settings-users',
-                title: 'Gestionar Usuarios',
-                steps: [
-                    'Vaya a "Configuración" → "Usuarios"',
-                    'Haga clic en "Nuevo Usuario"',
-                    'Complete: Nombre, Usuario, Contraseña',
-                    'Seleccione el rol: Admin, Vendedor, Almacén',
-                    'Haga clic en "Crear"'
-                ],
-                tips: [
-                    'Admin: Acceso total al sistema',
-                    'Vendedor: Solo POS y ventas',
-                    'Almacén: Gestión de inventario y compras'
-                ]
-            },
-            {
-                id: 'settings-exchange-rates',
-                title: 'Configurar Tasas de Cambio',
-                steps: [
-                    'Vaya a "Configuración" → "Tasas de Cambio"',
-                    'Haga clic en "Nueva Tasa"',
-                    'Ingrese: Nombre (ej: BCV, Paralelo), Código (VES), Símbolo (Bs)',
-                    'Ingrese la tasa (ej: 36.50)',
-                    'Marque como "Por Defecto" si es la tasa principal',
-                    'Haga clic en "Guardar"'
-                ],
-                tips: [
-                    'Solo puede haber una tasa por defecto por moneda',
-                    'Puede tener múltiples tasas activas (BCV, Paralelo, etc.)',
-                    'Las tasas se actualizan manualmente'
-                ]
-            },
-            {
-                id: 'settings-company',
-                title: 'Configurar Información de la Empresa',
-                steps: [
-                    'Vaya a "Configuración" → "Empresa"',
-                    'Complete: Nombre, RIF, Dirección, Teléfono',
-                    'Esta información aparecerá en los tickets',
-                    'Haga clic en "Guardar"'
-                ],
-                tips: [
-                    'La información se imprime en todos los tickets',
-                    'Puede agregar un logo (próximamente)',
-                    'Verifique que el RIF esté correcto'
-                ]
-            }
-        ]
-    }
-];
-
-export default helpContent;
-
-/**
- * Índice por clave de contexto para el HelpDrawer
- * Convierte el array existente en objeto accesible por key
- */
 export const HELP_CONTENT = {
+
+  /* ══════════════════════════════════════════════════
+     DASHBOARD
+  ══════════════════════════════════════════════════ */
   dashboard: {
-    title: 'Resumen del Negocio', icon: '📊',
-    description: 'Vista general de tu negocio: ingresos, ganancia, alertas y los indicadores más importantes del día o período seleccionado.',
+    title: 'Resumen del Negocio',
+    icon: '📊',
+    description: 'Tu pantalla de control. Muestra en tiempo real cómo está tu negocio: ingresos, ganancias, alertas activas y rendimiento del equipo para el período que elijas.',
     steps: [
-      { title: 'Cambiar el período', desc: 'Usa los botones Hoy / Ayer / Semana / Mes en la parte superior para ver los datos del período que necesitas.' },
-      { title: 'Leer los KPIs', desc: 'Los 6 cuadros muestran Ingresos, Ganancia, Transacciones, Ticket promedio, Créditos y Órdenes de taller. La flecha verde o roja indica si subió o bajó vs el período anterior.' },
-      { title: 'Atender las alertas', desc: 'La sección "Requieren atención" en naranja/rojo señala problemas activos: stock bajo, órdenes sin cobrar, deudas vencidas. Haz clic en cualquier alerta para ir directo al módulo.' },
-      { title: 'Ver los más vendidos', desc: 'En "Top Productos" ves qué productos generaron más ingresos. En "Rendimiento Equipo" ves las comisiones de cada empleado.' },
+      { title: 'Seleccionar el período', desc: 'Usa los botones Hoy / Ayer / Semana / Mes arriba a la derecha. El sistema recalcula todos los indicadores automáticamente.' },
+      { title: 'Leer los 6 indicadores principales', desc: 'INGRESOS: total cobrado en el período. GANANCIA REAL: ingresos menos el costo de los productos vendidos — lo que realmente te quedó. TRANSACCIONES: número de ventas completadas. TICKET PROMEDIO: cuánto gasta en promedio cada cliente. CRÉDITOS PENDIENTES: dinero que te deben clientes. ÓRDENES TALLER: equipos activos en reparación.' },
+      { title: 'Interpretar las flechas de tendencia', desc: 'La flecha verde con porcentaje indica que ese indicador subió vs el período anterior. La flecha roja indica que bajó. El porcentaje es la variación exacta.' },
+      { title: 'Atender las alertas', desc: 'La sección naranja "Requieren Atención" aparece cuando hay problemas activos. Puede mostrar: productos agotados o bajo el mínimo de stock, órdenes del taller listas para cobrar, créditos de clientes vencidos. Haz clic en cualquier alerta para ir directo al módulo correspondiente.' },
+      { title: 'Analizar ventas vs ganancia', desc: 'El gráfico de área muestra las ventas y la ganancia día por día. Si las barras de ventas son altas pero las de ganancia son bajas, estás vendiendo con poco margen — revisa tus costos de compra.' },
+      { title: 'Revisar métodos de pago', desc: 'El gráfico circular muestra cómo pagaron tus clientes: efectivo, Zelle, transferencia, etc. Útil para saber cuánto efectivo real esperar al cerrar la caja.' },
+      { title: 'Ver top productos', desc: '"Top Productos" muestra los artículos que más ingresos generaron. Si un producto no aparece, vendiste poco de él en ese período.' },
+      { title: 'Revisar el equipo', desc: '"Rendimiento Equipo" muestra cuántas comisiones generó cada empleado y cuánto tiene pendiente de cobrar.' },
+      { title: 'Actualizar los datos', desc: 'El botón ↺ en la esquina superior derecha recarga todos los datos sin tener que refrescar la página.' },
     ],
-    tips: ['El gráfico de "Ventas vs Ganancia" ayuda a ver si estás vendiendo más pero ganando menos.', 'Si los ingresos muestran cero, verifica que la caja esté abierta.'],
-    actions: ['Cambiar período', 'Actualizar datos', 'Abrir POS'],
+    tips: [
+      'Si los ingresos de hoy muestran $0.00, verifica que hayas abierto el turno de caja antes de vender.',
+      'La "Ganancia Real" es el indicador más honesto del negocio — un negocio con altas ventas pero baja ganancia puede estar en problemas.',
+      'Un ticket promedio cayendo mes a mes indica que los clientes compran menos por visita. Considera estrategias de venta cruzada.',
+      'Las alertas de stock bajo se configuran en cada producto (campo "Stock Mínimo"). Ajústalas según tu ritmo de ventas.',
+    ],
+    actions: ['Cambiar período', 'Actualizar datos (↺)', 'Ir al módulo desde alerta', 'Abrir POS'],
   },
+
+  /* ══════════════════════════════════════════════════
+     POS — GUÍA COMPLETA
+  ══════════════════════════════════════════════════ */
   pos: {
-    title: 'Punto de Venta (POS)', icon: '🛒',
-    description: 'Aquí realizas todas las ventas. Busca productos, agrégalos al carrito y cobra al cliente en efectivo, Zelle, transferencia u otro método configurado.',
+    title: 'Punto de Venta — Guía Completa',
+    icon: '🛒',
+    description: 'El POS es donde realizas todas las ventas. Incluye búsqueda de productos, carrito, múltiples métodos de pago, descuentos, ventas a crédito, venta de órdenes del taller y atajos de teclado para cajeros rápidos.',
     steps: [
-      { title: 'Abrir la caja primero', desc: 'Antes de vender debes tener un turno de caja abierto. Si ves "Caja Cerrada" en el header, ve a Apertura/Cierre de Caja.' },
-      { title: 'Buscar el producto', desc: 'Escribe el nombre o código en la barra de búsqueda. También puedes escanear el código de barras con un lector conectado.' },
-      { title: 'Agregar y ajustar', desc: 'Haz clic en el producto para agregarlo. Modifica la cantidad con los botones + y − del carrito, o haz clic en el precio para aplicar un descuento manual.' },
-      { title: 'Cobrar', desc: 'Haz clic en "Cobrar", selecciona el método de pago e ingresa el monto recibido. El sistema calcula el cambio automáticamente.' },
+      {
+        title: '1. Abrir el turno de caja (obligatorio)',
+        desc: 'Antes de vender, debes tener un turno activo. Si ves el mensaje "Caja Cerrada" en la parte superior, ve a Apertura/Cierre de Caja, ingresa el monto del fondo inicial (el dinero con el que arrancas el día) y confirma. Sin este paso no puedes completar ventas.'
+      },
+      {
+        title: '2. Buscar y agregar productos',
+        desc: 'Escribe el nombre, código o SKU del producto en la barra de búsqueda. También puedes escanear el código de barras con un lector USB — el sistema lo detecta automáticamente. Haz clic en el producto o presiona Enter para agregarlo al carrito. Si el producto requiere serial/IMEI, el sistema te pedirá confirmarlo antes de agregar.'
+      },
+      {
+        title: '3. Ajustar cantidades en el carrito',
+        desc: 'Usa los botones + y − junto a cada ítem para cambiar la cantidad. También puedes hacer clic directo en el número de cantidad y escribir el valor exacto. Para eliminar un ítem, usa el ícono de papelera.'
+      },
+      {
+        title: '4. Asignar un cliente (opcional pero recomendado)',
+        desc: 'Haz clic en el ícono de persona (👤) en el carrito. Busca el cliente por nombre, cédula o teléfono. Al asignarlo: se aplican sus precios especiales si tiene lista de precios, puedes hacer ventas a crédito, y la venta queda en su historial. Si no lo encuentras, puedes crearlo desde el mismo buscador.'
+      },
+      {
+        title: '5. Aplicar descuento en factura (requiere PIN de admin)',
+        desc: 'Haz clic en el ícono de etiqueta (🏷️) en la sección del total del carrito. Tienes 5 tipos de descuento: PORCENTAJE (ej: 10% de descuento sobre el total), MONTO FIJO EN $ (ej: $5 de descuento), MONTO FIJO EN Bs (descuento en bolívares), PRECIO OBJETIVO en $ (estableces el total final que quieres cobrar en dólares) y PRECIO OBJETIVO en Bs (estableces el total final en bolívares). Ingresa el valor y confirma. El sistema pedirá el PIN del administrador para autorizar — el cajero no puede aplicar descuentos sin autorización.'
+      },
+      {
+        title: '6. Descuentos automáticos por cantidad',
+        desc: 'Si un producto tiene reglas de descuento por volumen configuradas (ej: "10% de descuento comprando 5 o más"), el descuento se aplica automáticamente al carrito cuando el cliente alcanza esa cantidad. No necesitas hacer nada extra.'
+      },
+      {
+        title: '7. Pausar una venta y atender a otro cliente',
+        desc: 'Si un cliente necesita tiempo para decidir y hay otro esperando, presiona el botón PAUSAR o usa la tecla F6. La venta actual queda guardada en memoria. Atiende al otro cliente normalmente. Para recuperar la venta pausada, presiona F6 de nuevo o haz clic en el banner amarillo que aparece en la parte inferior del carrito.'
+      },
+      {
+        title: '8. Cobrar — métodos de pago',
+        desc: 'Haz clic en "Cobrar" o presiona F5. Se abre el modal de pago con el total a cobrar. Selecciona el método de pago de la lista (los métodos activos se configuran en Configuración → Métodos de Pago). Ingresa el monto recibido. Para pagos en bolívares, el sistema convierte automáticamente usando la tasa del día.'
+      },
+      {
+        title: '9. Pagos mixtos (cliente paga con dos métodos)',
+        desc: 'En el modal de cobro, haz clic en "+ Agregar otro método de pago". Puedes dividir el total entre tantos métodos como necesites. Por ejemplo: el cliente paga $20 en efectivo y el resto por Zelle. El sistema calcula automáticamente cuánto falta con cada método que agregas.'
+      },
+      {
+        title: '10. Venta a crédito',
+        desc: 'El cliente debe estar asignado y tener crédito disponible. En el modal de cobro, activa el interruptor "Venta a Crédito". El sistema muestra el límite de crédito disponible del cliente. Si el total no supera el límite, confirma y la deuda queda registrada en Créditos (CxC). Cuando el cliente venga a pagar, ve a Centro de Ventas → Créditos.'
+      },
+      {
+        title: '11. Cargar una orden del taller al POS',
+        desc: 'Si un cliente viene a recoger y pagar su equipo del taller, puedes cobrarla directamente desde el POS. Haz clic en el botón de llave inglesa (🔧) en la barra superior. Busca la orden por nombre del cliente o número. Al cargarla, los ítems de servicio y repuestos aparecen en el carrito listos para cobrar.'
+      },
+      {
+        title: '12. Cargar una cotización aprobada',
+        desc: 'Si el cliente aprobó una cotización y viene a comprar, no tienes que agregar los productos uno a uno. Ve a Centro de Ventas → Cotizaciones, busca la cotización y haz clic en "Facturar". El sistema abre el POS con todos los productos ya en el carrito.'
+      },
+      {
+        title: '13. Imprimir el ticket',
+        desc: 'Después de confirmar el pago, el sistema imprime automáticamente si tienes una impresora térmica configurada. Si no imprimió, haz clic en el ícono de impresora en la confirmación de venta. También puedes imprimir en formato A4 si tienes esa función activa en Configuración → Estación POS.'
+      },
+      {
+        title: '14. Nueva venta',
+        desc: 'Después de cobrar, el carrito se limpia automáticamente. Para limpiar manualmente en cualquier momento usa la tecla F2 (pedirá confirmación si hay productos en el carrito).'
+      },
     ],
-    tips: ['Usa Ctrl+K para buscar desde cualquier pantalla.', 'Para venta a crédito: selecciona el cliente primero y elige "Crédito" como método de pago.'],
-    actions: ['Buscar producto', 'Aplicar descuento', 'Cobrar', 'Imprimir ticket'],
+    tips: [
+      'ATAJOS DE TECLADO: F2 = Nueva venta | F3 = Enfocar búsqueda | F4 = Editar último ítem | F5 = Cobrar | F6 = Pausar/Retomar venta | ESC = Cerrar ventana activa.',
+      'Los descuentos en factura requieren PIN de administrador. Si necesitas aplicar muchos descuentos, el administrador puede darte el PIN temporalmente.',
+      'Para pagos en Zelle o transferencia, el sistema pedirá el número de referencia. Siempre pídele la confirmación al cliente antes de cerrar la venta.',
+      'Si el cliente paga con un billete de más, ingresa el monto recibido exacto. El sistema calcula el vuelto automáticamente y lo muestra en pantalla.',
+      'Puedes tener una sola venta pausada a la vez. Si pausas una segunda, te preguntará si quieres reemplazar la primera.',
+      'Los productos agotados no aparecen en la búsqueda del POS. Si el cliente pide algo que no encuentras, puede estar sin stock.',
+      'El botón de configuración (⚙️) en el POS te permite cambiar el almacén activo, el tema visual y otras opciones de esa estación específica.',
+    ],
+    actions: ['Buscar producto', 'Aplicar descuento (PIN requerido)', 'Pausar venta (F6)', 'Cobrar (F5)', 'Pago mixto', 'Venta a crédito', 'Cargar orden taller', 'Imprimir ticket', 'Nueva venta (F2)'],
   },
+
+  /* ══════════════════════════════════════════════════
+     CENTRO DE VENTAS
+  ══════════════════════════════════════════════════ */
   'sales/cotizaciones': {
-    title: 'Cotizaciones', icon: '📄',
-    description: 'Crea presupuestos para clientes antes de confirmar la venta. Si el cliente acepta, se convierte en venta con un solo clic.',
+    title: 'Cotizaciones — Guía Completa',
+    icon: '📄',
+    description: 'Las cotizaciones son presupuestos formales que entregas al cliente antes de confirmar la venta. Cuando el cliente acepta, se convierten en venta real con un solo clic sin tener que reescribir nada.',
     steps: [
-      { title: 'Crear cotización', desc: 'Haz clic en "Nueva Cotización". Selecciona el cliente, agrega los productos con sus cantidades y guarda.' },
-      { title: 'Revisar estadísticas', desc: 'Los 4 cuadros superiores muestran: total, pendientes (con monto en espera), facturadas y la tasa de conversión (% que se convirtieron en ventas).' },
-      { title: 'Filtrar por estado', desc: 'Usa los botones Todas / Pendientes / Facturadas / Vencidas para ver solo las que necesitas.' },
-      { title: 'Convertir a venta', desc: 'Haz clic en "Facturar" en cualquier cotización. El sistema carga los productos al POS automáticamente.' },
-      { title: 'Duplicar', desc: 'El botón 📋 crea una copia de la cotización para pedidos repetidos, sin tener que escribir todo de nuevo.' },
+      { title: 'Entender el flujo completo', desc: 'El flujo típico es: 1) Cliente pregunta el precio → 2) Creas la cotización → 3) Se la imprimes o muestras → 4) El cliente decide → 5) Si acepta, presionas "Facturar" y el POS se carga automáticamente → 6) Cobras. Si no acepta, la cotización queda como Pendiente hasta que venza.' },
+      { title: 'Crear una cotización', desc: 'Haz clic en "Nueva Cotización". Primero busca y selecciona el cliente (si no tiene cuenta, puedes usar "Cliente General"). Luego busca los productos, ajusta cantidades y precios si es necesario. El total se calcula automáticamente. Guarda cuando esté lista.' },
+      { title: 'Leer el panel de estadísticas', desc: 'Los 4 cuadros superiores muestran: TOTAL (cuántas cotizaciones existen), PENDIENTES (aún sin respuesta del cliente con el monto total que representan), FACTURADAS (convertidas en ventas reales), y CONVERSIÓN (qué porcentaje de tus cotizaciones se convirtieron en ventas — un indicador de tu efectividad comercial).' },
+      { title: 'Filtrar por estado', desc: 'Los botones Todas / Pendientes / Facturadas / Vencidas muestran solo las cotizaciones de ese estado. Úsalos para hacer seguimiento: ve a "Pendientes" para ver a qué clientes les falta responder.' },
+      { title: 'Imprimir o mostrar al cliente', desc: 'Cada cotización tiene botones de acción en la parte inferior de la tarjeta. El ícono de impresora abre la versión para imprimir en hoja normal. El ícono de rayo (⚡) envía a la impresora térmica (58mm o 80mm según la que tengas). También puedes mostrar la pantalla directamente al cliente.' },
+      { title: 'Convertir en venta (Facturar)', desc: 'Cuando el cliente confirma que quiere comprar, haz clic en "Facturar" en la tarjeta de la cotización. El sistema abre el POS con todos los productos y cantidades ya cargados. Solo debes asignar el cliente (si no estaba ya) y cobrar.' },
+      { title: 'Duplicar para pedidos repetidos', desc: 'Si un cliente hace el mismo pedido seguido, haz clic en el ícono de copiar (📋) para crear una copia nueva de la cotización. Ahorra tiempo al no tener que escribir todo de nuevo. La copia queda en estado Pendiente.' },
+      { title: 'Editar una cotización', desc: 'Si el cliente pide cambiar algo, haz clic en el ícono de lápiz (✏️). Puedes cambiar productos, cantidades y precios. Guarda los cambios e imprime la versión actualizada.' },
+      { title: 'Eliminar', desc: 'El ícono de papelera elimina la cotización permanentemente. Solo los administradores pueden eliminar. Ten cuidado: las cotizaciones Facturadas no deben eliminarse ya que están ligadas a una venta real.' },
     ],
-    tips: ['Una cotización Pendiente significa que el cliente aún no ha confirmado.', 'El % de conversión te dice qué tan efectivo eres cerrando presupuestos.'],
-    actions: ['Nueva Cotización', 'Filtrar', 'Imprimir', 'Facturar', 'Duplicar'],
+    tips: [
+      'Una cotización en estado "Pendiente" significa que el cliente aún no ha confirmado ni pagado.',
+      'Las cotizaciones no descuentan stock — solo cuando se facturan.',
+      'Contacta a los clientes con cotizaciones pendientes de más de 3 días para hacer seguimiento.',
+      'El % de conversión ideal varía por industria, pero si está por debajo del 40%, revisa tus precios o el proceso de seguimiento.',
+      'Puedes establecer una fecha de vencimiento al crear la cotización. Pasada esa fecha, el estado cambia a "Vencida" automáticamente.',
+    ],
+    actions: ['Nueva Cotización', 'Filtrar por estado', 'Imprimir', 'Imprimir en térmica', 'Facturar (convertir)', 'Duplicar', 'Editar', 'Eliminar'],
   },
+
   'sales/clientes': {
-    title: 'Clientes', icon: '👥',
-    description: 'Directorio completo de clientes con historial de compras, saldo de crédito y precios especiales.',
+    title: 'Gestión de Clientes — Guía Completa',
+    icon: '👥',
+    description: 'Directorio completo de clientes con historial de compras, control de crédito, precios especiales y seguimiento de garantías. Un cliente bien registrado facilita el trabajo en el POS y en el taller.',
     steps: [
-      { title: 'Agregar cliente', desc: 'Haz clic en "Nuevo Cliente". Completa nombre, cédula y teléfono como mínimo.' },
-      { title: 'Buscar', desc: 'Escribe nombre, cédula o teléfono en la barra. Filtra en tiempo real.' },
-      { title: 'Ver historial', desc: 'Haz clic en el cliente para ver todas sus compras y el saldo de crédito.' },
-      { title: 'Asignar precio especial', desc: 'Asigna una lista de precios al cliente para que se aplique automáticamente en el POS.' },
+      { title: 'Crear un cliente nuevo', desc: 'Haz clic en "Nuevo Cliente". Campos obligatorios: Nombre completo. Campos recomendados: Cédula/RIF (para facturas fiscales), Teléfono (para seguimiento y WhatsApp), Email. Opcionales: Dirección, Empresa. Guarda con el botón verde.' },
+      { title: 'Buscar un cliente', desc: 'Escribe en la barra de búsqueda el nombre, cédula o número de teléfono. El sistema filtra en tiempo real. Si tienes muchos clientes, usa el filtro de estado (Activos / Inactivos / Con deuda).' },
+      { title: 'Ver el historial completo', desc: 'Haz clic en un cliente de la lista. En el panel derecho verás: todas sus compras anteriores con fecha y monto, sus órdenes del taller, cotizaciones pendientes, y el saldo de crédito actual si tiene.' },
+      { title: 'Asignar lista de precios especial', desc: 'En la ficha del cliente, busca el campo "Lista de Precios" y selecciona la que corresponde (ej: Mayorista, VIP, Precio Especial). Cuando ese cliente sea seleccionado en el POS, los precios especiales se aplican automáticamente sin que el cajero tenga que hacer nada.' },
+      { title: 'Configurar crédito', desc: 'En la ficha del cliente, activa "Permite Crédito" y establece el límite máximo en dólares. Con esto habilitado, el cajero puede seleccionar "Venta a Crédito" en el POS sin pasar del límite configurado.' },
+      { title: 'Editar información', desc: 'Haz clic en el ícono de lápiz junto al cliente. Actualiza los datos que necesites y guarda. Los cambios aplican inmediatamente en el POS y los reportes.' },
+      { title: 'Desactivar un cliente', desc: 'Si un cliente dejó de comprar o tuvo problemas, puedes desactivarlo sin eliminarlo. Así conservas todo su historial pero no aparece en la búsqueda del POS. Para reactivarlo, basta con cambiar su estado en la ficha.' },
+      { title: 'Registrar notas importantes', desc: 'El campo "Notas" guarda información que solo verá tu equipo: acuerdos especiales, comportamientos, preferencias, o cualquier contexto importante sobre ese cliente.' },
     ],
-    tips: ['El campo "Notas" es útil para guardar acuerdos o preferencias especiales.'],
-    actions: ['Nuevo Cliente', 'Buscar', 'Ver historial', 'Asignar lista de precios'],
+    tips: [
+      'Un cliente con cédula registrada puede pedir facturas con sus datos fiscales — el sistema las genera automáticamente.',
+      'Desactiva en vez de eliminar — así no pierdes el historial de ventas asociado.',
+      'El campo de teléfono en formato internacional (+58 para Venezuela) facilita exportar para campañas de WhatsApp.',
+      'Los clientes con deuda aparecen marcados en rojo en la lista — prioriza el contacto con ellos.',
+    ],
+    actions: ['Nuevo Cliente', 'Buscar por nombre/cédula/teléfono', 'Ver historial', 'Asignar lista de precios', 'Configurar crédito', 'Editar', 'Desactivar/Activar'],
   },
+
   'sales/devoluciones': {
-    title: 'Devoluciones', icon: '↩️',
-    description: 'Registra cuando un cliente regresa un producto. El stock se restaura y el reembolso queda registrado.',
+    title: 'Devoluciones — Guía Completa',
+    icon: '↩️',
+    description: 'Procesa devoluciones de ventas completas o parciales. El stock se restaura automáticamente y el reembolso queda registrado en los reportes del día.',
     steps: [
-      { title: 'Buscar la venta', desc: 'Escribe el número de venta o el nombre del cliente para encontrar la venta original.' },
-      { title: 'Seleccionar productos', desc: 'Marca qué productos devuelve y en qué cantidad. Puede ser parcial.' },
-      { title: 'Elegir reembolso', desc: 'Devuelve en efectivo, como crédito al cliente o como cambio por otro producto.' },
+      { title: 'Buscar la venta original', desc: 'Escribe el número de factura (ej: VEN-00123) o el nombre del cliente. El sistema muestra las ventas que coinciden. Selecciona la correcta verificando la fecha y el monto.' },
+      { title: 'Seleccionar qué se devuelve', desc: 'La venta original muestra todos los productos comprados. Marca los ítems que el cliente está devolviendo y la cantidad de cada uno. Puedes hacer devoluciones parciales — no tienes que devolver todo.' },
+      { title: 'Elegir el tipo de reembolso', desc: 'EFECTIVO: devuelves el dinero al cliente en la moneda en que pagó. CRÉDITO A FAVOR: el monto queda como saldo positivo en la cuenta del cliente para usarlo en su próxima compra. CAMBIO DE PRODUCTO: el cliente trae un producto y lo cambia por otro de igual o mayor valor.' },
+      { title: 'Confirmar la devolución', desc: 'Revisa el resumen: qué se devuelve, en qué cantidad y el monto del reembolso. Confirma. El sistema descuenta el monto de las ventas del día, restaura el stock y si hay comisiones generadas de esa venta, las ajusta.' },
+      { title: 'Registrar el motivo', desc: 'El campo "Motivo" es importante para los reportes. Opciones comunes: Producto defectuoso, Error en el pedido, Cliente cambió de opinión, Garantía. Esto te ayuda a identificar patrones de devolución.' },
     ],
-    tips: ['Siempre busca la venta original para que el sistema ajuste correctamente los reportes y comisiones.'],
-    actions: ['Buscar venta', 'Seleccionar productos', 'Confirmar devolución'],
+    tips: [
+      'Siempre busca la venta original — evita hacer ajustes manuales de stock que no quedan trazados.',
+      'Las devoluciones afectan los reportes de ventas netas del día en que se registran, no del día original de la venta.',
+      'Si el cliente no tiene factura, busca por fecha aproximada y nombre.',
+      'El crédito a favor es útil cuando el cliente quiere volver a comprar — evitas manejar efectivo de vuelta.',
+    ],
+    actions: ['Buscar por # factura o cliente', 'Seleccionar ítems a devolver', 'Elegir tipo de reembolso', 'Confirmar devolución'],
   },
+
   'sales/garantias': {
-    title: 'Garantías', icon: '🛡️',
-    description: 'Verifica si un producto vendido tiene garantía activa y crea órdenes de servicio vinculadas.',
+    title: 'Garantías — Guía Completa',
+    icon: '🛡️',
+    description: 'Verifica rápidamente si un producto vendido tiene garantía vigente y gestiona las reclamaciones. Las garantías están vinculadas a cada venta automáticamente si el producto tiene una política configurada.',
     steps: [
-      { title: 'Buscar garantía', desc: 'Escribe el nombre del cliente o número de venta. El sistema muestra si está vigente y la fecha de vencimiento.' },
-      { title: 'Crear orden de taller', desc: 'Si el equipo necesita reparación bajo garantía, crea una orden de taller directamente desde aquí.' },
+      { title: 'Verificar una garantía', desc: 'Busca por nombre del cliente, número de factura o nombre del producto. El sistema muestra la tarjeta de garantía con: fecha de compra, política aplicada (ej: "90 días de garantía"), fecha de vencimiento y estado (VIGENTE en verde, VENCIDA en rojo).' },
+      { title: 'Qué pasa si está vigente', desc: 'Si la garantía está activa, el cliente tiene derecho a reparación o reemplazo según la política. Puedes crear una orden de taller vinculada directamente desde aquí — el equipo queda ligado al cliente y la garantía original.' },
+      { title: 'Crear orden de taller desde garantía', desc: 'Haz clic en "Crear Orden de Servicio" dentro de la tarjeta de garantía. El sistema pre-llena los datos del cliente y del producto. Agrega el diagnóstico inicial y confirma. La orden aparece en el Taller marcada como "Garantía".' },
+      { title: 'Si está vencida', desc: 'Si la garantía venció, infórmale al cliente. Puedes igualmente crear una orden de servicio pagada normal desde el módulo de Taller.' },
+      { title: 'Configurar políticas de garantía', desc: 'Las políticas (30, 60, 90 días, etc.) se definen en Configuración → Garantías. Cada producto puede tener asignada una política diferente.' },
     ],
-    tips: ['Las políticas de garantía se configuran en Configuración → Garantías.'],
-    actions: ['Buscar garantía', 'Crear orden de servicio'],
+    tips: [
+      'Una orden de taller creada desde garantía tiene un campo especial de "Garantía" que queda en el historial — protege al negocio ante disputas.',
+      'Configura diferentes políticas para distintos tipos de productos: 30 días para accesorios, 90 días para equipos reparados.',
+      'Registra siempre el número de serial al vender para poder verificar garantías de forma precisa.',
+    ],
+    actions: ['Buscar garantía', 'Ver vigencia', 'Crear orden de taller', 'Ver historial del producto'],
   },
+
   'sales/creditos': {
-    title: 'Créditos (Cuentas por Cobrar)', icon: '💳',
-    description: 'Control de deudas de clientes. Registra pagos y consulta el saldo de cada cliente.',
+    title: 'Créditos (Cuentas por Cobrar) — Guía Completa',
+    icon: '💳',
+    description: 'Control completo de lo que te deben tus clientes. Aquí registras pagos, ves el envejecimiento de cada deuda y haces seguimiento de la cartera.',
     steps: [
-      { title: 'Ver deudas activas', desc: 'Lista de clientes con saldo pendiente, monto y antigüedad de la deuda.' },
-      { title: 'Registrar pago', desc: 'Haz clic en el cliente → "Registrar Pago". Elige el monto y método. El saldo se actualiza al instante.' },
-      { title: 'Ver historial', desc: 'Consulta cada factura pendiente con su fecha y monto.' },
+      { title: 'Leer el resumen de la cartera', desc: 'La pantalla principal muestra: el monto total que te deben todos los clientes, cuántos clientes tienen deuda activa, y cuánto de esa deuda está vencida (pasó la fecha acordada de pago).' },
+      { title: 'Entender los estados de deuda', desc: 'AL DÍA: el cliente debe pero dentro del plazo acordado. PRÓXIMO A VENCER: vence en menos de 7 días — hay que contactar al cliente. VENCIDA: ya pasó la fecha de pago — prioridad de cobro. CRÍTICA: más de 30 días vencida.' },
+      { title: 'Ver el detalle de un cliente', desc: 'Haz clic en un cliente de la lista. Verás cada factura pendiente por separado: número, fecha, monto original y saldo restante. Si el cliente ha hecho abonos parciales, aparece el historial de pagos.' },
+      { title: 'Registrar un pago', desc: 'Dentro de la ficha del cliente, haz clic en "Registrar Pago". Ingresa el monto recibido y el método (efectivo, Zelle, transferencia). Si el pago no cubre todo el saldo, el sistema registra el abono parcial y actualiza el saldo pendiente. Si lo cubre todo, la deuda se marca como saldada.' },
+      { title: 'Registrar un pago parcial (abono)', desc: 'El sistema acepta montos menores al total adeudado. Ingresa lo que el cliente pagó hoy. El saldo restante queda registrado como deuda activa. Puedes ver el historial de todos los abonos en la ficha del cliente.' },
+      { title: 'Exportar para gestión de cobro', desc: 'El botón de exportar genera un Excel con todos los deudores, montos y antigüedad. Úsalo para hacer llamadas o mensajes de seguimiento de forma organizada.' },
     ],
-    tips: ['Clientes con deuda mayor a 30 días aparecen marcados en rojo en el Dashboard.'],
-    actions: ['Ver deudas', 'Registrar pago', 'Ver historial por cliente'],
+    tips: [
+      'Llama a los clientes con deuda a partir de los 15 días — cuanto más tiempo pasa, más difícil es cobrar.',
+      'Ofrece descuento por pronto pago a clientes con deudas grandes: "si pagas esta semana te damos X% de descuento en la próxima compra".',
+      'Un cliente con deuda vencida aparece marcado en rojo en el Dashboard principal.',
+      'Puedes bloquear nuevas ventas a crédito a un cliente que supere su límite — el sistema lo hace automáticamente.',
+      'Los pagos registrados aquí afectan directamente el reporte de Créditos del Centro de Reportes.',
+    ],
+    actions: ['Ver cartera completa', 'Filtrar por estado', 'Registrar pago', 'Registrar abono parcial', 'Ver historial por cliente', 'Exportar para cobranza'],
   },
+
+  /* ══════════════════════════════════════════════════
+     CENTRO DE INVENTARIO
+  ══════════════════════════════════════════════════ */
   'inventory/productos': {
-    title: 'Productos', icon: '📦',
-    description: 'Catálogo completo: crea productos, ajusta precios, controla stock y recibe mercancía.',
+    title: 'Productos — Guía Completa',
+    icon: '📦',
+    description: 'Catálogo completo del negocio. Desde aquí creas, editas y controlas todos tus productos: precios, stock, imágenes, códigos y múltiples listas de precios.',
     steps: [
-      { title: 'Nuevo producto', desc: 'Haz clic en "Nuevo Producto". Completa nombre, precio de costo y precio de venta. Asígnale una categoría.' },
-      { title: 'Buscar y filtrar', desc: 'Usa la barra de búsqueda. Filtra por categoría, almacén o estado (En stock / Bajo stock / Agotado).' },
-      { title: 'Recibir mercancía', desc: 'Haz clic en "Recepción", busca los productos recibidos y escribe las cantidades. El stock se suma automáticamente.' },
-      { title: 'Importar masivo', desc: 'Usa "Importar" para cargar un Excel con muchos productos a la vez. Descarga la plantilla para ver el formato.' },
+      { title: 'Crear un producto nuevo', desc: 'Haz clic en "Nuevo Producto". Completa: Nombre (obligatorio), SKU/Código (puede ser el código de barras o uno propio), Categoría, Precio de costo (cuánto te costó comprarlo), Precio de venta (cuánto cobrarás al público), Stock inicial, y Stock mínimo (cantidad que dispara la alerta de reposición). Guarda.' },
+      { title: 'Configurar múltiples precios', desc: 'En la ficha del producto, puedes agregar precios adicionales para diferentes listas (Mayorista, VIP, etc.). Cada lista de precios puede tener su propio valor para el mismo producto. Cuando un cliente con esa lista compra, se aplica automáticamente.' },
+      { title: 'Agregar imagen', desc: 'En la ficha del producto, haz clic en el área de imagen para cargar una foto. Acepta JPG y PNG. Una imagen de 500x500 píxeles es suficiente. La imagen aparece en el POS para que el cajero identifique el producto visualmente.' },
+      { title: 'Activar control de serial/IMEI', desc: 'Para productos como celulares donde cada unidad tiene un identificador único, activa "Requiere Serial" en la ficha. Al vender, el sistema pedirá confirmar el número de serial específico de la unidad.' },
+      { title: 'Buscar y filtrar el catálogo', desc: 'Usa la barra de búsqueda para buscar por nombre o código. Filtra por: Categoría (dropdown), Almacén (dropdown), Estado del stock (Todos / En stock / Bajo stock / Agotado), y usa "Ordenar por" para organizar la vista.' },
+      { title: 'Recibir mercancía nueva', desc: 'Cuando llega un pedido, haz clic en "Recepción". Busca cada producto recibido, ingresa la cantidad y el costo de compra (si cambió). El stock se suma automáticamente y el costo promedio se recalcula. El movimiento queda en el Kardex.' },
+      { title: 'Ajustar stock manualmente', desc: 'Si hay diferencia entre el sistema y el físico, haz clic en el producto → "Ajustar Stock". Selecciona si es un ajuste positivo (inventario físico tiene más) o negativo (tiene menos). Escribe el motivo — queda registrado en el Kardex para auditoría.' },
+      { title: 'Importar productos masivamente', desc: 'Si tienes muchos productos, descarga la plantilla de Excel con el botón "Plantilla", llénala con tus datos y súbela con "Importar". El sistema crea o actualiza los productos automáticamente. Formato de la plantilla: nombre, sku, precio_costo, precio_venta, stock, categoria.' },
+      { title: 'Exportar el catálogo', desc: 'El botón "Excel" y "PDF" generan el catálogo completo con stock, costos y precios. Útil para inventarios físicos y para compartir con tu contador.' },
     ],
-    tips: ['Rojo = stock cero. Amarillo = por debajo del mínimo configurado.', 'Agregar fotos ayuda al cajero a identificar productos rápido en el POS.'],
-    actions: ['Nuevo Producto', 'Recepción', 'Importar Excel', 'Exportar'],
+    tips: [
+      'El stock mínimo activa la alerta en el Dashboard. Ponlo en el nivel de reposición ideal — si tardas 3 días en recibir mercancía, el mínimo debe cubrir 3 días de ventas.',
+      'Nunca dejes el costo en $0 — afecta directamente el cálculo de ganancia real.',
+      'Los productos inactivos no aparecen en el POS pero conservan su historial de ventas.',
+      'El costo promedio se recalcula automáticamente con cada recepción — así siempre tienes el costo real actualizado.',
+    ],
+    actions: ['Nuevo Producto', 'Editar producto', 'Recepción de mercancía', 'Ajustar stock', 'Importar Excel', 'Exportar Excel/PDF', 'Activar serial/IMEI'],
   },
+
   'inventory/categorias': {
-    title: 'Categorías', icon: '🏷️',
-    description: 'Organiza tus productos en grupos para filtrar en el POS y aplicar reglas de comisión.',
+    title: 'Categorías — Guía Completa',
+    icon: '🏷️',
+    description: 'Las categorías organizan el catálogo y habilitan funciones avanzadas como descuentos automáticos por tipo de producto y reportes segmentados.',
     steps: [
-      { title: 'Nueva categoría', desc: 'Haz clic en "Nueva Categoría". Escribe el nombre (ej: Celulares, Accesorios, Repuestos).' },
-      { title: 'Asignar a productos', desc: 'La categoría se asigna desde el formulario de cada producto.' },
+      { title: 'Crear una categoría', desc: 'Haz clic en "Nueva Categoría". Escribe un nombre claro y corto (ej: Celulares, Accesorios, Repuestos, Servicios). Puedes agregar una descripción y asignar un color para identificarla visualmente en el POS.' },
+      { title: 'Organizar en subcategorías', desc: 'Si tienes muchos productos, puedes crear subcategorías. Por ejemplo: Categoría "Celulares" → subcategorías "iPhone", "Samsung", "Xiaomi". Esto mejora la navegación en el POS y los reportes de ventas.' },
+      { title: 'Asignar a productos', desc: 'La categoría se asigna desde la ficha de cada producto. No se puede hacer desde aquí masivamente — ve a Productos e importa con Excel si tienes que cambiar categorías en cantidad.' },
+      { title: 'Usar en comisiones', desc: 'Si usas el sistema de comisiones, puedes crear reglas específicas por categoría. Ve a Configuración → Comisiones → Reglas por Categoría. Por ejemplo: 8% de comisión en Celulares, 5% en Accesorios.' },
+      { title: 'Eliminar una categoría', desc: 'Solo puedes eliminar una categoría si no tiene productos asignados. Si tiene productos, primero reasígnalos a otra categoría desde la edición individual de cada uno, o usando importación masiva.' },
     ],
-    tips: ['Mantén pocas categorías bien definidas — facilita la búsqueda en el POS y los reportes.'],
-    actions: ['Nueva Categoría', 'Editar', 'Eliminar'],
+    tips: [
+      'Mantén menos de 15 categorías principales — demasiadas dificultan el trabajo del cajero en el POS.',
+      'Los nombres cortos funcionan mejor: "Celulares" mejor que "Teléfonos Inteligentes y Smartphones".',
+      'Las categorías bien definidas hacen que los reportes de ventas por categoría sean mucho más útiles.',
+    ],
+    actions: ['Nueva Categoría', 'Editar', 'Eliminar (sin productos)', 'Ver productos por categoría'],
   },
+
   'inventory/kardex': {
-    title: 'Kardex', icon: '📋',
-    description: 'Registro completo de todos los movimientos de inventario: entradas, salidas, ajustes y traslados.',
+    title: 'Kardex — Guía Completa',
+    icon: '📋',
+    description: 'Registro histórico de todos los movimientos de inventario. Te permite rastrear exactamente qué pasó con cada unidad de cada producto: entradas, salidas, ajustes y traslados.',
     steps: [
-      { title: 'Buscar producto', desc: 'Selecciona el producto. Verás todos sus movimientos en orden cronológico.' },
-      { title: 'Filtrar por fecha', desc: 'Usa el selector de fechas para ver un período específico.' },
-      { title: 'Tipos de movimiento', desc: 'ENTRADA: mercancía recibida. SALIDA: venta realizada. TRASLADO: movimiento entre almacenes.' },
+      { title: 'Buscar el historial de un producto', desc: 'Selecciona el producto del dropdown. Verás la lista cronológica de todos sus movimientos: fecha, tipo, cantidad, responsable, y el saldo después de cada movimiento.' },
+      { title: 'Entender los tipos de movimiento', desc: 'ENTRADA: mercancía recibida por compra o ajuste positivo. El stock sube. SALIDA: producto vendido en el POS o ajuste negativo. El stock baja. TRASLADO SALIDA: salió hacia otro almacén. TRASLADO ENTRADA: llegó desde otro almacén. AJUSTE: corrección manual de inventario — siempre muestra quién lo hizo y el motivo.' },
+      { title: 'Filtrar por fecha', desc: 'Usa el selector de fechas para ver un período específico. Por ejemplo: los movimientos del último mes para el cuadre con el contador.' },
+      { title: 'Investigar diferencias de stock', desc: 'Si el stock del sistema no coincide con el físico: 1) Busca el producto en el Kardex. 2) Revisa los movimientos de los últimos días. 3) Busca algún ajuste sin motivo claro o una salida sin venta correspondiente. 4) El campo "Usuario" te dice quién hizo cada movimiento.' },
+      { title: 'Exportar para auditoría', desc: 'El botón de exportar genera un Excel con todos los movimientos del período seleccionado. Ideal para presentar al contador o para auditorías internas.' },
     ],
-    tips: ['Si el stock físico no coincide con el sistema, usa el Kardex para encontrar cuándo ocurrió la diferencia.'],
-    actions: ['Buscar producto', 'Filtrar por fecha', 'Exportar Excel'],
+    tips: [
+      'El Kardex es la herramienta de auditoría más importante — úsalo siempre que haya diferencias de stock.',
+      'Cada movimiento tiene un usuario responsable. Si hay ajustes sospechosos, puedes ver exactamente quién los hizo.',
+      'Haz un conteo físico mensual y compara con el Kardex para detectar mermas o errores a tiempo.',
+    ],
+    actions: ['Buscar producto', 'Filtrar por fecha', 'Ver responsable por movimiento', 'Exportar Excel'],
   },
+
   'inventory/traslados': {
-    title: 'Traslados', icon: '🔄',
-    description: 'Mueve productos de un almacén a otro. Ideal para mover mercancía de bodega al local.',
+    title: 'Traslados — Guía Completa',
+    icon: '🔄',
+    description: 'Mueve productos entre tus almacenes internos o sucursales. El stock se actualiza automáticamente en ambos lados y queda registrado en el Kardex.',
     steps: [
-      { title: 'Nuevo traslado', desc: 'Selecciona el almacén origen y destino. Agrega los productos y cantidades.' },
-      { title: 'Confirmar', desc: 'Al confirmar, el stock se descuenta del origen y se suma al destino automáticamente.' },
+      { title: 'Traslado interno (entre tus propios almacenes)', desc: 'Haz clic en "Nuevo Traslado". Selecciona: Almacén de origen (de dónde sale), Almacén de destino (a dónde llega). Agrega los productos y las cantidades a trasladar. Revisa y confirma.' },
+      { title: 'Qué pasa al confirmar', desc: 'El stock se descuenta del almacén origen inmediatamente. El stock aparece en el almacén destino inmediatamente. El movimiento queda registrado en el Kardex de ambos almacenes con el tipo "TRASLADO". No hay forma de revertir — si te equivocas, crea un traslado inverso.' },
+      { title: 'Traslado externo (a otra sucursal o sistema)', desc: 'Para sucursales que manejan sistemas separados, usa "Traslado Externo de Salida". Genera un documento con los productos y cantidades. La sucursal destino lo importa desde su sistema con "Traslado Externo de Entrada".' },
+      { title: 'Ver el historial de traslados', desc: 'La lista principal muestra todos los traslados con fecha, origen, destino, quién lo hizo y el estado. Puedes hacer clic en cualquiera para ver el detalle de qué productos se movieron.' },
     ],
-    tips: ['Para sucursales en diferentes sistemas, usa "Traslado Externo".'],
-    actions: ['Nuevo Traslado', 'Confirmar', 'Ver historial'],
+    tips: [
+      'Haz el traslado cuando la mercancía se mueva físicamente — no antes ni después.',
+      'Si tienes un local y una bodega, trabaja con el almacén "Local" activo en el POS y traslada desde Bodega cuando necesites reabastecer.',
+      'Los traslados externos son útiles para exportar el movimiento a un sistema externo de contabilidad.',
+    ],
+    actions: ['Nuevo Traslado interno', 'Traslado externo salida', 'Ver historial', 'Ver detalle por traslado'],
   },
+
   'inventory/almacenes': {
-    title: 'Almacenes', icon: '🏭',
-    description: 'Espacios físicos donde guardas tu inventario: bodega, local, depósito, sucursales.',
+    title: 'Almacenes — Guía Completa',
+    icon: '🏭',
+    description: 'Los almacenes son los espacios físicos donde guardas inventario. Puedes tener desde un local único hasta múltiples bodegas y sucursales.',
     steps: [
-      { title: 'Nuevo almacén', desc: 'Haz clic en "Nuevo Almacén". Escribe el nombre y dirección.' },
-      { title: 'Almacén activo en POS', desc: 'En Configuración → Estación POS elige de qué almacén descuentan las ventas.' },
+      { title: 'Crear un almacén', desc: 'Haz clic en "Nuevo Almacén". Nombre (ej: "Local Principal", "Bodega", "Sucursal Centro"). Dirección física si aplica. Tipo: Principal o Secundario.' },
+      { title: 'Asignar el almacén al POS', desc: 'Cada estación de caja vende del almacén que le asignes. Ve a Configuración → Estación POS → Almacén Activo y selecciona el que corresponde a esa computadora. Si tienes 2 cajas, cada una puede vender de un almacén diferente.' },
+      { title: 'Ver el stock por almacén', desc: 'En la vista de Productos, usa el filtro de Almacén para ver qué hay en cada uno. También puedes ver el stock de cada almacén desde el detalle de cualquier producto.' },
+      { title: 'Controlar con traslados', desc: 'Cuando un almacén se queda sin stock, crea un traslado desde el almacén con mercancía disponible. El stock se mueve instantáneamente en el sistema.' },
     ],
-    tips: ['Si solo tienes un local, un almacén es suficiente.'],
-    actions: ['Nuevo Almacén', 'Editar', 'Ver stock por almacén'],
+    tips: [
+      'Si solo tienes un local, un almacén es suficiente — no crees más innecesariamente.',
+      'Nombra los almacenes de forma clara: "Bodega Norte" es mejor que "Almacén 2".',
+    ],
+    actions: ['Nuevo Almacén', 'Asignar al POS', 'Ver stock por almacén', 'Crear traslado'],
   },
+
   'inventory/seriales': {
-    title: 'Seriales / IMEI', icon: '🔢',
-    description: 'Control individual de productos con número de serie único (celulares, equipos, etc.).',
+    title: 'Seriales / IMEI — Guía Completa',
+    icon: '🔢',
+    description: 'Control individual de cada unidad de productos serializados (celulares, laptops, equipos). Sabes exactamente cuál serial fue vendido, a quién y cuándo.',
     steps: [
-      { title: 'Registrar seriales', desc: 'Al recibir mercancía serializada, ingresa o escanea el serial de cada unidad.' },
-      { title: 'Buscar un serial', desc: 'Encuentra cualquier serial para ver cuándo fue vendido y a qué cliente.' },
+      { title: 'Activar el control de serial en un producto', desc: 'En la ficha del producto, activa el campo "Requiere Serial/IMEI". A partir de ese momento, cada unidad que ingreses al inventario necesita su número de serial único.' },
+      { title: 'Registrar seriales al recibir mercancía', desc: 'Al hacer una recepción de un producto serializado, el sistema te pedirá el serial de cada unidad. Puedes escribirlos uno a uno o escanearlos con un lector. Si recibes 5 unidades, necesitas 5 seriales únicos.' },
+      { title: 'Ver el inventario de seriales', desc: 'La pantalla muestra todos los seriales registrados con su estado: EN STOCK (disponible para vender), VENDIDO (ya fue vendido), EN TALLER (está en reparación).' },
+      { title: 'Venta de producto serializado', desc: 'Al agregar un producto serializado al carrito del POS, el sistema muestra una lista de los seriales disponibles en stock. El cajero debe seleccionar cuál está entregando al cliente. Esto queda grabado en el historial.' },
+      { title: 'Rastrear un serial específico', desc: 'En el buscador, escribe el número de serial completo o parcial. El sistema muestra si está en stock, fue vendido (con nombre del cliente y fecha) o está en taller.' },
+      { title: 'Uso en garantías', desc: 'Al verificar una garantía de un equipo, el sistema cruza el serial registrado en la venta con el del equipo físico. Si coinciden, la garantía es válida.' },
     ],
-    tips: ['Solo aplica a productos marcados con "Requiere Serial" al crearse.'],
-    actions: ['Registrar seriales', 'Buscar serial', 'Ver vendidos'],
+    tips: [
+      'El IMEI de los celulares es el serial más importante — regístralo siempre para protegerte en casos de robo o disputas.',
+      'Si un cliente devuelve un equipo, verifica que el serial coincida con el registrado en su factura.',
+      'El control de seriales también sirve para identificar mercancía de contrabando o reacondicionada.',
+    ],
+    actions: ['Activar serial en producto', 'Registrar seriales', 'Buscar serial', 'Ver vendidos y a quién'],
   },
+
+  /* ══════════════════════════════════════════════════
+     REPORTES
+  ══════════════════════════════════════════════════ */
   'reports/resumen': {
-    title: 'Resumen de Reportes', icon: '📈',
-    description: 'Indicadores consolidados del período: ingresos, ganancia, transacciones y métodos de pago.',
+    title: 'Resumen de Reportes — Guía Completa',
+    icon: '📈',
+    description: 'Vista consolidada de los indicadores clave del negocio. Punto de partida para analizar el desempeño general antes de entrar al detalle de cada módulo.',
     steps: [
-      { title: 'Seleccionar período', desc: 'Elige fechas de inicio y fin. Por defecto muestra el mes actual vs el anterior.' },
-      { title: 'Leer los KPIs', desc: 'Cada cuadro muestra el valor actual y el % de variación vs el período anterior.' },
-      { title: 'Analizar el gráfico', desc: 'El área de ventas por día muestra los picos de actividad del período.' },
-      { title: 'Métodos de pago', desc: 'El donut muestra cómo pagan tus clientes: efectivo, Zelle, transferencia, etc.' },
+      { title: 'Seleccionar el período', desc: 'Elige las fechas con el selector superior. Los presets rápidos (Hoy, Semana, Mes, Año) están en los botones azules. Para comparar dos meses, selecciona manualmente las fechas de inicio y fin.' },
+      { title: 'Leer los KPIs comparativos', desc: 'Cada cuadro muestra el valor actual y la variación vs el período anterior de igual duración. Si seleccionas "este mes", compara con el mes anterior. Si seleccionas "esta semana", compara con la semana pasada.' },
+      { title: 'Analizar el gráfico de tendencia', desc: 'El área de ventas día por día revela patrones: ¿qué días venden más? ¿hay semanas flojas? ¿las ventas suben o bajan al final del mes? Usa esto para planificar stock y personal.' },
+      { title: 'Revisar métodos de pago', desc: 'El gráfico circular muestra la distribución de cómo pagan tus clientes. Un alto porcentaje en efectivo puede indicar que debes tener más fondo de caja. Un alto porcentaje en transferencias indica que cobras mucho en digital.' },
+      { title: 'Exportar', desc: 'El botón de descarga genera un Excel con todos los datos del período para enviar al contador o para tu propio análisis en Excel.' },
     ],
-    tips: ['Compara el mismo mes del año pasado para ver si el negocio está creciendo.'],
-    actions: ['Seleccionar período', 'Exportar Excel', 'Imprimir'],
+    tips: [
+      'Compara el mismo mes de este año vs el año pasado para ver crecimiento real.',
+      'Si las ventas suben pero la ganancia baja, estás vendiendo más barato o con más descuentos — revisa tu política de precios.',
+      'Los lunes suelen tener menos ventas en comercios retail — normal. Si tienes días con cero ventas injustificados, puede haber un error de caja.',
+    ],
+    actions: ['Seleccionar período', 'Exportar Excel', 'Imprimir resumen'],
   },
+
   'reports/ventas': {
-    title: 'Reporte de Ventas', icon: '🛒',
-    description: 'Detalle de cada venta del período: productos, vendedor, método de pago y monto.',
+    title: 'Reporte de Ventas — Guía Completa',
+    icon: '🛒',
+    description: 'Detalle de cada venta realizada: qué se vendió, quién vendió, cómo pagó el cliente, descuentos aplicados y monto neto después de devoluciones.',
     steps: [
-      { title: 'Filtrar por fecha', desc: 'Selecciona el rango de fechas para ver las ventas de ese período.' },
-      { title: 'Buscar una venta', desc: 'Escribe el nombre del cliente o número de venta.' },
-      { title: 'Ver el detalle', desc: 'Haz clic en una venta para ver los productos, precios y descuentos aplicados.' },
+      { title: 'Filtrar por fecha', desc: 'Selecciona el rango de fechas en los campos superiores. Para ver las ventas de hoy, ambas fechas deben ser hoy.' },
+      { title: 'Buscar una venta específica', desc: 'Escribe el nombre del cliente, el número de factura o parte del número en el buscador.' },
+      { title: 'Filtrar por vendedor', desc: 'Si tienes múltiples cajeros, usa el filtro de usuario para ver las ventas de cada uno por separado.' },
+      { title: 'Ver el detalle de una venta', desc: 'Haz clic en cualquier fila para ver el desglose completo: cada producto, cantidad, precio unitario, descuento aplicado, método de pago y datos del cliente.' },
+      { title: 'Identificar ventas con problemas', desc: 'Las ventas en rojo han sido anuladas o tienen devolución. Las ventas a crédito aparecen marcadas con una etiqueta especial. Las que tienen descuento muestran el porcentaje o monto descontado.' },
+      { title: 'Calcular el neto del período', desc: 'El total al pie de la tabla muestra ventas brutas, devoluciones del período y ventas netas (lo que realmente entró). Usa esto para el reporte a tu contador.' },
+      { title: 'Exportar', desc: 'El Excel incluye todas las ventas con cada línea de producto desglosada. Útil para cruzar con la contabilidad.' },
     ],
-    tips: ['Las ventas en rojo han sido anuladas o tienen devolución.', 'El total "Neto" descuenta las devoluciones.'],
-    actions: ['Filtrar', 'Ver detalle', 'Exportar Excel'],
+    tips: [
+      'Si hay una venta que no reconoces, ve al detalle y revisa qué usuario la procesó con la hora exacta.',
+      'Las ventas a crédito suman al total aunque el dinero aún no haya entrado — tenlo en cuenta al cuadrar caja.',
+      'Exporta el reporte de ventas mensual para enviárselo a tu contador junto con el de compras.',
+    ],
+    actions: ['Filtrar por fecha', 'Filtrar por vendedor', 'Ver detalle de venta', 'Exportar Excel'],
   },
+
   'reports/caja': {
-    title: 'Reporte de Caja', icon: '🏦',
-    description: 'Resumen de cada turno de caja: apertura, ventas, egresos y cierre.',
+    title: 'Reporte de Caja — Guía Completa',
+    icon: '🏦',
+    description: 'Historial de todos los turnos de caja: apertura, ventas del turno, egresos, diferencia de cierre y Z-Report imprimible.',
     steps: [
-      { title: 'Seleccionar período', desc: 'Elige las fechas para ver los turnos de esos días.' },
-      { title: 'Leer por turno', desc: 'Cada fila es un turno: apertura, ingresos, egresos, diferencia y cierre.' },
-      { title: 'Imprimir Z-Report', desc: 'Haz clic en el ícono de impresora para el resumen de cierre de ese día.' },
+      { title: 'Leer el resumen de un turno', desc: 'Cada fila es un turno de caja. Columnas: APERTURA (fondo inicial), INGRESOS (ventas cobradas en ese turno), EGRESOS (gastos pagados desde caja), CIERRE CALCULADO (lo que debería haber), CIERRE REAL (lo que contaste físicamente), DIFERENCIA (+ es sobrante, − es faltante).' },
+      { title: 'Investigar diferencias', desc: 'Si la Diferencia no es cero: haz clic en el turno para ver el detalle de cada venta y cada egreso. Busca ventas duplicadas, egresos sin respaldo, o pagos registrados con monto incorrecto.' },
+      { title: 'Imprimir el Z-Report', desc: 'Haz clic en el ícono de impresora junto a cualquier turno para imprimir el cierre de ese día. El Z-Report incluye el resumen completo: ventas por método de pago, egresos y diferencia. Es el comprobante oficial del turno.' },
+      { title: 'Ver por cajero', desc: 'Si tienes múltiples cajas, filtra por nombre del cajero para ver los turnos de cada persona.' },
+      { title: 'Exportar', desc: 'El Excel incluye todos los turnos del período con todos los campos.' },
     ],
-    tips: ['Una diferencia de cierre distinta de cero indica descuadre — investiga con el Kardex.'],
-    actions: ['Ver por período', 'Imprimir Z-Report', 'Exportar'],
+    tips: [
+      'Un faltante recurrente en caja puede indicar un error en el proceso de cobro — revisa si los cajeros ingresan el monto recibido correctamente.',
+      'Los egresos sin justificación (sin nota o motivo) son una alerta — implementa la política de siempre escribir el motivo.',
+      'El Z-Report es el documento equivalente al cierre fiscal en sistemas tradicionales.',
+    ],
+    actions: ['Filtrar por período', 'Ver detalle de turno', 'Imprimir Z-Report', 'Exportar Excel'],
   },
+
   'reports/creditos': {
-    title: 'Reporte de Créditos', icon: '📑',
-    description: 'Análisis de cuentas por cobrar: quién debe, cuánto y desde cuándo.',
+    title: 'Reporte de Créditos — Guía Completa',
+    icon: '📑',
+    description: 'Análisis completo de cuentas por cobrar: quién debe, cuánto, desde cuándo y el envejecimiento de cada deuda.',
     steps: [
-      { title: 'Ver el resumen', desc: 'Cuadros con total adeudado, clientes con deuda y monto vencido.' },
-      { title: 'Analizar aging', desc: 'Agrupa deudas por antigüedad: 0-30 días (normal), 31-60 (atención), +60 (urgente).' },
-      { title: 'Exportar para cobro', desc: 'Exporta a Excel con la lista completa de deudores.' },
+      { title: 'Leer el resumen general', desc: 'TOTAL ADEUDADO: suma de todas las deudas activas. CLIENTES CON DEUDA: cuántos clientes deudores hay. MONTO VENCIDO: de todo lo que deben, cuánto ya pasó su fecha de pago. PROMEDIO DE MORA: días promedio de retraso.' },
+      { title: 'Analizar el envejecimiento (Aging)', desc: 'La tabla de Aging agrupa las deudas por antigüedad: 0-30 días (normal, aún dentro del plazo), 31-60 días (debes contactar), 61-90 días (urgente), más de 90 días (crítico, difícil de cobrar). Mientras más deuda en la columna derecha, más problemas de cobranza hay.' },
+      { title: 'Ver el detalle por cliente', desc: 'Haz clic en un cliente para ver cada factura pendiente: número, fecha de emisión, monto original, abonos recibidos y saldo. Puedes registrar un pago directamente desde aquí.' },
+      { title: 'Exportar para gestión de cobro', desc: 'El Excel descargable tiene todos los deudores, montos y antigüedad. Úsalo para crear una lista de llamadas por prioridad (primero los más vencidos o los montos más altos).' },
     ],
-    tips: ['El aging es el reporte más importante para la salud financiera del negocio.'],
-    actions: ['Ver aging', 'Detalle por cliente', 'Exportar'],
+    tips: [
+      'Revisa el aging semanalmente — una deuda de 30 días es recuperable; una de 90 días, difícilmente.',
+      'Prioriza los montos más altos aunque estén en plazo — son los que más impactan el flujo de caja si se atrasan.',
+      'Define una política de crédito clara: qué plazo das, qué límite, y qué pasa si no pagan a tiempo.',
+    ],
+    actions: ['Ver aging', 'Filtrar por antigüedad', 'Ver detalle por cliente', 'Registrar pago', 'Exportar'],
   },
+
   'reports/proveedores': {
-    title: 'Reporte de Proveedores', icon: '🚚',
-    description: 'Compras por proveedor, deudas pendientes e historial de pagos.',
+    title: 'Reporte de Proveedores — Guía Completa',
+    icon: '🚚',
+    description: 'Cuánto compras, cuánto debes y el historial de pagos con cada proveedor.',
     steps: [
-      { title: 'Ver compras', desc: 'Monto total comprado a cada proveedor en el período.' },
-      { title: 'Ver deudas', desc: 'Cuánto debes actualmente a cada proveedor.' },
+      { title: 'Ver compras por proveedor', desc: 'La tabla muestra cuánto compraste a cada proveedor en el período seleccionado. Útil para negociar: con el más grande tienes más poder de negociación.' },
+      { title: 'Ver deudas pendientes', desc: 'La columna "Deuda Actual" muestra cuánto debes a cada proveedor en este momento.' },
+      { title: 'Ver el historial de pagos', desc: 'Haz clic en un proveedor para ver todas las compras y pagos realizados, con fechas y montos.' },
     ],
-    tips: ['Identifica tus proveedores principales para negociar mejores condiciones.'],
-    actions: ['Filtrar', 'Ver por proveedor', 'Exportar'],
+    tips: [
+      'Si un proveedor representa más del 50% de tus compras, considera diversificar — eres muy dependiente de él.',
+      'Mantener al día los pagos a proveedores asegura abastecimiento continuo y posibles mejores condiciones.',
+    ],
+    actions: ['Filtrar por período', 'Ver detalle por proveedor', 'Exportar'],
   },
+
   'reports/inventario': {
-    title: 'Reporte de Inventario', icon: '📦',
-    description: 'Valoración del inventario: cuánto tienes, cuánto vale al costo y al precio de venta.',
+    title: 'Reporte de Inventario — Guía Completa',
+    icon: '📦',
+    description: 'Valoración del inventario actual: cuánto tienes, cuánto vale y cuánto podrías ganar vendiéndolo todo.',
     steps: [
-      { title: 'Ver valoración', desc: 'Valor al costo (lo invertido) y al precio de venta (lo que podrías recibir).' },
-      { title: 'Sin movimiento', desc: 'Productos que no han vendido en el período — capital inmovilizado.' },
-      { title: 'Exportar', desc: 'Excel con todos los productos, stock actual y valor total.' },
+      { title: 'Leer la valoración total', desc: 'COSTO TOTAL: cuánto invertiste en toda la mercancía que tienes en stock. VALOR DE VENTA: cuánto recibirías si vendieras todo al precio configurado. MARGEN GLOBAL: el porcentaje de ganancia promedio de todo tu inventario.' },
+      { title: 'Ver por categoría', desc: 'El desglose por categoría muestra dónde está concentrado tu inventario en valor. Si el 80% del valor está en una sola categoría, ese es tu producto estrella y el más crítico para mantener bien abastecido.' },
+      { title: 'Identificar productos sin movimiento', desc: 'Los productos que no han tenido ninguna venta en el período aparecen marcados. Son capital inmovilizado que no genera retorno. Considera hacerles promoción o liquidarlos.' },
+      { title: 'Exportar', desc: 'El Excel incluye todos los productos con stock actual, costo unitario, precio de venta y valor total de esa posición.' },
     ],
-    tips: ['Productos sin vender más de 90 días son candidatos para promoción o liquidación.'],
-    actions: ['Ver valoración', 'Exportar Excel', 'Filtrar por categoría'],
+    tips: [
+      'Los productos sin movimiento por más de 60 días son candidatos a liquidación — mejor recuperar algo que tener capital muerto.',
+      'El margen global debe ser mayor a tus gastos fijos mensuales divididos entre las ventas. Si no lo es, el negocio pierde dinero.',
+    ],
+    actions: ['Ver valoración', 'Ver por categoría', 'Identificar sin movimiento', 'Exportar Excel'],
   },
+
   'reports/comisiones': {
-    title: 'Comisiones', icon: '💰',
-    description: 'Cuánto ha generado cada vendedor y técnico, qué está pendiente de pagar.',
+    title: 'Comisiones — Guía Completa',
+    icon: '💰',
+    description: 'Control completo de comisiones del equipo: cuánto generó cada empleado, qué está pendiente de pagar y el historial de pagos realizados.',
     steps: [
-      { title: 'Ver por empleado', desc: 'Cada tarjeta muestra total generado y pendiente de pago.' },
-      { title: 'Pagar comisión', desc: 'Haz clic en "Pagar", elige el monto y método. Se registra el egreso en caja.' },
-      { title: 'Ver el detalle', desc: 'Haz clic en el empleado para ver comisión por venta.' },
+      { title: 'Ver el resumen por empleado', desc: 'Cada tarjeta muestra: el nombre y rol del empleado (Vendedor o Técnico), el total de comisiones generadas en el período, el monto ya pagado y lo que queda pendiente.' },
+      { title: 'Pagar comisiones', desc: 'Haz clic en "Pagar" en la tarjeta del empleado. Ingresa el monto a pagar (puede ser parcial), el método (efectivo, Zelle, etc.) y confirma. El sistema registra el pago en el historial del empleado y genera el egreso correspondiente en caja.' },
+      { title: 'Ver el detalle comisión por comisión', desc: 'Haz clic en el nombre del empleado para ver cada comisión individual: de qué venta provino, qué producto, qué porcentaje se aplicó y el monto. Útil si el empleado tiene preguntas sobre su liquidación.' },
+      { title: 'Filtrar por período', desc: 'Cambia el rango de fechas para calcular las comisiones de un mes específico. Esto te permite hacer liquidaciones mensuales.' },
+      { title: 'Reglas de cálculo', desc: 'Jerarquía: 1) Regla de categoría (si existe) → 2) Porcentaje del usuario (% Vendedor o % Técnico) → 3) Sin comisión. Una comisión en estado "Pendiente" no ha sido pagada aún. "Pagada" ya fue liquidada.' },
     ],
-    tips: ['Las comisiones se generan automáticamente al vender o cobrar una orden del taller.'],
-    actions: ['Ver por empleado', 'Pagar comisión', 'Ver detalle', 'Exportar'],
+    tips: [
+      'Las comisiones del POS se generan al completar la venta. Las del taller se generan al cobrar la orden.',
+      'Solo el administrador puede ver y pagar comisiones — el cajero puede ver solo las propias.',
+      'Si un empleado tiene comisiones de ventas que luego se devolvieron, el sistema ajusta automáticamente.',
+    ],
+    actions: ['Ver por empleado', 'Filtrar por período', 'Pagar comisión', 'Ver detalle por venta', 'Exportar'],
   },
+
+  /* ══════════════════════════════════════════════════
+     TALLER
+  ══════════════════════════════════════════════════ */
   'services/dashboard': {
-    title: 'Taller — Panel Principal', icon: '🔧',
-    description: 'Vista general de todas las órdenes de servicio activas: qué está en reparación, qué está listo para cobrar.',
+    title: 'Taller — Guía Completa',
+    icon: '🔧',
+    description: 'Gestión completa de órdenes de servicio. Desde recibir un equipo hasta cobrar la reparación, incluyendo diagnóstico, estado, repuestos, abonos y comisiones de técnicos.',
     steps: [
-      { title: 'Nueva orden', desc: 'Haz clic en "Nueva Orden". El asistente te guía: cliente → equipo → diagnóstico → confirmación.' },
-      { title: 'Filtrar por estado', desc: 'Usa los filtros de estado para ver solo las órdenes en ese paso.' },
-      { title: 'Cambiar estado', desc: 'Haz clic en una orden y usa el stepper de estado para avanzar la reparación.' },
-      { title: 'Cobrar', desc: 'Con la orden en LISTO, aparece el botón verde "Cobrar". Confirma el pago y se generan las comisiones.' },
+      { title: 'Crear una nueva orden de servicio', desc: 'Haz clic en "Nueva Orden". El asistente tiene 4 pasos: PASO 1 — Cliente: busca el cliente existente o crea uno nuevo. PASO 2 — Equipo: tipo (Celular, Laptop, Impresora, etc.), marca, modelo, descripción del problema reportado por el cliente, y el serial/IMEI si aplica. PASO 3 — Diagnóstico inicial: lo que ves al recibirlo (condición física, accesorios entregados, daños visibles). PASO 4 — Confirmación: revisa y confirma.' },
+      { title: 'Entender los estados de la orden', desc: 'RECIBIDO: el equipo llegó al taller, pendiente de revisar. DIAGNÓSTICO: el técnico está evaluando qué tiene. APROBADO: el cliente autorizó el presupuesto de reparación. EN PROCESO: se está reparando activamente. LISTO: reparación terminada, esperando que el cliente recoja. ENTREGADO: el cliente recogió el equipo (ya sea que pagó o no).' },
+      { title: 'Cambiar el estado de una orden', desc: 'Haz clic en la orden para abrirla. Usa el stepper de estados en la parte superior — avanza al siguiente estado cuando corresponda. Cada cambio queda registrado con fecha, hora y usuario.' },
+      { title: 'Filtrar el tablero', desc: 'Usa los botones de estado en la parte superior del tablero para ver solo las órdenes en ese paso. Por ejemplo: selecciona "LISTO" para ver todos los equipos que están esperando que los clientes recojan y paguen.' },
+      { title: 'Órdenes en amarillo', desc: 'Las órdenes resaltadas en amarillo llevan más de 3 días sin cambio de estado. Son señal de que algo está estancado — revísalas y actúa.' },
+      { title: 'Cobrar una orden', desc: 'Con la orden en estado LISTO, aparece el botón verde "Cobrar". Haz clic, ingresa el método de pago y el monto. Si el cliente dejó abonos previos, se descuentan automáticamente. Al confirmar, se generan las comisiones del técnico y del cajero si corresponde.' },
+      { title: 'Usar plantillas para servicios frecuentes', desc: 'Si hay servicios que haces seguido (ej: "Cambio de pantalla iPhone 13"), crea una plantilla con los ítems predefinidos. Al abrir una orden, carga la plantilla y los ítems aparecen automáticamente — ahorra tiempo y evita errores.' },
     ],
-    tips: ['Órdenes en amarillo llevan más de 3 días sin movimiento — revísalas.', 'Asigna siempre un técnico para que las comisiones se calculen correctamente.'],
-    actions: ['Nueva Orden', 'Filtrar por estado', 'Cobrar', 'Ver plantillas'],
+    tips: [
+      'Registra siempre el estado físico del equipo al recibirlo (rayones, golpes, piezas faltantes). Si el cliente reclama después, tienes el registro.',
+      'Mueve las órdenes de estado todos los días — un tablero actualizado permite al administrador tomar decisiones correctas.',
+      'El botón "Cobrar" solo aparece en estado LISTO. Si cobras antes, el técnico puede no haber terminado.',
+    ],
+    actions: ['Nueva Orden', 'Cambiar estado', 'Filtrar por estado', 'Cobrar', 'Cargar plantilla', 'Ver órdenes en retraso'],
   },
+
   'services/order-detail': {
-    title: 'Detalle de Orden', icon: '📋',
-    description: 'Gestiona una orden específica: agrega trabajos, cambia el estado y cobra.',
+    title: 'Detalle de Orden — Guía Completa',
+    icon: '📋',
+    description: 'Gestión detallada de una orden específica: ítems de trabajo, cambios de estado, abonos, cobro final y comunicación con el cliente.',
     steps: [
-      { title: 'Agregar ítems', desc: 'Haz clic en "+ Agregar". Elige "Repuesto del Inventario" (descuenta stock) o "Servicio Manual" (mano de obra). Asigna el técnico.' },
-      { title: 'Cambiar estado', desc: 'Usa el stepper: Recibido → Diagnóstico → Aprobado → En Proceso → Listo.' },
-      { title: 'Registrar abono', desc: 'Si el cliente paga parcialmente, usa "Registrar Abono". Puedes tomar varios abonos.' },
-      { title: 'Cobrar', desc: 'Con la orden en LISTO, presiona "Cobrar". Esto crea la venta y genera las comisiones del técnico y cajero.' },
+      { title: 'Agregar repuestos del inventario', desc: 'Haz clic en "+ Agregar ítem" → "Repuesto del Inventario". Busca el producto en el buscador. El sistema toma el precio de venta del producto y descuenta el stock del almacén activo. Asigna el técnico responsable de ese ítem.' },
+      { title: 'Agregar servicios de mano de obra', desc: 'Haz clic en "+ Agregar ítem" → "Servicio Manual". Escribe la descripción (ej: "Diagnóstico", "Mano de obra cambio de pantalla") y el precio acordado. No descuenta stock porque es mano de obra. Asigna el técnico.' },
+      { title: 'Por qué asignar el técnico a cada ítem', desc: 'Las comisiones se calculan por ítem y por técnico. Si un equipo fue trabajado por 2 técnicos distintos, cada uno recibe su comisión solo por los ítems que le asignaste. Sin técnico asignado, no hay comisión.' },
+      { title: 'Registrar un abono', desc: 'Si el cliente quiere dejar una señal o pago parcial: haz clic en "Registrar Abono". Ingresa el monto y el método de pago. El abono queda registrado en la sección de pagos de la orden. Al cobrar al final, el sistema descuenta automáticamente lo ya abonado.' },
+      { title: 'Avanzar el estado paso a paso', desc: 'Usa el stepper de estados en la parte superior. La secuencia lógica es: Recibido → Diagnóstico (al revisar el equipo) → Aprobado (cuando el cliente autoriza el presupuesto) → En Proceso (al comenzar la reparación) → Listo (al terminar).' },
+      { title: 'El estado Aprobado', desc: '"Aprobado" significa que el cliente ya vio el presupuesto y dijo que sí. Nunca pongas En Proceso sin Aprobado — significa que estás reparando sin autorización del cliente.' },
+      { title: 'Cobrar la orden completa', desc: 'Con la orden en estado LISTO, el botón "Cobrar" se activa en verde. Haz clic. El sistema muestra el total de ítems menos los abonos. Selecciona el método de pago, confirma y el sistema: genera la venta en el historial del cliente, genera las comisiones, mueve la orden a estado ENTREGADO.' },
+      { title: 'Imprimir la orden para el cliente', desc: 'El ícono de impresora genera el comprobante de recepción con los datos del equipo, el diagnóstico y el número de orden. Entrégalo al cliente cuando dejes el equipo.' },
+      { title: 'Agregar fotos del equipo', desc: 'En la sección de adjuntos, puedes subir fotos del equipo antes y después. Protégete de reclamos — si el cliente dice que llegó con la pantalla rota y tú tienes la foto, tienes evidencia.' },
     ],
-    tips: ['"Aprobado" significa que el cliente ya autorizó el presupuesto de reparación.'],
-    actions: ['Agregar ítem', 'Cambiar estado', 'Registrar abono', 'Cobrar', 'Imprimir'],
+    tips: [
+      'Nunca cobres sin mover la orden a estado LISTO primero — las comisiones dependen de ese flujo.',
+      'Si el cliente no viene a recoger, no muevas a ENTREGADO — queda como LISTO hasta que aparezca.',
+      'Los abonos parciales son muy útiles para equipos de reparación costosa — el cliente paga la mitad al dejar, la otra mitad al recoger.',
+      'Si la reparación fracasa (no se pudo reparar), cambia el estado a ENTREGADO SIN COBRO y anota el motivo.',
+    ],
+    actions: ['Agregar repuesto (inventario)', 'Agregar servicio (mano de obra)', 'Asignar técnico', 'Registrar abono', 'Cambiar estado', 'Cobrar', 'Imprimir orden', 'Agregar fotos'],
   },
+
+  /* ══════════════════════════════════════════════════
+     COMPRAS Y PROVEEDORES
+  ══════════════════════════════════════════════════ */
+  purchases: {
+    title: 'Compras — Guía Completa',
+    icon: '🛍️',
+    description: 'Registro de todas las compras a proveedores. Cada compra actualiza el inventario automáticamente y registra la deuda con el proveedor si se pagó a crédito.',
+    steps: [
+      { title: 'Crear una nueva compra', desc: 'Haz clic en "Nueva Compra". Selecciona el proveedor (si no existe, puedes crearlo desde aquí). Agrega los productos comprados buscando por nombre o código. Ingresa la cantidad y el costo de compra por unidad — este costo actualiza el promedio del producto.' },
+      { title: 'Registrar el método de pago de la compra', desc: 'PAGADO: ingresaste el dinero al proveedor al recibir la mercancía. CRÉDITO (a deber): el proveedor te fía — la deuda queda registrada en Proveedores y en el Reporte de Proveedores. Ingresa la fecha de pago acordada si es a crédito.' },
+      { title: 'Agregar el número de factura del proveedor', desc: 'El campo "# Factura Proveedor" es importante para cruzar con los documentos físicos. Introdúcelo para facilitar la contabilidad y las reconciliaciones.' },
+      { title: 'Confirmar la compra', desc: 'Al confirmar: el stock de cada producto se incrementa con las cantidades ingresadas, el costo promedio se recalcula automáticamente, el movimiento aparece en el Kardex como ENTRADA, y si es a crédito, la deuda aparece en el perfil del proveedor.' },
+      { title: 'Ver el historial de compras', desc: 'La lista principal muestra todas las compras con filtros por estado de pago (Todas / Pendiente / Parcial / Pagada) y por proveedor. Haz clic en cualquiera para ver el detalle completo.' },
+      { title: 'Registrar el pago de una compra a crédito', desc: 'Cuando pagues al proveedor, ve al detalle de la compra y haz clic en "Registrar Pago". Ingresa el monto pagado. Si no cubres el total, queda como pago parcial con el saldo restante pendiente.' },
+    ],
+    tips: [
+      'El costo de compra es crítico para el cálculo de ganancia — si lo dejas en $0 o incorrecto, los reportes de ganancia serán erróneos.',
+      'Haz la recepción en el sistema el mismo día que llega la mercancía física — así el stock siempre está al día.',
+      'Para compras recurrentes con el mismo proveedor, el sistema guarda el historial de precios para que veas si el proveedor subió los precios.',
+    ],
+    actions: ['Nueva Compra', 'Seleccionar proveedor', 'Agregar productos', 'Registrar método de pago', 'Confirmar compra', 'Registrar pago a proveedor', 'Ver historial'],
+  },
+
+  suppliers: {
+    title: 'Proveedores — Guía Completa',
+    icon: '🚛',
+    description: 'Directorio de tus proveedores con datos de contacto, historial de compras, deudas pendientes y cuenta corriente completa.',
+    steps: [
+      { title: 'Agregar un proveedor nuevo', desc: 'Haz clic en "Nuevo Proveedor". Completa: Nombre de la empresa, RIF, teléfono de contacto, nombre de la persona de contacto, email, dirección. En "Términos de Pago" establece cuántos días de crédito te da (ej: 30 días). El "Límite de Crédito" es el máximo que te puede fiar.' },
+      { title: 'Ver la cuenta corriente', desc: 'Haz clic en el proveedor → "Ver Cuenta". La cuenta corriente muestra: todas las compras realizadas, los pagos efectuados, y el saldo actual que debes. El saldo en rojo significa que tienes deuda pendiente.' },
+      { title: 'Registrar un pago a proveedor', desc: 'Desde la cuenta del proveedor, haz clic en "Registrar Pago". Ingresa el monto, la fecha y el método de pago (efectivo, transferencia, Zelle). El saldo se actualiza y el movimiento queda en el historial.' },
+      { title: 'Ver el historial de precios', desc: 'En el detalle del proveedor puedes ver el historial de compras. Si un producto te lo compraste 3 veces, puedes ver cómo varió el precio en cada compra — útil para detectar alzas de precios.' },
+      { title: 'Buscar un proveedor', desc: 'Escribe el nombre o RIF en la barra de búsqueda.' },
+    ],
+    tips: [
+      'Guarda el WhatsApp del proveedor en el campo de teléfono — facilita hacer pedidos rápidos.',
+      'Proveedor con deuda vencida (pasó la fecha acordada de pago) aparece resaltado en la lista — prioriza ese pago.',
+      'Define límites de crédito realistas — si un proveedor te da 30 días de crédito, ese es tu margen para vender y cobrar antes de tener que pagarle.',
+    ],
+    actions: ['Nuevo Proveedor', 'Ver cuenta corriente', 'Registrar pago', 'Ver historial de compras', 'Buscar proveedor'],
+  },
+
+  /* ══════════════════════════════════════════════════
+     CONFIGURACIÓN
+  ══════════════════════════════════════════════════ */
   'config/general': {
-    title: 'Configuración General', icon: '🏪',
-    description: 'Datos de tu negocio: nombre, logo, RIF y dirección. Aparecen en tickets y documentos.',
+    title: 'Configuración General — Guía Completa',
+    icon: '🏪',
+    description: 'Datos fundamentales de tu negocio que aparecen en todos los documentos impresos: tickets, facturas, cotizaciones y reportes.',
     steps: [
-      { title: 'Datos del negocio', desc: 'Completa nombre, dirección, teléfono y RIF.' },
-      { title: 'Subir logo', desc: 'Imagen cuadrada de al menos 200x200px. Aparece en tickets y login.' },
+      { title: 'Nombre comercial', desc: 'Es el nombre que aparece en los tickets y facturas. Usa el nombre con el que tus clientes te conocen.' },
+      { title: 'RIF o identificación fiscal', desc: 'Necesario para emitir facturas con datos fiscales. Formato Venezuela: J-00000000-0 para empresas, V-00000000 para personas naturales.' },
+      { title: 'Dirección y teléfono', desc: 'Aparecen en el pie de los documentos impresos. El teléfono de contacto que los clientes pueden usar.' },
+      { title: 'Logo del negocio', desc: 'Sube una imagen cuadrada (mínimo 200x200 píxeles, máximo 2MB). El logo aparece en el encabezado de los tickets y en la pantalla de login. Formatos aceptados: PNG y JPG. Si no subes logo, el sistema usa las iniciales del nombre del negocio.' },
+      { title: 'Zona horaria', desc: 'Venezuela usa UTC-4. Esta zona horaria afecta la hora que aparece en los tickets — si los tickets muestran hora incorrecta, verifica este campo.' },
     ],
-    tips: ['El RIF es importante si tus clientes piden facturas con datos fiscales.'],
-    actions: ['Guardar cambios', 'Subir logo'],
+    tips: [
+      'Un logo profesional en los tickets transmite confianza a los clientes.',
+      'El RIF correcto es importante si tienes clientes que piden facturas formales con retención de IVA.',
+    ],
+    actions: ['Editar datos', 'Subir logo', 'Guardar cambios'],
   },
+
   'config/usuarios': {
-    title: 'Usuarios del Sistema', icon: '👤',
-    description: 'Crea y gestiona las cuentas de acceso del personal con sus roles y permisos.',
+    title: 'Usuarios del Sistema — Guía Completa',
+    icon: '👤',
+    description: 'Crea y gestiona las cuentas de acceso para todo tu personal. Cada usuario tiene un rol que define exactamente qué puede y qué no puede hacer.',
     steps: [
-      { title: 'Crear usuario', desc: 'Haz clic en "Nuevo Usuario". Asigna nombre, usuario, contraseña y rol.' },
-      { title: 'Roles disponibles', desc: 'ADMIN: acceso total. CAJERO: solo POS, ventas y taller.' },
-      { title: 'Desactivar', desc: 'Si un empleado sale, desactívalo en lugar de eliminarlo. Así conservas su historial.' },
+      { title: 'Crear un usuario nuevo', desc: 'Haz clic en "Nuevo Usuario". Completa: Nombre completo, Nombre de usuario (con el que entrará al sistema, sin espacios), Contraseña inicial, y Rol.' },
+      { title: 'Entender los roles en detalle', desc: 'ADMIN: acceso total al sistema incluyendo reportes, configuración, eliminación de registros, autorización de descuentos y gestión de comisiones. CAJERO/CASHIER: puede usar el POS para vender, crear y cobrar órdenes de taller, gestionar clientes y cotizaciones. No puede ver reportes financieros ni configuración.' },
+      { title: 'Configurar el PIN del cajero', desc: 'Además de la contraseña, cada cajero puede tener un PIN de 4 dígitos para desbloquear el POS rápidamente sin tener que escribir la contraseña completa. Ve al detalle del usuario → "Configurar PIN".' },
+      { title: 'Configurar porcentajes de comisión', desc: 'En la ficha de cada usuario, establece: "% Comisión Vendedor" (para ventas POS) y "% Comisión Técnico" (para órdenes del taller). Si el porcentaje es 0, ese usuario no recibe comisiones.' },
+      { title: 'Cambiar contraseña', desc: 'Si un empleado olvida su contraseña, haz clic en su nombre → "Cambiar Contraseña". Ingresa la nueva dos veces y guarda. El empleado podrá ingresar con la nueva contraseña inmediatamente.' },
+      { title: 'Desactivar un usuario', desc: 'Si un empleado sale del negocio, desactívalo con el interruptor en su ficha. No lo elimines — así conservas todas las ventas, órdenes y movimientos que realizó. Un usuario inactivo no puede entrar al sistema.' },
     ],
-    tips: ['Nunca compartas la contraseña de admin con los cajeros.'],
-    actions: ['Nuevo Usuario', 'Cambiar contraseña', 'Activar/Desactivar'],
+    tips: [
+      'Nunca compartas la contraseña del admin con los cajeros — cada uno debe tener su propia cuenta.',
+      'Si sospechas que una cuenta fue comprometida, cambia la contraseña inmediatamente.',
+      'El historial de auditoría registra cada acción de cada usuario — si algo sale mal, puedes rastrear quién lo hizo y cuándo.',
+    ],
+    actions: ['Nuevo Usuario', 'Configurar PIN', 'Configurar % comisión', 'Cambiar contraseña', 'Activar / Desactivar'],
   },
+
   'config/monedas': {
-    title: 'Monedas y Tasas', icon: '💱',
-    description: 'Configura las monedas aceptadas y las tasas de cambio. El sistema convierte automáticamente.',
+    title: 'Monedas y Tasas de Cambio — Guía Completa',
+    icon: '💱',
+    description: 'Configura las monedas que aceptas y las tasas de cambio. El sistema convierte automáticamente en el POS cuando el cliente paga en bolívares u otra moneda.',
     steps: [
-      { title: 'Moneda base', desc: 'El dólar (USD) es la moneda base. Los precios se guardan en USD.' },
-      { title: 'Activar bolívares', desc: 'Activa VES e ingresa la tasa del BCV. El POS convierte automáticamente.' },
-      { title: 'Actualizar tasa', desc: 'Actualiza cada día hábil. Puedes activar la actualización automática desde el BCV.' },
+      { title: 'Cómo funciona el sistema de monedas', desc: 'El sistema usa el dólar (USD) como moneda base para guardar todos los precios y costos. Cuando agregas otras monedas (bolívares, pesos, euros), el sistema las convierte automáticamente usando la tasa configurada.' },
+      { title: 'Actualizar la tasa del BCV', desc: 'La tasa del BCV cambia todos los días hábiles. Para actualizar: ve a Monedas → Bolívar Venezolano → "Actualizar Tasa". Ingresa la tasa oficial del día publicada en el BCV (bcv.org.ve). También puedes activar la actualización automática para que el sistema la obtenga solo.' },
+      { title: 'Indicador de tasa actualizada', desc: 'En el header del sistema hay un indicador de la tasa. Verde = actualizada hoy. Amarillo = desactualizada (1-3 días). Rojo = muy desactualizada (más de 3 días). Una tasa roja puede hacer que estés cobrando de más o de menos.' },
+      { title: 'Activar pesos colombianos u otras divisas', desc: 'Si tienes clientes que pagan en pesos colombianos, euros, u otra moneda: haz clic en "Nueva Moneda", selecciona la moneda, ingresa la tasa de cambio respecto al dólar y actívala. Aparecerá como opción de pago en el POS.' },
+      { title: 'El IGTF (3%)', desc: 'El Impuesto a las Grandes Transacciones Financieras aplica sobre pagos en divisas. Si tienes el IGTF activo en Configuración → Impuestos, el sistema lo suma automáticamente a los pagos en Zelle, transferencia en dólares y otras divisas.' },
     ],
-    tips: ['La tasa desactualizada muestra un punto amarillo o rojo en el header.'],
-    actions: ['Actualizar tasa BCV', 'Agregar moneda', 'Tasa automática'],
+    tips: [
+      'Una tasa desactualizada de más de 3 días puede generar pérdidas reales si el bolívar se devaluó en ese tiempo.',
+      'Configura la actualización automática para no tener que acordarte de hacerlo manualmente cada día.',
+      'Si un cliente paga en pesos colombianos, ingresa la tasa COP/USD vigente ese día — varía constantemente.',
+    ],
+    actions: ['Actualizar tasa BCV', 'Activar tasa automática', 'Agregar nueva moneda', 'Desactivar moneda'],
   },
+
   'config/comisiones': {
-    title: 'Comisiones', icon: '💰',
-    description: 'Configura el sistema de comisiones para vendedores y técnicos.',
+    title: 'Sistema de Comisiones — Guía Completa',
+    icon: '💰',
+    description: 'Configura cómo se calculan y distribuyen las comisiones de vendedores y técnicos. Incluye reglas por categoría, por usuario y control de qué módulos generan comisiones.',
     steps: [
-      { title: 'Activar el sistema', desc: 'El interruptor principal activa las comisiones para todo el negocio.' },
-      { title: 'Elegir módulos', desc: 'Activa para POS, Taller o ambos. También puedes dar comisión adicional a la cajera que gestiona órdenes.' },
-      { title: 'Tasas por usuario', desc: 'Asigna el % a cada empleado: % Vendedor para ventas POS, % Técnico para taller.' },
-      { title: 'Reglas por categoría', desc: 'Define que una categoría paga X% sin importar el vendedor. Tiene prioridad sobre el % del usuario.' },
+      { title: 'Activar el sistema de comisiones', desc: 'El interruptor principal "Sistema de Comisiones Activo" debe estar encendido. Si está apagado, ninguna venta genera comisiones aunque los usuarios tengan porcentajes configurados.' },
+      { title: 'Elegir qué módulos generan comisiones', desc: 'MÓDULO POS: activa comisiones para las ventas del punto de venta. MÓDULO TALLER: activa comisiones para el técnico que repara y para el cajero que gestiona la orden. Puedes activar ambos de forma independiente.' },
+      { title: 'Configurar el porcentaje por usuario', desc: 'Ve a "Tasas por Usuario". Para cada empleado, establece: "% Comisión Vendedor" — porcentaje sobre el total de cada venta POS que realice. "% Comisión Técnico" — porcentaje sobre los ítems de taller que le asignen. Un empleado puede tener ambos.' },
+      { title: 'Crear reglas por categoría (avanzado)', desc: 'En "Reglas por Categoría" puedes hacer que una categoría de producto pague un porcentaje diferente al del vendedor. Por ejemplo: Celulares → 5%, Accesorios → 10%. Esta regla tiene prioridad sobre el porcentaje del usuario para ese producto específico.' },
+      { title: 'Jerarquía de comisiones', desc: 'El sistema aplica en este orden: 1) Si el producto tiene una regla de categoría → aplica ese %. 2) Si no tiene regla de categoría → aplica el % del usuario. 3) Si el usuario tiene % en 0 → no hay comisión.' },
+      { title: 'Comisión del cajero en taller', desc: 'Puedes configurar que el cajero que recibe y gestiona una orden de taller también reciba una comisión (independiente de la del técnico). Activa "Comisión al cajero en taller" y establece el porcentaje.' },
     ],
-    tips: ['Jerarquía: Regla de categoría > % del usuario > sin comisión.'],
-    actions: ['Activar', 'Configurar módulos', 'Tasas por usuario', 'Reglas por categoría'],
+    tips: [
+      'Las comisiones se generan automáticamente al cerrar una venta o cobrar una orden — no hay nada que hacer manualmente.',
+      'Revisa semanalmente el reporte de comisiones para que el equipo no acumule mucho pendiente por pagar.',
+      'Si cambias los porcentajes, afectan solo las ventas futuras — no las que ya ocurrieron.',
+    ],
+    actions: ['Activar sistema', 'Configurar módulos', 'Tasas por usuario', 'Reglas por categoría', 'Comisión cajero taller'],
   },
+
   'config/pagos': {
-    title: 'Métodos de Pago', icon: '💳',
-    description: 'Define qué formas de cobro están disponibles en el POS.',
+    title: 'Métodos de Pago — Guía Completa',
+    icon: '💳',
+    description: 'Define qué formas de cobro están disponibles en el POS. Solo aparecen los métodos que actives aquí.',
     steps: [
-      { title: 'Activar método', desc: 'Solo los métodos activos aparecen en el POS al cobrar.' },
-      { title: 'Cuentas bancarias', desc: 'Para Transferencia y Pago Móvil, agrega los datos bancarios que verá el cliente.' },
+      { title: 'Activar o desactivar métodos', desc: 'Cada método tiene un interruptor. Activa solo los que realmente usas. Los métodos inactivos no aparecen como opción al cobrar en el POS — simplifica el proceso para el cajero.' },
+      { title: 'Métodos disponibles', desc: 'Efectivo USD, Efectivo Bs (bolívares), Zelle, Transferencia Bancaria, Pago Móvil, Tarjeta de Débito, Tarjeta de Crédito, y Crédito Interno (para ventas a crédito con el cliente en sistema).' },
+      { title: 'Configurar datos bancarios para transferencias', desc: 'Para los métodos Transferencia Bancaria, Pago Móvil y Zelle, agrega los datos bancarios del negocio: banco, número de cuenta/teléfono, nombre del titular, RIF. Estos datos se muestran al cajero en el POS cuando el cliente elige ese método.' },
+      { title: 'Referencia obligatoria', desc: 'Para transferencias y pagos digitales, puedes marcar "Referencia Obligatoria". Así el cajero no puede confirmar la venta sin ingresar el número de confirmación de la transacción — evita cobros sin verificar.' },
     ],
-    tips: ['Activa solo los métodos que realmente usas para simplificar el cobro.'],
-    actions: ['Activar/desactivar', 'Agregar cuenta bancaria', 'Guardar'],
+    tips: [
+      'Activa solo los métodos que realmente aceptas — menos opciones en el POS = menos errores del cajero.',
+      'El método "Crédito Interno" solo funciona si el cliente tiene crédito configurado en su ficha.',
+      'Para locales con alto volumen de Zelle, considera tener la referencia como obligatoria — así siempre tienes el comprobante.',
+    ],
+    actions: ['Activar / desactivar método', 'Agregar datos bancarios', 'Activar referencia obligatoria', 'Guardar cambios'],
   },
+
   'config/impuestos': {
-    title: 'Impuestos', icon: '📑',
-    description: 'Configura IVA, IGTF y otros impuestos aplicables a tus ventas.',
+    title: 'Impuestos — Guía Completa',
+    icon: '📑',
+    description: 'Configura IVA, IGTF y tasas especiales que aplican a tus ventas según la normativa venezolana.',
     steps: [
-      { title: 'Activar IVA', desc: 'Ingresa el porcentaje de IVA aplicable (generalmente 16% en Venezuela). Se suma automáticamente en los documentos fiscales.' },
-      { title: 'IGTF', desc: 'El Impuesto a las Grandes Transacciones Financieras (3%) se aplica automáticamente a pagos en divisas según la normativa venezolana.' },
+      { title: 'Configurar el IVA', desc: 'Activa el IVA e ingresa el porcentaje (actualmente 16% en Venezuela para la mayoría de productos). Con IVA activo, el precio de venta ya lleva el IVA incluido por defecto, o puedes configurar que se sume al total al momento de facturar.' },
+      { title: 'Configurar el IGTF', desc: 'El Impuesto a las Grandes Transacciones Financieras (3%) aplica sobre pagos en divisas (Zelle, transferencias en USD, etc.) según la Ley vigente. Al activarlo, el sistema suma el 3% automáticamente cuando el cliente paga en moneda extranjera.' },
+      { title: 'Exenciones', desc: 'Si tienes productos exentos de IVA (como algunos alimentos), márcalos como "Exento" en la ficha del producto. Al venderse, el sistema no aplica IVA aunque esté activo globalmente.' },
     ],
-    tips: ['El IVA solo aplica si tu negocio es contribuyente formal. Consulta a tu contador.'],
-    actions: ['Activar IVA', 'Configurar IGTF', 'Guardar'],
+    tips: [
+      'Consulta con tu contador si eres o no contribuyente de IVA antes de activarlo — tiene implicaciones legales.',
+      'El IGTF es obligatorio para negocios que reciben pagos en divisas según la normativa venezolana vigente desde 2022.',
+    ],
+    actions: ['Activar IVA', 'Configurar IGTF', 'Ver exenciones', 'Guardar'],
   },
+
   'config/impresoras': {
-    title: 'Impresoras', icon: '🖨️',
-    description: 'Conecta impresoras térmicas ESC/POS para imprimir tickets de venta y órdenes.',
+    title: 'Impresoras Térmicas — Guía Completa',
+    icon: '🖨️',
+    description: 'Conecta y configura impresoras térmicas ESC/POS para imprimir tickets automáticamente al cobrar. Requiere el Hardware Bridge instalado en la PC con la impresora.',
     steps: [
-      { title: 'Instalar el Bridge', desc: 'Descarga e instala el Hardware Bridge en la PC que tiene la impresora conectada.' },
-      { title: 'Conectar impresora', desc: 'Con el Bridge activo, haz clic en "Detectar" y selecciona tu impresora de la lista.' },
-      { title: 'Probar impresión', desc: 'Usa el botón "Prueba" para verificar que el ticket salga correctamente.' },
+      { title: 'Instalar el Hardware Bridge', desc: 'El Bridge es un programa pequeño que actúa de puente entre el sistema web y la impresora física. Descárgalo desde el enlace en esta pantalla. Instálalo en la PC que tiene la impresora USB conectada. Debe estar abierto (puede minimizarse en la barra de tareas) para que funcione la impresión.' },
+      { title: 'Conectar la impresora', desc: 'Con el Bridge activo, haz clic en "Detectar Impresoras". El sistema busca impresoras conectadas. Selecciona la tuya de la lista. Si no aparece, verifica que el cable USB esté conectado y que el sistema operativo la reconoce.' },
+      { title: 'Configurar el ancho del papel', desc: 'Las impresoras térmicas más comunes usan papel de 80mm (más ancho) o 58mm (más angosto). Selecciona el que corresponde a tu impresora. Un ancho incorrecto hace que el texto se corte o quede muy pequeño.' },
+      { title: 'Prueba de impresión', desc: 'Haz clic en "Imprimir Prueba". Debe salir un ticket de prueba con los datos del negocio. Si no sale nada, el Bridge no está activo o la impresora está offline.' },
+      { title: 'Impresión automática', desc: 'Cuando el Bridge está activo y la impresora conectada, el ticket se imprime automáticamente al confirmar cada venta en el POS. Si no imprime, verifica que el Bridge esté abierto en la PC.' },
     ],
-    tips: ['El Bridge debe estar abierto en la PC para que funcione la impresión desde el sistema.'],
-    actions: ['Detectar impresora', 'Prueba de impresión', 'Configurar papel'],
+    tips: [
+      'El Bridge debe estar abierto siempre que el negocio esté operando. Puedes configurarlo para que arranque automáticamente con Windows.',
+      'Si imprime pero el texto está cortado, el ancho del papel está mal configurado.',
+      'Para imprimir desde múltiples PCs, el Bridge debe estar instalado y activo en cada una.',
+    ],
+    actions: ['Descargar Bridge', 'Detectar impresoras', 'Configurar ancho de papel', 'Prueba de impresión'],
   },
+
   'config/garantias': {
-    title: 'Políticas de Garantía', icon: '🛡️',
-    description: 'Define los períodos de garantía que puedes asignar a productos y órdenes de servicio.',
+    title: 'Políticas de Garantía — Guía Completa',
+    icon: '🛡️',
+    description: 'Define los diferentes períodos de garantía que ofreces. Cada política puede asignarse a productos individuales.',
     steps: [
-      { title: 'Nueva política', desc: 'Haz clic en "Nueva Política". Define el nombre (ej: "30 días") y la duración en días.' },
-      { title: 'Política predeterminada', desc: 'Marca una como predeterminada para que se asigne automáticamente.' },
+      { title: 'Crear una política de garantía', desc: 'Haz clic en "Nueva Política". Escribe el nombre (ej: "30 días", "3 meses", "Sin garantía") y la duración en días (30, 90, 0). Una descripción opcional puede detallar las condiciones.' },
+      { title: 'Marcar como predeterminada', desc: 'La política marcada como predeterminada se asigna automáticamente a todos los productos nuevos que no tengan una específica. Ahorra tiempo si la mayoría de tus productos tienen el mismo período.' },
+      { title: 'Asignar a productos', desc: 'La política se asigna desde la ficha de cada producto. Ve a Inventario → Productos → edita el producto → campo "Política de Garantía".' },
+      { title: 'Cómo funciona en la venta', desc: 'Cuando vendes un producto con garantía, el sistema registra la fecha de venta y calcula la fecha de vencimiento. En Ventas → Garantías puedes buscar cualquier venta y ver si la garantía está vigente.' },
     ],
-    tips: ['Puedes crear varias políticas: 30 días para accesorios, 90 días para equipos reparados.'],
-    actions: ['Nueva política', 'Editar', 'Marcar como predeterminada'],
+    tips: [
+      'Crea al menos 3 políticas: sin garantía (para accesorios básicos), 30 días (para accesorios de mayor valor), 90 días (para equipos y reparaciones).',
+      'Las garantías de reparaciones son especialmente importantes — documentan el trabajo realizado.',
+    ],
+    actions: ['Nueva Política', 'Marcar como predeterminada', 'Asignar a producto'],
   },
+
   'config/pos': {
-    title: 'Estación POS', icon: '🖥️',
-    description: 'Opciones avanzadas del punto de venta: almacén activo, comportamiento y accesos directos.',
+    title: 'Estación POS — Guía Completa',
+    icon: '🖥️',
+    description: 'Opciones avanzadas del punto de venta para esta estación específica. Los cambios aplican solo a la PC donde los configures.',
     steps: [
-      { title: 'Almacén activo', desc: 'Selecciona de qué almacén descuenta las ventas esta estación. Cada PC puede tener un almacén diferente.' },
-      { title: 'Tema visual', desc: 'Cambia el color del POS para diferenciar cajas o adaptarlo a la preferencia del cajero.' },
+      { title: 'Seleccionar el almacén activo', desc: 'Cada estación de caja puede vender de un almacén diferente. Si tienes un local con bodega: la caja del local vende del almacén "Local", y el sistema descuenta stock de ese almacén. Cambiar el almacén aquí afecta solo esta computadora.' },
+      { title: 'Configurar el tema visual del POS', desc: 'Puedes cambiar el esquema de colores del POS. Útil si tienes múltiples cajas y quieres diferenciarlas visualmente, o simplemente por preferencia del cajero.' },
+      { title: 'Modo pantalla completa', desc: 'Activa el modo fullscreen para que el POS ocupe toda la pantalla sin barra del navegador. Ideal para tablets o pantallas dedicadas al POS.' },
+      { title: 'Impresora predeterminada', desc: 'Si tienes múltiples impresoras, selecciona cuál es la predeterminada para esta estación. La impresión al cobrar irá a esa impresora automáticamente.' },
     ],
-    tips: ['Los cambios aplican solo a la estación (PC) donde los configures.'],
-    actions: ['Seleccionar almacén', 'Cambiar tema', 'Guardar'],
+    tips: [
+      'Los cambios en esta sección solo afectan la computadora desde donde los haces.',
+      'Si tienes 2 cajas en el mismo local, asegúrate de que ambas tengan el mismo almacén activo a menos que intencialmente quieras que vendan de almacenes separados.',
+    ],
+    actions: ['Cambiar almacén activo', 'Cambiar tema visual', 'Seleccionar impresora', 'Guardar'],
   },
+
   'config/auditoria': {
-    title: 'Auditoría', icon: '🔍',
-    description: 'Registro completo de todas las acciones realizadas en el sistema por todos los usuarios.',
+    title: 'Auditoría del Sistema — Guía Completa',
+    icon: '🔍',
+    description: 'Registro completo e inmutable de cada acción realizada en el sistema. Quién hizo qué, cuándo y desde dónde.',
     steps: [
-      { title: 'Filtrar por usuario', desc: 'Selecciona un usuario específico para ver todas sus acciones.' },
-      { title: 'Filtrar por tipo', desc: 'Filtra por tipo de acción: creación, edición, eliminación, login, etc.' },
-      { title: 'Filtrar por fecha', desc: 'Consulta qué pasó en una fecha específica.' },
+      { title: 'Qué registra la auditoría', desc: 'CREACIÓN de registros (nuevos productos, ventas, clientes). EDICIÓN de registros (cambio de precio, modificación de datos). ELIMINACIÓN de registros. LOGIN y LOGOUT de usuarios. DESCUENTOS aplicados (con el usuario que los autorizó).' },
+      { title: 'Filtrar por usuario', desc: 'Selecciona un empleado para ver solo sus acciones. Útil para investigar si hay sospechas de irregularidades.' },
+      { title: 'Filtrar por tipo de acción', desc: 'Filtra por: Creación, Edición, Eliminación, Login, Descuento. Puedes combinar filtros.' },
+      { title: 'Filtrar por fecha', desc: 'Selecciona un rango de fechas para investigar qué pasó en un período específico.' },
+      { title: 'Ver el detalle de una acción', desc: 'Haz clic en cualquier registro de auditoría para ver el antes y después del cambio. Por ejemplo, si alguien editó un precio, verás el precio anterior y el nuevo.' },
     ],
-    tips: ['Cada acción registra: qué se hizo, quién lo hizo y a qué hora. Es tu herramienta de control.'],
-    actions: ['Filtrar por usuario', 'Filtrar por tipo', 'Filtrar por fecha', 'Exportar'],
+    tips: [
+      'La auditoría no se puede editar ni eliminar — es un registro permanente para tu protección.',
+      'Revisa la auditoría si encuentras diferencias de inventario inexplicables o cambios de precios no autorizados.',
+      'Cada descuento aplicado en el POS aparece aquí con el usuario admin que lo autorizó.',
+    ],
+    actions: ['Filtrar por usuario', 'Filtrar por tipo de acción', 'Filtrar por fecha', 'Ver detalle del cambio'],
   },
+
+  /* ══════════════════════════════════════════════════
+     CAJA
+  ══════════════════════════════════════════════════ */
   cash: {
-    title: 'Apertura y Cierre de Caja', icon: '🏧',
-    description: 'Controla los turnos de caja: abre con el dinero base y cierra contando el efectivo al final del día.',
+    title: 'Apertura y Cierre de Caja — Guía Completa',
+    icon: '🏧',
+    description: 'Control de turnos de caja. La apertura activa el POS para vender; el cierre registra el cuadre del día con el efectivo físico contado.',
     steps: [
-      { title: 'Abrir el turno', desc: 'Al inicio del día haz clic en "Abrir Turno". Cuenta el dinero físico e ingrésalo como saldo inicial.' },
-      { title: 'Registrar egresos', desc: 'Si usas efectivo de la caja para gastos, regístralos como "Egreso" para que el cuadre sea correcto.' },
-      { title: 'Cerrar el turno', desc: 'Al final del día haz clic en "Cerrar Turno". Cuenta el efectivo físico e ingrésalo. El sistema muestra la diferencia.' },
-      { title: 'Imprimir Z-Report', desc: 'Al cerrar, imprime el resumen del turno como comprobante del día.' },
+      { title: 'Abrir el turno al inicio del día', desc: 'Haz clic en "Abrir Turno". Cuenta el dinero físico que hay en la caja (billetes y monedas) e ingrésalo como "Fondo Inicial". Este es el dinero base del que dispones para dar vuelto. Confirma. A partir de este momento el POS puede procesar ventas.' },
+      { title: 'Registrar egresos durante el día', desc: 'Si necesitas sacar dinero de la caja para gastos (compra de insumos, propina al mensajero, etc.), registra cada salida con el botón "Registrar Egreso". Ingresa el monto y el motivo. Sin este registro, el cierre mostrará una diferencia negativa inexplicable.' },
+      { title: 'Registrar entradas de efectivo externas', desc: 'Si alguien pone dinero en caja sin hacer una venta (ej: reposición del fondo), regístralo como "Ingreso Extra" para que el cuadre sea correcto.' },
+      { title: 'Ver el resumen del turno actual', desc: 'Durante el día puedes ver en tiempo real: cuánto entró por ventas en efectivo, cuánto salió en egresos, y el saldo estimado que debería haber en caja.' },
+      { title: 'Cerrar el turno al final del día', desc: 'Haz clic en "Cerrar Turno". El sistema muestra el cierre calculado (lo que debería haber según el sistema). Cuenta el dinero físico en caja — billetes por denominación — e ingresa el total real. La diferencia entre calculado y real se muestra.' },
+      { title: 'Interpretar la diferencia de cierre', desc: 'Diferencia = CERO: cuadre perfecto. Diferencia POSITIVA (sobrante): hay más efectivo del que debería — puede ser un error de cobro (se cobró de más) o un ingreso no registrado. Diferencia NEGATIVA (faltante): hay menos efectivo — puede ser un gasto no registrado, un error de vuelto, o un problema más serio.' },
+      { title: 'Imprimir el Z-Report', desc: 'Al cerrar, imprime el Z-Report. Es el comprobante del turno con: ventas por método de pago, egresos del día, fondo inicial, efectivo esperado y diferencia. Guárdalo como registro diario.' },
     ],
-    tips: ['Una diferencia positiva al cerrar (sobrante) puede indicar un error de cobro.', 'Cierra la caja todos los días aunque no hayas vendido nada.'],
-    actions: ['Abrir turno', 'Registrar egreso', 'Cerrar turno', 'Imprimir Z-Report'],
+    tips: [
+      'Cierra la caja todos los días aunque no hayas vendido nada — así los reportes son precisos y cada turno queda bien delimitado.',
+      'Un faltante pequeño y ocasional puede ser un error de vuelto. Un faltante recurrente es una señal de alerta.',
+      'Registra SIEMPRE los egresos — es el error más común que hace que los cuadres salgan mal.',
+      'El fondo inicial debe ser suficiente para dar vuelto durante el día. Si vendes mucho en efectivo, necesitas un fondo mayor.',
+    ],
+    actions: ['Abrir turno (ingresar fondo inicial)', 'Registrar egreso', 'Registrar ingreso extra', 'Ver resumen del turno', 'Cerrar turno', 'Contar efectivo físico', 'Imprimir Z-Report'],
   },
 };
