@@ -484,7 +484,7 @@ const CustomerManager = () => {
                             ) : financialStatus && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {/* Credit Limit */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 group hover:border-indigo-200 transition-colors">
+                                    <div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 p-5 group hover:border-indigo-400 transition-colors">
                                         <div className="flex items-center justify-between mb-3">
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Límite Crédito</p>
                                             {!editingCredit ? (
@@ -517,7 +517,7 @@ const CustomerManager = () => {
                                     </div>
 
                                     {/* Current Debt */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                                    <div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 p-5">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Deuda Actual</p>
                                         <p className={clsx("text-2xl font-black tracking-tight",
                                             financialStatus.total_debt > financialStatus.credit_limit * 0.8 ? 'text-rose-600' : 'text-slate-800'
@@ -527,7 +527,7 @@ const CustomerManager = () => {
                                     </div>
 
                                     {/* Available Credit */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                                    <div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 p-5">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Cupo Disponible</p>
                                         <p className="text-2xl font-black text-emerald-600 tracking-tight">
                                             ${financialStatus.available_credit.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
@@ -535,7 +535,7 @@ const CustomerManager = () => {
                                     </div>
 
                                     {/* Payment Terms */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 group hover:border-indigo-200 transition-colors">
+                                    <div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 p-5 group hover:border-indigo-400 transition-colors">
                                         <div className="flex items-center justify-between mb-3">
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Días Crédito</p>
                                             {!editingTerms ? (
