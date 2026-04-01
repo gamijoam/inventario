@@ -99,8 +99,16 @@ def get_settings(
     _=Depends(has_role([UserRole.ADMIN]))
 ):
     s = _get_or_create_settings(db)
+    result = CommissionSettingsRead(
+        id=s.id,
+        global_enabled=bool(s.global_enabled),
+        pos_module_enabled=bool(s.pos_module_enabled),
+        taller_module_enabled=bool(s.taller_module_enabled),
+        taller_vendor_commission_enabled=bool(s.taller_vendor_commission_enabled or False),
+        strict_mode=bool(s.strict_mode),
+    )
     db.commit()
-    return s
+    return result
 
 @router.patch("/settings", response_model=CommissionSettingsRead)
 def update_settings(
@@ -109,19 +117,19 @@ def update_settings(
     _=Depends(has_role([UserRole.ADMIN]))
 ):
     s = _get_or_create_settings(db)
-    if data.global_enabled is not None:     s.global_enabled = data.global_enabled
-    if data.pos_module_enabled is not None: s.pos_module_enabled = data.pos_module_enabled
-    if data.taller_module_enabled is not None: s.taller_module_enabled = data.taller_module_enabled
-    if data.strict_mode is not None:        s.strict_mode = data.strict_mode
+    if data.global_enabled is not None:                     s.global_enabled = data.global_enabled
+    if data.pos_module_enabled is not None:                 s.pos_module_enabled = data.pos_module_enabled
+    if data.taller_module_enabled is not None:              s.taller_module_enabled = data.taller_module_enabled
+    if data.taller_vendor_commission_enabled is not None:   s.taller_vendor_commission_enabled = data.taller_vendor_commission_enabled
+    if data.strict_mode is not None:                        s.strict_mode = data.strict_mode
 
-    # Capturar valores ANTES del commit (expire_on_commit=False lo mantiene,
-    # pero ser explícito evita sorpresas con lazy loading post-commit)
     result = CommissionSettingsRead(
         id=s.id,
-        global_enabled=s.global_enabled,
-        pos_module_enabled=s.pos_module_enabled,
-        taller_module_enabled=s.taller_module_enabled,
-        strict_mode=s.strict_mode,
+        global_enabled=bool(s.global_enabled),
+        pos_module_enabled=bool(s.pos_module_enabled),
+        taller_module_enabled=bool(s.taller_module_enabled),
+        taller_vendor_commission_enabled=bool(s.taller_vendor_commission_enabled or False),
+        strict_mode=bool(s.strict_mode),
     )
     db.commit()
     return result
