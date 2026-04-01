@@ -1258,3 +1258,56 @@ Panel Admin → Tenant → Features Premium → "Sistema de Comisiones Global" �
 ### Commits
 - `700a7a6` feat(comisiones): engine + migración + feature flag
 - `30da646` feat(comisiones): implementación completa UI + fixes POS/taller
+
+---
+
+## [2026-03-31] Taller — Sesión de Fixes Post-Deploy (parte 2)
+
+### Bugs corregidos
+
+#### Fix: Botón "Cobrar" faltante en ServiceOrderDetail
+- **Problema raíz:** Las comisiones solo se generan al hacer checkout (`POST /services/orders/{id}/checkout`). El nuevo dashboard no tenía botón de cobro — los usuarios cambiaban el estado a DELIVERED sin crear la venta. Auto-checkout solo aplica si abonos cubren el 100%.
+- **Fix:** Botón verde "Cobrar" aparece cuando `status=READY`. Abre modal con total/pagado/pendiente, campo de monto y método de pago. Al confirmar → checkout → venta creada → comisiones generadas.
+- **Flujo correcto:** Crear orden → ítems → READY → **[Cobrar]** → comisiones ✅
+
+#### Fix: QuickItemForm — técnicos hardcodeados
+- Nombres Juan García / Carlos López eliminados
+- Ahora carga `GET /users/` con usuarios activos del tenant
+- Técnico disponible en ambos tabs (inventario y manual)
+- Búsqueda productos: `?q=` → `?search=` + límite 10 → 50
+
+#### Fix: Wizard — sin selector de técnico
+- Paso 3 ahora incluye dropdown "Técnico asignado" con usuarios reales
+- Campo opcional — puede asignarse también por ítem al agregar
+- Aparece en resumen del paso 4
+
+#### Fix: Plantillas 403 para CASHIER
+- Botón "Plantillas" ahora solo visible para ADMIN
+- ServiceTemplatesManager usa fallback: `/all` (admin) o `/service-templates` (cashier)
+
+#### Fix: Stepper de estados rediseñado
+- **Problema técnico:** colores dinámicos `bg-${color}-600` no compilan en Tailwind JIT
+- **Nuevo diseño:** pills compactas tipo badge con colores estáticos
+  - Estado actual: pill sólida + ring luminoso + punto blanco
+  - Estados completados: color suave
+  - Estados futuros: gris discreto
+
+#### Fix: Comisiones — taller_vendor_commission_enabled
+- `GET /settings` devolvía ORM sin serializar correctamente el campo → `undefined` en frontend
+- `PATCH /settings` no manejaba el campo → toggle no guardaba
+- Fix: serialización explícita con `bool()` en GET y PATCH
+
+#### Fix: Comisiones — user-rates filtraba todos los tenants
+- Faltaba `models.User.tenant_id == current_user.tenant_id` en query
+
+#### Fix: commission_config — patrón flush→query→commit
+- Todos los endpoints reescritos con el patrón correcto del proyecto:
+  `flush()` → queries → capturar datos → `commit()` al final
+- Elimina `UndefinedTable` que ocurría al re-querying post-commit
+
+### Usuarios de prueba creados en QA (solucionescodecraft)
+| Usuario | Rol | % Vendedor | % Técnico | Contraseña |
+|---|---|---|---|---|
+| yamachu | CASHIER | 10% | 0% | (existente) |
+| tecnico1 | CASHIER | 0% | 15% | tecnico123 |
+| admin | ADMIN | 0% | 0% | (existente) |
