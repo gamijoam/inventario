@@ -443,13 +443,6 @@ const CustomerManager = () => {
                                     </div>
 
                                     <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => setShow360(true)}
-                                            className="flex items-center gap-2 px-3 py-2 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-bold transition-all shadow-lg shadow-indigo-900/40"
-                                        >
-                                            <Zap size={14} />
-                                            Vista 360°
-                                        </button>
                                         <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center">
                                         <label className={clsx(
                                             "flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all select-none",
@@ -473,6 +466,15 @@ const CustomerManager = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Botón Vista 360° — acceso al historial completo */}
+                            <button
+                                onClick={() => setShow360(true)}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-indigo-200"
+                            >
+                                <Zap size={16} />
+                                Ver historial completo del cliente — Vista 360°
+                            </button>
 
                             {/* Financial KPIs */}
                             {loading ? (
