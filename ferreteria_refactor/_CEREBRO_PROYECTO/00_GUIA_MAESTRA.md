@@ -255,7 +255,7 @@ WHERE schema_name = 'nombre_tenant';
 | `feature/monitoring-alerts` | 🔄 Siguiente | Monitoreo y alertas |
 | `feature/reports-excel-pdf` | ⏳ Pendiente | Exportar reportes |
 | `feature/cicd-github-actions` | ⏳ Pendiente | CI/CD automático |
-| `feature/onboarding-wizard` | ⏳ Pendiente | Onboarding guiado |
+| `feature/onboarding-wizard` | 🔄 Siguiente | Onboarding guiado |
 | `feature/catalogo-publico` | ⏳ Pendiente | Catálogo público |
 | `feature/portal-cliente` | ⏳ Pendiente | Portal self-service |
 
@@ -343,3 +343,34 @@ FROM public.tenants ORDER BY created_at DESC;
 ---
 
 *Documento mantenido por el sistema de IA del proyecto. Última actualización automática en cada sesión de desarrollo.*
+
+---
+
+## 10. CI/CD y Deploy automático
+
+Ver documento completo: `35_CICD_Telegram_GitHub.md`
+
+### Flujo rápido
+```
+git push main → GitHub Actions → SSH VPS → build → DockerHub
+                                                        ↓
+                                              Telegram: [✅ Aprobar] [❌ Cancelar]
+                                                        ↓ (presionas ✅)
+                                              deploy-containers.sh → prod actualizado
+```
+
+### Archivos clave
+| Archivo | Rol |
+|---|---|
+| `.github/workflows/deploy.yml` | Trigger: push a main → SSH al VPS |
+| `/root/deploy/notify_build_ready.py` | Envía botones a Telegram |
+| `/root/deploy/telegram-bot/webhook.py` | Bot Flask que recibe aprobaciones |
+| `/root/deploy/deploy-containers.sh` | Recrea los 4 contenedores prod |
+| `/root/deploy/monitor.conf` | TOKEN y CHAT_ID de Telegram |
+
+### Verificación rápida
+```bash
+docker ps --filter "name=deploy_bot_server"
+curl https://api.miinventariofacil.com/bot/health
+python3 /root/deploy/notify_build_ready.py "test"
+```
