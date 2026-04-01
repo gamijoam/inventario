@@ -51,6 +51,15 @@ DEFAULTS = {
 
 
 # ── Helpers BD ────────────────────────────────────────────────
+def _ensure_schema(db: Session, tenant_id: str):
+    """Re-establece el search_path antes de queries. Necesario después de awaits largos."""
+    from sqlalchemy import text
+    try:
+        db.execute(text(f'SET search_path TO "{tenant_id}", public'))
+    except Exception:
+        pass
+
+
 def _get(db: Session, key: str) -> str:
     row = db.query(models.BusinessConfig).filter(
         models.BusinessConfig.key == key).first()
@@ -256,6 +265,9 @@ async def create_instance(
                 detail=f"Error en Evolution API: {e.response.status_code}"
             )
         # Si ya existe, continúa — solo reconfigura el webhook
+
+    # Re-establecer search_path después del await largo a Evolution API
+    _ensure_schema(db, tenant_id)
 
     # Guardar en BD
     _set(db, KEY_INSTANCE, instance_name)
