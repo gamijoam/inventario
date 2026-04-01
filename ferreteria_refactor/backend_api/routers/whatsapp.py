@@ -115,11 +115,35 @@ async def _wa(method: str, path: str, **kwargs) -> dict:
 # ENDPOINTS
 # ══════════════════════════════════════════════════════════════
 
+def _check_whatsapp_flag(db: Session):
+    """Lanza 403 si el tenant no tiene activado el flag whatsapp_business."""
+    from sqlalchemy import text
+    schema = get_tenant_schema()
+    # Leer feature_flags del tenant desde la tabla pública de tenants
+    try:
+        row = db.execute(
+            text("SELECT feature_flags FROM public.tenants WHERE schema_name = :s"),
+            {"s": schema}
+        ).fetchone()
+        flags = row[0] if row else {}
+        if not (flags or {}).get("whatsapp_business", False):
+            from fastapi import HTTPException
+            raise HTTPException(
+                status_code=403,
+                detail="El módulo WhatsApp Business no está activado en tu plan. Contacta a soporte para habilitarlo."
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # Si falla la verificación, permitir (evitar bloqueo por error técnico)
+
+
 @router.get("/config")
 def get_config(
     current_user=Depends(get_current_active_user),
     db: Session=Depends(get_db)
 ):
+    _check_whatsapp_flag(db)
     return {
         "enabled":        _get(db, KEY_ENABLED) == "true",
         "instance_name":  _get(db, KEY_INSTANCE),
@@ -168,6 +192,7 @@ async def create_instance(
     db: Session=Depends(get_db)
 ):
     """Inicia la conexión WhatsApp. El QR estará disponible en /instance/qr."""
+    _check_whatsapp_flag(db)
     schema_name   = get_tenant_schema()
     instance_name = schema_name.replace(".", "-").lower()
 

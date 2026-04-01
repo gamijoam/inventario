@@ -41,4 +41,10 @@ REGISTRY: dict[str, dict] = {
     },
 }
 
-CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "otros"]
+REGISTRY["whatsapp_business"] = {
+    "label": "WhatsApp Business 📱",
+    "description": "Módulo premium de automatización WhatsApp. Envía tickets de venta, notificaciones de taller, cotizaciones en PDF y recordatorios de deuda automáticamente al cliente. Incluye editor de plantillas personalizables.",
+    "category": "automatizacion",
+}
+
+CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "automatizacion", "otros"]

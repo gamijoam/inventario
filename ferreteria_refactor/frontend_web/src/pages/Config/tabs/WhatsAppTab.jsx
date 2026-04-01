@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import {
     MessageCircle, Wifi, WifiOff, QrCode, RefreshCw,
     Send, ShoppingCart, Wrench, CreditCard, FileText,
@@ -152,6 +153,31 @@ export default function WhatsAppTab() {
             setTesting(false);
         }
     };
+
+    const hasWhatsApp = useFeatureFlag('whatsapp_business');
+
+    if (!hasWhatsApp) return (
+        <div className="p-8 flex flex-col items-center justify-center text-center gap-4 min-h-64">
+            <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center">
+                <MessageCircle size={28} className="text-amber-500" />
+            </div>
+            <div>
+                <h3 className="text-lg font-black text-slate-700 mb-1">WhatsApp Business Premium</h3>
+                <p className="text-sm text-slate-500 max-w-sm">
+                    Este módulo es una función premium. Contacta a soporte en{' '}
+                    <a href="https://miinventariofacil.com" className="text-indigo-600 font-bold hover:underline" target="_blank" rel="noreferrer">
+                        miinventariofacil.com
+                    </a>{' '}
+                    para activarlo en tu cuenta.
+                </p>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center text-xs text-slate-400 mt-2">
+                {['Ticket de venta automático','Cotizaciones PDF','Taller listo','Recordatorios','Plantillas personalizadas'].map(f => (
+                    <span key={f} className="px-3 py-1 bg-slate-100 rounded-full">{f}</span>
+                ))}
+            </div>
+        </div>
+    );
 
     if (loading) return (
         <div className="flex items-center justify-center py-20">
