@@ -234,8 +234,9 @@ const ComisionesTab = () => {
                             </div>
                         ))}
                     </div>
-                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
-                        <strong>Modo estricto activo:</strong> solo generan comisión los productos con categoría asignada y regla configurada.
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+                        <strong>Jerarquía de comisión:</strong> si el producto tiene categoría con regla → usa ese %. Si no, usa el % individual del usuario. Si el usuario tampoco tiene % → sin comisión.
+                        <br /><span className="text-slate-500 mt-1 inline-block">Los ítems de mano de obra del taller siempre usan el % del técnico directamente.</span>
                     </div>
                 </div>
 

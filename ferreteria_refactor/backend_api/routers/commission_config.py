@@ -28,6 +28,7 @@ class CommissionSettingsRead(BaseModel):
     global_enabled: bool
     pos_module_enabled: bool
     taller_module_enabled: bool
+    taller_vendor_commission_enabled: bool
     strict_mode: bool
     class Config: from_attributes = True
 
@@ -35,6 +36,7 @@ class CommissionSettingsUpdate(BaseModel):
     global_enabled: Optional[bool] = None
     pos_module_enabled: Optional[bool] = None
     taller_module_enabled: Optional[bool] = None
+    taller_vendor_commission_enabled: Optional[bool] = None
     strict_mode: Optional[bool] = None
 
 class CommissionRuleRead(BaseModel):

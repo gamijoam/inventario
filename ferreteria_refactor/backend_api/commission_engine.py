@@ -73,25 +73,30 @@ class CommissionEngine:
     def _get_percentage(self, category_id: Optional[int], module: str, user_pct: Decimal) -> Optional[Decimal]:
         """
         Retorna el % a aplicar según la jerarquía:
-          1. Regla de categoría
-          2. % del usuario
-          3. None (sin comisión)
+          1. Regla de categoría  →  % específico de la categoría
+          2. % del usuario       →  fallback cuando no hay regla de categoría
+          3. None                →  sin comisión
+
+        strict_mode: si está activo Y el producto no tiene categoría
+          Y el usuario tampoco tiene % configurado → sin comisión.
+          Si el usuario tiene % configurado, siempre aplica como fallback.
         """
         settings = self._get_settings()
 
-        # Modo estricto: sin categoría = sin comisión
-        if category_id is None and settings.strict_mode:
-            return None
+        # Prioridad 1: regla de categoría (si el producto tiene categoría)
+        if category_id is not None:
+            rule_pct = self._get_rule_for_category(category_id, module)
+            if rule_pct is not None:
+                return rule_pct if rule_pct > 0 else None
 
-        # Prioridad 1: regla de categoría
-        rule_pct = self._get_rule_for_category(category_id, module)
-        if rule_pct is not None:
-            return rule_pct if rule_pct > 0 else None
-
-        # Prioridad 2: % del usuario
+        # Prioridad 2: % individual del usuario (fallback universal)
+        # Aplica tanto si no hay categoría como si hay categoría pero sin regla
         if user_pct and user_pct > 0:
             return user_pct
 
+        # Sin categoría + strict_mode + sin % de usuario = sin comisión
+        # Sin categoría + strict_mode desactivado = sin comisión igualmente
+        # (ya no hay más niveles de fallback)
         return None
 
     # ─────────────────────────────────────────────
@@ -199,12 +204,17 @@ class CommissionEngine:
         ticket_number: str = "",
     ) -> Optional[models.CommissionLog]:
         """
-        Comisión al VENDEDOR que registró la orden de taller
-        (distinto al técnico que ejecutó el trabajo).
-        Se calcula sobre el total de la orden.
+        Comisión al VENDEDOR/CAJERO que gestionó la orden de taller.
+        Solo se genera si taller_vendor_commission_enabled = True en settings.
+        Esto permite que negocios que solo quieren comisionar al técnico
+        puedan desactivar esta comisión adicional.
         """
         if not self.is_active_for_module("TALLER"):
             return None
+
+        settings = self._get_settings()
+        if not settings.taller_vendor_commission_enabled:
+            return None  # Desactivado — solo comisiona el técnico
 
         vendor_pct = Decimal(str(vendor.commission_vendor_pct or 0))
         if vendor_pct <= 0:

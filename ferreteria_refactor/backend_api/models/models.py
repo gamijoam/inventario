@@ -621,10 +621,11 @@ class CommissionSettings(Base):
     __tablename__ = "commission_settings"
 
     id = Column(Integer, primary_key=True)
-    global_enabled = Column(Boolean, default=False)           # Master ON/OFF
-    pos_module_enabled = Column(Boolean, default=True)        # POS activo
-    taller_module_enabled = Column(Boolean, default=True)     # Taller activo
-    strict_mode = Column(Boolean, default=True)               # Sin categoría = sin comisión
+    global_enabled = Column(Boolean, default=False)                    # Master ON/OFF
+    pos_module_enabled = Column(Boolean, default=True)                 # POS activo
+    taller_module_enabled = Column(Boolean, default=True)              # Taller activo
+    taller_vendor_commission_enabled = Column(Boolean, default=False)  # Cajera también comisiona en taller
+    strict_mode = Column(Boolean, default=True)                        # Sin categoría = sin comisión
     updated_at = Column(DateTime, default=get_venezuela_now, onupdate=get_venezuela_now)
 
     def __repr__(self):
