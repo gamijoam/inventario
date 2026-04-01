@@ -771,10 +771,11 @@ class UserRead(BaseModel):
     is_active: bool
     created_at: Optional[datetime]
     commission_percentage: Optional[Decimal] = Decimal("0.00")
-    preferences: Optional[Dict[str, Any]] = {} # NEW
-    is_onboarding_completed: bool = False # NEW
-    tenant_id: Optional[int] = None # NEW: Expose tenant_id as int (ID) to frontend
-
+    commission_vendor_pct: Optional[Decimal] = Decimal("0.00")        # v2 comisiones
+    commission_technician_pct: Optional[Decimal] = Decimal("0.00")    # v2 comisiones
+    preferences: Optional[Dict[str, Any]] = {}
+    is_onboarding_completed: Optional[bool] = False   # Optional — tolera NULL en BD
+    tenant_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
