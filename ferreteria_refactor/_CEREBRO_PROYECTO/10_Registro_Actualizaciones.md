@@ -1425,3 +1425,15 @@ backend_api/routers/services.py             ← orden recibida en taller
 src/pages/Config/tabs/WhatsAppTab.jsx       ← UI config recordatorio (hora/días/auto)
 _CEREBRO_PROYECTO/32_WhatsApp_Baileys.md    ← secciones 13–16 añadidas
 ```
+
+---
+
+## 2026-04-01 (3) — Sprint 3 WhatsApp
+
+**Rama:** `feature/customer-360-whatsapp`
+
+- **Bienvenida cliente nuevo:** al crear cliente con teléfono → mensaje automático
+- **Cotización por vencer:** cron 10:00am VE, avisa 2 días antes del vencimiento
+- **Garantía por vencer:** cron 10:30am VE, avisa 7 días antes del vencimiento
+- **UI:** 10 toggles de notificación + plantilla de bienvenida + guía 100% completa
+- **Total automatizaciones activas:** 11 (7 para clientes, 4 para admin/dueño)

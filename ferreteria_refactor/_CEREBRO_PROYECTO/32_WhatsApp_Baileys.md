@@ -381,3 +381,72 @@ La pantalla de WhatsApp Business muestra una sección expandible de configuraci�
 - **Botón "Enviar ahora":** dispara `POST /whatsapp/credit-reminders/send-now` — envío inmediato para todos los clientes con saldo vencido
 
 El scheduler respeta la configuración de CADA tenant individualmente. Tenants con `credit_reminder_auto=false` no reciben el cron aunque el scheduler esté corriendo.
+
+---
+
+## 17. Sprint 3 — Automatizaciones completadas
+
+> **Fecha:** 2026-04-01
+
+### Bienvenida cliente nuevo ✅
+- **Inyectado en:** `routers/customers.py` → `create_customer()` tras `db.commit()`
+- **Condición:** cliente con teléfono + `whatsapp_notify_welcome != "false"`
+- **Plantilla editable:** `whatsapp_template_welcome` — variables: `{{cliente}}`, `{{negocio}}`
+
+### Cotización por vencer ✅
+- **Job:** `job_quote_expiry_reminders()` — cron 10:00am Venezuela
+- **Lógica:** cotizaciones con `status=PENDING` y `valid_until = hoy + 2 días`
+- **Config:** `whatsapp_notify_quote_expiry`
+
+### Garantía próxima a vencer ✅
+- **Job:** `job_warranty_reminders()` — cron 10:30am Venezuela
+- **Lógica:** órdenes `COMPLETED` con `warranty_expires_at = hoy + 7 días`
+- **Config:** `whatsapp_notify_warranty`
+
+---
+
+## 18. Estado final de automatizaciones (completo)
+
+| # | Automatización | Cron/Trigger | Dest | Config key |
+|---|---|---|---|---|
+| 1 | Ticket de venta | Al cobrar | Cliente | `whatsapp_notify_sale` |
+| 2 | Cotización PDF | Manual (botón) | Cliente | `whatsapp_notify_quote` |
+| 3 | Orden recibida taller | Al crear orden | Cliente | `whatsapp_notify_order_ready` |
+| 4 | Equipo listo taller | Estado → LISTO | Cliente | `whatsapp_notify_order_ready` |
+| 5 | Confirmación abono | Al registrar pago | Cliente | `whatsapp_notify_sale` |
+| 6 | Recordatorio deuda | Configurable (9am default) | Cliente | `whatsapp_notify_credit_reminder` |
+| 7 | Bienvenida cliente nuevo | Al crear cliente | Cliente | `whatsapp_notify_welcome` |
+| 8 | Cotización por vencer | 10:00am — 2d antes | Cliente | `whatsapp_notify_quote_expiry` |
+| 9 | Garantía por vencer | 10:30am — 7d antes | Cliente | `whatsapp_notify_warranty` |
+| 10 | Alerta stock bajo | 8:00am diario | Admin | `whatsapp_notify_stock` |
+| 11 | Resumen cierre caja | Al cerrar sesión | Admin | `whatsapp_notify_cash_summary` |
+
+### Jobs en APScheduler
+| ID | Función | Horario |
+|---|---|---|
+| `whatsapp_credit_reminders` | `job_credit_reminders` | 9:00am VE (configurable) |
+| `whatsapp_stock_alerts` | `job_stock_alerts` | 8:00am VE |
+| `whatsapp_quote_expiry` | `job_quote_expiry_reminders` | 10:00am VE |
+| `whatsapp_warranty_reminders` | `job_warranty_reminders` | 10:30am VE |
+
+### Inicializar BD en nuevos tenants
+```sql
+INSERT INTO business_config (key, value) VALUES
+  ('whatsapp_enabled',             'false'),
+  ('whatsapp_instance_name',       ''),
+  ('whatsapp_instance_status',     'DISCONNECTED'),
+  ('whatsapp_notify_sale',         'true'),
+  ('whatsapp_notify_order_ready',  'true'),
+  ('whatsapp_notify_credit_reminder','true'),
+  ('whatsapp_notify_quote',        'false'),
+  ('whatsapp_notify_welcome',      'true'),
+  ('whatsapp_notify_quote_expiry', 'true'),
+  ('whatsapp_notify_warranty',     'true'),
+  ('whatsapp_notify_stock',        'true'),
+  ('whatsapp_notify_cash_summary', 'true'),
+  ('whatsapp_admin_phone',         ''),
+  ('whatsapp_credit_reminder_auto','true'),
+  ('whatsapp_credit_reminder_hour','9'),
+  ('whatsapp_credit_reminder_days','1')
+ON CONFLICT (key) DO NOTHING;
+```
