@@ -163,6 +163,10 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
     const [warrantyPolicies, setWarrantyPolicies] = useState([]);
     const [selectedWarrantyId, setSelectedWarrantyId] = useState('');
 
+    // Técnico asignado a la orden
+    const [technicians, setTechnicians] = useState([]);
+    const [selectedTechnicianId, setSelectedTechnicianId] = useState('');
+
     // Customer search
     const [customers, setCustomers]     = useState([]);
     const [searchTerm, setSearchTerm]   = useState('');
@@ -188,6 +192,11 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
     // Cargar garantías y plantillas al abrir
     useEffect(() => {
         if (!isOpen) return;
+        apiClient.get('/users/').then(res => {
+            const users = Array.isArray(res.data) ? res.data : [];
+            setTechnicians(users.filter(u => u.is_active));
+        }).catch(() => {});
+
         apiClient.get('/warranties/policies').then(res => {
             setWarrantyPolicies(res.data || []);
             const def = (res.data || []).find(p => p.is_default);
@@ -304,6 +313,7 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
                 passcode_pattern: formData.passcode_enabled ? formData.passcode_pattern : null,
                 problem_description: formData.problem_description,
                 physical_condition: formData.physical_condition,
+                technician_id: selectedTechnicianId ? parseInt(selectedTechnicianId) : null,
                 warranty_policy_id: selectedWarrantyId ? parseInt(selectedWarrantyId) : null,
                 items: cartItems.map(c => ({
                     product_id: c.product_id || null,
@@ -336,6 +346,7 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
                 problem_description: '', physical_condition: 'GOOD',
             });
             setSearchTerm('');
+            setSelectedTechnicianId('');
             if (onSuccess) onSuccess(res.data);
             onClose();
         } catch (error) {
@@ -650,6 +661,26 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Técnico asignado */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Técnico asignado <span className="text-slate-400 font-normal">(opcional)</span>
+                                </label>
+                                <select value={selectedTechnicianId}
+                                    onChange={e => setSelectedTechnicianId(e.target.value)}
+                                    className="w-full p-2 border-2 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm">
+                                    <option value="">— Asignar después —</option>
+                                    {technicians.map(u => (
+                                        <option key={u.id} value={u.id}>
+                                            {u.full_name || u.username}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-slate-400 mt-1">
+                                    También puedes asignarlo al agregar ítems individuales.
+                                </p>
+                            </div>
 
                             {/* Garantía */}
                             {warrantyPolicies.length > 0 && (
