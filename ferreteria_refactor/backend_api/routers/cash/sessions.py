@@ -658,4 +658,15 @@ async def close_cash_session(
     except Exception as e:
         logger.error(f"⚠️ Websocket broadcast failed: {e}")
 
+    # WhatsApp — resumen de cierre al admin (en background)
+    try:
+        from ...services import whatsapp_scheduler as _wa_sched
+        from ...tenant_context import get_tenant_schema as _gs
+        import asyncio as _asyncio
+        _asyncio.create_task(
+            _wa_sched.send_cash_session_summary(_gs(), broadcast_session_id)
+        )
+    except Exception as _e:
+        logger.warning(f"[WA] Resumen caja falló: {_e}")
+
     return response_data

@@ -207,6 +207,18 @@ def start_scheduler(db_session_factory):
         misfire_grace_time=3600,
     )
 
+    # WhatsApp — alertas de stock bajo a las 08:00 Venezuela (antes de abrir)
+    scheduler.add_job(
+        _wa_sched.job_stock_alerts,
+        trigger="cron",
+        hour=8,
+        minute=0,
+        timezone="America/Caracas",
+        id="whatsapp_stock_alerts",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     scheduler.start()
     logger.info(
         "[SCHEDULER] Started. Jobs: auto_expire_tenants @ 00:05 UTC daily, "

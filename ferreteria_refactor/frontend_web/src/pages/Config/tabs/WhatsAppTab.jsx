@@ -167,6 +167,13 @@ export default function WhatsAppTab() {
         catch { toast.error('Error guardando plantilla'); }
     };
 
+    const handleSendRemindersNow = async () => {
+        try {
+            await apiClient.post('/whatsapp/credit-reminders/send-now');
+            toast.success('✅ Recordatorios enviándose en segundo plano');
+        } catch (e) { toast.error('Error: ' + (e?.response?.data?.detail || e.message)); }
+    };
+
     const handleSaveAdminPhone = async (value) => {
         try { await apiClient.post('/whatsapp/config', { admin_phone: value }); toast.success('Número guardado'); }
         catch { toast.error('Error guardando número'); }
@@ -268,16 +275,16 @@ export default function WhatsAppTab() {
         },
         {
             icon: Package, iconColor: 'bg-orange-100 text-orange-600',
-            label: 'Alerta de stock bajo', recipientType: 'admin',
-            trigger: 'Cuando un producto llega al stock mínimo configurado (próximamente)',
+            label: 'Alerta de stock bajo ✅', recipientType: 'admin',
+            trigger: 'Automático todos los días a las 8:00am — productos en o bajo el stock mínimo',
             recipient: 'El número del administrador/dueño del negocio (configurable abajo)',
             example: `⚠️ *Alerta de Stock — Mi Negocio*\n\nEl producto *Cable HDMI 1.5m* está por agotarse.\n\n📦 Stock actual: 2 unidades\n🔴 Mínimo configurado: 5\n\n¡Es momento de reabastecer!`,
             vars: ['{{negocio}}','{{producto}}','{{stock_actual}}','{{stock_minimo}}'],
         },
         {
             icon: Clock, iconColor: 'bg-violet-100 text-violet-600',
-            label: 'Resumen de cierre de caja', recipientType: 'admin',
-            trigger: 'Al cerrar la sesión de caja al final del día (próximamente)',
+            label: 'Resumen de cierre de caja ✅', recipientType: 'admin',
+            trigger: 'Automático al cerrar la sesión de caja',
             recipient: 'El número del administrador/dueño del negocio',
             example: `📊 *Resumen del día — Mi Negocio*\n📅 Lunes 01/04/2026\n\n💵 Ventas: 12\n💰 Total cobrado: Bs 2.450.000\n💳 Efectivo: Bs 1.800.000\n🏦 Transferencia: Bs 650.000\n\n✅ Caja cerrada exitosamente`,
             vars: ['{{negocio}}','{{fecha}}','{{total_ventas}}','{{total_bs}}','{{efectivo}}','{{transferencia}}'],
@@ -431,7 +438,82 @@ export default function WhatsAppTab() {
                 </div>
             )}
 
-            {/* ── NÚMERO DEL ADMINISTRADOR ── */}
+            {/* ── CONFIG RECORDATORIO CRÉDITO ── */}
+            {(isConnected || isPendingQr) && config?.notify_credit && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <CreditCard size={14} className="text-indigo-600" />
+                            <span className="text-sm font-bold text-indigo-800">Configurar recordatorio de deuda</span>
+                        </div>
+                        <button onClick={handleSendRemindersNow}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all">
+                            <Send size={12} /> Enviar ahora
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 block mb-1">Envío automático</label>
+                            <button
+                                onClick={() => handleToggle('credit_reminder_auto', !config?.credit_reminder_auto)}
+                                disabled={!isConnected}
+                                className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-all
+                                    ${config?.credit_reminder_auto
+                                        ? 'bg-indigo-600 text-white border-indigo-600'
+                                        : 'bg-white text-slate-500 border-slate-200'}`}>
+                                {config?.credit_reminder_auto ? '✅ Automático' : '⏸ Manual'}
+                            </button>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 block mb-1">Hora del envío</label>
+                            <select
+                                value={config?.credit_reminder_hour ?? 9}
+                                onChange={e => {
+                                    const h = parseInt(e.target.value);
+                                    setConfig(c => ({ ...c, credit_reminder_hour: h }));
+                                    apiClient.post('/whatsapp/config', { credit_reminder_hour: h });
+                                }}
+                                disabled={!isConnected || !config?.credit_reminder_auto}
+                                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50">
+                                {Array.from({length: 24}, (_,i) => (
+                                    <option key={i} value={i}>
+                                        {String(i).padStart(2,'0')}:00 {i < 12 ? 'am' : 'pm'}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">
+                            Enviar recordatorio a partir de los <span className="text-indigo-700">{config?.credit_reminder_days ?? 1} día(s)</span> de vencido
+                        </label>
+                        <input type="range" min="1" max="30"
+                            value={config?.credit_reminder_days ?? 1}
+                            onChange={e => {
+                                const d = parseInt(e.target.value);
+                                setConfig(c => ({ ...c, credit_reminder_days: d }));
+                            }}
+                            onMouseUp={e => apiClient.post('/whatsapp/config', { credit_reminder_days: parseInt(e.target.value) })}
+                            onTouchEnd={e => apiClient.post('/whatsapp/config', { credit_reminder_days: parseInt(e.target.value) })}
+                            disabled={!isConnected}
+                            className="w-full accent-indigo-600" />
+                        <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                            <span>1 día (inmediato)</span>
+                            <span>15 días</span>
+                            <span>30 días</span>
+                        </div>
+                    </div>
+                    <p className="text-[11px] text-indigo-600">
+                        {config?.credit_reminder_auto
+                            ? `Los recordatorios se envían automáticamente a las ${String(config?.credit_reminder_hour ?? 9).padStart(2,'0')}:00 cuando el crédito lleva más de ${config?.credit_reminder_days ?? 1} día(s) vencido.`
+                            : 'Envío automático desactivado. Usa el botón "Enviar ahora" cuando quieras cobrar.'}
+                    </p>
+                </div>
+            )}
+
+            {/* ── NÚMERO DEL ADMINISTRADOR ── */}}
             {(isConnected || isPendingQr) && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
                     <div className="flex items-center gap-2 mb-1">

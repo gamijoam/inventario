@@ -32,6 +32,9 @@ KEY_NOTIFY_ORDER  = "whatsapp_notify_order_ready"
 KEY_NOTIFY_CREDIT = "whatsapp_notify_credit_reminder"
 KEY_NOTIFY_QUOTE  = "whatsapp_notify_quote"
 KEY_ADMIN_PHONE   = "whatsapp_admin_phone"   # Número del dueño para alertas internas
+KEY_CREDIT_AUTO   = "whatsapp_credit_reminder_auto"
+KEY_CREDIT_HOUR   = "whatsapp_credit_reminder_hour"
+KEY_CREDIT_DAYS   = "whatsapp_credit_reminder_days"
 KEY_TPL_SALE      = "whatsapp_template_sale"
 KEY_TPL_ORDER     = "whatsapp_template_order"
 KEY_TPL_CREDIT    = "whatsapp_template_credit"
@@ -67,6 +70,9 @@ DEFAULTS = {
     KEY_NOTIFY_CREDIT: "true",
     KEY_NOTIFY_QUOTE:  "false",
     KEY_ADMIN_PHONE:   "",
+    KEY_CREDIT_AUTO:   "true",
+    KEY_CREDIT_HOUR:   "9",
+    KEY_CREDIT_DAYS:   "1",
     KEY_TPL_SALE:      TPL_SALE_DEFAULT,
     KEY_TPL_ORDER:     TPL_ORDER_DEFAULT,
     KEY_TPL_CREDIT:    TPL_CREDIT_DEFAULT,
@@ -157,7 +163,10 @@ def get_config(
         "template_sale":  _get(db, KEY_TPL_SALE),
         "template_order": _get(db, KEY_TPL_ORDER),
         "template_credit":_get(db, KEY_TPL_CREDIT),
-        "admin_phone":    _get(db, KEY_ADMIN_PHONE),
+        "admin_phone":          _get(db, KEY_ADMIN_PHONE),
+        "credit_reminder_auto": _get(db, KEY_CREDIT_AUTO) == "true",
+        "credit_reminder_hour": int(_get(db, KEY_CREDIT_HOUR) or "9"),
+        "credit_reminder_days": int(_get(db, KEY_CREDIT_DAYS) or "1"),
     }
 
 
@@ -180,6 +189,35 @@ def update_config(
     # Número del admin
     if "admin_phone" in config and isinstance(config["admin_phone"], str):
         _set(db, KEY_ADMIN_PHONE, config["admin_phone"].strip())
+
+    # Config recordatorio crédito
+    if "credit_reminder_auto" in config:
+        _set(db, KEY_CREDIT_AUTO, "true" if config["credit_reminder_auto"] else "false")
+        # Actualizar el scheduler dinámicamente
+        from ..scheduler import scheduler as _sched
+        from ..services.whatsapp_scheduler import job_credit_reminders
+        from apscheduler.triggers.cron import CronTrigger
+        try:
+            if config["credit_reminder_auto"]:
+                hour = int(config.get("credit_reminder_hour", _get(db, KEY_CREDIT_HOUR) or 9))
+                _sched.reschedule_job("whatsapp_credit_reminders",
+                    trigger=CronTrigger(hour=hour, minute=0, timezone="America/Caracas"))
+            else:
+                _sched.pause_job("whatsapp_credit_reminders")
+        except Exception:
+            pass
+    if "credit_reminder_hour" in config:
+        hour = int(config.get("credit_reminder_hour", 9))
+        _set(db, KEY_CREDIT_HOUR, str(hour))
+        from ..scheduler import scheduler as _sched
+        from apscheduler.triggers.cron import CronTrigger
+        try:
+            _sched.reschedule_job("whatsapp_credit_reminders",
+                trigger=CronTrigger(hour=hour, minute=0, timezone="America/Caracas"))
+        except Exception:
+            pass
+    if "credit_reminder_days" in config:
+        _set(db, KEY_CREDIT_DAYS, str(int(config.get("credit_reminder_days", 1))))
 
     # Plantillas de texto
     for field, key in [
@@ -280,6 +318,18 @@ async def disconnect(
     _set(db, KEY_ENABLED,  "false")
     _set(db, KEY_INSTANCE, "")
     return {"ok": True}
+
+
+@router.post("/credit-reminders/send-now")
+async def send_credit_reminders_now(
+    current_user=Depends(admin_required),
+    db: Session=Depends(get_db)
+):
+    """Dispara los recordatorios de deuda manualmente ahora mismo."""
+    from ..services.whatsapp_scheduler import job_credit_reminders
+    import asyncio
+    asyncio.create_task(job_credit_reminders())
+    return {"ok": True, "message": "Recordatorios enviándose en segundo plano..."}
 
 
 @router.post("/test")
