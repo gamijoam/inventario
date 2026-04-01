@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 from typing import List, Optional
 from datetime import datetime
 from ..database.db import get_db
@@ -33,8 +33,11 @@ def get_commissions_summary(
         models.User.full_name.label("full_name"),
         func.sum(models.CommissionLog.amount).label("total_earned"),
         func.sum(
-            func.case((models.CommissionLog.status == models.CommissionStatus.PENDING,
-                       models.CommissionLog.amount), else_=0)
+            case(
+                (models.CommissionLog.status == models.CommissionStatus.PENDING,
+                 models.CommissionLog.amount),
+                else_=0
+            )
         ).label("total_pending"),
         func.count(models.CommissionLog.id).label("count")
     ).join(
