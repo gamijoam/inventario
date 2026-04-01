@@ -340,7 +340,7 @@ export default function WhatsAppTab() {
                             <GuideRow key={item.label} {...item} />
                         ))}
                         <p className="text-[11px] text-slate-400 text-center pt-1">
-                            Los mensajes de <span className="text-amber-600 font-bold">Alerta de stock</span> y <span className="text-amber-600 font-bold">Resumen de caja</span> están en desarrollo y se activarán en la próxima actualización.
+                            Todas las automatizaciones están activas. Puedes configurar cada una con los toggles de la sección "Notificaciones automáticas".
                         </p>
                     </div>
                 )}
@@ -435,6 +435,16 @@ export default function WhatsAppTab() {
                         value={config?.notify_credit ?? true} onChange={v => handleToggle('notify_credit', v)} disabled={!isConnected} />
                     <NotifToggle icon={FileText} label="Envío de cotizaciones" desc="Botón PDF en cada cotización"
                         value={config?.notify_quote ?? false} onChange={v => handleToggle('notify_quote', v)} disabled={!isConnected} />
+                    <NotifToggle icon={Smartphone} label="Bienvenida cliente nuevo" desc="Mensaje al registrar un cliente con teléfono"
+                        value={config?.notify_welcome ?? true} onChange={v => handleToggle('notify_welcome', v)} disabled={!isConnected} />
+                    <NotifToggle icon={FileText} label="Cotización por vencer" desc="Aviso 2 días antes del vencimiento"
+                        value={config?.notify_quote_expiry ?? true} onChange={v => handleToggle('notify_quote_expiry', v)} disabled={!isConnected} />
+                    <NotifToggle icon={Clock} label="Garantía por vencer" desc="Aviso 7 días antes del vencimiento"
+                        value={config?.notify_warranty ?? true} onChange={v => handleToggle('notify_warranty', v)} disabled={!isConnected} />
+                    <NotifToggle icon={Package} label="Alerta de stock bajo" desc="A las 8:00am cuando hay stock bajo mínimo"
+                        value={config?.notify_stock ?? true} onChange={v => handleToggle('notify_stock', v)} disabled={!isConnected} />
+                    <NotifToggle icon={Clock} label="Resumen de cierre de caja" desc="Al cerrar la sesión de caja del día"
+                        value={config?.notify_cash_summary ?? true} onChange={v => handleToggle('notify_cash_summary', v)} disabled={!isConnected} />
                 </div>
             )}
 
@@ -546,6 +556,8 @@ export default function WhatsAppTab() {
                         <Edit3 size={13} className="text-indigo-500" /> Plantillas de mensajes
                     </h3>
                     {[
+                        { key: 'template_welcome', label: 'Bienvenida cliente nuevo', icon: Smartphone,
+                          vars: ['{{cliente}}','{{negocio}}'] },
                         { key: 'template_sale',   label: 'Ticket de venta',        icon: ShoppingCart,
                           vars: ['{{negocio}}','{{cliente}}','{{id}}','{{metodo_pago}}','{{pagos}}','{{total}}','{{vuelto}}'] },
                         { key: 'template_order',  label: 'Equipo listo (taller)',   icon: Wrench,

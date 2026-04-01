@@ -294,6 +294,142 @@ async def send_cash_session_summary(schema: str, session_id: int):
         reset_tenant_schema()
 
 
+
+async def job_quote_expiry_reminders():
+    """
+    Recuerda a los clientes cuya cotización vence en 2 días.
+    Se ejecuta diariamente a las 10:00 Venezuela.
+    """
+    logger.info("[CRON] Verificando cotizaciones por vencer...")
+    schemas = await _get_tenant_schemas()
+    sent = 0
+
+    for schema in schemas:
+        db = None
+        try:
+            set_tenant_schema(schema)
+            db = SessionLocal()
+
+            wa = {r[0]: r[1] for r in db.execute(text(
+                f"SELECT key, value FROM \"{schema}\".business_config "
+                "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                "'whatsapp_notify_quote_expiry','business_name')"
+            )).fetchall()}
+
+            inst   = wa.get("whatsapp_instance_name", "")
+            status = wa.get("whatsapp_instance_status", "")
+            notify = wa.get("whatsapp_notify_quote_expiry") != "false"
+            biz    = wa.get("business_name") or "Mi Inventario"
+
+            if not inst or status != "CONNECTED" or not notify:
+                continue
+
+            # Cotizaciones PENDING que vencen en exactamente 2 días
+            from datetime import date, timedelta
+            vence_en = date.today() + timedelta(days=2)
+
+            rows = db.execute(text(
+                f'''SELECT q.id, q.total_amount, q.valid_until,
+                          c.name, c.phone
+                   FROM "{schema}".quotes q
+                   JOIN "{schema}".customers c ON c.id = q.customer_id
+                   WHERE q.status = 'PENDING'
+                     AND DATE(q.valid_until) = :vence
+                     AND c.phone IS NOT NULL
+                     AND c.phone != '''''
+            ), {"vence": vence_en}).fetchall()
+
+            for row in rows:
+                q_id, total, valid_until, name, phone = row
+                fecha_str = valid_until.strftime("%d/%m/%Y") if valid_until else "pronto"
+                msg = (
+                    f"📄 *{biz}*\n"
+                    f"Hola {name}, tu cotización *#{q_id:04d}* vence el *{fecha_str}*.\n\n"
+                    f"💰 Total: ${float(total):,.2f}\n\n"
+                    f"¿Aprobamos el pedido? Respóndenos aquí 😊"
+                )
+                ok = await _send_wa(inst, phone, msg)
+                if ok:
+                    sent += 1
+
+        except Exception as e:
+            logger.error(f"[CRON] Quote expiry error en {schema}: {e}")
+        finally:
+            if db: db.close()
+            reset_tenant_schema()
+
+    logger.info(f"[CRON] Recordatorios cotización: {sent} enviados")
+
+
+async def job_warranty_reminders():
+    """
+    Avisa a los clientes cuya garantía vence en 7 días.
+    Se ejecuta diariamente a las 10:30 Venezuela.
+    """
+    logger.info("[CRON] Verificando garantías por vencer...")
+    schemas = await _get_tenant_schemas()
+    sent = 0
+
+    for schema in schemas:
+        db = None
+        try:
+            set_tenant_schema(schema)
+            db = SessionLocal()
+
+            wa = {r[0]: r[1] for r in db.execute(text(
+                f"SELECT key, value FROM \"{schema}\".business_config "
+                "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                "'whatsapp_notify_warranty','business_name')"
+            )).fetchall()}
+
+            inst   = wa.get("whatsapp_instance_name", "")
+            status = wa.get("whatsapp_instance_status", "")
+            notify = wa.get("whatsapp_notify_warranty") != "false"
+            biz    = wa.get("business_name") or "Mi Inventario"
+
+            if not inst or status != "CONNECTED" or not notify:
+                continue
+
+            from datetime import date, timedelta
+            vence_en = date.today() + timedelta(days=7)
+
+            # Órdenes de servicio cuya garantía vence en 7 días
+            rows = db.execute(text(
+                f'''SELECT so.id, so.ticket_number,
+                          so.brand, so.model, so.device_type,
+                          so.warranty_expires_at,
+                          c.name, c.phone
+                   FROM "{schema}".service_orders so
+                   JOIN "{schema}".customers c ON c.id = so.customer_id
+                   WHERE so.status = 'COMPLETED'
+                     AND DATE(so.warranty_expires_at) = :vence
+                     AND c.phone IS NOT NULL
+                     AND c.phone != '''''
+            ), {"vence": vence_en}).fetchall()
+
+            for row in rows:
+                order_id, ticket, brand, model_name, dtype, w_exp, name, phone = row
+                device  = (f"{brand or ''} {model_name or ''}".strip() or dtype or "Tu equipo")
+                fecha   = w_exp.strftime("%d/%m/%Y") if w_exp else "pronto"
+                msg = (
+                    f"🛡️ *{biz}*\n"
+                    f"Hola {name}, la garantía de *{device}* "
+                    f"(Orden {ticket}) vence el *{fecha}*.\n\n"
+                    f"Si presentas algún problema, contáctanos antes de esa fecha. ¡Estamos para ayudarte! 😊"
+                )
+                ok = await _send_wa(inst, phone, msg)
+                if ok:
+                    sent += 1
+
+        except Exception as e:
+            logger.error(f"[CRON] Warranty reminder error en {schema}: {e}")
+        finally:
+            if db: db.close()
+            reset_tenant_schema()
+
+    logger.info(f"[CRON] Recordatorios garantía: {sent} enviados")
+
+
 def stop_scheduler():
     """Detener el scheduler. Llamar desde main.py al shutdown."""
     if scheduler.running:

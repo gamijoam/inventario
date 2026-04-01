@@ -211,12 +211,24 @@ def start_scheduler(db_session_factory):
     scheduler.add_job(
         _wa_sched.job_stock_alerts,
         trigger="cron",
-        hour=8,
-        minute=0,
-        timezone="America/Caracas",
-        id="whatsapp_stock_alerts",
-        replace_existing=True,
-        misfire_grace_time=3600,
+        hour=8, minute=0, timezone="America/Caracas",
+        id="whatsapp_stock_alerts", replace_existing=True, misfire_grace_time=3600,
+    )
+
+    # WhatsApp — cotizaciones por vencer (2 días) a las 10:00 Venezuela
+    scheduler.add_job(
+        _wa_sched.job_quote_expiry_reminders,
+        trigger="cron",
+        hour=10, minute=0, timezone="America/Caracas",
+        id="whatsapp_quote_expiry", replace_existing=True, misfire_grace_time=3600,
+    )
+
+    # WhatsApp — garantías por vencer (7 días) a las 10:30 Venezuela
+    scheduler.add_job(
+        _wa_sched.job_warranty_reminders,
+        trigger="cron",
+        hour=10, minute=30, timezone="America/Caracas",
+        id="whatsapp_warranty_reminders", replace_existing=True, misfire_grace_time=3600,
     )
 
     scheduler.start()

@@ -72,6 +72,35 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
         "credit_limit": float(response_data["credit_limit"]) if response_data["credit_limit"] else 0.0
     })
     
+    # WhatsApp — mensaje de bienvenida al cliente nuevo
+    if response_data.get("phone"):
+        try:
+            import httpx as _httpx
+            from sqlalchemy import text as _text
+            from ..tenant_context import get_tenant_schema as _gs
+            _s = _gs()
+            _wa = {r[0]: r[1] for r in db.execute(
+                _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                      "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                      "'whatsapp_notify_welcome','business_name','whatsapp_template_welcome')")
+            ).fetchall()}
+            _inst   = _wa.get("whatsapp_instance_name", "")
+            _status = _wa.get("whatsapp_instance_status", "")
+            _notify = _wa.get("whatsapp_notify_welcome") != "false"
+            _biz    = _wa.get("business_name") or "Mi Inventario"
+            _tpl    = _wa.get("whatsapp_template_welcome") or (
+                "👋 ¡Hola {{cliente}}! Bienvenido/a a *{{negocio}}*.\n\nYa tienes tu cuenta registrada. Estamos para servirte. 😊"
+            )
+            if _inst and _status == "CONNECTED" and _notify:
+                _msg  = _tpl.replace("{{cliente}}", response_data["name"]).replace("{{negocio}}", _biz)
+                _ph   = "".join(c for c in response_data["phone"] if c.isdigit())
+                async with _httpx.AsyncClient(timeout=5) as _c:
+                    await _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                  json={"phone": _ph, "message": _msg})
+        except Exception as _e:
+            import logging as _l
+            _l.getLogger(__name__).warning(f"[WA] Bienvenida falló: {_e}")
+
     return response_data
 
 @router.put("/{customer_id}", response_model=schemas.CustomerRead)
