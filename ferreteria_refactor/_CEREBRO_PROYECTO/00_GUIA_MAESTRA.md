@@ -374,3 +374,64 @@ docker ps --filter "name=deploy_bot_server"
 curl https://api.miinventariofacil.com/bot/health
 python3 /root/deploy/notify_build_ready.py "test"
 ```
+
+---
+
+## 11. Onboarding Wizard
+
+Ver documento completo: `36_Onboarding_Wizard.md`
+
+### ¿Qué es?
+Modal de 3 pasos que aparece automáticamente al primer login de un tenant nuevo.
+Desaparece definitivamente cuando el usuario completa el paso 3 o lo descarta.
+
+### Flujo
+```
+Tenant nuevo crea cuenta
+        ↓
+Admin entra al dashboard
+        ↓
+OnboardingGate detecta completed=false
+        ↓
+Modal aparece automáticamente:
+  Paso 1 → Nombre del negocio + teléfono
+  Paso 2 → Productos con SKU, precio, stock
+  Paso 3 → ¡Listo! → ir al POS o inventario
+        ↓
+BD: onboarding_completed=true → nunca más aparece
+```
+
+### Archivos clave
+| Archivo | Rol |
+|---|---|
+| `backend_api/routers/onboarding.py` | 3 endpoints REST |
+| `components/onboarding/OnboardingWizard.jsx` | Modal de 3 pasos |
+| `components/onboarding/OnboardingBanner.jsx` | Barra progreso en dashboard |
+| `hooks/useOnboarding.js` | Hook de estado |
+| `App.jsx` → `OnboardingGate` | Muestra el wizard solo en dashboard autenticado |
+
+### BD — columnas en public.tenants
+```sql
+onboarding_completed  boolean  DEFAULT false
+onboarding_step       integer  DEFAULT 0
+```
+
+### Endpoints
+```
+GET  /api/v1/onboarding/status     → { completed, step }
+POST /api/v1/onboarding/step       → { step: 1|2|3, completed?: bool }
+POST /api/v1/onboarding/complete   → marca como terminado
+```
+
+### Resetear para pruebas
+```sql
+UPDATE public.tenants 
+SET onboarding_completed=false, onboarding_step=0
+WHERE schema_name='nombre_tenant';
+```
+
+### Bug corregido en esta rama
+**Pagos mixtos no se mostraban en detalle de ventas (Reportes):**
+- Archivo: `pages/Reports/tabs/SalesTab.jsx`
+- Causa: el modal de detalle no tenía sección de pagos
+- Fix: sección `💳 Detalle de pagos` agregada antes del footer del modal
