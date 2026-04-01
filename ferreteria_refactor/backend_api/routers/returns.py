@@ -97,7 +97,8 @@ def get_sale_for_return(sale_id: int, db: Session = Depends(get_db)):
     sale = db.query(models.Sale).options(
         joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
         joinedload(models.Sale.details).joinedload(models.SaleDetail.instances).joinedload(models.SaleDetailInstance.product_instance),
-        joinedload(models.Sale.customer)
+        joinedload(models.Sale.customer),
+        joinedload(models.Sale.payments)   # ← pagos mixtos
     ).filter(models.Sale.id == sale_id).first()
     
     if not sale:

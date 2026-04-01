@@ -346,3 +346,31 @@ docker stop admin_panel_prod_server && docker rm admin_panel_prod_server
 **Impacto:** El backend arranca igual en "modo desarrollo". No es crítico para el funcionamiento.
 
 **Solución a largo plazo:** Revisar y limpiar las migraciones de Alembic que tienen imports rotos.
+
+---
+
+## Script automatizado deploy.sh
+
+Ubicación en el servidor: `/root/deploy/deploy.sh`
+
+```bash
+# Uso:
+./deploy.sh "descripcion-del-deploy"
+
+# Ejemplos:
+./deploy.sh "reportes-excel"
+./deploy.sh "portal-cliente-v1"
+./deploy.sh "fix-bug-critico"
+```
+
+El script ejecuta los 8 pasos automáticamente:
+1. Verifica QA limpio y funcionando
+2. Verifica autenticación DockerHub
+3. Build de las 4 imágenes
+4. Push a DockerHub
+5. Actualiza TAG en prod/.env
+6. Recrea los 4 contenedores (web_publica primero)
+7. Smoke tests — si falla hace rollback automático
+8. Push a GitHub
+
+En caso de fallo en cualquier paso → rollback automático al TAG anterior.

@@ -1,0 +1,74 @@
+name: 🚀 Deploy — Mi Inventario Fácil
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: 🔨 Build en VPS + notificar Telegram
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Conectar al VPS y ejecutar build
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
+          command_timeout: 30m
+          script: |
+            # Obtener descripción del último commit
+            cd /root/deploy/qa/code
+            git pull origin main
+            DESC=$(git log -1 --pretty=%s | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-30 | sed 's/-*$//')
+            VERSION="prod-${DESC}-$(date +%Y%m%d%H%M)"
+
+            echo "🔨 Iniciando build: $VERSION"
+
+            # Guardar rollback TAG
+            OLD_TAG=$(grep "^TAG=" /root/deploy/prod/.env | cut -d= -f2)
+            echo "$OLD_TAG" > /tmp/rollback_tag.txt
+
+            # Build de las 4 imágenes
+            cd /root/deploy/qa/code
+
+            echo "Building backend..."
+            docker build --network host \
+              -f ferreteria_refactor/backend_api/Dockerfile \
+              -t gamijoam/ferreteria-backend:$VERSION \
+              . > /tmp/build.log 2>&1 || { echo "Backend FALLÓ"; cat /tmp/build.log | tail -20; exit 1; }
+
+            echo "Building frontend..."
+            docker build --network host \
+              --build-arg VITE_API_URL="https://api.miinventariofacil.com/api/v1" \
+              -f ferreteria_refactor/frontend_web/Dockerfile.prod \
+              -t gamijoam/ferreteria-app:$VERSION \
+              ferreteria_refactor/frontend_web >> /tmp/build.log 2>&1 || { echo "Frontend FALLÓ"; cat /tmp/build.log | tail -20; exit 1; }
+
+            echo "Building landing..."
+            docker build --network host \
+              --build-arg VITE_API_URL="https://api.miinventariofacil.com/api/v1" \
+              -t gamijoam/ferreteria-landing:$VERSION \
+              landing_page >> /tmp/build.log 2>&1 || { echo "Landing FALLÓ"; exit 1; }
+
+            echo "Building admin panel..."
+            docker build --network host \
+              --build-arg VITE_API_URL="https://api.miinventariofacil.com/api/v1" \
+              -f ferreteria_refactor/saas_admin/Dockerfile \
+              -t gamijoam/ferreteria-admin-panel:$VERSION \
+              ferreteria_refactor/saas_admin >> /tmp/build.log 2>&1 || { echo "Admin FALLÓ"; exit 1; }
+
+            # Push a DockerHub
+            echo "Subiendo imágenes a DockerHub..."
+            for img in ferreteria-backend ferreteria-app ferreteria-landing ferreteria-admin-panel; do
+              docker push gamijoam/$img:$VERSION >> /tmp/build.log 2>&1 || { echo "Push $img FALLÓ"; exit 1; }
+            done
+
+            # Guardar versión para el bot
+            echo "$VERSION" > /tmp/pending_deploy_version.txt
+
+            # Notificar en Telegram con botones de aprobación
+            python3 /root/deploy/notify_build_ready.py "$VERSION"
+
+            echo "✅ Build completo: $VERSION"

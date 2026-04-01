@@ -15,6 +15,8 @@ import { Capacitor } from '@capacitor/core';
 import AndroidBackButton from './components/common/AndroidBackButton';
 
 // Eager imports — critical path only
+import OnboardingWizard from './components/onboarding/OnboardingWizard';
+import { useOnboarding } from './hooks/useOnboarding';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
@@ -121,6 +123,27 @@ class LazyErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+
+// ── Onboarding Gate ─────────────────────────────────────────
+// Muestra el wizard de configuración inicial si el tenant no lo completó
+function OnboardingGate({ children }) {
+  const { completed, loading, refresh } = useOnboarding();
+  const [dismissed, setDismissed] = React.useState(false);
+
+  if (loading) return children;
+  if (!completed && !dismissed) {
+    return (
+      <>
+        {children}
+        <OnboardingWizard
+          onClose={() => { setDismissed(true); refresh(); }}
+        />
+      </>
+    );
+  }
+  return children;
+}
+
 
 function App() {
 
@@ -231,7 +254,7 @@ function App() {
                           {/* Dashboard Layout Routes */}
                           <Route element={<ProtectedRoute />}>
                             <Route element={<DashboardLayout />}>
-                              <Route path="/" element={<Dashboard />} />
+                              <Route path="/" element={<OnboardingGate><Dashboard /></OnboardingGate>} />
 
                               {/* Unified Inventory Center */}
                               <Route path="/inventory-center" element={
