@@ -1203,3 +1203,58 @@ Se tomó la decisión de abandonar la app de escritorio. Se removió todo el có
 - **Archivos Afectados**:
   - `backend_api/database/db.py`, `backend_api/services/tenant_service.py`.
 
+
+---
+
+## [2026-03-31] Sistema de Comisiones Global v2
+
+### Problema
+El sistema anterior tenía comisiones básicas que solo usaban el `%` del usuario logueado sin considerar quién fue el vendedor real por ítem, no comisionaban ítems de plantilla en el taller, no había diferenciación entre rol Vendedor y Técnico, y no existía panel de configuración.
+
+### Solución implementada
+
+#### BD (migración `a1b2c3d4e5f6_commission_system_v2.py`)
+- `public.users`: columnas `commission_vendor_pct` y `commission_technician_pct` (separadas por rol)
+- `{schema}.commission_logs`: columnas `commission_role` (VENDOR|TECHNICIAN), `voided_at`, `sale_id`
+- `{schema}.commission_settings`: tabla nueva — master ON/OFF + módulos + strict_mode
+- `{schema}.commission_rules`: tabla nueva — reglas de % por categoría de producto
+
+#### Backend
+- `commission_engine.py`: motor centralizado con jerarquía (regla categoría > % usuario > sin comisión)
+- `routers/commission_config.py`: CRUD de reglas, settings y tasas por usuario (8 endpoints)
+- `feature_flags_registry.py`: flag `sistema_comisiones` en categoría `ventas`
+- `services/sales_service.py`: usa `salesperson_id` del ítem (no usuario logueado)
+- `services/service_checkout_service.py`: comisiona TODOS los ítems (no solo manuales) + comisión al vendedor de la orden
+
+#### Frontend
+- `ComisionesTab.jsx`: panel completo en Configuración con:
+  - Toggle master ON/OFF con estado visual
+  - Toggles por módulo (POS / Taller)
+  - CRUD de reglas por categoría (modal, tabla)
+  - Edición inline de tasas por usuario (vendor_pct + technician_pct)
+- `ConfigCenter.jsx`: tab "Comisiones" agregado (protegido por feature flag)
+- `CommissionsTab.jsx` (Reportes): columna "Rol" (🛒 Vendedor / 🔧 Técnico) + módulo (POS/Taller)
+
+### Jerarquía de cálculo
+```
+1. feature_flag 'sistema_comisiones' activo?  → No = sin comisión
+2. commission_settings.global_enabled?         → No = sin comisión
+3. Módulo activo (pos_module_enabled/taller)?  → No = sin comisión
+4. Regla por CATEGORÍA del producto?           → Sí = usa ese %
+5. % del usuario (vendor_pct o tech_pct)?      → Sí = usa ese %
+6. Nada aplica                                  → sin comisión
+```
+
+### Modo estricto (strict_mode=True por defecto)
+Productos sin categoría → NO generan comisión. El admin debe asignar categoría + crear regla para que aplique.
+
+### Activar desde SaaS Admin
+Panel Admin → Tenant → Features Premium → "Sistema de Comisiones Global" → ON
+
+### Tests
+- 6/6 tests de importación y BD pasaron
+- BD verificada: 16 schemas migrados, commission_settings con defaults correctos
+
+### Commits
+- `700a7a6` feat(comisiones): engine + migración + feature flag
+- `30da646` feat(comisiones): implementación completa UI + fixes POS/taller
