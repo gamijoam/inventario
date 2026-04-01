@@ -14,6 +14,9 @@ import {
 import { useConfig }      from '../context/ConfigContext';
 import { useWebSocket }   from '../context/WebSocketContext';
 import { useAuth }        from '../context/AuthContext';
+import { HelpButton }     from '../help/HelpDrawer';
+import HelpDrawer         from '../help/HelpDrawer';
+import { useHelp }        from '../help/useHelp';
 import apiClient          from '../config/axios';
 import unifiedReportService from '../services/unifiedReportService';
 import MultiCurrencyDisplay from '../components/dashboard/MultiCurrencyDisplay';
@@ -234,6 +237,7 @@ const Dashboard = () => {
 
     /* ── estados de datos ── */
     const [loading,       setLoading]       = useState(true);
+    const help = useHelp();
     const [salesCurr,     setSalesCurr]     = useState(null);
     const [salesPrev,     setSalesPrev]     = useState(null);
     const [profitCurr,    setProfitCurr]    = useState(null);
@@ -387,6 +391,7 @@ const Dashboard = () => {
                             </button>
                         ))}
                     </div>
+                    <HelpButton contextKey="dashboard" onClick={help.open} />
                     <button onClick={() => load()} title="Actualizar"
                         className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm">
                         <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
@@ -655,6 +660,7 @@ const Dashboard = () => {
                 )}
             </div>
 
+            {help.isOpen && <HelpDrawer contextKey="dashboard" onClose={help.close} />}
         </div>
     );
 };

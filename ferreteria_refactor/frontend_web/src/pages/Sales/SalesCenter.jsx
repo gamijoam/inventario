@@ -1,5 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import {
     FileText, Users, CornerDownLeft, ShieldCheck, CreditCard, Info
 } from 'lucide-react';
@@ -117,7 +119,8 @@ const SalesCenter = () => {
                         <div>
                             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Centro de Ventas</h1>
                             <p className="text-slate-500 text-sm font-medium">Gestión completa de clientes, cotizaciones y postventa</p>
-                        </div>
+                        
+                    {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}</div>
                     </div>
 
                     {/* Tab Navigation */}
@@ -159,6 +162,7 @@ const SalesCenter = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
                 {renderTabContent()}
             </div>
+            {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

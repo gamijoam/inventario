@@ -8,6 +8,8 @@ import QuickItemForm from './components/QuickItemForm';
 import { useServiceOrder, useServiceCalculations } from './hooks/useServiceOrder';
 import printerService from '../../services/printerService';
 import { useConfig } from '../../context/ConfigContext';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 
 const SERVICE_STATUSES = [
     { id: 'RECEIVED', label: '📥 Recibido', color: 'slate' },
@@ -24,6 +26,7 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
     const { order, loading, error, fetchOrder, updateStatus, deleteItem } = useServiceOrder(orderId);
     const calculations = useServiceCalculations(order);
     
+    const help = useHelp();
     const [showItemForm, setShowItemForm]     = useState(false);
     const [showCheckout, setShowCheckout]       = useState(false);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -393,6 +396,7 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                     }}
                 />
             )}
+            {help.isOpen && <HelpDrawer contextKey="services/order-detail" onClose={help.close} />}
         </>
     );
 };

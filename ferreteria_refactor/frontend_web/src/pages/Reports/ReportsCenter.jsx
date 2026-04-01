@@ -12,6 +12,8 @@ import { toast } from 'react-hot-toast';
 import unifiedReportService from '../../services/unifiedReportService';
 import reportService from '../../services/reportService';
 import { useConfig } from '../../context/ConfigContext';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 
 const SalesTab = lazy(() => import('./tabs/SalesTab'));
 const CashTab = lazy(() => import('./tabs/CashTab'));
@@ -197,6 +199,16 @@ const ReportsCenter = () => {
     const { modules } = useConfig();
 
     // --- State ---
+    const help = useHelp();
+    const helpKey = {
+        'resumen': 'reports/resumen',
+        'ventas': 'reports/ventas',
+        'caja': 'reports/caja',
+        'creditos': 'reports/creditos',
+        'proveedores': 'reports/proveedores',
+        'inventario': 'reports/inventario',
+        'comisiones': 'reports/comisiones',
+    }[activeTab] || null;
     const [activeTab, setActiveTab] = useState('resumen');
     const [activePreset, setActivePreset] = useState('month');
     const [loading, setLoading] = useState(false);
@@ -764,7 +776,8 @@ const ReportsCenter = () => {
                         <div>
                             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Centro de Reportes</h1>
                             <p className="text-slate-500 text-sm font-medium">Analítica avanzada de tu negocio</p>
-                        </div>
+                        
+                    {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}</div>
 
                         <div className="flex flex-wrap items-center gap-2">
                             {/* Date presets */}
@@ -854,6 +867,7 @@ const ReportsCenter = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
                 {renderTabContent()}
             </div>
+            {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

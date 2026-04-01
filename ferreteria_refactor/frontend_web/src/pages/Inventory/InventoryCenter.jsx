@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { useOnboardingVideo } from '../../hooks/useOnboardingVideo';
 import OnboardingVideoModal from '../../components/common/OnboardingVideoModal';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 
 const ProductsTab = lazy(() => import('./tabs/ProductsTab'));
 const CategoriesTab = lazy(() => import('./tabs/CategoriesTab'));
@@ -128,7 +130,8 @@ const InventoryCenter = () => {
                         <div>
                             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Centro de Inventario</h1>
                             <p className="text-slate-500 text-sm font-medium">Gestión completa de tu inventario</p>
-                        </div>
+                        
+                    {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}</div>
                     </div>
 
                     {/* Tab Navigation */}
@@ -190,6 +193,7 @@ const InventoryCenter = () => {
                     onClose={dismissVideo}
                 />
             )}
+            {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

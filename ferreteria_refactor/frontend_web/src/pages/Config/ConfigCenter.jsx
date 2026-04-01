@@ -1,5 +1,7 @@
 import React, { Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import {
     Building2, Users, DollarSign, Percent, CreditCard, Printer,
     ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X
@@ -80,6 +82,8 @@ const ConfigCenter = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'general';
     const [mobileOpen, setMobileOpen] = useState(false);
+    const help = useHelp();
+    const configHelpKey = `config/${activeTab}`;
 
     const setTab = (id) => {
         setSearchParams({ tab: id });
@@ -172,14 +176,17 @@ const ConfigCenter = () => {
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-lg font-black text-slate-900 leading-tight truncate">
-                                {currentItem?.label || 'Configuración'}
+        {currentItem?.label || 'Configuración'}
                             </h1>
                             <p className="text-xs text-slate-400 truncate hidden sm:block">
                                 {currentItem?.desc}
                             </p>
                         </div>
                     </div>
+                    <HelpButton contextKey={configHelpKey} onClick={help.open} />
                 </div>
+
+                {help.isOpen && <HelpDrawer contextKey={configHelpKey} onClose={help.close} />}
 
                 {/* Área de contenido */}
                 <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
