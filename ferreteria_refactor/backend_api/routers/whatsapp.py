@@ -31,6 +31,31 @@ KEY_NOTIFY_SALE   = "whatsapp_notify_sale"
 KEY_NOTIFY_ORDER  = "whatsapp_notify_order_ready"
 KEY_NOTIFY_CREDIT = "whatsapp_notify_credit_reminder"
 KEY_NOTIFY_QUOTE  = "whatsapp_notify_quote"
+KEY_TPL_SALE      = "whatsapp_template_sale"
+KEY_TPL_ORDER     = "whatsapp_template_order"
+KEY_TPL_CREDIT    = "whatsapp_template_credit"
+
+TPL_SALE_DEFAULT = (
+    "🧾 *{{negocio}}*\n"
+    "¡Gracias por tu compra, {{cliente}}!\n\n"
+    "📋 Venta #{{id}}\n"
+    "📦 {{metodo_pago}}\n\n"
+    "*PAGOS:*\n{{pagos}}\n\n"
+    "*TOTAL: {{total}}*{{vuelto}}\n\n"
+    "¡Gracias por preferirnos! 😊"
+)
+TPL_ORDER_DEFAULT = (
+    "🔧 ¡Hola {{cliente}}! Tu equipo está listo 🎉\n\n"
+    "📱 {{equipo}}\n"
+    "🎫 Orden: {{orden}}\n"
+    "💰 Total: {{total}}\n\n"
+    "¡Puedes pasar a buscarlo en nuestro horario habitual!"
+)
+TPL_CREDIT_DEFAULT = (
+    "💳 Hola {{cliente}}, te recordamos que tienes un saldo pendiente de *{{monto}}*.\n\n"
+    "📅 Por favor regularizar a la brevedad.\n\n"
+    "¡Gracias!"
+)
 
 DEFAULTS = {
     KEY_ENABLED:       "false",
@@ -40,6 +65,9 @@ DEFAULTS = {
     KEY_NOTIFY_ORDER:  "true",
     KEY_NOTIFY_CREDIT: "true",
     KEY_NOTIFY_QUOTE:  "false",
+    KEY_TPL_SALE:      TPL_SALE_DEFAULT,
+    KEY_TPL_ORDER:     TPL_ORDER_DEFAULT,
+    KEY_TPL_CREDIT:    TPL_CREDIT_DEFAULT,
 }
 
 # ── BD: SQL con schema explícito (no depende de search_path) ──
@@ -93,13 +121,16 @@ def get_config(
     db: Session=Depends(get_db)
 ):
     return {
-        "enabled":       _get(db, KEY_ENABLED) == "true",
-        "instance_name": _get(db, KEY_INSTANCE),
-        "status":        _get(db, KEY_STATUS),
-        "notify_sale":   _get(db, KEY_NOTIFY_SALE)   == "true",
-        "notify_order":  _get(db, KEY_NOTIFY_ORDER)  == "true",
-        "notify_credit": _get(db, KEY_NOTIFY_CREDIT) == "true",
-        "notify_quote":  _get(db, KEY_NOTIFY_QUOTE)  == "true",
+        "enabled":        _get(db, KEY_ENABLED) == "true",
+        "instance_name":  _get(db, KEY_INSTANCE),
+        "status":         _get(db, KEY_STATUS),
+        "notify_sale":    _get(db, KEY_NOTIFY_SALE)   == "true",
+        "notify_order":   _get(db, KEY_NOTIFY_ORDER)  == "true",
+        "notify_credit":  _get(db, KEY_NOTIFY_CREDIT) == "true",
+        "notify_quote":   _get(db, KEY_NOTIFY_QUOTE)  == "true",
+        "template_sale":  _get(db, KEY_TPL_SALE),
+        "template_order": _get(db, KEY_TPL_ORDER),
+        "template_credit":_get(db, KEY_TPL_CREDIT),
     }
 
 
@@ -109,15 +140,25 @@ def update_config(
     current_user=Depends(admin_required),
     db: Session=Depends(get_db)
 ):
-    mapping = {
-        "notify_sale":   KEY_NOTIFY_SALE,
-        "notify_order":  KEY_NOTIFY_ORDER,
-        "notify_credit": KEY_NOTIFY_CREDIT,
-        "notify_quote":  KEY_NOTIFY_QUOTE,
-    }
-    for field, key in mapping.items():
+    # Toggles booleanos
+    for field, key in [
+        ("notify_sale",   KEY_NOTIFY_SALE),
+        ("notify_order",  KEY_NOTIFY_ORDER),
+        ("notify_credit", KEY_NOTIFY_CREDIT),
+        ("notify_quote",  KEY_NOTIFY_QUOTE),
+    ]:
         if field in config:
             _set(db, key, "true" if config[field] else "false")
+
+    # Plantillas de texto
+    for field, key in [
+        ("template_sale",   KEY_TPL_SALE),
+        ("template_order",  KEY_TPL_ORDER),
+        ("template_credit", KEY_TPL_CREDIT),
+    ]:
+        if field in config and isinstance(config[field], str) and config[field].strip():
+            _set(db, key, config[field].strip())
+
     return {"ok": True}
 
 

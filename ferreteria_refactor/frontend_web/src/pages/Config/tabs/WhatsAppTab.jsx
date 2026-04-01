@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import {
     MessageCircle, Wifi, WifiOff, QrCode, RefreshCw,
     Send, ShoppingCart, Wrench, CreditCard, FileText,
-    CheckCircle, XCircle, Loader, Smartphone, Zap, Info
+    CheckCircle, XCircle, Loader, Smartphone, Zap, Info, Edit3
 } from 'lucide-react';
 
 const NotifToggle = ({ icon: Icon, label, desc, value, onChange, disabled }) => (
@@ -116,6 +116,16 @@ export default function WhatsAppTab() {
             toast.success('WhatsApp desconectado');
         } catch (e) {
             toast.error('Error: ' + (e?.response?.data?.detail || e.message));
+        }
+    };
+
+    const handleSaveTemplate = async (key, value) => {
+        if (!value.trim()) return;
+        try {
+            await apiClient.post('/whatsapp/config', { [key]: value });
+            toast.success('Plantilla guardada');
+        } catch {
+            toast.error('Error guardando plantilla');
         }
     };
 
@@ -291,6 +301,61 @@ export default function WhatsAppTab() {
                     <NotifToggle icon={FileText} label="Envío de cotizaciones"
                         desc="Enviar cotización al cliente al crearla"
                         value={config?.notify_quote ?? false} onChange={v => handleToggle('notify_quote', v)} disabled={!isConnected} />
+                </div>
+            )}
+
+
+            {/* ── PLANTILLAS DE MENSAJES ── */}
+            {isConnected && (
+                <div className="space-y-4">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Edit3 size={13} className="text-indigo-500" /> Plantillas de mensajes
+                    </h3>
+                    {[
+                        {
+                            key: 'template_sale',
+                            label: 'Ticket de venta',
+                            icon: ShoppingCart,
+                            vars: ['{{negocio}}','{{cliente}}','{{id}}','{{metodo_pago}}','{{pagos}}','{{total}}','{{vuelto}}'],
+                        },
+                        {
+                            key: 'template_order',
+                            label: 'Equipo listo (taller)',
+                            icon: Wrench,
+                            vars: ['{{cliente}}','{{equipo}}','{{orden}}','{{total}}'],
+                        },
+                        {
+                            key: 'template_credit',
+                            label: 'Recordatorio de deuda',
+                            icon: CreditCard,
+                            vars: ['{{cliente}}','{{monto}}'],
+                        },
+                    ].map(({ key, label, icon: Icon, vars }) => (
+                        <div key={key} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                            <div className="flex items-center gap-2">
+                                <Icon size={14} className="text-indigo-500" />
+                                <span className="text-sm font-bold text-slate-700">{label}</span>
+                            </div>
+                            <textarea
+                                value={config?.[key] || ''}
+                                onChange={e => setConfig(c => ({ ...c, [key]: e.target.value }))}
+                                onBlur={e => handleSaveTemplate(key, e.target.value)}
+                                rows={5}
+                                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-300 outline-none bg-white font-mono resize-y leading-relaxed"
+                                placeholder="Escribe tu mensaje..."
+                            />
+                            <div className="flex flex-wrap gap-1.5">
+                                {vars.map(v => (
+                                    <button key={v}
+                                        onClick={() => setConfig(c => ({ ...c, [key]: (c?.[key] || '') + v }))}
+                                        className="px-2 py-0.5 text-[10px] font-mono bg-indigo-50 text-indigo-600 border border-indigo-200 rounded hover:bg-indigo-100 transition-colors">
+                                        {v}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[10px] text-slate-400">Clic en una variable para insertarla. Al salir del campo se guarda automáticamente.</p>
+                        </div>
+                    ))}
                 </div>
             )}
 

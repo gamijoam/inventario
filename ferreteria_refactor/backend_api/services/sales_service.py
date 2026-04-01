@@ -735,7 +735,7 @@ class SalesService:
                                 _text(
                                     f"SELECT key, value FROM \"{_schema}\".business_config "
                                     "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
-                                    "'whatsapp_notify_sale','business_name')"
+                                    "'whatsapp_notify_sale','business_name','whatsapp_template_sale')"
                                 )
                             ).fetchall()
                             _wa_cfg = {r[0]: r[1] for r in _wa_rows}
@@ -748,6 +748,12 @@ class SalesService:
                                 _biz_name = _wa_cfg.get("business_name") or "Mi Inventario"
 
                                 _clean_phone = "".join(c for c in _phone if c.isdigit())
+                                _tpl = _wa_cfg.get("whatsapp_template_sale") or (
+                                    "🧾 *{{negocio}}*\n¡Gracias por tu compra, {{cliente}}!\n\n"
+                                    "📋 Venta #{{id}}\n📦 {{metodo_pago}}\n\n"
+                                    "*PAGOS:*\n{{pagos}}\n\n*TOTAL: {{total}}*{{vuelto}}\n\n"
+                                    "¡Gracias por preferirnos! 😊"
+                                )
 
                                 # Construir líneas de pago con moneda real
                                 _pay_lines = []
@@ -788,21 +794,15 @@ class SalesService:
                                         _change_str = f"\n🔄 Vuelto: {sale_change_amount:,.2f}"
 
                                 # Tasa de cambio (mostrar solo si la venta es en Bs o hay pagos mixtos)
-                                _rate_str = ""
-                                if sale_exchange_rate and sale_exchange_rate > 1:
-                                    _rate_str = f"\n📊 Tasa: Bs {sale_exchange_rate:,.2f}"
-
-                                _msg = (
-                                    f"🧾 *{_biz_name}*\n"
-                                    f"¡Gracias por tu compra, {_name}!\n\n"
-                                    f"📋 Venta #{new_sale_id:04d}\n"
-                                    f"📦 {sale_payment_method}\n\n"
-                                    f"*PAGOS:*\n{_pay_str}\n\n"
-                                    f"*TOTAL: {_total_str}*"
-                                    f"{_rate_str}"
-                                    f"{_change_str}\n\n"
-                                    f"¡Gracias por preferirnos! 😊"
-                                )
+                                # Aplicar plantilla con variables
+                                _msg = _tpl \
+                                    .replace("{{negocio}}",     _biz_name) \
+                                    .replace("{{cliente}}",     _name) \
+                                    .replace("{{id}}",          f"{new_sale_id:04d}") \
+                                    .replace("{{metodo_pago}}", sale_payment_method) \
+                                    .replace("{{pagos}}",       _pay_str) \
+                                    .replace("{{total}}",       _total_str) \
+                                    .replace("{{vuelto}}",      _change_str)
                                 # httpx síncrono — no bloquea significativamente (timeout 5s)
                                 with _httpx.Client(timeout=5) as _c:
                                     _c.post(
