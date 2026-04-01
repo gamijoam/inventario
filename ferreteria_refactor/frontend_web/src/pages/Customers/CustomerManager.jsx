@@ -390,6 +390,14 @@ const CustomerManager = () => {
                             <p className="text-slate-500 max-w-sm mt-2">Selecciona un cliente de la lista para ver su perfil, historial de crédito y gestionar sus datos.</p>
                         </div>
                     ) : (
+                        <>
+                        <button
+                            onClick={() => setShow360(true)}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-md mb-2 w-full shrink-0"
+                        >
+                            <Zap size={16} />
+                            Ver historial completo — Vista 360°
+                        </button>
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
                             {/* Mobile Back Button */}
                             <Button
@@ -466,15 +474,6 @@ const CustomerManager = () => {
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Botón Vista 360° — acceso al historial completo */}
-                            <button
-                                onClick={() => setShow360(true)}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-md shadow-indigo-200"
-                            >
-                                <Zap size={16} />
-                                Ver historial completo del cliente — Vista 360°
-                            </button>
 
                             {/* Financial KPIs */}
                             {loading ? (
@@ -643,6 +642,7 @@ const CustomerManager = () => {
                                 </div>
                             </div>
                         </div>
+                        </>
                     )}
                 </div>
             </div>
