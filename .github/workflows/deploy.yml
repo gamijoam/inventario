@@ -4,21 +4,21 @@ on:
   push:
     branches: [main]
 
-# Variables de entorno globales para Telegram
 env:
   TG_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
   TG_CHAT:  ${{ secrets.TELEGRAM_CHAT_ID }}
 
 jobs:
   # ──────────────────────────────────────────────
-  # JOB 1: Tests del frontend
+  # JOB 1: Tests + Build frontend
   # ──────────────────────────────────────────────
-  test:
-    name: 🧪 Tests frontend
+  frontend:
+    name: 🎨 Frontend (tests + build)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ferreteria_refactor/frontend_web
+
     steps:
       - uses: actions/checkout@v4
 
@@ -31,32 +31,54 @@ jobs:
       - name: Instalar dependencias
         run: npm install --legacy-peer-deps
 
-      - name: Correr tests
+      - name: 🧪 Correr tests
         run: npx jest src/__tests__/ --no-coverage --ci
 
-      - name: ❌ Notificar tests fallados
+      - name: 🔨 Build frontend
+        run: npm run build
+        env:
+          VITE_API_URL: https://api.miinventariofacil.com/api/v1
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Subir dist como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: ferreteria_refactor/frontend_web/dist
+          retention-days: 1
+
+      - name: ❌ Notificar fallo frontend
         if: failure()
         run: |
           python3 -c "
           import json,urllib.request,os
-          msg = '🧪 *Tests fallaron*\n\nDeploy bloqueado.\nhttps://github.com/gamijoam/inventario/actions'
-          data = json.dumps({'chat_id':os.environ['TG_CHAT'],'text':msg,'parse_mode':'Markdown'}).encode()
-          req = urllib.request.Request('https://api.telegram.org/bot'+os.environ['TG_TOKEN']+'/sendMessage',data=data,headers={'Content-Type':'application/json'})
-          print(json.loads(urllib.request.urlopen(req,timeout=10).read()).get('ok'))
+          msg='🧪 *Frontend fallido*\n\nTests o build del frontend tienen errores.\nhttps://github.com/gamijoam/inventario/actions'
+          data=json.dumps({'chat_id':os.environ.get('TG_CHAT',''),'text':msg,'parse_mode':'Markdown'}).encode()
+          req=urllib.request.Request('https://api.telegram.org/bot'+os.environ.get('TG_TOKEN','')+'/sendMessage',data=data,headers={'Content-Type':'application/json'})
+          try:
+            print(json.loads(urllib.request.urlopen(req,timeout=10).read()).get('ok'))
+          except Exception as e:
+            print(f'Telegram error: {e}')
           "
 
   # ──────────────────────────────────────────────
-  # JOB 2: Build y push imágenes Docker
+  # JOB 2: Build y push todas las imágenes Docker
   # ──────────────────────────────────────────────
   build:
-    name: 🔨 Build imágenes
+    name: 🔨 Build imágenes Docker
     runs-on: ubuntu-latest
-    needs: test
+    needs: frontend
     outputs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Descargar dist del frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: ferreteria_refactor/frontend_web/dist
 
       - name: Generar versión
         id: version
@@ -66,16 +88,13 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Versión: $VERSION"
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Login DockerHub
         uses: docker/login-action@v3
         with:
           username: gamijoam
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build y push Backend
+      - name: 🐍 Build y push Backend
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -83,17 +102,15 @@ jobs:
           push: true
           tags: gamijoam/ferreteria-backend:${{ steps.version.outputs.version }}
 
-      - name: Build y push Frontend
+      - name: 🎨 Build y push Frontend (dist pre-compilado)
         uses: docker/build-push-action@v5
         with:
           context: ferreteria_refactor/frontend_web
-          file: ferreteria_refactor/frontend_web/Dockerfile.prod
+          file: ferreteria_refactor/frontend_web/Dockerfile.ci
           push: true
           tags: gamijoam/ferreteria-app:${{ steps.version.outputs.version }}
-          build-args: |
-            VITE_API_URL=https://api.miinventariofacil.com/api/v1
 
-      - name: Build y push Landing
+      - name: 🌐 Build y push Landing
         uses: docker/build-push-action@v5
         with:
           context: landing_page
@@ -101,52 +118,50 @@ jobs:
           tags: gamijoam/ferreteria-landing:${{ steps.version.outputs.version }}
           build-args: VITE_API_URL=https://api.miinventariofacil.com/api/v1
 
-      - name: Build y push Admin Panel
+      - name: 🔧 Build y push Admin Panel
         uses: docker/build-push-action@v5
         with:
           context: ferreteria_refactor/saas_admin
           file: ferreteria_refactor/saas_admin/Dockerfile
           push: true
           tags: gamijoam/ferreteria-admin-panel:${{ steps.version.outputs.version }}
-          build-args: |
-            VITE_API_URL=https://api.miinventariofacil.com/api/v1
+          build-args: VITE_API_URL=https://api.miinventariofacil.com/api/v1
 
-      - name: ✅ Notificar build listo — botones Telegram
+      - name: ✅ Build listo — enviar botones a Telegram
         if: success()
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          COMMITS="$(git log --oneline -5 --pretty='• %s' | head -5)"
           python3 -c "
-          import json,urllib.request,os,sys
-          version = os.environ['VERSION']
-          commits = os.environ['COMMITS']
-          payload = {
-            'chat_id': os.environ['TG_CHAT'],
-            'parse_mode': 'Markdown',
-            'text': f'🔨 *Build listo para deploy*\n\nVersion: \`{version}\`\n\n*Cambios:*\n{commits}\n\n¿Desplegar a producción?',
-            'reply_markup': {'inline_keyboard': [[
-              {'text': '✅ Aprobar deploy', 'callback_data': f'approve:{version}'},
-              {'text': '❌ Cancelar',       'callback_data': f'cancel:{version}'}
+          import json,urllib.request,os
+          version='${{ steps.version.outputs.version }}'
+          msg=f'🔨 *Build listo para deploy*\n\nVersion: \`{version}\`\n\n¿Desplegar a producción?'
+          payload={
+            'chat_id':os.environ.get('TG_CHAT',''),
+            'parse_mode':'Markdown',
+            'text':msg,
+            'reply_markup':{'inline_keyboard':[[
+              {'text':'✅ Aprobar deploy','callback_data':f'approve:{version}'},
+              {'text':'❌ Cancelar','callback_data':f'cancel:{version}'}
             ]]}
           }
-          data = json.dumps(payload).encode()
-          req  = urllib.request.Request(
-            'https://api.telegram.org/bot'+os.environ['TG_TOKEN']+'/sendMessage',
-            data=data, headers={'Content-Type':'application/json'})
-          r = json.loads(urllib.request.urlopen(req,timeout=10).read())
-          print('✅ Botones enviados a Telegram' if r.get('ok') else f'❌ {r}')
+          data=json.dumps(payload).encode()
+          req=urllib.request.Request('https://api.telegram.org/bot'+os.environ.get('TG_TOKEN','')+'/sendMessage',data=data,headers={'Content-Type':'application/json'})
+          try:
+            r=json.loads(urllib.request.urlopen(req,timeout=10).read())
+            print('✅ Botones enviados' if r.get('ok') else f'❌ {r}')
+          except Exception as e:
+            print(f'Error Telegram: {e}')
           "
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          COMMITS: ${{ github.event.head_commit.message }}
 
-      - name: ❌ Notificar build fallido
+      - name: ❌ Build fallido — notificar Telegram
         if: failure()
         run: |
           python3 -c "
           import json,urllib.request,os
-          msg = '❌ *Build fallido*\n\nRevisa el error en GitHub Actions:\nhttps://github.com/gamijoam/inventario/actions'
-          data = json.dumps({'chat_id':os.environ['TG_CHAT'],'text':msg,'parse_mode':'Markdown'}).encode()
-          req = urllib.request.Request('https://api.telegram.org/bot'+os.environ['TG_TOKEN']+'/sendMessage',data=data,headers={'Content-Type':'application/json'})
-          print(json.loads(urllib.request.urlopen(req,timeout=10).read()).get('ok'))
+          msg='❌ *Build Docker fallido*\n\nhttps://github.com/gamijoam/inventario/actions'
+          data=json.dumps({'chat_id':os.environ.get('TG_CHAT',''),'text':msg,'parse_mode':'Markdown'}).encode()
+          req=urllib.request.Request('https://api.telegram.org/bot'+os.environ.get('TG_TOKEN','')+'/sendMessage',data=data,headers={'Content-Type':'application/json'})
+          try:
+            print(json.loads(urllib.request.urlopen(req,timeout=10).read()).get('ok'))
+          except Exception as e:
+            print(f'Error: {e}')
           "
