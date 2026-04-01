@@ -105,7 +105,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
           script: |
             VERSION="${{ needs.build.outputs.version }}"
             echo "TAG=$VERSION" >> /tmp/deploy_env
@@ -178,7 +178,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
           script: |
             echo "Esperando 30s para que los servicios arranquen..."
             sleep 30
@@ -216,7 +216,7 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_SSH_PASSWORD }}
           script: |
             OLD_TAG=$(cat /tmp/deploy_env | grep OLD_TAG | cut -d= -f2 || echo "")
             if [ -n "$OLD_TAG" ]; then
