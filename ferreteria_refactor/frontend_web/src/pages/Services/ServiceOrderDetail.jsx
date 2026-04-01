@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Plus, Download, MoreVertical, Check, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Plus, Download, MoreVertical, Check, AlertCircle, ShoppingCart, X } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import DiagnosisPanel from './components/DiagnosisPanel';
@@ -24,7 +24,10 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
     const { order, loading, error, fetchOrder, updateStatus, deleteItem } = useServiceOrder(orderId);
     const calculations = useServiceCalculations(order);
     
-    const [showItemForm, setShowItemForm] = useState(false);
+    const [showItemForm, setShowItemForm]     = useState(false);
+    const [showCheckout, setShowCheckout]       = useState(false);
+    const [checkoutLoading, setCheckoutLoading] = useState(false);
+    const [checkoutPayment, setCheckoutPayment] = useState({ amount: '', method: 'CASH' });
     const [actionMenuOpen, setActionMenuOpen] = useState(null);
 
     useEffect(() => {
@@ -53,7 +56,40 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
         }
     };
 
-    const handlePrint = async () => {
+    const handleCheckout = async () => {
+        const pending = calculations.orderPending;
+        const amount  = parseFloat(checkoutPayment.amount || pending);
+        if (amount <= 0) { toast.error('Ingresa el monto a cobrar'); return; }
+
+        setCheckoutLoading(true);
+        try {
+            await apiClient.post(`/services/orders/${orderId}/checkout`, {
+                total_amount:    calculations.orderTotal,
+                total_amount_bs: 0,
+                payment_method:  checkoutPayment.method,
+                currency: 'USD',
+                exchange_rate: 1,
+                payments: [{
+                    amount:         amount,
+                    currency:       'USD',
+                    payment_method: checkoutPayment.method,
+                    exchange_rate:  1,
+                    reference:      null,
+                    payment_date:   new Date().toISOString(),
+                }],
+            });
+            toast.success('✅ Orden cobrada y entregada');
+            setShowCheckout(false);
+            fetchOrder();
+            if (onClose) onClose();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al procesar el cobro');
+        } finally {
+            setCheckoutLoading(false);
+        }
+    };
+
+        const handlePrint = async () => {
         try {
             const res = await apiClient.get(`/services/orders/${orderId}/print/thermal?width=${paperWidth}`);
             await printerService.printRaw(res.data);
@@ -119,6 +155,18 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                                     <p className="text-blue-100">{order.customer?.name}</p>
                                 </div>
                                 <div className="flex gap-2">
+                                    {order.status === 'READY' && (
+                                        <button
+                                            onClick={() => {
+                                                setCheckoutPayment({ amount: String(calculations.orderPending || calculations.orderTotal), method: 'CASH' });
+                                                setShowCheckout(true);
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg font-bold transition-colors"
+                                            title="Cobrar orden"
+                                        >
+                                            <ShoppingCart size={18} /> Cobrar
+                                        </button>
+                                    )}
                                     <button
                                         onClick={handlePrint}
                                         className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
@@ -158,25 +206,30 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                             <div className="lg:col-span-2 space-y-8">
                                 {/* Status Stepper */}
                                 <div>
-                                    <h3 className="font-bold text-slate-900 mb-4">Estado del Servicio</h3>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        {SERVICE_STATUSES.map((status, idx) => (
-                                            <div key={status.id} className="flex items-center">
-                                                <button
-                                                    onClick={() => handleStatusChange(status.id)}
-                                                    className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
-                                                        order.status === status.id
-                                                            ? `bg-${status.color}-600 text-white shadow-lg`
-                                                            : `bg-${status.color}-100 text-${status.color}-700 hover:bg-${status.color}-200`
-                                                    }`}
-                                                >
-                                                    {status.label}
-                                                </button>
-                                                {idx < SERVICE_STATUSES.length - 1 && (
-                                                    <div className={`w-6 h-0.5 mx-1 ${order.status !== SERVICE_STATUSES[idx + 1].id ? 'bg-slate-300' : 'bg-emerald-500'}`} />
-                                                )}
-                                            </div>
-                                        ))}
+                                    <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wider mb-3">Estado del Servicio</h3>
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                        {SERVICE_STATUSES.map((status, idx) => {
+                                            const currentIdx  = SERVICE_STATUSES.findIndex(s => s.id === order.status);
+                                            const isCurrent   = order.status === status.id;
+                                            const isDone      = idx < currentIdx;
+                                            const btnClass    = isCurrent ? status.active : isDone ? status.done : status.inactive;
+                                            return (
+                                                <div key={status.id} className="flex items-center">
+                                                    <button
+                                                        onClick={() => handleStatusChange(status.id)}
+                                                        title={`Cambiar a: ${status.label}`}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${btnClass} ${isCurrent ? 'shadow-md ring-2 ring-offset-1 ring-current' : 'opacity-80 hover:opacity-100'}`}
+                                                    >
+                                                        <span>{status.icon}</span>
+                                                        <span>{status.label}</span>
+                                                        {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-white/70 ml-0.5" />}
+                                                    </button>
+                                                    {idx < SERVICE_STATUSES.length - 1 && (
+                                                        <div className={`w-4 h-px mx-1 ${idx < currentIdx ? 'bg-slate-400' : 'bg-slate-200'}`} />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
@@ -263,6 +316,72 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
             </div>
 
             {/* Modales */}
+            {/* ── MODAL COBRAR ── */}
+            {showCheckout && (
+                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                        <div className="flex items-center justify-between p-5 border-b bg-emerald-50 rounded-t-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-100 rounded-xl text-emerald-700">
+                                    <ShoppingCart size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-lg">Cobrar Orden</h3>
+                                    <p className="text-sm text-slate-500">{order.ticket_number}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowCheckout(false)} className="p-1.5 hover:bg-slate-100 rounded-lg">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl text-center text-sm">
+                                <div>
+                                    <p className="text-slate-500">Total</p>
+                                    <p className="font-bold text-slate-800">${calculations.orderTotal.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-slate-500">Pagado</p>
+                                    <p className="font-bold text-emerald-600">${calculations.orderPaid.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-slate-500">Pendiente</p>
+                                    <p className="font-bold text-amber-600">${calculations.orderPending.toFixed(2)}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Monto a cobrar *</label>
+                                <input type="number" step="0.01" min="0"
+                                    value={checkoutPayment.amount}
+                                    onChange={e => setCheckoutPayment(p => ({ ...p, amount: e.target.value }))}
+                                    className="w-full px-4 py-2.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-lg font-bold" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Método de pago</label>
+                                <select value={checkoutPayment.method}
+                                    onChange={e => setCheckoutPayment(p => ({ ...p, method: e.target.value }))}
+                                    className="w-full px-4 py-2.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                    <option value="CASH">Efectivo</option>
+                                    <option value="CARD">Tarjeta</option>
+                                    <option value="TRANSFER">Transferencia</option>
+                                    <option value="PAGO_MOVIL">Pago Móvil</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 p-5 border-t">
+                            <button onClick={() => setShowCheckout(false)}
+                                className="flex-1 py-2.5 border-2 border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+                                Cancelar
+                            </button>
+                            <button onClick={handleCheckout} disabled={checkoutLoading}
+                                className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                                {checkoutLoading ? 'Procesando...' : <><ShoppingCart size={18} /> Confirmar Cobro</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showItemForm && (
                 <QuickItemForm
                     orderId={orderId}
