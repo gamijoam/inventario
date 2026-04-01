@@ -65,7 +65,7 @@ const GlobalSearch = () => {
             const [prods, custs, orders] = await Promise.allSettled([
                 apiClient.get(`/products/?search=${encodeURIComponent(q)}&limit=4`),
                 apiClient.get(`/customers/?q=${encodeURIComponent(q)}&limit=4`),
-                apiClient.get(`/services/orders/?search=${encodeURIComponent(q)}&limit=3`).catch(() => ({ data: [] })),
+                apiClient.get(`/services/orders?search=${encodeURIComponent(q)}&limit=3`).catch(() => ({ data: [] })),
             ]);
 
             const out = [];
@@ -129,9 +129,9 @@ const GlobalSearch = () => {
 
             {/* Modal */}
             {isOpen && (
-                <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[12vh] px-4">
+                <div className="fixed inset-0 z-[200] flex items-start justify-center px-4" style={{paddingTop: '72px'}}>
                     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={close} />
-                    <div className="relative bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[72vh] animate-in fade-in zoom-in-95 duration-150">
+                    <div className="relative bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[78vh] animate-in fade-in zoom-in-95 duration-150">
 
                         {/* Input */}
                         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100">
