@@ -323,3 +323,207 @@ def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCr
     # Re-trigger broadcast
     
     return {"status": "success", "applied_usd": payment_value_usd}
+
+
+# ══════════════════════════════════════════════════════════════
+# HISTORIAL 360° DEL CLIENTE
+# ══════════════════════════════════════════════════════════════
+
+@router.get("/{customer_id}/360")
+def get_customer_360(
+    customer_id: int,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user = Depends(cashier_or_admin)
+):
+    """
+    Vista 360° del cliente: resumen financiero, timeline unificado
+    de actividad y productos más comprados.
+    """
+    from sqlalchemy import func, desc, case
+    from decimal import Decimal
+
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+
+    # ── 1. Cliente base ────────────────────────────────────────
+    customer = db.query(models.Customer).filter(
+        models.Customer.id == customer_id
+    ).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    # ── 2. Ventas del cliente ──────────────────────────────────
+    sales = db.query(models.Sale).filter(
+        models.Sale.customer_id == customer_id
+    ).order_by(desc(models.Sale.date)).limit(limit).all()
+
+    total_spent = db.query(func.sum(models.Sale.total_amount)).filter(
+        models.Sale.customer_id == customer_id,
+        models.Sale.paid == True
+    ).scalar() or Decimal("0")
+
+    total_sales_count = db.query(func.count(models.Sale.id)).filter(
+        models.Sale.customer_id == customer_id
+    ).scalar() or 0
+
+    # ── 3. Órdenes de taller ──────────────────────────────────
+    orders = db.query(models.ServiceOrder).filter(
+        models.ServiceOrder.customer_id == customer_id,
+        models.ServiceOrder.tenant_id == tenant_id
+    ).order_by(desc(models.ServiceOrder.created_at)).limit(limit).all()
+
+    total_orders = db.query(func.count(models.ServiceOrder.id)).filter(
+        models.ServiceOrder.customer_id == customer_id,
+        models.ServiceOrder.tenant_id == tenant_id
+    ).scalar() or 0
+
+    total_orders_amount = db.query(
+        func.sum(models.ServicePayment.amount)
+    ).join(
+        models.ServiceOrder,
+        models.ServicePayment.service_order_id == models.ServiceOrder.id
+    ).filter(
+        models.ServiceOrder.customer_id == customer_id,
+        models.ServiceOrder.tenant_id == tenant_id
+    ).scalar() or Decimal("0")
+
+    # ── 4. Cotizaciones del cliente ───────────────────────────
+    quotes = db.query(models.Quote).filter(
+        models.Quote.customer_id == customer_id
+    ).order_by(desc(models.Quote.date)).limit(limit).all()
+
+    pending_quotes = db.query(func.count(models.Quote.id)).filter(
+        models.Quote.customer_id == customer_id,
+        models.Quote.status == "PENDING"
+    ).scalar() or 0
+
+    # ── 5. Pagos de crédito ───────────────────────────────────
+    credit_payments = db.query(models.Payment).filter(
+        models.Payment.customer_id == customer_id
+    ).order_by(desc(models.Payment.created_at)).limit(limit).all()
+
+    # ── 6. Top productos más comprados ────────────────────────
+    top_products = db.query(
+        models.Product.id,
+        models.Product.name,
+        func.sum(models.SaleDetail.quantity).label("total_qty"),
+        func.sum(models.SaleDetail.subtotal).label("total_amount"),
+        func.count(models.SaleDetail.sale_id).label("times_bought")
+    ).join(
+        models.SaleDetail, models.SaleDetail.product_id == models.Product.id
+    ).join(
+        models.Sale, models.Sale.id == models.SaleDetail.sale_id
+    ).filter(
+        models.Sale.customer_id == customer_id
+    ).group_by(
+        models.Product.id, models.Product.name
+    ).order_by(
+        desc(func.sum(models.SaleDetail.subtotal))
+    ).limit(5).all()
+
+    # ── 7. Timeline unificado (ventas + órdenes + cotizaciones + pagos) ──
+    timeline = []
+
+    for sale in sales:
+        timeline.append({
+            "type": "sale",
+            "id": sale.id,
+            "ref": f"VEN-{str(sale.id).zfill(5)}",
+            "date": sale.date.isoformat() if sale.date else None,
+            "amount": float(sale.total_amount),
+            "method": sale.payment_method,
+            "status": "CREDIT" if sale.is_credit and not sale.paid else "PAID",
+            "meta": {
+                "is_credit": sale.is_credit,
+                "paid": sale.paid,
+                "balance_pending": float(sale.balance_pending) if sale.balance_pending else 0,
+            }
+        })
+
+    for order in orders:
+        total_order_paid = sum(
+            float(p.amount) for p in order.payments
+        ) if order.payments else 0
+        timeline.append({
+            "type": "service_order",
+            "id": order.id,
+            "ref": order.ticket_number,
+            "date": order.created_at.isoformat() if order.created_at else None,
+            "amount": float(total_order_paid),
+            "method": None,
+            "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+            "meta": {
+                "device": f"{order.brand or ''} {order.model or ''}".strip() or order.device_type,
+                "problem": order.problem_description,
+            }
+        })
+
+    for quote in quotes:
+        timeline.append({
+            "type": "quote",
+            "id": quote.id,
+            "ref": f"COT-{str(quote.id).zfill(5)}",
+            "date": quote.date.isoformat() if quote.date else None,
+            "amount": float(quote.total_amount),
+            "method": None,
+            "status": quote.status,
+            "meta": {
+                "items_count": len(quote.details) if quote.details else 0,
+            }
+        })
+
+    for payment in credit_payments:
+        timeline.append({
+            "type": "credit_payment",
+            "id": payment.id,
+            "ref": f"PAG-{str(payment.id).zfill(5)}",
+            "date": payment.created_at.isoformat() if payment.created_at else None,
+            "amount": float(payment.amount),
+            "method": payment.payment_method,
+            "status": "PAID",
+            "meta": {}
+        })
+
+    # Ordenar timeline por fecha descendente
+    timeline.sort(key=lambda x: x["date"] or "", reverse=True)
+    timeline = timeline[:limit]
+
+    # ── 8. Resumen financiero ─────────────────────────────────
+    current_balance = float(customer.current_balance) if hasattr(customer, 'current_balance') else 0
+    credit_limit = float(customer.credit_limit) if customer.credit_limit else 0
+
+    return {
+        "customer": {
+            "id": customer.id,
+            "name": customer.name,
+            "id_number": customer.id_number,
+            "phone": customer.phone,
+            "email": customer.email,
+            "address": customer.address,
+            "is_active": customer.is_active,
+            "is_blocked": customer.is_blocked,
+            "credit_limit": credit_limit,
+            "current_balance": current_balance,
+            "payment_term_days": customer.payment_term_days,
+        },
+        "summary": {
+            "total_spent": float(total_spent),
+            "total_sales": total_sales_count,
+            "total_orders": total_orders,
+            "total_orders_amount": float(total_orders_amount),
+            "pending_quotes": pending_quotes,
+            "credit_available": max(0, credit_limit - current_balance),
+            "lifetime_value": float(total_spent) + float(total_orders_amount),
+        },
+        "top_products": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "total_qty": float(p.total_qty),
+                "total_amount": float(p.total_amount),
+                "times_bought": p.times_bought,
+            }
+            for p in top_products
+        ],
+        "timeline": timeline,
+    }

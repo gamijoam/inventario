@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import Customer360 from '../../components/customers/Customer360';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
-import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check, RotateCcw, Eye, EyeOff, UserX } from 'lucide-react';
+import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check, RotateCcw, Eye, EyeOff, UserX, Zap } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
@@ -25,6 +26,7 @@ const CustomerManager = () => {
     const [totalCustomers, setTotalCustomers] = useState(0);
     const [hasMoreCustomers, setHasMoreCustomers] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [show360, setShow360] = useState(false);
     const [financialStatus, setFinancialStatus] = useState(null);
     const [creditHistory, setCreditHistory] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -440,7 +442,15 @@ const CustomerManager = () => {
                                         </div>
                                     </div>
 
-                                    <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center">
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setShow360(true)}
+                                            className="flex items-center gap-2 px-3 py-2 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold transition-all border border-white/20"
+                                        >
+                                            <Zap size={14} />
+                                            Vista 360°
+                                        </button>
+                                        <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center">
                                         <label className={clsx(
                                             "flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all select-none",
                                             selectedCustomer.is_blocked
@@ -459,6 +469,7 @@ const CustomerManager = () => {
                                             </div>
                                             <span className="font-bold text-xs uppercase tracking-wider">Bloqueo Crédito</span>
                                         </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -657,6 +668,13 @@ const CustomerManager = () => {
                 </SheetContent>
             </Sheet>
         {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
+        {show360 && selectedCustomer && (
+            <Customer360
+                customerId={selectedCustomer.id}
+                customerName={selectedCustomer.name}
+                onClose={() => setShow360(false)}
+            />
+        )}
         </div>
     );
 };
