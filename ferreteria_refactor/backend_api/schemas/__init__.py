@@ -1356,6 +1356,9 @@ class CommissionLogRead(BaseModel):
 class CommissionSummaryRead(BaseModel):
     user_id: int
     user_name: str
+    full_name: Optional[str] = None
+    commission_role: Optional[str] = "VENDOR"
+    total_earned: Optional[Decimal] = Decimal("0.00")
     pending_amount: Decimal
     count: int
 

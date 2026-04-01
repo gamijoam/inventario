@@ -22,30 +22,41 @@ def get_commissions_summary(
     current_user: models.User = Depends(has_role([UserRole.ADMIN]))
 ):
     """
-    Get a summary of pending commissions grouped by user.
+    Resumen de comisiones por usuario — incluye total ganado, pendiente y rol.
+    Usado por el Dashboard Ejecutivo y el panel de Reportes > Comisiones.
     """
-    # Group by user_id and sum amount where status is PENDING
-    results = db.query(
+    # Total ganado (todos los estados) por usuario + rol
+    all_results = db.query(
         models.CommissionLog.user_id,
+        models.CommissionLog.commission_role,
         models.User.username.label("user_name"),
-        func.sum(models.CommissionLog.amount).label("pending_amount"),
+        models.User.full_name.label("full_name"),
+        func.sum(models.CommissionLog.amount).label("total_earned"),
+        func.sum(
+            func.case((models.CommissionLog.status == models.CommissionStatus.PENDING,
+                       models.CommissionLog.amount), else_=0)
+        ).label("total_pending"),
         func.count(models.CommissionLog.id).label("count")
     ).join(
         models.User, models.CommissionLog.user_id == models.User.id
-    ).filter(
-        models.CommissionLog.status == models.CommissionStatus.PENDING
     ).group_by(
-        models.CommissionLog.user_id, models.User.username
-    ).all()
-    
+        models.CommissionLog.user_id,
+        models.CommissionLog.commission_role,
+        models.User.username,
+        models.User.full_name,
+    ).order_by(func.sum(models.CommissionLog.amount).desc()).all()
+
     return [
         schemas.CommissionSummaryRead(
             user_id=r.user_id,
             user_name=r.user_name,
-            pending_amount=r.pending_amount,
+            full_name=r.full_name or r.user_name,
+            commission_role=r.commission_role or "VENDOR",
+            total_earned=r.total_earned or 0,
+            pending_amount=r.total_pending or 0,
             count=r.count
         )
-        for r in results
+        for r in all_results
     ]
 
 @router.get("/details/{user_id}", response_model=List[schemas.CommissionLogRead])

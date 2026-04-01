@@ -269,7 +269,29 @@ const Dashboard = () => {
             setProfitCurr(profC);
             setProfitPrev(profP);
             setTopProducts(Array.isArray(topP) ? topP : []);
-            setTopEmployees(Array.isArray(empC?.data) ? empC.data.slice(0, 5) : []);
+            const empData = Array.isArray(empC?.data) ? empC.data : [];
+            // Consolidar por usuario (puede haber VENDOR + TECHNICIAN del mismo user)
+            const empMap = {};
+            empData.forEach(e => {
+                const key = e.user_id;
+                if (!empMap[key]) {
+                    empMap[key] = {
+                        user_id:        e.user_id,
+                        username:       e.user_name,
+                        full_name:      e.full_name || e.user_name,
+                        commission_role: e.commission_role,
+                        total_earned:   Number(e.total_earned || 0),
+                        total_pending:  Number(e.pending_amount || 0),
+                    };
+                } else {
+                    empMap[key].total_earned  += Number(e.total_earned || 0);
+                    empMap[key].total_pending += Number(e.pending_amount || 0);
+                }
+            });
+            const consolidated = Object.values(empMap)
+                .sort((a, b) => b.total_earned - a.total_earned)
+                .slice(0, 5);
+            setTopEmployees(consolidated);
             setCredits(cred);
             setRecentSales(Array.isArray(recent) ? recent : []);
 
@@ -277,8 +299,8 @@ const Dashboard = () => {
             const PIE_COLORS = ['#6366f1','#10b981','#f59e0b','#3b82f6','#8b5cf6','#ef4444'];
             const pieArr = Array.isArray(payments) ? payments : (payments?.data || []);
             setPaymentPie(pieArr.slice(0, 6).map((p, i) => ({
-                name:  p.payment_method || p.method || 'Otro',
-                value: Number(p.total || p.amount || 0),
+                name:  p.method || p.payment_method || 'Otro',
+                value: Number(p.total_amount || p.total || p.amount || 0),
                 color: PIE_COLORS[i % PIE_COLORS.length],
             })));
 
@@ -527,16 +549,16 @@ const Dashboard = () => {
                     ) : topEmployees.length > 0 ? (
                         <div className="divide-y divide-slate-50">
                             {topEmployees.map((e, i) => {
-                                const total = Number(e.total_earned || e.total_amount || 0);
+                                const total   = Number(e.total_earned || 0);
                                 const pending = Number(e.total_pending || 0);
                                 return (
                                     <div key={e.user_id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
                                         <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs font-black flex items-center justify-center shrink-0 uppercase">
-                                            {(e.username || e.full_name || '?')[0]}
+                                            {(e.full_name || e.username || '?')[0]}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-semibold text-slate-700 truncate">{e.full_name || e.username}</p>
-                                            <p className="text-xs text-slate-400">{e.commission_role || 'Vendedor'}</p>
+                                            <p className="text-xs text-slate-400">{e.commission_role === 'TECHNICIAN' ? 'Técnico' : 'Vendedor'}</p>
                                         </div>
                                         <div className="text-right">
                                             <p className="text-sm font-bold text-slate-900">${total.toFixed(2)}</p>
