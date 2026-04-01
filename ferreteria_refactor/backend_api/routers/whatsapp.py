@@ -90,8 +90,8 @@ async def _evo_delete(path: str) -> dict:
 
 @router.get("/config")
 def get_whatsapp_config(
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_active_user)
+    current_user = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ):
     """Devuelve la configuración de WhatsApp del tenant actual."""
     return {
@@ -108,8 +108,8 @@ def get_whatsapp_config(
 @router.post("/config")
 def update_whatsapp_config(
     config: dict,
-    db: Session = Depends(get_db),
-    current_user = Depends(admin_required)
+    current_user = Depends(admin_required),
+    db: Session = Depends(get_db)
 ):
     """Actualiza los toggles de notificación del tenant."""
     mapping = {
@@ -126,8 +126,8 @@ def update_whatsapp_config(
 
 @router.post("/instance/create")
 async def create_instance(
-    db: Session = Depends(get_db),
-    current_user = Depends(admin_required)
+    current_user = Depends(admin_required),
+    db: Session = Depends(get_db)
 ):
     """
     Crea la instancia de Evolution API para este tenant.
@@ -172,8 +172,8 @@ async def create_instance(
 
 @router.get("/instance/qr")
 async def get_qr(
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_active_user)
+    current_user = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ):
     """Obtiene el QR actual de la instancia para escanear."""
     instance_name = _get_cfg(db, KEY_INSTANCE)
@@ -192,8 +192,8 @@ async def get_qr(
 
 @router.get("/instance/status")
 async def get_instance_status(
-    db: Session = Depends(get_db),
-    current_user = Depends(get_current_active_user)
+    current_user = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
 ):
     """Consulta el estado de la conexión de WhatsApp."""
     instance_name = _get_cfg(db, KEY_INSTANCE)
@@ -221,8 +221,8 @@ async def get_instance_status(
 
 @router.post("/instance/disconnect")
 async def disconnect_instance(
-    db: Session = Depends(get_db),
-    current_user = Depends(admin_required)
+    current_user = Depends(admin_required),
+    db: Session = Depends(get_db)
 ):
     """Desconecta y elimina la instancia de Evolution API."""
     instance_name = _get_cfg(db, KEY_INSTANCE)
@@ -241,8 +241,8 @@ async def disconnect_instance(
 @router.post("/test")
 async def send_test_message(
     body: dict,
-    db: Session = Depends(get_db),
-    current_user = Depends(admin_required)
+    current_user = Depends(admin_required),
+    db: Session = Depends(get_db)
 ):
     """Envía un mensaje de prueba al número indicado."""
     instance_name = _get_cfg(db, KEY_INSTANCE)
