@@ -476,7 +476,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                                             {/* Combo Toggle */}
                                             <div className={cn(
-                                                "flex items-center gap-4 p-4 rounded-xl transition-all border",
+                                                "hidden flex items-center gap-4 p-4 rounded-xl transition-all border",
                                                 formData.is_combo
                                                     ? "bg-violet-50 border-violet-200 ring-1 ring-violet-500/10"
                                                     : "bg-slate-50 border-slate-100 hover:border-slate-200"
