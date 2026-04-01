@@ -51,32 +51,49 @@ DEFAULTS = {
 
 
 # ── Helpers BD ────────────────────────────────────────────────
-def _ensure_schema(db: Session):
-    """Re-establece el search_path antes de queries. Necesario después de awaits largos."""
-    from sqlalchemy import text
+def _get_schema(db: Session) -> str:
+    """Obtiene el schema activo de la conexión de BD."""
     from ..tenant_context import get_tenant_schema
-    schema = get_tenant_schema()
-    try:
-        db.execute(text(f'SET search_path TO "{schema}", public'))
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"[WA] _ensure_schema failed for schema={schema}: {e}")
+    return get_tenant_schema()
 
 
 def _get(db: Session, key: str) -> str:
-    row = db.query(models.BusinessConfig).filter(
-        models.BusinessConfig.key == key).first()
-    return row.value if row else DEFAULTS.get(key, "")
+    """Lee una clave de business_config usando SQL con schema explícito."""
+    from sqlalchemy import text
+    schema = _get_schema(db)
+    try:
+        result = db.execute(
+            text(f'SELECT value FROM "{schema}".business_config WHERE key = :key'),
+            {"key": key}
+        ).fetchone()
+        return result[0] if result else DEFAULTS.get(key, "")
+    except Exception as e:
+        logger.warning(f"[WA._get] key={key} schema={schema} error={e}")
+        return DEFAULTS.get(key, "")
 
 
 def _set(db: Session, key: str, value: str):
-    row = db.query(models.BusinessConfig).filter(
-        models.BusinessConfig.key == key).first()
-    if row:
-        row.value = value
-    else:
-        db.add(models.BusinessConfig(key=key, value=value))
-    db.commit()
+    """Escribe una clave en business_config usando SQL con schema explícito."""
+    from sqlalchemy import text
+    schema = _get_schema(db)
+    try:
+        # Intentar UPDATE primero
+        result = db.execute(
+            text(f'UPDATE "{schema}".business_config SET value = :value WHERE key = :key'),
+            {"key": key, "value": value}
+        )
+        if result.rowcount == 0:
+            # No existía — INSERT
+            db.execute(
+                text(f'INSERT INTO "{schema}".business_config (key, value) VALUES (:key, :value)'),
+                {"key": key, "value": value}
+            )
+        db.commit()
+        logger.debug(f"[WA._set] {schema}.business_config key={key} value={value[:20] if value else value}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[WA._set] FAILED key={key} schema={schema}: {e}")
+        raise
 
 
 # ── Helpers Evolution API ─────────────────────────────────────
@@ -144,7 +161,6 @@ async def receive_evo_webhook(tenant_id: str, request: Request):
              CONNECTION_UPDATE open → marca CONNECTED
              CONNECTION_UPDATE close → marca DISCONNECTED
     """
-    from ..database.db import get_db_for_tenant
     from ..tenant_context import set_tenant_schema
 
     try:
@@ -163,24 +179,50 @@ async def receive_evo_webhook(tenant_id: str, request: Request):
         set_tenant_schema(tenant_id)
         db = next(get_db())
 
-        if event == "QRCODE_UPDATED":
-            qr_base64 = data.get("qrcode", {}).get("base64", "")
+    # Normalizar nombre del evento (Evolution v2 usa minúsculas con punto)
+        event_norm = event.upper().replace(".", "_")
+        logger.info(f"[WA-WEBHOOK] event_norm={event_norm} | data_keys={list(data.keys())}")
+
+        if event_norm == "QRCODE_UPDATED":
+            logger.info(f"[WA-WEBHOOK] QRCODE payload keys: {list(data.keys())}")
+            logger.info(f"[WA-WEBHOOK] qrcode field: {str(data.get('qrcode','?'))[:100]}")
+
+            # Extraer base64 — Evolution API v2 anida el QR en data.qrcode.base64
+            qr_base64 = ""
+            qr_obj = data.get("qrcode", {})
+            if isinstance(qr_obj, dict):
+                qr_base64 = qr_obj.get("base64", "")
             if not qr_base64:
-                # A veces llega en otro campo
                 qr_base64 = data.get("base64", "")
+
+            qr_code = ""
+            if isinstance(qr_obj, dict):
+                qr_code = qr_obj.get("code", "")
+            if not qr_code:
+                qr_code = data.get("code", "")
+
+            logger.info(f"[WA-WEBHOOK] QR base64_len={len(qr_base64)} code_len={len(qr_code)}")
+
             if qr_base64:
                 _set(db, KEY_QR_BASE64, qr_base64)
                 _set(db, KEY_STATUS, "PENDING_QR")
-                logger.info(f"[WA-WEBHOOK] QR guardado para tenant {tenant_id}")
+                logger.info(f"[WA-WEBHOOK] ✅ QR base64 guardado tenant={tenant_id} len={len(qr_base64)}")
+            elif qr_code:
+                _set(db, KEY_QR_BASE64, f"CODE:{qr_code}")
+                _set(db, KEY_STATUS, "PENDING_QR")
+                logger.info(f"[WA-WEBHOOK] ✅ QR code guardado tenant={tenant_id}")
+            else:
+                logger.warning(f"[WA-WEBHOOK] ⚠️ QR vacío. data: {str(data)[:400]}")
 
-        elif event == "CONNECTION_UPDATE":
+        elif event_norm == "CONNECTION_UPDATE":
             state = data.get("state", "")
+            logger.info(f"[WA-WEBHOOK] CONNECTION state={state}")
             if state == "open":
                 _set(db, KEY_STATUS,    "CONNECTED")
-                _set(db, KEY_QR_BASE64, "")  # Limpiar QR
+                _set(db, KEY_QR_BASE64, "")
                 _set(db, KEY_ENABLED,   "true")
                 logger.info(f"[WA-WEBHOOK] ✅ CONECTADO: tenant {tenant_id}")
-            elif state in ["close", "refused"]:
+            elif state in ["close", "refused", "connecting"]:
                 current = _get(db, KEY_STATUS)
                 if current == "CONNECTED":
                     _set(db, KEY_STATUS, "DISCONNECTED")
