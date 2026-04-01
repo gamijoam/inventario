@@ -127,11 +127,15 @@ const GlobalSearch = () => {
                 <kbd className="text-[10px] border border-slate-300 rounded px-1 bg-white font-mono">⌘K</kbd>
             </button>
 
-            {/* Modal */}
+            {/* Backdrop — capa separada, debajo del panel */}
             {isOpen && (
-                <div className="fixed inset-0 z-[200] flex items-start justify-center px-4" style={{paddingTop: '72px'}}>
-                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={close} />
-                    <div className="relative bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[78vh] animate-in fade-in zoom-in-95 duration-150">
+                <div className="fixed inset-0 z-[199] bg-slate-900/40 backdrop-blur-sm" onClick={close} />
+            )}
+
+            {/* Panel de búsqueda — pegado al header, encima de todo */}
+            {isOpen && (
+                <div className="fixed left-0 right-0 z-[200] flex justify-center px-4 md:px-8" style={{top: '64px'}}>
+                    <div className="bg-white w-full max-w-xl rounded-b-2xl shadow-2xl border border-slate-200 border-t-0 overflow-hidden flex flex-col max-h-[75vh] animate-in fade-in slide-in-from-top-2 duration-150">
 
                         {/* Input */}
                         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100">
