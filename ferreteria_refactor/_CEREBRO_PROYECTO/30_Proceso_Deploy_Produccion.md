@@ -138,15 +138,46 @@ grep TAG /root/deploy/prod/.env  # verificar
 
 ### PASO 6 — Reiniciar contenedores de PROD
 
-**El operador humano ejecuta desde su SSH:**
+> ⚠️ **CRÍTICO — PROBLEMA CONOCIDO CON DOCKER COMPOSE + TRAEFIK:**
+> `docker compose up --force-recreate` crea contenedores **sin labels de Traefik**
+> y con la red interna (`prod_prod_internal`) como red principal.
+> Traefik toma la primera red del contenedor para enrutar — si es la interna, el
+> servicio queda inaccesible (504 Gateway Timeout).
+>
+> **NUNCA usar `docker compose --force-recreate` para el backend en prod.**
+
+#### Método correcto — recrear manualmente con labels y red correcta
+
 ```bash
-cd /root/deploy/prod
-docker compose up -d --force-recreate backend_prod frontend_prod landing_prod admin_panel_prod
+VERSION=$(cat /tmp/deploy_version.txt)
+
+# 1. BACKEND — iniciar en web_publica PRIMERO, luego conectar red interna
+docker stop backend_prod_server && docker rm backend_prod_server
+
+docker run -d   --name backend_prod_server   --restart always   --network web_publica   --env-file /root/deploy/prod/.env   -v /root/deploy/prod/data/media:/app/media   --label "traefik.enable=true"   --label "traefik.http.routers.backend-prod.rule=Host(\`api.miinventariofacil.com\`)"   --label "traefik.http.routers.backend-prod.entrypoints=websecure"   --label "traefik.http.routers.backend-prod.tls.certresolver=myresolver"   --label "traefik.http.services.backend-prod.loadbalancer.server.port=8000"   --label "traefik.docker.network=web_publica"   gamijoam/ferreteria-backend:$VERSION
+
+sleep 5
+docker network connect prod_prod_internal backend_prod_server
+
+# 2. FRONTEND (solo web_publica — no necesita red interna)
+docker stop frontend_prod_server && docker rm frontend_prod_server
+
+docker run -d   --name frontend_prod_server   --restart always   --network web_publica   --env-file /root/deploy/prod/.env   --label "traefik.enable=true"   --label "traefik.http.routers.frontend-prod.rule=HostRegexp(\`{subdomain:[a-z0-9-]+}.miinventariofacil.com\`)"   --label "traefik.http.routers.frontend-prod.entrypoints=websecure"   --label "traefik.http.routers.frontend-prod.tls.certresolver=myresolver"   --label "traefik.http.services.frontend-prod.loadbalancer.server.port=80"   --label "traefik.http.routers.frontend-prod.priority=1"   --label "traefik.docker.network=web_publica"   gamijoam/ferreteria-app:$VERSION
+
+# 3. LANDING
+docker stop landing_prod_server && docker rm landing_prod_server
+
+docker run -d   --name landing_prod_server   --restart always   --network web_publica   --env-file /root/deploy/prod/.env   --label "traefik.enable=true"   --label "traefik.http.routers.landing-prod.rule=Host(\`miinventariofacil.com\`,\`www.miinventariofacil.com\`)"   --label "traefik.http.routers.landing-prod.entrypoints=websecure"   --label "traefik.http.routers.landing-prod.tls.certresolver=myresolver"   --label "traefik.http.services.landing-prod.loadbalancer.server.port=80"   --label "traefik.docker.network=web_publica"   gamijoam/ferreteria-landing:$VERSION
+
+# 4. ADMIN PANEL
+docker stop admin_panel_prod_server && docker rm admin_panel_prod_server
+
+docker run -d   --name admin_panel_prod_server   --restart always   --network web_publica   --env-file /root/deploy/prod/.env   --label "traefik.enable=true"   --label "traefik.http.routers.admin-prod.rule=Host(\`admin.miinventariofacil.com\`)"   --label "traefik.http.routers.admin-prod.entrypoints=websecure"   --label "traefik.http.routers.admin-prod.tls.certresolver=myresolver"   --label "traefik.http.services.admin-prod.loadbalancer.server.port=80"   --label "traefik.http.routers.admin-prod.priority=100"   --label "traefik.docker.network=web_publica"   gamijoam/ferreteria-admin-panel:$VERSION
 ```
 
-> ⚠️ El MCP no tiene `docker-compose` disponible como plugin. Este paso requiere
-> que el operador lo ejecute desde su sesión SSH directa en el VPS.
-> La BD (db_prod) NO se reinicia — solo los 4 servicios de aplicación.
+> ✅ **Regla de oro:** `--network web_publica` siempre como primera red en docker run.
+> La red interna (`prod_prod_internal`) se conecta DESPUÉS con `docker network connect`.
+> Esto garantiza que Traefik use la IP de `web_publica` para el routing.
 
 ### PASO 7 — Smoke tests
 
@@ -255,3 +286,63 @@ Las imágenes anteriores están en DockerHub con sus tags — el rollback es ins
 [ ] 10. git push origin main
 [ ] 11. Cerebro actualizado
 ```
+
+---
+
+## Errores conocidos y soluciones
+
+### 504 Gateway Timeout después de deploy
+
+**Causa:** Traefik toma la primera red del contenedor para enrutar. Si el contenedor
+se inició con `prod_prod_internal` como red principal, Traefik no puede encontrarlo
+desde `web_publica` y el servicio queda inaccesible.
+
+**Diagnóstico:**
+```bash
+# Verificar logs de Traefik
+docker logs traefik_core --since 5m 2>&1 | grep "backend-prod\|Defaulting"
+# Si ves: "Defaulting to first available network prod_prod_internal" → este es el problema
+```
+
+**Solución:**
+```bash
+VERSION=$(grep TAG /root/deploy/prod/.env | cut -d= -f2)
+docker stop backend_prod_server && docker rm backend_prod_server
+docker run -d --name backend_prod_server --restart always \
+  --network web_publica \          ← PRIMERO web_publica
+  --env-file /root/deploy/prod/.env \
+  -v /root/deploy/prod/data/media:/app/media \
+  --label "traefik.enable=true" \
+  --label "traefik.http.routers.backend-prod.rule=Host(\`api.miinventariofacil.com\`)" \
+  --label "traefik.http.routers.backend-prod.entrypoints=websecure" \
+  --label "traefik.http.routers.backend-prod.tls.certresolver=myresolver" \
+  --label "traefik.http.services.backend-prod.loadbalancer.server.port=8000" \
+  --label "traefik.docker.network=web_publica" \
+  gamijoam/ferreteria-backend:$VERSION
+sleep 5
+docker network connect prod_prod_internal backend_prod_server   ← DESPUÉS la interna
+```
+
+### RuntimeError: Directory '/app/media' does not exist
+
+**Causa:** El contenedor fue creado sin el volumen de media.
+
+**Solución:** Agregar `-v /root/deploy/prod/data/media:/app/media` al `docker run`.
+
+### admin_panel_prod_server conflict al hacer docker compose
+
+**Causa:** El contenedor admin panel fue creado manualmente fuera de compose.
+
+**Solución:**
+```bash
+docker stop admin_panel_prod_server && docker rm admin_panel_prod_server
+# Luego recrear manualmente con docker run (ver PASO 6)
+```
+
+### ModuleNotFoundError en migraciones Alembic al arrancar
+
+**Causa:** Una migración de Alembic importa un módulo que no existe (ej: `backend_api.models.prueba`).
+
+**Impacto:** El backend arranca igual en "modo desarrollo". No es crítico para el funcionamiento.
+
+**Solución a largo plazo:** Revisar y limpiar las migraciones de Alembic que tienen imports rotos.
