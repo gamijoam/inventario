@@ -230,6 +230,7 @@ v1_router = APIRouter(prefix="/api/v1")
 
 v1_router.include_router(products_router, tags=["Inventario"])
 v1_router.include_router(customers_router, tags=["Clientes"])
+v1_router.include_router(whatsapp_router, tags=["WhatsApp"])
 v1_router.include_router(quotes_router, tags=["Presupuestos"])
 v1_router.include_router(cash_router, tags=["Caja"])
 v1_router.include_router(suppliers_router, tags=["Proveedores"])
