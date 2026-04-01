@@ -168,6 +168,52 @@ def create_service_order(
 
         db.commit()
 
+        # WhatsApp — confirmar recepción del equipo al cliente
+        try:
+            import httpx as _httpx
+            from sqlalchemy import text as _text
+            from ..tenant_context import get_tenant_schema as _gs
+            _s = _gs()
+            if new_order.customer_id:
+                _cust = db.execute(
+                    _text(f'SELECT name, phone FROM "{_s}".customers WHERE id = :cid'),
+                    {"cid": new_order.customer_id}
+                ).fetchone()
+                if _cust and _cust[1]:
+                    _wa = {r[0]: r[1] for r in db.execute(
+                        _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                              "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                              "'whatsapp_notify_order_ready','business_name')")).fetchall()}
+                    _inst   = _wa.get("whatsapp_instance_name","")
+                    _status = _wa.get("whatsapp_instance_status","")
+                    _notify = _wa.get("whatsapp_notify_order_ready") != "false"
+                    _biz    = _wa.get("business_name") or "Mi Inventario"
+                    if _inst and _status == "CONNECTED" and _notify:
+                        _device = (f"{new_order.brand or ''} {new_order.model or ''}".strip()
+                                   or new_order.device_type or "Equipo")
+                        _eta = ""
+                        if new_order.estimated_delivery:
+                            try:
+                                _eta = f"\n📅 Entrega estimada: {new_order.estimated_delivery.strftime('%d/%m/%Y')}"
+                            except Exception:
+                                pass
+                        _msg = (
+                            f"📥 *{_biz}*\n"
+                            f"Hola {_cust[0]}, hemos recibido tu equipo:\n\n"
+                            f"📱 {_device}\n"
+                            f"🎫 Orden: {ticket_number}\n"
+                            f"🔍 {new_order.problem_description or 'En diagnóstico'}\n"
+                            f"{_eta}\n\n"
+                            f"Te avisaremos cuando esté listo. ¡Gracias por tu preferencia!"
+                        )
+                        _phone = "".join(c for c in _cust[1] if c.isdigit())
+                        with _httpx.Client(timeout=5) as _c:
+                            _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                    json={"phone": _phone, "message": _msg})
+        except Exception as _wa_e:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[WA] Notif recepción taller falló: {_wa_e}")
+
         return schemas.ServiceOrderRead.model_validate(final_order)
         
     except Exception as e:
@@ -396,7 +442,59 @@ def update_service_order_status(
         if update_data.status not in models.ServiceOrderStatus.__members__:
              raise HTTPException(status_code=400, detail=f"Invalid status")
         order.status = models.ServiceOrderStatus[update_data.status]
-    
+
+        # WhatsApp — notificar al cliente cuando su equipo está listo
+        if update_data.status == "READY" and order.customer:
+            try:
+                import httpx as _httpx
+                from sqlalchemy import text as _text
+                from ..tenant_context import get_tenant_schema as _schema
+
+                customer = order.customer
+                if customer and customer.phone:
+                    _s = _schema()
+                    _wa_rows = db.execute(
+                        _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                              "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                              "'whatsapp_notify_order_ready','whatsapp_template_order','business_name')")
+                    ).fetchall()
+                    _cfg      = {r[0]: r[1] for r in _wa_rows}
+                    _inst     = _cfg.get("whatsapp_instance_name", "")
+                    _status   = _cfg.get("whatsapp_instance_status", "")
+                    _notify   = _cfg.get("whatsapp_notify_order_ready") != "false"
+                    _biz      = _cfg.get("business_name") or "Mi Inventario"
+                    _tpl      = _cfg.get("whatsapp_template_order") or (
+                        "🔧 ¡Hola {{cliente}}! Tu equipo está listo 🎉\n\n"
+                        "📱 {{equipo}}\n🎫 Orden: {{orden}}\n💰 Total: {{total}}\n\n"
+                        "¡Puedes pasar a buscarlo en nuestro horario habitual!"
+                    )
+
+                    if _inst and _status == "CONNECTED" and _notify:
+                        _total   = sum(float(d.quantity * d.unit_price) for d in order.details)
+                        _paid    = sum(float(p.amount) for p in order.payments)
+                        _pending = max(0, _total - _paid)
+                        _device  = (f"{order.brand or ''} {order.model or ''}".strip()
+                                   or order.device_type or "Equipo")
+                        _ticket  = order.ticket_number or f"#{order.id}"
+
+                        _total_str   = f"${_total:,.2f}" if _total > 0 else "—"
+                        _pending_str = f" (pendiente: ${_pending:,.2f})" if _pending > 0.01 else ""
+
+                        _msg = (_tpl
+                            .replace("{{cliente}}", customer.name)
+                            .replace("{{equipo}}",  _device)
+                            .replace("{{orden}}",   _ticket)
+                            .replace("{{total}}",   _total_str + _pending_str)
+                            .replace("{{negocio}}", _biz)
+                        )
+                        _phone = "".join(c for c in customer.phone if c.isdigit())
+                        with _httpx.Client(timeout=5) as _c:
+                            _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                    json={"phone": _phone, "message": _msg})
+            except Exception as _wa_err:
+                import logging as _log
+                _log.getLogger(__name__).warning(f"[WA] Notif taller falló: {_wa_err}")
+
     if update_data.diagnosis_notes:
         order.diagnosis_notes = update_data.diagnosis_notes
         

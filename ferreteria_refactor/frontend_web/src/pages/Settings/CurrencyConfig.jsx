@@ -337,7 +337,7 @@ const CurrencyConfig = () => {
                                                 )}></div>
                                                 <span className="font-black text-slate-800 tracking-tight">{rate.name}</span>
                                                 {rate.is_default && (
-                                                    <span className="text-[10px] font-black uppercase bg-indigo-600 text-white px-2 py-0.5 rounded-md tracking-tighter ring-4 ring-indigo-50">ACTIVA</span>
+                                                    <span className="text-[10px] font-black uppercase bg-indigo-600 text-white px-2 py-0.5 rounded-lg tracking-tighter ring-4 ring-indigo-50">ACTIVA</span>
                                                 )}
                                             </div>
                                             <div className="flex items-center gap-2">

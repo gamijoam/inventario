@@ -73,7 +73,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                     <button
                         onClick={handlePrint}
                         disabled={printing}
-                        className={`w-full py-3 px-4 rounded-lg shadow font-bold flex items-center justify-center transition-colors ${printStatus === 'success' ? 'bg-gray-800 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                        className={`w-full py-3 px-4 rounded-lg shadow font-bold flex items-center justify-center transition-colors ${printStatus === 'success' ? 'bg-gray-800 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
                     >
                         <Printer size={20} className="mr-2" />
                         {printing ? 'Enviando...' : (printStatus === 'success' ? 'Re-imprimir Ticket' : 'Imprimir Ticket')}

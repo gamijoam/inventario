@@ -81,7 +81,7 @@ const POSConfig = () => {
                             <a
                                 href="/downloads/ConexionImpresora.exe"
                                 download
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm"
                             >
                                 <Download size={16} />
                                 Descargar ConexionImpresora.exe

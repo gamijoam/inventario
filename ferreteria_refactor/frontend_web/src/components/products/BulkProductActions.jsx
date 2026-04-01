@@ -146,7 +146,7 @@ const BulkProductActions = ({ onImportComplete }) => {
                 {/* Import */}
                 <button
                     onClick={() => setShowImportModal(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm transition-colors"
                     title="Importar productos desde Excel"
                 >
                     <Upload size={16} />
@@ -216,7 +216,7 @@ const BulkProductActions = ({ onImportComplete }) => {
                                 htmlFor="file-upload-modal"
                                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors cursor-pointer ${uploading
                                     ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                                     }`}
                             >
                                 <Upload size={18} />

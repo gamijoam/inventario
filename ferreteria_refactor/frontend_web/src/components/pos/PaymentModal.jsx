@@ -469,7 +469,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         <div className="text-xs text-slate-400 font-medium mb-1">Total a Pagar (Divisa)</div>
                         <div className="flex items-baseline gap-1">
                             <span className="text-xl text-blue-400 font-light">$</span>
-                            <span className="text-5xl font-black text-white tracking-tighter shadow-blue-500/10 drop-shadow-lg">
+                            <span className="text-5xl font-black text-white tracking-tighter shadow-indigo-300/10 drop-shadow-lg">
                                 {formatLocalCurrency(totalUSD)}
                             </span>
                         </div>
@@ -790,7 +790,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                     {/* Method & Currency */}
                                                     <div className="flex flex-col gap-1.5 w-full sm:w-5/12">
                                                         <select
-                                                            className="w-full bg-slate-50 border-none text-[11px] font-bold text-slate-700 rounded-md py-1.5 pl-2 pr-6 focus:ring-0 leading-tight"
+                                                            className="w-full bg-slate-50 border-none text-[11px] font-bold text-slate-700 rounded-lg py-1.5 pl-2 pr-6 focus:ring-0 leading-tight"
                                                             value={payment.method}
                                                             onChange={(e) => updatePayment(index, 'method', e.target.value)}
                                                         >
@@ -805,7 +805,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                                     size="sm"
                                                                     variant={payment.currency === c.symbol ? "default" : "outline"}
                                                                     onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                                    className={`flex-1 h-7 text-[11px] font-bold px-2 rounded-md min-w-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
+                                                                    className={`flex-1 h-7 text-[11px] font-bold px-2 rounded-lg min-w-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
                                                                 >
                                                                     {c.symbol}
                                                                 </Button>
@@ -860,7 +860,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                         <Input
                                                             type="text"
                                                             placeholder="Referencia / # Transferencia"
-                                                            className="flex-1 bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 placeholder:text-indigo-300 h-7 rounded-md"
+                                                            className="flex-1 bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 placeholder:text-indigo-300 h-7 rounded-lg"
                                                             value={payment.reference || ''}
                                                             onChange={(e) => updatePayment(index, 'reference', e.target.value)}
                                                         />
@@ -868,7 +868,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                             <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
                                                             <Input
                                                                 type="date"
-                                                                className="bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 h-7 rounded-md pl-6 w-full"
+                                                                className="bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 h-7 rounded-lg pl-6 w-full"
                                                                 value={payment.payment_date || new Date().toISOString().split('T')[0]}
                                                                 onChange={(e) => updatePayment(index, 'payment_date', e.target.value)}
                                                             />

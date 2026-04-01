@@ -602,7 +602,7 @@ const CreditosTab = ({ dateRange }) => {
                         <button
                             onClick={() => setViewMode('invoices')}
                             className={clsx(
-                                "p-2 rounded-md transition-all",
+                                "p-2 rounded-lg transition-all",
                                 viewMode === 'invoices' ? 'bg-white shadow text-indigo-600' : 'text-slate-400 hover:text-slate-600'
                             )}
                             title="Ver Facturas"
@@ -612,7 +612,7 @@ const CreditosTab = ({ dateRange }) => {
                         <button
                             onClick={() => setViewMode('clients')}
                             className={clsx(
-                                "p-2 rounded-md transition-all",
+                                "p-2 rounded-lg transition-all",
                                 viewMode === 'clients' ? 'bg-white shadow text-indigo-600' : 'text-slate-400 hover:text-slate-600'
                             )}
                             title="Ver por Clientes"

@@ -557,9 +557,10 @@ class QuoteRead(BaseModel):
     total_amount: Decimal
     status: str = "PENDING"
     notes: Optional[str]
+    valid_until: Optional[datetime] = None
     customer: Optional[CustomerRead] = None
     user: Optional[QuoteCreatorInfo] = None
-    details: List[QuoteDetailRead] = [] # Include details for counts in list view
+    details: List[QuoteDetailRead] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1356,6 +1357,9 @@ class CommissionLogRead(BaseModel):
 class CommissionSummaryRead(BaseModel):
     user_id: int
     user_name: str
+    full_name: Optional[str] = None
+    commission_role: Optional[str] = "VENDOR"
+    total_earned: Optional[Decimal] = Decimal("0.00")
     pending_amount: Decimal
     count: int
 

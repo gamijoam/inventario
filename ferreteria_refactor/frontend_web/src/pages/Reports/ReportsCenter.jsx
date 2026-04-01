@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import {
     BarChart3, ShoppingCart, Landmark, CreditCard, Truck,
     Package, DollarSign, Calendar, Download, RefreshCw,
@@ -198,6 +200,7 @@ const ReportsCenter = () => {
 
     // --- State ---
     const [activeTab, setActiveTab] = useState('resumen');
+    const help = useHelp();
     const [activePreset, setActivePreset] = useState('month');
     const [loading, setLoading] = useState(false);
     const [dateRange, setDateRange] = useState({
@@ -215,6 +218,16 @@ const ReportsCenter = () => {
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [topProducts, setTopProducts] = useState([]);
     const [topCustomers, setTopCustomers] = useState([]);
+    const helpKey = {
+        resumen:     'reports/resumen',
+        ventas:      'reports/ventas',
+        caja:        'reports/caja',
+        creditos:    'reports/creditos',
+        proveedores: 'reports/proveedores',
+        inventario:  'reports/inventario',
+        comisiones:  'reports/comisiones',
+        farmacia:    'reports/inventario',
+    }[activeTab] || null;
 
     // --- Compute previous period ---
     const prevPeriod = useMemo(() => {
@@ -767,6 +780,7 @@ const ReportsCenter = () => {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2">
+                            {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}
                             {/* Date presets */}
                             <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
                                 {presets.map(p => (
@@ -854,6 +868,7 @@ const ReportsCenter = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
                 {renderTabContent()}
             </div>
+            {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

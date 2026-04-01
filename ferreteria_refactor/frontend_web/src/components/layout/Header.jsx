@@ -1,4 +1,5 @@
 import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown } from 'lucide-react';
+import GlobalSearch from './GlobalSearch';
 import { Link } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
@@ -176,7 +177,10 @@ export default function Header() {
         <>
             <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-20 px-4 md:px-6 flex items-center justify-between transition-all">
 
-                <div className="flex-1" />
+                {/* GlobalSearch — Ctrl+K */}
+                <div className="flex-1 flex items-center">
+                    <GlobalSearch />
+                </div>
 
                 {/* Right: Actions & User */}
                 <div className="flex items-center gap-2 md:gap-4">
@@ -364,7 +368,7 @@ export default function Header() {
                                     <p className="text-xs text-slate-500 truncate">{user?.email || user?.role}</p>
                                 </div>
                                 <div className="p-1">
-                                    <Link to="/settings" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                                    <Link to="/config-center" onClick={() => setIsUserMenuOpen(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
                                         <Settings size={16} /> Configuración
                                     </Link>
                                     <button onClick={() => { logout(); setIsUserMenuOpen(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 rounded-lg transition-colors text-left">

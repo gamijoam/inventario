@@ -274,7 +274,7 @@ const RegisterModal = ({ isOpen, onClose, onSave, editing }) => {
                             type="submit"
                             disabled={saving}
                             className="flex-1 px-4 py-2.5 text-sm font-medium text-white
-                                       bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400
+                                       bg-indigo-600 hover:bg-indigo-700 disabled:bg-blue-400
                                        rounded-lg transition-colors flex items-center justify-center gap-2"
                         >
                             {saving && <RefreshCw className="w-4 h-4 animate-spin" />}
@@ -390,7 +390,7 @@ const CashRegistersPage = () => {
                     </button>
                     <button
                         onClick={() => { setEditing(null); setModalOpen(true); }}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700
                                    text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                     >
                         <Plus className="w-4 h-4" />

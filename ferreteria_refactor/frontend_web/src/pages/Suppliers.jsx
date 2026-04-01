@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
+import { useHelp } from '../help/useHelp';
 import { Plus, Edit2, Trash2, Building2, Phone, Mail, Search, Truck, MapPin, FileText, Check, X, CreditCard, ChevronRight } from 'lucide-react';
 import { useWebSocket } from '../context/WebSocketContext';
 import { useAuth } from '../context/AuthContext';
@@ -21,6 +23,8 @@ import { Textarea } from '../components/ui/textarea';
 const Suppliers = () => {
     const { subscribe } = useWebSocket();
     const { user } = useAuth();
+    const help = useHelp();
+    const helpKey = 'suppliers';
     const [suppliers, setSuppliers] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState(null);
@@ -103,6 +107,7 @@ const Suppliers = () => {
                         <Truck className="text-indigo-600" size={32} /> Proveedores
                     </h1>
                     <p className="text-slate-500 font-medium mt-1">Gestión de proveedores, contactos y términos de crédito</p>
+                <HelpButton contextKey={helpKey} onClick={help.open} />
                 </div>
                 {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                     <Button id="tour-suppliers-add-btn" onClick={handleCreate}>
@@ -184,7 +189,7 @@ const Suppliers = () => {
                                         </div>
                                     </td>
                                     <td className="py-4 px-6 text-center">
-                                        <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-xs font-bold">
+                                        <span className="px-3 py-1 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-xl text-xs font-bold">
                                             {supplier.payment_terms || 0} días
                                         </span>
                                     </td>
@@ -226,6 +231,17 @@ const Suppliers = () => {
                             ))
                         )}
                     </tbody>
+                {suppliers?.length === 0 && !loading && (
+                    <tr>
+                        <td colSpan="10" className="py-16 text-center">
+                            <div className="flex flex-col items-center gap-2 text-slate-400">
+                                <span className="text-4xl">🏭</span>
+                                <p className="font-semibold text-slate-600">No hay proveedores registrados</p>
+                                <p className="text-sm">Agrega tu primer proveedor para comenzar</p>
+                            </div>
+                        </td>
+                    </tr>
+                )}
                 </table>
             </div>
 
@@ -326,6 +342,7 @@ const Suppliers = () => {
                     )}
                 </SheetContent>
             </Sheet>
+        {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

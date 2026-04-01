@@ -533,7 +533,7 @@ const ExternalTransferIn = () => {
                           <select
                             value={item.warehouse_id ?? ''}
                             onChange={(e) => updateItem(idx, { warehouse_id: e.target.value ? parseInt(e.target.value, 10) : null })}
-                            className="border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-600 focus:ring-2 focus:ring-indigo-300 outline-none w-full max-w-[140px]"
+                            className="border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600 focus:ring-2 focus:ring-indigo-300 outline-none w-full max-w-[140px]"
                           >
                             <option value="">Global</option>
                             {warehouses.map((wh) => (

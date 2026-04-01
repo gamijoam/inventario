@@ -607,7 +607,7 @@ const SalesTab = ({ dateRange }) => {
                                 key={tab.id}
                                 onClick={() => setAnalysisTab(tab.id)}
                                 className={clsx(
-                                    'px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
+                                    'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all',
                                     isActive
                                         ? 'bg-white text-indigo-600 shadow-sm border border-slate-200'
                                         : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
@@ -807,7 +807,7 @@ const SalesTab = ({ dateRange }) => {
                         key={tab.id}
                         onClick={() => setActiveSubTab(tab.id)}
                         className={clsx(
-                            'px-4 py-2 rounded-md text-sm font-bold transition-all',
+                            'px-4 py-2 rounded-lg text-sm font-bold transition-all',
                             activeSubTab === tab.id
                                 ? 'bg-white text-slate-900 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'

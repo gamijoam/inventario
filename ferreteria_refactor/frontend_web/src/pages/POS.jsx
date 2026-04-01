@@ -1,4 +1,6 @@
 import { useAuth } from '../context/AuthContext';
+import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
+import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
@@ -58,6 +60,8 @@ const POS = () => {
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
     // Toggle por moneda: { VES: true, COP: false } — default ON para todas
+    const help = useHelp();
+    const helpKey = 'pos';
     const [showCurrencies, setShowCurrencies] = useState(() => {
         try {
             const s = localStorage.getItem('pos_show_currencies');
@@ -684,6 +688,7 @@ const POS = () => {
                     </Link>
                     <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
                     <h1 className="text-lg font-black text-slate-800 tracking-tight hidden md:block">Punto de Venta</h1>
+                        <HelpButton contextKey={helpKey} onClick={help.open} />
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -1007,6 +1012,7 @@ const POS = () => {
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
                 <CashClosingModal isOpen={isClosingOpen} onClose={() => setIsClosingOpen(false)} />
             </div>
+        {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div >
     );
 };

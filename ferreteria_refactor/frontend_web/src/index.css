@@ -108,3 +108,87 @@
   font-size: 0.75rem !important;
   font-weight: 600 !important;
 }
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS — Mi Inventario Fácil
+   Uso consistente en todo el sistema:
+   · rounded-lg   → inputs, badges, botones pequeños (8px)
+   · rounded-xl   → cards, contenedores, botones CTA (12px)
+   · rounded-2xl  → modales, paneles, drawers (16px)
+   · shadow-sm    → cards en reposo
+   · shadow-md    → cards hover, dropdowns
+   · shadow-xl    → modales
+   · Color primario: indigo-600 (#4f46e5)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Card estándar */
+.ui-card {
+    background: white;
+    border-radius: 0.75rem; /* rounded-xl */
+    border: 1px solid rgb(226 232 240); /* border-slate-200 */
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06);
+}
+
+/* Botón primario */
+.ui-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: #4f46e5;
+    color: white;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-radius: 0.75rem;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+.ui-btn-primary:hover { background: #4338ca; box-shadow: 0 4px 6px -1px rgb(79 70 229 / 0.3); }
+.ui-btn-primary:active { transform: scale(0.98); }
+.ui-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Botón secundario */
+.ui-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: white;
+    color: #475569;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgb(226 232 240);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.ui-btn-secondary:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+/* Input estándar */
+.ui-input {
+    width: 100%;
+    padding: 0.5rem 0.875rem;
+    background: white;
+    border: 1px solid rgb(226 232 240);
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    color: #1e293b;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.ui-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgb(99 102 241 / 0.12);
+}
+
+/* Badge estándar */
+.ui-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}

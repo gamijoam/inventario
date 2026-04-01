@@ -367,6 +367,7 @@ function App() {
                               */}
 
                               {/* Admin Only */}
+                              <Route path="/settings" element={<Navigate to="/config-center" replace />} />
                               <Route path="/config-center" element={
                                 <ProtectedRoute roles={['ADMIN']}>
                                   <ConfigCenter />

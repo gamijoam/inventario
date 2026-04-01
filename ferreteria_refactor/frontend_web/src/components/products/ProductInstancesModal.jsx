@@ -142,7 +142,7 @@ const ProductInstancesModal = ({ isOpen, onClose, product }) => {
                                             <td className="px-6 py-3 text-right">
                                                 <button
                                                     onClick={() => copyToClipboard(instance.serial_number)}
-                                                    className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                                    className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                                                     title="Copiar Serial"
                                                 >
                                                     <Copy size={14} />

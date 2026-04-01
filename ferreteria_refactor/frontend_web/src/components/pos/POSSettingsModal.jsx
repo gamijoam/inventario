@@ -107,7 +107,7 @@ const POSSettingsModal = ({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <Button
                                         onClick={() => window.location.href = getMagicLink()}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 shadow-lg shadow-blue-500/20"
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 shadow-lg shadow-indigo-300/20"
                                     >
                                         🚀 Conectar Ahora
                                     </Button>

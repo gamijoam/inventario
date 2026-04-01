@@ -9,6 +9,8 @@ import ServiceTemplatesManager from './components/ServiceTemplatesManager';
 import printerService from '../../services/printerService';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 
 const FILTER_OPTIONS = [
     { id: 'today', label: '📅 Hoy', filter: 'today' },
@@ -25,6 +27,7 @@ const ServicesDashboard = () => {
     const paperWidth = business?.paper_width || '80';
 
     // State
+    const help = useHelp();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -167,14 +170,15 @@ const ServicesDashboard = () => {
                             {isAdmin && (
                                 <button
                                     onClick={() => setShowTemplates(true)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-lg font-semibold hover:bg-amber-100 border border-amber-200 transition-colors"
+                                    className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 rounded-xl font-semibold hover:bg-amber-100 border border-amber-200 transition-colors"
                                 >
                                     <Zap size={18} /> Plantillas
                                 </button>
                             )}
+                    <HelpButton contextKey="services/dashboard" onClick={help.open} />
                             <button
                                 onClick={() => setShowWizard(true)}
-                                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-colors"
+                                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-colors"
                             >
                                 <Plus size={20} /> Nueva Orden
                             </button>
@@ -257,7 +261,7 @@ const ServicesDashboard = () => {
                                 placeholder="Buscar por ticket, cliente o IMEI..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                             />
                         </div>
                     </div>
@@ -320,6 +324,7 @@ const ServicesDashboard = () => {
                     </div>
                 </div>
             )}
+            {help.isOpen && <HelpDrawer contextKey="services/dashboard" onClose={help.close} />}
         </>
     );
 };

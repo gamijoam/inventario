@@ -9,6 +9,7 @@ from ..models.restaurant import RestaurantRecipe
 from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
+from . import webhook_service
 import asyncio
 import asyncio
 import uuid
@@ -211,6 +212,15 @@ class SalesService:
             sale_payment_method = new_sale.payment_method
             sale_customer_id = new_sale.customer_id
             sale_date_iso = current_time.isoformat()
+            sale_change_amount   = float(new_sale.change_amount)   if new_sale.change_amount   else 0.0
+            sale_change_currency = new_sale.change_currency or ""
+            sale_exchange_rate   = float(new_sale.exchange_rate_used) if new_sale.exchange_rate_used else 1.0
+            sale_total_bs        = float(new_sale.total_amount_bs) if new_sale.total_amount_bs else 0.0
+            # Snapshot de pagos para el ticket WhatsApp (sale_data disponible aquí)
+            sale_payments_snapshot = [
+                {"currency": p.currency, "amount": float(p.amount)}
+                for p in (sale_data.payments or [])
+            ]
 
             # Update Quote Status if this sale comes from a quote
             if sale_data.quote_id:
@@ -693,7 +703,7 @@ class SalesService:
                         "stock": p_info["stock"]
                     })
                 
-                # Emit Sale Event
+                # Emit Sale Event (WebSocket frontend)
                 background_tasks.add_task(run_broadcast, WebSocketEvents.SALE_COMPLETED, {
                     "id": new_sale_id,
                     "total_amount": sale_total_amount,
@@ -702,6 +712,107 @@ class SalesService:
                     "customer_id": sale_customer_id,
                     "date": sale_date_iso
                 })
+
+                # WhatsApp — enviar ticket al cliente directamente vía servicio Baileys
+                if sale_customer_id:
+                    try:
+                        from sqlalchemy import text as _text
+                        from ..tenant_context import get_tenant_schema as _get_schema
+                        import httpx as _httpx
+                        _schema = _get_schema()
+
+                        # Obtener datos del cliente y config del negocio
+                        _row = db.execute(
+                            _text(f'SELECT name, phone FROM "{_schema}".customers WHERE id = :cid'),
+                            {"cid": sale_customer_id}
+                        ).fetchone()
+
+                        if _row and _row[1]:
+                            _name, _phone = _row[0], _row[1]
+
+                            # Verificar config WhatsApp en una sola query
+                            _wa_rows = db.execute(
+                                _text(
+                                    f"SELECT key, value FROM \"{_schema}\".business_config "
+                                    "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                                    "'whatsapp_notify_sale','business_name','whatsapp_template_sale')"
+                                )
+                            ).fetchall()
+                            _wa_cfg = {r[0]: r[1] for r in _wa_rows}
+                            _inst   = _wa_cfg.get("whatsapp_instance_name", "")
+                            _status = _wa_cfg.get("whatsapp_instance_status", "")
+                            _notify = _wa_cfg.get("whatsapp_notify_sale") != "false"  # None o "true" = habilitado
+
+                            if _inst and _status == "CONNECTED" and _notify:
+                                # Obtener nombre del negocio
+                                _biz_name = _wa_cfg.get("business_name") or "Mi Inventario"
+
+                                _clean_phone = "".join(c for c in _phone if c.isdigit())
+                                _tpl = _wa_cfg.get("whatsapp_template_sale") or (
+                                    "🧾 *{{negocio}}*\n¡Gracias por tu compra, {{cliente}}!\n\n"
+                                    "📋 Venta #{{id}}\n📦 {{metodo_pago}}\n\n"
+                                    "*PAGOS:*\n{{pagos}}\n\n*TOTAL: {{total}}*{{vuelto}}\n\n"
+                                    "¡Gracias por preferirnos! 😊"
+                                )
+
+                                # Construir líneas de pago con moneda real
+                                _pay_lines = []
+                                for _p in sale_payments_snapshot:
+                                    _cur = _p["currency"]
+                                    _amt = _p["amount"]
+                                    # Si pagó en bolívares mostrar Bs, si en USD mostrar $
+                                    if _cur in ("VES", "Bs", "BS", "BsF"):
+                                        _pay_lines.append(f"  💳 Bs {_amt:,.2f}")
+                                    elif _cur in ("USD", "$"):
+                                        _pay_lines.append(f"  💵 $ {_amt:,.2f}")
+                                    else:
+                                        _pay_lines.append(f"  💰 {_cur} {_amt:,.2f}")
+
+                                if not _pay_lines:
+                                    # Fallback: mostrar el total en la moneda correcta
+                                    if sale_currency in ("VES", "Bs", "BS"):
+                                        _pay_lines = [f"  💳 Bs {sale_total_bs:,.2f}"]
+                                    else:
+                                        _pay_lines = [f"  💵 $ {sale_total_amount:,.2f}"]
+
+                                _pay_str = "\n".join(_pay_lines)
+
+                                # Línea de total según moneda de la venta
+                                if sale_currency in ("VES", "Bs", "BS", "BsF"):
+                                    _total_str = f"Bs {sale_total_bs:,.2f}"
+                                else:
+                                    _total_str = f"$ {sale_total_amount:,.2f}"
+
+                                # Vuelto
+                                _change_str = ""
+                                if sale_change_amount and sale_change_amount > 0.005:
+                                    if sale_change_currency in ("VES", "Bs", "BS", "BsF"):
+                                        _change_str = f"\n🔄 Vuelto: Bs {sale_change_amount:,.2f}"
+                                    elif sale_change_currency in ("USD", "$"):
+                                        _change_str = f"\n🔄 Vuelto: $ {sale_change_amount:,.2f}"
+                                    else:
+                                        _change_str = f"\n🔄 Vuelto: {sale_change_amount:,.2f}"
+
+                                # Tasa de cambio (mostrar solo si la venta es en Bs o hay pagos mixtos)
+                                # Aplicar plantilla con variables
+                                _msg = _tpl \
+                                    .replace("{{negocio}}",     _biz_name) \
+                                    .replace("{{cliente}}",     _name) \
+                                    .replace("{{id}}",          f"{new_sale_id:04d}") \
+                                    .replace("{{metodo_pago}}", sale_payment_method) \
+                                    .replace("{{pagos}}",       _pay_str) \
+                                    .replace("{{total}}",       _total_str) \
+                                    .replace("{{vuelto}}",      _change_str)
+                                # httpx síncrono — no bloquea significativamente (timeout 5s)
+                                with _httpx.Client(timeout=5) as _c:
+                                    _c.post(
+                                        f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                        json={"phone": _clean_phone, "message": _msg}
+                                    )
+
+                    except Exception as _wa_err:
+                        import logging as _log
+                        _log.getLogger(__name__).warning(f"[WA] Ticket venta falló (no afecta la venta): {_wa_err}")
                 
                 # AUTO-PRINT TICKET
                 # REMOVED: Server-side printing is incompatible with SaaS architecture.
@@ -1221,7 +1332,50 @@ Cierre:   {{ session.end_time }}
         
         db.commit()
         db.expunge(payment)
-        
+
+        # WhatsApp — confirmar recepción del abono al cliente
+        try:
+            import httpx as _httpx
+            from sqlalchemy import text as _text
+            from ..tenant_context import get_tenant_schema as _gs
+            _s = _gs()
+            if sale.customer_id:
+                _cust = db.execute(
+                    _text(f'SELECT name, phone FROM "{_s}".customers WHERE id = :cid'),
+                    {"cid": sale.customer_id}
+                ).fetchone()
+                if _cust and _cust[1]:
+                    _wa = {r[0]: r[1] for r in db.execute(
+                        _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                              "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                              "'whatsapp_notify_sale','business_name')")).fetchall()}
+                    _inst   = _wa.get("whatsapp_instance_name","")
+                    _status = _wa.get("whatsapp_instance_status","")
+                    _notify = _wa.get("whatsapp_notify_sale") != "false"
+                    _biz    = _wa.get("business_name") or "Mi Inventario"
+                    if _inst and _status == "CONNECTED" and _notify:
+                        _cur = payment_data.currency
+                        if _cur in ("VES","Bs","BS"):
+                            _amt_str = f"Bs {float(payment_data.amount):,.2f}"
+                        else:
+                            _amt_str = f"$ {float(payment_data.amount):,.2f}"
+                        _status_str = "✅ *¡Saldo cancelado completamente!*" if sale.paid else f"📋 Saldo restante: $ {new_balance:,.2f}"
+                        _msg = (
+                            f"💳 *{_biz}*\n"
+                            f"Hola {_cust[0]}, confirmamos tu abono:\n\n"
+                            f"💰 Pago recibido: {_amt_str}\n"
+                            f"📄 Factura #{sale.id}\n"
+                            f"{_status_str}\n\n"
+                            f"¡Gracias por tu puntualidad! 🙏"
+                        )
+                        _phone = "".join(c for c in _cust[1] if c.isdigit())
+                        with _httpx.Client(timeout=5) as _c:
+                            _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                    json={"phone": _phone, "message": _msg})
+        except Exception as _e:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[WA] Confirmación abono falló: {_e}")
+
         return {
             "status": "success",
             "payment_id": payment.id,

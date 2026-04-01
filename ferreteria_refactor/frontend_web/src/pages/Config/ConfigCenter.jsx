@@ -1,5 +1,8 @@
 import React, { Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
+import MessageCircle from 'lucide-react/dist/esm/icons/message-circle';
 import {
     Building2, Users, DollarSign, Percent, CreditCard, Printer,
     ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X
@@ -15,6 +18,7 @@ const GarantiasConfigTab = React.lazy(() => import('./tabs/GarantiasConfigTab'))
 const AuditoriaTab      = React.lazy(() => import('./tabs/AuditoriaTab'));
 const EstacionPOSTab    = React.lazy(() => import('./tabs/EstacionPOSTab'));
 const ComisionesTab     = React.lazy(() => import('./tabs/ComisionesTab'));
+const WhatsAppTab       = React.lazy(() => import('./tabs/WhatsAppTab'));
 
 // ── Grupos del menú lateral ──────────────────────────────────────────────────
 const GROUPS = [
@@ -41,6 +45,7 @@ const GROUPS = [
             { id: 'garantias',  label: 'Garantías',         icon: ShieldCheck,  desc: 'Políticas de garantía' },
             { id: 'pos',        label: 'Estación POS',      icon: Monitor,      desc: 'Opciones avanzadas del POS' },
             { id: 'auditoria',  label: 'Auditoría',         icon: ClipboardList, desc: 'Registro de actividad' },
+            { id: 'whatsapp',   label: 'WhatsApp',          icon: MessageCircle, desc: 'Notificaciones y mensajes' },
         ],
     },
 ];
@@ -69,6 +74,7 @@ const renderTabContent = (activeTab) => {
         case 'impresoras': return wrap(ImpresorasTab);
         case 'garantias':  return wrap(GarantiasConfigTab);
         case 'auditoria':  return wrap(AuditoriaTab);
+        case 'whatsapp':   return wrap(WhatsAppTab);
         case 'pos':        return wrap(EstacionPOSTab);
         case 'comisiones': return wrap(ComisionesTab);
         default:           return null;
@@ -80,6 +86,8 @@ const ConfigCenter = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'general';
     const [mobileOpen, setMobileOpen] = useState(false);
+    const help = useHelp();
+    const configHelpKey = `config/${activeTab}`;
 
     const setTab = (id) => {
         setSearchParams({ tab: id });
@@ -120,7 +128,7 @@ const ConfigCenter = () => {
                                     <button key={item.id} onClick={() => setTab(item.id)}
                                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all text-left group ${
                                             active
-                                                ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
+                                                ? 'bg-blue-600 text-white shadow-sm shadow-indigo-200'
                                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                                         }`}>
                                         <Icon size={16} className={active ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'} />
@@ -172,14 +180,17 @@ const ConfigCenter = () => {
                         </div>
                         <div className="min-w-0">
                             <h1 className="text-lg font-black text-slate-900 leading-tight truncate">
-                                {currentItem?.label || 'Configuración'}
+        {currentItem?.label || 'Configuración'}
                             </h1>
                             <p className="text-xs text-slate-400 truncate hidden sm:block">
                                 {currentItem?.desc}
                             </p>
                         </div>
                     </div>
+                    <HelpButton contextKey={configHelpKey} onClick={help.open} />
                 </div>
+
+                {help.isOpen && <HelpDrawer contextKey={configHelpKey} onClose={help.close} />}
 
                 {/* Área de contenido */}
                 <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
