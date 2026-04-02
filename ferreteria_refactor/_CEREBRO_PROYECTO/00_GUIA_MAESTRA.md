@@ -498,3 +498,41 @@ if (hash === '#/catalogo' || hash.startsWith('#/catalogo?')) {
   return <PublicCatalog />;  // Sin AuthProvider, CloudConfigProvider, etc.
 }
 ```
+
+---
+
+## 13. Customer 360 + WhatsApp
+
+**Rama:** `feature/customer-360-whatsapp`
+**Ubicación:** `Sales Center → Clientes → Ver 360°`
+
+### Qué hace
+Panel lateral con vista completa del cliente: KPIs, historial, top productos comprados y botones de acción WhatsApp.
+
+### Botones WhatsApp (envían por Baileys, no wa.me)
+| Botón | Aparece cuando | Mensaje |
+|---|---|---|
+| 💛 Cobrar crédito $X | Cliente tiene saldo > 0 | Recordatorio de deuda con monto exacto |
+| 💙 Enviar recordatorio | Cliente tiene teléfono | Mensaje de contacto general |
+| 💚 Nuevos productos | Cliente tiene teléfono | Mensaje de reactivación |
+
+### Flujo de envío
+```
+Botón → POST /api/v1/whatsapp/send-message
+              ↓
+        WhatsApp conectado? → Envía por Baileys → Toast ✅ top-left
+              ↓ NO
+        Fallback → abre wa.me en nueva pestaña
+```
+
+### Fix aplicado: current_balance real
+La columna `current_balance` no existe en la tabla `customers`.
+El saldo se calcula en tiempo real:
+```sql
+SELECT SUM(balance_pending) FROM sales
+WHERE customer_id = :id AND is_credit = true AND paid = false
+```
+
+### Toast z-index
+El Toaster está en `top-left` con `z-index: 99999` para aparecer
+sobre el panel Customer360 (z-index: 9991) y cualquier otro modal.
