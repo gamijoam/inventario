@@ -518,8 +518,20 @@ def get_customer_360(
     timeline = timeline[:limit]
 
     # ── 8. Resumen financiero ─────────────────────────────────
-    current_balance = float(customer.current_balance) if hasattr(customer, 'current_balance') else 0
+    # Calcular saldo real desde ventas a crédito no pagadas
     credit_limit = float(customer.credit_limit) if customer.credit_limit else 0
+
+    real_balance = db.query(func.sum(models.Sale.balance_pending)).filter(
+        models.Sale.customer_id == customer_id,
+        models.Sale.is_credit == True,
+        models.Sale.paid == False,
+        models.Sale.status != 'VOIDED'
+    ).scalar()
+    current_balance = float(real_balance) if real_balance else 0
+
+    # Fallback: si el modelo tiene current_balance en BD, usar el mayor
+    if hasattr(customer, 'current_balance') and customer.current_balance:
+        current_balance = max(current_balance, float(customer.current_balance))
 
     return {
         "customer": {

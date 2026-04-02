@@ -396,3 +396,26 @@ async def send_whatsapp_message(db: Session, phone: str, message: str) -> bool:
     except Exception as e:
         logger.warning(f"[WA] Error enviando a {phone}: {e}")
         return False
+
+
+# ── Envío manual desde Customer360 ───────────────────────────────────────────
+@router.post("/send-message")
+async def send_manual_message(
+    body: dict,
+    current_user=Depends(admin_required),
+    db: Session=Depends(get_db)
+):
+    """Envía un mensaje WhatsApp desde el Customer360 (crédito, recordatorio, etc.)"""
+    phone   = body.get("phone", "")
+    message = body.get("message", "")
+
+    if not phone or not message:
+        raise HTTPException(status_code=400, detail="Número y mensaje requeridos")
+
+    ok = await send_whatsapp_message(db, phone, message)
+    if not ok:
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp no está conectado. Verifica la sesión en Configuración → WhatsApp."
+        )
+    return {"ok": True, "message": "Mensaje enviado correctamente"}
