@@ -69,11 +69,15 @@ export const AutoSyncProvider = ({ children }) => {
     // Sync cloud_url to backend once when config changes (uses cookies, not localStorage token)
     useEffect(() => {
         if (cloudConfig.isConfigured && cloudConfig.cloudUrl) {
+            // _silent403: no mostrar toast si el usuario es cajero (no tiene permiso)
             apiClient.put('/config/cloud_url', {
                 key: 'cloud_url',
                 value: cloudConfig.cloudUrl
-            }).catch(e => {
-                console.warn('[AutoSync] Falló sync de cloud_url:', e.message);
+            }, { _silent403: true }).catch(e => {
+                // 403 esperado para cajeros — ignorar silenciosamente
+                if (e?.response?.status !== 403) {
+                    console.warn('[AutoSync] Falló sync de cloud_url:', e.message);
+                }
             });
         }
     }, [cloudConfig.isConfigured, cloudConfig.cloudUrl]);

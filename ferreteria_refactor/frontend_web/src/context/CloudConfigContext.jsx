@@ -92,11 +92,15 @@ export const CloudConfigProvider = ({ children }) => {
                     await axios.put('/api/v1/config/cloud_url', {
                         key: 'cloud_url',
                         value: cleanUrl
-                    }, { headers });
+                    }, { headers, _silent403: true });
 
                     console.log('[Cloud Config] URL synced to backend successfully');
                 }
             } catch (backendError) {
+                // FALLBACK: Si falla por 403 (cajero sin permisos), ignorar silenciosamente
+                if (backendError.response && backendError.response.status === 403) {
+                    // Normal para cajeros — no tienen acceso a config/cloud_url
+                } else
                 // FALLBACK: Si falla por 401 (no logueado en wizard), usar endpoint de setup público
                 if (backendError.response && backendError.response.status === 401) {
                     console.log('[Cloud Config] Auth failed, trying setup endpoint...');
