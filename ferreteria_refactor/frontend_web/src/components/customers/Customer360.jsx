@@ -1,13 +1,64 @@
 import { useState, useEffect } from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
+import { useConfig } from '../../context/ConfigContext';
 import {
     X, ShoppingCart, Wrench, FileText, CreditCard, DollarSign,
     Phone, Mail, MapPin, Package, TrendingUp, Clock,
-    AlertCircle, Star, User
+    AlertCircle, Star, User, MessageCircle, Send
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 
 const fmt = (n) => `$${Number(n || 0).toFixed(2)}`;
+
+// ── Helpers WhatsApp ──────────────────────────────────────
+const waLink = (phone, msg) => {
+    const clean = (phone || '').replace(/\D/g, '');
+    if (!clean) return null;
+    return `https://wa.me/${clean}?text=${encodeURIComponent(msg)}`;
+};
+
+const WaButton = ({ phone, label, icon: Icon, message, color = 'emerald' }) => {
+    const [sending, setSending] = React.useState(false);
+    if (!phone) return null;
+
+    const colors = {
+        emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100',
+        amber:   'bg-amber-50   border-amber-200   text-amber-700   hover:bg-amber-100',
+        indigo:  'bg-indigo-50  border-indigo-200  text-indigo-700  hover:bg-indigo-100',
+    };
+
+    const handleSend = async () => {
+        setSending(true);
+        try {
+            await apiClient.post('/whatsapp/send-message', { phone, message });
+            toast.success('✅ Mensaje enviado por WhatsApp');
+        } catch (e) {
+            const detail = e?.response?.data?.detail || 'Error al enviar';
+            // Si WhatsApp no está conectado, ofrecer el link manual como fallback
+            if (e?.response?.status === 503) {
+                toast.error('WhatsApp no conectado — abriendo manualmente...');
+                const clean = phone.replace(/\D/g, '');
+                window.open(`https://wa.me/${clean}?text=${encodeURIComponent(message)}`, '_blank');
+            } else {
+                toast.error(detail);
+            }
+        } finally {
+            setSending(false);
+        }
+    };
+
+    return (
+        <button onClick={handleSend} disabled={sending}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-all disabled:opacity-60 ${colors[color]}`}>
+            {sending
+                ? <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : <Icon size={13} />
+            }
+            {sending ? 'Enviando...' : label}
+        </button>
+    );
+};
 const fmtDate = (d) => {
     if (!d) return '—';
     return new Date(d).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -90,6 +141,8 @@ const Customer360 = ({ customerId, customerName, onClose }) => {
     const [data, setData]       = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState(null);
+    const { business }          = useConfig();
+    const bizName = business?.name || 'Mi Inventario';
 
     useEffect(() => {
         if (!customerId) return;
@@ -160,6 +213,41 @@ const Customer360 = ({ customerId, customerName, onClose }) => {
                                 <StatCard icon={Wrench}      label="Total en taller"   value={fmt(s.total_orders_amount)} sub={`${s.total_orders} órdenes de servicio`}          colorClass="bg-violet-50 border-violet-100 text-violet-700" />
                                 <StatCard icon={CreditCard}  label="Saldo crédito"     value={fmt(c.current_balance)}     sub={c.credit_limit > 0 ? `Límite: ${fmt(c.credit_limit)}` : 'Sin crédito configurado'} colorClass={c.current_balance > 0 ? "bg-rose-50 border-rose-100 text-rose-700" : "bg-slate-50 border-slate-100 text-slate-700"} alert={c.current_balance > 0} />
                             </div>
+
+                            {/* ── Acciones WhatsApp ── */}
+                            {c?.phone && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2.5">
+                                        <MessageCircle size={13} className="text-emerald-600" />
+                                        <h3 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Contactar por WhatsApp</h3>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {c.current_balance > 0 && (
+                                            <WaButton
+                                                phone={c.phone}
+                                                label={`Cobrar crédito ${fmt(c.current_balance)}`}
+                                                icon={Send}
+                                                color="amber"
+                                                message={`Hola ${c.name}! 👋\n\nTe recordamos desde *${bizName}* que tienes un saldo pendiente de *${fmt(c.current_balance)}*.\n\nCuando puedas, por favor comunícate con nosotros para coordinar el pago. ¡Gracias!`}
+                                            />
+                                        )}
+                                        <WaButton
+                                            phone={c.phone}
+                                            label="Enviar recordatorio"
+                                            icon={MessageCircle}
+                                            color="indigo"
+                                            message={`Hola ${c.name}! 👋\n\nTe escribimos desde *${bizName}*. ¿En qué podemos ayudarte hoy?`}
+                                        />
+                                        <WaButton
+                                            phone={c.phone}
+                                            label="Nuevos productos"
+                                            icon={MessageCircle}
+                                            color="emerald"
+                                            message={`Hola ${c.name}! 🛍️\n\nEn *${bizName}* tenemos nuevos productos que pueden interesarte. ¡Visítanos o escríbenos!`}
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Top productos */}
                             {data.top_products?.length > 0 && (

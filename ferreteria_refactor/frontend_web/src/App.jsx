@@ -214,7 +214,21 @@ function App() {
   return (
     <CloudConfigProvider>
       <AuthProvider>
-        <Toaster position="top-right" />
+        <Toaster
+          position="top-left"
+          toastOptions={{
+            style: {
+              zIndex: 99999,
+              fontSize: '14px',
+              fontWeight: '600',
+              borderRadius: '12px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+            },
+            success: { duration: 3000 },
+            error:   { duration: 4000 },
+          }}
+          containerStyle={{ zIndex: 99999, top: 16, left: 16 }}
+        />
         <AppWithCloudConfig>
           <AutoSyncProvider>
             <WebSocketProvider>
