@@ -536,3 +536,51 @@ WHERE customer_id = :id AND is_credit = true AND paid = false
 ### Toast z-index
 El Toaster está en `top-left` con `z-index: 99999` para aparecer
 sobre el panel Customer360 (z-index: 9991) y cualquier otro modal.
+
+---
+
+## 14. Bot Admin de Telegram — Panel SaaS
+
+**Rama:** `feature/telegram-admin-bot`
+**Contenedor:** `deploy_bot_server` (ya corriendo en producción)
+
+### 31 comandos disponibles
+
+| Módulo | Comandos |
+|---|---|
+| 📋 Ayuda | `/start` `/ayuda` `/ayuda [cmd]` |
+| 🚀 Sistema | `/status` `/version` `/rollback` `/logs [svc] [n]` `/restart [svc\|all]` |
+| 🏪 Tenants | `/tenants` `/tenant [s]` `/crear [s] "[n]" [e] [p]` `/bloquear [s]` `/activar [s]` `/extender [s] [d]` `/plan [s] [plan]` `/eliminar [s]` |
+| 👥 Usuarios | `/usuarios [s]` `/crear-usuario [s] [u] [e] [rol]` `/reset-pass [s] [u]` `/bloquear-user [s] [u]` `/activar-user [s] [u]` |
+| 💾 Respaldos | `/backup [s?]` `/backups` `/descargar [archivo]` |
+| 📊 Métricas | `/stats` `/ventas [s]` `/nuevos` `/vencen` `/disco` `/ram` |
+
+### Archivos del sistema
+```
+/root/deploy/telegram-bot/
+├── webhook.py              ← Router principal (337 líneas)
+├── help.py                 ← Definición de los 26 comandos con ejemplos
+├── Dockerfile              ← python:3.12-slim + docker CLI + passlib
+└── handlers/
+    ├── deploy.py           ← /status /version /rollback /logs /restart
+    ├── tenants.py          ← /tenants /tenant /crear /bloquear etc
+    ├── usuarios.py         ← /usuarios /crear-usuario /reset-pass etc
+    ├── backups.py          ← /backup /backups /descargar
+    └── metrics.py          ← /stats /ventas /disco /ram etc
+```
+
+### Notas técnicas importantes
+- El hash de contraseñas se delega al `backend_prod_server` (passlib/bcrypt funciona ahí)
+- `/ram` lee `/proc/meminfo` directamente del host (montado via Docker)
+- `/backup` genera `.sql.gz` en `/root/backups/` y lo envía al chat de Telegram
+- `/crear` seedea el schema via el seeder del backend
+- El historial de versiones se guarda en `/root/deploy/version_history.txt`
+- Solo el `TELEGRAM_CHAT_ID` de `monitor.conf` puede ejecutar comandos
+
+### Para reconstruir el bot después de cambios
+```bash
+cd /root/deploy/telegram-bot
+docker build -t mi-inventario-deploy-bot .
+docker stop deploy_bot_server && docker rm deploy_bot_server
+# Ver deploy-containers-bot.sh o el webhook.py para el docker run completo
+```
