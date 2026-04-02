@@ -14,7 +14,8 @@ from handlers.deploy   import (handle_status, handle_version,
                                 handle_logs, handle_restart)
 from handlers.tenants  import (handle_tenants, handle_tenant,
                                 handle_bloquear, handle_extender, handle_plan,
-                                handle_eliminar_confirmar, handle_eliminar_exec)
+                                handle_eliminar_confirmar, handle_eliminar_exec,
+                                handle_crear_tenant)
 from handlers.usuarios import (handle_usuarios, handle_crear_usuario,
                                 handle_reset_pass, handle_user_status)
 from handlers.backups  import (handle_backup, handle_backups,
@@ -239,9 +240,7 @@ def webhook():
                 send_msg(handle_tenant(parts))
 
             elif cmd == "/crear":
-                send_msg(handle_bloquear.__doc__ or "Usa /ayuda crear")
-                # Delegado a handler crear tenant (pendiente implementar)
-                send_msg("⚠️ Creación de tenant: disponible próximamente. Usa el panel SaaS por ahora.")
+                send_msg(handle_crear_tenant(parts))
 
             elif cmd == "/bloquear":
                 send_msg(handle_bloquear(parts, "bloquear"))

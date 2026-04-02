@@ -5,7 +5,7 @@ Comandos: /usuarios /crear-usuario /reset-pass /bloquear-user /activar-user
 import subprocess, secrets
 from passlib.context import CryptContext
 
-pwd_ctx = CryptContext(schemes=["bcrypt"])
+pwd_ctx = CryptContext(schemes=["bcrypt"], bcrypt__truncate_error=False)
 
 def _psql(sql, db="invensoft_prod"):
     r = subprocess.run(
@@ -78,7 +78,7 @@ def handle_crear_usuario(parts):
 
     # Contraseña temporal
     temp_pass = secrets.token_urlsafe(10)
-    hashed    = pwd_ctx.hash(temp_pass)
+    hashed    = pwd_ctx.hash(temp_pass[:72])
 
     sql = f"""
     INSERT INTO public.users (username, email, hashed_password, role, is_active, tenant_id)
@@ -110,7 +110,7 @@ def handle_reset_pass(parts):
         return f"❌ Tenant `{schema}` no encontrado."
 
     temp_pass = secrets.token_urlsafe(10)
-    hashed    = pwd_ctx.hash(temp_pass)
+    hashed    = pwd_ctx.hash(temp_pass[:72])
 
     sql = f"""
     UPDATE public.users
