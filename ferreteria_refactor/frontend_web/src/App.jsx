@@ -15,10 +15,13 @@ import { Capacitor } from '@capacitor/core';
 import AndroidBackButton from './components/common/AndroidBackButton';
 
 // Eager imports — critical path only
+import OnboardingWizard from './components/onboarding/OnboardingWizard';
+import { useOnboarding } from './hooks/useOnboarding';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
 // Lazy-loaded pages (all non-critical-path pages)
+import PublicCatalog from './pages/Catalog/PublicCatalog';
 const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 const Unauthorized = React.lazy(() => import('./pages/Unauthorized'));
@@ -122,6 +125,27 @@ class LazyErrorBoundary extends React.Component {
   }
 }
 
+// ── Onboarding Gate ─────────────────────────────────────────
+// Muestra el wizard de configuración inicial si el tenant no lo completó
+function OnboardingGate({ children }) {
+  const { completed, loading, refresh } = useOnboarding();
+  const [dismissed, setDismissed] = React.useState(false);
+
+  if (loading) return children;
+  if (!completed && !dismissed) {
+    return (
+      <>
+        {children}
+        <OnboardingWizard
+          onClose={() => { setDismissed(true); refresh(); }}
+        />
+      </>
+    );
+  }
+  return children;
+}
+
+
 function App() {
 
   // 🛡️ STARTUP LOADER (Chicken & Egg Fix)
@@ -181,6 +205,12 @@ function App() {
     );
   }
 
+  // ── Catálogo público — sin providers de autenticación ──
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  if (hash === '#/catalogo' || hash.startsWith('#/catalogo?') || hash.startsWith('#/catalogo/')) {
+    return <PublicCatalog />;
+  }
+
   return (
     <CloudConfigProvider>
       <AuthProvider>
@@ -206,6 +236,7 @@ function App() {
 
                           {/* Mobile Waiter Routes */}
                           <Route path="/mobile/login" element={<WaiterLogin />} />
+
                           <Route path="/mobile" element={
                             <ProtectedRoute>
                               <MobileWaiterLayout />
@@ -231,7 +262,7 @@ function App() {
                           {/* Dashboard Layout Routes */}
                           <Route element={<ProtectedRoute />}>
                             <Route element={<DashboardLayout />}>
-                              <Route path="/" element={<Dashboard />} />
+                              <Route path="/" element={<OnboardingGate><Dashboard /></OnboardingGate>} />
 
                               {/* Unified Inventory Center */}
                               <Route path="/inventory-center" element={

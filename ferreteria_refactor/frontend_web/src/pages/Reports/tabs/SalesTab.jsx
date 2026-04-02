@@ -959,6 +959,45 @@ const SalesTab = ({ dateRange }) => {
                             </div>
                         </div>
 
+                        {/* Sección de Pagos — visible solo si hay pagos registrados */}
+                        {selectedSale?.payments?.length > 0 && (
+                            <div className="px-6 pb-4 flex-shrink-0">
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                                    <span>💳</span> Detalle de pagos
+                                </p>
+                                <div className="bg-slate-50 rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden">
+                                    {selectedSale.payments.map((pago, idx) => (
+                                        <div key={idx} className="flex items-center justify-between px-4 py-2.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-indigo-400 shrink-0" />
+                                                <span className="text-sm font-bold text-slate-700">
+                                                    {pago.payment_method}
+                                                </span>
+                                                {pago.reference && (
+                                                    <span className="text-xs text-slate-400 font-mono">
+                                                        Ref: {pago.reference}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-black text-slate-800">
+                                                    {pago.currency === 'USD' || pago.currency === 'usd'
+                                                        ? `$${Number(pago.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                                        : `Bs ${Number(pago.amount).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                                                    }
+                                                </span>
+                                                {pago.exchange_rate && pago.currency !== 'USD' && (
+                                                    <p className="text-[10px] text-slate-400">
+                                                        Tasa: {Number(pago.exchange_rate).toFixed(2)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Footer */}
                         <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-3">
                             <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={() => handlePrintPDF(selectedSale)}>

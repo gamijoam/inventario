@@ -541,10 +541,13 @@ export default function WhatsAppTab() {
                     />
                     <div className="grid grid-cols-1 gap-1.5 text-[11px] text-amber-700 bg-amber-100 rounded-lg p-2.5 mt-1">
                         <p className="font-black uppercase tracking-wide text-amber-800 mb-0.5">📋 Formato del número</p>
-                        <p>• <span className="font-mono font-bold">584141234567</span> → Venezuela (04XX = 584XX)</p>
-                        <p>• <span className="font-mono font-bold">573001234567</span> → Colombia</p>
-                        <p>• <span className="font-mono font-bold">521234567890</span> → México</p>
-                        <p className="text-amber-600 mt-0.5">Regla: código de país <strong>sin el +</strong> + número completo, sin espacios ni guiones. Para Venezuela: <strong>58</strong> + operador (414, 424, 416, 412, 426) + 7 dígitos.</p>
+                        <div className="grid grid-cols-3 gap-1 mb-1">
+                          <span className="bg-white/70 px-2 py-1 rounded text-center font-mono font-bold">🇻🇪 58...</span>
+                          <span className="bg-white/70 px-2 py-1 rounded text-center font-mono font-bold">🇨🇴 57...</span>
+                          <span className="bg-white/70 px-2 py-1 rounded text-center font-mono font-bold">🇲🇽 52...</span>
+                        </div>
+                        <p>Código de país <strong>sin el +</strong> + número completo sin espacios.</p>
+                        <p>Venezuela: <strong>58</strong> + operador (414, 424, 416, 412, 426) + 7 dígitos → <span className="font-mono">584141234567</span></p>
                     </div>
                 </div>
             )}
