@@ -19,7 +19,7 @@ export default function CatalogTab() {
   const catalogUrl = `${window.location.protocol}//${window.location.host}/#/catalogo`;
 
   useEffect(() => {
-    apiClient.get('/config/').then(r => {
+    apiClient.get('/config').then(r => {
       const keys = ['catalog_show_out_of_stock','catalog_business_hours','catalog_whatsapp_cart'];
       const map  = {};
       (Array.isArray(r.data) ? r.data : []).forEach(c => {
