@@ -1,0 +1,18 @@
+FROM python:3.12-slim
+
+# Instalar docker CLI para poder ejecutar comandos docker desde el bot
+RUN apt-get update && apt-get install -y \
+    curl gnupg ca-certificates lsb-release postgresql-client \
+    --no-install-recommends && \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+    chmod a+r /etc/apt/keyrings/docker.asc && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+    https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && apt-get install -y docker-ce-cli --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+RUN pip install flask passlib bcrypt --no-cache-dir
+COPY . .
+CMD ["python3", "webhook.py"]
