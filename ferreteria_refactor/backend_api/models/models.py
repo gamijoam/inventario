@@ -834,9 +834,13 @@ class PurchaseOrder(Base):
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True) # NEW: Receiving warehouse
     
     # Payment tracking
-    total_amount = Column(Numeric(12, 2), default=0.00)
-    paid_amount = Column(Numeric(12, 2), default=0.00)
+    total_amount = Column(Numeric(18, 4), default=0.00)
+    paid_amount  = Column(Numeric(18, 4), default=0.00)
     payment_status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
+    # Descuentos del proveedor (Herramienta 2)
+    discount_amount = Column(Numeric(18, 4), default=0)
+    discount_type   = Column(String(20), default="NONE")   # NONE / PERCENT / FIXED
+    discount_notes  = Column(Text, nullable=True)
     
     # Additional info
     invoice_number = Column(String, nullable=True)
@@ -876,13 +880,17 @@ class PurchaseItem(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     purchase_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    quantity = Column(Numeric(12, 3), nullable=False)
-    unit_cost = Column(Numeric(14, 4), nullable=False) # Store cost at time of purchase
+    product_id  = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity    = Column(Numeric(12, 3), nullable=False)
+    unit_cost   = Column(Numeric(14, 4), nullable=False)
+    # Descuentos por ítem — Herramienta 2
+    discount_pct    = Column(Numeric(10, 4), default=0, server_default="0")
+    discount_amount = Column(Numeric(18, 4), default=0, server_default="0")
+    subtotal        = Column(Numeric(18, 4), nullable=True)
     
     # Relationships
     purchase = relationship("PurchaseOrder", back_populates="items")
-    product = relationship("Product")
+    product  = relationship("Product")
     
     def __repr__(self):
         return f"<PurchaseItem(purchase={self.purchase_id}, product={self.product_id}, qty={self.quantity})>"

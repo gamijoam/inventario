@@ -44,14 +44,17 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
         # Create purchase order
         purchase = models.PurchaseOrder(
             supplier_id=order_data.supplier_id,
-            warehouse_id=order_data.warehouse_id, # Link to warehouse
+            warehouse_id=order_data.warehouse_id,
             invoice_number=order_data.invoice_number,
             notes=order_data.notes,
             total_amount=order_data.total_amount,
             paid_amount=0.0,
             payment_status=models.PaymentStatus.PENDING,
             purchase_date=purchase_date,
-            due_date=due_date
+            due_date=due_date,
+            discount_amount=order_data.discount_amount or 0,
+            discount_type=order_data.discount_type or "NONE",
+            discount_notes=order_data.discount_notes,
         )
         db.add(purchase)
         db.flush()  # Get purchase ID
@@ -60,16 +63,44 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
 
         # Process items
         for item in order_data.items:
-            product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+            product_id = item.product_id
+
+            # ── Herramienta 1: Producto rápido al vuelo ──────────
+            if not product_id and item.quick_product:
+                qp = item.quick_product
+                new_prod = models.Product(
+                    name=qp.name.strip(),
+                    sku=qp.sku.strip() if qp.sku else None,
+                    price=float(qp.sale_price or item.unit_cost),
+                    cost_price=float(item.unit_cost),
+                    stock=0,
+                    is_active=True,
+                    category_id=qp.category_id,
+                )
+                db.add(new_prod)
+                db.flush()
+                product_id = new_prod.id
+
+            product = db.query(models.Product).filter(models.Product.id == product_id).first()
             if not product:
                 continue
-            
+
+            # ── Herramienta 2: Descuento por ítem ────────────────
+            disc_pct    = float(item.discount_pct or 0)
+            disc_amount = float(item.discount_amount or 0)
+            if disc_pct > 0:
+                disc_amount = round(float(item.unit_cost) * float(item.quantity) * disc_pct / 100, 4)
+            subtotal = round(float(item.unit_cost) * float(item.quantity) - disc_amount, 4)
+
             # SAVE PURCHASE ITEM (History)
             purchase_item = models.PurchaseItem(
                 purchase_id=purchase.id,
                 product_id=product.id,
                 quantity=item.quantity,
-                unit_cost=item.unit_cost
+                unit_cost=item.unit_cost,
+                discount_pct=disc_pct,
+                discount_amount=disc_amount,
+                subtotal=subtotal,
             )
             db.add(purchase_item)
 

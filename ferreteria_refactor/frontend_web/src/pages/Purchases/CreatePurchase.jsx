@@ -118,6 +118,40 @@ const CreatePurchase = () => {
         }
     }, [productSearch, products]);
 
+    // Herramienta 2: Calcular totales con descuentos
+    const subtotalBruto = purchaseItems.reduce((s, i) => s + (i.unit_cost * i.quantity), 0);
+    const totalDescItems = purchaseItems.reduce((s, i) => s + (i.discount_amount || 0), 0);
+    const totalConDescItems = subtotalBruto - totalDescItems;
+    const descGlobal = parseFloat(globalDiscount.amount) || 0;
+    const totalFinal = totalConDescItems - descGlobal;
+
+    // Herramienta 1: Agregar producto rápido (sin existir en inventario)
+    const handleAddQuickProduct = () => {
+        if (!quickProductName.trim()) return;
+        const tempId = `quick_${Date.now()}`;
+        const cost = parseFloat(quickProductName) || 0;
+        setPurchaseItems(prev => [...prev, {
+            product_id: null,
+            quick_product: {
+                name: quickProductName.trim(),
+                sku: quickProductSku.trim() || null,
+                sale_price: parseFloat(quickProductSalePrice) || null,
+            },
+            product_name: quickProductName.trim() + ' ⭐ Nuevo',
+            quantity: 1,
+            unit_cost: 0,
+            original_cost: 0,
+            current_price: parseFloat(quickProductSalePrice) || 0,
+            subtotal: 0,
+            isNew: true,
+            tempId,
+        }]);
+        setQuickProductName('');
+        setQuickProductSku('');
+        setQuickProductSalePrice('');
+        setShowQuickProduct(false);
+    };
+
     // Add product to purchase
     const handleAddProduct = (product) => {
         const existingItem = purchaseItems.find(item => item.product_id === product.id);
@@ -202,13 +236,19 @@ const CreatePurchase = () => {
                 total_amount: total,
                 purchase_date: invoiceData.purchase_date,
                 due_date: invoiceData.due_date,
+                discount_amount: globalDiscount.amount || 0,
+                discount_type:   globalDiscount.type   || 'NONE',
+                discount_notes:  globalDiscount.notes  || null,
                 items: purchaseItems.map(item => ({
-                    product_id: item.product_id,
-                    quantity: item.quantity,
-                    unit_cost: item.unit_cost,
-                    update_cost: item.update_cost !== undefined ? item.update_cost : (item.unit_cost !== item.original_cost),
+                    product_id:   item.product_id || null,
+                    quick_product: item.quick_product || null,
+                    quantity:     item.quantity,
+                    unit_cost:    item.unit_cost,
+                    discount_pct: item.discount_pct || 0,
+                    discount_amount: item.discount_amount || 0,
+                    update_cost:  item.update_cost !== undefined ? item.update_cost : (item.unit_cost !== item.original_cost),
                     update_price: item.update_price || false,
-                    new_sale_price: item.new_sale_price || null
+                    new_sale_price: item.new_sale_price || null,
                 })),
                 payment_type: paymentType
             };
