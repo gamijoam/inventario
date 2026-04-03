@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import apiClient from '../config/axios';
 import { useCloudConfig } from './CloudConfigContext';
+import { useAuth } from './AuthContext';
 
 const AutoSyncContext = createContext();
 
@@ -17,6 +18,7 @@ export const AutoSyncProvider = ({ children }) => {
     const isSyncEnabled = import.meta.env.VITE_ENABLE_SYNC === 'true';
 
     const { config: cloudConfig } = useCloudConfig();
+    const { user } = useAuth();
 
     const [syncStatus, setSyncStatus] = useState({
         lastSync: null,
@@ -67,16 +69,21 @@ export const AutoSyncProvider = ({ children }) => {
     }, [cloudConfig.cloudUrl, cloudConfig.isConfigured]);
 
     // Sync cloud_url to backend once when config changes (uses cookies, not localStorage token)
+    // ⚠️ ONLY admin users have permission to PUT /config/cloud_url — skip for CASHIER/WAREHOUSE
     useEffect(() => {
-        if (cloudConfig.isConfigured && cloudConfig.cloudUrl) {
-            apiClient.put('/config/cloud_url', {
-                key: 'cloud_url',
-                value: cloudConfig.cloudUrl
-            }).catch(e => {
-                console.warn('[AutoSync] Falló sync de cloud_url:', e.message);
-            });
-        }
-    }, [cloudConfig.isConfigured, cloudConfig.cloudUrl]);
+        if (!cloudConfig.isConfigured || !cloudConfig.cloudUrl) return;
+        // If user role is known and is NOT admin, skip entirely to avoid 403
+        if (user?.role && user.role !== 'ADMIN') return;
+
+        apiClient.put('/config/cloud_url', {
+            key: 'cloud_url',
+            value: cloudConfig.cloudUrl
+        }, {
+            _silent403: true  // Tell the axios interceptor NOT to show a toast for 403
+        }).catch(e => {
+            console.warn('[AutoSync] Falló sync de cloud_url:', e.message);
+        });
+    }, [cloudConfig.isConfigured, cloudConfig.cloudUrl, user?.role]);
 
     // Función de sincronización
     const performSync = useCallback(async (manual = false) => {
