@@ -584,3 +584,50 @@ docker build -t mi-inventario-deploy-bot .
 docker stop deploy_bot_server && docker rm deploy_bot_server
 # Ver deploy-containers-bot.sh o el webhook.py para el docker run completo
 ```
+
+---
+
+## 15. Bug — Crash Dashboard Cajero (fix/cajero-login-error)
+
+**Fecha:** 2026-04-02 | **Rama:** `fix/cajero-login-error` | **Mergeado a:** `main`
+
+### Síntoma
+Usuarios con rol **CAJERO** veían *"Error al cargar la página / Reintentar"* al entrar al Dashboard.
+El POS (`/#/pos`) sí funcionaba porque tiene ruta directa sin pasar por el Dashboard.
+
+### Causa raíz — 2 problemas combinados
+
+**Problema 1 — ReferenceError en CashierDashboard (el crash principal)**
+Al agregar el OnboardingWizard, el `OnboardingBanner` quedó dentro del `CashierDashboard`
+usando variables que solo existen en el Dashboard del admin:
+```jsx
+// ❌ En CashierDashboard — variables NO declaradas en ese scope
+{!onboardingDone && !onboardingDismissed && (
+    <OnboardingBanner currentStep={onboardingStep} ... />
+)}
+```
+React lanzaba `ReferenceError` → `LazyErrorBoundary` lo capturaba → pantalla de error.
+
+**Problema 2 — 403 Forbidden para cajeros**
+`AutoSyncContext` llamaba `PUT /api/v1/config/cloud_url` para todos los usuarios.
+Ese endpoint es solo para ADMIN → cajeros recibían 403 → toast de error.
+
+### Fix aplicado
+
+**Fix 1:** Eliminar `OnboardingBanner` del `CashierDashboard` — el `OnboardingGate`
+en `App.jsx` ya lo maneja correctamente desde arriba.
+
+**Fix 2:** Verificar el rol ANTES de llamar al endpoint:
+```js
+// AutoSyncContext.jsx
+if (user?.role !== 'ADMIN') return; // Cajeros nunca hacen esta llamada
+```
+
+### Archivos modificados
+- `frontend_web/src/pages/Dashboard.jsx` — eliminar OnboardingBanner del CashierDashboard
+- `frontend_web/src/context/AutoSyncContext.jsx` — skip PUT si no es ADMIN
+
+### Lección aprendida
+Al agregar código al Dashboard principal, verificar si el archivo tiene
+múltiples componentes (CashierDashboard, WarehouseDashboard, etc.) y que el nuevo
+código no quede en un scope incorrecto con variables no declaradas.
