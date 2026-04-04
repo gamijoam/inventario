@@ -37,6 +37,10 @@ const ServicesDashboard = () => {
     const [showOrderDetail, setShowOrderDetail] = useState(false);
     const [selectedOrderId, setSelectedOrderId] = useState(null);
 
+    // Archivadas
+    const [showArchived, setShowArchived]   = useState(false);
+    const [archivedCount, setArchivedCount] = useState(0);
+
     // Stats
     const [stats, setStats] = useState({
         today: 0,
@@ -50,6 +54,7 @@ const ServicesDashboard = () => {
         setLoading(true);
         try {
             const params = { service_type: 'REPAIR' };
+            if (showArchived) params.show_archived = true;
 
             // Aplicar filtro por estado
             const activeOption = FILTER_OPTIONS.find(o => o.id === activeFilter);
@@ -89,6 +94,16 @@ const ServicesDashboard = () => {
 
             setOrders(filteredOrders);
 
+            // Conteo de archivadas (solo cuando no estamos en vista archivadas)
+            if (!showArchived && isAdmin) {
+                try {
+                    const archRes = await apiClient.get('/services/orders', {
+                        params: { service_type: 'REPAIR', show_archived: true }
+                    });
+                    setArchivedCount(archRes.data.length);
+                } catch { setArchivedCount(0); }
+            }
+
             // Calcular stats
             const todayOrders = res.data.filter(o => {
                 const today = new Date();
@@ -118,7 +133,7 @@ const ServicesDashboard = () => {
         } finally {
             setLoading(false);
         }
-    }, [activeFilter, searchTerm]);
+    }, [activeFilter, searchTerm, showArchived, isAdmin]);
 
     useEffect(() => {
         fetchOrders();
@@ -239,7 +254,25 @@ const ServicesDashboard = () => {
                     {/* Filtros y Búsqueda */}
                     <div className="space-y-4">
                         <div className="flex gap-2 flex-wrap">
-                            {FILTER_OPTIONS.map(option => (
+                            {/* Botón ver archivadas — solo ADMIN */}
+                            {isAdmin && !showArchived && archivedCount > 0 && (
+                                <button
+                                    onClick={() => setShowArchived(true)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200"
+                                >
+                                    🗂️ Archivadas ({archivedCount})
+                                </button>
+                            )}
+                            {showArchived && (
+                                <button
+                                    onClick={() => setShowArchived(false)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                                >
+                                    ← Volver al tablero
+                                </button>
+                            )}
+
+                            {!showArchived && FILTER_OPTIONS.map(option => (
                                 <button
                                     key={option.id}
                                     onClick={() => setActiveFilter(option.id)}
@@ -268,6 +301,13 @@ const ServicesDashboard = () => {
 
                     {/* Lista de órdenes */}
                     <div>
+                        {showArchived && (
+                            <div className="flex items-center gap-2 mb-4 px-1">
+                                <span className="text-lg">🗂️</span>
+                                <h3 className="font-bold text-slate-700">Órdenes archivadas</h3>
+                                <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{orders.length} órdenes</span>
+                            </div>
+                        )}
                         {loading ? (
                             <div className="text-center py-12">
                                 <div className="inline-block">

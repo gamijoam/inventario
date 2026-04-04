@@ -6,6 +6,7 @@ import DiagnosisPanel from './components/DiagnosisPanel';
 import PaymentTimeline from './components/PaymentTimeline';
 import QuickItemForm from './components/QuickItemForm';
 import { useServiceOrder, useServiceCalculations } from './hooks/useServiceOrder';
+import { useAuth } from '../../context/AuthContext';
 import printerService from '../../services/printerService';
 import { useConfig } from '../../context/ConfigContext';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
@@ -24,6 +25,7 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
     const { business } = useConfig();
     const paperWidth = business?.paper_width || '80';
     const { order, loading, error, fetchOrder, updateStatus, deleteItem } = useServiceOrder(orderId);
+    const { user: currentUser } = useAuth();
     const calculations = useServiceCalculations(order);
     
     const help = useHelp();
@@ -31,6 +33,7 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
     const [showCheckout, setShowCheckout]       = useState(false);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [checkoutPayment, setCheckoutPayment] = useState({ amount: '', method: 'CASH' });
+    const [archiving, setArchiving]             = useState(false);
     const [actionMenuOpen, setActionMenuOpen] = useState(null);
 
     useEffect(() => {
@@ -91,6 +94,20 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
             setCheckoutLoading(false);
         }
     };
+
+        const handleArchive = async () => {
+            if (!window.confirm('¿Archivar esta orden? Quedará oculta del tablero pero podrás verla en "Archivadas".')) return;
+            setArchiving(true);
+            try {
+                await apiClient.patch(`/services/orders/${orderId}/archive`);
+                toast.success('✅ Orden archivada');
+                if (onClose) onClose();
+            } catch (err) {
+                toast.error(err.response?.data?.detail || 'Error al archivar');
+            } finally {
+                setArchiving(false);
+            }
+        };
 
         const handlePrint = async () => {
         try {
@@ -183,6 +200,25 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                                     >
                                         <MoreVertical size={20} />
                                     </button>
+                                </div>
+                                {/* Menú desplegable de acciones */}
+                                {actionMenuOpen && (
+                                    <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 min-w-[180px] py-1"
+                                         onClick={() => setActionMenuOpen(false)}>
+                                        {currentUser?.role === 'ADMIN' &&
+                                         (order.status === 'DELIVERED' || order.status === 'CANCELLED') && (
+                                            <button
+                                                onClick={handleArchive}
+                                                disabled={archiving}
+                                                className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                                            >
+                                                <span>🗂️</span>
+                                                {archiving ? 'Archivando...' : 'Archivar orden'}
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                                <div className="hidden">
                                 </div>
                             </div>
 

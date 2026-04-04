@@ -246,20 +246,28 @@ def delete_service_order(
 
 @router.get("/orders", response_model=List[schemas.ServiceOrderRead])
 def get_service_orders(
-    skip: int = 0, 
-    limit: int = 100, 
+    skip: int = 0,
+    limit: int = 100,
     status: Optional[str] = None,
     customer_id: Optional[int] = None,
     service_type: Optional[str] = None,
-    search: Optional[str] = None, # NEW: Search term
+    search: Optional[str] = None,
+    show_archived: bool = False,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """List service orders with filters"""
-    # 🔒 Multi-Tenant Filter
     tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
-    
+
     query = db.query(models.ServiceOrder).filter(models.ServiceOrder.tenant_id == tenant_id)
+
+    # Por defecto excluir archivadas; con show_archived=true mostrar solo archivadas
+    if show_archived:
+        query = query.filter(models.ServiceOrder.is_archived == True)
+    else:
+        query = query.filter(
+            (models.ServiceOrder.is_archived == False) | (models.ServiceOrder.is_archived == None)
+        )
     
     if status:
         query = query.filter(models.ServiceOrder.status == status)
@@ -741,6 +749,29 @@ def checkout_service_order(
         
     sale = ServiceCheckoutService.convert_order_to_sale(db, order_id, payment_data, current_user.id)
     return {"status": "success", "sale_id": sale.id, "ticket_number": sale.id}
+
+
+@router.patch("/orders/{order_id}/archive")
+def archive_service_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Archivar u ocultar una orden (solo ADMIN). Solo órdenes DELIVERED o CANCELLED."""
+    if current_user.role != models.UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Solo administradores pueden archivar órdenes")
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    order = db.query(models.ServiceOrder).filter(
+        models.ServiceOrder.id == order_id,
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    if order.status not in [models.ServiceOrderStatus.DELIVERED, models.ServiceOrderStatus.CANCELLED]:
+        raise HTTPException(status_code=400, detail="Solo se pueden archivar órdenes ENTREGADAS o CANCELADAS")
+    order.is_archived = not order.is_archived  # toggle
+    db.commit()
+    return {"id": order.id, "ticket_number": order.ticket_number, "is_archived": order.is_archived}
 
 
 @router.get("/orders/{order_id}/print/thermal")

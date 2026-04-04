@@ -1143,6 +1143,9 @@ class ServiceOrder(Base):
     updated_at = Column(DateTime, onupdate=datetime.datetime.now)
     estimated_delivery = Column(DateTime, nullable=True)
 
+    # Archivo
+    is_archived = Column(Boolean, default=False, nullable=True)
+
     # Relationships
     customer = relationship("Customer")
     technician = relationship("User", foreign_keys=[technician_id])
