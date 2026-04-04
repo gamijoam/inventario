@@ -51,17 +51,24 @@ def get_db():
     try:
         # Multi-Tenant Logic
         schema = get_tenant_schema()
-        
+
         if schema and schema != "public":
-            # Inject Schema Search Path
             try:
-                # SECURITY: validate before embedding in SQL — SET search_path
-                # does not accept bind parameters in PostgreSQL, so we whitelist
-                # the identifier with a strict regex instead.
                 _validate_schema_name(schema)
-                db.execute(text(f'SET search_path TO "{schema}", public'))
+                # Verificar que el schema existe antes de hacer SET search_path
+                # Si no existe, usar public silenciosamente (tenant inválido/bloqueado)
+                schema_exists = db.execute(
+                    text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :s"),
+                    {"s": schema}
+                ).scalar()
+                if schema_exists:
+                    db.execute(text(f'SET search_path TO "{schema}", public'))
+                else:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        f"[get_db] Schema '{schema}' no existe en BD — usando public"
+                    )
             except ValueError as e:
-                # Schema name failed whitelist validation — treat as fatal.
                 print(f"❌ Unsafe schema name rejected: {e}")
                 db.rollback()
                 raise RuntimeError(str(e)) from e
@@ -69,16 +76,20 @@ def get_db():
                 print(f"❌ Error switching to schema '{schema}': {e}")
                 db.rollback()
                 raise RuntimeError(f"Could not switch to tenant schema '{schema}': {str(e)}")
-        
+
         yield db
     finally:
-        # 🔒 SECURITY: Explicitly reset to public before returning to pool
+        # 🔒 SECURITY: Reset al public antes de devolver al pool
         try:
+            db.rollback()  # Limpiar cualquier transacción abortada primero
             db.execute(text('SET search_path TO "$user", public'))
             db.commit()
         except Exception as reset_err:
             import logging
             logging.getLogger(__name__).error(f"Failed to reset search_path: {reset_err}")
-            db.rollback()
+            try:
+                db.rollback()
+            except Exception:
+                pass
         finally:
             db.close()
