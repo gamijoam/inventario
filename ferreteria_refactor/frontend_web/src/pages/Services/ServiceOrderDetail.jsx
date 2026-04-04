@@ -174,7 +174,7 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                                     <h1 className="text-3xl font-bold font-mono mb-2">{order.ticket_number}</h1>
                                     <p className="text-blue-100">{order.customer?.name}</p>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="relative flex gap-2">
                                     {(order.status === 'READY' || (order.status === 'DELIVERED' && calculations.orderPending > 0.01 && (order.order_metadata?.payment_status !== 'PAID'))) && (
                                         <button
                                             onClick={() => {
@@ -194,31 +194,34 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                                     >
                                         <Download size={20} />
                                     </button>
-                                    <button
-                                        onClick={() => setActionMenuOpen(!actionMenuOpen)}
-                                        className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-                                    >
-                                        <MoreVertical size={20} />
-                                    </button>
-                                </div>
-                                {/* Menú desplegable de acciones */}
-                                {actionMenuOpen && (
-                                    <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 min-w-[180px] py-1"
-                                         onClick={() => setActionMenuOpen(false)}>
-                                        {currentUser?.role === 'ADMIN' &&
-                                         (order.status === 'DELIVERED' || order.status === 'CANCELLED') && (
+                                    {/* Botón ⋮ solo si hay acciones disponibles */}
+                                    {currentUser?.role === 'ADMIN' &&
+                                     (order.status === 'DELIVERED' || order.status === 'CANCELLED') && (
+                                        <div className="relative">
                                             <button
-                                                onClick={handleArchive}
-                                                disabled={archiving}
-                                                className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                                                onClick={() => setActionMenuOpen(prev => !prev)}
+                                                className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                                                title="Más opciones"
                                             >
-                                                <span>🗂️</span>
-                                                {archiving ? 'Archivando...' : 'Archivar orden'}
+                                                <MoreVertical size={20} />
                                             </button>
-                                        )}
-                                    </div>
-                                )}
-                                <div className="hidden">
+                                            {actionMenuOpen && (
+                                                <div
+                                                    className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 min-w-[190px] py-1 overflow-hidden"
+                                                    onClick={() => setActionMenuOpen(false)}
+                                                >
+                                                    <button
+                                                        onClick={handleArchive}
+                                                        disabled={archiving}
+                                                        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <span>🗂️</span>
+                                                        <span>{archiving ? 'Archivando...' : 'Archivar orden'}</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
