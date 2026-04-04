@@ -207,8 +207,6 @@ class ServiceCheckoutService:
             db.commit()
 
             # ── Re-setear search_path después del commit ───────────────
-            # db.commit() puede resetear el search_path al default (public)
-            # lo que causa "relation sales does not exist" en el refresh
             try:
                 from ..tenant_context import get_tenant_schema as _gts
                 _schema = _gts()
@@ -219,6 +217,52 @@ class ServiceCheckoutService:
                 pass
 
             db.refresh(new_sale)
+
+            # ── WhatsApp: notificar entrega al cliente ────────────────────
+            try:
+                import httpx as _httpx
+                from sqlalchemy import text as _text_wa
+                from ..tenant_context import get_tenant_schema as _gts_wa
+
+                _s_wa = _gts_wa()
+                if _s_wa and _s_wa != "public" and order.customer and order.customer.phone:
+                    _cfg_wa = {r[0]: r[1] for r in db.execute(
+                        _text_wa(
+                            f'SELECT key, value FROM "{_s_wa}".business_config '
+                            "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                            "'whatsapp_notify_order_ready','business_name')"
+                        )
+                    ).fetchall()}
+                    _inst_wa   = _cfg_wa.get("whatsapp_instance_name", "")
+                    _status_wa = _cfg_wa.get("whatsapp_instance_status", "")
+                    _notify_wa = _cfg_wa.get("whatsapp_notify_order_ready") != "false"
+                    _biz_wa    = _cfg_wa.get("business_name") or "Mi Inventario"
+
+                    if _inst_wa and _status_wa == "CONNECTED" and _notify_wa:
+                        _ticket_wa = order.ticket_number or f"#{order.id}"
+                        _device_wa = (
+                            f"{order.brand or ''} {order.model or ''}".strip()
+                            or order.device_type or "Equipo"
+                        )
+                        _total_wa = float(new_sale.total_amount or 0)
+                        _msg_wa = (
+                            f"📦 *{_biz_wa}*\n"
+                            f"¡Hola {order.customer.name}! Tu equipo ha sido entregado ✅\n\n"
+                            f"📱 {_device_wa}\n"
+                            f"🎫 Orden: {_ticket_wa}\n"
+                            f"💰 Total: ${_total_wa:,.2f}\n\n"
+                            f"¡Gracias por elegirnos! 🙌"
+                        )
+                        _phone_wa = "".join(c for c in order.customer.phone if c.isdigit())
+                        with _httpx.Client(timeout=5) as _c_wa:
+                            _c_wa.post(
+                                f"http://whatsapp_service:3000/instance/{_inst_wa}/send",
+                                json={"phone": _phone_wa, "message": _msg_wa}
+                            )
+            except Exception as _wa_err:
+                import logging as _log_wa
+                _log_wa.getLogger(__name__).warning(f"[WA] Checkout notif falló: {_wa_err}")
+
             return new_sale
 
         except Exception as e:

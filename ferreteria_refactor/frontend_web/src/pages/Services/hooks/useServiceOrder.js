@@ -163,20 +163,24 @@ export const useServiceCalculations = (order) => {
         0
     ) || 0;
 
-    const orderPaid = order?.payments?.reduce(
+    const rawPaid = order?.payments?.reduce(
         (acc, p) => acc + parseFloat(p.amount),
         0
     ) || 0;
 
-    const orderPending = Math.max(0, orderTotal - orderPaid);
-    const paymentPercentage = orderTotal > 0 ? (orderPaid / orderTotal) * 100 : 0;
+    // Si la orden ya está marcada como PAID en metadata, considerar pagado completo
+    const isFullyPaid = order?.order_metadata?.payment_status === 'PAID';
+    const orderPaid    = isFullyPaid ? orderTotal : rawPaid;
+    const orderPending = isFullyPaid ? 0 : Math.max(0, orderTotal - rawPaid);
+    const paymentPercentage = orderTotal > 0
+        ? (isFullyPaid ? 100 : (rawPaid / orderTotal) * 100)
+        : 0;
 
-    const paymentStatus =
-        order?.order_metadata?.payment_status === 'PAID' || (orderPaid >= orderTotal && orderTotal > 0)
-            ? 'paid'
-            : orderPaid > 0
-                ? 'partial'
-                : 'unpaid';
+    const paymentStatus = isFullyPaid || (rawPaid >= orderTotal && orderTotal > 0)
+        ? 'paid'
+        : rawPaid > 0
+            ? 'partial'
+            : 'unpaid';
 
     return {
         orderTotal,
