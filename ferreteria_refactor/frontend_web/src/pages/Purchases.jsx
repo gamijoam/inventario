@@ -79,6 +79,14 @@ const Purchases = () => {
                 </div>
                 {['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
                     <button
+                        onClick={() => navigate('/purchases/import')}
+                        className="flex items-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        title="Importar historial desde Excel"
+                    >
+                        📥 Importar historial
+                    </button>
+                )}
+                <button
                         id="tour-purchases-add-btn"
                         onClick={() => navigate('/purchases/new')}
                         className="flex items-center bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow transition-colors text-sm whitespace-nowrap"

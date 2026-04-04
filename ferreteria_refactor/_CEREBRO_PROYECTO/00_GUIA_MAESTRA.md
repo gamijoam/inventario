@@ -631,3 +631,52 @@ if (user?.role !== 'ADMIN') return; // Cajeros nunca hacen esta llamada
 Al agregar código al Dashboard principal, verificar si el archivo tiene
 múltiples componentes (CashierDashboard, WarehouseDashboard, etc.) y que el nuevo
 código no quede en un scope incorrecto con variables no declaradas.
+
+---
+
+## 16. Herramientas Módulo de Compras (feature/herramientas)
+
+**Cliente:** José Arrias | **Rama:** `feature/herramientas`
+
+### Herramienta 1 — Crear producto nuevo desde la compra
+- Botón **"➕ Producto nuevo"** en el formulario de compras
+- Modal con: nombre, SKU (opcional), precio de venta sugerido (opcional)
+- El producto se crea en el inventario al guardar la compra
+- El costo se toma del campo "Costo unitario" del ítem
+
+### Herramienta 2 — Descuentos de proveedor
+- **Por ítem:** campo `discount_pct` (%) en cada fila de la tabla
+- **Global:** monto fijo descontado a toda la orden, con campo de nota
+- Tipos: `NONE`, `PERCENT`, `FIXED`
+- El total se recalcula automáticamente en tiempo real
+
+### Herramienta 3 — Importación de historial desde Excel
+- Botón **"📥 Importar historial"** en la lista de compras
+- Soporta: compras pasadas, cuentas por pagar, cuentas por cobrar
+- Descarga plantilla Excel con el formato exacto
+- Previsualiza las filas antes de importar
+- Muestra resultados y errores por fila
+
+### Migración de BD requerida para producción
+**Script:** `_CEREBRO_PROYECTO/migrate_prod_v3_herramientas.sql`
+
+```bash
+# Comando para aplicar en prod cuando se autorice:
+docker exec -i db_prod_server psql -U postgres -d invensoft_prod \
+  < /root/deploy/migrations/migrate_prod_v3_herramientas.sql
+```
+
+**Columnas agregadas:**
+- `purchase_orders`: `discount_amount`, `discount_type`, `discount_notes`
+- `purchase_items`: `discount_pct`, `discount_amount`, `subtotal`
+
+### Tests realizados en QA ✅
+| Test | Resultado |
+|---|---|
+| Crear orden con producto nuevo al vuelo | ✅ |
+| Producto creado en inventario automáticamente | ✅ |
+| Descuento por ítem 10% calculado correctamente | ✅ |
+| Descuento global FIXED con nota guardado | ✅ |
+| Total final con ambos descuentos correcto | ✅ |
+| 6 columnas nuevas en BD (3+3) | ✅ |
+| Script migración probado en QA sin errores | ✅ |

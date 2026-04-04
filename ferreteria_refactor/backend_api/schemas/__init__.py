@@ -918,21 +918,36 @@ class PurchaseOrderBase(BaseModel):
     invoice_number: Optional[str] = None
     notes: Optional[str] = None
 
+class QuickProductCreate(BaseModel):
+    """Producto rápido creado al vuelo desde el módulo de compras."""
+    name: str
+    sku: Optional[str] = None
+    cost_price: Decimal             # precio de costo inicial
+    sale_price: Optional[Decimal] = None  # precio de venta sugerido
+    category_id: Optional[int] = None
+
 class PurchaseItemCreate(BaseModel):
-    product_id: int
+    product_id: Optional[int] = None      # None si se crea producto nuevo
+    quick_product: Optional[QuickProductCreate] = None  # producto nuevo al vuelo
     quantity: Decimal
     unit_cost: Decimal
+    discount_pct: Optional[Decimal] = Decimal("0")      # % descuento por ítem
+    discount_amount: Optional[Decimal] = Decimal("0")   # monto descuento por ítem
     update_cost: bool = False
-    update_price: bool = False  # NEW: Update sale price?
-    new_sale_price: Optional[Decimal] = None # NEW: The new sale price if update_price is True
+    update_price: bool = False
+    new_sale_price: Optional[Decimal] = None
 
 class PurchaseOrderCreate(PurchaseOrderBase):
     total_amount: Decimal
     items: List[PurchaseItemCreate] = []
     payment_type: str = "CREDIT"  # CASH or CREDIT
-    warehouse_id: int # NEW: Required warehouse
-    purchase_date: Optional[datetime] = None  # User-selected date; overrides server datetime.now()
-    due_date: Optional[datetime] = None  # User-selected due date; overrides supplier-term calculation
+    warehouse_id: int
+    purchase_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    # Descuentos del proveedor
+    discount_amount: Optional[Decimal] = Decimal("0")   # descuento global en monto
+    discount_type: Optional[str] = "NONE"               # NONE / PERCENT / FIXED
+    discount_notes: Optional[str] = None                # ej: "descuento pronto pago"
 
 class PurchaseOrderUpdate(BaseModel):
     invoice_number: Optional[str] = None

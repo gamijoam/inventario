@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Plus, Trash2, Save, X, AlertCircle, Package, DollarSign, Calendar, FileText, ChevronDown, Check, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
@@ -13,6 +15,7 @@ const formatStock = (stock) => {
 
 const CreatePurchase = () => {
     const navigate = useNavigate();
+    const help = useHelp();
 
     // State
     const [suppliers, setSuppliers] = useState([]);
@@ -39,6 +42,13 @@ const CreatePurchase = () => {
     const searchInputRef = useRef(null);
     const productSearchRef = useRef(null);
     const [filteredProducts, setFilteredProducts] = useState([]);
+    // ── Herramienta 1: Producto rápido ──────────────────────────
+    const [showQuickProduct,    setShowQuickProduct]    = useState(false);
+    const [quickProductName,    setQuickProductName]    = useState('');
+    const [quickProductSku,     setQuickProductSku]     = useState('');
+    const [quickProductSalePrice, setQuickProductSalePrice] = useState('');
+    // ── Herramienta 2: Descuento global del proveedor ───────────
+    const [globalDiscount, setGlobalDiscount] = useState({ amount: 0, type: 'NONE', notes: '' });
 
     // Load suppliers, products, and warehouses
     const fetchSuppliers = async () => {
@@ -117,6 +127,40 @@ const CreatePurchase = () => {
             setFilteredProducts([]);
         }
     }, [productSearch, products]);
+
+    // Herramienta 2: Calcular totales con descuentos
+    const subtotalBruto = purchaseItems.reduce((s, i) => s + (i.unit_cost * i.quantity), 0);
+    const totalDescItems = purchaseItems.reduce((s, i) => s + (i.discount_amount || 0), 0);
+    const totalConDescItems = subtotalBruto - totalDescItems;
+    const descGlobal = parseFloat(globalDiscount.amount) || 0;
+    const totalFinal = totalConDescItems - descGlobal;
+
+    // Herramienta 1: Agregar producto rápido (sin existir en inventario)
+    const handleAddQuickProduct = () => {
+        if (!quickProductName.trim()) return;
+        const tempId = `quick_${Date.now()}`;
+        const cost = parseFloat(quickProductName) || 0;
+        setPurchaseItems(prev => [...prev, {
+            product_id: null,
+            quick_product: {
+                name: quickProductName.trim(),
+                sku: quickProductSku.trim() || null,
+                sale_price: parseFloat(quickProductSalePrice) || null,
+            },
+            product_name: quickProductName.trim() + ' ⭐ Nuevo',
+            quantity: 1,
+            unit_cost: 0,
+            original_cost: 0,
+            current_price: parseFloat(quickProductSalePrice) || 0,
+            subtotal: 0,
+            isNew: true,
+            tempId,
+        }]);
+        setQuickProductName('');
+        setQuickProductSku('');
+        setQuickProductSalePrice('');
+        setShowQuickProduct(false);
+    };
 
     // Add product to purchase
     const handleAddProduct = (product) => {
@@ -202,13 +246,19 @@ const CreatePurchase = () => {
                 total_amount: total,
                 purchase_date: invoiceData.purchase_date,
                 due_date: invoiceData.due_date,
+                discount_amount: globalDiscount.amount || 0,
+                discount_type:   globalDiscount.type   || 'NONE',
+                discount_notes:  globalDiscount.notes  || null,
                 items: purchaseItems.map(item => ({
-                    product_id: item.product_id,
-                    quantity: item.quantity,
-                    unit_cost: item.unit_cost,
-                    update_cost: item.update_cost !== undefined ? item.update_cost : (item.unit_cost !== item.original_cost),
+                    product_id:   item.product_id || null,
+                    quick_product: item.quick_product || null,
+                    quantity:     item.quantity,
+                    unit_cost:    item.unit_cost,
+                    discount_pct: item.discount_pct || 0,
+                    discount_amount: item.discount_amount || 0,
+                    update_cost:  item.update_cost !== undefined ? item.update_cost : (item.unit_cost !== item.original_cost),
                     update_price: item.update_price || false,
-                    new_sale_price: item.new_sale_price || null
+                    new_sale_price: item.new_sale_price || null,
                 })),
                 payment_type: paymentType
             };
@@ -255,6 +305,7 @@ const CreatePurchase = () => {
     };
 
     return (
+        <>
         <div className="flex flex-col min-h-[calc(100vh-64px)] bg-slate-50 gap-4 p-3 md:p-4 pb-32 md:pb-4">
             {/* TOP HEADER: Invoice & Supplier Info */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 md:p-5 shadow-sm flex-shrink-0 z-30">
@@ -403,6 +454,14 @@ const CreatePurchase = () => {
                 <div className={`flex-1 flex-col overflow-hidden bg-white border border-slate-200 rounded-2xl shadow-sm ${activeTab === 'ITEMS' ? 'flex' : 'hidden md:flex'}`}>
                     {/* Search Bar */}
                     <div className="p-4 border-b border-slate-100 bg-slate-50/50 z-20">
+                        {/* Botón producto nuevo */}
+                        <button
+                            type="button"
+                            onClick={() => setShowQuickProduct(true)}
+                            className="mb-3 flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-all shadow-sm"
+                        >
+                            ➕ Producto nuevo
+                        </button>
                         <div className="relative">
                             <Search className="absolute left-4 top-3.5 text-slate-400" size={20} />
                             <input
@@ -720,6 +779,48 @@ const CreatePurchase = () => {
                             </div>
                         </div>
 
+                        {/* ── Descuento global del proveedor ── */}
+                        <div className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
+                            <p className="text-xs font-black text-slate-600 uppercase tracking-wide mb-3">
+                                🏷️ Descuento del proveedor
+                            </p>
+                            <div className="space-y-2">
+                                <div className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="Monto ($)"
+                                        value={globalDiscount.amount || ''}
+                                        onChange={e => setGlobalDiscount(p => ({ ...p, amount: parseFloat(e.target.value) || 0 }))}
+                                        className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                                    />
+                                    <select
+                                        value={globalDiscount.type}
+                                        onChange={e => setGlobalDiscount(p => ({ ...p, type: e.target.value }))}
+                                        className="px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                                    >
+                                        <option value="NONE">Sin descuento</option>
+                                        <option value="FIXED">Monto fijo</option>
+                                        <option value="PERCENT">Porcentaje</option>
+                                    </select>
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Nota (ej: descuento pronto pago)"
+                                    value={globalDiscount.notes}
+                                    onChange={e => setGlobalDiscount(p => ({ ...p, notes: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-300"
+                                />
+                                {globalDiscount.amount > 0 && globalDiscount.type !== 'NONE' && (
+                                    <div className="flex justify-between text-sm font-bold text-emerald-700 bg-emerald-50 rounded-xl px-3 py-2">
+                                        <span>Descuento aplicado</span>
+                                        <span>-${Number(globalDiscount.amount).toFixed(2)}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
                         <button
                             onClick={handleSubmit}
                             disabled={!selectedSupplier || purchaseItems.length === 0}
@@ -906,6 +1007,84 @@ const CreatePurchase = () => {
             </div>
         </div>
 
+        {/* ── Modal: Crear producto rápido ─────────────────────────── */}
+        {showQuickProduct && (
+            <div
+                className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4"
+                onClick={() => setShowQuickProduct(false)}
+            >
+                <div
+                    className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+                    onClick={e => e.stopPropagation()}
+                >
+                    <h3 className="text-lg font-black text-slate-800 mb-1">➕ Nuevo producto</h3>
+                    <p className="text-xs text-slate-500 mb-4">
+                        Se creará en el inventario al guardar la compra.
+                    </p>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 block mb-1">Nombre *</label>
+                            <input
+                                type="text"
+                                value={quickProductName}
+                                onChange={e => setQuickProductName(e.target.value)}
+                                placeholder="Ej: Filtro de aceite Toyota 2.4"
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 block mb-1">
+                                SKU / Código <span className="font-normal text-slate-400">(opcional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                value={quickProductSku}
+                                onChange={e => setQuickProductSku(e.target.value)}
+                                placeholder="Ej: FILT-TOY-24"
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none font-mono"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-600 block mb-1">
+                                Precio de venta sugerido <span className="font-normal text-slate-400">(opcional)</span>
+                            </label>
+                            <input
+                                type="number"
+                                value={quickProductSalePrice}
+                                onChange={e => setQuickProductSalePrice(e.target.value)}
+                                placeholder="0.00"
+                                min="0"
+                                step="0.01"
+                                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-300 outline-none"
+                            />
+                        </div>
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+                            💡 El costo se tomará del campo "Costo unitario" que ingreses en la tabla.
+                        </div>
+                    </div>
+                    <div className="flex gap-2 mt-5">
+                        <button
+                            onClick={() => setShowQuickProduct(false)}
+                            className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleAddQuickProduct}
+                            disabled={!quickProductName.trim()}
+                            className="flex-1 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+                        >
+                            Agregar a la compra
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* ── Ayuda contextual ─────────────────────────────────────── */}
+        {help.isOpen && <HelpDrawer contextKey="purchases" onClose={help.close} />}
+        </>
     );
 };
 

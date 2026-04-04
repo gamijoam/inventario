@@ -36,7 +36,8 @@ const POS = React.lazy(() => import('./pages/POS'));
 const CashClose = React.lazy(() => import('./pages/CashClose'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Purchases = React.lazy(() => import('./pages/Purchases'));
-const CreatePurchase = React.lazy(() => import('./pages/Purchases/CreatePurchase'));
+const CreatePurchase  = React.lazy(() => import('./pages/Purchases/CreatePurchase'));
+const ImportHistory   = React.lazy(() => import('./pages/Purchases/ImportHistory'));
 const PurchaseDetail = React.lazy(() => import('./pages/Purchases/PurchaseDetail'));
 // Supplier Ledger
 const SupplierLedger = React.lazy(() => import('./pages/Suppliers/SupplierLedger'));
