@@ -75,6 +75,7 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                     cost_price=float(item.unit_cost),
                     stock=0,
                     is_active=True,
+                    is_discount_active=False,
                     category_id=qp.category_id,
                 )
                 db.add(new_prod)
