@@ -510,6 +510,47 @@ def update_service_order_status(
     if update_data.priority:
         order.priority = update_data.priority
 
+    # WhatsApp — notificar al cliente cuando la orden se entrega
+    if update_data.status == "DELIVERED" and order.customer and order.customer.phone:
+        try:
+            import httpx as _httpx2
+            from sqlalchemy import text as _text2
+            from ..tenant_context import get_tenant_schema as _gts2
+            _s2     = _gts2()
+            _wa2    = {r[0]: r[1] for r in db.execute(
+                _text2(f"SELECT key, value FROM \"{_s2}\".business_config "
+                       "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                       "'whatsapp_notify_order_ready','business_name')")
+            ).fetchall()}
+            _inst2   = _wa2.get("whatsapp_instance_name", "")
+            _status2 = _wa2.get("whatsapp_instance_status", "")
+            _notify2 = _wa2.get("whatsapp_notify_order_ready") != "false"
+            _biz2    = _wa2.get("business_name") or "Mi Inventario"
+            if _inst2 and _status2 == "CONNECTED" and _notify2:
+                _ticket2 = order.ticket_number or f"#{order.id}"
+                _device2 = (f"{order.brand or ''} {order.model or ''}".strip()
+                            or order.device_type or "Equipo")
+                _total2  = sum(float(d.quantity * d.unit_price) for d in order.details)
+                _paid2   = sum(float(p.amount) for p in order.payments)
+                _pend2   = max(0.0, _total2 - _paid2)
+                _total_str2   = f"${_total2:,.2f}" if _total2 > 0 else "—"
+                _pending_str2 = f"\nSaldo pendiente: ${_pend2:,.2f}" if _pend2 > 0.01 else ""
+                _msg2 = (
+                    f"📦 *{_biz2}*\n"
+                    f"¡Hola {order.customer.name}! Tu equipo ha sido entregado ✅\n\n"
+                    f"📱 {_device2}\n"
+                    f"🎫 Orden: {_ticket2}\n"
+                    f"💰 Total: {_total_str2}{_pending_str2}\n\n"
+                    f"¡Gracias por elegirnos!"
+                )
+                _phone2 = "".join(c for c in order.customer.phone if c.isdigit())
+                with _httpx2.Client(timeout=5) as _c2:
+                    _c2.post(f"http://whatsapp_service:3000/instance/{_inst2}/send",
+                             json={"phone": _phone2, "message": _msg2})
+        except Exception as _wa2_err:
+            import logging as _log2
+            _log2.getLogger(__name__).warning(f"[WA] DELIVERED notif falló: {_wa2_err}")
+
     # Auto-checkout: si se marca como DELIVERED y ya tiene abonos que cubren el total,
     # crear la Sale automáticamente (sin requerir checkout manual).
     # IMPORTANTE: convert_order_to_sale requiere status=READY, así que revertimos
@@ -610,11 +651,84 @@ def add_service_payment(
     db.add(new_payment)
     db.flush()
 
-    # Nota: payment_status=PAID solo se marca en el checkout (cuando se crea la Sale).
-    # Los abonos se acumulan como ServicePayment y se migran al checkout.
+    # ── Calcular totales actualizados ─────────────────────────────────
+    all_payments = db.query(models.ServicePayment).filter(
+        models.ServicePayment.service_order_id == order.id
+    ).all()
+    order_total  = sum(float(d.quantity * d.unit_price) for d in order.details)
+    total_paid   = sum(float(p.amount) for p in all_payments)
+    pending      = max(0.0, order_total - total_paid)
 
-    db.flush()
-    # Re-query con eager loading ANTES del commit (search_path se pierde después)
+    # ── WhatsApp: confirmación de abono al cliente ────────────────────
+    if order.customer and order.customer.phone:
+        try:
+            import httpx as _httpx
+            from sqlalchemy import text as _text
+            from ..tenant_context import get_tenant_schema as _gts
+            _s = _gts()
+            _wa = {r[0]: r[1] for r in db.execute(
+                _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                      "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                      "'whatsapp_notify_sale','business_name')")
+            ).fetchall()}
+            _inst   = _wa.get("whatsapp_instance_name", "")
+            _status = _wa.get("whatsapp_instance_status", "")
+            _notify = _wa.get("whatsapp_notify_sale") != "false"
+            _biz    = _wa.get("business_name") or "Mi Inventario"
+            if _inst and _status == "CONNECTED" and _notify:
+                _ticket = order.ticket_number or f"#{order.id}"
+                _total_str   = f"${order_total:,.2f}" if order_total > 0 else "—"
+                _paid_str    = f"${total_paid:,.2f}"
+                _pending_str = f"${pending:,.2f}"
+                _msg = (
+                    f"💳 *{_biz}*\n"
+                    f"✅ Abono registrado en orden *{_ticket}*\n\n"
+                    f"Abono: ${float(payment.amount):,.2f}\n"
+                    f"Total pagado: {_paid_str} de {_total_str}\n"
+                    f"Saldo pendiente: {_pending_str}"
+                )
+                if pending <= 0.01 and order_total > 0:
+                    _msg += "\n\n🎉 ¡Saldo cancelado completamente!"
+                _phone = "".join(c for c in order.customer.phone if c.isdigit())
+                with _httpx.Client(timeout=5) as _c:
+                    _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                            json={"phone": _phone, "message": _msg})
+        except Exception as _wa_err:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[WA] Abono notif falló: {_wa_err}")
+
+    # ── Auto-checkout: si los abonos cubren el total → generar venta ──
+    is_paid = (order.order_metadata or {}).get("payment_status") == "PAID"
+    if not is_paid and order_total > 0 and pending <= 0.01:
+        try:
+            from decimal import Decimal as _Dec
+            _checkout_data = schemas.ServiceCheckoutPayment(
+                total_amount    = _Dec(str(order_total)),
+                total_amount_bs = _Dec("0.00"),
+                payment_method  = new_payment.payment_method or "Efectivo",
+                payments        = [],
+            )
+            # checkout necesita status=READY
+            _prev_status   = order.status
+            order.status   = models.ServiceOrderStatus.READY
+            db.flush()
+            ServiceCheckoutService.convert_order_to_sale(
+                db, order.id, _checkout_data, current_user.id
+            )
+            # Restaurar status original después del checkout
+            _schema = get_tenant_schema()
+            if _schema and _schema != "public":
+                db.execute(text(f'SET search_path TO "{_schema}", public'))
+            order2 = db.query(models.ServiceOrder).options(
+                *_service_order_options()
+            ).filter(models.ServiceOrder.id == order.id).first()
+            return schemas.ServiceOrderRead.model_validate(order2)
+        except Exception as _ce:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[Checkout-auto] falló: {_ce}")
+            db.rollback()
+
+    # ── Respuesta normal (sin auto-checkout) ──────────────────────────
     result = db.query(models.ServiceOrder).options(
         *_service_order_options(),
     ).filter(models.ServiceOrder.id == order.id).first()

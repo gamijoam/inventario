@@ -158,7 +158,7 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                                     <p className="text-blue-100">{order.customer?.name}</p>
                                 </div>
                                 <div className="flex gap-2">
-                                    {order.status === 'READY' && (
+                                    {(order.status === 'READY' || (order.status === 'DELIVERED' && calculations.orderPending > 0.01 && (order.order_metadata?.payment_status !== 'PAID'))) && (
                                         <button
                                             onClick={() => {
                                                 setCheckoutPayment({ amount: String(calculations.orderPending || calculations.orderTotal), method: 'CASH' });

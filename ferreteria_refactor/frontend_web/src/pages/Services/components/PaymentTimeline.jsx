@@ -121,7 +121,11 @@ const PaymentTimeline = ({ order, calculations, onPaymentSuccess }) => {
             )}
 
             {/* Formulario de pago */}
-            {!showPaymentForm ? (
+            {calculations.paymentStatus === 'paid' ? (
+                <div className="w-full py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-semibold flex items-center justify-center gap-2 text-sm">
+                    ✅ Orden completamente pagada
+                </div>
+            ) : !showPaymentForm ? (
                 <button
                     onClick={() => setShowPaymentForm(true)}
                     className="w-full py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-semibold hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
