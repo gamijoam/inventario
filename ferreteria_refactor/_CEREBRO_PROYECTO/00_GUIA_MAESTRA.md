@@ -680,3 +680,58 @@ docker exec -i db_prod_server psql -U postgres -d invensoft_prod \
 | Total final con ambos descuentos correcto | ✅ |
 | 6 columnas nuevas en BD (3+3) | ✅ |
 | Script migración probado en QA sin errores | ✅ |
+
+---
+
+## 17. Bugs Críticos Corregidos — 04/04/2026
+
+### Bug A — NULL en booleanos de productos rompe GET /products
+
+**Síntoma:** `GET /api/v1/products` devuelve 500. Módulo de compras no carga.
+
+**Causa:** Productos creados sin inicializar `is_box`, `is_combo`, `is_service`, `is_discount_active`. Pydantic rechaza `NULL` donde espera `bool`.
+
+**Fix:**
+```sql
+-- Aplicar en todos los schemas de tenants
+UPDATE schema.products
+SET is_box=COALESCE(is_box,false),
+    is_combo=COALESCE(is_combo,false),
+    is_service=COALESCE(is_service,false),
+    is_discount_active=COALESCE(is_discount_active,false)
+WHERE is_box IS NULL OR is_combo IS NULL
+   OR is_service IS NULL OR is_discount_active IS NULL;
+```
+**Prevención:** Al crear producto rápido (quick_product), inicializar todos los booleanos en `False`.
+
+---
+
+### Bug B — Bot Telegram /crear no creaba usuario ni tablas
+
+**Síntoma:** El tenant aparece en BD pero sin usuario admin ni tablas internas.
+
+**Causas:**
+1. `hashed_password` → columna real es `password_hash`
+2. Seeder incorrecto: `seed_tenant` no existe; la función es `seed_tenant_data` en `utils.tenant_seeding`
+3. Sin `Base.metadata.create_all` no se crean las tablas del schema
+
+**Fix:** El comando `/crear` ahora delega al endpoint `POST /api/v1/admin/tenants` del backend via red interna `prod_prod_internal` (IP `172.19.0.3:8000`). Ese endpoint tiene toda la lógica correcta. Después aplica `UPDATE trial_days=15` directo en BD.
+
+**Credencial superadmin usada:** `rodriguezisaac876@gmail.com` / `SuperAdmin2026`
+
+**Red interna:** El `deploy_bot_server` debe estar conectado a `prod_prod_internal`.
+
+---
+
+### Bug C — NULL en is_demo rompe /admin/tenants
+
+**Síntoma:** Panel SaaS muestra "no se pueden cargar las empresas".
+
+**Causa:** Bot `/crear` insertaba tenant con `is_demo=NULL`.
+
+**Fix:** El INSERT ahora incluye explícitamente `is_demo=false`.
+
+---
+
+### Migraciones pendientes para producción (feature/herramientas)
+Ver: `_CEREBRO_PROYECTO/migrate_prod_v3_herramientas.sql`
