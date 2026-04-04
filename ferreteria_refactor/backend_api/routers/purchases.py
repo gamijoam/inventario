@@ -76,6 +76,9 @@ async def create_purchase_order(order_data: schemas.PurchaseOrderCreate, db: Ses
                     stock=0,
                     is_active=True,
                     is_discount_active=False,
+                    is_box=False,
+                    is_combo=False,
+                    is_service=False,
                     category_id=qp.category_id,
                 )
                 db.add(new_prod)

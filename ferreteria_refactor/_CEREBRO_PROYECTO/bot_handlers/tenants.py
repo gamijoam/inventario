@@ -202,7 +202,7 @@ def handle_eliminar_exec(schema):
 def handle_crear_tenant(parts):
     """
     /crear [schema] "[nombre]" [email] [password]
-    Ejemplo: /crear mitienda "Mi Tienda López" admin@tienda.com Pass123
+    Ejemplo: /crear mitienda "Mi Tienda Lopez" admin@tienda.com Pass123
     """
     if len(parts) < 5:
         return (
@@ -213,16 +213,14 @@ def handle_crear_tenant(parts):
             "⚠️ El schema debe ser único, en minúsculas y sin espacios."
         )
 
-    schema   = parts[1].strip().lower()
-    # Reconstruir nombre entre comillas
-    raw      = " ".join(parts[2:])
-    import re, secrets as sec
-    m        = re.search(r'"([^"]+)"', raw)
-    nombre   = m.group(1) if m else parts[2].strip('"')
-    # email y password son los últimos dos tokens fuera de comillas
-    tail     = re.sub(r'"[^"]+"', '', raw).split()
+    schema = parts[1].strip().lower()
+    raw    = " ".join(parts[2:])
+    import re
+    m      = re.search(r'\"([^\"]+)\"', raw)
+    nombre = m.group(1) if m else parts[2].strip('\"')
+    tail   = re.sub(r'\"[^\"]+\"', '', raw).split()
     if len(tail) < 2:
-        return "❌ Faltan email o password. Ej: `/crear mitienda \"Mi Tienda\" admin@t.com Pass123`"
+        return "❌ Faltan email o password."
     email, password = tail[-2].strip(), tail[-1].strip()
 
     # Verificar que no existe
@@ -230,68 +228,82 @@ def handle_crear_tenant(parts):
     if chk:
         return f"❌ Ya existe un tenant con schema `{schema}`."
 
-    # Crear el tenant
-    sql_tenant = f"""
-    INSERT INTO public.tenants (name, schema_name, is_active, license_type,
-      trial_days, trial_ends_at, feature_flags, has_restaurant_module,
-      has_laundry_module, has_hardware_module, has_services_module,
-      has_barbershop_module, has_pharmacy_module, business_type)
-    VALUES ('{nombre}', '{schema}', true, 'trial',
-      15, NOW() + INTERVAL '15 days', '{{}}', false, false, false, false, false, false, 'general')
-    RETURNING id;
-    """
-    tid_out, code = _psql(sql_tenant)
-    if code != 0 or not tid_out:
-        return f"❌ Error creando tenant:\n```\n{tid_out}\n```"
-    tid = tid_out.strip()
+    # Delegar al endpoint del backend -- tiene toda la lógica correcta
+    # (crea schema, tablas, usuario, seed completo)
+    try:
+        # Obtener token del superadmin
+        import json as _json, urllib.request as _ur, urllib.parse as _up
+        login_data = _up.urlencode({
+            "username": "rodriguezisaac876@gmail.com",
+            "password": "SuperAdmin2026",
+            "grant_type": "password"
+        }).encode()
+        login_req = _ur.Request(
+            "http://172.19.0.3:8000/api/v1/auth/token",
+            data=login_data,
+            headers={"Content-Type": "application/x-www-form-urlencoded",
+                     "Origin": "https://admin.miinventariofacil.com"}
+        )
+        login_resp = _json.loads(_ur.urlopen(login_req, timeout=15).read())
+        token = login_resp.get("access_token", "")
+        if not token:
+            return f"❌ Error obteniendo token de admin: {login_resp.get('detail', '')}"
 
-    # Crear el schema
-    _psql(f"CREATE SCHEMA IF NOT EXISTS \"{schema}\";")
+        # Llamar al endpoint de creación de tenant
+        payload = _json.dumps({
+            "name": nombre,
+            "schema_name": schema,
+            "admin_email": email,
+            "admin_password": password,
+            "is_demo": False,
+            "license_type": "trial",
+            "trial_days": 15,
+        }).encode()
+        create_req = _ur.Request(
+            "http://172.19.0.3:8000/api/v1/admin/tenants",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+                "Origin": "https://admin.miinventariofacil.com"
+            }
+        )
+        resp_data = _json.loads(_ur.urlopen(create_req, timeout=60).read())
+        tenant_id = resp_data.get("id", "?")
 
-    # Crear tablas básicas ejecutando el seeder del backend
-    seed = subprocess.run(
-        ["docker","exec","backend_prod_server",
-         "python3","-c",
-         f"from backend_api.services.seeder import seed_tenant; seed_tenant('{schema}')"],
-        capture_output=True, text=True, timeout=60
-    )
+        # Extender trial a 15 días directo en BD
+        _psql(f"""UPDATE public.tenants
+            SET trial_days=15,
+                trial_ends_at=NOW() + INTERVAL '15 days'
+            WHERE schema_name='{schema}';""")
 
-    # Crear usuario admin
-    import subprocess as _sp
-    # Usar el mismo backend del contenedor de producción para hashear
-    hash_result = _sp.run(
-        ["docker","exec","backend_prod_server","python3","-c",
-         f"from passlib.context import CryptContext; "
-         f"print(CryptContext(schemes=['bcrypt']).hash('{password[:72]}'))"],
-        capture_output=True, text=True, timeout=15
-    )
-    hashed = hash_result.stdout.strip()
-    if not hashed or not hashed.startswith("$2"):
-        return "❌ Error generando hash de contraseña."
-    sql_user = f"""
-    INSERT INTO public.users (username, email, hashed_password, role, is_active, tenant_id)
-    VALUES ('admin', '{email}', '{hashed}', 'ADMIN', true, {tid})
-    RETURNING id;
-    """
-    u_out, u_code = _psql(sql_user)
-    if u_code != 0:
-        return f"⚠️ Tenant creado pero error en usuario admin:\n```\n{u_out}\n```"
+        # Aplicar migraciones necesarias para los nuevos schemas
+        _psql(f"""ALTER TABLE IF EXISTS "{schema}".purchase_orders
+            ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(18,4) DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS discount_type   VARCHAR(20)   DEFAULT 'NONE',
+            ADD COLUMN IF NOT EXISTS discount_notes  TEXT;""")
+        _psql(f"""ALTER TABLE IF EXISTS "{schema}".purchase_items
+            ADD COLUMN IF NOT EXISTS discount_pct    NUMERIC(10,4) DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(18,4) DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS subtotal        NUMERIC(18,4);""")
 
-    # Config inicial del negocio
-    _psql(f"""
-    INSERT INTO "{schema}".business_config (key, value) VALUES
-      ('business_name', '{nombre}'),
-      ('catalog_show_out_of_stock', 'false'),
-      ('catalog_whatsapp_cart', 'true')
-    ON CONFLICT DO NOTHING;
-    """)
+        return (
+            f"✅ *Negocio creado exitosamente*\n\n"
+            f"🏪 {nombre}\n"
+            f"🔑 Schema: `{schema}`\n"
+            f"📅 Trial: 15 días\n"
+            f"👤 Admin: `{email}`\n"
+            f"🔒 Password: `{password}`\n\n"
+            f"🌐 URL: `{schema}.miinventariofacil.com`"
+        )
 
-    return (
-        f"✅ *Negocio creado exitosamente*\n\n"
-        f"🏪 {nombre}\n"
-        f"🔑 Schema: `{schema}`\n"
-        f"📅 Trial: 15 días\n"
-        f"👤 Admin: `{email}`\n"
-        f"🔒 Password: `{password}`\n\n"
-        f"🌐 URL: `{schema}.miinventariofacil.com`"
-    )
+    except Exception as e:
+        err = str(e)
+        # Si es HTTP error, intentar leer el body
+        if hasattr(e, 'read'):
+            try:
+                err = _json.loads(e.read().decode()).get('detail', err)
+            except: pass
+        return f"❌ Error creando tenant:\n`{err[:300]}`"
+
+
