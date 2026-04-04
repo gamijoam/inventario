@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Plus, Trash2, Save, X, AlertCircle, Package, DollarSign, Calendar, FileText, ChevronDown, Check, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
@@ -13,6 +15,7 @@ const formatStock = (stock) => {
 
 const CreatePurchase = () => {
     const navigate = useNavigate();
+    const help = useHelp();
 
     // State
     const [suppliers, setSuppliers] = useState([]);
