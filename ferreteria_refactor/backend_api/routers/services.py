@@ -443,57 +443,80 @@ def update_service_order_status(
              raise HTTPException(status_code=400, detail=f"Invalid status")
         order.status = models.ServiceOrderStatus[update_data.status]
 
-        # WhatsApp — notificar al cliente cuando su equipo está listo
-        if update_data.status == "READY" and order.customer:
+        # WhatsApp — notificar al cliente en TODOS los cambios de estado
+        # con progresión acumulada (muestra los estados previos implícitos)
+        _WA_NOTIFY_STATES = {"DIAGNOSING", "APPROVED", "IN_PROGRESS", "READY", "DELIVERED"}
+        if update_data.status in _WA_NOTIFY_STATES and order.customer and order.customer.phone:
             try:
                 import httpx as _httpx
                 from sqlalchemy import text as _text
-                from ..tenant_context import get_tenant_schema as _schema
+                from ..tenant_context import get_tenant_schema as _gts_wa
 
-                customer = order.customer
-                if customer and customer.phone:
-                    _s = _schema()
-                    _wa_rows = db.execute(
-                        _text(f"SELECT key, value FROM \"{_s}\".business_config "
-                              "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
-                              "'whatsapp_notify_order_ready','whatsapp_template_order','business_name')")
-                    ).fetchall()
-                    _cfg      = {r[0]: r[1] for r in _wa_rows}
-                    _inst     = _cfg.get("whatsapp_instance_name", "")
-                    _status   = _cfg.get("whatsapp_instance_status", "")
-                    _notify   = _cfg.get("whatsapp_notify_order_ready") != "false"
-                    _biz      = _cfg.get("business_name") or "Mi Inventario"
-                    _tpl      = _cfg.get("whatsapp_template_order") or (
-                        "🔧 ¡Hola {{cliente}}! Tu equipo está listo 🎉\n\n"
-                        "📱 {{equipo}}\n🎫 Orden: {{orden}}\n💰 Total: {{total}}\n\n"
-                        "¡Puedes pasar a buscarlo en nuestro horario habitual!"
+                _s_wa = _gts_wa()
+                _cfg_wa = {r[0]: r[1] for r in db.execute(
+                    _text(f"SELECT key, value FROM \"{_s_wa}\".business_config "
+                          "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                          "'whatsapp_notify_order_ready','business_name')")
+                ).fetchall()}
+                _inst_wa   = _cfg_wa.get("whatsapp_instance_name", "")
+                _status_wa = _cfg_wa.get("whatsapp_instance_status", "")
+                _notify_wa = _cfg_wa.get("whatsapp_notify_order_ready") != "false"
+                _biz_wa    = _cfg_wa.get("business_name") or "Mi Inventario"
+
+                if _inst_wa and _status_wa == "CONNECTED" and _notify_wa:
+                    # Progresión de estados en orden lógico
+                    _STATE_ORDER = [
+                        ("RECEIVED",    "📥 Recibido"),
+                        ("DIAGNOSING",  "🔍 En diagnóstico"),
+                        ("APPROVED",    "✅ Aprobado"),
+                        ("IN_PROGRESS", "🔧 En reparación"),
+                        ("READY",       "✨ Listo para recoger"),
+                        ("DELIVERED",   "📦 Entregado"),
+                    ]
+                    _target_idx = next(
+                        (i for i, (s, _) in enumerate(_STATE_ORDER) if s == update_data.status), -1
                     )
+                    # Construir progresión: todos los estados hasta el actual
+                    _progression = ""
+                    if _target_idx > 0:
+                        _steps = [label for _, label in _STATE_ORDER[1:_target_idx]]
+                        if _steps:
+                            _progression = "\n".join(f"  ✓ {s}" for s in _steps) + "\n"
 
-                    if _inst and _status == "CONNECTED" and _notify:
-                        _total   = sum(float(d.quantity * d.unit_price) for d in order.details)
-                        _paid    = sum(float(p.amount) for p in order.payments)
-                        _pending = max(0, _total - _paid)
-                        _device  = (f"{order.brand or ''} {order.model or ''}".strip()
-                                   or order.device_type or "Equipo")
-                        _ticket  = order.ticket_number or f"#{order.id}"
+                    _current_label = _STATE_ORDER[_target_idx][1] if _target_idx >= 0 else update_data.status
+                    _ticket_wa = order.ticket_number or f"#{order.id}"
+                    _device_wa = (f"{order.brand or ''} {order.model or ''}".strip()
+                                  or order.device_type or "Equipo")
+                    _total_wa  = sum(float(d.quantity * d.unit_price) for d in order.details)
+                    _paid_wa   = sum(float(p.amount) for p in order.payments)
+                    _pend_wa   = max(0.0, _total_wa - _paid_wa)
+                    _total_str_wa   = f"${_total_wa:,.2f}" if _total_wa > 0 else ""
+                    _pending_str_wa = f"\n💰 Saldo pendiente: ${_pend_wa:,.2f}" if _pend_wa > 0.01 else ""
 
-                        _total_str   = f"${_total:,.2f}" if _total > 0 else "—"
-                        _pending_str = f" (pendiente: ${_pending:,.2f})" if _pending > 0.01 else ""
+                    _msg_wa = (
+                        f"🔧 *{_biz_wa}*\n"
+                        f"Actualización de tu orden *{_ticket_wa}*\n"
+                        f"📱 {_device_wa}\n\n"
+                    )
+                    if _progression:
+                        _msg_wa += f"{_progression}"
+                    _msg_wa += f"➡️ *{_current_label}*"
+                    if _total_str_wa:
+                        _msg_wa += f"\n\n💰 Total: {_total_str_wa}{_pending_str_wa}"
 
-                        _msg = (_tpl
-                            .replace("{{cliente}}", customer.name)
-                            .replace("{{equipo}}",  _device)
-                            .replace("{{orden}}",   _ticket)
-                            .replace("{{total}}",   _total_str + _pending_str)
-                            .replace("{{negocio}}", _biz)
-                        )
-                        _phone = "".join(c for c in customer.phone if c.isdigit())
-                        with _httpx.Client(timeout=5) as _c:
-                            _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
-                                    json={"phone": _phone, "message": _msg})
+                    # Mensaje especial para READY y DELIVERED
+                    if update_data.status == "READY":
+                        _msg_wa += "\n\n¡Puedes pasar a recogerlo en nuestro horario habitual! 🎉"
+                    elif update_data.status == "DELIVERED":
+                        _msg_wa += "\n\n¡Gracias por elegirnos! 🙌"
+
+                    _phone_wa = "".join(c for c in order.customer.phone if c.isdigit())
+                    with _httpx.Client(timeout=5) as _c_wa:
+                        _c_wa.post(f"http://whatsapp_service:3000/instance/{_inst_wa}/send",
+                                   json={"phone": _phone_wa, "message": _msg_wa})
             except Exception as _wa_err:
                 import logging as _log
-                _log.getLogger(__name__).warning(f"[WA] Notif taller falló: {_wa_err}")
+                _log.getLogger(__name__).warning(f"[WA] Notif estado falló: {_wa_err}")
 
     if update_data.diagnosis_notes:
         order.diagnosis_notes = update_data.diagnosis_notes
@@ -509,47 +532,6 @@ def update_service_order_status(
 
     if update_data.priority:
         order.priority = update_data.priority
-
-    # WhatsApp — notificar al cliente cuando la orden se entrega
-    if update_data.status == "DELIVERED" and order.customer and order.customer.phone:
-        try:
-            import httpx as _httpx2
-            from sqlalchemy import text as _text2
-            from ..tenant_context import get_tenant_schema as _gts2
-            _s2     = _gts2()
-            _wa2    = {r[0]: r[1] for r in db.execute(
-                _text2(f"SELECT key, value FROM \"{_s2}\".business_config "
-                       "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
-                       "'whatsapp_notify_order_ready','business_name')")
-            ).fetchall()}
-            _inst2   = _wa2.get("whatsapp_instance_name", "")
-            _status2 = _wa2.get("whatsapp_instance_status", "")
-            _notify2 = _wa2.get("whatsapp_notify_order_ready") != "false"
-            _biz2    = _wa2.get("business_name") or "Mi Inventario"
-            if _inst2 and _status2 == "CONNECTED" and _notify2:
-                _ticket2 = order.ticket_number or f"#{order.id}"
-                _device2 = (f"{order.brand or ''} {order.model or ''}".strip()
-                            or order.device_type or "Equipo")
-                _total2  = sum(float(d.quantity * d.unit_price) for d in order.details)
-                _paid2   = sum(float(p.amount) for p in order.payments)
-                _pend2   = max(0.0, _total2 - _paid2)
-                _total_str2   = f"${_total2:,.2f}" if _total2 > 0 else "—"
-                _pending_str2 = f"\nSaldo pendiente: ${_pend2:,.2f}" if _pend2 > 0.01 else ""
-                _msg2 = (
-                    f"📦 *{_biz2}*\n"
-                    f"¡Hola {order.customer.name}! Tu equipo ha sido entregado ✅\n\n"
-                    f"📱 {_device2}\n"
-                    f"🎫 Orden: {_ticket2}\n"
-                    f"💰 Total: {_total_str2}{_pending_str2}\n\n"
-                    f"¡Gracias por elegirnos!"
-                )
-                _phone2 = "".join(c for c in order.customer.phone if c.isdigit())
-                with _httpx2.Client(timeout=5) as _c2:
-                    _c2.post(f"http://whatsapp_service:3000/instance/{_inst2}/send",
-                             json={"phone": _phone2, "message": _msg2})
-        except Exception as _wa2_err:
-            import logging as _log2
-            _log2.getLogger(__name__).warning(f"[WA] DELIVERED notif falló: {_wa2_err}")
 
     # Auto-checkout: si se marca como DELIVERED y ya tiene abonos que cubren el total,
     # crear la Sale automáticamente (sin requerir checkout manual).

@@ -205,6 +205,19 @@ class ServiceCheckoutService:
             order.updated_at = datetime.now()
 
             db.commit()
+
+            # ── Re-setear search_path después del commit ───────────────
+            # db.commit() puede resetear el search_path al default (public)
+            # lo que causa "relation sales does not exist" en el refresh
+            try:
+                from ..tenant_context import get_tenant_schema as _gts
+                _schema = _gts()
+                if _schema and _schema != "public":
+                    from sqlalchemy import text as _text
+                    db.execute(_text(f'SET search_path TO "{_schema}", public'))
+            except Exception:
+                pass
+
             db.refresh(new_sale)
             return new_sale
 
