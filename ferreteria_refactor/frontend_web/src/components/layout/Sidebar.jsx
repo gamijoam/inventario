@@ -101,6 +101,8 @@ const SectionLabel = ({ label, isCollapsed }) => (
 );
 
 /* ── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────── */
+import CompanySwitcher from './CompanySwitcher';
+
 export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const navigate    = useNavigate();
     const { logout, user } = useAuth();
@@ -129,6 +131,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
     const role            = user?.role;
     const isAdmin         = role === 'ADMIN';
+    const currentSchema   = localStorage.getItem('selected_tenant') || '';
     const isAdminOrWH     = ['ADMIN', 'WAREHOUSE'].includes(role);
     const isAdminOrCashier = ['ADMIN', 'CASHIER'].includes(role);
 
@@ -183,6 +186,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
                 {/* Principal */}
                 <SectionLabel label="Principal" isCollapsed={isCollapsed} />
+                <CompanySwitcher isCollapsed={isCollapsed} currentSchema={currentSchema} />
                 <NavItem icon={LayoutDashboard} label="Resumen"          path="/"              isCollapsed={isCollapsed} onClick={close} />
                 <NavItem icon={ShoppingCart}    label="Centro de Ventas" path="/sales-center"  isCollapsed={isCollapsed} onClick={close} />
                 {isAdminOrWH && (
