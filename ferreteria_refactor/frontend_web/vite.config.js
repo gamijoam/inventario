@@ -33,7 +33,7 @@ export default defineConfig({
   },
 
   build: {
-    target: 'es2015',
+    target: 'es2020',   // es2015 causa "Illegal constructor" con Capacitor v8 en browser
     sourcemap: false,
     minify: 'esbuild',
   },
