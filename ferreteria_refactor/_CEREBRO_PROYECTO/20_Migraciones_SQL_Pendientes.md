@@ -206,3 +206,24 @@ END $$;
 ```
 
 **Estado:** QA ✅ (aplicado 2026-04-05) | PROD ⏳
+
+---
+
+## ✅ APLICADA — purchase_orders descuento (2026-04-05)
+
+```sql
+DO $$ DECLARE s TEXT; BEGIN
+  FOR s IN SELECT schema_name FROM information_schema.schemata
+    WHERE schema_name NOT IN ('public','information_schema','pg_catalog','pg_toast')
+      AND schema_name NOT LIKE 'pg_%'
+  LOOP
+    EXECUTE 'ALTER TABLE "' || s || '".purchase_orders
+      ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(18,4) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS discount_type   VARCHAR(20)   DEFAULT ''none'',
+      ADD COLUMN IF NOT EXISTS discount_notes  TEXT          DEFAULT NULL';
+  END LOOP;
+END $$;
+```
+
+**Estado:** QA ✅ | PROD ✅ (53 schemas)
+

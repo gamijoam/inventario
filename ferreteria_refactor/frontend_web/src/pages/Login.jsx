@@ -61,6 +61,17 @@ const Login = () => {
                     // 2. Refresh User Profile (checks cookie)
                     await refreshUser();
 
+                    // 3. Restaurar org_companies si vienen en la URL (switch entre dominios)
+                    const orgData = searchParams.get('org_data');
+                    if (orgData) {
+                        try {
+                            const orgs = JSON.parse(decodeURIComponent(atob(orgData)));
+                            if (Array.isArray(orgs) && orgs.length > 0) {
+                                localStorage.setItem('org_companies', JSON.stringify(orgs));
+                            }
+                        } catch (_) {}
+                    }
+
                     toast.success('Sesión iniciada como Soporte/Admin');
                     navigate('/');
 

@@ -408,6 +408,13 @@ async def switch_company(
         _Tenant.organization_id == target_tenant.organization_id,
         _Tenant.is_active == True
     ).all()
+    # Obtener el rol del usuario en esta organización
+    _membership_sw = db.query(_OrgUser).filter(
+        _OrgUser.organization_id == target_tenant.organization_id,
+        _OrgUser.user_email      == current_user.email,
+    ).first()
+    _org_role_sw = _membership_sw.role if _membership_sw else "manager"
+
     for t in all_tenants:
         org_companies.append({
             "tenant_id"  : t.id,
@@ -415,6 +422,9 @@ async def switch_company(
             "name"       : t.name,
             "switch_url" : f"https://{t.schema_name}.miinventariofacil.com",
             "is_current" : t.schema_name == target_schema,
+            "org_id"     : target_tenant.organization_id,
+            "org_role"   : _org_role_sw,
+            "can_switch" : True,
         })
 
     return {

@@ -302,3 +302,58 @@ Ver `20_Migraciones_SQL_Pendientes.md` para el script completo.
 Script: `_CEREBRO_PROYECTO/migrate_multi_empresa.sql`
 - QA: ✅ Aplicado 2026-04-05
 - PROD: ⏳ Pendiente (aplicar antes del merge de `feature/multi-empresa`)
+
+---
+
+## CompanySwitcher — Flujo de switch entre dominios
+
+### Problema de localStorage entre subdominios
+`oscardemo.miinventariofacil.com` y `prueba.miinventariofacil.com` tienen localStorage **separado**. No se puede compartir `org_companies` directamente.
+
+### Solución implementada (2026-04-06)
+1. `handleSwitch` llama a `POST /auth/switch-company?target_schema=X`
+2. Backend retorna `{ access_token, org_companies }` con `org_role` incluido
+3. Frontend codifica `org_companies` en base64 y lo pasa como `?org_data=BASE64` en la URL de redirección
+4. `Login.jsx` en el nuevo dominio lee `org_data`, decodifica y guarda en su `localStorage`
+
+```
+URL ejemplo: https://prueba.miinventariofacil.com/?impersonate_token=JWT&org_data=BASE64#/
+```
+
+### Dropdown hacia abajo
+El dropdown usa `top-full mt-1 z-[200]` — abre hacia abajo desde el botón.
+No usar `bottom-full` porque el sidebar puede estar en cualquier posición vertical.
+
+---
+
+## Roles de organización (org_role)
+
+| Campo | Valor | Acceso |
+|-------|-------|--------|
+| `org_role = "owner"` | Dueño del grupo | Métricas del Grupo, Config del Grupo, Catálogo, Transferencias |
+| `org_role = "manager"` | Miembro | Solo Catálogo Compartido y Transferencias |
+
+### Detección en frontend
+```js
+// En Sidebar.jsx y OrgConfig.jsx
+const orgs = JSON.parse(localStorage.getItem('org_companies') || '[]');
+const current = orgs.find(o => o.is_current) || orgs[0];
+const isOrgOwner = current?.org_role === 'owner';
+```
+
+### Endpoints que incluyen org_role
+- `POST /auth/token` → en `org_companies[]`
+- `POST /auth/switch-company` → en `org_companies[]`
+
+---
+
+## Migración SQL aplicada en PROD
+
+```sql
+-- purchase_orders — columnas de descuento (aplicado 2026-04-05)
+ALTER TABLE schema.purchase_orders
+  ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(18,4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS discount_type   VARCHAR(20)   DEFAULT 'none',
+  ADD COLUMN IF NOT EXISTS discount_notes  TEXT;
+```
+
