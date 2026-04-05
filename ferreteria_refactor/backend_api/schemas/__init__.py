@@ -473,6 +473,11 @@ class SaleRead(BaseModel):
     credit_interest_rate     : Optional[Decimal] = None
     credit_frequency         : Optional[str]     = None
     credit_installment_amount: Optional[Decimal] = None
+    bloqueo_sincronizado      : Optional[bool]   = None
+    bloqueo_codigo_activacion : Optional[str]    = None
+    bloqueo_estado            : Optional[str]    = None
+    bloqueo_cliente_id        : Optional[int]    = None
+    bloqueo_dispositivo_id    : Optional[int]    = None
     currency: str = "USD"  # NEW: Include currency
     exchange_rate_used: Decimal = Decimal("1.0")  # NEW: Include exchange rate
     status: str = "COMPLETED" # Derived from property

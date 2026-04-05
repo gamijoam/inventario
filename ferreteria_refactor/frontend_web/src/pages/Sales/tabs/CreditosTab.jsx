@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import {
     DollarSign, Calendar, AlertCircle, CheckCircle, X, Filter,
     Eye, Users, ChevronDown, Calculator, CheckSquare, Search,
-    Wallet, Printer, FileText
+    Wallet, Printer, FileText, Smartphone
 } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import InvoiceDetailModal from '../../../components/credit/InvoiceDetailModal';
+import CreditosCelularesTab from './CreditosCelularesTab';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
 
@@ -14,9 +15,10 @@ import clsx from 'clsx';
 // Sub-tab definitions
 // ---------------------------------------------------------------------------
 const SUB_TABS = [
-    { id: 'cxc', label: 'Cuentas por Cobrar', icon: Wallet },
-    { id: 'aging', label: 'Antigüedad', icon: Calendar },
-    { id: 'ledger', label: 'Estado de Cuenta', icon: FileText },
+    { id: 'cxc',      label: 'Cuentas por Cobrar', icon: Wallet     },
+    { id: 'celulares',label: '📱 Créditos Celular', icon: Smartphone },
+    { id: 'aging',    label: 'Antigüedad',          icon: Calendar   },
+    { id: 'ledger',   label: 'Estado de Cuenta',    icon: FileText   },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1364,6 +1366,12 @@ const CreditosTab = ({ dateRange }) => {
 
             {/* Sub-tab Content */}
             {activeSubTab === 'cxc' && renderCxc()}
+            {activeSubTab === 'celulares' && (
+                <div className="p-4">
+                    <CreditosCelularesTab />
+                </div>
+            )}
+
             {activeSubTab === 'aging' && renderAging()}
             {activeSubTab === 'ledger' && renderLedger()}
 
