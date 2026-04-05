@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
 import { useNavigate, Link } from 'react-router-dom';
@@ -22,8 +22,8 @@ const Login = () => {
     const [contactLoading, setContactLoading] = useState(false);
 
     const { login, user, isAuthenticated, refreshUser, logout } = useAuth();
-    const [showOrgSelector, setShowOrgSelector] = React.useState(false);
-    const [orgCompanies, setOrgCompanies]       = React.useState([]);
+    const [showOrgSelector, setShowOrgSelector] = useState(false);
+    const [orgCompanies, setOrgCompanies]       = useState([]);
     const { business } = useConfig();
     const navigate = useNavigate();
 
