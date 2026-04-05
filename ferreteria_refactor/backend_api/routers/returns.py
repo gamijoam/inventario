@@ -6,6 +6,7 @@ from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from ..commission_engine import CommissionEngine
+from ..dependencies import get_current_active_user
 from datetime import datetime, date
 
 router = APIRouter(
@@ -22,7 +23,8 @@ def search_sales(
     status: Optional[str] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
 ):
     try:
         """Search sales with filters"""
@@ -93,7 +95,11 @@ def search_sales(
         raise HTTPException(status_code=500, detail=f"Error interno: {str(e)} | {trace}")
 
 @router.get("/sales/{sale_id}", response_model=schemas.SaleRead)
-def get_sale_for_return(sale_id: int, db: Session = Depends(get_db)):
+def get_sale_for_return(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get sale details for processing return"""
     sale = db.query(models.Sale).options(
         joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
@@ -108,7 +114,11 @@ def get_sale_for_return(sale_id: int, db: Session = Depends(get_db)):
     return sale
 
 @router.post("", response_model=schemas.ReturnRead)
-def process_return(return_data: schemas.ReturnCreate, db: Session = Depends(get_db)):
+def process_return(
+    return_data: schemas.ReturnCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Process a return: restore stock, create kardex entries, register cash movement"""
     
     # Find sale
@@ -417,13 +427,14 @@ def void_sale(
     new_return.total_refunded = total_refund
 
     # Crédito: reducir balance_pending
-    actual_cash_refund = total_refund
+    actual_cash_refund = float(total_refund)
     if sale.is_credit and sale.balance_pending is not None:
-        new_balance = max(0, float(sale.balance_pending) - total_refund)
-        debt_reduced = float(sale.balance_pending) - new_balance
+        old_bal   = float(sale.balance_pending)
+        new_balance = max(0.0, old_bal - float(total_refund))
+        debt_reduced = old_bal - new_balance
         sale.balance_pending = new_balance
         sale.paid = new_balance <= 0.01
-        actual_cash_refund = total_refund - debt_reduced
+        actual_cash_refund = float(total_refund) - debt_reduced
 
     # Anular comisiones
     try:
@@ -457,14 +468,22 @@ def void_sale(
 
 
 @router.get("", response_model=List[schemas.ReturnRead])
-def get_returns(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+def get_returns(
+    skip: int = 0, limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get list of returns"""
     return db.query(models.Return).options(
         joinedload(models.Return.details).joinedload(models.ReturnDetail.product)
     ).order_by(models.Return.date.desc()).offset(skip).limit(limit).all()
 
 @router.get("/{return_id}", response_model=schemas.ReturnRead)
-def get_return(return_id: int, db: Session = Depends(get_db)):
+def get_return(
+    return_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get specific return details"""
     ret = db.query(models.Return).options(
         joinedload(models.Return.details).joinedload(models.ReturnDetail.product)
@@ -476,7 +495,11 @@ def get_return(return_id: int, db: Session = Depends(get_db)):
     return ret
 
 @router.get("/sales/{sale_id}/print-payload")
-def get_sale_print_payload(sale_id: int, db: Session = Depends(get_db)):
+def get_sale_print_payload(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
     """Get print payload for reprinting a sale ticket"""
     from ..services.sales_service import SalesService
     
