@@ -187,19 +187,28 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 {/* Principal */}
                 <SectionLabel label="Principal" isCollapsed={isCollapsed} />
                 <CompanySwitcher isCollapsed={isCollapsed} currentSchema={currentSchema} />
-                {/* Dashboard consolidado — visible solo si pertenece a una organización multi-empresa */}
+                {/* Menú multi-empresa — visible solo si pertenece a una organización con 2+ empresas */}
                 {(() => {
                     try {
                         const orgs = JSON.parse(localStorage.getItem('org_companies') || '[]');
                         if (orgs.length > 1) {
                             return (
-                                <NavItem
-                                    icon={Building2}
-                                    label="Grupo Empresarial"
-                                    path="/org/dashboard"
-                                    isCollapsed={isCollapsed}
-                                    onClick={close}
-                                />
+                                <>
+                                    <NavItem
+                                        icon={Building2}
+                                        label="Grupo Empresarial"
+                                        path="/org/dashboard"
+                                        isCollapsed={isCollapsed}
+                                        onClick={close}
+                                    />
+                                    <NavItem
+                                        icon={BookOpen}
+                                        label="Catálogo Compartido"
+                                        path="/org/catalog"
+                                        isCollapsed={isCollapsed}
+                                        onClick={close}
+                                    />
+                                </>
                             );
                         }
                     } catch {}

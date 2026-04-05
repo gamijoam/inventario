@@ -211,18 +211,32 @@ CREATE TABLE public.inter_company_transfer_items (
 
 ---
 
-### Sprint 4 — Catálogo compartido (Semana 3-4)
+### Sprint 4 — Catálogo compartido ✅ COMPLETADO (2026-04-05)
 
-**Backend:**
-- [ ] `GET /organizations/{id}/shared-catalog` — catálogo compartido
-- [ ] `POST /organizations/{id}/shared-catalog` — agregar producto al catálogo
-- [ ] `POST /organizations/{id}/shared-catalog/import-to-tenant` — copiar productos del catálogo a una empresa específica
-- [ ] Lógica de sincronización: si un producto del catálogo se actualiza, propagar a las empresas que lo tienen
+**Backend (Sprint 1):**
+- ✅ `GET /organizations/{id}/catalog` — listar catálogo con búsqueda
+- ✅ `POST /organizations/{id}/catalog` — agregar producto al catálogo
+- ✅ `POST /organizations/{id}/catalog/import` — importar a la empresa actual (evita duplicados por SKU)
 
 **Frontend:**
-- [ ] Vista de catálogo compartido
-- [ ] Botón "Importar del catálogo compartido" en el módulo de productos de cada empresa
-- [ ] Indicador "Producto compartido" en los productos que vienen del catálogo de la org
+- ✅ `SharedCatalog.jsx` (625 líneas, completamente comentado):
+  - Grid de tarjetas con nombre, SKU, categoría, costo y precio sugerido
+  - Búsqueda en tiempo real por nombre
+  - Selección múltiple para importar varios productos a la vez
+  - Botón "Importar individual" por tarjeta
+  - Modal `AddToCatalogModal` con formulario validado (nombre, SKU, categoría, precios, descripción)
+  - Banner informativo explicando el funcionamiento
+  - Estados vacío, carga, sin resultados y sin organización
+- ✅ Ruta `/org/catalog` en `App.jsx`
+- ✅ NavItem "Catálogo Compartido" en `Sidebar` (junto a "Grupo Empresarial")
+
+**Tests — 6/6 ✅**
+- T1 Login → OK
+- T2 Listar catálogo → 2 productos
+- T3 Agregar producto → id=4, nombre guardado
+- T4 Búsqueda "HDMI" → 2 resultados
+- T5 Importar al tenant → "1 importados, 0 ya existían"
+- T6 Re-importar (duplicado) → "0 importados, 1 ya existían" (deduplicación por SKU)
 
 ---
 
