@@ -3,9 +3,9 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import {
     Building2, LayoutDashboard, ShoppingCart, Package, Users, Settings, LogOut,
     FileText, Truck, CreditCard, Briefcase, Monitor, LayoutGrid,
-    ChevronLeft, ChevronRight, ChevronDown, BarChart2, BookOpen,
+    ChevronLeft, ChevronRight, ChevronDown, BarChart2, BarChart3, BookOpen,
     ClipboardList, DollarSign, Utensils, ChefHat, Smartphone, Wrench,
-    X, LifeBuoy, Scissors, Pill, HelpCircle
+    X, LifeBuoy, Scissors, Pill, HelpCircle, ArrowLeftRight
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
