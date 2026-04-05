@@ -168,7 +168,9 @@ class SalesService:
             if sale_data.is_credit and sale_data.customer_id:
                 customer = db.query(models.Customer).filter(models.Customer.id == sale_data.customer_id).first()
                 if customer:
-                    due_date = current_time + timedelta(days=customer.payment_term_days)
+                    # Fix: payment_term_days puede ser NULL → usar 30 días por defecto
+                    _term_days = customer.payment_term_days if customer.payment_term_days is not None else 30
+                    due_date = current_time + timedelta(days=_term_days)
                     balance_pending = sale_data.total_amount
             
             new_sale = models.Sale(
@@ -690,6 +692,78 @@ class SalesService:
 
             # Audit log
             log_action(db, user_id=user_id, action="CREATE", table_name="sales", record_id=new_sale_id, changes=None, ip_address=None)
+
+            # ── BloqueCelular: Sincronizar venta a crédito ──────────────────────────
+            # Si la venta es a crédito, crear el cliente y registrar el dispositivo
+            # en BloqueCelular. Esto es no-bloqueante: si falla, la venta ya fue guardada.
+            if sale_data.is_credit and sale_customer_id:
+                try:
+                    from ..services.bloqueocelular_service import sincronizar_venta_credito, is_enabled
+                    from ..tenant_context import get_tenant_schema as _gts
+                    _schema = _gts()
+
+                    if is_enabled(db, _schema):
+                        # Obtener datos del cliente
+                        from sqlalchemy import text as _blq_text
+                        _cust_row = db.execute(
+                            _blq_text(f'SELECT name, phone, id_number, email FROM "{_schema}".customers WHERE id = :cid'),
+                            {"cid": sale_customer_id}
+                        ).fetchone()
+
+                        # Buscar IMEI del producto (si hay instancias registradas)
+                        _imei = None
+                        _prod_name = "Celular"
+                        _inst_row = db.execute(_blq_text(f"""
+                            SELECT pi.serial_number, p.name
+                            FROM "{_schema}".sale_detail_instances sdi
+                            JOIN "{_schema}".sale_details sd ON sd.id = sdi.sale_detail_id
+                            JOIN "{_schema}".product_instances pi ON pi.id = sdi.product_instance_id
+                            JOIN "{_schema}".products p ON p.id = pi.product_id
+                            WHERE sd.sale_id = :sid AND pi.serial_number IS NOT NULL
+                            LIMIT 1
+                        """), {"sid": new_sale_id}).fetchone()
+                        if _inst_row:
+                            _imei      = _inst_row[0]  # serial_number usado como IMEI
+                            _prod_name = _inst_row[1]
+                        else:
+                            # Sin instancia con IMEI — buscar nombre del producto principal
+                            _prod_row = db.execute(_blq_text(f"""
+                                SELECT p.name FROM "{_schema}".sale_details sd
+                                JOIN "{_schema}".products p ON p.id = sd.product_id
+                                WHERE sd.sale_id = :sid ORDER BY sd.id ASC LIMIT 1
+                            """), {"sid": new_sale_id}).fetchone()
+                            if _prod_row:
+                                _prod_name = _prod_row[0]
+
+                        _blq_result = sincronizar_venta_credito(
+                            db              = db,
+                            schema          = _schema,
+                            sale_id         = new_sale_id,
+                            customer_name   = _cust_row[0] if _cust_row else "Cliente",
+                            customer_phone  = _cust_row[1] if _cust_row else None,
+                            customer_id_number = _cust_row[2] if _cust_row else None,
+                            customer_email  = _cust_row[3] if _cust_row else None,
+                            total_amount    = float(sale_total_amount),
+                            balance_pending = float(sale_total_amount),  # Saldo completo al inicio
+                            due_date        = None,  # Se calculará en BloqueCelular
+                            imei            = _imei,
+                            product_name    = _prod_name,
+                            num_cuotas      = 6,    # Default, ajustable por el vendedor
+                        )
+
+                        if _blq_result.get("ok"):
+                            print(f"[Bloqueo] ✅ Venta #{new_sale_id} sincronizada — "
+                                  f"código: {_blq_result.get('codigo_activacion')}")
+                        else:
+                            print(f"[Bloqueo] ⚠️ Venta #{new_sale_id} no sincronizada: "
+                                  f"{_blq_result.get('error')}")
+                except Exception as _blq_e:
+                    # NUNCA interrumpir el flujo de venta por BloqueCelular
+                    import logging as _blq_log
+                    _blq_log.getLogger(__name__).warning(
+                        f"[Bloqueo] Error sincronizando venta #{new_sale_id}: {_blq_e}"
+                    )
+            # ── Fin BloqueCelular ───────────────────────────────────────────────────
 
             # NO db.refresh(new_sale) here! It causes "ObjectDeletedError" if session is unclean.
             # We already have all data captured in local variables.
@@ -1332,6 +1406,31 @@ Cierre:   {{ session.end_time }}
         
         db.commit()
         db.expunge(payment)
+
+        # ── BloqueCelular: notificar abono ──────────────────────────────────────────
+        try:
+            from ..services.bloqueocelular_service import registrar_pago as _blq_pago, is_enabled
+            from ..tenant_context import get_tenant_schema as _gts
+            from sqlalchemy import text as _bt
+            _sch = _gts()
+            if sale.is_credit and is_enabled(db, _sch):
+                _blq_row = db.execute(
+                    _bt(f'SELECT bloqueo_dispositivo_id FROM "{_sch}".sales WHERE id = :id'),
+                    {"id": sale.id}
+                ).fetchone()
+                if _blq_row and _blq_row[0]:
+                    _blq_pago(
+                        db             = db,
+                        schema         = _sch,
+                        dispositivo_id = _blq_row[0],
+                        monto          = float(payment_data.amount),
+                        metodo         = payment_data.payment_method or "efectivo",
+                        num_cuota      = 1,  # Sin rastreo de número de cuota por ahora
+                    )
+        except Exception as _pe:
+            import logging as _pl
+            _pl.getLogger(__name__).warning(f"[Bloqueo] Error notificando abono: {_pe}")
+        # ── Fin BloqueCelular ───────────────────────────────────────────────────────
 
         # WhatsApp — confirmar recepción del abono al cliente
         try:
