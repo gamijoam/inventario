@@ -881,16 +881,26 @@ def get_tenant_activity(
             "user_count": 0,
         }
 
-        # User count from public schema
-        metrics["user_count"] = db.query(func.count(User.id)).filter(
-            User.tenant_id == t.id
-        ).scalar() or 0
+        # User count — con rollback previo si la sesión está en error
+        try:
+            db.rollback()  # Asegurar sesión limpia antes de cada tenant
+            metrics["user_count"] = db.query(func.count(User.id)).filter(
+                User.tenant_id == t.id
+            ).scalar() or 0
+        except Exception as e:
+            db.rollback()
+            print(f"[ACTIVITY] Error user_count schema '{schema}': {e}")
 
         # Check if schema exists before querying
-        schema_exists = db.execute(
-            text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :s"),
-            {"s": schema}
-        ).fetchone()
+        try:
+            schema_exists = db.execute(
+                text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :s"),
+                {"s": schema}
+            ).fetchone()
+        except Exception:
+            db.rollback()
+            activity_data.append(metrics)
+            continue
 
         if not schema_exists:
             activity_data.append(metrics)
@@ -933,7 +943,8 @@ def get_tenant_activity(
                 metrics["last_login"] = last_login.isoformat()
 
         except Exception as e:
-            # Schema may exist but tables may not (partial setup)
+            # Schema may exist but tables may not — rollback para limpiar la transacción
+            db.rollback()
             print(f"[ACTIVITY] Error querying schema '{schema}': {e}")
 
         activity_data.append(metrics)
