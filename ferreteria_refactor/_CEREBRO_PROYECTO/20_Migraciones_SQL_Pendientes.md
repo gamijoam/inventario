@@ -165,3 +165,44 @@ ALTER TABLE public.tenants
 ```
 
 **Estado:** QA ✅ | PROD ✅
+
+---
+
+## ⏳ PENDIENTE EN PROD — Integración BloqueCelular + Crédito Celular
+
+**Aplicar ANTES del merge de `feature/integracion-bloqueo` a PROD.**
+
+```sql
+DO $$ DECLARE s TEXT; BEGIN
+  FOR s IN SELECT schema_name FROM information_schema.schemata
+    WHERE schema_name NOT IN ('public','information_schema','pg_catalog','pg_toast')
+      AND schema_name NOT LIKE 'pg_%'
+  LOOP
+    -- Columnas BloqueCelular en sales
+    EXECUTE format('ALTER TABLE %I.sales
+      ADD COLUMN IF NOT EXISTS bloqueo_dispositivo_id    INTEGER,
+      ADD COLUMN IF NOT EXISTS bloqueo_cliente_id        INTEGER,
+      ADD COLUMN IF NOT EXISTS bloqueo_codigo_activacion VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS bloqueo_sincronizado      BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS bloqueo_estado            VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS bloqueo_error             TEXT,
+      ADD COLUMN IF NOT EXISTS credit_down_payment       NUMERIC(18,4),
+      ADD COLUMN IF NOT EXISTS credit_installments       INTEGER,
+      ADD COLUMN IF NOT EXISTS credit_interest_rate      NUMERIC(8,4),
+      ADD COLUMN IF NOT EXISTS credit_frequency          VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS credit_installment_amount NUMERIC(18,4)', s);
+    -- Config BloqueCelular en business_config
+    EXECUTE format('INSERT INTO %I.business_config (key,value) VALUES
+      (''bloqueocelular_enabled'',   ''false''),
+      (''bloqueocelular_url'',       ''http://backend_bloqueo_server:3000''),
+      (''bloqueocelular_email'',     ''''),
+      (''bloqueocelular_password'',  ''''),
+      (''bloqueocelular_token'',     ''''),
+      (''bloqueocelular_token_exp'', ''''),
+      (''bloqueocelular_tenant_id'', '''')
+      ON CONFLICT (key) DO NOTHING', s);
+  END LOOP;
+END $$;
+```
+
+**Estado:** QA ✅ (aplicado 2026-04-05) | PROD ⏳
