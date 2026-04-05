@@ -344,6 +344,39 @@ def add_tenant_to_org(
         raise HTTPException(status_code=400, detail="Esta empresa ya pertenece a otra organización")
 
     tenant.organization_id = org_id
+    db.flush()
+
+    # Crear el usuario dueño de la org en este tenant si tiene contraseña definida
+    # (la contraseña la tiene el org owner si fue creada con owner_password)
+    # Usamos oprcanhash si existe, o buscamos el usuario del dueño en otro tenant
+    try:
+        from ..models.models import User as _User, UserRole as _Role
+        owner_email = org.owner_email.lower().strip()
+        # Buscar si ya existe en algún tenant de la org para obtener su hash
+        existing_owner = db.query(_User).filter(
+            _User.email == owner_email,
+        ).first()
+        
+        if existing_owner:
+            # Verificar que no exista ya en este tenant
+            already = db.query(_User).filter(
+                _User.email == owner_email,
+                _User.tenant_id == tenant_id
+            ).first()
+            if not already:
+                new_user = _User(
+                    email         = owner_email,
+                    username      = existing_owner.username or owner_email.split("@")[0],
+                    password_hash = existing_owner.password_hash,
+                    role          = _Role.ADMIN,
+                    tenant_id     = tenant_id,
+                    is_active     = True,
+                    is_superuser  = False,
+                )
+                db.add(new_user)
+    except Exception as _e:
+        print(f"[Org] ⚠️ No se pudo crear usuario dueño en tenant {tenant_id}: {_e}")
+
     db.commit()
     return {"message": f"Empresa '{tenant.name}' agregada a '{org.name}'", "tenant_id": tenant_id}
 

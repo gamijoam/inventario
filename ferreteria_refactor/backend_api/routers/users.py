@@ -230,6 +230,23 @@ def update_user(
     # Authorization: Admins can update anyone in their tenant, others can only update themselves (limited)
     if current_user.role != models.UserRole.ADMIN and current_user.id != user_id:
         raise HTTPException(status_code=403, detail="Permission denied")
+
+    # Protección del dueño de organización — solo él mismo puede modificar su cuenta
+    if current_user.id != user_id:
+        try:
+            from ..models.organization import Organization as _Org, OrganizationUser as _OrgUser
+            _org = db.query(_Org).filter(
+                _Org.owner_email == user.email
+            ).first()
+            if _org:
+                raise HTTPException(
+                    status_code=403,
+                    detail="No puedes modificar la cuenta del dueño de la organización"
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
     
     if user_data.password:
         user.password_hash = get_password_hash(user_data.password)

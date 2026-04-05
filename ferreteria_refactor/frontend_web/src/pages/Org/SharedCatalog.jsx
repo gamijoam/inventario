@@ -358,26 +358,29 @@ export default function SharedCatalog() {
 
     // ── Detectar la organización del usuario ──────────────────────────────────
     useEffect(() => {
-        // El org_id no está en org_companies directamente
-        // Lo obtenemos del endpoint /organizations/mine
+        // Obtener org_id desde localStorage (viene en el login response)
+        // o como fallback desde el endpoint consolidated-mine
         const loadOrg = async () => {
             try {
-                const res = await apiClient.get('/organizations/mine');
-                if (res.data && res.data.length > 0) {
-                    // Usar el tenant_id del primer resultado para buscar la org
-                    // En realidad necesitamos buscar la org — usamos otro endpoint
-                    const orgRes = await apiClient.get('/organizations', {
-                        params: { limit: 1 }
-                    });
-                    // Si es superadmin → ve todas las orgs
-                    // Si es usuario normal → necesitamos deducirlo de otro modo
-                    // Por ahora usamos consolidated-mine para obtener el org_id
-                    const consolidatedRes = await apiClient.get('/organizations/consolidated-mine');
-                    const orgIdFromConsolidated = consolidatedRes.data?.organization_id;
-                    if (orgIdFromConsolidated && orgIdFromConsolidated > 0) {
-                        setOrgId(orgIdFromConsolidated);
+                // Primero intentar desde localStorage (más rápido, sin petición extra)
+                const stored = localStorage.getItem('org_companies');
+                if (stored) {
+                    const orgs = JSON.parse(stored);
+                    const current = orgs.find(o => o.is_current) || orgs[0];
+                    if (current?.org_id) {
+                        setOrgId(current.org_id);
+                        // Obtener nombre desde consolidated-mine
+                        const consolidatedRes = await apiClient.get('/organizations/consolidated-mine');
                         setOrgName(consolidatedRes.data?.organization_name || 'Mi Grupo');
+                        return;
                     }
+                }
+                // Fallback: endpoint directo
+                const consolidatedRes = await apiClient.get('/organizations/consolidated-mine');
+                const orgIdFromConsolidated = consolidatedRes.data?.organization_id;
+                if (orgIdFromConsolidated && orgIdFromConsolidated > 0) {
+                    setOrgId(orgIdFromConsolidated);
+                    setOrgName(consolidatedRes.data?.organization_name || 'Mi Grupo');
                 }
             } catch {
                 // Sin organización
