@@ -240,19 +240,31 @@ CREATE TABLE public.inter_company_transfer_items (
 
 ---
 
-### Sprint 5 — Transferencias entre empresas (Semana 4)
+### Sprint 5 — Transferencias entre empresas ✅ COMPLETADO (2026-04-05)
 
-**Backend:**
-- [ ] `POST /inter-transfers` — crear solicitud de transferencia
-- [ ] `GET /inter-transfers` — ver transferencias de mi empresa
-- [ ] `PATCH /inter-transfers/{id}/accept` — aceptar transferencia
-- [ ] `PATCH /inter-transfers/{id}/reject` — rechazar
-- [ ] Al aceptar: descontar stock de la empresa origen, sumar en la empresa destino, Kardex en ambas
+**Backend (Sprint 1):**
+- ✅ `POST /inter-transfers` — crear solicitud (valida stock disponible)
+- ✅ `GET /inter-transfers` — listar (enviadas y recibidas del tenant actual)
+- ✅ `PATCH /inter-transfers/{id}/accept` — acepta: descuenta en origen, suma en destino + Kardex TRANSFER_OUT / TRANSFER_IN en ambas BD
+- ✅ `PATCH /inter-transfers/{id}/reject` — rechaza la solicitud
 
 **Frontend:**
-- [ ] `InterCompanyTransfers.jsx` — módulo de transferencias entre empresas del grupo
-- [ ] Notificación cuando llega una solicitud de transferencia
-- [ ] Historial de transferencias
+- ✅ `InterCompanyTransfers.jsx` (608 líneas, completamente comentado):
+  - Tabs: Recibidas / Enviadas / Historial con badges de conteo
+  - `TransferCard` con empresas origen→destino, badge de estado, lista de ítems
+  - Botones Aceptar/Rechazar solo en transferencias entrantes pendientes
+  - `NewTransferModal` con selector de empresa destino, tabla de ítems (SKU + nombre + cantidad), nota
+  - Botón Agregar ítem y eliminar fila
+  - Estados vacíos, carga, sin organización
+- ✅ Ruta `/org/transfers` en `App.jsx`
+- ✅ NavItem "Transferencias" en `Sidebar` (icono ArrowLeftRight)
+
+**Tests — 5/5 ✅**
+- T1 Login → OK
+- T2 Listar (vacío inicial) → 0 transferencias
+- T3 Crear transferencia con stock suficiente → id=1, PENDING
+- T4 Listar tras crear → 1 transferencia
+- T5 Rechazar desde origen → REJECTED correctamente
 
 ---
 

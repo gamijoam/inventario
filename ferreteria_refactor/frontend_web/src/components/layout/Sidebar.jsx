@@ -208,6 +208,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                         isCollapsed={isCollapsed}
                                         onClick={close}
                                     />
+                                    <NavItem
+                                        icon={ArrowLeftRight}
+                                        label="Transferencias"
+                                        path="/org/transfers"
+                                        isCollapsed={isCollapsed}
+                                        onClick={close}
+                                    />
                                 </>
                             );
                         }
