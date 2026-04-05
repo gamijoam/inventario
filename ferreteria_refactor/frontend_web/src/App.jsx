@@ -117,15 +117,17 @@ class LazyErrorBoundary extends React.Component {
     return { hasError: true, error };
   }
   componentDidCatch(error, info) {
-    console.error('[LazyErrorBoundary] Error:', error?.message, info?.componentStack?.split('\n')[1]);
+    console.error('[LazyErrorBoundary]', error?.message, info?.componentStack);
   }
   render() {
     if (this.state.hasError) {
-      const msg = this.state.error?.message || '';
+      const msg   = this.state.error?.message || '';
+      const stack = this.state.error?.stack?.split('\n').slice(0,3).join(' | ') || '';
       return (
         <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
           <p className="text-gray-600">Error al cargar la página</p>
-          {msg && <p className="text-xs text-red-500 max-w-sm text-center font-mono">{msg}</p>}
+          {msg   && <p className="text-xs text-red-500 max-w-md text-center font-mono bg-red-50 p-2 rounded">{msg}</p>}
+          {stack && <p className="text-xs text-orange-500 max-w-md text-center font-mono bg-orange-50 p-2 rounded break-all">{stack}</p>}
           <button
             onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
