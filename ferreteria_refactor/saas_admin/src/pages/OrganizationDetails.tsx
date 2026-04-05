@@ -19,7 +19,7 @@ import {
 import toast from 'react-hot-toast';
 import {
   getOrganization, getOrgPlanInfo, getOrgTenants, getOrgMembers,
-  addTenantToOrg, removeTenantFromOrg, addOrgMember, removeOrgMember,
+  addTenantToOrg, removeTenantFromOrg, transferTenantToOrg, addOrgMember, removeOrgMember,
   updateOrgPlan, updateOrganization, updateOrgWhatsApp,
 } from '../api/organizations';
 import type { Organization, OrgMember, OrgTenant, PlanInfo } from '../api/organizations';
@@ -119,11 +119,97 @@ const TenantsTab: React.FC<TenantsTabProps> = ({ orgId, org, onRefresh }) => {
     } finally { setRemovingId(null); }
   };
 
+  // ── Transferencia entre organizaciones ───────────────────────────────────
+  const [transferTenant, setTransferTenant] = useState<{ id: number; name: string } | null>(null);
+  const [targetOrgId, setTargetOrgId]       = useState<string>('');
+  const [transferring, setTransferring]      = useState(false);
+  const [otherOrgs, setOtherOrgs]           = useState<Array<{ id: number; name: string }>>([]);
+
+  const openTransferModal = async (tenantId: number, name: string) => {
+    setTransferTenant({ id: tenantId, name });
+    setTargetOrgId('');
+    // Cargar otras organizaciones disponibles
+    try {
+      const r = await import('../api/axios').then(m => m.default.get('/organizations'));
+      const orgs = (r.data || []).filter((o: any) => o.id !== orgId && o.is_active);
+      setOtherOrgs(orgs);
+    } catch { setOtherOrgs([]); }
+  };
+
+  const handleTransfer = async () => {
+    if (!transferTenant || !targetOrgId) return;
+    if (!confirm(`¿Transferir "${transferTenant.name}" a la organización seleccionada?`)) return;
+    setTransferring(true);
+    try {
+      const res = await transferTenantToOrg(orgId, transferTenant.id, parseInt(targetOrgId));
+      toast.success(res.mensaje || '✅ Empresa transferida');
+      setTransferTenant(null);
+      load();
+      onRefresh();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.detail || 'Error al transferir');
+    } finally { setTransferring(false); }
+  };
+
   const usagePct = org.max_tenants > 0
     ? Math.min(100, Math.round((orgTenants.length / org.max_tenants) * 100))
     : 0;
 
   return (
+    <>
+    {/* ── Modal de transferencia ── */}
+    {transferTenant && (
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+          <div className="p-5 border-b border-slate-100">
+            <h3 className="font-black text-slate-800 text-base">Transferir empresa</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Mover <strong>{transferTenant.name}</strong> a otra organización
+            </p>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                Organización destino
+              </label>
+              <select
+                value={targetOrgId}
+                onChange={e => setTargetOrgId(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm outline-none focus:border-indigo-400"
+              >
+                <option value="">-- Selecciona organización --</option>
+                {otherOrgs.map(o => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+              {otherOrgs.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  No hay otras organizaciones activas disponibles.
+                </p>
+              )}
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
+              ⚠️ La empresa seguirá existiendo y funcionando. Solo cambia de grupo.
+            </div>
+          </div>
+          <div className="p-5 pt-0 flex gap-3">
+            <button
+              onClick={() => setTransferTenant(null)}
+              className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleTransfer}
+              disabled={!targetOrgId || transferring}
+              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            >
+              {transferring ? 'Transfiriendo...' : 'Transferir →'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="space-y-5">
 
       {/* Barra de uso */}
@@ -256,6 +342,14 @@ const TenantsTab: React.FC<TenantsTabProps> = ({ orgId, org, onRefresh }) => {
               >
                 <ChevronRight className="w-4 h-4" />
               </Link>
+              {/* Transferir */}
+              <button
+                onClick={() => openTransferModal(t.id, t.name)}
+                title="Transferir a otra organización"
+                className="p-2 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+              </button>
               {/* Quitar */}
               <button
                 onClick={() => handleRemove(t.id, t.name)}
@@ -273,6 +367,7 @@ const TenantsTab: React.FC<TenantsTabProps> = ({ orgId, org, onRefresh }) => {
         </div>
       )}
     </div>
+    </>
   );
 };
 

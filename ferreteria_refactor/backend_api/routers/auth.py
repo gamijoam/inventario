@@ -311,6 +311,9 @@ async def login_for_access_token(
                     "name"       : _t.name,
                     "switch_url" : f"https://{_t.schema_name}.miinventariofacil.com",
                     "is_current" : _t.schema_name == tenant_slug,
+                    "org_id"     : _m.organization_id,
+                    "org_role"   : _m.role,       # "owner" | "manager"
+                    "can_switch" : _m.can_switch,
                 })
 
         # También incluir el tenant actual si no está ya en la lista

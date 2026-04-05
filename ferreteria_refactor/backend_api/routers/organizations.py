@@ -95,6 +95,40 @@ def create_organization(
     db.commit()
     db.refresh(org)
 
+    # Si se proporcionó contraseña, crear el usuario dueño en cada tenant de la org
+    # (los tenants se agregan después, pero si ya están asignados se crea inmediatamente)
+    if data.owner_password:
+        try:
+            from passlib.context import CryptContext as _Crypt
+            from ..models.models import User as _User, UserRole as _Role
+            _ctx  = _Crypt(schemes=["bcrypt"], deprecated="auto")
+            _hash = _ctx.hash(data.owner_password)
+
+            # Crear en todos los tenants que ya pertenezcan a la org
+            _org_tenants = db.query(Tenant).filter(
+                Tenant.organization_id == org.id,
+                Tenant.is_active == True
+            ).all()
+            for _t in _org_tenants:
+                _exists = db.query(_User).filter(
+                    _User.email == data.owner_email.lower().strip(),
+                    _User.tenant_id == _t.id
+                ).first()
+                if not _exists:
+                    _u = _User(
+                        email         = data.owner_email.lower().strip(),
+                        username      = data.owner_name or data.owner_email.split("@")[0],
+                        password_hash = _hash,
+                        role          = _Role.ADMIN,
+                        tenant_id     = _t.id,
+                        is_active     = True,
+                        is_superuser  = False,
+                    )
+                    db.add(_u)
+            db.commit()
+        except Exception as _e:
+            print(f"[Org] ⚠️ No se pudo crear usuario dueño: {_e}")
+
     return OrganizationOut(
         **{c.name: getattr(org, c.name) for c in org.__table__.columns},
         member_count = 1,
@@ -330,6 +364,68 @@ def remove_tenant_from_org(
     tenant.organization_id = None
     db.commit()
     return {"message": f"Empresa '{tenant.name}' removida de la organización"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TRANSFERENCIA DE EMPRESAS ENTRE ORGANIZACIONES
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/{org_id}/tenants/{tenant_id}/transfer", status_code=200)
+def transfer_tenant_to_org(
+    org_id: int,
+    tenant_id: int,
+    target_org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Transferir una empresa de una organización a otra.
+    Solo superadmin. La empresa sale de org_id y entra a target_org_id.
+    """
+    # Verificar org origen
+    org_origen = _get_org_or_404(db, org_id)
+
+    # Verificar org destino
+    org_destino = db.query(Organization).filter(Organization.id == target_org_id).first()
+    if not org_destino:
+        raise HTTPException(status_code=404, detail="Organización destino no encontrada")
+    if not org_destino.is_active:
+        raise HTTPException(status_code=400, detail="La organización destino está inactiva")
+
+    # Verificar que la empresa existe y pertenece a org_origen
+    tenant = db.query(Tenant).filter(
+        Tenant.id == tenant_id,
+        Tenant.organization_id == org_id
+    ).first()
+    if not tenant:
+        raise HTTPException(
+            status_code=404,
+            detail=f"La empresa no existe o no pertenece a la organización '{org_origen.name}'"
+        )
+
+    # Verificar límite en la org destino
+    destino_count = db.execute(
+        text("SELECT COUNT(*) FROM public.tenants WHERE organization_id = :id"),
+        {"id": target_org_id}
+    ).scalar() or 0
+    if destino_count >= org_destino.max_tenants:
+        raise HTTPException(
+            status_code=400,
+            detail=f"La organización destino ya tiene {destino_count}/{org_destino.max_tenants} empresas. Actualiza el plan."
+        )
+
+    # Ejecutar la transferencia
+    nombre_tenant = tenant.name
+    tenant.organization_id = target_org_id
+    db.commit()
+
+    return {
+        "ok"           : True,
+        "mensaje"      : f"'{nombre_tenant}' transferida de '{org_origen.name}' → '{org_destino.name}'",
+        "tenant_id"    : tenant_id,
+        "org_origen_id": org_id,
+        "org_destino_id": target_org_id,
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════

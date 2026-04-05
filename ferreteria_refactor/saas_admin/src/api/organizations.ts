@@ -68,6 +68,7 @@ export interface CreateOrgDTO {
   name          : string;
   owner_email   : string;
   owner_name?   : string;
+  owner_password: string;   // Contraseña para crear el usuario en todos los tenants
   plan          : 'duo' | 'multi' | 'enterprise';
   max_tenants   : number;
   primary_color?: string;
@@ -164,5 +165,29 @@ export const updateOrgWhatsApp = async (
   data: { use_shared_whatsapp: boolean; whatsapp_instance?: string | null }
 ): Promise<Organization> => {
   const r = await api.patch<Organization>(`/organizations/${orgId}/whatsapp`, data);
+  return r.data;
+};
+
+
+// ── Transferencia de empresa entre organizaciones ─────────────────────────────
+
+export interface TransferTenantResult {
+  ok           : boolean;
+  mensaje      : string;
+  tenant_id    : number;
+  org_origen_id : number;
+  org_destino_id: number;
+}
+
+export const transferTenantToOrg = async (
+  orgId      : number,
+  tenantId   : number,
+  targetOrgId: number
+): Promise<TransferTenantResult> => {
+  const r = await api.post(
+    `/organizations/${orgId}/tenants/${tenantId}/transfer`,
+    null,
+    { params: { target_org_id: targetOrgId } }
+  );
   return r.data;
 };

@@ -47,16 +47,18 @@ interface CreateOrgModalProps {
 }
 
 const CreateOrgModal: React.FC<CreateOrgModalProps> = ({ onClose, onCreated }) => {
-  const [form, setForm] = useState<CreateOrgDTO>({
-    name         : '',
-    owner_email  : '',
-    owner_name   : '',
-    plan         : 'multi',
-    max_tenants  : 5,
-    plan_price   : 0,
-    plan_notes   : '',
-    primary_color: '#4F46E5',
+  const [form, setForm] = useState<CreateOrgDTO & { owner_password: string }>({
+    name          : '',
+    owner_email   : '',
+    owner_name    : '',
+    owner_password: '',
+    plan          : 'multi',
+    max_tenants   : 5,
+    plan_price    : 0,
+    plan_notes    : '',
+    primary_color : '#4F46E5',
   });
+  const [showPass, setShowPass] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -71,6 +73,8 @@ const CreateOrgModal: React.FC<CreateOrgModalProps> = ({ onClose, onCreated }) =
     if (!form.name.trim())                 e.name         = 'El nombre es obligatorio';
     if (!form.owner_email.trim())          e.owner_email  = 'El email es obligatorio';
     if (!/\S+@\S+\.\S+/.test(form.owner_email)) e.owner_email = 'Email inválido';
+    if (!form.owner_password.trim())          e.owner_password = 'La contraseña es obligatoria';
+    if (form.owner_password.trim().length < 8) e.owner_password = 'Mínimo 8 caracteres';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -139,6 +143,34 @@ const CreateOrgModal: React.FC<CreateOrgModalProps> = ({ onClose, onCreated }) =
             {errors.owner_email && <p className="text-red-500 text-xs mt-1">{errors.owner_email}</p>}
             <p className="text-xs text-slate-400 mt-1">
               Este usuario verá el selector de empresas al iniciar sesión.
+            </p>
+          </div>
+
+          {/* Contraseña del dueño */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5">
+              Contraseña de acceso <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showPass ? 'text' : 'password'}
+                value={form.owner_password}
+                onChange={e => setForm(p => ({ ...p, owner_password: e.target.value }))}
+                placeholder="Mínimo 8 caracteres"
+                className={`w-full px-3 py-2.5 pr-16 rounded-xl border text-sm outline-none transition-colors
+                  ${errors.owner_password ? 'border-red-300 focus:border-red-500' : 'border-slate-200 focus:border-indigo-400'}`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400 hover:text-slate-600"
+              >
+                {showPass ? 'Ocultar' : 'Ver'}
+              </button>
+            </div>
+            {errors.owner_password && <p className="text-red-500 text-xs mt-1">{errors.owner_password}</p>}
+            <p className="text-xs text-slate-400 mt-1">
+              El dueño usará esta contraseña para ingresar a las empresas de la organización.
             </p>
           </div>
 

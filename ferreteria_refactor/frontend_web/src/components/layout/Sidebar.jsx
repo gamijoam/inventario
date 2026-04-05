@@ -192,15 +192,31 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                     try {
                         const orgs = JSON.parse(localStorage.getItem('org_companies') || '[]');
                         if (orgs.length > 1) {
+                            // org_role viene en cada empresa — buscar el del tenant actual
+                            const currentOrg = orgs.find(o => o.is_current) || orgs[0];
+                            const orgRole    = currentOrg?.org_role || 'manager'; // 'owner' | 'manager'
+                            const isOrgOwner = orgRole === 'owner';
                             return (
                                 <>
-                                    <NavItem
-                                        icon={Building2}
-                                        label="Grupo Empresarial"
-                                        path="/org/dashboard"
-                                        isCollapsed={isCollapsed}
-                                        onClick={close}
-                                    />
+                                    {/* Separador visual del grupo */}
+                                    {!isCollapsed && (
+                                        <div className="px-3 pt-3 pb-1">
+                                            <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1">
+                                                <span>🏢</span> Mi Grupo Empresarial
+                                            </p>
+                                        </div>
+                                    )}
+                                    {/* Dashboard consolidado — solo para el dueño */}
+                                    {isOrgOwner && (
+                                        <NavItem
+                                            icon={BarChart3}
+                                            label="Métricas del Grupo"
+                                            path="/org/dashboard"
+                                            isCollapsed={isCollapsed}
+                                            onClick={close}
+                                        />
+                                    )}
+                                    {/* Catálogo y transferencias — todos los miembros */}
                                     <NavItem
                                         icon={BookOpen}
                                         label="Catálogo Compartido"
@@ -215,13 +231,16 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                         isCollapsed={isCollapsed}
                                         onClick={close}
                                     />
-                                    <NavItem
-                                        icon={Settings}
-                                        label="Config. del Grupo"
-                                        path="/org/config"
-                                        isCollapsed={isCollapsed}
-                                        onClick={close}
-                                    />
+                                    {/* Config del grupo — solo para el dueño */}
+                                    {isOrgOwner && (
+                                        <NavItem
+                                            icon={Settings}
+                                            label="Config. del Grupo"
+                                            path="/org/config"
+                                            isCollapsed={isCollapsed}
+                                            onClick={close}
+                                        />
+                                    )}
                                 </>
                             );
                         }

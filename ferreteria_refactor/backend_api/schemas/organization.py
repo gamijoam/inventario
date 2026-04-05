@@ -10,13 +10,14 @@ import re
 # ── Organizations ─────────────────────────────────────────────────────────────
 
 class OrganizationCreate(BaseModel):
-    name          : str
-    owner_email   : str
-    owner_name    : Optional[str] = None
-    plan          : str = "multi"
-    max_tenants   : int = 5
-    primary_color : str = "#4F46E5"
-    logo_url      : Optional[str] = None
+    name           : str
+    owner_email    : str
+    owner_name     : Optional[str] = None
+    owner_password : Optional[str] = None  # Si se da, crea el usuario en todos los tenants
+    plan           : str = "multi"
+    max_tenants    : int = 5
+    primary_color  : str = "#4F46E5"
+    logo_url       : Optional[str] = None
 
     @field_validator("name")
     @classmethod

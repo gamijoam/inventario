@@ -89,6 +89,15 @@ export default function OrgConfig() {
     const [planInfo, setPlanInfo] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Detectar si el usuario actual es dueño del grupo (desde localStorage)
+    const isOrgOwner = (() => {
+        try {
+            const orgs = JSON.parse(localStorage.getItem('org_companies') || '[]');
+            const current = orgs.find(o => o.is_current) || orgs[0];
+            return current?.org_role === 'owner';
+        } catch { return false; }
+    })();
+
     // Estado de los formularios de cada sección
     const [waConfig, setWaConfig] = useState({
         use_shared_whatsapp: false,
@@ -183,6 +192,23 @@ export default function OrgConfig() {
     const planMeta = planLabels[org.plan] || { label: org.plan, color: 'slate', icon: '📦' };
 
     // ── Render principal ──────────────────────────────────────────────────────
+    // ── Guard: solo el dueño puede ver la configuración completa ─────────────
+    if (!isOrgOwner) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+                <div className="text-center max-w-sm">
+                    <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <span className="text-3xl">🔒</span>
+                    </div>
+                    <h2 className="text-lg font-black text-slate-800 mb-2">Acceso restringido</h2>
+                    <p className="text-sm text-slate-500">
+                        Solo el dueño de la organización puede ver y editar la configuración del grupo empresarial.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-slate-50">
             <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
