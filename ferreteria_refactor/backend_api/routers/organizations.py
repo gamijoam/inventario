@@ -20,7 +20,8 @@ from ..schemas.organization import (
     InviteMemberRequest, OrganizationMemberOut, OrganizationTenantOut,
     SharedProductCreate, SharedProductOut, ImportSharedProductRequest,
     InterCompanyTransferCreate, InterCompanyTransferOut,
-    ConsolidatedSummary, TenantDailySummary, OrgCompanyOut
+    ConsolidatedSummary, TenantDailySummary, OrgCompanyOut,
+    OrgPlanConfig, OrgWhatsAppConfig
 )
 from ..dependencies import get_current_active_user, get_current_superuser
 from ..utils.time_utils import get_venezuela_now
@@ -521,6 +522,155 @@ def import_catalog_to_tenant(
 # ══════════════════════════════════════════════════════════════════════════════
 # DASHBOARD CONSOLIDADO
 # ══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONFIGURACIÓN DE PLAN — Sprint 6
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.patch("/{org_id}/plan", response_model=OrganizationOut)
+def update_org_plan(
+    org_id: int,
+    config: OrgPlanConfig,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """
+    Actualizar el plan de una organización.
+    Solo superadmin. Usado desde el panel SaaS y el bot de Telegram.
+    Planes disponibles: duo (2 empresas), multi (5), enterprise (ilimitadas).
+    """
+    org = _get_org_or_404(db, org_id)
+
+    # Actualizar campos del plan
+    org.plan            = config.plan
+    org.max_tenants     = config.max_tenants
+    org.plan_price      = config.plan_price
+    org.plan_notes      = config.plan_notes
+    org.plan_expires_at = config.plan_expires_at
+
+    db.commit()
+    db.refresh(org)
+
+    tenant_count = db.execute(
+        text("SELECT COUNT(*) FROM public.tenants WHERE organization_id = :id"),
+        {"id": org.id}
+    ).scalar() or 0
+
+    return OrganizationOut(
+        **{c.name: getattr(org, c.name) for c in org.__table__.columns},
+        member_count = len(org.members),
+        tenant_count = tenant_count
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONFIGURACIÓN DE WHATSAPP COMPARTIDO — Sprint 6
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.patch("/{org_id}/whatsapp", response_model=OrganizationOut)
+def update_org_whatsapp(
+    org_id: int,
+    config: OrgWhatsAppConfig,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Configurar WhatsApp compartido para la organización.
+    Cuando está activo, todas las empresas del grupo usan la misma
+    instancia de Baileys para enviar mensajes a clientes.
+    Solo owner de la organización o superadmin puede modificar.
+    """
+    org = db.query(Organization).options(
+        joinedload(Organization.members)
+    ).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organización no encontrada")
+
+    # Verificar permiso: owner o superadmin
+    if not current_user.is_superuser:
+        member = next((m for m in org.members if m.user_email == current_user.email), None)
+        if not member or member.role != "owner":
+            raise HTTPException(status_code=403, detail="Solo el owner puede configurar WhatsApp compartido")
+
+    org.use_shared_whatsapp = config.use_shared_whatsapp
+    org.whatsapp_instance   = config.whatsapp_instance if config.use_shared_whatsapp else None
+
+    db.commit()
+    db.refresh(org)
+
+    tenant_count = db.execute(
+        text("SELECT COUNT(*) FROM public.tenants WHERE organization_id = :id"),
+        {"id": org.id}
+    ).scalar() or 0
+
+    status = "activado" if config.use_shared_whatsapp else "desactivado"
+    print(f"[ORG] WhatsApp compartido {status} para org '{org.name}' (instancia: {org.whatsapp_instance})")
+
+    return OrganizationOut(
+        **{c.name: getattr(org, c.name) for c in org.__table__.columns},
+        member_count = len(org.members),
+        tenant_count = tenant_count
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# RESUMEN DEL PLAN — info pública del plan de la organización
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/{org_id}/plan-info")
+def get_plan_info(
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Obtener información del plan actual de la organización.
+    Incluye límites, uso actual y estado de expiración.
+    """
+    org = _get_org_or_404(db, org_id)
+    _assert_org_access(org, current_user)
+
+    # Conteo actual de empresas
+    tenant_count = db.execute(
+        text("SELECT COUNT(*) FROM public.tenants WHERE organization_id = :id"),
+        {"id": org.id}
+    ).scalar() or 0
+
+    # Calcular si el plan ha vencido
+    from datetime import datetime as _dt
+    expired = False
+    days_left = None
+    if org.plan_expires_at:
+        delta = org.plan_expires_at - _dt.now()
+        expired   = delta.days < 0
+        days_left = max(0, delta.days)
+
+    # Definición de planes
+    plan_limits = {
+        "duo"       : {"label": "Dúo",        "max": 2,  "desc": "Hasta 2 empresas"},
+        "multi"     : {"label": "Multi",       "max": 5,  "desc": "Hasta 5 empresas"},
+        "enterprise": {"label": "Enterprise",  "max": 999,"desc": "Empresas ilimitadas"},
+    }
+    plan_info = plan_limits.get(org.plan, {"label": org.plan, "max": org.max_tenants, "desc": ""})
+
+    return {
+        "organization_id"     : org.id,
+        "organization_name"   : org.name,
+        "plan"                : org.plan,
+        "plan_label"          : plan_info["label"],
+        "plan_description"    : plan_info["desc"],
+        "max_tenants"         : org.max_tenants,
+        "current_tenants"     : tenant_count,
+        "slots_available"     : max(0, org.max_tenants - tenant_count),
+        "plan_price"          : float(org.plan_price or 0),
+        "plan_expires_at"     : org.plan_expires_at.isoformat() if org.plan_expires_at else None,
+        "is_expired"          : expired,
+        "days_left"           : days_left,
+        "use_shared_whatsapp" : org.use_shared_whatsapp or False,
+        "whatsapp_instance"   : org.whatsapp_instance,
+        "is_active"           : org.is_active,
+    }
+
 
 @router.get("/{org_id}/consolidated", response_model=ConsolidatedSummary)
 def consolidated_dashboard(

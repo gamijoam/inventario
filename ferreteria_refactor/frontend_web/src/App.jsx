@@ -98,6 +98,8 @@ const ConsolidatedDashboard = React.lazy(() => import('./pages/Org/ConsolidatedD
 const SharedCatalog = React.lazy(() => import('./pages/Org/SharedCatalog'));
 // Multi-empresa — Sprint 5
 const InterCompanyTransfers = React.lazy(() => import('./pages/Org/InterCompanyTransfers'));
+// Multi-empresa — Sprint 6
+const OrgConfig = React.lazy(() => import('./pages/Org/OrgConfig'));
 
 // Suspense fallback spinner
 const SuspenseFallback = (
@@ -290,6 +292,8 @@ function App() {
                               <Route path="/org/catalog" element={<SharedCatalog />} />
                               {/* Multi-empresa: transferencias de stock entre empresas */}
                               <Route path="/org/transfers" element={<InterCompanyTransfers />} />
+                              {/* Multi-empresa: configuración del grupo */}
+                              <Route path="/org/config" element={<OrgConfig />} />
 
                               {/* Unified Inventory Center */}
                               <Route path="/inventory-center" element={

@@ -94,10 +94,19 @@ UNION ALL SELECT
     'inter_company_transfers',             COUNT(*) FROM public.inter_company_transfers;
 
 -- ================================================================
+-- SPRINT 6: Columnas nuevas en organizations (WhatsApp + Plan)
+-- ================================================================
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS use_shared_whatsapp BOOLEAN DEFAULT false;
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS whatsapp_instance    VARCHAR(100) DEFAULT NULL;
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS plan_expires_at      TIMESTAMP    DEFAULT NULL;
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS plan_price           NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS plan_notes           TEXT         DEFAULT NULL;
+
+-- ================================================================
 -- ESTADO DE APLICACIÓN
 -- ================================================================
--- QA:   ✅ Aplicado 2026-04-05 — 5 tablas + columna organization_id en tenants
--- PROD: ⏳ Pendiente — aplicar cuando se apruebe el merge del Sprint 1
+-- QA:   ✅ Aplicado 2026-04-05 — 5 tablas + organization_id + WA + plan
+-- PROD: ⏳ Pendiente — aplicar cuando se apruebe el merge completo
 --
 -- Comando para aplicar en PROD cuando llegue el momento:
 -- docker exec -i db_prod_server psql -U postgres -d invensoft_prod < /ruta/migrate_multi_empresa.sql

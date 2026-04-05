@@ -27,13 +27,18 @@ class OrganizationCreate(BaseModel):
 
 
 class OrganizationUpdate(BaseModel):
-    name          : Optional[str]  = None
-    owner_name    : Optional[str]  = None
-    plan          : Optional[str]  = None
-    max_tenants   : Optional[int]  = None
-    is_active     : Optional[bool] = None
-    primary_color : Optional[str]  = None
-    logo_url      : Optional[str]  = None
+    name                 : Optional[str]      = None
+    owner_name           : Optional[str]      = None
+    plan                 : Optional[str]      = None
+    max_tenants          : Optional[int]      = None
+    is_active            : Optional[bool]     = None
+    primary_color        : Optional[str]      = None
+    logo_url             : Optional[str]      = None
+    use_shared_whatsapp  : Optional[bool]     = None
+    whatsapp_instance    : Optional[str]      = None
+    plan_expires_at      : Optional[datetime] = None
+    plan_price           : Optional[float]    = None
+    plan_notes           : Optional[str]      = None
 
 
 class OrganizationMemberOut(BaseModel):
@@ -57,19 +62,24 @@ class OrganizationTenantOut(BaseModel):
 
 
 class OrganizationOut(BaseModel):
-    id            : int
-    name          : str
-    slug          : str
-    owner_email   : str
-    owner_name    : Optional[str]
-    plan          : str
-    max_tenants   : int
-    is_active     : bool
-    created_at    : datetime
-    logo_url      : Optional[str]
-    primary_color : str
-    member_count  : int = 0
-    tenant_count  : int = 0
+    id                   : int
+    name                 : str
+    slug                 : str
+    owner_email          : str
+    owner_name           : Optional[str]
+    plan                 : str
+    max_tenants          : int
+    is_active            : bool
+    created_at           : datetime
+    logo_url             : Optional[str]
+    primary_color        : str
+    use_shared_whatsapp  : bool = False
+    whatsapp_instance    : Optional[str] = None
+    plan_expires_at      : Optional[datetime] = None
+    plan_price           : float = 0.0
+    plan_notes           : Optional[str] = None
+    member_count         : int = 0
+    tenant_count         : int = 0
     model_config = {"from_attributes": True}
 
 
@@ -186,3 +196,20 @@ class OrgCompanyOut(BaseModel):
     is_active   : bool
     logo_url    : Optional[str] = None
     switch_url  : Optional[str] = None   # URL del subdominio de la empresa
+
+
+# ── Configuración de plan desde el panel SaaS ─────────────────────────────────
+
+class OrgPlanConfig(BaseModel):
+    """Configuración del plan de una organización (desde panel admin / bot Telegram)."""
+    plan            : str               # duo | multi | enterprise
+    max_tenants     : int = 5
+    plan_price      : float = 0.0
+    plan_notes      : Optional[str] = None
+    plan_expires_at : Optional[datetime] = None
+
+
+class OrgWhatsAppConfig(BaseModel):
+    """Configuración de WhatsApp compartido para la organización."""
+    use_shared_whatsapp : bool          # Activar / desactivar WA compartido
+    whatsapp_instance   : Optional[str] = None  # Nombre de la instancia Baileys

@@ -28,6 +28,17 @@ class Organization(Base):
     logo_url      = Column(Text,        nullable=True)
     primary_color = Column(String(10),  default="#4F46E5")
 
+    # ── WhatsApp compartido ──────────────────────────────────────────────────────
+    # Si True, todas las empresas del grupo comparten una misma instancia de Baileys
+    use_shared_whatsapp  = Column(Boolean,     default=False,  nullable=True)
+    # Nombre de la instancia de Baileys compartida (ej: "grupo-rodriguez")
+    whatsapp_instance    = Column(String(100), nullable=True)
+
+    # ── Plan y facturación ────────────────────────────────────────────────────
+    plan_expires_at      = Column(DateTime,    nullable=True)   # NULL = sin vencimiento
+    plan_price           = Column(Numeric(10,2), default=0)     # Precio mensual acordado
+    plan_notes           = Column(Text,        nullable=True)   # Notas internas del plan
+
     # Relaciones
     members  = relationship("OrganizationUser",    back_populates="organization", cascade="all, delete-orphan")
     products = relationship("SharedProduct",        back_populates="organization", cascade="all, delete-orphan")

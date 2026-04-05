@@ -190,7 +190,7 @@ def accept_transfer(
                 f'VALUES (:pid, :mtype, :qty, :bal, :desc, NOW())'
             ), {
                 "pid"  : prod_id_origin,
-                "mtype": "TRANSFER_OUT",
+                "mtype": "EXTERNAL_TRANSFER_OUT",
                 "qty"  : -qty,
                 "bal"  : new_stock_origin,
                 "desc" : f"Transferencia a {schema} — Transfer #{transfer_id}"
@@ -217,7 +217,7 @@ def accept_transfer(
                 f'VALUES (:pid, :mtype, :qty, :bal, :desc, NOW())'
             ), {
                 "pid"  : prod_id_dest,
-                "mtype": "TRANSFER_IN",
+                "mtype": "EXTERNAL_TRANSFER_IN",
                 "qty"  : qty,
                 "bal"  : new_stock_dest,
                 "desc" : f"Transferencia desde {from_schema} — Transfer #{transfer_id}"
@@ -235,6 +235,24 @@ def accept_transfer(
                 "price": float(item.unit_cost or 0),
                 "cost" : float(item.unit_cost or 0)
             })
+
+            # Obtener el id del producto recién creado para el Kardex
+            new_prod_id = db.execute(text(
+                f'SELECT id FROM "{schema}".products WHERE sku = :sku'
+            ), {"sku": item.product_sku}).scalar()
+
+            if new_prod_id:
+                db.execute(text(
+                    f'INSERT INTO "{schema}".kardex '
+                    f'(product_id, movement_type, quantity, balance_after, description, date) '
+                    f'VALUES (:pid, :mtype, :qty, :bal, :desc, NOW())'
+                ), {
+                    "pid"  : new_prod_id,
+                    "mtype": "EXTERNAL_TRANSFER_IN",
+                    "qty"  : qty,
+                    "bal"  : qty,
+                    "desc" : f"Transferencia desde {from_schema} — Transfer #{transfer_id} (producto nuevo)"
+                })
 
     # Marcar transferencia como completada
     transfer.status       = "ACCEPTED"

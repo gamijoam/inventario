@@ -215,6 +215,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                         isCollapsed={isCollapsed}
                                         onClick={close}
                                     />
+                                    <NavItem
+                                        icon={Settings}
+                                        label="Config. del Grupo"
+                                        path="/org/config"
+                                        isCollapsed={isCollapsed}
+                                        onClick={close}
+                                    />
                                 </>
                             );
                         }
