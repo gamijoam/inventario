@@ -13,6 +13,8 @@ import Reminders from './pages/RemindersPage';
 import BackupsPage from './pages/BackupsPage';
 import LicensesPage from './pages/LicensesPage';
 import ActivityDashboard from './pages/ActivityDashboard';
+import Organizations from './pages/Organizations';
+import OrganizationDetails from './pages/OrganizationDetails';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }: { children: ReactElement }) => {
@@ -57,6 +59,8 @@ const App = () => {
             <Route path="backups" element={<BackupsPage />} />
             <Route path="licenses" element={<LicensesPage />} />
             <Route path="activity" element={<ActivityDashboard />} />
+            <Route path="organizations" element={<Organizations />} />
+            <Route path="organizations/:id" element={<OrganizationDetails />} />
           </Route>
 
           {/* Redirect root to dashboard (which handles auth) */}
