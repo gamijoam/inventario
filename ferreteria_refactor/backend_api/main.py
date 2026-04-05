@@ -280,6 +280,8 @@ v1_router.include_router(admin_flags_router, tags=["Feature Flags"])
 
 # Include Public Auth and Restaurant in v1 hierarchy too
 from .routers import public_auth
+from .routers import organizations
+from .routers import inter_transfers
 v1_router.include_router(public_auth.router, tags=["Public Auth"])
 
 from .routers.modules.restaurant import tables as restaurant_tables
@@ -292,6 +294,8 @@ v1_router.include_router(restaurant_menu.router, prefix="/restaurant", tags=["Re
 
 # Finally, include the master router into the app
 app.include_router(v1_router)
+app.include_router(organizations.router, prefix="/api/v1")
+app.include_router(inter_transfers.router, prefix="/api/v1")
 
 # DEBUG ENDPOINT - Remove after debugging
 @app.get("/api/v1/debug/routes", dependencies=[Depends(get_current_superuser)])

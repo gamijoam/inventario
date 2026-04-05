@@ -120,31 +120,52 @@ CREATE TABLE public.inter_company_transfer_items (
 
 ## 3. Sprints de desarrollo
 
-### Sprint 1 — Base de datos y backend (Semana 1)
+### Sprint 1 — Base de datos y backend ✅ COMPLETADO (2026-04-05)
 
-**Migraciones:**
-- [ ] Crear `public.organizations`
-- [ ] Crear `public.organization_users`
-- [ ] Agregar `organization_id` en `public.tenants`
-- [ ] Crear `public.shared_products`
-- [ ] Crear `public.inter_company_transfers` + items
+**Migraciones aplicadas en QA:**
+- ✅ Crear `public.organizations`
+- ✅ Crear `public.organization_users`
+- ✅ Agregar `organization_id` en `public.tenants`
+- ✅ Crear `public.shared_products`
+- ✅ Crear `public.inter_company_transfers` + items
+- ✅ `onboarding_completed` y `onboarding_step` en modelo Tenant
+- ⏳ Pendiente aplicar en PROD — ver `migrate_multi_empresa.sql`
 
-**Backend — nuevos routers:**
-- [ ] `POST /admin/organizations` — crear organización
-- [ ] `GET /admin/organizations` — listar organizaciones
-- [ ] `PATCH /admin/organizations/{id}` — editar
-- [ ] `POST /admin/organizations/{id}/tenants` — agregar empresa al grupo
-- [ ] `DELETE /admin/organizations/{id}/tenants/{tenant_id}` — quitar empresa
-- [ ] `POST /admin/organizations/{id}/users` — invitar usuario al grupo
-- [ ] `GET /organizations/mine` — mis organizaciones (para el dueño)
-- [ ] `GET /organizations/{id}/switch/{tenant_id}` — generar token de cambio de empresa
-- [ ] `GET /organizations/{id}/consolidated` — dashboard consolidado
+**Archivos creados:**
+- `backend_api/models/organization.py` — 5 modelos SQLAlchemy
+- `backend_api/schemas/organization.py` — 12 schemas Pydantic
+- `backend_api/routers/organizations.py` — 13 endpoints
+- `backend_api/routers/inter_transfers.py` — 4 endpoints
+- `models/tenant.py` — columna `organization_id` agregada
 
-**Bot de Telegram:**
-- [ ] `/org crear [nombre] [email_dueño]` — crear organización
-- [ ] `/org listar` — listar organizaciones
-- [ ] `/org agregar [org_id] [schema]` — agregar empresa a organización
-- [ ] `/org plan [org_id] [plan]` — cambiar plan
+**Endpoints disponibles (13 + 4):**
+- ✅ `POST /organizations` — crear organización (superadmin)
+- ✅ `GET /organizations` — listar (superadmin)
+- ✅ `GET /organizations/mine` — mis empresas (selector de login)
+- ✅ `GET /organizations/{id}` — detalle
+- ✅ `PATCH /organizations/{id}` — editar (superadmin)
+- ✅ `GET /organizations/{id}/tenants` — empresas del grupo
+- ✅ `POST /organizations/{id}/tenants/{tenant_id}` — agregar empresa
+- ✅ `DELETE /organizations/{id}/tenants/{tenant_id}` — quitar empresa
+- ✅ `GET /organizations/{id}/members` — listar miembros
+- ✅ `POST /organizations/{id}/members` — invitar miembro
+- ✅ `DELETE /organizations/{id}/members/{member_id}` — quitar miembro
+- ✅ `GET /organizations/{id}/catalog` — catálogo compartido
+- ✅ `POST /organizations/{id}/catalog` — agregar al catálogo
+- ✅ `POST /organizations/{id}/catalog/import` — importar a una empresa
+- ✅ `GET /organizations/{id}/consolidated` — dashboard consolidado
+- ✅ `POST /inter-transfers` — crear transferencia de stock
+- ✅ `GET /inter-transfers` — listar transferencias
+- ✅ `PATCH /inter-transfers/{id}/accept` — aceptar (descuenta/suma stock + Kardex)
+- ✅ `PATCH /inter-transfers/{id}/reject` — rechazar
+
+**Tests ejecutados — 8/8 ✅**
+
+**Bot de Telegram (Sprint 3):**
+- [ ] `/org crear [nombre] [email_dueño]`
+- [ ] `/org listar`
+- [ ] `/org agregar [org_id] [schema]`
+- [ ] `/org plan [org_id] [plan]`
 
 ---
 

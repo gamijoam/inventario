@@ -77,6 +77,12 @@ CREATE TABLE IF NOT EXISTS public.inter_company_transfer_items (
     unit_cost       NUMERIC(14,4) DEFAULT 0
 );
 
+-- 6. Columnas nuevas en el modelo Tenant (ya existen en BD prod vía migraciones anteriores)
+--    Agregar si no existen (las que son nuevas de multi-empresa)
+ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT false;
+ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS onboarding_step      INTEGER DEFAULT 0;
+-- organization_id ya fue agregado arriba (step 2)
+
 -- Verificación
 SELECT
     'organizations'             AS tabla, COUNT(*) FROM public.organizations
@@ -86,3 +92,13 @@ UNION ALL SELECT
     'shared_products',                     COUNT(*) FROM public.shared_products
 UNION ALL SELECT
     'inter_company_transfers',             COUNT(*) FROM public.inter_company_transfers;
+
+-- ================================================================
+-- ESTADO DE APLICACIÓN
+-- ================================================================
+-- QA:   ✅ Aplicado 2026-04-05 — 5 tablas + columna organization_id en tenants
+-- PROD: ⏳ Pendiente — aplicar cuando se apruebe el merge del Sprint 1
+--
+-- Comando para aplicar en PROD cuando llegue el momento:
+-- docker exec -i db_prod_server psql -U postgres -d invensoft_prod < /ruta/migrate_multi_empresa.sql
+-- ================================================================

@@ -40,5 +40,12 @@ class Tenant(Base):
     # Tipo JSON (cross-DB); la migración declara JSONB en PostgreSQL
     feature_flags = Column(JSON, nullable=False, server_default='{}')
 
+    # Onboarding
+    onboarding_completed = Column(Boolean, default=False, nullable=True)
+    onboarding_step      = Column(Integer, default=0,     nullable=True)
+
+    # Multi-empresa — organización a la que pertenece este tenant
+    organization_id = Column(Integer, nullable=True)  # FK a public.organizations
+
     def __repr__(self):
         return f"<Tenant(name={self.name}, schema={self.schema_name})>"
