@@ -693,72 +693,81 @@ class SalesService:
             # Audit log
             log_action(db, user_id=user_id, action="CREATE", table_name="sales", record_id=new_sale_id, changes=None, ip_address=None)
 
-            # ── BloqueCelular: Sincronizar venta a crédito ──────────────────────────
-            # Si la venta es a crédito, crear el cliente y registrar el dispositivo
-            # en BloqueCelular. Esto es no-bloqueante: si falla, la venta ya fue guardada.
+            # ── BloqueCelular: Sincronizar venta a crédito (solo celulares) ───────────
+            # REGLA: Solo se sincronizan productos con has_imei=True (celulares).
+            # Productos sin IMEI (ropa, alimentos, etc.) NO se envían a BloqueCelular.
+            # No-bloqueante: si falla, la venta ya fue guardada correctamente.
             if sale_data.is_credit and sale_customer_id:
                 try:
                     from ..services.bloqueocelular_service import sincronizar_venta_credito, is_enabled
                     from ..tenant_context import get_tenant_schema as _gts
+                    from sqlalchemy import text as _blq_text
                     _schema = _gts()
 
                     if is_enabled(db, _schema):
-                        # Obtener datos del cliente
-                        from sqlalchemy import text as _blq_text
-                        _cust_row = db.execute(
-                            _blq_text(f'SELECT name, phone, id_number, email FROM "{_schema}".customers WHERE id = :cid'),
-                            {"cid": sale_customer_id}
-                        ).fetchone()
+                        # Verificar si algún producto de la venta es celular (has_imei=True)
+                        _tiene_celular = db.execute(_blq_text(
+                            f'SELECT COUNT(*) FROM "{_schema}".sale_details sd '
+                            f'JOIN "{_schema}".products p ON p.id = sd.product_id '
+                            f'WHERE sd.sale_id = :sid AND p.has_imei = TRUE'
+                        ), {"sid": new_sale_id}).scalar() or 0
 
-                        # Buscar IMEI del producto (si hay instancias registradas)
-                        _imei = None
-                        _prod_name = "Celular"
-                        _inst_row = db.execute(_blq_text(f"""
-                            SELECT pi.serial_number, p.name
-                            FROM "{_schema}".sale_detail_instances sdi
-                            JOIN "{_schema}".sale_details sd ON sd.id = sdi.sale_detail_id
-                            JOIN "{_schema}".product_instances pi ON pi.id = sdi.product_instance_id
-                            JOIN "{_schema}".products p ON p.id = pi.product_id
-                            WHERE sd.sale_id = :sid AND pi.serial_number IS NOT NULL
-                            LIMIT 1
-                        """), {"sid": new_sale_id}).fetchone()
-                        if _inst_row:
-                            _imei      = _inst_row[0]  # serial_number usado como IMEI
-                            _prod_name = _inst_row[1]
+                        if not _tiene_celular:
+                            print(f"[Bloqueo] ℹ️ Venta #{new_sale_id}: sin celulares — omitiendo sync")
                         else:
-                            # Sin instancia con IMEI — buscar nombre del producto principal
-                            _prod_row = db.execute(_blq_text(f"""
-                                SELECT p.name FROM "{_schema}".sale_details sd
-                                JOIN "{_schema}".products p ON p.id = sd.product_id
-                                WHERE sd.sale_id = :sid ORDER BY sd.id ASC LIMIT 1
-                            """), {"sid": new_sale_id}).fetchone()
-                            if _prod_row:
-                                _prod_name = _prod_row[0]
+                            # Obtener datos del cliente
+                            _cust_row = db.execute(
+                                _blq_text(f'SELECT name, phone, id_number, email FROM "{_schema}".customers WHERE id = :cid'),
+                                {"cid": sale_customer_id}
+                            ).fetchone()
 
-                        _blq_result = sincronizar_venta_credito(
-                            db              = db,
-                            schema          = _schema,
-                            sale_id         = new_sale_id,
-                            customer_name   = _cust_row[0] if _cust_row else "Cliente",
-                            customer_phone  = _cust_row[1] if _cust_row else None,
-                            customer_id_number = _cust_row[2] if _cust_row else None,
-                            customer_email  = _cust_row[3] if _cust_row else None,
-                            total_amount    = float(sale_total_amount),
-                            balance_pending = float(sale_total_amount),  # Saldo completo al inicio
-                            due_date        = None,  # Se calculará en BloqueCelular
-                            imei            = _imei,
-                            product_name    = _prod_name,
-                            num_cuotas      = 6,    # Default, ajustable por el vendedor
-                        )
+                            # Buscar serial_number del celular en la venta
+                            _imei = None
+                            _prod_name = "Celular"
+                            _inst_row = db.execute(_blq_text(
+                                f'SELECT pi.serial_number, p.name '
+                                f'FROM "{_schema}".sale_detail_instances sdi '
+                                f'JOIN "{_schema}".sale_details sd ON sd.id = sdi.sale_detail_id '
+                                f'JOIN "{_schema}".product_instances pi ON pi.id = sdi.product_instance_id '
+                                f'JOIN "{_schema}".products p ON p.id = pi.product_id '
+                                f'WHERE sd.sale_id = :sid AND pi.serial_number IS NOT NULL LIMIT 1'
+                            ), {"sid": new_sale_id}).fetchone()
 
-                        if _blq_result.get("ok"):
-                            print(f"[Bloqueo] ✅ Venta #{new_sale_id} sincronizada — "
-                                  f"código: {_blq_result.get('codigo_activacion')}")
-                        else:
-                            print(f"[Bloqueo] ⚠️ Venta #{new_sale_id} no sincronizada: "
-                                  f"{_blq_result.get('error')}")
+                            if _inst_row:
+                                _imei      = _inst_row[0]
+                                _prod_name = _inst_row[1]
+                            else:
+                                _prod_row = db.execute(_blq_text(
+                                    f'SELECT p.name FROM "{_schema}".sale_details sd '
+                                    f'JOIN "{_schema}".products p ON p.id = sd.product_id '
+                                    f'WHERE sd.sale_id = :sid AND p.has_imei = TRUE '
+                                    f'ORDER BY sd.id ASC LIMIT 1'
+                                ), {"sid": new_sale_id}).fetchone()
+                                if _prod_row:
+                                    _prod_name = _prod_row[0]
+
+                            _blq_result = sincronizar_venta_credito(
+                                db                 = db,
+                                schema             = _schema,
+                                sale_id            = new_sale_id,
+                                customer_name      = _cust_row[0] if _cust_row else "Cliente",
+                                customer_phone     = _cust_row[1] if _cust_row else None,
+                                customer_id_number = _cust_row[2] if _cust_row else None,
+                                customer_email     = _cust_row[3] if _cust_row else None,
+                                total_amount       = float(sale_total_amount),
+                                balance_pending    = float(sale_total_amount),
+                                due_date           = None,
+                                imei               = _imei,
+                                product_name       = _prod_name,
+                                num_cuotas         = 6,
+                            )
+
+                            if _blq_result.get("ok"):
+                                print(f"[Bloqueo] ✅ Venta #{new_sale_id} sincronizada "
+                                      f"código: {_blq_result.get('codigo_activacion')}")
+                            else:
+                                print(f"[Bloqueo] ⚠️ Venta #{new_sale_id}: {_blq_result.get('error')}")
                 except Exception as _blq_e:
-                    # NUNCA interrumpir el flujo de venta por BloqueCelular
                     import logging as _blq_log
                     _blq_log.getLogger(__name__).warning(
                         f"[Bloqueo] Error sincronizando venta #{new_sale_id}: {_blq_e}"
