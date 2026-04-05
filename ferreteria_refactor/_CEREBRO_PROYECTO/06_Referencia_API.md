@@ -85,3 +85,68 @@ Guía de integración para los servicios de **Mi Inventario Fácil**.
   "unique_uuid": "abc-123-xyz"
 }
 ```
+
+---
+
+## Multi-Empresa — Organizations API
+
+Todos los endpoints requieren autenticación JWT. Los endpoints de plan requieren `is_superuser=True`.
+
+### Organizaciones
+```
+GET    /organizations                   Lista todas las orgs
+POST   /organizations                   Crear nueva org (superadmin)
+GET    /organizations/mine              Orgs del usuario actual
+GET    /organizations/consolidated-mine Dashboard consolidado auto-detectado
+GET    /organizations/{id}              Detalle de una org
+PATCH  /organizations/{id}              Editar org
+PATCH  /organizations/{id}/plan         Cambiar plan (superadmin)
+GET    /organizations/{id}/plan-info    Info completa del plan
+PATCH  /organizations/{id}/whatsapp     Configurar WA compartido
+```
+
+### Tenants de la org
+```
+GET    /organizations/{id}/tenants         Listar empresas del grupo
+POST   /organizations/{id}/tenants/{tid}   Agregar empresa
+DELETE /organizations/{id}/tenants/{tid}   Quitar empresa
+```
+
+### Miembros
+```
+GET    /organizations/{id}/members         Listar miembros
+POST   /organizations/{id}/members         Agregar miembro
+DELETE /organizations/{id}/members/{mid}   Quitar miembro
+```
+
+### Catálogo compartido
+```
+GET    /organizations/{id}/catalog              Listar productos del catálogo
+POST   /organizations/{id}/catalog              Agregar producto
+DELETE /organizations/{id}/catalog/{pid}        Quitar producto
+POST   /organizations/{id}/catalog/import       Importar a empresa actual
+```
+
+### Transferencias de stock
+```
+GET    /inter-transfers                    Listar del tenant actual
+POST   /inter-transfers                    Crear solicitud
+PATCH  /inter-transfers/{id}/accept        Aceptar (mueve stock + Kardex)
+PATCH  /inter-transfers/{id}/reject        Rechazar (no mueve stock)
+```
+
+### Auth — Switch de empresa
+```
+POST   /auth/switch-company?target_schema=X   Generar token para otra empresa
+```
+El endpoint `/auth/token` ahora retorna:
+```json
+{
+  "access_token": "...",
+  "has_multiple_companies": true,
+  "org_companies": [{
+    "tenant_id": 18, "schema_name": "oscar",
+    "name": "oscar", "switch_url": "...", "is_current": true
+  }]
+}
+```

@@ -1,421 +1,478 @@
 """
 bot_handlers/organizations.py
-Sprint 6 — Multi-Empresa
+Sistema Multi-Empresa — Comandos del bot de Telegram
 
-Comandos del bot de Telegram para gestión de organizaciones (grupos empresariales).
+Comandos disponibles (todos con /org [subcomando]):
+    /org listar                        — Ver todas las organizaciones
+    /org detalle [id]                  — Detalle completo de una org
+    /org crear [nombre] [email_dueño]  — Crear nueva organización
+    /org plan [id] [duo|multi|ent]     — Cambiar plan de una org
+    /org precio [id] [monto]           — Fijar precio mensual
+    /org agregar [id] [schema]         — Agregar empresa al grupo
+    /org quitar [id] [schema]          — Quitar empresa del grupo
+    /org wa [id] [on|off] [instancia?] — Configurar WhatsApp compartido
+    /org bloquear [id]                 — Desactivar organización
+    /org activar [id]                  — Activar organización
 
-Comandos disponibles:
-    /org listar            — Ver todas las organizaciones activas
-    /org detalle [id]      — Ver detalle de una organización
-    /org crear [nombre] [email] — Crear nueva organización
-    /org plan [id] [plan]  — Cambiar el plan de una organización
-    /org agregar [id] [schema] — Agregar empresa a una organización
-    /org quitar [id] [schema]  — Quitar empresa de una organización
-    /org wa [id] [on/off] [instancia] — Configurar WhatsApp compartido
-    /org bloquear [id]     — Desactivar una organización
-    /org activar [id]      — Activar una organización
-
-Planes disponibles: duo (2 empresas), multi (5), enterprise (ilimitadas)
+Planes: duo (2 empresas) | multi (5) | enterprise (ilimitadas)
 """
 
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from ..database.db import engine_map  # Motor de BD del sistema
+import subprocess
+from datetime import datetime
 
 
-# ── Planes disponibles ────────────────────────────────────────────────────────
+# ─── Helper SQL ───────────────────────────────────────────────────────────────
 
+def _psql(sql, db="invensoft_prod"):
+    """Ejecuta SQL en la BD de producción via docker exec."""
+    r = subprocess.run(
+        ["docker","exec","db_prod_server",
+         "psql","-U","postgres","-d",db,"-t","-A","-F","|","-c",sql],
+        capture_output=True, text=True, timeout=15
+    )
+    return r.stdout.strip(), r.returncode
+
+
+# ── Planes disponibles ─────────────────────────────────────────────────────────
 PLANES = {
-    "duo"       : {"max_tenants": 2,   "label": "Dúo (2 empresas)"},
-    "multi"     : {"max_tenants": 5,   "label": "Multi (5 empresas)"},
-    "enterprise": {"max_tenants": 999, "label": "Enterprise (ilimitadas)"},
+    "duo"       : {"max_tenants": 2,   "label": "🤝 Dúo (2 empresas)"},
+    "multi"     : {"max_tenants": 5,   "label": "🏢 Multi (5 empresas)"},
+    "enterprise": {"max_tenants": 999, "label": "👑 Enterprise (ilimitadas)"},
+    "ent"       : {"max_tenants": 999, "label": "👑 Enterprise (ilimitadas)"},
 }
 
 
-def handle_org_command(args: list, db_url: str) -> str:
+# ─── Router principal ─────────────────────────────────────────────────────────
+
+def handle_org(parts: list) -> str:
     """
-    Punto de entrada para los comandos /org del bot de Telegram.
-
-    Args:
-        args: Lista de argumentos del comando. args[0] es el subcomando.
-        db_url: URL de conexión a la BD del sistema.
-
-    Returns:
-        Texto de respuesta para el bot.
+    Punto de entrada para /org.
+    parts[0] = '/org', parts[1] = subcomando, parts[2:] = argumentos
     """
-    if not args:
-        return _help_text()
+    if len(parts) < 2:
+        return _ayuda()
 
-    subcommand = args[0].lower()
+    sub  = parts[1].lower()
+    args = parts[2:]
 
-    # Router de subcomandos
-    handlers = {
-        "listar"  : _cmd_listar,
-        "detalle" : _cmd_detalle,
-        "crear"   : _cmd_crear,
-        "plan"    : _cmd_plan,
-        "agregar" : _cmd_agregar,
-        "quitar"  : _cmd_quitar,
-        "wa"      : _cmd_whatsapp,
-        "bloquear": _cmd_bloquear,
-        "activar" : _cmd_activar,
+    routes = {
+        "listar"  : _listar,
+        "detalle" : _detalle,
+        "crear"   : _crear,
+        "plan"    : _plan,
+        "precio"  : _precio,
+        "agregar" : _agregar,
+        "quitar"  : _quitar,
+        "wa"      : _whatsapp,
+        "bloquear": _bloquear,
+        "activar" : _activar,
     }
 
-    handler = handlers.get(subcommand)
-    if not handler:
-        return f"❌ Subcomando desconocido: *{subcommand}*\n\n{_help_text()}"
+    fn = routes.get(sub)
+    if not fn:
+        return f"❓ Subcomando desconocido: *{sub}*\n\n{_ayuda()}"
 
     try:
-        from sqlalchemy import create_engine
-        from sqlalchemy.orm import sessionmaker
-        _engine = create_engine(db_url)
-        Session_  = sessionmaker(bind=_engine)
-        with Session_() as session:
-            return handler(args[1:], session)
+        return fn(args)
     except Exception as e:
-        return f"❌ Error al ejecutar /org {subcommand}:\n`{str(e)[:200]}`"
+        return f"❌ Error en /org {sub}: `{str(e)[:200]}`"
 
 
-def _help_text() -> str:
-    """Texto de ayuda con todos los comandos /org disponibles."""
+# ─── Ayuda ────────────────────────────────────────────────────────────────────
+
+def _ayuda() -> str:
     return (
-        "🏢 *Comandos de organizaciones multi-empresa:*\n\n"
+        "🏢 *Comandos Multi-Empresa:*\n\n"
         "`/org listar` — Ver todas las orgs\n"
         "`/org detalle [id]` — Detalle de una org\n"
         "`/org crear [nombre] [email]` — Crear org\n"
         "`/org plan [id] [duo|multi|enterprise]` — Cambiar plan\n"
+        "`/org precio [id] [monto]` — Fijar precio mensual\n"
         "`/org agregar [id] [schema]` — Agregar empresa\n"
         "`/org quitar [id] [schema]` — Quitar empresa\n"
         "`/org wa [id] [on|off] [instancia?]` — WhatsApp compartido\n"
         "`/org bloquear [id]` — Desactivar org\n"
-        "`/org activar [id]` — Activar org\n"
+        "`/org activar [id]` — Activar org\n\n"
+        "_Planes: duo · multi · enterprise_"
     )
 
 
-def _cmd_listar(args: list, db: Session) -> str:
-    """Listar todas las organizaciones con sus métricas principales."""
-    rows = db.execute(text("""
-        SELECT
-            o.id, o.name, o.plan, o.is_active, o.owner_email,
-            o.use_shared_whatsapp, o.plan_expires_at,
-            COUNT(t.id) AS tenant_count,
-            COUNT(m.id) AS member_count
-        FROM public.organizations o
-        LEFT JOIN public.tenants t ON t.organization_id = o.id
-        LEFT JOIN public.organization_users m ON m.organization_id = o.id
-        GROUP BY o.id
-        ORDER BY o.created_at DESC
-    """)).fetchall()
+# ─── Subcomandos ──────────────────────────────────────────────────────────────
 
-    if not rows:
-        return "📭 No hay organizaciones registradas aún."
+def _listar(args: list) -> str:
+    """Lista todas las organizaciones con sus métricas."""
+    sql = """
+    SELECT
+        o.id, o.name, o.plan, o.is_active,
+        o.owner_email, o.plan_price,
+        o.use_shared_whatsapp,
+        COUNT(DISTINCT t.id)   AS tenants,
+        COUNT(DISTINCT m.id)   AS members
+    FROM public.organizations o
+    LEFT JOIN public.tenants t ON t.organization_id = o.id
+    LEFT JOIN public.organization_users m ON m.organization_id = o.id
+    GROUP BY o.id
+    ORDER BY o.created_at DESC
+    """
+    out, rc = _psql(sql)
+    if rc != 0 or not out.strip():
+        return "📭 No hay organizaciones registradas."
 
-    lines = ["🏢 *Organizaciones registradas:*\n"]
-    for r in rows:
-        status  = "✅" if r.is_active else "🔴"
-        wa_icon = "📱" if r.use_shared_whatsapp else ""
-        expired = ""
-        if r.plan_expires_at:
-            from datetime import datetime
-            if r.plan_expires_at < datetime.now():
-                expired = " ⚠️ VENCIDA"
-
+    lines = ["🏢 *Organizaciones Multi-Empresa:*\n"]
+    for row in out.split('\n'):
+        if not row.strip() or '|' not in row:
+            continue
+        p = row.split('|')
+        if len(p) < 9:
+            continue
+        oid, name, plan, active, email, price, wa, tenants, members = p[:9]
+        status  = "✅" if active == "t" else "🔴"
+        wa_icon = " 📱" if wa == "t" else ""
+        precio  = f" · ${float(price):.0f}/mes" if price and float(price) > 0 else ""
         lines.append(
-            f"{status} *#{r.id} {r.name}*{wa_icon}{expired}\n"
-            f"   Plan: `{r.plan}` | 🏪 {r.tenant_count} empresa(s) | 👥 {r.member_count} miembro(s)\n"
-            f"   Owner: `{r.owner_email}`"
+            f"{status} *#{oid} {name}*{wa_icon}\n"
+            f"   Plan: `{plan}`{precio} · 🏪 {tenants} empresa(s) · 👥 {members} miembro(s)\n"
+            f"   `{email}`"
         )
+    return "\n".join(lines) if len(lines) > 1 else "📭 Sin organizaciones."
 
-    return "\n".join(lines)
 
-
-def _cmd_detalle(args: list, db: Session) -> str:
-    """Ver detalle completo de una organización por su ID."""
+def _detalle(args: list) -> str:
+    """Muestra detalle completo de una organización."""
     if not args:
         return "❌ Uso: `/org detalle [id]`"
-
     try:
-        org_id = int(args[0])
+        oid = int(args[0])
     except ValueError:
-        return "❌ El ID debe ser un número entero"
+        return "❌ El ID debe ser un número."
 
-    org = db.execute(text(
-        "SELECT * FROM public.organizations WHERE id = :id"
-    ), {"id": org_id}).fetchone()
+    # Info de la org
+    out, rc = _psql(
+        f"SELECT id,name,slug,owner_email,owner_name,plan,max_tenants,"
+        f"is_active,plan_price,use_shared_whatsapp,whatsapp_instance,plan_expires_at "
+        f"FROM public.organizations WHERE id={oid}"
+    )
+    if rc != 0 or not out.strip() or '|' not in out:
+        return f"❌ No existe la organización #{oid}."
 
-    if not org:
-        return f"❌ No existe organización con ID {org_id}"
-
-    tenants = db.execute(text(
-        "SELECT schema_name, name, is_active FROM public.tenants WHERE organization_id = :id"
-    ), {"id": org_id}).fetchall()
-
-    members = db.execute(text(
-        "SELECT user_email, role, can_switch FROM public.organization_users WHERE organization_id = :id"
-    ), {"id": org_id}).fetchall()
-
-    lines = [
-        f"🏢 *Organización #{org.id}: {org.name}*\n",
-        f"📋 Slug: `{org.slug}`",
-        f"👤 Owner: `{org.owner_email}`",
-        f"📦 Plan: `{org.plan}` (máx. {org.max_tenants} empresas)",
-        f"💰 Precio: `${float(org.plan_price or 0):.2f}/mes`",
-        f"📱 WA compartido: {'✅ Sí' if org.use_shared_whatsapp else '❌ No'}",
-        f"🔐 Estado: {'✅ Activa' if org.is_active else '🔴 Inactiva'}",
-    ]
-
-    if org.plan_expires_at:
-        lines.append(f"📅 Vence: `{org.plan_expires_at}`")
-    if org.plan_notes:
-        lines.append(f"📝 Notas: _{org.plan_notes}_")
+    p = out.split('|')
+    name     = p[1]; slug    = p[2]; email   = p[3]
+    owner    = p[4]; plan    = p[5]; max_t   = p[6]
+    active   = p[7]; price   = p[8]; wa      = p[9]
+    wa_inst  = p[10]; expires = p[11]
 
     # Empresas del grupo
-    if tenants:
-        lines.append(f"\n🏪 *Empresas ({len(tenants)}):*")
-        for t in tenants:
-            icon = "✅" if t.is_active else "🔴"
-            lines.append(f"  {icon} `{t.schema_name}` — {t.name}")
+    t_out, _ = _psql(
+        f"SELECT schema_name, name, is_active FROM public.tenants "
+        f"WHERE organization_id={oid} ORDER BY name"
+    )
+    tenants_lines = []
+    for row in (t_out or "").split('\n'):
+        if '|' in row:
+            tp = row.split('|')
+            ico = "✅" if len(tp) > 2 and tp[2] == "t" else "🔴"
+            tenants_lines.append(f"  {ico} `{tp[0]}` — {tp[1]}")
+
+    # Miembros
+    m_out, _ = _psql(
+        f"SELECT user_email, role, can_switch FROM public.organization_users "
+        f"WHERE organization_id={oid} ORDER BY role"
+    )
+    member_lines = []
+    for row in (m_out or "").split('\n'):
+        if '|' in row:
+            mp = row.split('|')
+            sw = "🔄" if len(mp) > 2 and mp[2] == "t" else ""
+            member_lines.append(f"  • `{mp[0]}` [{mp[1]}] {sw}")
+
+    lines = [
+        f"🏢 *Organización #{oid}: {name}*\n",
+        f"🔗 Slug: `{slug}`",
+        f"👤 Owner: `{email}`" + (f" ({owner})" if owner else ""),
+        f"📦 Plan: `{plan}` (máx. {max_t} empresas)",
+        f"💰 Precio: `${float(price or 0):.2f}/mes`",
+        f"📱 WA compartido: {'✅ ' + (wa_inst or 'sin instancia') if wa == 't' else '❌ No'}",
+        f"🔐 Estado: {'✅ Activa' if active == 't' else '🔴 Inactiva'}",
+    ]
+    if expires and expires != "":
+        lines.append(f"📅 Vence: `{expires[:10]}`")
+
+    if tenants_lines:
+        lines.append(f"\n🏪 *Empresas ({len(tenants_lines)}):*")
+        lines += tenants_lines
     else:
         lines.append("\n🏪 Sin empresas asignadas")
 
-    # Miembros
-    if members:
-        lines.append(f"\n👥 *Miembros ({len(members)}):*")
-        for m in members:
-            switch = "🔄" if m.can_switch else ""
-            lines.append(f"  • `{m.user_email}` [{m.role}] {switch}")
+    if member_lines:
+        lines.append(f"\n👥 *Miembros ({len(member_lines)}):*")
+        lines += member_lines
 
     return "\n".join(lines)
 
 
-def _cmd_crear(args: list, db: Session) -> str:
-    """Crear una nueva organización."""
+def _crear(args: list) -> str:
+    """Crea una nueva organización."""
     if len(args) < 2:
-        return "❌ Uso: `/org crear [nombre] [email_dueño]`\nEj: `/org crear 'Grupo Rodriguez' admin@empresa.com`"
+        return (
+            "❌ Uso: `/org crear [nombre] [email_dueño]`\n"
+            "Ejemplo: `/org crear Grupo Rodriguez admin@empresa.com`\n\n"
+            "_Si el nombre tiene espacios, el email siempre va al final._"
+        )
 
-    # El nombre puede tener espacios — todo menos el último arg es el nombre
-    owner_email = args[-1]
-    name        = " ".join(args[:-1]).strip("'\"")
+    owner_email = args[-1].strip()
+    name        = " ".join(args[:-1]).strip().strip("'\"")
 
-    if "@" not in owner_email:
-        return "❌ El último argumento debe ser un email válido"
+    if "@" not in owner_email or "." not in owner_email:
+        return "❌ El último argumento debe ser un email válido."
 
     # Generar slug
     import re
     slug = re.sub(r'[^a-z0-9]+', '-', name.lower().strip()).strip('-')[:80]
 
-    # Verificar si ya existe
-    exists = db.execute(text(
-        "SELECT id FROM public.organizations WHERE slug = :slug OR owner_email = :email"
-    ), {"slug": slug, "email": owner_email.lower()}).fetchone()
+    # Verificar duplicado
+    exists, _ = _psql(
+        f"SELECT id FROM public.organizations "
+        f"WHERE slug='{slug}' OR owner_email='{owner_email.lower()}'"
+    )
+    if exists.strip():
+        return f"⚠️ Ya existe una organización con ese nombre o email (ID: {exists.strip()})."
 
-    if exists:
-        return f"⚠️ Ya existe una organización con ese slug o email (ID: {exists.id})"
+    # Insertar organización
+    out, rc = _psql(
+        f"INSERT INTO public.organizations (name,slug,owner_email,plan,max_tenants,is_active) "
+        f"VALUES ('{name}','{slug}','{owner_email.lower()}','multi',5,true) RETURNING id"
+    )
+    if rc != 0 or not out.strip():
+        return "❌ Error al crear la organización. Revisa los logs."
 
-    # Crear
-    result = db.execute(text("""
-        INSERT INTO public.organizations (name, slug, owner_email, plan, max_tenants, is_active)
-        VALUES (:name, :slug, :email, 'multi', 5, true)
-        RETURNING id, name, slug
-    """), {"name": name, "slug": slug, "email": owner_email.lower()})
-    db.commit()
-    row = result.fetchone()
+    new_id = out.strip()
 
-    # Agregar como miembro owner
-    db.execute(text("""
-        INSERT INTO public.organization_users (organization_id, user_email, role, can_switch)
-        VALUES (:org_id, :email, 'owner', true)
-    """), {"org_id": row.id, "email": owner_email.lower()})
-    db.commit()
+    # Agregar owner como miembro
+    _psql(
+        f"INSERT INTO public.organization_users "
+        f"(organization_id,user_email,role,can_switch,accepted_at) "
+        f"VALUES ({new_id},'{owner_email.lower()}','owner',true,NOW())"
+    )
 
     return (
         f"✅ *Organización creada exitosamente*\n\n"
-        f"🆔 ID: `{row.id}`\n"
-        f"🏢 Nombre: `{row.name}`\n"
-        f"🔗 Slug: `{row.slug}`\n"
+        f"🆔 ID: `{new_id}`\n"
+        f"🏢 Nombre: `{name}`\n"
+        f"🔗 Slug: `{slug}`\n"
         f"📦 Plan: `multi` (5 empresas)\n"
         f"👤 Owner: `{owner_email}`\n\n"
-        f"Usa `/org agregar {row.id} [schema]` para agregar empresas."
+        f"▶️ Próximo paso:\n"
+        f"`/org agregar {new_id} [schema_empresa]`"
     )
 
 
-def _cmd_plan(args: list, db: Session) -> str:
-    """Cambiar el plan de una organización."""
+def _plan(args: list) -> str:
+    """Cambia el plan de una organización."""
     if len(args) < 2:
         return "❌ Uso: `/org plan [id] [duo|multi|enterprise]`"
-
     try:
-        org_id = int(args[0])
+        oid = int(args[0])
     except ValueError:
-        return "❌ El ID debe ser un número"
+        return "❌ El ID debe ser un número."
 
-    plan = args[1].lower()
-    if plan not in PLANES:
-        return f"❌ Plan inválido. Opciones: {', '.join(PLANES.keys())}"
+    plan_key = args[1].lower()
+    if plan_key not in PLANES:
+        return f"❌ Plan inválido. Opciones: `duo`, `multi`, `enterprise`"
 
-    org = db.execute(text(
-        "SELECT id, name FROM public.organizations WHERE id = :id"
-    ), {"id": org_id}).fetchone()
-    if not org:
-        return f"❌ Organización #{org_id} no encontrada"
+    plan_data = PLANES[plan_key]
+    plan_name = "enterprise" if plan_key == "ent" else plan_key
+    max_t     = plan_data["max_tenants"]
 
-    plan_data = PLANES[plan]
-    db.execute(text("""
-        UPDATE public.organizations
-        SET plan = :plan, max_tenants = :max
-        WHERE id = :id
-    """), {"plan": plan, "max": plan_data["max_tenants"], "id": org_id})
-    db.commit()
+    # Verificar que la org existe
+    org_out, _ = _psql(f"SELECT name FROM public.organizations WHERE id={oid}")
+    if not org_out.strip():
+        return f"❌ Organización #{oid} no encontrada."
+    org_name = org_out.strip()
+
+    _, rc = _psql(
+        f"UPDATE public.organizations "
+        f"SET plan='{plan_name}', max_tenants={max_t} "
+        f"WHERE id={oid}"
+    )
+    if rc != 0:
+        return "❌ Error al actualizar el plan."
 
     return (
-        f"✅ Plan actualizado para *{org.name}*\n\n"
-        f"📦 Plan nuevo: `{plan_data['label']}`\n"
-        f"🏪 Máx. empresas: `{plan_data['max_tenants']}`"
+        f"✅ *Plan actualizado*\n\n"
+        f"🏢 Org: *{org_name}*\n"
+        f"📦 Nuevo plan: {plan_data['label']}\n"
+        f"🏪 Máx. empresas: `{max_t}`"
     )
 
 
-def _cmd_agregar(args: list, db: Session) -> str:
-    """Agregar una empresa (tenant) a una organización."""
+def _precio(args: list) -> str:
+    """Fija el precio mensual de una organización."""
     if len(args) < 2:
-        return "❌ Uso: `/org agregar [org_id] [schema_name]`"
+        return "❌ Uso: `/org precio [id] [monto_usd]`\nEjemplo: `/org precio 1 29.99`"
     try:
-        org_id = int(args[0])
+        oid   = int(args[0])
+        price = float(args[1])
     except ValueError:
-        return "❌ El ID de la organización debe ser un número"
+        return "❌ ID y monto deben ser números."
+
+    org_out, _ = _psql(f"SELECT name FROM public.organizations WHERE id={oid}")
+    if not org_out.strip():
+        return f"❌ Organización #{oid} no encontrada."
+
+    _, rc = _psql(f"UPDATE public.organizations SET plan_price={price} WHERE id={oid}")
+    if rc != 0:
+        return "❌ Error al actualizar el precio."
+
+    return f"✅ Precio actualizado para *{org_out.strip()}*: `${price:.2f}/mes`"
+
+
+def _agregar(args: list) -> str:
+    """Agrega una empresa (tenant) a una organización."""
+    if len(args) < 2:
+        return "❌ Uso: `/org agregar [id] [schema]`"
+    try:
+        oid = int(args[0])
+    except ValueError:
+        return "❌ El ID debe ser un número."
 
     schema = args[1].lower().strip()
 
-    # Verificar organización
-    org = db.execute(text(
-        "SELECT id, name, max_tenants FROM public.organizations WHERE id = :id"
-    ), {"id": org_id}).fetchone()
-    if not org:
-        return f"❌ Organización #{org_id} no encontrada"
+    # Verificar org y límite
+    org_out, _ = _psql(
+        f"SELECT name, max_tenants, "
+        f"(SELECT COUNT(*) FROM public.tenants WHERE organization_id={oid}) "
+        f"FROM public.organizations WHERE id={oid}"
+    )
+    if not org_out.strip() or '|' not in org_out:
+        return f"❌ Organización #{oid} no encontrada."
+
+    parts  = org_out.split('|')
+    org_name = parts[0]; max_t = int(parts[1]); current = int(parts[2])
+    if current >= max_t:
+        return (
+            f"⚠️ Límite del plan alcanzado ({current}/{max_t}).\n"
+            f"Actualiza el plan con `/org plan {oid} enterprise`"
+        )
 
     # Verificar tenant
-    tenant = db.execute(text(
-        "SELECT id, name, organization_id FROM public.tenants WHERE schema_name = :schema"
-    ), {"schema": schema}).fetchone()
-    if not tenant:
-        return f"❌ Empresa con schema `{schema}` no encontrada"
+    t_out, _ = _psql(
+        f"SELECT id, name, organization_id FROM public.tenants WHERE schema_name='{schema}'"
+    )
+    if not t_out.strip() or '|' not in t_out:
+        return f"❌ No existe empresa con schema `{schema}`."
 
-    if tenant.organization_id and tenant.organization_id != org_id:
-        return f"❌ La empresa `{schema}` ya pertenece a otra organización (ID: {tenant.organization_id})"
+    tp = t_out.split('|')
+    if tp[2] and tp[2] != str(oid):
+        return f"⚠️ La empresa `{schema}` ya pertenece a la org #{tp[2]}."
 
-    # Verificar límite del plan
-    current = db.execute(text(
-        "SELECT COUNT(*) FROM public.tenants WHERE organization_id = :id"
-    ), {"id": org_id}).scalar() or 0
+    _, rc = _psql(f"UPDATE public.tenants SET organization_id={oid} WHERE schema_name='{schema}'")
+    if rc != 0:
+        return "❌ Error al agregar la empresa."
 
-    if current >= org.max_tenants:
-        return f"⚠️ La organización ya tiene {current}/{org.max_tenants} empresas. Actualiza el plan con `/org plan {org_id} [plan]`"
-
-    db.execute(text(
-        "UPDATE public.tenants SET organization_id = :org_id WHERE id = :tid"
-    ), {"org_id": org_id, "tid": tenant.id})
-    db.commit()
-
-    return f"✅ Empresa `{schema}` ({tenant.name}) agregada a *{org.name}*"
+    return f"✅ Empresa `{schema}` (*{tp[1]}*) agregada a *{org_name}*"
 
 
-def _cmd_quitar(args: list, db: Session) -> str:
-    """Quitar una empresa de una organización."""
+def _quitar(args: list) -> str:
+    """Quita una empresa de su organización."""
     if len(args) < 2:
-        return "❌ Uso: `/org quitar [org_id] [schema_name]`"
+        return "❌ Uso: `/org quitar [id] [schema]`"
     try:
-        org_id = int(args[0])
+        oid = int(args[0])
     except ValueError:
-        return "❌ El ID debe ser un número"
+        return "❌ El ID debe ser un número."
 
     schema = args[1].lower().strip()
-    tenant = db.execute(text(
-        "SELECT id, name FROM public.tenants WHERE schema_name = :s AND organization_id = :o"
-    ), {"s": schema, "o": org_id}).fetchone()
+    t_out, _ = _psql(
+        f"SELECT id, name FROM public.tenants "
+        f"WHERE schema_name='{schema}' AND organization_id={oid}"
+    )
+    if not t_out.strip():
+        return f"❌ La empresa `{schema}` no está en la org #{oid}."
 
-    if not tenant:
-        return f"❌ La empresa `{schema}` no está en la organización #{org_id}"
+    tp = t_out.split('|')
+    _, rc = _psql(f"UPDATE public.tenants SET organization_id=NULL WHERE schema_name='{schema}'")
+    if rc != 0:
+        return "❌ Error al quitar la empresa."
 
-    db.execute(text(
-        "UPDATE public.tenants SET organization_id = NULL WHERE id = :id"
-    ), {"id": tenant.id})
-    db.commit()
-    return f"✅ Empresa `{schema}` ({tenant.name}) removida de la organización #{org_id}"
+    return f"✅ Empresa `{schema}` (*{tp[1]}*) removida de la org #{oid}"
 
 
-def _cmd_whatsapp(args: list, db: Session) -> str:
-    """Activar o desactivar WhatsApp compartido para una organización."""
+def _whatsapp(args: list) -> str:
+    """Activa o desactiva WhatsApp compartido."""
     if len(args) < 2:
-        return "❌ Uso: `/org wa [id] [on|off] [instancia]`\nEj: `/org wa 1 on grupo-rodriguez`"
+        return (
+            "❌ Uso: `/org wa [id] [on|off] [instancia]`\n"
+            "Ejemplo activar: `/org wa 1 on grupo-rodriguez`\n"
+            "Ejemplo desactivar: `/org wa 1 off`"
+        )
     try:
-        org_id = int(args[0])
+        oid = int(args[0])
     except ValueError:
-        return "❌ El ID debe ser un número"
+        return "❌ El ID debe ser un número."
 
-    enabled  = args[1].lower() in ("on", "true", "1", "activar", "si")
-    instance = args[2] if len(args) > 2 and enabled else None
+    enabled  = args[1].lower() in ("on","true","si","activar","1")
+    instance = args[2].strip() if len(args) > 2 and enabled else ""
 
-    org = db.execute(text(
-        "SELECT id, name FROM public.organizations WHERE id = :id"
-    ), {"id": org_id}).fetchone()
-    if not org:
-        return f"❌ Organización #{org_id} no encontrada"
+    org_out, _ = _psql(f"SELECT name FROM public.organizations WHERE id={oid}")
+    if not org_out.strip():
+        return f"❌ Organización #{oid} no encontrada."
 
-    db.execute(text("""
-        UPDATE public.organizations
-        SET use_shared_whatsapp = :enabled, whatsapp_instance = :instance
-        WHERE id = :id
-    """), {"enabled": enabled, "instance": instance, "id": org_id})
-    db.commit()
+    wa_val   = "true" if enabled else "false"
+    inst_val = f"'{instance}'" if instance else "NULL"
+    _, rc = _psql(
+        f"UPDATE public.organizations "
+        f"SET use_shared_whatsapp={wa_val}, whatsapp_instance={inst_val} "
+        f"WHERE id={oid}"
+    )
+    if rc != 0:
+        return "❌ Error al actualizar WhatsApp."
 
+    org_name = org_out.strip()
     if enabled:
         return (
-            f"📱 *WhatsApp compartido ACTIVADO* para *{org.name}*\n"
-            f"Instancia: `{instance or 'sin nombre'}` \n"
-            f"Todas las empresas del grupo usarán esta instancia de Baileys."
+            f"📱 *WhatsApp compartido ACTIVADO*\n\n"
+            f"🏢 Org: *{org_name}*\n"
+            f"🔌 Instancia: `{instance or 'sin nombre'}`\n\n"
+            f"_Todas las empresas del grupo usarán esta instancia de Baileys._"
         )
-    else:
-        return f"📵 *WhatsApp compartido DESACTIVADO* para *{org.name}*"
+    return f"📵 *WhatsApp compartido DESACTIVADO* para *{org_name}*"
 
 
-def _cmd_bloquear(args: list, db: Session) -> str:
-    """Desactivar una organización (bloquea el switch entre empresas)."""
+def _bloquear(args: list) -> str:
+    """Desactiva una organización."""
     if not args:
         return "❌ Uso: `/org bloquear [id]`"
     try:
-        org_id = int(args[0])
+        oid = int(args[0])
     except ValueError:
-        return "❌ El ID debe ser un número"
+        return "❌ El ID debe ser un número."
 
-    org = db.execute(text(
-        "SELECT id, name FROM public.organizations WHERE id = :id"
-    ), {"id": org_id}).fetchone()
-    if not org:
-        return f"❌ Organización #{org_id} no encontrada"
+    org_out, _ = _psql(f"SELECT name FROM public.organizations WHERE id={oid}")
+    if not org_out.strip():
+        return f"❌ Organización #{oid} no encontrada."
 
-    db.execute(text(
-        "UPDATE public.organizations SET is_active = false WHERE id = :id"
-    ), {"id": org_id})
-    db.commit()
-    return f"🔴 Organización *{org.name}* (#{org_id}) desactivada."
+    _, rc = _psql(f"UPDATE public.organizations SET is_active=false WHERE id={oid}")
+    if rc != 0:
+        return "❌ Error al desactivar."
+
+    return f"🔴 Organización *{org_out.strip()}* (#{oid}) desactivada."
 
 
-def _cmd_activar(args: list, db: Session) -> str:
-    """Reactivar una organización."""
+def _activar(args: list) -> str:
+    """Activa una organización."""
     if not args:
         return "❌ Uso: `/org activar [id]`"
     try:
-        org_id = int(args[0])
+        oid = int(args[0])
     except ValueError:
-        return "❌ El ID debe ser un número"
+        return "❌ El ID debe ser un número."
 
-    org = db.execute(text(
-        "SELECT id, name FROM public.organizations WHERE id = :id"
-    ), {"id": org_id}).fetchone()
-    if not org:
-        return f"❌ Organización #{org_id} no encontrada"
+    org_out, _ = _psql(f"SELECT name FROM public.organizations WHERE id={oid}")
+    if not org_out.strip():
+        return f"❌ Organización #{oid} no encontrada."
 
-    db.execute(text(
-        "UPDATE public.organizations SET is_active = true WHERE id = :id"
-    ), {"id": org_id})
-    db.commit()
-    return f"✅ Organización *{org.name}* (#{org_id}) reactivada."
+    _, rc = _psql(f"UPDATE public.organizations SET is_active=true WHERE id={oid}")
+    if rc != 0:
+        return "❌ Error al activar."
+
+    return f"✅ Organización *{org_out.strip()}* (#{oid}) activada."

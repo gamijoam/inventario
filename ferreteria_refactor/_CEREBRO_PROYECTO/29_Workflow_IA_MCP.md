@@ -282,3 +282,62 @@ return result
 ```
 
 Esta regla aplica a TODOS los routers del proyecto.
+
+---
+
+## Herramientas MCP disponibles (actualizadas 2026-04-05)
+
+El asistente IA tiene acceso al VPS via MCP (`mcp.miinventariofacil.com`) con los siguientes comandos:
+
+| Herramienta | Descripción |
+|---|---|
+| `exec` | Ejecutar comando bash en el VPS |
+| `git_status` | Ver estado de git en el código QA |
+| `list_dir` | Listar contenido de un directorio |
+| `read_file` | Leer archivo del VPS |
+| `write_file` | Escribir/sobreescribir archivo |
+| `service_logs` | Ver logs de un contenedor Docker |
+| `restart_service` | Reiniciar un contenedor Docker |
+| `promote_to_prod` | Promover QA a producción (commit → push → build → restart) |
+
+## Reglas del workflow IA + MCP
+
+1. **NUNCA deploy directo a PROD** — flujo obligatorio: cambios en QA → pruebas → commit a main → aprobación Gabriel en Telegram → deploy
+2. Solo en emergencias que rompen PROD para todos los tenants se puede actuar, siempre avisando primero
+3. Siempre comunicarse en español
+4. Rama activa de desarrollo: `feature/multi-empresa` (8 commits pendientes de merge)
+5. Bugs urgentes en PROD: corregir directamente en VPS + commit simultáneo a `main`
+
+## Patrones confiables en el VPS
+
+```bash
+# PostgreSQL — UN SOLO -c por llamada (múltiples -c fallan silenciosamente)
+docker exec db_prod_server psql -U postgres -d invensoft_prod -c "SQL"
+
+# Alternativa confiable para SQL complejo: Python + SQLAlchemy
+docker exec backend_prod_server python3 << 'PYEOF'
+from sqlalchemy import create_engine, text
+...
+PYEOF
+
+# Build de frontend — desde dentro del directorio
+cd ferreteria_refactor/frontend_web
+docker build --no-cache -f Dockerfile.prod --build-arg VITE_API_URL=... -t imagen:tag .
+
+# Redes Docker — conectar web_publica PRIMERO, luego red interna
+docker run ... --network web_publica ...
+docker network connect prod_prod_internal contenedor
+```
+
+## Contenedores activos (2026-04-05)
+
+| Contenedor | Imagen | Función |
+|---|---|---|
+| `backend_qa_server` | `qa-multi-empresa` | Backend QA |
+| `frontend_qa_server` | `qa-multi-empresa` | Frontend QA |
+| `admin_panel_qa` | `qa-multi-empresa` | Panel admin SaaS QA |
+| `backend_prod_server` | `prod-...-202604050130` | Backend PROD |
+| `frontend_prod_server` | `prod-...-202604050130` | Frontend PROD |
+| `admin_panel_prod_server` | `prod-...-202604050130` | Panel admin SaaS PROD |
+| `deploy_bot_server` | `mi-inventario-deploy-bot` | Bot Telegram admin |
+| `whatsapp_service` | `mi-inventario-whatsapp:1.1` | Baileys WA service |

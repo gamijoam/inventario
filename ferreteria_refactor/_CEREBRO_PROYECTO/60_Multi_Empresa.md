@@ -1,350 +1,304 @@
-# 60 — Sistema Multi-Empresa (Opción C — Completa)
+# 60 - Sistema Multi-Empresa
 
-> **Rama:** `feature/multi-empresa`
-> **Creado:** 2026-04-05
-> **Estado:** 🏗️ EN DESARROLLO
-> **Entorno:** Siempre trabajar en QA primero
+Documentación completa del sistema de **organizaciones multi-empresa** de Mi Inventario Fácil. Permite agrupar varios tenants bajo una misma organización para compartir catálogo, transferir stock, y tener una vista consolidada del grupo.
 
 ---
 
-## 1. Objetivo
+## Estado
 
-Permitir que un cliente (dueño) pueda gestionar múltiples empresas desde una sola cuenta, con:
-- Un login unificado con selector de empresa
-- Cambio rápido entre empresas sin cerrar sesión
-- Dashboard consolidado de todas las empresas del grupo
-- Catálogo compartido entre empresas del mismo grupo
-- Transferencias de stock entre empresas del grupo
-- Reportes consolidados (ventas, inventario, caja)
-- Un solo WhatsApp para todo el grupo (opcional)
-- Planes multi-empresa con descuento
+| Componente | QA | PROD |
+|---|---|---|
+| BD — 5 tablas + columnas | ✅ | ⏳ Pendiente merge |
+| Backend — 22+ endpoints | ✅ | ⏳ |
+| Frontend — 5 pantallas | ✅ | ⏳ |
+| Panel SaaS Admin | ✅ | ⏳ |
+| Bot de Telegram /org | ✅ | ⏳ (funciona cuando hay tablas) |
 
 ---
 
-## 2. Arquitectura
-
-### Modelo de datos nuevo
+## Arquitectura general
 
 ```
-public.organizations          ← Grupo empresarial (el "dueño")
-      │
-      ├── public.tenants      ← Cada empresa (ya existe, agregar organization_id)
-      │       └── schema propio (ferreteria, taller, celulares...)
-      │
-      └── public.organization_users  ← Quién puede acceder al grupo
+public.organizations          ← Grupo empresarial
+    │
+    ├── public.organization_users    ← Quién puede hacer switch entre empresas
+    ├── public.shared_products       ← Catálogo compartido del grupo
+    └── public.inter_company_transfers ← Transferencias de stock entre empresas
+           └── public.inter_company_transfer_items
+
+public.tenants.organization_id ← FK que vincula empresa al grupo
 ```
+
+**Principio clave:** `organization_id` es solo un campo de agrupación. No altera módulos, feature_flags, ni ninguna lógica del tenant individual. Cada empresa sigue siendo 100% independiente.
+
+---
+
+## Planes disponibles
+
+| Plan | Empresas máx | Descripción |
+|---|---|---|
+| `duo` | 2 | Dos empresas en el grupo |
+| `multi` | 5 | Hasta 5 empresas |
+| `enterprise` | ilimitadas | Sin límite de empresas |
+
+---
+
+## Base de datos
 
 ### Tabla `public.organizations`
-
 ```sql
-CREATE TABLE public.organizations (
-    id              SERIAL PRIMARY KEY,
-    name            VARCHAR(200) NOT NULL,         -- "Grupo Empresarial Rodríguez"
-    slug            VARCHAR(100) UNIQUE NOT NULL,  -- "grupo-rodriguez" (URL del portal)
-    owner_email     VARCHAR(255) NOT NULL,
-    owner_name      VARCHAR(200),
-    plan            VARCHAR(50)  DEFAULT 'multi',  -- 'duo','multi','enterprise'
-    max_tenants     INT          DEFAULT 5,
-    is_active       BOOLEAN      DEFAULT true,
-    created_at      TIMESTAMP    DEFAULT NOW(),
-    logo_url        TEXT,
-    primary_color   VARCHAR(10)  DEFAULT '#4F46E5'
-);
-```
-
-### Columna nueva en `public.tenants`
-
-```sql
-ALTER TABLE public.tenants
-    ADD COLUMN organization_id INTEGER REFERENCES public.organizations(id);
+id, name, slug, owner_email, owner_name,
+plan, max_tenants, is_active, created_at,
+logo_url, primary_color,
+use_shared_whatsapp, whatsapp_instance,   -- Sprint 6
+plan_expires_at, plan_price, plan_notes   -- Sprint 6
 ```
 
 ### Tabla `public.organization_users`
-
 ```sql
-CREATE TABLE public.organization_users (
-    id              SERIAL PRIMARY KEY,
-    organization_id INTEGER      REFERENCES public.organizations(id) ON DELETE CASCADE,
-    user_email      VARCHAR(255) NOT NULL,
-    role            VARCHAR(50)  DEFAULT 'owner',   -- owner, manager, viewer
-    can_switch      BOOLEAN      DEFAULT true,       -- puede cambiar de empresa
-    invited_at      TIMESTAMP    DEFAULT NOW(),
-    accepted_at     TIMESTAMP,
-    UNIQUE(organization_id, user_email)
-);
+id, organization_id, user_email, role (owner|manager|viewer),
+can_switch, invited_at, accepted_at
 ```
 
-### Tabla `public.shared_products` (catálogo compartido)
-
+### Tabla `public.shared_products`
 ```sql
-CREATE TABLE public.shared_products (
-    id              SERIAL PRIMARY KEY,
-    organization_id INTEGER      REFERENCES public.organizations(id),
-    name            VARCHAR(300) NOT NULL,
-    sku             VARCHAR(100),
-    description     TEXT,
-    cost_price      NUMERIC(14,4) DEFAULT 0,
-    suggested_price NUMERIC(14,4) DEFAULT 0,
-    category_name   VARCHAR(100),
-    is_active       BOOLEAN DEFAULT true,
-    created_at      TIMESTAMP DEFAULT NOW()
-);
+id, organization_id, name, sku, description, category_name,
+cost_price, suggested_price, image_url, created_at
+-- UNIQUE(organization_id, sku) — no duplica por SKU
 ```
 
-### Tabla `public.inter_company_transfers` (stock entre empresas)
-
+### Tabla `public.inter_company_transfers`
 ```sql
-CREATE TABLE public.inter_company_transfers (
-    id              SERIAL PRIMARY KEY,
-    organization_id INTEGER      REFERENCES public.organizations(id),
-    from_tenant_id  INTEGER      REFERENCES public.tenants(id),
-    to_tenant_id    INTEGER      REFERENCES public.tenants(id),
-    status          VARCHAR(50)  DEFAULT 'PENDING', -- PENDING, ACCEPTED, REJECTED
-    notes           TEXT,
-    created_by      INTEGER      REFERENCES public.users(id),
-    created_at      TIMESTAMP    DEFAULT NOW(),
-    completed_at    TIMESTAMP
-);
+id, organization_id, from_tenant_id, to_tenant_id,
+status (PENDING|ACCEPTED|REJECTED), notes, created_at, completed_at
+```
 
-CREATE TABLE public.inter_company_transfer_items (
-    id              SERIAL PRIMARY KEY,
-    transfer_id     INTEGER      REFERENCES public.inter_company_transfers(id),
-    product_sku     VARCHAR(100) NOT NULL,
-    product_name    VARCHAR(300) NOT NULL,
-    quantity        NUMERIC(12,3) NOT NULL,
-    unit_cost       NUMERIC(14,4) DEFAULT 0
-);
+### Tabla `public.inter_company_transfer_items`
+```sql
+id, transfer_id, product_sku, product_name, quantity, unit_cost
 ```
 
 ---
 
-## 3. Sprints de desarrollo
+## Endpoints del backend
 
-### Sprint 1 — Base de datos y backend ✅ COMPLETADO (2026-04-05)
+### Organizaciones
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/organizations` | Listar todas las orgs |
+| POST | `/organizations` | Crear nueva org |
+| GET | `/organizations/{id}` | Detalle de una org |
+| PATCH | `/organizations/{id}` | Editar org |
+| GET | `/organizations/mine` | Orgs del usuario actual |
+| GET | `/organizations/consolidated-mine` | Dashboard consolidado auto-detectado |
+| PATCH | `/organizations/{id}/plan` | Cambiar plan (solo superadmin) |
+| GET | `/organizations/{id}/plan-info` | Info completa del plan |
+| PATCH | `/organizations/{id}/whatsapp` | Configurar WA compartido |
 
-**Migraciones aplicadas en QA:**
-- ✅ Crear `public.organizations`
-- ✅ Crear `public.organization_users`
-- ✅ Agregar `organization_id` en `public.tenants`
-- ✅ Crear `public.shared_products`
-- ✅ Crear `public.inter_company_transfers` + items
-- ✅ `onboarding_completed` y `onboarding_step` en modelo Tenant
-- ⏳ Pendiente aplicar en PROD — ver `migrate_multi_empresa.sql`
+### Tenants de la org
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/organizations/{id}/tenants` | Listar empresas del grupo |
+| POST | `/organizations/{id}/tenants/{tid}` | Agregar empresa |
+| DELETE | `/organizations/{id}/tenants/{tid}` | Quitar empresa |
 
-**Archivos creados:**
-- `backend_api/models/organization.py` — 5 modelos SQLAlchemy
-- `backend_api/schemas/organization.py` — 12 schemas Pydantic
-- `backend_api/routers/organizations.py` — 13 endpoints
-- `backend_api/routers/inter_transfers.py` — 4 endpoints
-- `models/tenant.py` — columna `organization_id` agregada
+### Miembros
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/organizations/{id}/members` | Listar miembros |
+| POST | `/organizations/{id}/members` | Agregar miembro |
+| DELETE | `/organizations/{id}/members/{mid}` | Quitar miembro |
 
-**Endpoints disponibles (13 + 4):**
-- ✅ `POST /organizations` — crear organización (superadmin)
-- ✅ `GET /organizations` — listar (superadmin)
-- ✅ `GET /organizations/mine` — mis empresas (selector de login)
-- ✅ `GET /organizations/{id}` — detalle
-- ✅ `PATCH /organizations/{id}` — editar (superadmin)
-- ✅ `GET /organizations/{id}/tenants` — empresas del grupo
-- ✅ `POST /organizations/{id}/tenants/{tenant_id}` — agregar empresa
-- ✅ `DELETE /organizations/{id}/tenants/{tenant_id}` — quitar empresa
-- ✅ `GET /organizations/{id}/members` — listar miembros
-- ✅ `POST /organizations/{id}/members` — invitar miembro
-- ✅ `DELETE /organizations/{id}/members/{member_id}` — quitar miembro
-- ✅ `GET /organizations/{id}/catalog` — catálogo compartido
-- ✅ `POST /organizations/{id}/catalog` — agregar al catálogo
-- ✅ `POST /organizations/{id}/catalog/import` — importar a una empresa
-- ✅ `GET /organizations/{id}/consolidated` — dashboard consolidado
-- ✅ `POST /inter-transfers` — crear transferencia de stock
-- ✅ `GET /inter-transfers` — listar transferencias
-- ✅ `PATCH /inter-transfers/{id}/accept` — aceptar (descuenta/suma stock + Kardex)
-- ✅ `PATCH /inter-transfers/{id}/reject` — rechazar
+### Catálogo compartido
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/organizations/{id}/catalog` | Listar catálogo |
+| POST | `/organizations/{id}/catalog` | Agregar producto al catálogo |
+| DELETE | `/organizations/{id}/catalog/{pid}` | Quitar producto |
+| POST | `/organizations/{id}/catalog/import` | Importar productos a empresa actual |
 
-**Tests ejecutados — 8/8 ✅**
+### Transferencias entre empresas
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/inter-transfers` | Listar transferencias del tenant actual |
+| POST | `/inter-transfers` | Crear solicitud de transferencia |
+| PATCH | `/inter-transfers/{id}/accept` | Aceptar (descuenta origen, suma destino, Kardex) |
+| PATCH | `/inter-transfers/{id}/reject` | Rechazar (no mueve stock) |
 
-**Bot de Telegram (Sprint 3):**
-- [ ] `/org crear [nombre] [email_dueño]`
-- [ ] `/org listar`
-- [ ] `/org agregar [org_id] [schema]`
-- [ ] `/org plan [org_id] [plan]`
+### Auth
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/auth/switch-company` | Cambiar de empresa (genera nuevo token) |
 
----
-
-### Sprint 2 — Login unificado y selector de empresa (Semana 2)
-
-**Backend:**
-- [ ] Modificar `POST /auth/token` para detectar si el usuario pertenece a una organización
-- [ ] Si tiene organización con 2+ empresas → devolver `org_token` además del `access_token`
-- [ ] `GET /auth/org-companies` — listar empresas del grupo para el selector
-- [ ] `POST /auth/switch-company` — cambiar de empresa con el `org_token`
-
-**Frontend:**
-- [ ] Nueva pantalla `OrgSelector.jsx` — selección de empresa al login
-- [ ] Menú de cambio rápido en el sidebar (ícono de edificio → dropdown con empresas)
-- [ ] Indicador visual de en qué empresa estás trabajando
-- [ ] `app.miinventariofacil.com` como portal de entrada para multi-empresa
-
----
-
-### Sprint 3 — Dashboard consolidado ✅ COMPLETADO (2026-04-05)
-
-**Backend:**
-- ✅ `GET /organizations/{id}/consolidated` — ventas del día, stock bajo, mejor empresa (Sprint 1)
-- ✅ `GET /organizations/consolidated-mine` — detecta automáticamente el org del usuario
-- ✅ Fix: conflicto de rutas — `/consolidated-mine` movido antes de `/{org_id}`
-
-**Frontend:**
-- ✅ `ConsolidatedDashboard.jsx` (445 líneas, completamente comentado):
-  - 4 KPIs: ventas totales, transacciones, mejor empresa, alertas stock
-  - Gráfico de barras SVG comparativo entre empresas
-  - Panel de alertas de stock por empresa (verde/rojo)
-  - Tabla de desempeño con barra de progreso por empresa
-  - Botón de acceso directo a cada empresa (ExternalLink)
-  - Auto-refresh cada 5 minutos
-- ✅ Ruta `/org/dashboard` registrada en `App.jsx`
-- ✅ NavItem "Grupo Empresarial" en el `Sidebar` (solo visible con 2+ empresas)
-
-**Tests ejecutados — 4/4 ✅**
-- T1 Login con membresía → OK
-- T2 /consolidated-mine → org, 2 empresas, 6 alertas de stock
-- T3 Sin auth → 401 correcto
-- T4 Org inexistente → 404 correcto
-
----
-
-### Sprint 4 — Catálogo compartido ✅ COMPLETADO (2026-04-05)
-
-**Backend (Sprint 1):**
-- ✅ `GET /organizations/{id}/catalog` — listar catálogo con búsqueda
-- ✅ `POST /organizations/{id}/catalog` — agregar producto al catálogo
-- ✅ `POST /organizations/{id}/catalog/import` — importar a la empresa actual (evita duplicados por SKU)
-
-**Frontend:**
-- ✅ `SharedCatalog.jsx` (625 líneas, completamente comentado):
-  - Grid de tarjetas con nombre, SKU, categoría, costo y precio sugerido
-  - Búsqueda en tiempo real por nombre
-  - Selección múltiple para importar varios productos a la vez
-  - Botón "Importar individual" por tarjeta
-  - Modal `AddToCatalogModal` con formulario validado (nombre, SKU, categoría, precios, descripción)
-  - Banner informativo explicando el funcionamiento
-  - Estados vacío, carga, sin resultados y sin organización
-- ✅ Ruta `/org/catalog` en `App.jsx`
-- ✅ NavItem "Catálogo Compartido" en `Sidebar` (junto a "Grupo Empresarial")
-
-**Tests — 6/6 ✅**
-- T1 Login → OK
-- T2 Listar catálogo → 2 productos
-- T3 Agregar producto → id=4, nombre guardado
-- T4 Búsqueda "HDMI" → 2 resultados
-- T5 Importar al tenant → "1 importados, 0 ya existían"
-- T6 Re-importar (duplicado) → "0 importados, 1 ya existían" (deduplicación por SKU)
-
----
-
-### Sprint 5 — Transferencias entre empresas ✅ COMPLETADO (2026-04-05)
-
-**Backend (Sprint 1):**
-- ✅ `POST /inter-transfers` — crear solicitud (valida stock disponible)
-- ✅ `GET /inter-transfers` — listar (enviadas y recibidas del tenant actual)
-- ✅ `PATCH /inter-transfers/{id}/accept` — acepta: descuenta en origen, suma en destino + Kardex TRANSFER_OUT / TRANSFER_IN en ambas BD
-- ✅ `PATCH /inter-transfers/{id}/reject` — rechaza la solicitud
-
-**Frontend:**
-- ✅ `InterCompanyTransfers.jsx` (608 líneas, completamente comentado):
-  - Tabs: Recibidas / Enviadas / Historial con badges de conteo
-  - `TransferCard` con empresas origen→destino, badge de estado, lista de ítems
-  - Botones Aceptar/Rechazar solo en transferencias entrantes pendientes
-  - `NewTransferModal` con selector de empresa destino, tabla de ítems (SKU + nombre + cantidad), nota
-  - Botón Agregar ítem y eliminar fila
-  - Estados vacíos, carga, sin organización
-- ✅ Ruta `/org/transfers` en `App.jsx`
-- ✅ NavItem "Transferencias" en `Sidebar` (icono ArrowLeftRight)
-
-**Tests — 5/5 ✅**
-- T1 Login → OK
-- T2 Listar (vacío inicial) → 0 transferencias
-- T3 Crear transferencia con stock suficiente → id=1, PENDING
-- T4 Listar tras crear → 1 transferencia
-- T5 Rechazar desde origen → REJECTED correctamente
-
----
-
-### Sprint 6 — WhatsApp compartido y planes (Semana 5)
-
-**WhatsApp compartido:**
-- [ ] Opción en la org para usar una sola instancia de Baileys para todas las empresas
-- [ ] Cada mensaje incluye el nombre de la empresa para que el cliente sepa de cuál viene
-- [ ] Config: `use_shared_whatsapp` en organization
-
-**Planes multi-empresa:**
-- [ ] Tabla `organization_plans` con precios y límites
-- [ ] Integración con el bot de Telegram para cambiar el plan de una org
-- [ ] Panel SaaS: sección de organizaciones con gestión de planes
-- [ ] Lógica de expiración por organización (si la org vence, bloquear acceso a todas las empresas)
-
----
-
-## 4. Impacto en código existente
-
-### Lo que NO cambia
-- Arquitectura de schemas PostgreSQL por tenant
-- Middleware de detección de tenant (sigue usando subdominio)
-- Endpoints existentes de cada empresa
-- El POS, taller, inventario, compras, etc.
-- Los tenants sin organización siguen funcionando igual
-
-### Lo que SÍ cambia
-- `POST /auth/token` — detecta si el usuario tiene organización
-- `POST /admin/tenants` — acepta `organization_id` opcional al crear
-- Panel SaaS admin — nueva sección de organizaciones
-- Bot de Telegram — nuevos comandos `/org`
-- `seed_tenant_data` — inicializar claves de catálogo compartido
-
----
-
-## 5. Reglas de desarrollo (IMPORTANTE)
-
-1. **Siempre trabajar en la rama `feature/multi-empresa`**
-2. **Probar en QA antes de cualquier merge a main**
-3. **Las migraciones de BD se aplican en QA primero** — script en `_CEREBRO_PROYECTO/migrate_multi_empresa.sql`
-4. **No tocar tablas de tenants existentes** sin migración probada
-5. **Los endpoints nuevos de /organizations no deben romper los existentes**
-
----
-
-## 6. Orden de implementación sugerido
-
-```
-Sprint 1 (BD + backend base)
-    ↓
-Sprint 2 (login unificado)
-    ↓
-Sprint 3 (dashboard consolidado)
-    ↓  Primer merge a main con estas 3 features
-Sprint 4 (catálogo compartido)
-    ↓
-Sprint 5 (transferencias)
-    ↓
-Sprint 6 (WhatsApp + planes)
-    ↓  Merge final a main
+El endpoint `/auth/token` retorna campos adicionales:
+```json
+{
+  "access_token": "...",
+  "has_multiple_companies": true,
+  "org_companies": [
+    {"tenant_id": 18, "schema_name": "oscar", "name": "oscar",
+     "switch_url": "https://oscar.miinventariofacil.com", "is_current": true},
+    {"tenant_id": 17, "schema_name": "jul", "name": "jul",
+     "switch_url": "https://jul.miinventariofacil.com", "is_current": false}
+  ]
+}
 ```
 
 ---
 
-## 7. Archivos a crear
+## Frontend — Pantallas
 
+### Rutas
+| Ruta | Componente | Descripción |
+|---|---|---|
+| `/org/dashboard` | `ConsolidatedDashboard.jsx` | Dashboard consolidado del grupo |
+| `/org/catalog` | `SharedCatalog.jsx` | Catálogo compartido |
+| `/org/transfers` | `InterCompanyTransfers.jsx` | Transferencias de stock |
+| `/org/config` | `OrgConfig.jsx` | Configuración del grupo |
+
+### OrgSelector.jsx
+- Aparece al hacer login si `has_multiple_companies === true`
+- Muestra tarjetas para cada empresa del grupo
+- Al seleccionar una, guarda el token y redirige al dashboard de esa empresa
+
+### CompanySwitcher.jsx
+- Dropdown en el Sidebar (bloque superior)
+- Muestra empresa actual con ✓ verde
+- Al seleccionar otra → llama `/auth/switch-company` → nuevo token → redirige
+
+### ConsolidatedDashboard.jsx
+- 4 KPIs: ventas totales grupo hoy, transacciones, mejor empresa, alertas stock
+- Gráfico de barras SVG comparando ventas por empresa
+- Panel de alertas de stock bajo por empresa
+- Tabla de desempeño con link directo a cada empresa
+- Auto-refresh cada 5 minutos
+
+### SharedCatalog.jsx
+- Grid de tarjetas de productos compartidos
+- Búsqueda en tiempo real
+- Selección múltiple para importar en lote
+- Deduplicación por SKU al importar
+
+### InterCompanyTransfers.jsx
+- Tabs: Recibidas / Enviadas / Historial
+- Modal de nueva transferencia con selector de empresa destino y búsqueda por SKU
+- Al aceptar: descuenta stock en origen + suma en destino + Kardex en ambas BDs
+- Si el producto no existe en destino, se crea automáticamente
+
+### OrgConfig.jsx
+- Sección Plan: barra de uso, precio, vencimiento, alerta si vencido
+- Sección WhatsApp: toggle + nombre de instancia Baileys
+- Sección Empresas del grupo: contador y enlace al panel admin
+- Sección Miembros: lista con roles, agregar/quitar
+
+---
+
+## Panel SaaS Admin
+
+**URL:** `https://admin-qa.miinventariofacil.com/dashboard/organizations`
+
+### Organizations.tsx
+- Grid de tarjetas con: avatar, nombre, plan badge, WA compartido badge, métricas, barra de uso, owner, precio
+- 4 KPIs: total orgs, activas, empresas totales, ingreso mensual
+- Filtros: búsqueda por nombre/email, filtro por plan
+- Modal "Nueva organización": nombre, email dueño, selector visual de plan, precio, notas
+
+### OrganizationDetails.tsx (4 tabs)
+**Tab Empresas:**
+- Barra de uso del plan
+- Lista de empresas con estado, schema, link al detalle del tenant
+- Selector para agregar empresa (con búsqueda y verificación de límite)
+- Botón quitar empresa (solo desvincula, el tenant sigue existiendo)
+
+**Tab Miembros:**
+- Lista con rol y permisos
+- Agregar por email con selector de rol (owner/manager/viewer)
+- Quitar miembro (excepto owner)
+
+**Tab Plan:**
+- Estado actual: plan, uso de empresas, precio, vencimiento
+- Formulario: cambiar plan, precio, fecha vencimiento, notas
+- Alerta visual si el plan está vencido
+
+**Tab WhatsApp:**
+- Toggle activar/desactivar WA compartido
+- Campo nombre de instancia Baileys
+- Info de cómo funciona
+
+---
+
+## Fix crítico — Acceso cross-tenant
+
+**Problema:** Al hacer switch de empresa, `get_current_user` en `dependencies.py` bloqueaba con 403 "You do not have access to this company" porque el usuario tenía `tenant_id` de la empresa origen, no de la destino.
+
+**Fix aplicado en `dependencies.py`:**
+```python
+if user.tenant_id != tenant.id and not user.is_superuser:
+    # Verificar membresía de organización
+    from .models.organization import OrganizationUser as _OrgUser
+    membership = db.query(_OrgUser).filter(
+        _OrgUser.organization_id == tenant.organization_id,
+        _OrgUser.user_email == email,
+        _OrgUser.can_switch == True
+    ).first()
+    if membership:
+        # Permitir acceso via membresía del grupo
+        pass
+    else:
+        raise HTTPException(403, "You do not have access to this company")
 ```
-backend_api/routers/organizations.py        ← Router principal
-backend_api/routers/inter_transfers.py      ← Transferencias entre empresas
-backend_api/schemas/organization.py         ← Schemas Pydantic
-backend_api/models/organization.py          ← Modelos SQLAlchemy
-backend_api/services/consolidated.py        ← Lógica dashboard consolidado
-backend_api/services/shared_catalog.py      ← Lógica catálogo compartido
 
-frontend_web/src/pages/Org/
-    OrgSelector.jsx                         ← Selector de empresa al login
-    ConsolidatedDashboard.jsx               ← Dashboard del grupo
-    SharedCatalog.jsx                       ← Catálogo compartido
-    InterCompanyTransfers.jsx               ← Transferencias
+---
 
-_CEREBRO_PROYECTO/migrate_multi_empresa.sql ← Migraciones
+## Bot de Telegram — Comandos /org
+
+Ver `40_Telegram_Admin_Bot.md` para la documentación completa.
+
+**Archivo:** `/root/deploy/telegram-bot/handlers/organizations.py`
+- Usa `_psql()` con `docker exec db_prod_server psql ...` — sin SQLAlchemy
+- 10 subcomandos: listar, detalle, crear, plan, precio, agregar, quitar, wa, bloquear, activar
+
+---
+
+## Verificado: Módulos y feature_flags son independientes por empresa
+
+- Activar `has_pharmacy_module` en empresa A → empresa B de la misma org NO se afecta ✅
+- `feature_flags` JSON son completamente independientes por tenant ✅
+- El middleware NO lee `organization_id` para decidir qué módulos activar ✅
+- Tests: 14/14 ✅
+
+---
+
+## Flujo completo para crear un grupo desde cero
+
+**Opción 1 — Panel SaaS Admin** (recomendado):
+1. Ir a `admin.miinventariofacil.com/dashboard/organizations`
+2. Click en "+ Nueva organización"
+3. Completar: nombre, email dueño, plan, precio
+4. Ir al detalle → Tab Empresas → Agregar las empresas del grupo
+5. Tab Miembros → Agregar el email del dueño como owner
+
+**Opción 2 — Bot de Telegram:**
 ```
+/org crear "Grupo Rodriguez" admin@rodriguez.com
+/org agregar 1 ferreteria-centro
+/org agregar 1 ferreteria-norte
+/org plan 1 enterprise
+/org precio 1 49.99
+```
+
+**Lo que experimenta el usuario tras la configuración:**
+1. Inicia sesión normalmente en su empresa de siempre
+2. Si tiene 2+ empresas en el grupo → aparece el `OrgSelector` para elegir empresa
+3. Dentro del sistema → el `CompanySwitcher` en el sidebar permite cambiar de empresa sin re-login
+4. Los ítems del sidebar muestran: Grupo Empresarial, Catálogo Compartido, Transferencias, Config. del Grupo
+
+---
+
+## Migraciones
+
+Ver `20_Migraciones_SQL_Pendientes.md` para el script completo.
+
+Script: `_CEREBRO_PROYECTO/migrate_multi_empresa.sql`
+- QA: ✅ Aplicado 2026-04-05
+- PROD: ⏳ Pendiente (aplicar antes del merge de `feature/multi-empresa`)
