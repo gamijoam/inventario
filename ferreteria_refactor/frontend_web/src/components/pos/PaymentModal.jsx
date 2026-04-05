@@ -13,6 +13,7 @@ import QuickCustomerModal from './QuickCustomerModal';
 import CustomerSearch from './CustomerSearch';
 import CurrencyInput from '../common/CurrencyInput';
 import { cn } from '../../lib/utils';
+import CreditoCelularModal from '../credit/CreditoCelularModal';
 
 // Local formatCurrency removed to use ConfigContext one globaly
 
@@ -43,7 +44,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const [processing, setProcessing] = useState(false);
 
     // Credit sale states
-    const [isCreditSale, setIsCreditSale] = useState(false);
+    const [isCreditSale, setIsCreditSale]         = useState(false);
+    const [showCalcCredito, setShowCalcCredito]   = useState(false);
     const [customers, setCustomers] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
 
@@ -449,7 +451,24 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         await executeSale();
     };
 
+    // Modal calculadora de crédito para celulares
+    const celularEnCarrito = cart.find(item => item.has_imei);
+    const clienteSeleccionado = selectedCustomer;
+
     return (
+        <>
+        {showCalcCredito && celularEnCarrito && (
+            <CreditoCelularModal
+                isOpen={showCalcCredito}
+                onClose={() => setShowCalcCredito(false)}
+                producto={celularEnCarrito}
+                cliente={clienteSeleccionado}
+                onConfirmar={(datos) => {
+                    setShowCalcCredito(false);
+                    onClose?.();
+                }}
+            />
+        )}
         <div className="fixed inset-0 bg-[#0f172a]/70 flex items-end sm:items-center justify-center z-50 backdrop-blur-md p-0 sm:p-4 transition-all duration-300">
             <div className="bg-white rounded-t-2xl sm:rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-auto sm:max-h-[85vh] animate-in fade-in zoom-in-95 slide-in-from-bottom-5 duration-300 ring-1 ring-white/20">
 
@@ -759,6 +778,22 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             </div>
                         </label>
 
+                        {/* Calculadora de Crédito — solo si hay celulares y venta a crédito */}
+                        {isCreditSale && cart.some(item => item.has_imei) && (
+                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-bold text-indigo-700">📱 Celular detectado en el carrito</p>
+                                    <p className="text-[10px] text-indigo-500">Calcula las cuotas exactas antes de confirmar</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowCalcCredito(true)}
+                                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
+                                >
+                                    🧮 Calculadora
+                                </button>
+                            </div>
+                        )}
+
                         {/* Payments Section - Compact */}
                         {!isCreditSale && (
                             <div className="space-y-3">
@@ -1030,6 +1065,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 </div>
             )}
         </div>
+        </>
     );
 };
 

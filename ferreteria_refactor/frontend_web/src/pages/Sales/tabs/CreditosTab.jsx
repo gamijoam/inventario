@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import {
     DollarSign, Calendar, AlertCircle, CheckCircle, X, Filter,
     Eye, Users, ChevronDown, Calculator, CheckSquare, Search,
-    Wallet, Printer, FileText
+    Wallet, Printer, FileText, Smartphone
 } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import InvoiceDetailModal from '../../../components/credit/InvoiceDetailModal';
+import CreditosCelularesTab from './CreditosCelularesTab';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
 
@@ -14,9 +15,10 @@ import clsx from 'clsx';
 // Sub-tab definitions
 // ---------------------------------------------------------------------------
 const SUB_TABS = [
-    { id: 'cxc', label: 'Cuentas por Cobrar', icon: Wallet },
-    { id: 'aging', label: 'Antigüedad', icon: Calendar },
-    { id: 'ledger', label: 'Estado de Cuenta', icon: FileText },
+    { id: 'cxc',      label: 'Cuentas por Cobrar', icon: Wallet     },
+    { id: 'celulares',label: '📱 Créditos Celular', icon: Smartphone },
+    { id: 'aging',    label: 'Antigüedad',          icon: Calendar   },
+    { id: 'ledger',   label: 'Estado de Cuenta',    icon: FileText   },
 ];
 
 // ---------------------------------------------------------------------------
@@ -695,6 +697,11 @@ const CreditosTab = ({ dateRange }) => {
                                                 </td>
                                                 <td className="py-3 px-4 text-right font-bold text-slate-900">
                                                     {formatUSD(inv.balance_pending || inv.total_amount)}
+                                                    {inv.credit_installments && (
+                                                        <div className="text-[10px] text-slate-400 mt-0.5">
+                                                            {inv.credit_installments} cuotas · ${parseFloat(inv.credit_installment_amount||0).toFixed(2)} c/u · {inv.credit_frequency||'mensual'}
+                                                        </div>
+                                                    )}}
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
                                                     {inv.paid ? (
@@ -1359,6 +1366,12 @@ const CreditosTab = ({ dateRange }) => {
 
             {/* Sub-tab Content */}
             {activeSubTab === 'cxc' && renderCxc()}
+            {activeSubTab === 'celulares' && (
+                <div className="p-4">
+                    <CreditosCelularesTab />
+                </div>
+            )}
+
             {activeSubTab === 'aging' && renderAging()}
             {activeSubTab === 'ledger' && renderLedger()}
 

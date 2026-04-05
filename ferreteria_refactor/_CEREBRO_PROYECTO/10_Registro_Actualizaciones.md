@@ -4,6 +4,55 @@ Bitácora oficial de cambios de **Mi Inventario Fácil**. Trazabilidad técnica 
 
 ---
 
+## [2026-04-05] — Integración BloqueCelular COMPLETA (`feature/integracion-bloqueo`)
+
+### Fase 1 — Backend (42/42 ✅)
+- `services/bloqueocelular_service.py`: auth JWT auto-renovable, sync cliente (fallback cédula duplicada + teléfono vacío), registrar dispositivo, bloquear/desbloquear via FCM, registrar pago, generar código BLC, probar conexión
+- `routers/bloqueo.py`: 9 endpoints (APK URL, config, estado/bloquear/desbloquear/nuevo-codigo/sync por venta)
+- Hook en `create_sale`: auto-sync con BloqueCelular al confirmar venta a crédito de celular
+- Hook en `register_payment`: notifica cada abono a BloqueCelular
+- Migración: 6 columnas `bloqueo_*` en `sales` + 7 claves `business_config`
+- Fix: `payment_term_days=NULL` crasheaba `timedelta` → default 30 días
+- Fix: `serial_imei` → `serial_number` (nombre real de la columna)
+
+### Fase 2 — Frontend básico (21/21 ✅)
+- `BloqueoCelular.jsx` (390 líneas): panel estado activo/bloqueado/sin activar, código BLC con copia, APK+QR, botones bloquear/desbloquear/nuevo código/sync
+- `IntegracionesTab.jsx`: formulario conectar/desconectar, estado de la integración
+- `InvoiceDetailModal`: integrado panel de bloqueo en detalle de ventas a crédito
+- `ConfigCenter`: nuevo tab "Integraciones" con ícono candado
+
+### Fase 3 — Filtro has_imei + Calculadora (47/48 ✅)
+- Filtro en hook `create_sale`: solo productos con `has_imei=TRUE` van a BloqueCelular
+- `CalculadoraCredito.jsx` (395 líneas): copia exacta de BloqueCelular (modelo plano, slider tasa, pills cuotas 3/6/9/12/18/24, frecuencias s/q/m, tabla amortización)
+- `CreditoCelularModal.jsx`: flujo Paso1=Calculadora → Paso2=Confirmación con código BLC
+- Botón 🧮 Calculadora en PaymentModal cuando hay celular en el carrito
+
+### Fase 4 — Flujo crédito completo (40/40 ✅)
+- Migración: 5 columnas `credit_*` en `sales` (down_payment, installments, interest_rate, frequency, installment_amount)
+- `balance_pending` corregido: `(precio + interés) - enganche` (antes era precio completo)
+- `SaleCreate` acepta datos del crédito; `SaleRead` los retorna
+- `InvoiceDetailModal`: muestra plan de cuotas con tabla de amortización
+- `CreditosTab`: muestra cuotas/frecuencia/monto por cuota en el listado
+- Fix: `is_box`, `is_combo`, `is_discount_active`, `conversion_factor` → Optional en schemas
+
+### Fase 5 — Tab Créditos Celular (35/36 ✅)
+- `CreditosCelularesTab.jsx` (529 líneas): gestión completa desde un solo lugar
+  - Banner APK prominente con QR para el técnico
+  - KPIs: total, activos, bloqueados, sin activar, saldo total
+  - Filtros por estado de bloqueo
+  - Botones 🔒/🔓 DIRECTOS en la lista sin abrir modal
+  - Abono rápido inline sin modal
+  - Plan de cuotas expandible con tabla de amortización
+  - Código BLC con copiar + instrucciones APK
+- `SaleRead`: añadidos campos `bloqueo_sincronizado`, `bloqueo_codigo_activacion`, `bloqueo_estado`, etc.
+- `CreditosTab`: sub-tab "📱 Créditos Celular" registrado en el menú
+
+**Migración PROD pendiente:** ver `20_Migraciones_SQL_Pendientes.md`
+
+
+
+---
+
 ## [2026-04-05] — Sistema Multi-Empresa COMPLETO (rama `feature/multi-empresa`)
 
 ### Sprint 0 — Base de datos y arquitectura
