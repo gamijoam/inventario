@@ -357,6 +357,13 @@ class Sale(Base):
     due_date = Column(DateTime, nullable=True, index=True)  # Payment deadline for credit sales
     balance_pending = Column(Numeric(18, 4), nullable=True)  # Remaining balance for partial payments
 
+    # Credit Details (from CalculadoraCredito — modelo plano)
+    credit_down_payment      = Column(Numeric(18,4), nullable=True)  # Enganche pagado
+    credit_installments      = Column(Integer,       nullable=True)  # Número de cuotas
+    credit_interest_rate     = Column(Numeric(8,4),  nullable=True)  # Tasa de interés %
+    credit_frequency         = Column(String(20),    nullable=True)  # semanal/quincenal/mensual
+    credit_installment_amount= Column(Numeric(18,4), nullable=True)  # Monto de cada cuota
+
 
     
     # Sale Notes

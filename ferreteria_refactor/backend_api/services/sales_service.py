@@ -165,13 +165,25 @@ class SalesService:
             # Calculate due date for credit sales
             due_date = None
             balance_pending = None
-            if sale_data.is_credit and sale_data.customer_id:
-                customer = db.query(models.Customer).filter(models.Customer.id == sale_data.customer_id).first()
-                if customer:
-                    # Fix: payment_term_days puede ser NULL → usar 30 días por defecto
-                    _term_days = customer.payment_term_days if customer.payment_term_days is not None else 30
-                    due_date = current_time + timedelta(days=_term_days)
-                    balance_pending = sale_data.total_amount
+            if sale_data.is_credit:
+                # Calcular balance_pending usando el enganche si viene de CalculadoraCredito
+                if sale_data.credit_down_payment is not None and float(sale_data.credit_down_payment) > 0:
+                    # Modelo plano: total = precio + interes, financiado = total - enganche
+                    precio    = float(sale_data.total_amount)
+                    enganche  = float(sale_data.credit_down_payment)
+                    tasa      = float(sale_data.credit_interest_rate or 0)
+                    interes   = precio * (tasa / 100)
+                    total_con_interes = precio + interes
+                    balance_pending = max(0.0, total_con_interes - enganche)
+                else:
+                    # Venta a crédito simple sin calculadora — saldo = monto total
+                    balance_pending = float(sale_data.total_amount)
+
+                if sale_data.customer_id:
+                    customer = db.query(models.Customer).filter(models.Customer.id == sale_data.customer_id).first()
+                    if customer:
+                        _term_days = customer.payment_term_days if customer.payment_term_days is not None else 30
+                        due_date = current_time + timedelta(days=_term_days)
             
             new_sale = models.Sale(
                 date=current_time, # Explicitly set date
@@ -179,7 +191,12 @@ class SalesService:
                 payment_method=sale_data.payment_method,
                 customer_id=sale_data.customer_id,
                 is_credit=sale_data.is_credit,
-                paid=not sale_data.is_credit, 
+                paid=not sale_data.is_credit,
+                credit_down_payment       = float(sale_data.credit_down_payment)       if sale_data.credit_down_payment       else None,
+                credit_installments       = int(sale_data.credit_installments)         if sale_data.credit_installments       else None,
+                credit_interest_rate      = float(sale_data.credit_interest_rate)      if sale_data.credit_interest_rate      else None,
+                credit_frequency          = sale_data.credit_frequency                 if sale_data.credit_frequency          else None,
+                credit_installment_amount = float(sale_data.credit_installment_amount) if sale_data.credit_installment_amount else None, 
                 currency=sale_data.currency,
                 exchange_rate_used=sale_data.exchange_rate,
                 total_amount_bs=total_bs,
