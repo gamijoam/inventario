@@ -1,4 +1,5 @@
 import React from 'react';
+import BloqueoCelular from './BloqueoCelular';
 import { X, Calendar, Hash, DollarSign, TrendingUp, User, Package } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 
@@ -219,6 +220,16 @@ const InvoiceDetailModal = ({ isOpen, onClose, sale }) => {
                         </div>
                     )}
                 </div>
+
+                {/* Panel de Control de Bloqueo — Solo para ventas a crédito */}
+                {sale.is_credit && (
+                    <div className="px-6 pb-4">
+                        <BloqueoCelular
+                            saleId={sale.id}
+                            isCredit={sale.is_credit}
+                        />
+                    </div>
+                )}
 
                 {/* Footer */}
                 <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end">

@@ -21,6 +21,7 @@ const EstacionPOSTab    = React.lazy(() => import('./tabs/EstacionPOSTab'));
 const ComisionesTab     = React.lazy(() => import('./tabs/ComisionesTab'));
 const WhatsAppTab       = React.lazy(() => import('./tabs/WhatsAppTab'));
 const CatalogTab        = React.lazy(() => import('./tabs/CatalogTab'));
+const IntegracionesTab  = React.lazy(() => import('./tabs/IntegracionesTab'));
 
 // ── Grupos del menú lateral ──────────────────────────────────────────────────
 const GROUPS = [
@@ -49,6 +50,7 @@ const GROUPS = [
             { id: 'auditoria',  label: 'Auditoría',         icon: ClipboardList, desc: 'Registro de actividad' },
             { id: 'catalogo',   label: 'Catálogo Público',  icon: ShoppingBag,  desc: 'Link, QR, carrito y opciones del catálogo' },
             { id: 'whatsapp',   label: 'WhatsApp',          icon: MessageCircle, desc: 'Notificaciones y mensajes' },
+            { id: 'integraciones', label: 'Integraciones',   icon: Lock,         desc: 'BloqueCelular y otros sistemas externos' },
         ],
     },
 ];
@@ -78,7 +80,8 @@ const renderTabContent = (activeTab) => {
         case 'garantias':  return wrap(GarantiasConfigTab);
         case 'auditoria':  return wrap(AuditoriaTab);
         case 'catalogo':   return wrap(CatalogTab);
-        case 'whatsapp':   return wrap(WhatsAppTab);
+        case 'whatsapp':      return wrap(WhatsAppTab);
+        case 'integraciones': return wrap(IntegracionesTab);
         case 'pos':        return wrap(EstacionPOSTab);
         case 'comisiones': return wrap(ComisionesTab);
         default:           return null;
