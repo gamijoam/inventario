@@ -194,7 +194,11 @@ const SalesTab = ({ dateRange }) => {
 
     const handleVoidClick = (sale) => {
         if (sale.status === 'VOIDED') {
-            toast.error('Esta venta ya esta anulada');
+            toast.error('Esta venta ya está anulada');
+            return;
+        }
+        if (sale.status === 'PARTIAL_RETURN') {
+            toast.error('Esta venta tiene una devolución parcial. Para anular ve a Centro de Ventas → Devoluciones.');
             return;
         }
         setSaleToVoid(sale);
@@ -218,18 +222,9 @@ const SalesTab = ({ dateRange }) => {
                 return;
             }
 
-            const items = saleToVoid.details?.map(detail => ({
-                product_id: detail.product_id,
-                quantity: detail.quantity,
-                condition: 'GOOD',
-            })) || [];
-
-            await apiClient.post('/returns', {
-                sale_id: saleToVoid.id,
-                items,
-                reason: 'ANULACION DE VENTA - ERROR OPERATIVO',
-                refund_currency: 'USD',
-                exchange_rate: 1.0,
+            // Usar el endpoint de anulación directa — más completo y seguro
+            await apiClient.post(`/returns/void/${saleToVoid.id}`, null, {
+                params: { reason: 'ANULACIÓN DE VENTA - ERROR OPERATIVO' }
             });
 
             const updatedSales = sales.map(s =>
@@ -443,7 +438,7 @@ const SalesTab = ({ dateRange }) => {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="gap-2 border-slate-200 text-slate-600">
-                                <Filter size={14} /> Filtro: {selectedStatus === '' ? 'Todos' : selectedStatus === 'VOIDED' ? 'Anulados' : 'Completados'}
+                                <Filter size={14} /> Filtro: {selectedStatus === '' ? 'Todos' : selectedStatus === 'VOIDED' ? 'Anuladas' : selectedStatus === 'PARTIAL_RETURN' ? 'Dev. Parcial' : 'Completadas'}
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -451,7 +446,8 @@ const SalesTab = ({ dateRange }) => {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setSelectedStatus('')}>Todos</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setSelectedStatus('COMPLETED')}>Completados</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSelectedStatus('VOIDED')}>Anulados</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSelectedStatus('VOIDED')}>Anuladas</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSelectedStatus('PARTIAL_RETURN')}>Dev. Parcial</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
 
@@ -545,6 +541,10 @@ const SalesTab = ({ dateRange }) => {
                                             <Badge variant="destructive" className="bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100">
                                                 Anulada
                                             </Badge>
+                                        ) : sale.status === 'PARTIAL_RETURN' ? (
+                                            <Badge className="bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-100 shadow-none">
+                                                Dev. Parcial
+                                            </Badge>
                                         ) : (
                                             <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-none">
                                                 Completada
@@ -571,7 +571,7 @@ const SalesTab = ({ dateRange }) => {
                                                 <DropdownMenuItem onClick={() => handleReprint(sale)}>
                                                     <Printer className="mr-2 h-4 w-4" /> Reimprimir Ticket
                                                 </DropdownMenuItem>
-                                                {sale.status !== 'VOIDED' && user?.role === 'ADMIN' && (
+                                                {sale.status !== 'VOIDED' && sale.status !== 'PARTIAL_RETURN' && user?.role === 'ADMIN' && (
                                                     <>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem onClick={() => handleVoidClick(sale)} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50">

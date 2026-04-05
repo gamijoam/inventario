@@ -380,7 +380,18 @@ class Sale(Base):
 
     @property
     def status(self):
-        return "VOIDED" if self.returns else "COMPLETED"
+        if not self.returns:
+            return "COMPLETED"
+        # Solo VOIDED si la devolución cubre todos los ítems de la venta
+        total_sold = sum(float(d.quantity or 0) for d in (self.details or []) if d.product_id)
+        total_returned = sum(
+            float(rd.quantity or 0)
+            for r in self.returns
+            for rd in (r.details or [])
+        )
+        if total_sold > 0 and total_returned >= total_sold:
+            return "VOIDED"
+        return "PARTIAL_RETURN"  # Devolución parcial — la venta sigue vigente
 
     def __repr__(self):
         return f"<Sale(id={self.id}, total={self.total_amount})>"

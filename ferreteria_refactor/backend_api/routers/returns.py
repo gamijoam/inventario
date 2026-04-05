@@ -5,6 +5,7 @@ from typing import List, Optional
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
+from ..commission_engine import CommissionEngine
 from datetime import datetime, date
 
 router = APIRouter(
@@ -248,32 +249,212 @@ def process_return(return_data: schemas.ReturnCreate, db: Session = Depends(get_
         print(f"💳 Credit sale return: Reduced balance from ${old_balance:.2f} to ${new_balance:.2f}, Paid: {sale.paid}")
         print(f"💵 Actual cash to refund (after debt offset): ${actual_cash_refund:.2f}")
     
-    # Cash Impact (Refund)
-    session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
-    if session and actual_cash_refund > 0:
+    # ── FIX 1: Anular comisiones de la venta devuelta ───────────────────────────
+    try:
+        from ..models.tenant import Tenant as _TenantModel
+        from sqlalchemy import text as _text_ret
+        from ..tenant_context import get_tenant_schema as _gts_ret
+        _s_ret = _gts_ret()
+        # Leer feature_flags del tenant actual
+        _ff_row = db.execute(
+            _text_ret("SELECT feature_flags FROM public.tenants WHERE schema_name = :s"),
+            {"s": _s_ret}
+        ).fetchone()
+        _flags = (_ff_row[0] or {}) if _ff_row and _ff_row[0] else {}
+        _engine = CommissionEngine(db, _flags)
+        _voided = _engine.void_sale_commissions(sale.id)
+        if _voided:
+            print(f"[RETURN] {_voided} comisiones anuladas para venta #{sale.id}")
+    except Exception as _ce:
+        print(f"[RETURN] Error anulando comisiones: {_ce}")
+
+    # ── FIX 2: Registrar movimiento de caja ───────────────────────────────────
+    # Buscar sesión abierta; si no hay, usar la sesión original de la venta
+    if actual_cash_refund > 0:
         amount_to_record = actual_cash_refund
         if return_data.refund_currency == "Bs":
             amount_to_record = actual_cash_refund * return_data.exchange_rate
-        
-        cash_movement = models.CashMovement(
-            session_id=session.id,
-            type="RETURN",  # Explicit return type
-            amount=amount_to_record,
-            currency=return_data.refund_currency,
-            exchange_rate=return_data.exchange_rate,
-            description=f"Devolución Venta #{sale.id}: {return_data.reason}"
-        )
-        db.add(cash_movement)
-    
-    # 🔒 SECURITY: Final Eager Load BEFORE commit (v44)
+
+        session = db.query(models.CashSession).filter(
+            models.CashSession.status == "OPEN"
+        ).first()
+
+        # Si no hay caja abierta → usar la sesión original de la venta
+        if not session and sale.session_id:
+            session = db.query(models.CashSession).filter(
+                models.CashSession.id == sale.session_id
+            ).first()
+
+        if session:
+            cash_movement = models.CashMovement(
+                session_id=session.id,
+                type="RETURN",
+                amount=amount_to_record,
+                currency=return_data.refund_currency,
+                exchange_rate=return_data.exchange_rate,
+                description=f"Devolución Venta #{sale.id}: {return_data.reason}"
+            )
+            db.add(cash_movement)
+        else:
+            # Sin sesión disponible: registrar como movimiento sin sesión
+            print(f"[RETURN] Sin sesión de caja disponible para venta #{sale.id} — movimiento no registrado en caja")
+
+    # ── FIX 3: Marcar si la devolución cubre la venta completa ────────────────
+    # Una venta solo es VOIDED si se devolvieron TODOS los ítems en su totalidad
+    total_items_sold    = sum(float(d.quantity) for d in sale.details if d.product_id)
+    total_items_returned = sum(float(i.quantity) for i in return_data.items if i.quantity > 0)
+    is_full_return = total_items_returned >= total_items_sold
+
+    # Guardar en metadata del return si es devolución completa o parcial
+    new_return.reason = (return_data.reason or "") + (
+        " [ANULACIÓN TOTAL]" if is_full_return else " [DEVOLUCIÓN PARCIAL]"
+    )
+
+    # 🔒 SECURITY: Final Eager Load BEFORE commit
     captured_id = new_return.id
     new_return = db.query(models.Return).options(
         joinedload(models.Return.details).joinedload(models.ReturnDetail.product)
     ).filter(models.Return.id == captured_id).first()
 
     db.commit()
-    
+
     return schemas.ReturnRead.model_validate(new_return)
+
+@router.post("/void/{sale_id}")
+def void_sale(
+    sale_id: int,
+    reason: str = "ANULACIÓN DE VENTA - ERROR OPERATIVO",
+    db: Session = Depends(get_db)
+):
+    """
+    Anulación directa de una venta completa.
+    Devuelve todos los ítems, anula comisiones y registra en caja.
+    Requiere PIN de admin desde el frontend antes de llamar este endpoint.
+    """
+    sale = db.query(models.Sale).options(
+        joinedload(models.Sale.details).joinedload(models.SaleDetail.product),
+        joinedload(models.Sale.returns)
+    ).filter(models.Sale.id == sale_id).first()
+
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+
+    if sale.status == "VOIDED":
+        raise HTTPException(status_code=400, detail="Esta venta ya fue anulada")
+
+    # Construir items de devolución con todos los productos
+    from ..schemas import ReturnCreate, ReturnItemCreate
+    items = []
+    for detail in sale.details:
+        if detail.product_id and float(detail.quantity or 0) > 0:
+            # Calcular cantidad ya devuelta anteriormente
+            already_returned = sum(
+                float(rd.quantity or 0)
+                for r in sale.returns
+                for rd in r.details
+                if rd.product_id == detail.product_id
+            )
+            remaining = float(detail.quantity) - already_returned
+            if remaining > 0:
+                items.append(ReturnItemCreate(
+                    product_id=detail.product_id,
+                    quantity=remaining,
+                    condition="GOOD"
+                ))
+
+    if not items:
+        raise HTTPException(status_code=400, detail="No hay ítems disponibles para anular")
+
+    return_data = ReturnCreate(
+        sale_id=sale_id,
+        items=items,
+        reason=reason,
+        refund_currency="USD",
+        exchange_rate=1.0
+    )
+
+    # Reusar la lógica del process_return internamente
+    from fastapi import Request
+    # Llamar directamente a la lógica (sin duplicar código)
+    new_return = models.Return(
+        sale_id=sale.id,
+        total_refunded=0,
+        reason=reason + " [ANULACIÓN TOTAL]"
+    )
+    db.add(new_return)
+    db.flush()
+
+    total_refund = 0
+    for item in items:
+        detail = next((d for d in sale.details if d.product_id == item.product_id), None)
+        if not detail:
+            continue
+        refund_amount = detail.unit_price * item.quantity
+        total_refund += refund_amount
+        cost_to_return = detail.cost_at_sale or 0
+
+        ret_detail = models.ReturnDetail(
+            return_id=new_return.id,
+            product_id=item.product_id,
+            quantity=item.quantity,
+            unit_price=detail.unit_price,
+            unit_cost=cost_to_return
+        )
+        db.add(ret_detail)
+
+        product = db.query(models.Product).get(item.product_id)
+        if product:
+            product.stock += item.quantity
+            db.add(models.Kardex(
+                product_id=product.id,
+                movement_type="RETURN",
+                quantity=item.quantity,
+                balance_after=product.stock,
+                description=f"Anulación Venta #{sale.id}",
+                date=datetime.now()
+            ))
+
+    new_return.total_refunded = total_refund
+
+    # Crédito: reducir balance_pending
+    actual_cash_refund = total_refund
+    if sale.is_credit and sale.balance_pending is not None:
+        new_balance = max(0, float(sale.balance_pending) - total_refund)
+        debt_reduced = float(sale.balance_pending) - new_balance
+        sale.balance_pending = new_balance
+        sale.paid = new_balance <= 0.01
+        actual_cash_refund = total_refund - debt_reduced
+
+    # Anular comisiones
+    try:
+        from sqlalchemy import text as _txt
+        from ..tenant_context import get_tenant_schema as _gts
+        _s = _gts()
+        _ff_row = db.execute(_txt("SELECT feature_flags FROM public.tenants WHERE schema_name=:s"), {"s": _s}).fetchone()
+        _flags = (_ff_row[0] or {}) if _ff_row else {}
+        _engine = CommissionEngine(db, _flags)
+        _engine.void_sale_commissions(sale.id)
+    except Exception as _ce:
+        print(f"[VOID] Error comisiones: {_ce}")
+
+    # Movimiento de caja
+    if actual_cash_refund > 0:
+        session = db.query(models.CashSession).filter(models.CashSession.status == "OPEN").first()
+        if not session and sale.session_id:
+            session = db.query(models.CashSession).filter(models.CashSession.id == sale.session_id).first()
+        if session:
+            db.add(models.CashMovement(
+                session_id=session.id,
+                type="RETURN",
+                amount=actual_cash_refund,
+                currency="USD",
+                exchange_rate=1.0,
+                description=f"Anulación Venta #{sale.id}: {reason}"
+            ))
+
+    db.commit()
+    return {"status": "voided", "sale_id": sale_id, "total_refunded": total_refund}
+
 
 @router.get("", response_model=List[schemas.ReturnRead])
 def get_returns(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
