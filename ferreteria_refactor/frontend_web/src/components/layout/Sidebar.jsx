@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, ShoppingCart, Package, Users, Settings, LogOut,
+    Building2, LayoutDashboard, ShoppingCart, Package, Users, Settings, LogOut,
     FileText, Truck, CreditCard, Briefcase, Monitor, LayoutGrid,
     ChevronLeft, ChevronRight, ChevronDown, BarChart2, BookOpen,
     ClipboardList, DollarSign, Utensils, ChefHat, Smartphone, Wrench,
@@ -187,6 +187,24 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 {/* Principal */}
                 <SectionLabel label="Principal" isCollapsed={isCollapsed} />
                 <CompanySwitcher isCollapsed={isCollapsed} currentSchema={currentSchema} />
+                {/* Dashboard consolidado — visible solo si pertenece a una organización multi-empresa */}
+                {(() => {
+                    try {
+                        const orgs = JSON.parse(localStorage.getItem('org_companies') || '[]');
+                        if (orgs.length > 1) {
+                            return (
+                                <NavItem
+                                    icon={Building2}
+                                    label="Grupo Empresarial"
+                                    path="/org/dashboard"
+                                    isCollapsed={isCollapsed}
+                                    onClick={close}
+                                />
+                            );
+                        }
+                    } catch {}
+                    return null;
+                })()}
                 <NavItem icon={LayoutDashboard} label="Resumen"          path="/"              isCollapsed={isCollapsed} onClick={close} />
                 <NavItem icon={ShoppingCart}    label="Centro de Ventas" path="/sales-center"  isCollapsed={isCollapsed} onClick={close} />
                 {isAdminOrWH && (

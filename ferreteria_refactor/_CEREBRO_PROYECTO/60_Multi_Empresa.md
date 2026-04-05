@@ -185,20 +185,29 @@ CREATE TABLE public.inter_company_transfer_items (
 
 ---
 
-### Sprint 3 — Dashboard consolidado (Semana 3)
+### Sprint 3 — Dashboard consolidado ✅ COMPLETADO (2026-04-05)
 
 **Backend:**
-- [ ] `GET /organizations/{id}/consolidated/sales` — ventas del grupo hoy / semana / mes
-- [ ] `GET /organizations/{id}/consolidated/inventory` — inventario total del grupo
-- [ ] `GET /organizations/{id}/consolidated/cash` — caja de todas las empresas
-- [ ] `GET /organizations/{id}/consolidated/alerts` — alertas de stock de todas las empresas
+- ✅ `GET /organizations/{id}/consolidated` — ventas del día, stock bajo, mejor empresa (Sprint 1)
+- ✅ `GET /organizations/consolidated-mine` — detecta automáticamente el org del usuario
+- ✅ Fix: conflicto de rutas — `/consolidated-mine` movido antes de `/{org_id}`
 
 **Frontend:**
-- [ ] `ConsolidatedDashboard.jsx` — dashboard del grupo con:
-  - Ventas totales del grupo (por empresa y total)
-  - Gráfico comparativo entre empresas
-  - Alertas de stock unificadas
-  - Qué empresa tuvo mejor desempeño hoy
+- ✅ `ConsolidatedDashboard.jsx` (445 líneas, completamente comentado):
+  - 4 KPIs: ventas totales, transacciones, mejor empresa, alertas stock
+  - Gráfico de barras SVG comparativo entre empresas
+  - Panel de alertas de stock por empresa (verde/rojo)
+  - Tabla de desempeño con barra de progreso por empresa
+  - Botón de acceso directo a cada empresa (ExternalLink)
+  - Auto-refresh cada 5 minutos
+- ✅ Ruta `/org/dashboard` registrada en `App.jsx`
+- ✅ NavItem "Grupo Empresarial" en el `Sidebar` (solo visible con 2+ empresas)
+
+**Tests ejecutados — 4/4 ✅**
+- T1 Login con membresía → OK
+- T2 /consolidated-mine → org, 2 empresas, 6 alertas de stock
+- T3 Sin auth → 401 correcto
+- T4 Org inexistente → 404 correcto
 
 ---
 

@@ -92,6 +92,8 @@ const LaundryTicket = React.lazy(() => import('./pages/Laundry/components/Laundr
 const SupportTickets = React.lazy(() => import('./pages/SupportTickets'));
 const MiSuscripcion = React.lazy(() => import('./pages/MiSuscripcion'));
 const FuncionesPage = React.lazy(() => import('./pages/Settings/FuncionesPage'));
+// Multi-empresa — Sprint 3
+const ConsolidatedDashboard = React.lazy(() => import('./pages/Org/ConsolidatedDashboard'));
 
 // Suspense fallback spinner
 const SuspenseFallback = (
@@ -278,6 +280,8 @@ function App() {
                           <Route element={<ProtectedRoute />}>
                             <Route element={<DashboardLayout />}>
                               <Route path="/" element={<OnboardingGate><Dashboard /></OnboardingGate>} />
+                              {/* Multi-empresa: dashboard consolidado del grupo */}
+                              <Route path="/org/dashboard" element={<ConsolidatedDashboard />} />
 
                               {/* Unified Inventory Center */}
                               <Route path="/inventory-center" element={

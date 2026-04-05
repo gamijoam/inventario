@@ -169,6 +169,44 @@ def my_companies(
     return companies
 
 
+@router.get("/consolidated-mine", response_model=ConsolidatedSummary)
+def consolidated_mine(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Dashboard consolidado para el usuario actual.
+    Detecta automáticamente la organización del usuario usando su email,
+    sin necesitar que el frontend pase el org_id.
+    Ideal para el CompanySwitcher y el portal multi-empresa.
+    """
+    from ..tenant_context import get_tenant_schema as _gts
+
+    # Buscar la organización del usuario por su email
+    membership = db.query(OrganizationUser).filter(
+        OrganizationUser.user_email == current_user.email,
+        OrganizationUser.can_switch == True
+    ).first()
+
+    if not membership:
+        # Sin organización → devolver resumen vacío con la empresa actual
+        schema = _gts()
+        tenant = db.query(Tenant).filter(Tenant.schema_name == schema).first()
+        return ConsolidatedSummary(
+            organization_id    = 0,
+            organization_name  = tenant.name if tenant else "Mi Empresa",
+            total_sales_today  = 0,
+            total_transactions = 0,
+            best_tenant_name   = None,
+            best_tenant_sales  = 0,
+            total_low_stock    = 0,
+            tenants            = []
+        )
+
+    # Llamar al endpoint consolidado con el org_id detectado
+    return consolidated_dashboard(membership.organization_id, db, current_user)
+
+
 @router.get("/{org_id}", response_model=OrganizationOut)
 def get_organization(
     org_id: int,
