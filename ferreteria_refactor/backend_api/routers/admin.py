@@ -946,6 +946,10 @@ def get_tenant_activity(
             # Schema may exist but tables may not — rollback para limpiar la transacción
             db.rollback()
             print(f"[ACTIVITY] Error querying schema '{schema}': {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
         activity_data.append(metrics)
 
