@@ -6,7 +6,7 @@ import MessageCircle from 'lucide-react/dist/esm/icons/message-circle';
 import ShoppingBag from 'lucide-react/dist/esm/icons/shopping-bag';
 import {
     Building2, Users, DollarSign, Percent, CreditCard, Printer,
-    ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X
+    ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X, Lock
 } from 'lucide-react';
 
 const GeneralTab        = React.lazy(() => import('./tabs/GeneralTab'));

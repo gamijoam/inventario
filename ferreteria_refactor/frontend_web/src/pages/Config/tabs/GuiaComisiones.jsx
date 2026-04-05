@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, ChevronRight, ChevronLeft, HelpCircle, BookOpen,
-         ShoppingCart, Wrench, Users, Tag, DollarSign, CheckCircle,
-         AlertCircle, ArrowRight } from 'lucide-react';
+import {
+    X, ChevronRight, ChevronLeft, HelpCircle, BookOpen, ShoppingCart, Wrench, Users, Tag, DollarSign, CheckCircle, AlertCircle, ArrowRight
+} from 'lucide-react';
 
 /* ── helpers ── */
 const Toggle = ({ value, onChange }) => (
