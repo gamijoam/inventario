@@ -271,3 +271,57 @@ END $$;
    - Notificación WA al cliente con código BLC al momento de la venta
    - Bloqueo automático por mora (cron job en BloqueCelular)
    - Desbloqueo automático cuando saldo llega a 0
+
+---
+
+## Tab "📱 Créditos Celular" — Gestión completa desde un solo lugar
+
+**Ruta:** `Ventas → Créditos → 📱 Créditos Celular`
+**Archivo:** `frontend_web/src/pages/Sales/tabs/CreditosCelularesTab.jsx` (529 líneas)
+
+### Qué tiene el tab
+
+**Banner superior — para el técnico:**
+- QR del APK generado automáticamente
+- Botón "Descargar APK" prominente
+- Instrucciones paso a paso
+
+**KPIs:**
+- Total celulares a crédito | Activos | Bloqueados | Sin activar | Saldo total
+
+**Filtros:** Todos / 📱 Activos / 🔒 Bloqueados / ⚠️ Sin activar
+
+**Lista de créditos (fila por celular):**
+- Estado visual: 📱 Activo / 🔒 Bloqueado / ⚠️ Sin activar
+- Botón 🔒 Bloquear directo (sin abrir modal)
+- Botón 🔓 Desbloquear directo (sin abrir modal)
+- Botón "Abonar" con campo de monto inline
+- Barra de progreso del saldo pagado
+- Código BLC-XXXX visible
+
+**Expandir cada fila muestra:**
+- Código BLC con botón copiar
+- QR del APK + instrucciones + botón descargar
+- Estado real del equipo en BloqueCelular (saldo, cuotas pagadas)
+- Plan de amortización completo (tabla: #, fecha, cuota, saldo)
+- Botones completos: Bloquear / Desbloquear / Nuevo código BLC / Refrescar estado
+
+### Campos en SaleRead (añadidos Fase 5)
+```
+bloqueo_sincronizado      Optional[bool]
+bloqueo_codigo_activacion Optional[str]
+bloqueo_estado            Optional[str]
+bloqueo_cliente_id        Optional[int]
+bloqueo_dispositivo_id    Optional[int]
+```
+El endpoint `/products/credits` retorna todos estos campos para el tab.
+
+### Registro en CreditosTab
+```javascript
+const SUB_TABS = [
+    { id: 'cxc',      label: 'Cuentas por Cobrar', icon: Wallet     },
+    { id: 'celulares',label: '📱 Créditos Celular', icon: Smartphone },
+    { id: 'aging',    label: 'Antigüedad',          icon: Calendar   },
+    { id: 'ledger',   label: 'Estado de Cuenta',    icon: FileText   },
+];
+```
