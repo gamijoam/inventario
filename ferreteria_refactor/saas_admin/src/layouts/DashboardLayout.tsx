@@ -10,6 +10,7 @@ import {
     HardDrive,
     Key,
     Activity,
+    Layers,
     ChevronLeft,
     ChevronRight,
     Menu,
@@ -81,6 +82,7 @@ const NAV_GROUPS: { label: string; items: Omit<NavItem, 'badge'>[] }[] = [
             { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, group: 'principal' },
             { name: 'Empresas', href: '/dashboard/tenants', icon: Building2, group: 'principal' },
             { name: 'Licencias', href: '/dashboard/licenses', icon: Key, group: 'principal' },
+            { name: 'Organizaciones', href: '/dashboard/organizations', icon: Layers, group: 'principal' },
         ],
     },
     {
@@ -112,6 +114,7 @@ const ROUTE_LABELS: Record<string, string> = {
     '/dashboard/messages': 'Mensajes',
     '/dashboard/activity': 'Actividad',
     '/dashboard/backups': 'Respaldos',
+    '/dashboard/organizations': 'Organizaciones',
 };
 
 function useBreadcrumb(pathname: string): string[] {

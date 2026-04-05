@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, ShoppingCart, Package, Users, Settings, LogOut,
+    Building2, LayoutDashboard, ShoppingCart, Package, Users, Settings, LogOut,
     FileText, Truck, CreditCard, Briefcase, Monitor, LayoutGrid,
     ChevronLeft, ChevronRight, ChevronDown, BarChart2, BookOpen,
     ClipboardList, DollarSign, Utensils, ChefHat, Smartphone, Wrench,
@@ -101,6 +101,8 @@ const SectionLabel = ({ label, isCollapsed }) => (
 );
 
 /* ── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────── */
+import CompanySwitcher from './CompanySwitcher';
+
 export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const navigate    = useNavigate();
     const { logout, user } = useAuth();
@@ -129,6 +131,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
     const role            = user?.role;
     const isAdmin         = role === 'ADMIN';
+    const currentSchema   = localStorage.getItem('selected_tenant') || '';
     const isAdminOrWH     = ['ADMIN', 'WAREHOUSE'].includes(role);
     const isAdminOrCashier = ['ADMIN', 'CASHIER'].includes(role);
 
@@ -183,6 +186,48 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
                 {/* Principal */}
                 <SectionLabel label="Principal" isCollapsed={isCollapsed} />
+                <CompanySwitcher isCollapsed={isCollapsed} currentSchema={currentSchema} />
+                {/* Menú multi-empresa — visible solo si pertenece a una organización con 2+ empresas */}
+                {(() => {
+                    try {
+                        const orgs = JSON.parse(localStorage.getItem('org_companies') || '[]');
+                        if (orgs.length > 1) {
+                            return (
+                                <>
+                                    <NavItem
+                                        icon={Building2}
+                                        label="Grupo Empresarial"
+                                        path="/org/dashboard"
+                                        isCollapsed={isCollapsed}
+                                        onClick={close}
+                                    />
+                                    <NavItem
+                                        icon={BookOpen}
+                                        label="Catálogo Compartido"
+                                        path="/org/catalog"
+                                        isCollapsed={isCollapsed}
+                                        onClick={close}
+                                    />
+                                    <NavItem
+                                        icon={ArrowLeftRight}
+                                        label="Transferencias"
+                                        path="/org/transfers"
+                                        isCollapsed={isCollapsed}
+                                        onClick={close}
+                                    />
+                                    <NavItem
+                                        icon={Settings}
+                                        label="Config. del Grupo"
+                                        path="/org/config"
+                                        isCollapsed={isCollapsed}
+                                        onClick={close}
+                                    />
+                                </>
+                            );
+                        }
+                    } catch {}
+                    return null;
+                })()}
                 <NavItem icon={LayoutDashboard} label="Resumen"          path="/"              isCollapsed={isCollapsed} onClick={close} />
                 <NavItem icon={ShoppingCart}    label="Centro de Ventas" path="/sales-center"  isCollapsed={isCollapsed} onClick={close} />
                 {isAdminOrWH && (

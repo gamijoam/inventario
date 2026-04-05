@@ -101,11 +101,27 @@ def get_current_user(
         tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
         if tenant:
             if user.tenant_id != tenant.id and not user.is_superuser:
-                print(f"⛔ Tenant Mismatch: User {email} does not belong to tenant '{current_schema}'")
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have access to this company"
-                )
+                # ── MULTI-EMPRESA: verificar si el usuario es miembro de una organización
+                # que incluye el tenant destino. Esto permite que el dueño del grupo
+                # opere en empresas del grupo aunque no tenga cuenta local en ellas.
+                from .models.organization import OrganizationUser as _OrgUser
+                is_org_member = False
+                if tenant.organization_id:
+                    membership = db.query(_OrgUser).filter(
+                        _OrgUser.organization_id == tenant.organization_id,
+                        _OrgUser.user_email == email,
+                        _OrgUser.can_switch == True
+                    ).first()
+                    if membership:
+                        is_org_member = True
+                        print(f"✅ Org member: {email} accediendo a '{current_schema}' via organización #{tenant.organization_id}")
+
+                if not is_org_member:
+                    print(f"⛔ Tenant Mismatch: User {email} does not belong to tenant '{current_schema}'")
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You do not have access to this company"
+                    )
     else:
         # We are in public context, usually only for Superadmins
         if user.tenant_id is not None and not user.is_superuser:

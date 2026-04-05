@@ -1,25 +1,22 @@
 # 20 - Migraciones SQL Pendientes
 
-Este archivo centraliza todos los comandos SQL que deben ejecutarse manualmente en el VPS (QA y/o Producción) al momento de hacer deploy de nuevas imágenes Docker. Los cambios aquí listados NO están gestionados por Alembic y deben correrse manualmente.
+Centraliza los comandos SQL que deben ejecutarse manualmente en el VPS al hacer deploy de nuevas imágenes. Los cambios aquí listados NO están gestionados por Alembic.
 
-> **Regla**: Cada vez que se agregue un cambio de esquema que requiera SQL manual, documentarlo aquí con su estado.
+> **Regla**: Cada cambio de esquema se documenta aquí con su estado QA/PROD.
 
 ---
 
 ## Cómo ejecutar en el VPS
 
 ```bash
-# Conectarse al VPS
-sshpass -p 'GaboMac12' ssh root@212.28.176.157
-
-# Ejecutar SQL en QA (todos los tenants)
+# SQL en QA
 docker exec db_qa_server psql -U postgres -d invensoft_qa -c "SQL_AQUI"
 
-# Ejecutar SQL en PROD (todos los tenants)
+# SQL en PROD
 docker exec db_prod_server psql -U postgres -d invensoft_prod -c "SQL_AQUI"
 ```
 
-Para ejecutar en **todos los esquemas de tenant** usar el loop PL/pgSQL:
+Para todos los schemas de tenant:
 ```sql
 DO $$ DECLARE s TEXT; BEGIN
   FOR s IN SELECT schema_name FROM information_schema.schemata
@@ -32,244 +29,139 @@ END $$;
 
 ---
 
-## Migraciones
+## ⏳ PENDIENTE EN PROD — Sistema Multi-Empresa
 
-### [M001] Eliminación lógica de clientes — `is_active`
-- **Fecha:** 2026-03-12
-- **Rama:** feature/reports-center
-- **Propósito:** Permite desactivar clientes sin eliminarlos, preservando integridad referencial con facturas y créditos.
-- **QA:** ✅ Aplicado (2026-03-12)
-- **PROD:** ❌ Pendiente
+**Script completo:** `_CEREBRO_PROYECTO/migrate_multi_empresa.sql`
+
+**Debe aplicarse ANTES del deploy de `feature/multi-empresa` a prod.**
 
 ```sql
-DO $$ DECLARE s TEXT; BEGIN
-  FOR s IN SELECT schema_name FROM information_schema.schemata
-    WHERE schema_name NOT IN ('public','information_schema','pg_catalog','pg_toast')
-  LOOP
-    EXECUTE format('ALTER TABLE %I.customers ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE', s);
-  END LOOP;
-END $$;
+-- ══════════════════════════════════════════════════════════════════════════
+-- MIGRACIÓN MULTI-EMPRESA — Aplicar en invensoft_prod ANTES del merge
+-- ══════════════════════════════════════════════════════════════════════════
+
+-- 1. Tabla organizations (grupos empresariales)
+CREATE TABLE IF NOT EXISTS public.organizations (
+    id            SERIAL PRIMARY KEY,
+    name          VARCHAR(200) NOT NULL,
+    slug          VARCHAR(200) NOT NULL UNIQUE,
+    owner_email   VARCHAR(200) NOT NULL,
+    owner_name    VARCHAR(200),
+    plan          VARCHAR(50)  NOT NULL DEFAULT 'multi',
+    max_tenants   INTEGER      NOT NULL DEFAULT 5,
+    is_active     BOOLEAN      NOT NULL DEFAULT true,
+    created_at    TIMESTAMP    NOT NULL DEFAULT NOW(),
+    logo_url      VARCHAR(500),
+    primary_color VARCHAR(20)  NOT NULL DEFAULT '#4F46E5',
+    -- Sprint 6
+    use_shared_whatsapp BOOLEAN      DEFAULT false,
+    whatsapp_instance   VARCHAR(100) DEFAULT NULL,
+    plan_expires_at     TIMESTAMP    DEFAULT NULL,
+    plan_price          NUMERIC(10,2) DEFAULT 0,
+    plan_notes          TEXT         DEFAULT NULL
+);
+
+-- 2. Miembros de la organización (quién puede hacer switch entre empresas)
+CREATE TABLE IF NOT EXISTS public.organization_users (
+    id              SERIAL PRIMARY KEY,
+    organization_id INTEGER     NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    user_email      VARCHAR(200) NOT NULL,
+    role            VARCHAR(50)  NOT NULL DEFAULT 'manager',
+    can_switch      BOOLEAN      NOT NULL DEFAULT true,
+    invited_at      TIMESTAMP    NOT NULL DEFAULT NOW(),
+    accepted_at     TIMESTAMP
+);
+
+-- 3. Catálogo compartido del grupo
+CREATE TABLE IF NOT EXISTS public.shared_products (
+    id              SERIAL PRIMARY KEY,
+    organization_id INTEGER      NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    name            VARCHAR(500) NOT NULL,
+    sku             VARCHAR(200),
+    description     TEXT,
+    category_name   VARCHAR(200),
+    cost_price      NUMERIC(12,4) DEFAULT 0,
+    suggested_price NUMERIC(12,4) DEFAULT 0,
+    image_url       VARCHAR(500),
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(organization_id, sku)
+);
+
+-- 4. Cabecera de transferencias de stock entre empresas
+CREATE TABLE IF NOT EXISTS public.inter_company_transfers (
+    id              SERIAL PRIMARY KEY,
+    organization_id INTEGER     NOT NULL REFERENCES public.organizations(id),
+    from_tenant_id  INTEGER     NOT NULL REFERENCES public.tenants(id),
+    to_tenant_id    INTEGER     NOT NULL REFERENCES public.tenants(id),
+    status          VARCHAR(50)  NOT NULL DEFAULT 'PENDING',
+    notes           TEXT,
+    created_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+    completed_at    TIMESTAMP
+);
+
+-- 5. Ítems de cada transferencia
+CREATE TABLE IF NOT EXISTS public.inter_company_transfer_items (
+    id          SERIAL PRIMARY KEY,
+    transfer_id INTEGER      NOT NULL REFERENCES public.inter_company_transfers(id) ON DELETE CASCADE,
+    product_sku VARCHAR(200) NOT NULL,
+    product_name VARCHAR(500) NOT NULL,
+    quantity    NUMERIC(12,4) NOT NULL,
+    unit_cost   NUMERIC(12,4) DEFAULT 0
+);
+
+-- 6. Columna organization_id en tenants
+ALTER TABLE public.tenants
+    ADD COLUMN IF NOT EXISTS organization_id INTEGER
+    REFERENCES public.organizations(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_tenants_organization_id ON public.tenants(organization_id);
+CREATE INDEX IF NOT EXISTS idx_org_users_org_id ON public.organization_users(organization_id);
+CREATE INDEX IF NOT EXISTS idx_org_users_email ON public.organization_users(user_email);
 ```
+
+**Estado:** QA ✅ | PROD ⏳
 
 ---
 
-### [M002] Índices de rendimiento en tabla `sales`
-- **Fecha:** 2026-03-12
-- **Rama:** feature/reports-center
-- **Propósito:** Acelera consultas de créditos (CxC), filtrado por estado de pago y vencimiento. Reduce tiempo de carga del tab Créditos en el Centro de Reportes.
-- **QA:** ✅ Aplicado (2026-03-12)
-- **PROD:** ❌ Pendiente
+## ✅ APLICADA — Migración v2 (2026-03-xx)
 
-```sql
-DO $$ DECLARE s TEXT; BEGIN
-  FOR s IN SELECT schema_name FROM information_schema.schemata
-    WHERE schema_name NOT IN ('public','information_schema','pg_catalog','pg_toast')
-  LOOP
-    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_sales_is_credit ON %I.sales(is_credit) WHERE is_credit = true', replace(s,'-','_'), s);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_sales_paid ON %I.sales(paid)', replace(s,'-','_'), s);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_sales_due_date ON %I.sales(due_date) WHERE due_date IS NOT NULL', replace(s,'-','_'), s);
-  END LOOP;
-END $$;
-```
+Script: `migrate_prod_v2.sql`
+- Columnas `onboarding_completed`/`onboarding_step` en `public.tenants`
+- Columna `featured` en tablas de productos de todos los tenants
+- Claves de config de catálogo en `business_config`
+- Tenants existentes marcados como `onboarding_completed = true`
+
+**Estado:** QA ✅ | PROD ✅
 
 ---
 
-### [M003] Módulo Farmacia — Nuevas columnas y tablas
-- **Fecha:** 2026-03-12 (planificado)
-- **Rama:** feature/pharmacy-module (pendiente)
-- **Propósito:** Soporte para lotes con fecha de vencimiento, clasificación de medicamentos (OTC/Receta/Controlado), prescripciones y libro de control.
-- **QA:** ⏳ Pendiente (ejecutar cuando se implemente Fase 1)
-- **PROD:** ⏳ Pendiente
+## ✅ APLICADA — Migración v3 herramientas (2026-03-xx)
 
-#### Paso 1: Flag de módulo en tabla pública
-```sql
--- Ejecutar en esquema public (no requiere loop)
-ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS has_pharmacy_module BOOLEAN NOT NULL DEFAULT FALSE;
-```
+Script: `migrate_prod_v3_herramientas.sql`
+- Tablas del módulo de herramientas/equipos para ferretería
+- Columnas de tracking de préstamo/mantenimiento
 
-#### Paso 2: Columnas en tabla `products` (todos los tenants)
-```sql
-DO $$ DECLARE s TEXT; BEGIN
-  FOR s IN SELECT schema_name FROM information_schema.schemata
-    WHERE schema_name NOT IN ('public','information_schema','pg_catalog','pg_toast')
-  LOOP
-    EXECUTE format('ALTER TABLE %I.products ADD COLUMN IF NOT EXISTS drug_classification VARCHAR(20) DEFAULT ''OTC''', s);
-    EXECUTE format('ALTER TABLE %I.products ADD COLUMN IF NOT EXISTS active_ingredient VARCHAR(200)', s);
-    EXECUTE format('ALTER TABLE %I.products ADD COLUMN IF NOT EXISTS storage_condition VARCHAR(20) DEFAULT ''AMBIENT''', s);
-    EXECUTE format('ALTER TABLE %I.products ADD COLUMN IF NOT EXISTS requires_prescription BOOLEAN DEFAULT FALSE', s);
-  END LOOP;
-END $$;
-```
-
-#### Paso 3: Tabla `product_lots` (todos los tenants)
-```sql
-DO $$ DECLARE s TEXT; BEGIN
-  FOR s IN SELECT schema_name FROM information_schema.schemata
-    WHERE schema_name NOT IN ('public','information_schema','pg_catalog','pg_toast')
-  LOOP
-    EXECUTE format('
-      CREATE TABLE IF NOT EXISTS %I.product_lots (
-        id SERIAL PRIMARY KEY,
-        product_id INTEGER REFERENCES %I.products(id) ON DELETE CASCADE,
-        lot_number VARCHAR(100) NOT NULL,
-        expiry_date DATE NOT NULL,
-        quantity NUMERIC(12,2) NOT NULL DEFAULT 0,
-        received_date DATE DEFAULT CURRENT_DATE,
-        status VARCHAR(20) DEFAULT ''ACTIVE'',
-        supplier_id INTEGER REFERENCES %I.suppliers(id),
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )', s, s, s);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_lots_expiry ON %I.product_lots(expiry_date)', replace(s,'-','_'), s);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_lots_product ON %I.product_lots(product_id)', replace(s,'-','_'), s);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_lots_status ON %I.product_lots(status)', replace(s,'-','_'), s);
-  END LOOP;
-END $$;
-```
-
-#### Paso 4: Tabla `prescriptions` (todos los tenants)
-```sql
-DO $$ DECLARE s TEXT; BEGIN
-  FOR s IN SELECT schema_name FROM information_schema.schemata
-    WHERE schema_name NOT IN ('public','information_schema','pg_catalog','pg_toast')
-  LOOP
-    EXECUTE format('
-      CREATE TABLE IF NOT EXISTS %I.prescriptions (
-        id SERIAL PRIMARY KEY,
-        sale_id INTEGER REFERENCES %I.sales(id) ON DELETE SET NULL,
-        patient_name VARCHAR(200) NOT NULL,
-        patient_cedula VARCHAR(20) NOT NULL,
-        doctor_name VARCHAR(200) NOT NULL,
-        doctor_mpps VARCHAR(50),
-        prescription_date DATE,
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
-      )', s, s);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_prescriptions_cedula ON %I.prescriptions(patient_cedula)', replace(s,'-','_'), s);
-    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_prescriptions_sale ON %I.prescriptions(sale_id)', replace(s,'-','_'), s);
-  END LOOP;
-END $$;
-```
+**Estado:** QA ✅ | PROD ✅
 
 ---
 
-## M004 — Re-hashear PINs en texto plano
+## ✅ APLICADA — is_archived en service_orders (2026-04-05)
 
-**Prioridad:** 🔴 URGENTE — seguridad
-**Descubierto:** 2026-03-19 (tests automatizados)
-
-6 usuarios en `public.users` tienen el campo `pin` almacenado en texto plano (4-5 chars) en lugar de un hash bcrypt (~60 chars). El endpoint `validate-pin` falla para estos usuarios.
-
-### Script Python para ejecutar en el VPS
-
-```bash
-# En el servidor (dentro del contenedor o con acceso al entorno):
-docker exec -it backend_qa /bin/bash
-
-# Luego ejecutar este script Python:
-python3 - << 'EOF'
-from passlib.context import CryptContext
-import psycopg2
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-conn = psycopg2.connect("postgresql://postgres:PASSWORD@localhost/invensoft_prod")
-cur = conn.cursor()
-
-# Obtener usuarios con PIN corto (texto plano)
-cur.execute("""
-    SELECT id, email, pin FROM public.users
-    WHERE pin IS NOT NULL AND pin != ''
-    AND (LENGTH(pin) < 20
-         OR (pin NOT LIKE '$2b$%' AND pin NOT LIKE '$2a$%' AND pin NOT LIKE '$2y$%'))
-""")
-usuarios = cur.fetchall()
-
-for uid, email, pin_plano in usuarios:
-    pin_hash = pwd_context.hash(pin_plano)
-    cur.execute("UPDATE public.users SET pin = %s WHERE id = %s", (pin_hash, uid))
-    print(f"  Hasheado PIN de {email}")
-
-conn.commit()
-cur.close()
-conn.close()
-print("✅ PINs re-hasheados exitosamente")
-EOF
-```
-
-**Usuarios afectados en prod:**
-- `rodriguezisaac876@gmail.com` (PIN: 0000)
-- `maikergimenez@gmail.com` (PIN: 1770)
-- `maikergimenez1986@gmail.com` (PIN: 1770)
-- `lavanderialecheria@gmail.com` (PIN: 8899)
-- `parramartinezj16@gmail.com` (PIN: 1234)
-- `comercialasiatico@gmail.com` (PIN: 12345)
-
-**Después de ejecutar:** El test 36 en `test_cat4_auth_pg.py` debe pasar.
-
----
-
-### [M005] feature_flags JSONB en tenants + service_templates (feat/services-redesign)
-- **Fecha:** 2026-03-31
-- **Rama:** feat/services-redesign
-- **Propósito:** Columna `feature_flags` para activar/desactivar funciones por tenant desde panel SaaS. Tablas `service_templates` y `service_template_items` para plantillas de servicio técnico.
-- **QA:** ✅ Aplicado via Alembic (`a3b4c5d6e7f8` + `f0a1b2c3d4e5`)
-- **PROD:** ✅ Aplicado 2026-03-31 (SQL directo + alembic_version stampeado)
-
-#### Paso 1: feature_flags en tenants (schema public)
 ```sql
-docker exec db_prod_server psql -U postgres -d invensoft_prod -c "
-  ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS feature_flags JSONB DEFAULT '{}';
-"
+-- Aplicada en todos los schemas QA y PROD vía loop
+ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_service_orders_archived ON service_orders(is_archived);
 ```
 
-#### Paso 2: service_templates + service_template_items (por schema de tenant)
+**Estado:** QA ✅ (16 schemas) | PROD ✅ (53 schemas)
+
+---
+
+## ✅ APLICADA — feature_flags en tenants (2026-03-31)
+
 ```sql
-docker exec db_prod_server psql -U postgres -d invensoft_prod << 'EOF'
-DO $$
-DECLARE s TEXT;
-BEGIN
-  FOR s IN
-    SELECT table_schema FROM information_schema.tables
-    WHERE table_name = 'service_orders' AND table_schema NOT IN ('public','information_schema','pg_catalog')
-  LOOP
-    EXECUTE format('
-      CREATE TABLE IF NOT EXISTS %I.service_templates (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR NOT NULL,
-        description VARCHAR,
-        category VARCHAR,
-        estimated_days INTEGER,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-      CREATE TABLE IF NOT EXISTS %I.service_template_items (
-        id SERIAL PRIMARY KEY,
-        template_id INTEGER NOT NULL REFERENCES %I.service_templates(id) ON DELETE CASCADE,
-        description VARCHAR NOT NULL,
-        unit_price NUMERIC(12,2) NOT NULL,
-        quantity NUMERIC(12,3) DEFAULT 1.000
-      );
-    ', s, s, s);
-  END LOOP;
-END;
-$$;
-EOF
+ALTER TABLE public.tenants
+    ADD COLUMN IF NOT EXISTS feature_flags JSONB NOT NULL DEFAULT '{}';
 ```
 
----
-
-## Resumen rápido
-
-| ID | Descripción | QA | PROD | Cuándo ejecutar |
-|----|-------------|:---:|:----:|-----------------|
-| M001 | `customers.is_active` | ✅ | ❌ | Al subir imagen con soft-delete |
-| M002 | Índices en `sales` | ✅ | ❌ | Al subir imagen con ReportsCenter |
-| M003 | Módulo Farmacia completo | ⏳ | ⏳ | Al subir imagen con módulo farmacia |
-| M004 | Re-hashear PINs en texto plano | ✅ | ✅ | Ejecutado 2026-03-20 |
-| M005 | feature_flags + service_templates | ✅ | ✅ | Aplicado 2026-03-31 |
-
----
-
-> **Nota:** Después de ejecutar cada migración, actualizar este archivo marcando ✅ y la fecha.
+**Estado:** QA ✅ | PROD ✅

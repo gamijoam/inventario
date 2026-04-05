@@ -309,6 +309,18 @@ COMMANDS = {
             "Libre: 1.3 GB"
         ),
     },
+    "org": {
+        "grupo": "🏢 Multi-Empresa",
+        "desc": "Gestiona organizaciones multi-empresa. Subcomandos: listar, detalle, crear, plan, precio, agregar, quitar, wa, bloquear, activar.",
+        "uso": "/org [subcomando] [args]",
+        "ejemplos": [
+            "/org listar",
+            "/org crear \"Grupo Rodriguez\" admin@empresa.com",
+            "/org agregar 1 ferreteria",
+            "/org plan 1 enterprise",
+            "/org wa 1 on instancia-baileys",
+        ]
+    },
 }
 
 # ── Textos del bot ────────────────────────────────────────────
@@ -325,6 +337,7 @@ Puedo gestionar negocios, usuarios, respaldos y deploys.
 👥 Usuarios
 💾 Respaldos
 📊 Métricas
+🏢 Multi-Empresa (/org)
 
 Escribe /ayuda para ver todos los comandos.
 Escribe /ayuda [comando] para ver el detalle de uno específico.

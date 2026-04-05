@@ -20,6 +20,7 @@ from handlers.usuarios import (handle_usuarios, handle_crear_usuario,
                                 handle_reset_pass, handle_user_status)
 from handlers.backups  import (handle_backup, handle_backups,
                                 handle_descargar, handle_del_backup)
+from handlers.organizations import handle_org
 from handlers.metrics  import (handle_stats, handle_ventas,
                                 handle_nuevos, handle_vencen,
                                 handle_disco, handle_ram)
@@ -317,6 +318,10 @@ def webhook():
 
             elif cmd == "/ram":
                 send_msg(handle_ram())
+
+            # ── Multi-Empresa ─────────────────
+            elif cmd == "/org":
+                send_msg(handle_org(parts))
 
             # ── Desconocido ───────────────────
             else:
