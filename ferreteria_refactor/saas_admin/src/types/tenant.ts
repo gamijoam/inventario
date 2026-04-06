@@ -30,6 +30,9 @@ export interface Tenant {
 
     // Feature flags a la carta
     feature_flags: Record<string, boolean>;
+
+    // Computed — email del admin principal
+    owner_email?: string | null;
 }
 
 export interface FeatureFlagDef {

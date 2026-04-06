@@ -53,6 +53,32 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     // We still need local state for priceLists as parent doesn't have it.
 
     const [priceLists, setPriceLists] = useState([]);
+
+    // ── Crear categoría inline ────────────────────────────────────────────────
+    const handleCreateCategory = async () => {
+        const name = newCategoryName.trim();
+        if (!name) return;
+        setSavingCategory(true);
+        try {
+            const res = await apiClient.post('/categories', { name, description: '' });
+            const created = res.data;
+            // Notificar al padre para que refresque las categorías
+            if (typeof window.__refreshCategories === 'function') {
+                await window.__refreshCategories();
+            }
+            // Seleccionar la nueva categoría automáticamente
+            setFormData(prev => ({ ...prev, category_id: created.id.toString() }));
+            setNewCategoryName('');
+            setShowNewCategoryInput(false);
+            setIsCategoryOpen(false);
+            toast.success(`Categoría "${name}" creada y seleccionada`);
+        } catch (e) {
+            const msg = e.response?.data?.detail || 'Error al crear la categoría';
+            toast.error(typeof msg === 'string' ? msg : 'Error al crear la categoría');
+        } finally {
+            setSavingCategory(false);
+        }
+    };
     const [policies, setPolicies] = useState([]); // NEW: Warranty Policies
     const [formData, setFormData] = useState({
         name: '',
@@ -95,6 +121,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     // Category dropdown specific state
     const [isCategoryOpen, setIsCategoryOpen] = useState(false);
     const [categorySearchTerm, setCategorySearchTerm] = useState('');
+    const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+    const [newCategoryName, setNewCategoryName]           = useState('');
+    const [savingCategory, setSavingCategory]             = useState(false);
 
     const handleScanResult = (code) => {
         setFormData(prev => ({ ...prev, sku: code }));
@@ -397,7 +426,49 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     </div>
                                                 </div>
                                                 <div className="space-y-1.5 relative">
-                                                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Categoría</Label>
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Categoría</Label>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setShowNewCategoryInput(v => !v); setIsCategoryOpen(false); }}
+                                                            title="Crear nueva categoría"
+                                                            className="flex items-center gap-1 text-[10px] text-indigo-600 hover:text-indigo-800 font-bold px-1.5 py-0.5 rounded-md hover:bg-indigo-50 transition-colors"
+                                                        >
+                                                            <Plus size={11} /> Nueva
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Input inline para crear nueva categoría */}
+                                                    {showNewCategoryInput && (
+                                                        <div className="flex gap-1.5 mb-1.5">
+                                                            <Input
+                                                                autoFocus
+                                                                placeholder="Nombre de la categoría..."
+                                                                className="h-9 text-sm flex-1"
+                                                                value={newCategoryName}
+                                                                onChange={e => setNewCategoryName(e.target.value)}
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); }
+                                                                    if (e.key === 'Escape') { setShowNewCategoryInput(false); setNewCategoryName(''); }
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleCreateCategory}
+                                                                disabled={savingCategory || !newCategoryName.trim()}
+                                                                className="px-3 h-9 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+                                                            >
+                                                                {savingCategory ? '...' : 'Guardar'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setShowNewCategoryInput(false); setNewCategoryName(''); }}
+                                                                className="px-2 h-9 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
 
                                                     {/* Custom Searchable Dropdown Button */}
                                                     <button

@@ -196,6 +196,16 @@ def list_tenants(
             # Map to TenantOut manually to include runtime computed fields
             t_out = TenantOut.model_validate(tenant)
             t_out.user_count = user_count
+            # Buscar email del admin principal del tenant
+            try:
+                sql_email = text(
+                    "SELECT email FROM public.users "
+                    "WHERE tenant_id = :t_id AND role IN ('ADMIN','admin') "
+                    "ORDER BY id ASC LIMIT 1"
+                )
+                t_out.owner_email = db.execute(sql_email, {"t_id": tenant.id}).scalar()
+            except Exception:
+                t_out.owner_email = None
             tenant_list.append(t_out)
         
         return {

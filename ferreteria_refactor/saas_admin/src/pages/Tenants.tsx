@@ -342,7 +342,8 @@ const Tenants: React.FC = () => {
             t =>
                 t.name.toLowerCase().includes(q) ||
                 (t.domain ?? '').toLowerCase().includes(q) ||
-                t.schema_name.toLowerCase().includes(q)
+                t.schema_name.toLowerCase().includes(q) ||
+                (t.owner_email ?? '').toLowerCase().includes(q)
         );
     }, [tenants, searchQuery]);
 
@@ -550,6 +551,14 @@ const TenantCard: React.FC<TenantCardProps> = ({
                             <span className="font-mono">{tenant.schema_name}</span>
                         )}
                     </p>
+
+                    {/* Email del admin */}
+                    {tenant.owner_email && (
+                        <p className="text-xs text-slate-400 truncate flex items-center gap-1 mt-0.5" title={tenant.owner_email}>
+                            <span>✉</span>
+                            <span className="font-mono">{tenant.owner_email}</span>
+                        </p>
+                    )}
 
                     {/* Schema (shown separately when domain exists) */}
                     {tenant.domain && (

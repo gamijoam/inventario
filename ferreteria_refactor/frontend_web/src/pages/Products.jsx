@@ -60,6 +60,17 @@ const Products = () => {
 
     // Filters State
     const [categories, setCategories] = useState([]);
+
+    // Exponer refreshCategories para ProductForm (crear categoría inline)
+    useEffect(() => {
+        window.__refreshCategories = async () => {
+            try {
+                const res = await apiClient.get('/categories');
+                setCategories(res.data);
+            } catch {}
+        };
+        return () => { delete window.__refreshCategories; };
+    }, []);
     const [exchangeRates, setExchangeRates] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [filterCategory, setFilterCategory] = useState('');

@@ -100,6 +100,17 @@ const ProductsTab = () => {
         }
     };
 
+    // Exponer refreshCategories globalmente para que ProductForm lo use al crear categoría inline
+    useEffect(() => {
+        window.__refreshCategories = async () => {
+            try {
+                const res = await apiClient.get('/categories');
+                setCategories(res.data);
+            } catch {}
+        };
+        return () => { delete window.__refreshCategories; };
+    }, []);
+
     const fetchFilters = async () => {
         try {
             const [catRes, rateRes, whRes] = await Promise.all([
