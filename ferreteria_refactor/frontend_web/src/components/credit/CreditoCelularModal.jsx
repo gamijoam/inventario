@@ -41,29 +41,29 @@ export default function CreditoCelularModal({
       // Llamar al endpoint de crear venta con datos de crédito
       const r = await apiClient.post('/products/sales/', {
         items: [{
-          product_id : producto.id,
+          product_id : parseInt(producto.product_id || producto.id, 10),
           quantity   : 1,
-          unit_price : datos.precio,
+          unit_price : parseFloat(datos.precio)         || 0,
           discount   : 0,
-          subtotal   : datos.precio,
+          subtotal   : parseFloat(datos.precio)         || 0,
         }],
         payment_method           : 'Credito',
         currency                 : 'USD',
         exchange_rate_used       : 1.0,
-        total_amount             : datos.precio,
-        total_amount_bs          : datos.precio,
+        total_amount             : parseFloat(datos.precio)         || 0,
+        total_amount_bs          : parseFloat(datos.precio)         || 0,
         total_discount_usd       : 0,
         change_amount            : 0,
         change_currency          : 'VES',
         is_credit                : true,
-        customer_id              : cliente?.id || null,
+        customer_id              : cliente?.id ? parseInt(cliente.id, 10) : null,
         exchange_rate            : 1.0,
-        // Datos del crédito — guardados en BD, usados para balance_pending y BloqueCelular
-        credit_down_payment      : datos.enganche,
-        credit_installments      : datos.cuotas,
-        credit_interest_rate     : datos.tasa,
+        // Datos del crédito — guardados en BD
+        credit_down_payment      : parseFloat(datos.enganche)       || 0,
+        credit_installments      : parseInt(datos.cuotas, 10)       || 1,
+        credit_interest_rate     : parseFloat(datos.tasa)           || 0,
         credit_frequency         : datos.frecuencia,
-        credit_installment_amount: datos.cuotaMonto,
+        credit_installment_amount: parseFloat(datos.cuotaMonto)     || 0,
       });
 
       setResultado(r.data);
