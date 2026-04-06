@@ -464,9 +464,13 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 onClose={() => setShowCalcCredito(false)}
                 producto={celularEnCarrito}
                 cliente={clienteSeleccionado}
-                onConfirmar={(datos) => {
+                sessionId={session?.id || null}
+                exchangeRate={defaultBsRate}
+                onVentaExitosa={() => {
+                    // La venta fue registrada — cerrar TODO y limpiar el carrito
                     setShowCalcCredito(false);
                     onClose?.();
+                    onConfirm?.();   // limpia el carrito en el POS
                 }}
             />,
             document.body

@@ -56,7 +56,7 @@ const FRECUENCIAS  = [
 ];
 
 // ─── Componente ───────────────────────────────────────────────────────────────
-export default function CalculadoraCredito({ precioInicial = 0, onUsarEnVenta, onCerrar }) {
+export default function CalculadoraCredito({ precioInicial = 0, onUsarEnVenta, onCerrar, disabled = false }) {
   const [precio,      setPrecio]      = useState(precioInicial > 0 ? precioInicial : '');
   const [enganche,    setEnganche]    = useState('');
   const [enganchePct, setEnganchePct] = useState('');
@@ -341,9 +341,10 @@ export default function CalculadoraCredito({ precioInicial = 0, onUsarEnVenta, o
             {/* Botón usar en venta — siempre visible al fondo */}
             {result && onUsarEnVenta && (
               <button onClick={handleUsarEnVenta}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl transition-all text-sm shrink-0">
-                Usar en registro de venta
-                <ChevronRight size={15} />
+                disabled={disabled}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all text-sm shrink-0">
+                {disabled ? '⏳ Registrando...' : 'Usar en registro de venta'}
+                {!disabled && <ChevronRight size={15} />}
               </button>
             )}
           </div>
