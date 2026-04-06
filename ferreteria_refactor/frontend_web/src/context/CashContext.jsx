@@ -97,9 +97,11 @@ export const CashProvider = ({ children }) => {
                 console.error('🔥 Error Checking Cash Session:', error);
 
                 // Only show toast for actual errors, not 404 "Not Found"
-                if (error.response?.status !== 404) {
-                    toast.error(`Error verificando caja: ${error.response?.status || 'Network Error'} - ${error.message}`);
+                // Solo mostrar error si es un error HTTP real (no Network Error intermitente)
+                if (error.response?.status && error.response.status !== 404) {
+                    toast.error(`Error verificando caja: ${error.response.status} - ${error.message}`);
                 }
+                // Network Error (sin response) se suprime — es normal al iniciar la app
             }
 
             setIsSessionOpen(false);

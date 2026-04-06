@@ -356,7 +356,7 @@ async def open_cash_session(
     return new_session
 
 
-@router.get("/sessions/current", response_model=Optional[schemas.CashSessionRead])
+@router.api_route("/sessions/current", methods=["GET","HEAD"], response_model=Optional[schemas.CashSessionRead])
 def get_current_session(
     register_id: Optional[int] = Query(None, description="ID de la caja. Si se omite retorna la sesión del usuario actual."),
     db: Session = Depends(get_db),
