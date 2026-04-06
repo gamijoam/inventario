@@ -41,11 +41,12 @@ export default function CreditoCelularModal({
       // Llamar al endpoint de crear venta con datos de crédito
       const r = await apiClient.post('/products/sales/', {
         items: [{
-          product_id : parseInt(producto.product_id || producto.id, 10),
-          quantity   : 1,
-          unit_price : parseFloat(datos.precio)         || 0,
-          discount   : 0,
-          subtotal   : parseFloat(datos.precio)         || 0,
+          product_id     : parseInt(producto.product_id || producto.id, 10),
+          quantity       : 1,
+          unit_price     : parseFloat(datos.precio)     || 0,
+          discount       : 0,
+          subtotal       : parseFloat(datos.precio)     || 0,
+          serial_numbers : producto.serial_numbers || [],  // requerido para has_imei=True
         }],
         payment_method           : 'Credito',
         currency                 : 'USD',

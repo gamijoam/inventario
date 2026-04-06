@@ -468,27 +468,33 @@ class SalesService:
                     # NEW: SERIALIZED INVENTORY LOGIC
                     if product.has_imei:
                         if not item.serial_numbers:
-                            raise HTTPException(status_code=400, detail=f"Product '{product.name}' is serialized (has_imei=True) but no serial numbers provided.")
+                            # Para ventas a crédito el serial es opcional —
+                            # el celular se entrega y el IMEI se vincula en BloqueCelular
+                            if sale_data.is_credit:
+                                pass  # permitido sin serial en crédito
+                            else:
+                                raise HTTPException(status_code=400, detail=f"Product '{product.name}' is serialized (has_imei=True) but no serial numbers provided.")
                         
-                        # Verify quantity match
-                        # Serialized items usually behave as Units (factor 1). 
-                        if len(item.serial_numbers) != units_to_deduct:
+                        # Verify quantity match (skip en crédito — sin seriales)
+                        if item.serial_numbers and len(item.serial_numbers) != units_to_deduct:
                              raise HTTPException(status_code=400, detail=f"Discrepancia de cantidad para producto serializado '{product.name}'. Esperado {int(units_to_deduct)}, recibido {len(item.serial_numbers)}.")
 
-                        # Fetch and Lock Instances
-                        sold_instances = db.query(models.ProductInstance).filter(
-                            models.ProductInstance.product_id == product.id,
-                            models.ProductInstance.warehouse_id == warehouse_id,
-                            models.ProductInstance.serial_number.in_(item.serial_numbers),
-                            models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
-                        ).with_for_update().all()
-                        
-                        # Validate Existence
-                        if len(sold_instances) != len(item.serial_numbers):
-                            found_sns = {i.serial_number for i in sold_instances}
-                            missing = set(item.serial_numbers) - found_sns
-                            raise HTTPException(status_code=400, detail=f"Números de serie no encontrados o no disponibles en este almacén: {list(missing)}")
-                            
+                        # Fetch and Lock Instances (solo si se proporcionaron seriales)
+                        sold_instances = []
+                        if item.serial_numbers:
+                            sold_instances = db.query(models.ProductInstance).filter(
+                                models.ProductInstance.product_id == product.id,
+                                models.ProductInstance.warehouse_id == warehouse_id,
+                                models.ProductInstance.serial_number.in_(item.serial_numbers),
+                                models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                            ).with_for_update().all()
+
+                            # Validate Existence
+                            if len(sold_instances) != len(item.serial_numbers):
+                                found_sns = {i.serial_number for i in sold_instances}
+                                missing = set(item.serial_numbers) - found_sns
+                                raise HTTPException(status_code=400, detail=f"Números de serie no encontrados o no disponibles en este almacén: {list(missing)}")
+
                         # Update Status to SOLD
                         for instance in sold_instances:
                             instance.status = models.ProductInstanceStatus.SOLD
