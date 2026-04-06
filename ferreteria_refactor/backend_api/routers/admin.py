@@ -200,7 +200,7 @@ def list_tenants(
             try:
                 sql_email = text(
                     "SELECT email FROM public.users "
-                    "WHERE tenant_id = :t_id AND role IN ('ADMIN','admin') "
+                    "WHERE tenant_id = :t_id AND role::text IN ('ADMIN','admin','SUPERADMIN') "
                     "ORDER BY id ASC LIMIT 1"
                 )
                 t_out.owner_email = db.execute(sql_email, {"t_id": tenant.id}).scalar()
