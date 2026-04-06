@@ -109,10 +109,16 @@ class SalesService:
                     models.CashSession.status == "OPEN"
                 ).first()
             if not open_session:
-                # Fallback: find the session opened by THIS user (prevents cross-register contamination)
+                # Fallback: sesión del usuario actual
                 open_session = db.query(models.CashSession).filter(
                     models.CashSession.status == "OPEN",
                     models.CashSession.user_id == user_id
+                ).first()
+            if not open_session and getattr(sale_data, 'is_credit', False):
+                # Para ventas a crédito: usar cualquier caja abierta del tenant
+                # (el dueño de org puede no tener caja propia pero sí existe una abierta)
+                open_session = db.query(models.CashSession).filter(
+                    models.CashSession.status == "OPEN"
                 ).first()
             if not open_session:
                 raise HTTPException(status_code=400, detail="No hay una caja abierta. Debe abrir caja para realizar ventas.")

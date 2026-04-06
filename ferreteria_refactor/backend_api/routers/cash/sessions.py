@@ -367,10 +367,19 @@ def get_current_session(
     Multi-caja: cada cajero solo ve SU propia sesión, no la de otros usuarios.
     """
     print(f"💰 [DEBUG] Checking for OPEN session. user={current_user.username}, register_id={register_id}")
-    query = db.query(models.CashSession).filter(
-        models.CashSession.status == "OPEN",
-        models.CashSession.user_id == current_user.id  # Solo la sesión de ESTE usuario
-    )
+    # ADMIN ve cualquier sesión abierta (no solo la suya)
+    # Cajero normal solo ve su propia sesión para multi-caja
+    is_admin = (getattr(current_user, 'role', None) in ["ADMIN", "UserRole.ADMIN"]
+                or getattr(current_user, 'is_superuser', False))
+    if is_admin:
+        query = db.query(models.CashSession).filter(
+            models.CashSession.status == "OPEN"
+        )
+    else:
+        query = db.query(models.CashSession).filter(
+            models.CashSession.status == "OPEN",
+            models.CashSession.user_id == current_user.id
+        )
 
     if register_id is not None:
         query = query.filter(models.CashSession.register_id == register_id)
@@ -380,6 +389,17 @@ def get_current_session(
         joinedload(models.CashSession.currencies),
     ).first()
     print(f"💰 [DEBUG] Found session: {session.id if session else 'None'}")
+
+    # Si no hay sesión propia y es ADMIN, devolver cualquier sesión abierta del tenant
+    if not session and current_user.role in ["ADMIN"] or getattr(current_user, 'is_superuser', False):
+        session = db.query(models.CashSession).filter(
+            models.CashSession.status == "OPEN"
+        ).options(
+            joinedload(models.CashSession.register),
+            joinedload(models.CashSession.currencies),
+        ).first()
+        if session:
+            print(f"💰 [DEBUG] Admin fallback session: {session.id}")
 
     if not session:
         return None
