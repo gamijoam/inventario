@@ -80,7 +80,14 @@ export default function CreditoCelularModal({
       setPaso(2);
       onConfirmar?.(datos);
     } catch (e) {
-      toast.error(e.response?.data?.detail || 'Error registrando la venta a crédito');
+      const errData = e.response?.data?.detail;
+      let errMsg = 'Error registrando la venta a crédito';
+      if (typeof errData === 'string') errMsg = errData;
+      else if (Array.isArray(errData) && errData.length > 0) {
+        // Error de validación Pydantic — mostrar el primer mensaje
+        errMsg = errData[0]?.msg || errData[0]?.message || JSON.stringify(errData[0]);
+      }
+      toast.error(errMsg);
     } finally {
       setCargando(false);
     }

@@ -86,12 +86,16 @@ export default function CalculadoraCredito({ precioInicial = 0, onUsarEnVenta, o
   const handleUsarEnVenta = useCallback(() => {
     if (!result) return;
     onUsarEnVenta?.({
-      precio, enganche: eng, tasa, cuotas, frecuencia: freq,
+      precio        : pr,               // número, no el string del input
+      enganche      : eng,
+      tasa          : tasa,
+      cuotas        : cuotas,
+      frecuencia    : freq,
       fechaPrimerCobro: fecha || null,
-      cuotaMonto: result.cuota,
-      financiado: result.financiado,
-      totalCliente: result.total,
-      interes: result.intTotal,
+      cuotaMonto    : result.cuota,
+      financiado    : result.financiado,
+      totalCliente  : result.total,
+      interes       : result.intTotal,
     });
   }, [result, pr, eng, tasa, cuotas, freq, fecha, onUsarEnVenta]);
 
