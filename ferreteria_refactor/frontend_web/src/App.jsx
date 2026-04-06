@@ -180,6 +180,23 @@ function App() {
   React.useEffect(() => {
     const initApp = async () => {
 
+      // ── Procesar org_data de URL (switch entre dominios de org) ──────────────
+      // Cuando el CompanySwitcher redirige a otro subdominio, pasa las empresas
+      // de la organización en ?org_data=BASE64 para que el switcher siga visible
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const orgData = urlParams.get('org_data');
+        if (orgData) {
+          const orgs = JSON.parse(decodeURIComponent(atob(orgData)));
+          if (Array.isArray(orgs) && orgs.length > 0) {
+            localStorage.setItem('org_companies', JSON.stringify(orgs));
+          }
+          // Limpiar el parámetro de la URL sin recargar
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      } catch (_) {}
+
       if (Capacitor.isNativePlatform()) {
         const apiUrl = localStorage.getItem('api_url');
         const currentHash = window.location.hash;
