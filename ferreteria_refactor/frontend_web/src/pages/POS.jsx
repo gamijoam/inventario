@@ -2,7 +2,7 @@ import { useAuth } from '../context/AuthContext';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
