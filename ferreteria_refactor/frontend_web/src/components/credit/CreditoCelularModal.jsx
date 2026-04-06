@@ -195,7 +195,7 @@ export default function CreditoCelularModal({
   // ── PASO 1: Calculadora ───────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] sm:h-auto sm:max-h-[88vh] flex flex-col overflow-hidden">
 
         {/* Info del producto arriba */}
         <div className="flex items-center gap-3 px-6 py-3 bg-slate-50 border-b border-slate-100 shrink-0">
