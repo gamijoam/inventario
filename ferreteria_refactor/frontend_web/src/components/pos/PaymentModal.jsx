@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag, Calendar, FileText } from 'lucide-react';
 import { createPrescription } from '../../services/pharmacyService';
 import { useConfig } from '../../context/ConfigContext';
@@ -457,7 +458,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     return (
         <>
-        {showCalcCredito && celularEnCarrito && (
+        {showCalcCredito && celularEnCarrito && createPortal(
             <CreditoCelularModal
                 isOpen={showCalcCredito}
                 onClose={() => setShowCalcCredito(false)}
@@ -467,7 +468,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     setShowCalcCredito(false);
                     onClose?.();
                 }}
-            />
+            />,
+            document.body
         )}
         <div className="fixed inset-0 bg-[#0f172a]/70 flex items-end sm:items-center justify-center z-50 backdrop-blur-md p-0 sm:p-4 transition-all duration-300">
             <div className="bg-white rounded-t-2xl sm:rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-auto sm:max-h-[85vh] animate-in fade-in zoom-in-95 slide-in-from-bottom-5 duration-300 ring-1 ring-white/20">
