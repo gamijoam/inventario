@@ -227,3 +227,38 @@ END $$;
 
 **Estado:** QA ✅ | PROD ✅ (53 schemas)
 
+
+---
+
+## ✅ APLICADAS — Sesión 2026-04-06/07 (todos los tenants activos)
+
+### purchase_items — columnas de descuento por ítem
+```sql
+DO $$ DECLARE s TEXT; BEGIN
+  FOR s IN SELECT schema_name FROM public.tenants WHERE is_active=true LOOP
+    EXECUTE format('ALTER TABLE %I.purchase_items
+      ADD COLUMN IF NOT EXISTS discount_pct    NUMERIC(10,4) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(18,4) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS subtotal        NUMERIC(18,4)', s);
+  END LOOP;
+END $$;
+```
+**Estado:** PROD ✅ (31 tenants activos)
+
+### products — columna featured (catálogo público)
+```sql
+DO $$ DECLARE s TEXT; BEGIN
+  FOR s IN SELECT schema_name FROM public.tenants WHERE is_active=true LOOP
+    EXECUTE format('ALTER TABLE %I.products
+      ADD COLUMN IF NOT EXISTS featured BOOLEAN NOT NULL DEFAULT false', s);
+  END LOOP;
+END $$;
+```
+**Estado:** PROD ✅ (31 tenants activos)
+
+### Schemas incompletos — demo300 y demo301
+Tenants creados con solo 5/58 tablas. Tablas recreadas con:
+```sql
+CREATE TABLE IF NOT EXISTS demo300.{tabla} (LIKE oscardemo.{tabla} INCLUDING ALL);
+```
+**Estado:** PROD ✅ — demo300: 5→58 tablas | demo301: 5→58 tablas

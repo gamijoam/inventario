@@ -232,3 +232,147 @@ Bitácora oficial de cambios de **Mi Inventario Fácil**. Trazabilidad técnica 
 - Horarios de negocio configurables
 - Búsqueda dinámica con debounce 400ms
 - Validación de stock en carrito
+
+---
+
+## [2026-04-06/07] — Fixes masivos de producción (sesión estabilización)
+
+### Illegal constructor — íconos Lucide sin importar
+**Causa raíz:** Íconos de `lucide-react` usados en JSX sin estar en el `import`. React los renderiza como `undefined` → `TypeError: Illegal constructor` en `renderWithHooks`.
+
+| Archivo | Ícono faltante |
+|---------|---------------|
+| `Sidebar.jsx` | `BarChart3`, `ArrowLeftRight` |
+| `ConfigCenter.jsx` | `Lock` |
+| `POS.jsx` | `Settings as SettingsIcon` + `;;` doble |
+| `GuiaComisiones.jsx` | `Pill` (era componente local, no ícono) |
+| `ClientesTab.jsx` | imports duplicados consolidados |
+
+**Diagnóstico:** El error solo aparecía en rutas específicas porque los íconos faltantes solo se renderizaban bajo condiciones específicas (org owner, tab activo, etc.). Las posiciones del stack trace (`Tm`, `Zm`, `Fp`) no corresponden al archivo fuente — hay que analizar el bundle minificado con `docker cp` + Python.
+
+---
+
+### CompanySwitcher — Fixes multi-empresa
+
+**Bug 1 — Lista hacia arriba:**
+- `bottom-full mb-2` → `top-full mt-1 z-[200]`
+
+**Bug 2 — Switcher desaparecía al cambiar de empresa:**
+- `localStorage` no se comparte entre subdominios
+- Fix: `org_companies` se codifica en base64 (`?org_data=BASE64`) en la URL
+- `App.jsx initApp()` lee `org_data` ANTES de cualquier provider y guarda en localStorage
+- Esto permite switch encadenado A→B→C→A con el switcher siempre visible
+
+**Bug 3 — ADMIN no veía sesión de caja abierta por otro usuario:**
+- `GET /cash/sessions/current`: si el usuario es ADMIN → busca cualquier sesión OPEN del tenant
+- Si es cajero normal → solo ve su propia sesión (multi-caja)
+
+---
+
+### Flujo de venta a crédito de celular — Fixes completos
+
+**Problema:** "Usar en registro de venta" no hacía nada y volvía al POS.
+
+**3 causas raíz:**
+1. `session_id` no se pasaba al payload → backend decía "No hay caja abierta"
+2. `onConfirmar` cerraba el `PaymentModal` antes de que el paso 2 (confirmación) se renderizara
+3. `exchange_rate` fijo en `1.0` en lugar de la tasa real
+
+**Fix:**
+- `PaymentModal` pasa `session?.id` y `defaultBsRate` al `CreditoCelularModal`
+- `onConfirmar` → renombrado a `onVentaExitosa` → solo se llama desde el botón "Listo" del paso 2
+- `CreditoCelularModal` usa `portal` (document.body) para escapar el stacking context del PaymentModal
+
+**Problema adicional — stock insuficiente con IMEIs:**
+- Para ventas a crédito sin serial: backend hacía `pass` → no marcaba instancias como SOLD → stock se descontaba numéricamente pero `product_instances` quedaban AVAILABLE
+- En la siguiente venta: stock=0 → error aunque hubiera IMEIs físicos
+- Fix: auto-seleccionar primeras instancias AVAILABLE y marcarlas SOLD también en crédito
+
+---
+
+### Calculadora de crédito — Rediseño responsive
+- Layout 2 columnas en PC (`lg:`), 1 columna compacta en tablet
+- Tabla de pagos COLAPSABLE en tablet (siempre visible en PC)
+- Botón "Usar en venta" siempre visible al fondo
+- Modal: `h-[90vh]` mobile, `max-h-[88vh]` tablet/PC
+- `createPortal` → modal aparece ENCIMA del PaymentModal (z-index correcto)
+
+---
+
+### Admin Panel SaaS
+
+**VITE_API_URL faltaba en el build:**
+- El bundle apuntaba a `http://localhost:8000/api/v1` → login no funcionaba en producción
+- Fix: rebuild con `--build-arg VITE_API_URL=https://api.miinventariofacil.com/api/v1`
+
+**Búsqueda por email de tenants:**
+- `TenantOut` schema: nuevo campo `owner_email`
+- `list_tenants`: query SQL `role::text IN ('ADMIN')` (cast necesario por enum PostgreSQL)
+- Frontend: filtro de búsqueda incluye `owner_email`
+- `TenantCard`: muestra email del admin debajo del dominio
+
+---
+
+### Schemas de BD incompletos en demo300/demo301
+- Solo tenían 5/58 tablas — migración inicial no se completó
+- Fix: `CREATE TABLE IF NOT EXISTS schema.tabla (LIKE oscardemo.tabla INCLUDING ALL)`
+- Columnas faltantes en `purchase_items` en 4 tenants: `discount_pct`, `discount_amount`, `subtotal`
+- Columna `products.featured` faltante en 6 tenants
+- Script SQL para auditar y corregir todos los tenants: ver `20_Migraciones_SQL_Pendientes.md`
+
+---
+
+### ProductForm — Crear categoría inline
+- Botón `+ Nueva` junto al label "Categoría"
+- Input inline con `Enter` para guardar, `Escape` para cancelar
+- Llama `POST /categories` y selecciona automáticamente la nueva
+- `window.__refreshCategories` para actualizar la lista en el padre sin recargar
+
+---
+
+### Descarga del puente ConexionImpresora
+- El archivo `.exe` nunca llegaba al nginx (SPA fallback devolvía `index.html`)
+- Fix: empaquetado como `ConexionImpresora.zip` (72MB, self-contained .NET 8)
+- `nginx.conf`: nueva `location /downloads/` con `try_files $uri =404` (sin SPA fallback)
+- ZIP en `public/downloads/` → incluido en el build de Vite automáticamente
+- Links en `POSSettingsModal`, `EstacionPOSTab` y `POSConfig`: `.exe` → `.zip`
+
+---
+
+### Plantillas de ticket ESC/POS — Fixes rosalicia
+Ver documento completo: `70_Plantillas_Ticket_ESC_POS.md`
+
+**Bug 1 — Cantidad `0` para productos vendidos por fracción:**
+- `math.round 0` redondea `0.025` → `0`
+- Fix: `math.format "0.###"` → muestra `0.025` / `0.1` / `1` según corresponda
+
+**Bug 2 — `</right>` y `</center>` impresos literalmente:**
+- El bridge procesa tags por línea — si están en líneas separadas del contenido, el de cierre queda huérfano
+- Fix: tag + contenido + tag cierre en la misma línea: `<right>TOTAL: $10</right>`
+
+**Aplicado en:** `rosalicia.business_config WHERE key='ticket_template'` (sin afectar otros clientes)
+
+---
+
+### Migraciones SQL aplicadas en PROD (2026-04-06/07)
+```sql
+-- purchase_items: discount_pct, discount_amount, subtotal
+ALTER TABLE {schema}.purchase_items
+  ADD COLUMN IF NOT EXISTS discount_pct    NUMERIC(10,4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(18,4) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS subtotal        NUMERIC(18,4);
+
+-- products: featured
+ALTER TABLE {schema}.products
+  ADD COLUMN IF NOT EXISTS featured BOOLEAN NOT NULL DEFAULT false;
+
+-- shared_products: is_active (public)
+ALTER TABLE public.shared_products
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+
+-- inter_company_transfers: created_by (public)
+ALTER TABLE public.inter_company_transfers
+  ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES public.users(id) ON DELETE SET NULL;
+```
+Aplicadas a todos los tenants activos con script DO $$ LOOP en psql.
+
