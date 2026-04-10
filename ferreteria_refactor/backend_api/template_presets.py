@@ -37,12 +37,10 @@ def format_money(amount: float, symbol: str = "$") -> str:
 
 def get_classic_58_template() -> str:
     return """================================
-<center>
-<bold>{{ business.name }}</bold>
-{{ business.address }}
-RIF: {{ business.document_id }}
-Tel: {{ business.phone }}
-</center>
+<center><bold>{{ business.name }}</bold></center>
+<center>{{ business.address }}</center>
+<center>RIF: {{ business.document_id }}</center>
+<center>Tel: {{ business.phone }}</center>
 ================================
 Fecha: {{ sale.date }}
 Ticket: #{{ sale.id }}
@@ -55,18 +53,16 @@ Cli: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 20 }}{{ else }
 CANT PRODUCTO              TOTAL
 --------------------------------
 {{ for item in sale.products }}
-{{ item.quantity | math.round 0 | string.pad_right 3 }} {{ item.product.name | string.slice 0 16 | string.pad_right 16 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
+{{ item.quantity | math.format "0.###" | string.pad_right 5 }}{{ if item.unit_name && item.unit_name != "" }}{{ item.unit_name | string.slice 0 4 | string.pad_right 4 }} {{ item.product.name | string.slice 0 12 | string.pad_right 12 }}{{ else }}      {{ item.product.name | string.slice 0 16 | string.pad_right 16 }}{{ end }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 7 }}
 {{ if item.discount_percentage > 0 }}    Desc {{ item.discount_percentage | math.round 0 }}%{{ end }}
 {{ if item.serial_numbers && item.serial_numbers.size > 0 }}   IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 24 }}{{ end }}
 {{ end }}
 ================================
-<right>
-SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}
+<right>SUBTOTAL: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</right>
 {{ if sale.discount > 0 }}
-DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
+<right>DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}</right>
 {{ end }}
-<bold>TOTAL A PAGAR: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold>
-</right>
+<right><bold>TOTAL A PAGAR: {{ currency_symbol }}{{ sale.total | math.format "F2" }}</bold></right>
 ================================
 PAGOS:
 {{ for p in sale.payments }}
@@ -74,9 +70,7 @@ PAGOS:
 {{ end }}
 {{ if sale.change_amount > 0 }}
 --------------------------------
-<right>
-VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
-</right>
+<right>VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}</right>
 {{ end }}
 ================================
 {{ has_warranty = false }}
@@ -90,10 +84,8 @@ Vigencia: {{ item.warranty.duration_text }}
 {{ end }}{{ end }}
 ================================
 {{ end }}
-<center>
-Gracias por su compra
-{{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
-</center>
+<center>Gracias por su compra</center>
+{{ if business.warranty_text }}<center>{{ business.warranty_text }}</center>{{ end }}
 <cut>
 """
 
@@ -117,7 +109,7 @@ Cli: {{ if sale.customer }}{{ sale.customer.name | string.slice 0 35 }}{{ else }
 CANT DESCRIPCION                           TOTAL
 ------------------------------------------------
 {{ for item in sale.products }}
-{{ item.quantity | math.round 0 | string.pad_right 4 }} {{ item.product.name | string.slice 0 30 | string.pad_right 30 }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 8 }}
+{{ item.quantity | math.format "0.###" | string.pad_right 6 }}{{ if item.unit_name && item.unit_name != "" }}{{ item.unit_name | string.slice 0 5 | string.pad_right 5 }} {{ item.product.name | string.slice 0 24 | string.pad_right 24 }}{{ else }}       {{ item.product.name | string.slice 0 30 | string.pad_right 30 }}{{ end }} {{ currency_symbol }}{{ item.subtotal | math.format "F2" | string.pad_left 8 }}
 {{ if item.discount_percentage > 0 }}     Desc {{ item.discount_percentage | math.round 0 }}%{{ end }}
 {{ if item.serial_numbers && item.serial_numbers.size > 0 }}    IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 38 }}{{ end }}
 {{ end }}
@@ -136,9 +128,7 @@ PAGOS:
 {{ end }}
 {{ if sale.change_amount > 0 }}
 ------------------------------------------------
-<right>
-VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
-</right>
+<right>VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}</right>
 {{ end }}
 ================================================
 {{ has_warranty = false }}
@@ -191,9 +181,7 @@ DESC: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
 PAGO: {{ p.method | string.slice 0 10 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
-<right>
-VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
-</right>
+<right>VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}</right>
 {{ end }}
 --------------------------------
 <center>
@@ -235,9 +223,7 @@ DESC: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
 PAGO: {{ p.method | string.slice 0 20 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
-<right>
-VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
-</right>
+<right>VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}</right>
 {{ end }}
 ------------------------------------------------
 <center>
@@ -281,9 +267,7 @@ PAGOS DETALLADOS:
 {{ p.method | string.slice 0 15 | string.pad_right 15 }} {{ p.currency }}{{ p.amount | math.format "F2" }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
-<right>
-VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
-</right>
+<right>VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}</right>
 {{ end }}
 ================================
 <cut>
@@ -318,9 +302,7 @@ PAGOS DETALLADOS:
 {{ p.method | string.slice 0 25 | string.pad_right 25 }} {{ p.currency }}{{ p.amount | math.format "F2" | string.pad_left 9 }}
 {{ end }}
 {{ if sale.change_amount > 0 }}
-<right>
-VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}
-</right>
+<right>VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}</right>
 {{ end }}
 ================================================
 

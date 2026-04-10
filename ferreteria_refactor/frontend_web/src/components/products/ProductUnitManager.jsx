@@ -212,7 +212,36 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                 <div className="p-8 flex-1 overflow-y-auto bg-slate-50/50">
                     {wizardStep === 1 && !editingUnitId ? (
                         <div className="space-y-4">
-                            <p className="text-slate-600 mb-6 font-medium text-lg text-center">¿Qué tipo de unidad deseas agregar?</p>
+                            <p className="text-slate-600 mb-4 font-medium text-lg text-center">¿Qué tipo de presentación deseas agregar?</p>
+
+                            {/* Presets rápidos para negocios de peso/volumen */}
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4">
+                                <p className="text-xs font-bold text-emerald-700 mb-2">⚡ Atajos rápidos — venta por peso/volumen</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {[
+                                        { label: 'Kg', name: 'Kg', type: 'fraction', divisor: 1 },
+                                        { label: '500g', name: '500g', type: 'fraction', divisor: 2 },
+                                        { label: '250g', name: '250g', type: 'fraction', divisor: 4 },
+                                        { label: '100g', name: '100g', type: 'fraction', divisor: 10 },
+                                        { label: 'Litro', name: 'Litro', type: 'fraction', divisor: 1 },
+                                        { label: '500ml', name: '500ml', type: 'fraction', divisor: 2 },
+                                        { label: 'Metro', name: 'Metro', type: 'fraction', divisor: 1 },
+                                    ].map(preset => (
+                                        <button key={preset.label}
+                                            onClick={() => {
+                                                setNewUnit({ ...newUnit, type: preset.type, unit_name: preset.name, user_input: preset.divisor });
+                                                setWizardStep(2);
+                                            }}
+                                            className="px-3 py-1.5 bg-white border border-emerald-300 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 rounded-lg text-xs font-bold text-emerald-700 transition-all"
+                                        >
+                                            {preset.label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-emerald-600 mt-2">
+                                    💡 La unidad base del producto es 1 {baseUnitType || 'unidad'}. Los atajos calculan el factor automáticamente.
+                                </p>
+                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <button
@@ -222,9 +251,9 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                     <div className="bg-indigo-50 text-indigo-600 p-4 rounded-full mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                                         <Package size={32} />
                                     </div>
-                                    <h4 className="font-bold text-slate-800 text-lg mb-2">Unidad Mayorista</h4>
+                                    <h4 className="font-bold text-slate-800 text-lg mb-2">📦 Empaque / Mayor</h4>
                                     <p className="text-sm text-slate-500 leading-relaxed">
-                                        Contiene múltiples unidades base.<br />Ej: Caja de 12, Bulto de 50.
+                                        Agrupa varias unidades base.<br />Ej: Caja ×12, Saco 50kg, Bulto.
                                     </p>
                                 </button>
 
@@ -235,9 +264,9 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                     <div className="bg-pink-50 text-pink-600 p-4 rounded-full mb-4 group-hover:bg-pink-600 group-hover:text-white transition-colors">
                                         <Divide size={32} />
                                     </div>
-                                    <h4 className="font-bold text-slate-800 text-lg mb-2">Unidad Fraccionaria</h4>
+                                    <h4 className="font-bold text-slate-800 text-lg mb-2">⚖️ Fracción / Peso</h4>
                                     <p className="text-sm text-slate-500 leading-relaxed">
-                                        Es una parte de la unidad base.<br />Ej: Gramos, Metros, Litros.
+                                        Vende una parte de la unidad base.<br />Ej: Kg, Litro, 500g, Metro.
                                     </p>
                                 </button>
                             </div>
@@ -252,7 +281,7 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                     <input
                                         autoFocus
                                         className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-medium text-slate-700"
-                                        placeholder={newUnit.type === 'packing' ? "Ej: Caja, Bulto, Paquete" : "Ej: Gramo, Metro"}
+                                        placeholder={newUnit.type === 'packing' ? "Ej: Caja, Saco, Bulto, Paquete" : "Ej: Kg, Litro, 500g, Metro, cm"}
                                         value={newUnit.unit_name}
                                         onChange={e => setNewUnit({ ...newUnit, unit_name: e.target.value })}
                                     />
@@ -261,7 +290,7 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                 <div className="grid grid-cols-2 gap-6">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                                            {newUnit.type === 'packing' ? 'Cantidad de Unidades' : 'Divisor'}
+                                            {newUnit.type === 'packing' ? 'Cantidad que contiene' : 'Unidades por kg/litro/metro'}
                                         </label>
                                         <input
                                             type="number"
@@ -273,8 +302,8 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                         />
                                         <p className="text-[10px] text-slate-400 mt-1">
                                             {newUnit.type === 'packing'
-                                                ? `Cuántos ${baseUnitType || 'items'} contiene.`
-                                                : `Cuántos caben en 1 ${baseUnitType || 'item'}.`
+                                                ? `Ej: Caja de 12 → poner 12`
+                                                : `Ej: si la base es 1 kg y vendes por 100g → poner 10`
                                             }
                                         </p>
                                     </div>

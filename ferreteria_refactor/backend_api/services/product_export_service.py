@@ -188,6 +188,7 @@ class ProductExportService:
             'iva': [16.00],
             'precio_usd': [12.33],
             'stock': [100],
+            'almacen': ['Almacen1'],
             'descripcion': ['Descripción del producto'],
             'categoria': ['Ferretería'],
             'proveedor': ['Proveedor1'],
@@ -219,6 +220,7 @@ FORMATO DE DATOS:
 - iva: Porcentaje de impuesto (opcional, ej: 16.0)
 - precio_usd*: Número decimal (ej: 10.50) (Opcional si se indica costo+margen+iva)
 - stock*: Número entero o decimal (ej: 100 o 10.5)
+- almacen: Nombre exacto de almacén existente (Opcional, se usará el primero por defecto)
 - descripcion: Texto (opcional)
 - categoria: Nombre exacto de categoría existente
 - proveedor: Nombre exacto de proveedor existente

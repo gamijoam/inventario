@@ -1061,9 +1061,21 @@ class SalesService:
             except Exception:
                 pass
 
+            # Unidad de venta — prioridad: unit vinculada > unit_type del producto > "Unid"
+            unit_name = ""
+            try:
+                if item.unit and item.unit.unit_name:
+                    unit_name = item.unit.unit_name
+                elif item.product and item.product.unit_type:
+                    unit_name = item.product.unit_type
+            except Exception:
+                pass
+
             formatted_items.append({
                 "product": {"name": display_name},
                 "quantity": float(item.quantity) if item.quantity % 1 != 0 else int(item.quantity),
+                "unit_name": unit_name,   # Ej: "Kg", "Litro", "Gramo", "Caja"
+                "unit_type": item.product.unit_type if item.product else "",  # unit_type base del producto
                 # Raw values (Backward Compatibility)
                 "unit_price": raw_price,
                 "subtotal": raw_total,

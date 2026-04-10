@@ -170,6 +170,7 @@ export const CartProvider = ({ children }) => {
                     product_id: product.id,
                     name: product.name,
                     unit_name: unit.name,
+                    unit_id: unit.id || null,        // ID de product_units (null = unidad base)
                     quantity: 1,
                     unit_price_usd: unit.price_usd,
                     conversion_factor: unit.factor,

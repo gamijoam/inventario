@@ -281,10 +281,11 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     unit_price: item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd),
                     subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd)) * item.quantity,
                     conversion_factor: item.conversion_factor || 1,
+                    unit_id: item.unit_id || null,        // Presentación/unidad seleccionada (kg, litro, etc.)
                     discount: item.is_discount_active ? item.discount_percentage : 0,
                     discount_type: item.is_discount_active ? "PERCENT" : "NONE",
-                    salesperson_id: item.salesperson_id || null, // Vendedores
-                    employee_id: item.employee_id || null,       // Barbershop
+                    salesperson_id: item.salesperson_id || null,
+                    employee_id: item.employee_id || null,
                     serial_numbers: item.serial_numbers || []
                 })),
                 is_credit: isCreditSale,

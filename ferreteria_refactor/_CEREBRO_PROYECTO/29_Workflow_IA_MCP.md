@@ -1,343 +1,155 @@
-# 29 — Workflow de Desarrollo via MCP (para IAs)
+# 29 — Workflow IA + MCP: Reglas de Deploy y Sincronización QA ↔ PROD
 
-> Este documento es la guía operativa para cualquier IA que se conecte al VPS via MCP.
-> Léelo completo antes de tocar cualquier archivo.
+## Principio fundamental
 
----
-
-## Contexto del entorno
-
-Cuando te conectas via MCP estás operando **directamente en el VPS de producción** (212.28.176.157).
-Existen dos entornos:
-
-| Entorno | Directorio | Uso |
-|---------|-----------|-----|
-| **QA** | `/root/deploy/qa/code/` | Aquí se hacen TODOS los cambios |
-| **Prod** | `/root/deploy/prod/` | Solo se toca al promover — NUNCA editar directo |
-
-El backend QA corre en modo **hot reload** (bind mount + uvicorn --reload).
-Cuando escribes un archivo `.py` en QA, el servidor recarga en ~1 segundo automáticamente.
-El frontend (React) NO tiene hot reload — requiere rebuild de imagen Docker.
+> **QA es un espejo exacto de PROD en estructura.**
+> Los mismos schemas, las mismas columnas, las mismas tablas.
+> Los datos son distintos (QA tiene tenants de prueba, PROD tiene clientes reales).
+> El código es el mismo (mismo repo `main`).
 
 ---
 
-## Herramientas disponibles
+## Flujo obligatorio para CUALQUIER cambio
 
-| Herramienta | Qué hace |
-|------------|---------|
-| `exec` | Ejecuta cualquier comando bash en el VPS |
-| `read_file` | Lee un archivo |
-| `write_file` | Escribe/sobreescribe un archivo |
-| `list_dir` | Lista un directorio |
-| `service_logs` | Logs de un contenedor Docker |
-| `restart_service` | Reinicia un contenedor |
-| `git_status` | Estado git del código QA |
-| `promote_to_prod` | Pipeline completo QA → Prod |
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. Código → commit a main (siempre primero)                │
+│  2. Migración SQL → aplicar en QA primero                   │
+│  3. Build imagen → tag qa-* → deploy QA                     │
+│  4. Pruebas en QA (verificar que todo funciona)             │
+│  5. Telegram → Gabriel aprueba                              │
+│  6. Migración SQL → aplicar en PROD (mismo script de QA)    │
+│  7. Build imagen → tag prod-* → deploy PROD                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**NUNCA saltar pasos. NUNCA deployar a PROD antes de QA.**
 
 ---
 
-## Rutas importantes
+## Excepciones permitidas (solo con aviso explícito)
 
-```
-/root/deploy/qa/code/ferreteria_refactor/
-├── backend_api/          ← Python/FastAPI — hot reload activo
-│   ├── main.py
-│   ├── routers/          ← Un archivo por dominio
-│   ├── models/models.py  ← Todos los modelos SQLAlchemy
-│   ├── services/
-│   └── utils/time_utils.py  → get_venezuela_now() para fechas
-├── frontend_web/src/     ← React — requiere rebuild para ver cambios
-│   ├── pages/
-│   ├── components/
-│   ├── context/
-│   └── config/axios.js
-└── _CEREBRO_PROYECTO/    ← Documentación del proyecto (aquí estás)
-```
+| Situación | Acción permitida |
+|-----------|-----------------|
+| Bug crítico que rompe PROD para TODOS los tenants | Fix directo en PROD CON aviso inmediato. Luego sincronizar QA. |
+| Fix de datos específico de un cliente (password reset, stock) | Aplicar en PROD directamente. Documentar en Cerebro. No aplica en QA (datos distintos). |
+
+Cualquier otra situación: seguir el flujo completo.
 
 ---
 
-## Flujo obligatorio para hacer cambios
+## Reglas para migraciones SQL
 
-### Paso 1 — Leer antes de escribir
+### Al crear una migración nueva:
+```markdown
+## ⏳ PENDIENTE — nombre_migracion
 
-**NUNCA** modifiques un archivo sin leerlo primero.
+Estado: QA ⏳ | PROD ⏳
 
-```
-read_file("/root/deploy/qa/code/ferreteria_refactor/backend_api/routers/sales.py")
-```
-
-### Paso 2 — Hacer el cambio
-
-```
-write_file("/root/deploy/qa/code/ferreteria_refactor/backend_api/routers/sales.py", "...contenido completo...")
+\`\`\`sql
+ALTER TABLE {schema}.tabla ADD COLUMN ...;
+\`\`\`
 ```
 
-> `write_file` sobreescribe el archivo completo. Asegúrate de incluir TODO el contenido, no solo el fragmento modificado.
-
-### Paso 3 — Verificar en QA
-
-**Backend:** el cambio ya está activo (hot reload). Verifica con logs si hay errores:
-```
-service_logs("backend_qa_server", lines=30)
+### Al aplicar en QA:
+```markdown
+Estado: QA ✅ | PROD ⏳
 ```
 
-**Frontend:** el cambio NO es visible hasta que hagas rebuild de imagen. Ver sección "Rebuild frontend QA" más abajo.
-
-### Paso 4 — Commit y push
-
-```
-exec("cd /root/deploy/qa/code && git add -A && git commit -m 'tipo(scope): descripción concisa' && git push origin main")
-```
-
-**Formato de commit obligatorio:**
-```
-fix(pos): descripción del bug corregido
-feat(backend): descripción de la nueva función
-fix(frontend): descripción del cambio en UI
-docs(cerebro): descripción del documento actualizado
+### Al aplicar en PROD (después de aprobación):
+```markdown
+Estado: QA ✅ | PROD ✅ (fecha)
 ```
 
 ---
 
-## Rebuild de imagen frontend QA
+## Reglas para imágenes Docker
 
-Cuando cambias archivos de React (`.jsx`, `.tsx`, `.css`, `config/`), hay que reconstruir la imagen:
+| Tag | Cuándo se usa |
+|-----|--------------|
+| `qa-*` | Solo para QA — nunca en PROD |
+| `prod-*` | Solo para PROD — debe haber pasado por QA |
+
+Las imágenes de PROD **siempre** deben construirse del mismo código que ya está probado en QA.
+
+---
+
+## Cómo verificar que QA y PROD están sincronizados
 
 ```bash
-# 1. Build nueva imagen (incrementar versión)
-exec("cd /root/deploy/qa/code/ferreteria_refactor/frontend_web && docker build -f Dockerfile.prod --build-arg VITE_API_URL=https://api-qa.miinventariofacil.com/api/v1 -t gamijoam/ferreteria-app:qa-version-XX .")
+# Verificar estructura de BD (debe ser idéntica)
+python3 << 'EOF'
+# Comparar columnas de tablas críticas entre QA (schema solucionescodecraft)
+# y PROD (schema oscardemo)
+# Si hay diferencias → aplicar migración faltante en el ambiente que le falta
+EOF
 
-# 2. Push a DockerHub
-exec("docker push gamijoam/ferreteria-app:qa-version-XX")
-
-# 3. Actualizar TAG en .env de QA
-exec("sed -i 's/TAG=qa-version-YY/TAG=qa-version-XX/' /root/deploy/qa/.env")
-
-# 4. Restart contenedor
-exec("cd /root/deploy/qa && docker compose up -d --no-deps --force-recreate frontend_qa")
+# Verificar versión del código
+cd /root/deploy/qa/code && git log --oneline -1
+# Ambos ambientes deben estar en el mismo commit
 ```
-
-Para saber la versión actual:
-```
-exec("grep TAG /root/deploy/qa/.env")
-```
-
-> Nota: el Dockerfile del frontend está en `frontend_web/Dockerfile.prod`. El contexto de build debe ser `frontend_web/` (no la raíz del repo).
 
 ---
 
-## Promover a producción
+## Qué hacer cuando QA y PROD se desincronizaron
 
-Solo cuando el usuario confirme explícitamente ("sube a prod", "pasa a prod", etc.):
-
-```
-promote_to_prod(confirmed=true, version="descripcion-corta")
-```
-
-Esto ejecuta `/root/deploy/deploy_prod_from_vps.sh` que hace:
-1. `git commit` de cambios pendientes en QA
-2. `git push` a GitHub main
-3. Build de 4 imágenes Docker en el VPS: `backend`, `app`, `landing`, `admin-panel`
-4. Push a DockerHub con tag `prod-{version}-{fecha}`
-5. Actualiza TAG en `/root/deploy/prod/.env`
-6. `docker compose up --force-recreate` en prod
-7. `docker image prune` para limpiar imágenes viejas
-
-**Tiempo estimado:** 8-15 minutos (build de 4 imágenes).
-
-**NUNCA** promover a prod sin confirmación explícita del usuario.
-
----
-
-## Rollback
-
-### Rollback en QA
+### Caso A — PROD está más adelante en código que QA
 ```bash
-# Ver historial
-exec("cd /root/deploy/qa/code && git log --oneline -10")
-
-# Revertir un commit específico
-exec("cd /root/deploy/qa/code && git revert <hash> --no-edit && git push origin main")
-
-# O restaurar un archivo específico
-exec("cd /root/deploy/qa/code && git checkout <hash> -- ruta/al/archivo.py")
+# Deploy QA con el mismo código
+cd /root/deploy/qa/code
+docker build -f ferreteria_refactor/backend_api/Dockerfile \
+  -t gamijoam/ferreteria-backend:qa-sync-$(date +%Y%m%d) .
+# Deploy QA...
 ```
 
-### Rollback en Prod
-Prod corre imágenes Docker taggeadas. Para volver a la versión anterior:
+### Caso B — PROD tiene migraciones SQL que QA no tiene
 ```bash
-# Ver versión actual
-exec("grep TAG /root/deploy/prod/.env")
-
-# Cambiar al tag anterior (el usuario debe conocer el tag)
-exec("sed -i 's/TAG=prod-actual/TAG=prod-anterior/' /root/deploy/prod/.env")
-exec("cd /root/deploy/prod && docker compose up -d --force-recreate")
+# Aplicar en QA el mismo script que se aplicó en PROD
+docker exec db_qa_server psql -U postgres -d invensoft_qa -c "
+DO \$\$ DECLARE s TEXT; BEGIN
+  FOR s IN SELECT schema_name FROM public.tenants WHERE is_active=true LOOP
+    EXECUTE '... misma migración ...';
+  END LOOP;
+END \$\$;"
 ```
-Las imágenes viejas están en DockerHub — el rollback es instantáneo, sin rebuild.
+
+### Caso C — QA tiene código nuevo que aún no está en PROD
+```
+Situación normal → esperar aprobación de Gabriel → deploy PROD
+```
 
 ---
 
-## Reglas críticas del proyecto
-
-### Fechas — SIEMPRE Venezuela (UTC-4)
-```python
-# ❌ MAL
-datetime.now()
-date.today()
-
-# ✅ BIEN
-from .utils.time_utils import get_venezuela_now
-get_venezuela_now()
-get_venezuela_now().date()
-```
-
-### Multi-tenancy
-- **NUNCA** hardcodear `schema_name` ni `tenant_id`
-- El ORM resuelve el schema automáticamente via `search_path`
-- Si haces `db.commit()` y luego necesitas releer datos, el `search_path` se pierde → usar `db.flush()` antes del commit
-
-### Feature flags
-- Funciones nuevas que no son para todos los tenants → usar `useFeatureFlag('nombre')` en frontend y verificar en backend
-- **NUNCA** condicionar features a `modules?.services`, `modules?.barbershop`, etc. a menos que sea estrictamente exclusivo de ese módulo
-- Las listas de precios y comisiones son globales — no requieren ningún módulo
-
-### Frontend
-- Router: **HashRouter** — todas las rutas tienen `/#/`
-- `VITE_API_URL` se bake en build time — no cambia en runtime
-- Lazy loading en 58+ páginas con `React.lazy()`
-
-### Backend
-- `slowapi` rate limiting: el parámetro `Request` DEBE llamarse exactamente `request`
-- Reset password: JWT `sub` = `user.email` (no username)
-
----
-
-## Contenedores en el VPS
-
-| Contenedor | Descripción | Entorno |
-|-----------|-------------|---------|
-| `backend_qa_server` | FastAPI hot reload | QA |
-| `frontend_qa_server` | React (imagen Docker) | QA |
-| `db_qa_server` | PostgreSQL 15 | QA |
-| `admin_panel_qa` | Panel SaaS admin | QA |
-| `backend_prod_server` | FastAPI producción | Prod |
-| `frontend_prod_server` | React producción | Prod |
-| `db_prod_server` | PostgreSQL 15 | Prod |
-| `admin_panel_prod_server` | Panel SaaS admin | Prod |
-| `mcp_server` | Este servidor MCP | Prod |
-
----
-
-## Verificación rápida al iniciar sesión
-
-Antes de empezar cualquier tarea, ejecuta:
-```
-git_status()
-```
-
-Si hay cambios sin commitear del trabajo anterior, decide si deben commitearse o descartarse antes de continuar.
-
----
-
-## ⚠️ REGLA CRÍTICA — Patrón correcto para endpoints con multi-tenant
-
-**Problema descubierto:** hacer `db.commit()` en el medio de un endpoint y luego re-querying causa `UndefinedTable` porque el `search_path` del tenant se pierde al iniciar una nueva transacción implícita post-commit.
-
-**Patrón INCORRECTO (rompe el search_path):**
-```python
-db.add(obj)
-db.commit()
-db.refresh(obj)          # ❌ SELECT falla — search_path perdido
-obj2 = db.query(...).first()  # ❌ mismo problema
-```
-
-**Patrón CORRECTO — flush → query → commit:**
-```python
-db.add(obj)
-db.flush()               # ✅ obtiene ID sin romper search_path
-result_data = build_response(obj)  # ✅ capturar datos antes del commit
-db.commit()              # ✅ siempre AL FINAL
-return result_data       # ✅ no re-query necesario
-```
-
-**Si necesitas relaciones cargadas (joinedload):**
-```python
-db.add(obj)
-db.flush()
-obj_with_rels = db.query(Model).options(joinedload(Model.relation)).filter_by(id=obj.id).first()
-result = serialize(obj_with_rels)  # capturar ANTES del commit
-db.commit()
-return result
-```
-
-**Para updates con relaciones:**
-```python
-obj = db.query(Model).options(joinedload(Model.rel)).filter_by(id=id).first()
-obj.field = new_value
-obj.rel = db.query(Related).filter_by(id=new_rel_id).first()  # cargar en memoria
-db.flush()
-result = serialize(obj)   # capturar con relaciones ya en memoria
-db.commit()
-return result
-```
-
-Esta regla aplica a TODOS los routers del proyecto.
-
----
-
-## Herramientas MCP disponibles (actualizadas 2026-04-05)
-
-El asistente IA tiene acceso al VPS via MCP (`mcp.miinventariofacil.com`) con los siguientes comandos:
-
-| Herramienta | Descripción |
-|---|---|
-| `exec` | Ejecutar comando bash en el VPS |
-| `git_status` | Ver estado de git en el código QA |
-| `list_dir` | Listar contenido de un directorio |
-| `read_file` | Leer archivo del VPS |
-| `write_file` | Escribir/sobreescribir archivo |
-| `service_logs` | Ver logs de un contenedor Docker |
-| `restart_service` | Reiniciar un contenedor Docker |
-| `promote_to_prod` | Promover QA a producción (commit → push → build → restart) |
-
-## Reglas del workflow IA + MCP
-
-1. **NUNCA deploy directo a PROD** — flujo obligatorio: cambios en QA → pruebas → commit a main → aprobación Gabriel en Telegram → deploy
-2. Solo en emergencias que rompen PROD para todos los tenants se puede actuar, siempre avisando primero
-3. Siempre comunicarse en español
-4. Rama activa de desarrollo: `feature/multi-empresa` (8 commits pendientes de merge)
-5. Bugs urgentes en PROD: corregir directamente en VPS + commit simultáneo a `main`
-
-## Patrones confiables en el VPS
+## Comandos del MCP para deploy
 
 ```bash
-# PostgreSQL — UN SOLO -c por llamada (múltiples -c fallan silenciosamente)
-docker exec db_prod_server psql -U postgres -d invensoft_prod -c "SQL"
+# Verificar estado
+docker ps --format "{{.Names}} | {{.Image}}"
 
-# Alternativa confiable para SQL complejo: Python + SQLAlchemy
-docker exec backend_prod_server python3 << 'PYEOF'
-from sqlalchemy import create_engine, text
-...
-PYEOF
+# Build QA backend
+cd /root/deploy/qa/code
+docker build -f ferreteria_refactor/backend_api/Dockerfile \
+  -t gamijoam/ferreteria-backend:qa-DESCRIPCION .
 
-# Build de frontend — desde dentro del directorio
-cd ferreteria_refactor/frontend_web
-docker build --no-cache -f Dockerfile.prod --build-arg VITE_API_URL=... -t imagen:tag .
+# Build QA frontend
+cd /root/deploy/qa/code/ferreteria_refactor/frontend_web
+docker build --no-cache -f Dockerfile.prod \
+  --build-arg VITE_API_URL=https://api-qa.miinventariofacil.com/api/v1 \
+  -t gamijoam/ferreteria-app:qa-DESCRIPCION .
 
-# Redes Docker — conectar web_publica PRIMERO, luego red interna
-docker run ... --network web_publica ...
-docker network connect prod_prod_internal contenedor
+# Build PROD (solo tras aprobación)
+docker build -f ferreteria_refactor/backend_api/Dockerfile \
+  -t gamijoam/ferreteria-backend:prod-DESCRIPCION .
 ```
 
-## Contenedores activos (2026-04-05)
+---
 
-| Contenedor | Imagen | Función |
-|---|---|---|
-| `backend_qa_server` | `qa-multi-empresa` | Backend QA |
-| `frontend_qa_server` | `qa-multi-empresa` | Frontend QA |
-| `admin_panel_qa` | `qa-multi-empresa` | Panel admin SaaS QA |
-| `backend_prod_server` | `prod-...-202604050130` | Backend PROD |
-| `frontend_prod_server` | `prod-...-202604050130` | Frontend PROD |
-| `admin_panel_prod_server` | `prod-...-202604050130` | Panel admin SaaS PROD |
-| `deploy_bot_server` | `mi-inventario-deploy-bot` | Bot Telegram admin |
-| `whatsapp_service` | `mi-inventario-whatsapp:1.1` | Baileys WA service |
+## Trigger para CI/CD (bot de Telegram)
+
+```bash
+cd /root/deploy/qa/code
+git commit --allow-empty -m "chore: trigger deploy prod — DESCRIPCION"
+git push origin main
+# Esperar mensaje del bot en Telegram
+# Gabriel aprueba → CI/CD deploya PROD automáticamente
+```

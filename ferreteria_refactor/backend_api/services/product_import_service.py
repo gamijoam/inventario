@@ -15,7 +15,7 @@ class ProductImportService:
     OPTIONAL_COLUMNS = [
         'sku', 'descripcion', 'categoria', 'proveedor', 'tasa_cambio',
         'stock_minimo', 'ubicacion', 'descuento_porcentaje', 'descuento_activo',
-        'costo', 'margen_ganancia', 'iva'
+        'costo', 'margen_ganancia', 'iva', 'almacen'
     ]
     
     @staticmethod
@@ -44,7 +44,10 @@ class ProductImportService:
         
         # Stock validation
         try:
-            stock = float(row.get('stock', 0))
+            # Handle NaN/None by defaulting to 0
+            stock_val = row.get('stock', 0)
+            stock = float(stock_val) if not pd.isna(stock_val) else 0.0
+            
             if stock < 0:
                 errors.append(f"Fila {row_num}: Stock no puede ser negativo")
         except (ValueError, TypeError):
@@ -52,8 +55,9 @@ class ProductImportService:
             
         # Cost validation (if provided)
         try:
-            if not pd.isna(row.get('costo')):
-                cost = float(row.get('costo', 0))
+            cost_val = row.get('costo')
+            if not pd.isna(cost_val):
+                cost = float(cost_val)
                 if cost < 0:
                      errors.append(f"Fila {row_num}: Costo no puede ser negativo")
         except (ValueError, TypeError):
@@ -86,6 +90,13 @@ class ProductImportService:
             rate = db.query(models.ExchangeRate).filter(models.ExchangeRate.name == rate_name).first()
             if not rate:
                 errors.append(f"Fila {row_num}: Tasa de cambio '{rate_name}' no existe")
+        
+        # Warehouse validation (if provided)
+        if not pd.isna(row.get('almacen')) and str(row.get('almacen')).strip() != '':
+            wh_name = str(row.get('almacen')).strip()
+            warehouse = db.query(models.Warehouse).filter(models.Warehouse.name == wh_name).first()
+            if not warehouse:
+                errors.append(f"Fila {row_num}: Almacén '{wh_name}' no existe")
         
         return errors
     
@@ -169,7 +180,7 @@ class ProductImportService:
             product_data = {
                 'name': str(row['nombre']).strip(),
                 'price': price,
-                'stock': float(row['stock']),
+                'stock': float(row['stock']) if not pd.isna(row.get('stock')) else 0.0,
                 'sku': str(row.get('sku', '')).strip() if not pd.isna(row.get('sku')) else None,
                 'description': str(row.get('descripcion', '')).strip() if not pd.isna(row.get('descripcion')) else None,
                 'min_stock': float(row.get('stock_minimo', 5)) if not pd.isna(row.get('stock_minimo')) else 5,
@@ -201,6 +212,22 @@ class ProductImportService:
                 if rate:
                     product_data['exchange_rate_id'] = rate.id
             
+            # Warehouse ID (for stock association)
+            warehouse_id = None
+            if not pd.isna(row.get('almacen')) and str(row.get('almacen')).strip() != '':
+                wh_name = str(row.get('almacen')).strip()
+                warehouse = db.query(models.Warehouse).filter(models.Warehouse.name == wh_name).first()
+                if warehouse:
+                    warehouse_id = warehouse.id
+            
+            # If no warehouse specified but there is stock, default to first warehouse
+            if not warehouse_id and product_data.get('stock', 0) > 0:
+                first_wh = db.query(models.Warehouse).first()
+                if first_wh:
+                    warehouse_id = first_wh.id
+            
+            product_data['target_warehouse_id'] = warehouse_id
+            
             # Discount
             if not pd.isna(row.get('descuento_porcentaje')):
                 try:
@@ -220,13 +247,29 @@ class ProductImportService:
     
     @staticmethod
     def bulk_create_products(products_data: List[Dict], db: Session) -> int:
-        """Create products in batch"""
+        """Create products in batch and associate stock with warehouses"""
         created_count = 0
         
         for product_data in products_data:
             try:
+                # Extract warehouse association data
+                warehouse_id = product_data.pop('target_warehouse_id', None)
+                stock_qty = product_data.get('stock', 0)
+                
+                # Create product
                 product = models.Product(**product_data)
                 db.add(product)
+                db.flush() # Populate ID
+                
+                # Create Warehouse Association (ProductStock)
+                if warehouse_id and stock_qty > 0:
+                    stock_entry = models.ProductStock(
+                        product_id=product.id,
+                        warehouse_id=warehouse_id,
+                        quantity=stock_qty
+                    )
+                    db.add(stock_entry)
+                
                 created_count += 1
             except Exception as e:
                 print(f"Error creating product {product_data.get('name')}: {e}")
