@@ -186,7 +186,7 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
         device_type: 'SMARTPHONE',
         brand: '', model: '', serial_imei: '',
         passcode_pattern: '', passcode_enabled: false,
-        problem_description: '', physical_condition: 'GOOD',
+        problem_description: '', physical_condition: '',
     });
 
     // Cargar garantías y plantillas al abrir
@@ -343,7 +343,7 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
                 customer: null, device_type: 'SMARTPHONE',
                 brand: '', model: '', serial_imei: '',
                 passcode_pattern: '', passcode_enabled: false,
-                problem_description: '', physical_condition: 'GOOD',
+                problem_description: '', physical_condition: '',
             });
             setSearchTerm('');
             setSelectedTechnicianId('');
@@ -482,20 +482,14 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
                                 )}
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-3">Estado Físico</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {PHYSICAL_CONDITIONS.map(pc => (
-                                        <button key={pc.id}
-                                            onClick={() => setFormData(p => ({ ...p, physical_condition: pc.id }))}
-                                            className={`p-3 rounded-xl border-2 font-semibold transition-all text-center
-                                                ${formData.physical_condition === pc.id
-                                                    ? 'bg-amber-100 border-amber-500 text-amber-700'
-                                                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
-                                            {'⭐'.repeat(pc.stars)}
-                                            <div className="text-sm mt-1">{pc.label}</div>
-                                        </button>
-                                    ))}
-                                </div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Estado Físico del Equipo</label>
+                                <textarea
+                                    rows={3}
+                                    placeholder="Ej: Pantalla rayada, carcasa en buen estado, botón de volumen dañado..."
+                                    value={formData.physical_condition}
+                                    onChange={e => setFormData(p => ({ ...p, physical_condition: e.target.value }))}
+                                    className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-400 outline-none resize-none text-sm text-gray-700 placeholder-gray-400"
+                                />
                             </div>
                         </div>
                     )}
@@ -720,7 +714,7 @@ const ServiceOrderWizard = ({ isOpen, onClose, onSuccess }) => {
                                     <p className="text-sm text-purple-600 font-mono">Serial: {formData.serial_imei}</p>
                                 )}
                                 <p className="text-sm text-purple-600">
-                                    Estado: {PHYSICAL_CONDITIONS.find(pc => pc.id === formData.physical_condition)?.label}
+                                    Estado: {formData.physical_condition || 'No especificado'}
                                 </p>
                             </div>
 
