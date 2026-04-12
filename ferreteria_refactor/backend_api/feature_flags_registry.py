@@ -39,6 +39,16 @@ REGISTRY: dict[str, dict] = {
         "description": "Habilita botón 'Imprimir Garantía' al finalizar venta de equipos con serial/IMEI. Imprime el PDF de garantía personalizado del cliente con los datos de la venta inyectados.",
         "category": "pos",
     },
+    "whatsapp_business": {
+        "label": "WhatsApp Business 📱",
+        "description": "Módulo premium de automatización WhatsApp. Envía tickets de venta, notificaciones de taller, cotizaciones en PDF y recordatorios de deuda automáticamente al cliente. Incluye editor de plantillas personalizables.",
+        "category": "automatizacion",
+    },
+    "catalogo_publico": {
+        "label": "Catálogo público de productos",
+        "description": "Expone un catálogo de productos en línea accesible públicamente.",
+        "category": "restaurant",
+    },
 }
 
-CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "otros"]
+CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "automatizacion", "restaurant", "otros"]
