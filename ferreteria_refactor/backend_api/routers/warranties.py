@@ -189,6 +189,14 @@ async def upload_warranty_template(
     Sube un PDF template de garantía para una política específica.
     Este template se usará para imprimir garantías al finalizar ventas con IMEI.
     """
+    # Ensure tenant context is set from current user
+    from ..tenant_context import set_tenant_schema
+    if current_user.tenant_id:
+        from .models.tenant import Tenant
+        tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+        if tenant:
+            set_tenant_schema(tenant.schema_name)
+
     policy = await warranty_pdf_service.upload_warranty_template(
         file=file,
         policy_id=policy_id,

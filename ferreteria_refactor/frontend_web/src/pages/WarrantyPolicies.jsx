@@ -426,6 +426,11 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
                             <p className="text-xs text-blue-700 leading-relaxed font-medium">
                                 Los cambios en las políticas solo afectarán a los productos vinculados a partir de este momento. Reclamos existentes mantendrán las condiciones originales del momento de la venta.
                             </p>
+                                {!policy && (
+                                    <p className="mt-2 text-xs font-bold text-blue-800 bg-blue-100 px-2 py-1 rounded">
+                                        💡 Tip: Guardá la política primero. Después al editarla aparece la opción de subir el PDF de garantía.
+                                    </p>
+                                )}
                         </div>
                     </div>
 

@@ -586,14 +586,14 @@ class CommissionRule(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    category_id = Column(Integer, ForeignKey("products_categories.id"), nullable=True)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     module = Column(String, nullable=True)  # POS, TALLER, or None for all
     percentage = Column(Numeric(5, 2), default=0.00)
     is_active = Column(Boolean, default=True)
     priority = Column(Integer, default=0)
     created_at = Column(DateTime, default=get_venezuela_now)
 
-    category = relationship("ProductCategory")
+    category = relationship("Category")
 
 class CommissionLog(Base):
     """
@@ -621,6 +621,7 @@ class CommissionLog(Base):
     created_at = Column(DateTime, default=get_venezuela_now)
     paid_at = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)
+    commission_role = Column(String, nullable=True, default="VENDOR") # Role user had when earning commission
 
     user = relationship("User")
     sale_detail = relationship("SaleDetail")
