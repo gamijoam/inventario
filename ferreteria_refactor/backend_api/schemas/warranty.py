@@ -33,6 +33,7 @@ class WarrantyPolicyBase(BaseModel):
     description: Optional[str] = Field(None, description="Descripción detallada y condiciones")
     is_default: bool = Field(False, description="Si es la política por defecto")
     is_active: bool = Field(True, description="Si la política está activa")
+    pdf_template_path: Optional[str] = Field(None, description="Ruta al PDF template de garantía subido por el cliente")
 
 class WarrantyPolicyCreate(WarrantyPolicyBase):
     pass
