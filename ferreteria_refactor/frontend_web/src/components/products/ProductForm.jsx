@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown, Scissors, Snowflake, Shield } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import apiClient from '../../config/axios';
 import ProductPriceListManager from './ProductPriceListManager';
 import ProductUnitManager from './ProductUnitManager';
@@ -47,6 +48,7 @@ import { normalizeSearch } from '../../utils/search';
 
 const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories = [], warehouses = [], exchangeRates = [] }) => {
     const { getActiveCurrencies, currencies, modules } = useConfig();
+    const useGrossMargin = useFeatureFlag('precio_margen_bruto');
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
     // categories, warehouses, and exchangeRates are now props. No need for local state for them if we trust the parent.
@@ -231,7 +233,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                 const margin = name === 'profit_margin' ? parseFloat(value) : parseFloat(prev.profit_margin);
 
                 if (!isNaN(cost) && !isNaN(margin)) {
-                    const calculatedPrice = cost * (1 + (margin / 100));
+                    const calculatedPrice = useGrossMargin ? cost / (1 - (margin / 100)) : cost * (1 + (margin / 100));
                     updated.price = calculatedPrice.toFixed(2);
                 }
             }
@@ -241,7 +243,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                 const price = parseFloat(value);
                 const cost = parseFloat(prev.cost);
                 if (!isNaN(price) && price > 0 && !isNaN(cost) && cost > 0) {
-                    const margin = ((price - cost) / cost) * 100;
+                    const margin = useGrossMargin ? ((1 - cost / price) * 100) : ((price - cost) / cost) * 100;
                     updated.profit_margin = margin.toFixed(2);
                 }
             }

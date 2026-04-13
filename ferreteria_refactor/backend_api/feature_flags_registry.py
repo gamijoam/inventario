@@ -47,4 +47,10 @@ REGISTRY["whatsapp_business"] = {
     "category": "automatizacion",
 }
 
+REGISTRY["precio_margen_bruto"] = {
+    "label": "Margen de ganancia bruto",
+    "description": "Calcula precio de venta como: Costo / (1 - Margen%). Fórmula contable correcta basada en margen sobre venta, no sobre costo.",
+    "category": "inventario",
+}
+
 CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "automatizacion", "otros"]
