@@ -3,6 +3,7 @@ import { X, Search, Loader2, Copy, Check, Filter } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { Badge } from '../../components/ui/badge';
 import { toast } from 'react-hot-toast';
+import { normalizeSearch } from '../../utils/search';
 
 const ProductInstancesModal = ({ isOpen, onClose, product }) => {
     const [instances, setInstances] = useState([]);
@@ -50,7 +51,7 @@ const ProductInstancesModal = ({ isOpen, onClose, product }) => {
     };
 
     const filteredInstances = instances.filter(instance => {
-        const matchesSearch = instance.serial_number.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = normalizeSearch(instance.serial_number).includes(normalizeSearch(searchTerm));
         const matchesStatus = !statusFilter || instance.status === statusFilter;
         return matchesSearch && matchesStatus;
     });

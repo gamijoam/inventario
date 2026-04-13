@@ -3,6 +3,7 @@ import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import { Plus, Trash2, Search, GripVertical, X, ChefHat } from 'lucide-react';
+import { normalizeSearch } from '../../utils/search';
 
 const MenuManager = () => {
     const { business } = useConfig();
@@ -98,7 +99,7 @@ const MenuManager = () => {
 
     // Filter products for sidebar
     const filteredProducts = products.filter(p =>
-        p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        normalizeSearch(p.name).includes(normalizeSearch(searchTerm)) ||
         (p.sku && p.sku.includes(searchTerm))
     );
 

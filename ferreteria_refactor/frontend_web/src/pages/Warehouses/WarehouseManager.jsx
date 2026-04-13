@@ -3,6 +3,7 @@ import { Plus, Edit, Trash2, MapPin, Check, X, Shield, Warehouse, Search, Packag
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
+import { normalizeSearch } from '../../utils/search';
 
 const WarehouseManager = () => {
     const [warehouses, setWarehouses] = useState([]);
@@ -319,8 +320,8 @@ const WarehouseInventoryModal = ({ isOpen, onClose, warehouse }) => {
     }, [isOpen, warehouse]);
 
     const filteredInventory = inventory.filter(item =>
-        item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.sku && item.sku.toLowerCase().includes(searchTerm.toLowerCase()))
+        normalizeSearch(item.product_name).includes(normalizeSearch(searchTerm)) ||
+        (item.sku && normalizeSearch(item.sku).includes(normalizeSearch(searchTerm)))
     );
 
     if (!isOpen) return null;

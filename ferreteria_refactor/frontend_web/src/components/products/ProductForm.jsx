@@ -43,6 +43,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Separator } from '../../components/ui/separator';
 import { Textarea } from '../../components/ui/textarea';
+import { normalizeSearch } from '../../utils/search';
 
 const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories = [], warehouses = [], exchangeRates = [] }) => {
     const { getActiveCurrencies, currencies, modules } = useConfig();
@@ -515,7 +516,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                         -- Sin Categoría --
                                                                     </div>
                                                                     {categories
-                                                                        .filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase()))
+                                                                        .filter(c => normalizeSearch(c.name).includes(normalizeSearch(categorySearchTerm)))
                                                                         .map(c => {
                                                                             const isSelected = formData.category_id?.toString() === c.id.toString();
                                                                             return (
@@ -535,7 +536,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                                 </div>
                                                                             );
                                                                         })}
-                                                                    {categories.filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase())).length === 0 && (
+                                                                    {categories.filter(c => normalizeSearch(c.name).includes(normalizeSearch(categorySearchTerm))).length === 0 && (
                                                                         <div className="p-3 text-center text-sm text-slate-400 italic">No se encontraron resultados</div>
                                                                     )}
                                                                 </div>

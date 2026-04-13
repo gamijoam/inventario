@@ -3,6 +3,7 @@ import { Package, ClipboardList, AlertTriangle, ChevronDown, ChevronUp, RefreshC
 import { toast } from 'react-hot-toast';
 import { getLots, createLot, getAlerts } from '../../services/pharmacyService';
 import apiClient from '../../config/axios';
+import { normalizeSearch } from '../../utils/search';
 
 // --- Helpers ---
 const today = () => {
@@ -84,8 +85,8 @@ const ReceiveStockForm = ({ onSuccess }) => {
     }, [open]);
 
     const filteredProducts = products.filter(p =>
-        p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
-        p.sku?.toLowerCase().includes(productSearch.toLowerCase())
+        normalizeSearch(p.name).includes(normalizeSearch(productSearch)) ||
+        normalizeSearch(p.sku).includes(normalizeSearch(productSearch))
     ).slice(0, 10);
 
     const handleSelectProduct = (p) => {

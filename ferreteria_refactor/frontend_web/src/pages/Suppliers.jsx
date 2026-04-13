@@ -19,6 +19,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
+import { normalizeSearch } from '../utils/search';
 
 const Suppliers = () => {
     const { subscribe } = useWebSocket();
@@ -95,8 +96,8 @@ const Suppliers = () => {
     };
 
     const filteredSuppliers = suppliers.filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.contact_person?.toLowerCase().includes(searchQuery.toLowerCase())
+        normalizeSearch(s.name).includes(normalizeSearch(searchQuery)) ||
+        normalizeSearch(s.contact_person).includes(normalizeSearch(searchQuery))
     );
 
     return (

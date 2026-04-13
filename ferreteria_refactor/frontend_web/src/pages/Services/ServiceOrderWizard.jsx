@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import printerService from '../../services/printerService';
 import { useConfig } from '../../context/ConfigContext';
 import QuickCustomerModal from '../../components/pos/QuickCustomerModal';
+import { normalizeSearch } from '../../utils/search';
 
 const DEVICE_TYPES = [
     { id: 'SMARTPHONE', label: 'Celular', icon: '📱' },
@@ -40,7 +41,7 @@ const TemplateDrawer = ({ templates, onAddTemplate, onClose }) => {
     ))];
 
     const filtered = templates.filter(t => {
-        const matchSearch = t.name.toLowerCase().includes(search.toLowerCase()) ||
+        const matchSearch = normalizeSearch(t.name).includes(normalizeSearch(search)) ||
                             (t.description || '').toLowerCase().includes(search.toLowerCase());
         const matchCat    = category === 'all' || t.category === category;
         return matchSearch && matchCat;

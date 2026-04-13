@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Search, Wrench, Calendar, User, Smartphone, CheckCircle } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { normalizeSearch } from '../../utils/search';
 
 const ServiceImportModal = ({ isOpen, onClose, onSelect }) => {
     const [orders, setOrders] = useState([]);
@@ -31,7 +32,7 @@ const ServiceImportModal = ({ isOpen, onClose, onSelect }) => {
 
     const filteredOrders = orders.filter(order =>
         order.ticket_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        normalizeSearch(order.customer?.name).includes(normalizeSearch(searchTerm)) ||
         order.serial_imei?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 

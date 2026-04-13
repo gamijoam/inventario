@@ -9,12 +9,13 @@ import {
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
+import { normalizeSearch } from '../../utils/search';
 
 const EmployeeSelectionModal = ({ isOpen, onClose, onSelect, employees = [] }) => {
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredEmployees = employees.filter(emp =>
-        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        normalizeSearch(emp.name).includes(normalizeSearch(searchTerm)) &&
         emp.status === 'ACTIVE'
     );
 

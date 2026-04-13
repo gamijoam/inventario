@@ -5,6 +5,7 @@ import {
     Plus, Pencil, Trash2, Users, Search, X, Save
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { normalizeSearch } from '../../utils/search';
 
 const EmployeeManager = () => {
     const { user } = useAuth();
@@ -102,7 +103,7 @@ const EmployeeManager = () => {
     };
 
     const filtered = employees.filter(e =>
-        e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        normalizeSearch(e.name).includes(normalizeSearch(searchTerm)) ||
         (e.document_id && e.document_id.includes(searchTerm))
     );
 

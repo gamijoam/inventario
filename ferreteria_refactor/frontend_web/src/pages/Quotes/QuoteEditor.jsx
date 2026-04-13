@@ -3,6 +3,7 @@ import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { Search, Save, Trash2, Plus, Minus, User, MapPin, Layers, UserPlus, FileText, ChevronRight, ShoppingCart, ArrowLeft, Printer, ArrowRight, CheckCircle } from 'lucide-react';
 import apiClient from '../../config/axios';
+import { normalizeSearch } from '../../utils/search';
 import { toast } from 'react-hot-toast';
 import ProductThumbnail from '../../components/products/ProductThumbnail';
 import QuickCustomerModal from '../../components/pos/QuickCustomerModal';
@@ -92,8 +93,8 @@ const QuoteEditor = ({ quoteId, onBack }) => {
 
     // Filter Logic
     const filteredCatalog = catalog.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+        normalizeSearch(p.name).includes(normalizeSearch(searchTerm)) ||
+        normalizeSearch(p.sku).includes(normalizeSearch(searchTerm))
     ).slice(0, 24);
 
     // Cart Logic

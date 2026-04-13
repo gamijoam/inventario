@@ -3,6 +3,7 @@ import { X, Save, AlertTriangle, ArrowRight, Search, Package, Box, Filter } from
 import apiClient from '../../config/axios';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
+import { normalizeSearch } from '../../utils/search';
 
 const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
     const [step, setStep] = useState(1);
@@ -63,7 +64,7 @@ const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
         }
     }, [isOpen]);
 
-    const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredProducts = products.filter(p => normalizeSearch(p.name).includes(normalizeSearch(searchTerm)));
 
     const handleSelectProduct = (product) => {
         setSelectedProduct(product);

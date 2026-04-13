@@ -6,6 +6,7 @@ import { useHelp } from '../../help/useHelp';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
+import { normalizeSearch } from '../../utils/search';
 
 // Helper to format stock
 const formatStock = (stock) => {
@@ -95,7 +96,7 @@ const CreatePurchase = () => {
 
     // Filter suppliers
     const filteredSuppliers = suppliers.filter(s =>
-        s.name.toLowerCase().includes(supplierSearch.toLowerCase())
+        normalizeSearch(s.name).includes(normalizeSearch(supplierSearch))
     );
 
     // Handle supplier selection
@@ -119,8 +120,8 @@ const CreatePurchase = () => {
     useEffect(() => {
         if (productSearch) {
             const filtered = products.filter(p =>
-                p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-                (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()))
+                normalizeSearch(p.name).includes(normalizeSearch(productSearch)) ||
+                (p.sku && normalizeSearch(p.sku).includes(normalizeSearch(productSearch)))
             );
             setFilteredProducts(filtered);
         } else {

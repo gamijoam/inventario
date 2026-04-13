@@ -15,6 +15,7 @@ import { useAuth } from '../../../context/AuthContext';
 import apiClient from '../../../config/axios';
 import clsx from 'clsx';
 import { cn } from '../../../utils/cn';
+import { normalizeSearch } from '../../../utils/search';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Badge } from '../../../components/ui/badge';
