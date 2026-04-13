@@ -1,9 +1,12 @@
 import re
+import logging
 from sqlalchemy import create_engine, text, event
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 from ..config import settings
 from ..tenant_context import get_tenant_schema
+
+logger = logging.getLogger(__name__)
 
 _SAFE_SCHEMA_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
 
@@ -46,28 +49,73 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, expi
 
 Base = declarative_base()
 
+
+# ===========================================================================
+# 🔒 SEARCH_PATH PERSISTENCE FIX — connection-level event listener
+# ===========================================================================
+# Problem: PostgreSQL SET search_path is session-level, but db.commit()
+# inside request handlers can cause SQLAlchemy to reconnect. The new
+# connection doesn't have search_path set, so queries fail looking for
+# tables in the public schema.
+#
+# Solution: Re-apply search_path on EVERY connection checkout from the pool.
+# ===========================================================================
+
+_schema_cache: dict = {}
+
+def _apply_search_path(dbapi_conn, connection_record, connection_proxy=None):
+    """Apply the correct search_path on every connection checkout."""
+    schema = get_tenant_schema()
+    if not schema or schema == "public":
+        return  # Default search_path is fine
+
+    if not _SAFE_SCHEMA_RE.match(schema):
+        logger.warning(f"[search_path] Rejected unsafe schema: {schema}")
+        return
+
+    # Check schema existence (cached to reduce DB queries)
+    if schema not in _schema_cache:
+        cursor = dbapi_conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT 1 FROM information_schema.schemata WHERE schema_name = %s",
+                (schema,)
+            )
+            exists = cursor.fetchone() is not None
+            _schema_cache[schema] = exists
+            if not exists:
+                logger.warning(f"[search_path] Schema '{schema}' not found in DB")
+        finally:
+            cursor.close()
+        if not _schema_cache[schema]:
+            return
+
+    try:
+        cursor = dbapi_conn.cursor()
+        cursor.execute(f'SET search_path TO "{schema}", public')
+        cursor.close()
+    except Exception as e:
+        logger.error(f"[search_path] Failed to SET search_path to '{schema}': {e}")
+
+
+# Register the event listener on the engine
+event.listen(engine, "checkout", _apply_search_path)
+
+
 def get_db():
     db = SessionLocal()
     try:
-        # Multi-Tenant Logic
+        # Multi-Tenant Logic (secondary — the checkout event listener above
+        # is the primary mechanism that guarantees search_path persistence)
         schema = get_tenant_schema()
 
         if schema and schema != "public":
             try:
                 _validate_schema_name(schema)
-                # Verificar que el schema existe antes de hacer SET search_path
-                # Si no existe, usar public silenciosamente (tenant inválido/bloqueado)
-                schema_exists = db.execute(
-                    text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :s"),
-                    {"s": schema}
-                ).scalar()
-                if schema_exists:
-                    db.execute(text(f'SET search_path TO "{schema}", public'))
-                else:
-                    import logging
-                    logging.getLogger(__name__).warning(
-                        f"[get_db] Schema '{schema}' no existe en BD — usando public"
-                    )
+                # The checkout event listener already handles this, but we
+                # keep the explicit SET here for the first connection in
+                # case the pool hasn't fired the checkout event yet.
+                db.execute(text(f'SET search_path TO "{schema}", public'))
             except ValueError as e:
                 print(f"❌ Unsafe schema name rejected: {e}")
                 db.rollback()
@@ -79,13 +127,12 @@ def get_db():
 
         yield db
     finally:
-        # 🔒 SECURITY: Reset al public antes de devolver al pool
+        # 🔒 SECURITY: Reset search_path before returning connection to pool
         try:
-            db.rollback()  # Limpiar cualquier transacción abortada primero
+            db.rollback()  # Clear any aborted transaction first
             db.execute(text('SET search_path TO "$user", public'))
             db.commit()
         except Exception as reset_err:
-            import logging
             logging.getLogger(__name__).error(f"Failed to reset search_path: {reset_err}")
             try:
                 db.rollback()
