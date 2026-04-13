@@ -108,7 +108,11 @@ const InventoryMovementSheet = ({ isOpen, onClose, onSuccess }) => {
         }
     }, [isOpen]);
 
-    const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredProducts = products.filter(p => {
+        const normalize = (str) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return normalize(p.name).includes(normalize(searchTerm)) ||
+               (p.sku && normalize(p.sku).includes(normalize(searchTerm)));
+    });
 
     const handleSelectProduct = (product) => {
         setSelectedProduct(product);
