@@ -48,7 +48,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
 
     const fetchCatalog = async () => {
         try {
-            const { data } = await apiClient.get('/products');
+            const { data } = await apiClient.get('/products', { params: { limit: 500 } });
             setCatalog(data);
         } catch (error) {
             console.error(error);

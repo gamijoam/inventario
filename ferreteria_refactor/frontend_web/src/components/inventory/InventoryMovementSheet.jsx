@@ -88,7 +88,7 @@ const InventoryMovementSheet = ({ isOpen, onClose, onSuccess }) => {
             // Parallel fetch: Products + Warehouses
             setLoadingProducts(true);
             Promise.all([
-                apiClient.get('/products/'),
+                apiClient.get('/products/', { params: { limit: 500 } }),
                 apiClient.get('/warehouses')
             ])
                 .then(([prodRes, whRes]) => {

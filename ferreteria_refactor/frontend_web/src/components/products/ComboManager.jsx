@@ -16,7 +16,7 @@ const ComboManager = ({ productId, initialComboItems = [], onChange }) => {
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const response = await apiClient.get('/products');
+                const response = await apiClient.get('/products', { params: { limit: 500 } });
                 // Filter: exclude current product (if editing) and other combos
                 const filtered = response.data.filter(p => {
                     if (!productId) return !p.is_combo;
