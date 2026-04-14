@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { Search, Save, Trash2, Plus, Minus, User, MapPin, Layers, UserPlus, FileText, ChevronRight, ShoppingCart, ArrowLeft, Printer, ArrowRight, CheckCircle } from 'lucide-react';
@@ -39,22 +39,39 @@ const QuoteEditor = ({ quoteId, onBack }) => {
 
     // Load initial data
     useEffect(() => {
-        fetchCatalog();
         fetchCustomers();
         if (quoteId) {
             loadQuote(quoteId);
         }
     }, [quoteId]);
 
-    const fetchCatalog = async () => {
+    // Initial catalog load
+    useEffect(() => {
+        searchCatalog('');
+    }, [searchCatalog]);
+
+    // Server-side catalog search with debounce
+    const searchCatalog = useCallback(async (query) => {
         try {
-            const { data } = await apiClient.get('/products', { params: { limit: 500 } });
+            const params = { limit: 500 };
+            if (query && query.trim().length >= 1) {
+                params.search = query.trim();
+            }
+            const { data } = await apiClient.get('/products', { params });
             setCatalog(data);
         } catch (error) {
             console.error(error);
             toast.error("Error cargando productos");
         }
-    };
+    }, []);
+
+    // Debounced search effect
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            searchCatalog(searchTerm);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm, searchCatalog]);
 
     const fetchCustomers = async () => {
         try {
