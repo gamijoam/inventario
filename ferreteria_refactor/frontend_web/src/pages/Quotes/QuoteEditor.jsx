@@ -45,12 +45,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
         }
     }, [quoteId]);
 
-    // Initial catalog load
-    useEffect(() => {
-        searchCatalog('');
-    }, [searchCatalog]);
-
-    // Server-side catalog search with debounce
+    // Server-side catalog search with debounce (must be before useEffects that use it)
     const searchCatalog = useCallback(async (query) => {
         try {
             const params = { limit: 500 };
@@ -72,6 +67,11 @@ const QuoteEditor = ({ quoteId, onBack }) => {
         }, 300);
         return () => clearTimeout(timer);
     }, [searchTerm, searchCatalog]);
+
+    // Initial catalog load
+    useEffect(() => {
+        searchCatalog('');
+    }, [searchCatalog]);
 
     const fetchCustomers = async () => {
         try {
