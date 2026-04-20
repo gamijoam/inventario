@@ -28,6 +28,7 @@ import CashMovementModal from '../components/cash/CashMovementModal';
 import CashAdvanceModal from '../components/cash/CashAdvanceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
+import SplitCartModal from "../components/pos/SplitCartModal";
 import usePOSCatalog from '../hooks/usePOSCatalog';
 import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
@@ -47,7 +48,7 @@ const formatStock = (stock) => {
 
 const POS = () => {
     const { user, updateUserPreferences } = useAuth();
-    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart } = useCart();
+    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
     const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
@@ -67,6 +68,7 @@ const POS = () => {
             return s ? JSON.parse(s) : {};
         } catch { return {}; }
     });
+    
     const isCurrencyVisible = (code) => showCurrencies[code] !== false;
     const toggleCurrency = (code) => {
         setShowCurrencies(prev => {
@@ -108,6 +110,8 @@ const POS = () => {
     const [selectedProductForUnits, setSelectedProductForUnits] = useState(null);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+    const [isSplitCartModalOpen, setIsSplitCartModalOpen] = useState(false);
+    const [pendingCreditItems, setPendingCreditItems] = useState(null);
     const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
     const [isMovementOpen, setIsMovementOpen] = useState(false);
     const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
@@ -162,7 +166,7 @@ const POS = () => {
     useHotkeys('f5', (e) => {
         e.preventDefault();
         if (cart.length > 0) {
-            setIsPaymentOpen(true);
+            handleCheckoutClick();
         }
     }, {
         preventDefault: true,  // Critical: prevent browser refresh
@@ -327,7 +331,7 @@ const POS = () => {
                     // The catch block already handles errors silently, so no toast needed.
                     const [usersRes, employeesRes] = await Promise.all([
                         apiClient.get('/users', { _silent403: true, _silentNetworkError: true }),
-                        apiClient.get('/employees/', { _silent403: true, _silentNetworkError: true })
+                        apiClient.get('/employees', { _silent403: true, _silentNetworkError: true })
                     ]);
 
                     if (Array.isArray(usersRes.data)) {
@@ -601,6 +605,33 @@ const POS = () => {
         return response;
     };
 
+    
+    const handleCheckoutClick = () => {
+        const hasIMEI = cart.some(item => item.has_imei === true || item.product?.requires_imei === true || item.requires_imei === true);
+        const hasNonIMEI = cart.some(item => !item.has_imei && !item.product?.requires_imei && !item.requires_imei);
+        
+        console.log("Resultado -> hasIMEI:", hasIMEI, "hasNonIMEI:", hasNonIMEI);
+
+        
+
+        if (hasIMEI && hasNonIMEI) {
+            setIsSplitCartModalOpen(true);
+        } else {
+            setIsPaymentOpen(true);
+        }
+    };
+
+    const handleSplitCart = () => {
+        const cashItems = cart.filter(item => !(item.product?.requires_imei || item.requires_imei || item.has_imei));
+        const creditItems = cart.filter(item => item.product?.requires_imei || item.requires_imei || item.has_imei);
+
+        setPendingCreditItems(creditItems);
+        overwriteCart(cashItems);
+        
+        setIsSplitCartModalOpen(false);
+        setIsPaymentOpen(true);
+    };
+
     const handleCheckout = (paymentData) => {
         setLastSaleData({
             cart: [...cart],
@@ -621,6 +652,14 @@ const POS = () => {
         }
         setLastSaleData(null);
         clearCart();
+        const toRestore = pendingCreditItems;
+        if (toRestore && toRestore.length > 0) {
+            setPendingCreditItems(null);
+            setTimeout(() => {
+                overwriteCart(toRestore);
+                import("react-hot-toast").then(m => m.toast.success("Teléfono restaurado para facturar a crédito"));
+            }, 600);
+        }
         setActiveServiceOrderId(null);
         setServiceOrderTicket(null);
         setQuoteCustomer(null);
@@ -859,7 +898,7 @@ const POS = () => {
                                 totals={{ totalUSD, totalBs }}
                                 totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
-                                onCheckout={() => setIsPaymentOpen(true)}
+                                onCheckout={() => handleCheckoutClick()}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
@@ -909,7 +948,7 @@ const POS = () => {
                                 totals={{ totalUSD, totalBs }}
                                 totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
-                                onCheckout={() => setIsPaymentOpen(true)}
+                                onCheckout={() => handleCheckoutClick()}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
@@ -951,7 +990,7 @@ const POS = () => {
                                 totals={{ totalUSD, totalBs }}
                                 totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
-                                onCheckout={() => { setIsMobileCartOpen(false); setIsPaymentOpen(true); }}
+                                onCheckout={() => { setIsMobileCartOpen(false); handleCheckoutClick(); }}
                                 onItemClick={(item) => { setIsMobileCartOpen(false); setSelectedItemForEdit(item); }}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
@@ -1009,6 +1048,11 @@ const POS = () => {
                 <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
                 <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
+                <SplitCartModal 
+                    isOpen={isSplitCartModalOpen} 
+                    onClose={() => setIsSplitCartModalOpen(false)} 
+                    onSplit={handleSplitCart} 
+                />
                 <CashClosingModal isOpen={isClosingOpen} onClose={() => setIsClosingOpen(false)} />
             </div>
         {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
