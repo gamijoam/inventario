@@ -1506,7 +1506,7 @@ Cierre:   {{ session.end_time }}
                         db             = db,
                         schema         = _sch,
                         dispositivo_id = _blq_row[0],
-                        monto          = float(payment_data.amount),
+                        monto          = amount_usd,
                         metodo         = payment_data.payment_method or "efectivo",
                         num_cuota      = 1,  # Sin rastreo de número de cuota por ahora
                     )
