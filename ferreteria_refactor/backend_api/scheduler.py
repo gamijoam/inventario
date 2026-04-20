@@ -161,6 +161,79 @@ def _auto_backup(keep_last: int = 7):
         logger.exception(f"[BACKUP] Error in auto_backup: {e}")
 
 
+def _sync_bloqueos_pendientes(db_session_factory):
+    """Reintenta sincronizar ventas a crédito pendientes con BloqueCelular. Corre cada hora."""
+    from .services import bloqueocelular_service as bcs
+    from .models.models import Sale, Customer, ProductInstance, SaleDetailInstance
+    
+    db: Session = db_session_factory()
+    try:
+        # Check all schemas
+        from sqlalchemy import text as _sched_text
+        result = db.execute(_sched_text("SELECT schema_name FROM information_schema.schemata"))
+        schemas = [row[0] for row in result.fetchall() if row[0] not in ('pg_catalog', 'information_schema', 'pg_toast') and not row[0].startswith('pg_')]
+        
+        for schema in schemas:
+            try:
+                # Find pending sales
+                pending_sales = db.query(Sale).filter(
+                    Sale.is_credit == True,
+                    Sale.bloqueo_sincronizado == False,
+                    Sale.bloqueo_dispositivo_id == None
+                ).execution_options(schema_translate_map={None: schema}).all()
+                
+                if not pending_sales:
+                    continue
+                    
+                if not bcs.is_enabled(db, schema):
+                    continue
+                    
+                logger.info(f"[Bloqueo] {schema}: Encontradas {len(pending_sales)} ventas pendientes de sincronizar.")
+                
+                for sale in pending_sales:
+                    # Get customer
+                    customer = db.query(Customer).filter(Customer.id == sale.customer_id).execution_options(schema_translate_map={None: schema}).first()
+                    if not customer:
+                        continue
+                        
+                    # Find IMEI from details
+                    imei = None
+                    product_name = "Dispositivo"
+                    instances = db.query(ProductInstance).join(SaleDetailInstance).filter(
+                        SaleDetailInstance.sale_detail_id.in_([d.id for d in sale.details])
+                    ).execution_options(schema_translate_map={None: schema}).all()
+                    
+                    if instances:
+                        imei = instances[0].serial_number
+                        product_name = instances[0].product.name
+                        
+                    res = bcs.sincronizar_venta_credito(
+                        db=db,
+                        schema=schema,
+                        sale_id=sale.id,
+                        customer_name=customer.name,
+                        customer_phone=customer.phone,
+                        customer_id_number=customer.id_number,
+                        customer_email=customer.email,
+                        total_amount=float(sale.total_amount),
+                        balance_pending=float(sale.balance_pending),
+                        due_date=sale.due_date,
+                        imei=imei,
+                        product_name=product_name,
+                        num_cuotas=sale.credit_installments or 6
+                    )
+                    
+                    if res.get("ok"):
+                        logger.info(f"[Bloqueo] {schema}: Venta {sale.id} sincronizada correctamente en reintento.")
+                    else:
+                        logger.warning(f"[Bloqueo] {schema}: Reintento fallido para venta {sale.id} - {res.get('error')}")
+            except Exception as e:
+                logger.error(f"[Bloqueo] Error iterando esquema {schema}: {e}")
+    except Exception as e:
+        logger.exception(f"[Bloqueo] Error in _sync_bloqueos_pendientes: {e}")
+    finally:
+        db.close()
+
 def start_scheduler(db_session_factory):
     """Registra los jobs y arranca el scheduler."""
     from .config import settings
@@ -192,6 +265,15 @@ def start_scheduler(db_session_factory):
         hour=5,
         minute=0,
         id="auto_backup",
+        replace_existing=True,
+    )
+
+    scheduler.add_job(
+        _sync_bloqueos_pendientes,
+        trigger="interval",
+        hours=1,
+        args=[db_session_factory],
+        id="sync_bloqueos_pendientes",
         replace_existing=True,
     )
 

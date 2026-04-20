@@ -94,7 +94,6 @@ const Purchases = () => {
                         <Plus size={18} className="mr-1.5" />
                         Nueva Compra
                     </button>
-                )}
             </div>
 
             {/* Filters */}

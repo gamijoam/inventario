@@ -12,6 +12,7 @@ import { pdf } from '@react-pdf/renderer';
 import InvoicePDF from '../../../components/pdf/InvoicePDF';
 import clsx from 'clsx';
 
+import BloqueoCelular from "../../../components/credit/BloqueoCelular";
 // Shadcn UI Components
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
@@ -848,6 +849,25 @@ const SalesTab = ({ dateRange }) => {
 
                         {/* Content */}
                         <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                            {selectedSale.is_credit && selectedSale.bloqueo_codigo_activacion && (
+                                <div className="col-span-full mb-2 p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200">
+                                            <ScanBarcode size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] text-indigo-500 font-black uppercase tracking-widest">Código BloqueCelular</p>
+                                            <p className="text-2xl font-black text-indigo-700 tracking-widest font-mono">
+                                                {selectedSale.bloqueo_codigo_activacion}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right hidden sm:block">
+                                        <p className="text-[10px] text-indigo-400 font-bold uppercase">Estado App</p>
+                                        <p className="text-xs font-black text-indigo-600">PENDIENTE ACTIVACIÓN</p>
+                                    </div>
+                                </div>
+                            )}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 flex-shrink-0">
                                 <Card className="shadow-sm">
                                     <CardContent className="p-4">
@@ -959,6 +979,15 @@ const SalesTab = ({ dateRange }) => {
                             </div>
                         </div>
 
+                        {/* Panel de Control de Bloqueo */}
+                        {selectedSale.is_credit && (
+                            <div className="px-6 pb-6">
+                                <BloqueoCelular 
+                                    saleId={selectedSale.id} 
+                                    isCredit={selectedSale.is_credit} 
+                                />
+                            </div>
+                        )}
                         {/* Sección de Pagos — visible solo si hay pagos registrados */}
                         {selectedSale?.payments?.length > 0 && (
                             <div className="px-6 pb-4 flex-shrink-0">

@@ -27,6 +27,14 @@ const formatLocalCurrency = (amount) => {
     }
 };
 
+// Helper: format quantity display - removes excessive decimals
+const formatQty = (qty, factor) => {
+    if (!factor || factor >= 1) return Number(qty).toFixed(0);
+    if (factor >= 0.01) return Number(qty).toFixed(2);
+    if (factor >= 0.001) return Number(qty).toFixed(3);
+    return Number(qty).toFixed(4);
+};
+
 const POSCart = ({
     cartItems = [],
     onRemoveItem,
@@ -458,7 +466,7 @@ const POSCart = ({
                                                 </button>
                                                 <input
                                                     type="number"
-                                                    value={item.quantity}
+                                                    value={formatQty(item.quantity, item.conversion_factor)}
                                                     onClick={(e) => { e.stopPropagation(); e.target.select(); }}
                                                     onChange={(e) => {
                                                         e.stopPropagation();

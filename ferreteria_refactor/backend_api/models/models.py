@@ -364,8 +364,14 @@ class Sale(Base):
     credit_frequency         = Column(String(20),    nullable=True)  # semanal/quincenal/mensual
     credit_installment_amount= Column(Numeric(18,4), nullable=True)  # Monto de cada cuota
 
+    # BloqueCelular Integration
+    bloqueo_cliente_id = Column(Integer, nullable=True)
+    bloqueo_dispositivo_id = Column(Integer, nullable=True)
+    bloqueo_codigo_activacion = Column(String(20), nullable=True)
+    bloqueo_sincronizado = Column(Boolean, default=False)
+    bloqueo_estado = Column(String(20), nullable=True) # activo, bloqueado, liberado
+    bloqueo_error = Column(Text, nullable=True)
 
-    
     # Sale Notes
     notes = Column(Text, nullable=True)  # Special observations or instructions
     

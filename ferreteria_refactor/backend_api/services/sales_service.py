@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from datetime import datetime, timedelta
+from ..utils.time_utils import get_venezuela_now
 from fastapi import HTTPException, BackgroundTasks
 from decimal import Decimal
 import requests
@@ -164,7 +165,7 @@ class SalesService:
             # 1. Create Sale Header
             # CRITICAL FIX: Respect Frontend's VES calculation (preserves anchoring)
             total_bs = sale_data.total_amount_bs
-            current_time = datetime.now() # Explicitly set time to avoid refresh need
+            current_time = get_venezuela_now() # Explicitly set time to avoid refresh need
             
             print(f"[DEBUG] Creating Sale. Method: {sale_data.payment_method}. Payments: {sale_data.payments}")
 
@@ -800,11 +801,11 @@ class SalesService:
                                 customer_id_number = _cust_row[2] if _cust_row else None,
                                 customer_email     = _cust_row[3] if _cust_row else None,
                                 total_amount       = float(sale_total_amount),
-                                balance_pending    = float(sale_total_amount),
+                                balance_pending    = float(sale_total_amount) - float(total_paid_usd),
                                 due_date           = None,
                                 imei               = _imei,
                                 product_name       = _prod_name,
-                                num_cuotas         = 6,
+                                num_cuotas         = getattr(sale_data, "credit_installments", 6) or 6,
                             )
 
                             if _blq_result.get("ok"):

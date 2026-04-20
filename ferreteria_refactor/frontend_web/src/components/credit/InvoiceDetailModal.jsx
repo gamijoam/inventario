@@ -314,7 +314,7 @@ const InvoiceDetailModal = ({ isOpen, onClose, sale }) => {
                     </div>
                 )}
 
-                {/* Panel de Control de Bloqueo — Solo para ventas a crédito */}}
+                {/* Panel de Control de Bloqueo — Solo para ventas a crédito */}
                 {sale.is_credit && (
                     <div className="px-6 pb-4">
                         <BloqueoCelular

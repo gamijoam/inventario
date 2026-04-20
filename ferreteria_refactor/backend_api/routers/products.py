@@ -514,12 +514,35 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     final_stocks = db_product.stocks
     final_prices = db_product.prices
     
-    # Handle Units Update
+    # Handle Units Update (SAFE: upsert to avoid FK violation with sale_details)
     if units_data is not None:
-        db.query(models.ProductUnit).filter(models.ProductUnit.product_id == product_id).delete()
+        incoming_ids = {u["id"] for u in units_data if "id" in u and u["id"]}
+        # Delete only units that are NOT referenced by any sale_detail and NOT in the incoming list
+        existing_units = db.query(models.ProductUnit).filter(models.ProductUnit.product_id == product_id).all()
+        referenced_ids = {
+            row[0] for row in db.execute(
+                __import__("sqlalchemy").text(
+                    "SELECT DISTINCT unit_id FROM sale_details WHERE unit_id IS NOT NULL"
+                )
+            ).fetchall()
+        }
+        for eu in existing_units:
+            if eu.id not in incoming_ids and eu.id not in referenced_ids:
+                db.delete(eu)
+        db.flush()
+        # Upsert: update existing, insert new
         new_units = []
         for unit in units_data:
-            db_unit = models.ProductUnit(**unit, product_id=product_id)
+            uid = unit.get("id")
+            if uid:
+                db_unit = db.query(models.ProductUnit).filter(models.ProductUnit.id == uid, models.ProductUnit.product_id == product_id).first()
+                if db_unit:
+                    for k, v in unit.items():
+                        if k != "id":
+                            setattr(db_unit, k, v)
+                    new_units.append(db_unit)
+                    continue
+            db_unit = models.ProductUnit(**{k: v for k, v in unit.items() if k != "id"}, product_id=product_id)
             db.add(db_unit)
             new_units.append(db_unit)
         final_units = new_units # Use the new list for response

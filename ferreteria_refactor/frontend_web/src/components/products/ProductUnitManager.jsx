@@ -507,7 +507,9 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                 <div className="flex justify-between border-b border-slate-200 pb-2 mb-2">
                                     <span className="text-slate-500 font-medium">Contenido</span>
                                     <span className="font-bold text-slate-700">
-                                        {unit.type === 'packing' ? `${unit.user_input} x ${baseUnitType}` : `1 / ${unit.user_input} ${baseUnitType}`}
+                                        {unit.type === 'packing' 
+    ? `${Number(unit.user_input).toFixed(unit.user_input % 1 === 0 ? 0 : 2)} x ${baseUnitType}` 
+    : `1 / ${Number(unit.user_input).toFixed(unit.user_input % 1 === 0 ? 0 : 2)} ${baseUnitType}`}
                                     </span>
                                 </div>
 
