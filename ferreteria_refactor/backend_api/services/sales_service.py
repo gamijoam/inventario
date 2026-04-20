@@ -12,6 +12,7 @@ from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
 from . import webhook_service
 import asyncio
+from ..models.tenant import Tenant
 import asyncio
 import uuid
 from ..template_presets import (
@@ -21,7 +22,7 @@ from ..template_presets import (
 )
 from ..audit_utils import log_action
 from ..commission_engine import CommissionEngine
-from ..models.tenant import Tenant
+ 
 
 # DUPLICATED HELPER due to circular import risks if we try to import from routers
 def run_broadcast(event: str, data: dict):
@@ -643,8 +644,8 @@ class SalesService:
                 # ────────────────────────────────────────────────────────────
         
             # 3. Process Payments (New Multi-Payment Logic)
+            total_paid_usd = Decimal("0.00")
             if sale_data.payments:
-                total_paid_usd = Decimal("0.00")
 
                 for p in sale_data.payments:
                     # =========================================================================
@@ -751,7 +752,22 @@ class SalesService:
                     _schema = _gts()
 
                     if is_enabled(db, _schema):
-                        # Verificar si algún producto de la venta es celular (has_imei=True)
+                        # --- AUDITORIA: Split Logic (Credito vs Contado) ---
+                        # --- AUDITORIA: Feature Flag Logic ---
+                         
+                        _tenant = db.query(Tenant).filter(Tenant.schema_name == _schema).first()
+                        _is_split_active = False
+                        if _tenant and _tenant.feature_flags:
+                            _is_split_active = _tenant.feature_flags.get("bloqueocelular_split_logic", False)
+                        # -------------------------------------
+                        
+                        # Calcular el total solo de los celulares (con IMEI)
+                        _total_celulares = db.execute(_blq_text(
+                            f"SELECT SUM(sd.unit_price * sd.quantity) FROM \"{_schema}\".sale_details sd "
+                            f"JOIN \"{_schema}\".products p ON p.id = sd.product_id "
+                            f"WHERE sd.sale_id = :sid AND p.has_imei = TRUE"
+                        ), {"sid": new_sale_id}).scalar() or 0
+                        # --------------------------------------------------\n                        # Verificar si algún producto de la venta es celular (has_imei=True)
                         _tiene_celular = db.execute(_blq_text(
                             f'SELECT COUNT(*) FROM "{_schema}".sale_details sd '
                             f'JOIN "{_schema}".products p ON p.id = sd.product_id '
@@ -801,7 +817,7 @@ class SalesService:
                                 customer_id_number = _cust_row[2] if _cust_row else None,
                                 customer_email     = _cust_row[3] if _cust_row else None,
                                 total_amount       = float(sale_total_amount),
-                                balance_pending    = float(sale_total_amount) - float(total_paid_usd),
+                                balance_pending    = min(float(_total_celulares), float(sale_total_amount) - float(total_paid_usd)) if _is_split_active else float(sale_total_amount) - float(total_paid_usd),
                                 due_date           = None,
                                 imei               = _imei,
                                 product_name       = _prod_name,

@@ -54,3 +54,15 @@ REGISTRY["precio_margen_bruto"] = {
 }
 
 CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "automatizacion", "otros"]
+
+REGISTRY["bloqueocelular_split_logic"] = {
+    "label": "Lógica Venta Mixta (BloqueCelular) 🛡️",
+    "description": "Separa bienes de crédito de accesorios al contado. El sistema prioriza el pago de accesorios con la inicial y envía a BloqueCelular solo la deuda neta de los equipos (con IMEI).",
+    "category": "ventas",
+}
+
+REGISTRY["pos_multi_payment"] = {
+    "label": "Pagos Múltiples en POS (Efectivo + Crédito) 💳",
+    "description": "Permite al cajero dividir el cobro de una factura en múltiples métodos de pago (ej. Parte en Zelle, parte a Crédito).",
+    "category": "ventas",
+}

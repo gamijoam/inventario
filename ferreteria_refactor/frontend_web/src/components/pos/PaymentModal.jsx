@@ -30,7 +30,7 @@ const formatLocalCurrency = (amount) => {
 };
 
 const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null, discountUSD = 0, cartDiscount = null }) => {
-    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency } = useConfig();
+    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency, featureFlags } = useConfig();
     const { subscribe } = useWebSocket();
     const { session } = useCash();
     const allCurrencies = [{ id: 'base', symbol: 'USD', name: 'Dólar', rate: 1, is_anchor: true }, ...getActiveCurrencies()];
@@ -180,18 +180,26 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         return round2(acc + round2(amount / rate));
     }, 0);
 
+
+    
     const remainingUSD = round2(Math.max(0, totalUSD - totalPaidUSD));
     const changeUSD    = round2(Math.max(0, totalPaidUSD - totalUSD));
     const isComplete   = remainingUSD <= 0.005;
 
+    // BLOQUECELULAR logic
+    const phoneItemsTotalUSD = cart?.filter(item => item.product?.requires_imei || item.requires_imei).reduce((sum, item) => sum + (item.subtotal || (item.quantity * item.unit_price)), 0) || 0;
+    const nonPhoneItemsTotalUSD = totalUSD - phoneItemsTotalUSD;
+    const phoneDebtUSD = Math.max(0, phoneItemsTotalUSD - Math.max(0, totalPaidUSD - nonPhoneItemsTotalUSD));
+    const showBloqueCelularAlert = isCreditSale && phoneItemsTotalUSD > 0 && featureFlags?.bloqueocelular_split_logic;
+
     const addPaymentRow = () => {
         const activeCurrencies = getActiveCurrencies();
-        const primaryLocal = activeCurrencies.find(c => c.symbol !== 'USD' && !c.is_anchor);
-        const defaultCurrency = primaryLocal ? primaryLocal.symbol : 'USD';
+        const primaryLocal = activeCurrencies.find(c => c.symbol !== "USD" && !c.is_anchor);
+        const defaultCurrency = primaryLocal ? primaryLocal.symbol : "USD";
         const defaultMethod = primaryLocal
-            ? (paymentMethods.find(m => m.is_active && m.name.toLowerCase().includes(defaultCurrency.toLowerCase()))?.name || paymentMethods.find(m => m.is_active)?.name || `Efectivo ${defaultCurrency}`)
-            : 'Efectivo USD';
-        setPayments([...payments, { amount: '', currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split('T')[0] }]);
+            ? (paymentMethods.find(m => m.is_active && m.name.toLowerCase().includes(defaultCurrency.toLowerCase()))?.name || paymentMethods.find(m => m.is_active)?.name || "Efectivo " + defaultCurrency)
+            : "Efectivo USD";
+        setPayments([...payments, { amount: "", currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split("T")[0] }]);
     };
 
     const removePaymentRow = (index) => {
@@ -206,6 +214,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         setPayments(newPayments);
     };
 
+    
     // Check if cart has any item requiring a prescription
     const cartRequiresPrescription = () => {
         if (!cart || cart.length === 0) return false;
