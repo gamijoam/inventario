@@ -1,3 +1,4 @@
+from fastapi import File, UploadFile
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
@@ -413,35 +414,23 @@ async def delete_exchange_rate(
 
 @router.get("/business", response_model=schemas.BusinessInfo)
 def get_business_info(db: Session = Depends(get_db)):
-    """Get aggregated business information"""
-    # SECURITY: Check Tenant Context
     from ..tenant_context import get_tenant_schema
-    current_schema = get_tenant_schema()
-    
-    if current_schema == 'public':
-        # Return empty/default info for public context
-        return schemas.BusinessInfo(
-            name="",
-            document_id="",
-            address="",
-            phone="",
-            email="",
-            ticket_template="",
-            default_tax_rate=Decimal("0.00")
-        )
-
-    keys = ["business_name", "business_doc", "business_address", "business_phone", "business_email", "default_tax_rate", "ticket_template"]
-    configs = db.query(models.BusinessConfig).filter(models.BusinessConfig.key.in_(keys)).all()
-    config_dict = {c.key: c.value for c in configs}
-    
+    from sqlalchemy import text
+    schema = get_tenant_schema()
+    # Consulta directa al esquema para evitar errores de UndefinedTable
+    result = db.execute(text(f"SELECT key, value FROM {schema}.business_config")).all()
+    configs = {r[0]: r[1] for r in result}
     return schemas.BusinessInfo(
-        name=config_dict.get("business_name", ""),
-        document_id=config_dict.get("business_doc", ""),
-        address=config_dict.get("business_address", ""),
-        phone=config_dict.get("business_phone", ""),
-        email=config_dict.get("business_email", ""),
-        ticket_template=config_dict.get("ticket_template", ""),
-        default_tax_rate=Decimal(config_dict.get("default_tax_rate", "0.00"))
+        name=configs.get("name", ""),
+        document_id=configs.get("document_id", ""),
+        address=configs.get("address", ""),
+        phone=configs.get("phone", ""),
+        email=configs.get("email", ""),
+        website=configs.get("website"),
+        logo_url=configs.get("logo_url"),
+        warranty_format_url=configs.get("warranty_format_url"),
+        ticket_template=configs.get("ticket_template", ""),
+        default_tax_rate=Decimal(str(configs.get("default_tax_rate", "0.00")))
     )
 
 @router.put("/business", response_model=schemas.BusinessInfo)
@@ -680,6 +669,10 @@ def apply_services_ticket_preset(
 @router.get("", response_model=List[schemas.BusinessConfigRead])
 def get_all_configs(db: Session = Depends(get_db)):
     """Get all configuration entries"""
+    from ..tenant_context import get_tenant_schema
+    schema = get_tenant_schema()
+    from sqlalchemy import text
+    db.execute(text(f"SET search_path TO {schema}, public"))
     return db.query(models.BusinessConfig).all()
 
 @router.get("/dict", response_model=Dict[str, Any])
@@ -1028,6 +1021,39 @@ def debug_seed_currencies(db: Session = Depends(get_db)):
 # ========================================
 
 @router.get("/subscription")
+
+
+@router.post("/warranty-format/upload")
+async def upload_warranty_format(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only)
+):
+    import os
+    from ..tenant_context import get_tenant_schema
+    schema = get_tenant_schema()
+    if schema == "public":
+        raise HTTPException(status_code=400, detail="Invalid context")
+    
+    upload_dir = f"/app/media/{schema}/warranty"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    file_ext = os.path.splitext(file.filename)[1]
+    file_path = os.path.join(upload_dir, f"format{file_ext}")
+    
+    with open(file_path, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
+    
+    val = f"/media/{schema}/warranty/format{file_ext}"
+    config = db.query(models.BusinessConfig).get("warranty_format_url")
+    if not config:
+        db.add(models.BusinessConfig(key="warranty_format_url", value=val))
+    else:
+        config.value = val
+    db.commit()
+    return {"url": val}
+
 def get_subscription_status(
     db: Session = Depends(get_db),
     current_user: Any = Depends(get_current_active_user),

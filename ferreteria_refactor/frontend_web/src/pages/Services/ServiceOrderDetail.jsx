@@ -109,7 +109,27 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
             }
         };
 
-        const handlePrint = async () => {
+        const handlePrintWarranty = async () => {
+        try {
+            // 1. Intentar obtener el PDF global del negocio
+            const res = await apiClient.get("/config/business");
+            const warrantyUrl = res.data.warranty_format_url;
+            
+            if (!warrantyUrl) {
+                toast.error("No se ha detectado el formato de garantía en Configuración.");
+                return;
+            }
+
+            const baseUrl = import.meta.env.VITE_API_URL.replace(/\/api\/v1\/?$/, "");
+            const fullUrl = warrantyUrl.startsWith("http") ? warrantyUrl : `${baseUrl}${warrantyUrl}`;
+            
+            window.open(fullUrl, "_blank");
+        } catch (error) {
+            toast.error("Error al obtener el formato de garantía.");
+        }
+    };
+
+    const handlePrint = async () => {
         try {
             const res = await apiClient.get(`/services/orders/${orderId}/print/thermal?width=${paperWidth}`);
             await printerService.printRaw(res.data);
@@ -188,9 +208,16 @@ const ServiceOrderDetail = ({ orderId, onClose }) => {
                                         </button>
                                     )}
                                     <button
+                                        onClick={handlePrintWarranty}
+                                        className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white"
+                                        title="Imprimir Garantía Corporativa"
+                                    >
+                                        <ShieldCheck size={20} />
+                                    </button>
+                                    <button
                                         onClick={handlePrint}
                                         className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-                                        title="Imprimir"
+                                        title="Imprimir Ticket"
                                     >
                                         <Download size={20} />
                                     </button>

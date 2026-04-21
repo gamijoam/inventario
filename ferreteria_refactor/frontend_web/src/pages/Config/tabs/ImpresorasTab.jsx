@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../../config/axios';
-import { Save, Printer, RefreshCw, AlertCircle, FileText, Code, Smartphone } from 'lucide-react';
+import { Save, Printer, RefreshCw, AlertCircle, FileText, Code, Smartphone, Shield, Upload, ExternalLink } from "lucide-react";
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
 import { useConfig } from '../../../context/ConfigContext';
@@ -575,14 +575,79 @@ const ServicesTicketSection = () => {
     );
 };
 
+
+const WarrantyFormatSection = () => {
+    const [fileUrl, setFileUrl] = useState("");
+    const [uploading, setUploading] = useState(false);
+
+    useEffect(() => {
+        apiClient.get("/config/business").then(res => {
+            const url = res.data.warranty_format_url;
+            if (url) setFileUrl(url);
+        });
+    }, []);
+
+    const handleUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append("file", file);
+        setUploading(true);
+        try {
+            const res = await apiClient.post("/config/warranty-format/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+            setFileUrl(res.data.url);
+            toast.success("¡Formato de Garantía subido con éxito!");
+        } catch {
+            toast.error("Error al subir archivo");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    return (
+        <div className="bg-white rounded-2xl shadow-sm border border-indigo-100 p-6 mt-8">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
+                    <Shield size={20} />
+                </div>
+                <div>
+                    <h3 className="font-bold text-slate-800">Formato de Garantía Corporativo (PDF/Imagen)</h3>
+                    <p className="text-xs text-slate-500">Sube el documento que ya usa tu empresa para imprimirlo desde el POS.</p>
+                </div>
+            </div>
+
+            {fileUrl ? (
+                <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <FileText className="text-emerald-600" />
+                        <div>
+                            <p className="text-xs font-bold text-emerald-900">Formato Cargado Correctamente</p>
+                            <a href={import.meta.env.VITE_API_URL + fileUrl} target="_blank" className="text-[10px] text-emerald-600 font-bold underline">Ver archivo actual</a>
+                        </div>
+                    </div>
+                    <button onClick={() => setFileUrl("")} className="text-[10px] font-bold text-slate-400 uppercase">Cambiar</button>
+                </div>
+            ) : (
+                <label className="flex flex-col items-center p-8 border-2 border-dashed border-slate-200 rounded-2xl hover:border-indigo-400 cursor-pointer transition-all">
+                    <input type="file" className="hidden" onChange={handleUpload} accept="application/pdf,image/*" />
+                    <Printer size={32} className="text-slate-300 mb-2" />
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{uploading ? "Subiendo..." : "Haz clic para subir tu formato (PDF o Imagen)"}</span>
+                </label>
+            )}
+        </div>
+    );
+};
+
 const ImpresorasTab = () => {
     const { modules } = useConfig();
     return (
         <>
             <TicketConfigSection />
             {modules?.services && <ServicesTicketSection />}
+            <WarrantyFormatSection />
         </>
     );
 };
 
 export default ImpresorasTab;
+// v27 fix

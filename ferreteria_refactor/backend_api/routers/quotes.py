@@ -210,7 +210,7 @@ def get_quote_thermal_payload(quote_id: int, width: str = None, db: Session = De
 
     # Get business config (same as sales_service pattern)
     business_config = {}
-    configs = db.query(models.BusinessConfig).all()
+    configs = db.execute(text(f"SELECT key, value FROM {get_tenant_schema()}.business_config")).all()
     for config in configs:
         business_config[config.key] = config.value
 

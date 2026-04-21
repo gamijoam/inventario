@@ -1043,6 +1043,7 @@ class BusinessInfo(BaseModel):
     logo_url: Optional[str] = None # URL for displayed logo
     ticket_template: Optional[str] = None  # NEW: Jinja2 template for tickets
     default_tax_rate: Optional[Decimal] = Decimal("0.00")
+    warranty_format_url: Optional[str] = None
 
 # ========================
 # Audit Log Schemas

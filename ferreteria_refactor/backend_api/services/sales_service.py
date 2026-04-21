@@ -995,7 +995,7 @@ class SalesService:
         
         # Get business info
         business_config = {}
-        configs = db.query(models.BusinessConfig).all()
+        configs = db.execute(text(f"SELECT key, value FROM {get_tenant_schema()}.business_config")).all()
         for config in configs:
             business_config[config.key] = config.value
             
@@ -1240,7 +1240,7 @@ class SalesService:
             
         # Get Business Config
         business_config = {}
-        configs = db.query(models.BusinessConfig).all()
+        configs = db.execute(text(f"SELECT key, value FROM {get_tenant_schema()}.business_config")).all()
         for config in configs:
             business_config[config.key] = config.value
 

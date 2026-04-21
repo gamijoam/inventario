@@ -802,7 +802,7 @@ def get_laundry_thermal_payload(
 
     # Business config (same pattern as sales_service)
     business_config = {}
-    configs = db.query(models.BusinessConfig).all()
+    configs = db.execute(text(f"SELECT key, value FROM {get_tenant_schema()}.business_config")).all()
     for config in configs:
         business_config[config.key] = config.value
 

@@ -610,7 +610,7 @@ const POSCart = ({
                         disabled={cartItems.length === 0}
                     >
                         <CreditCard className="mr-3 group-hover:animate-bounce" size={24} />
-                        COBRAR <span className="ml-2 text-[10px] opacity-60 bg-white/20 px-2 py-0.5 rounded-full font-mono">F5</span>
+                        COBRAR (V2) <span className="ml-2 text-[10px] opacity-60 bg-white/20 px-2 py-0.5 rounded-full font-mono">F5</span>
                     </Button>
                 </div>
             </div>

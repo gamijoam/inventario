@@ -13,11 +13,31 @@ export default function IntegracionesTab() {
     const [estado, setEstado]       = useState(null);
     const [loading, setLoading]     = useState(true);
     const [form, setForm]           = useState({ email: '', password: '' });
-    const [conectando, setConectando] = useState(false);
+    const [isSplitLogic, setIsSplitLogic] = useState(false);
+    const [actualizandoFlag, setActualizandoFlag] = useState(false);     const [conectando, setConectando] = useState(false);
     const [mostrarPass, setMostrarPass] = useState(false);
 
     // Cargar estado actual de la integración
-    const cargarEstado = async () => {
+    useEffect(() => {
+        const fetchFlag = async () => {
+            try {
+                const res = await apiClient.get("/config/bloqueocelular_split_logic");
+                setIsSplitLogic(res.data.value === "true");
+            } catch (e) { console.error("Error cargando flag", e); }
+        };
+        fetchFlag();
+    }, []);
+
+    const toggleSplitLogic = async () => {
+        setActualizandoFlag(true);
+        try {
+            const nuevoValor = !isSplitLogic;
+            await apiClient.post("/config", { key: "bloqueocelular_split_logic", value: nuevoValor ? "true" : "false" });
+            setIsSplitLogic(nuevoValor);
+            toast.success("Lógica de venta mixta actualizada");
+        } catch (e) { toast.error("Error al actualizar configuración"); }
+        finally { setActualizandoFlag(false); }
+    };     const cargarEstado = async () => {
         setLoading(true);
         try {
             const r = await apiClient.get('/bloqueo/config/estado');
@@ -144,7 +164,25 @@ export default function IntegracionesTab() {
                             </button>
                         </div>
                     )}
-
+                        {/* --- SECCION AUDITORIA --- */}
+                        <div className="mt-6 pt-4 border-t border-emerald-100">
+                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3">Configuración de Auditoría</p>
+                            <div className="bg-white/50 border border-emerald-100 rounded-xl p-3 flex items-center justify-between gap-4">
+                                <div className="flex-1">
+                                    <p className="text-xs font-bold text-slate-700">Separación Crédito / Contado</p>
+                                    <p className="text-[10px] text-slate-500 leading-tight mt-1">
+                                        Si está activo, los accesorios (sin IMEI) se tratarán como pago al contado y no sumarán a la deuda de BloqueCelular.
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={toggleSplitLogic}
+                                    disabled={actualizandoFlag}
+                                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isSplitLogic ? "bg-emerald-500" : "bg-slate-200"}`}
+                                >
+                                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isSplitLogic ? "translate-x-5" : "translate-x-0"}`} />
+                                </button>
+                            </div>
+                        </div> 
                     {/* Cómo funciona */}
                     {!estado?.enabled && (
                         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">

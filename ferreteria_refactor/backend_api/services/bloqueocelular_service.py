@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # ─── Configuración ────────────────────────────────────────────────────────────
 
 BLOQUEO_URL     = "http://backend_bloqueo_server:3000"
-APK_URL_PUBLICA = "https://bloqueo.miinventariofacil.com/app/bloqueo.apk"
+APK_URL_PUBLICA = "https://bloqueo.miinventariofacil.com/public/app/bloqueo.apk"
 TIMEOUT_SECS    = 10
 TOKEN_BUFFER_HRS = 1  # Renovar si vence en menos de 1 hora
 
