@@ -607,26 +607,38 @@ const POS = () => {
 
     
     const handleCheckoutClick = () => {
-        const hasIMEI = cart.some(item => item.has_imei === true || item.product?.requires_imei === true || item.requires_imei === true);
+        const imeiItems = cart.filter(item => item.has_imei === true || item.product?.requires_imei === true || item.requires_imei === true);
         const hasNonIMEI = cart.some(item => !item.has_imei && !item.product?.requires_imei && !item.requires_imei);
         
-        console.log("Resultado -> hasIMEI:", hasIMEI, "hasNonIMEI:", hasNonIMEI);
+        const hasMultipleIMEI = imeiItems.length > 1;
 
-        
-
-        if (hasIMEI && hasNonIMEI) {
+        if (hasNonIMEI && imeiItems.length > 0) {
+            // Caso 1: Mixto (Accesorios + Celulares)
             setIsSplitCartModalOpen(true);
+        } else if (hasMultipleIMEI) {
+            // Caso 2: Múltiples Celulares (Deben ir uno por uno)
+            import("react-hot-toast").then(m => m.toast.loading("Procesando dispositivos uno por uno...", { duration: 3000 }));
+            handleSplitCart(); // Reutilizamos la lógica de split
         } else {
             setIsPaymentOpen(true);
         }
     };
 
     const handleSplitCart = () => {
-        const cashItems = cart.filter(item => !(item.product?.requires_imei || item.requires_imei || item.has_imei));
-        const creditItems = cart.filter(item => item.product?.requires_imei || item.requires_imei || item.has_imei);
+        const imeiItems = cart.filter(item => item.product?.requires_imei || item.requires_imei || item.has_imei);
+        const nonImeiItems = cart.filter(item => !(item.product?.requires_imei || item.requires_imei || item.has_imei));
 
-        setPendingCreditItems(creditItems);
-        overwriteCart(cashItems);
+        if (nonImeiItems.length > 0 && imeiItems.length > 0) {
+            // Prioridad: Sacar accesorios primero (contado)
+            setPendingCreditItems(imeiItems);
+            overwriteCart(nonImeiItems);
+        } else if (imeiItems.length > 1) {
+            // Si solo hay teléfonos, dejamos el primero y mandamos el resto a la cola
+            const firstPhone = imeiItems[0];
+            const restOfPhones = imeiItems.slice(1);
+            setPendingCreditItems(restOfPhones);
+            overwriteCart([firstPhone]);
+        }
         
         setIsSplitCartModalOpen(false);
         setIsPaymentOpen(true);
