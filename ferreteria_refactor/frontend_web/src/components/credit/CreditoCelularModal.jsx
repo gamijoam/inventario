@@ -124,7 +124,7 @@ export default function CreditoCelularModal({
     const bloqueo = resultado?.bloqueo;
     const saleId  = resultado?.sale_id || resultado?.id;
     const codigo  = bloqueo?.codigo_activacion;
-    const apkUrl  = 'https://bloqueo.miinventariofacil.com/app/bloqueo.apk';
+    const apkUrl  = 'https://bloqueo.miinventariofacil.com/public/app/bloqueo.apk';
 
     return (
       <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
