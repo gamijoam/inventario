@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from datetime import datetime, timedelta
+from ..tenant_context import get_tenant_schema
 from ..utils.time_utils import get_venezuela_now
 from fastapi import HTTPException, BackgroundTasks
 from decimal import Decimal
