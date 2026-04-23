@@ -92,6 +92,7 @@ const SalesTab = ({ dateRange }) => {
     // ANALISIS state
     // -----------------------------------------------------------------------
     const [analysisTab, setAnalysisTab] = useState('payment');
+    const [productSearch, setProductSearch] = useState('');
     const [analysisData, setAnalysisData] = useState([]);
     const [analysisLoading, setAnalysisLoading] = useState(false);
 
@@ -732,33 +733,63 @@ const SalesTab = ({ dateRange }) => {
         );
     };
 
-    const renderProductTable = () => (
-        <table className="min-w-full divide-y divide-slate-100">
-            <thead className="bg-slate-50">
-                <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Producto</th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Cantidad Vendida</th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Generado</th>
-                </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-slate-100">
-                {analysisData.map((item, index) => (
-                    <tr key={index} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-700">{item.product_name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-slate-500 font-medium font-mono">
-                            {item.total_quantity || item.quantity}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right font-black text-slate-800">
-                            {formatCurrency
-                                ? formatCurrency(Number(item.total_revenue || item.revenue || item.total_usd || 0))
-                                : `$${fmtUSD(item.total_revenue || item.revenue || item.total_usd || 0)}`
-                            }
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
-    );
+        const renderProductTable = () => {
+        const filtered = analysisData.filter(i => (i.product_name || "").toLowerCase().includes(productSearch.toLowerCase()));
+        return (
+            <div className="space-y-0">
+                <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center gap-3">
+                    <div className="relative flex-1 max-w-sm">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Filtrar productos..." 
+                            value={productSearch} 
+                            onChange={(e) => setProductSearch(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                        />
+                    </div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        Mostrando {filtered.length} de {analysisData.length} productos
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-100">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Producto</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Cant.</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Venta Total</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Costo Total</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Ganancia</th>
+                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Margen</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-slate-100">
+                            {filtered.map((item, index) => {
+                                const margin = item.total_revenue > 0 ? ((item.total_profit / item.total_revenue) * 100) : 0;
+                                return (
+                                    <tr key={index} className="hover:bg-slate-50/80 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-700">{item.product_name}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-slate-500 font-bold font-mono">{item.total_quantity}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right font-black text-slate-800">${item.total_revenue?.toFixed(2)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-slate-400 font-medium font-mono text-xs">${item.total_cost?.toFixed(2)}</td>
+                                        <td className={`px-6 py-4 whitespace-nowrap text-right font-black ${item.total_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                            ${item.total_profit?.toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${margin > 20 ? 'bg-emerald-100 text-emerald-700' : margin > 0 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
+                                                {margin.toFixed(1)}%
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
 
     const renderCustomerTable = () => (
         <table className="min-w-full divide-y divide-slate-100">

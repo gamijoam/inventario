@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Plus, Download, MoreVertical, Check, AlertCircle, ShoppingCart, X } from 'lucide-react';
+import { ChevronLeft, Plus, Download, MoreVertical, Check, AlertCircle, ShoppingCart, X, ShieldCheck } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import DiagnosisPanel from './components/DiagnosisPanel';

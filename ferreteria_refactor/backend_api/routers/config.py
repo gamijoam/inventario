@@ -1038,14 +1038,25 @@ async def upload_warranty_format(
     upload_dir = f"/app/media/{schema}/warranty"
     os.makedirs(upload_dir, exist_ok=True)
     
+    import time
+    # Limpiar archivos viejos para evitar duplicados
+    for old_file in os.listdir(upload_dir):
+        if old_file.startswith("format_"):
+            try:
+                os.remove(os.path.join(upload_dir, old_file))
+            except:
+                pass
+
     file_ext = os.path.splitext(file.filename)[1]
-    file_path = os.path.join(upload_dir, f"format{file_ext}")
+    timestamp = int(time.time())
+    filename = f"format_{timestamp}{file_ext}"
+    file_path = os.path.join(upload_dir, filename)
     
     with open(file_path, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
+        file_content = await file.read()
+        buffer.write(file_content)
     
-    val = f"/media/{schema}/warranty/format{file_ext}"
+    val = f"/media/{schema}/warranty/{filename}"
     config = db.query(models.BusinessConfig).get("warranty_format_url")
     if not config:
         db.add(models.BusinessConfig(key="warranty_format_url", value=val))
