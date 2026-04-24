@@ -1044,6 +1044,9 @@ class BusinessInfo(BaseModel):
     ticket_template: Optional[str] = None  # NEW: Jinja2 template for tickets
     default_tax_rate: Optional[Decimal] = Decimal("0.00")
     warranty_format_url: Optional[str] = None
+    # Credit Defaults
+    credit_default_down_payment_pct: Optional[Decimal] = Decimal("20.00")
+    credit_default_interest_rate: Optional[Decimal] = Decimal("10.00")
 
 # ========================
 # Audit Log Schemas
