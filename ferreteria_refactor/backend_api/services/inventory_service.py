@@ -67,12 +67,9 @@ def _notify_transfer_export(db: Session, current_schema: str, source_company: st
         ).scalar() or source_company
 
         friendly_time = datetime.now().strftime("%d/%m/%Y %I:%M %p")
-        items_sample = ", ".join([f"{i['sku']}" for i in items_data[:3]])
-        extra = f" y {len(items_data)-3} más" if len(items_data) > 3 else ""
         msg = (
             f"🚚 *Traslado de Salida — {b_name}*\n\n"
-            f"📦 *{items_count} producto(s)* confirmados\n"
-            f"📋 {items_sample}{extra}\n\n"
+            f"📦 *{items_count} producto(s)* confirmados\n\n"
             f"🕐 Generado: {friendly_time}\n\n"
             f"✅ Paquete listo para enviar."
         )
@@ -288,11 +285,21 @@ class InventoryService:
             raise HTTPException(status_code=500, detail=f"Database error during transfer: {str(e)}")
             
         # Build Package
+        business_name_row = db.execute(
+            text(f'SELECT value FROM "{get_tenant_schema()}".business_config WHERE key = \'business_name\'')
+        ).scalar()
+        business_name = business_name_row or source_company
+        friendly_time = datetime.now().strftime("%d/%m/%Y %I:%M %p")
+        items_total = len(transfer_items)
+
         package = {
             "source_company": source_company,
             "source_warehouse_id": warehouse_id,
             "source_schema": get_tenant_schema(),
+            "source_business_name": business_name,
             "generated_at": datetime.now().isoformat(),
+            "generated_at_friendly": friendly_time,
+            "items_count": items_total,
             "items": transfer_items,
             "photo_urls": photo_urls or []
         }
