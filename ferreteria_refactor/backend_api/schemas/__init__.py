@@ -1202,6 +1202,7 @@ class TransferImportV2Request(BaseModel):
     source_company: str
     warehouse_id: Optional[int] = None
     items: List[TransferImportV2Item]
+    source_schema: Optional[str] = None
 
 # ========================
 # SERVICE MODULE SCHEMAS
