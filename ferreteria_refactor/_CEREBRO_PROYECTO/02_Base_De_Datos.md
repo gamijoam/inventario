@@ -197,3 +197,52 @@ La creación de un nuevo tenant sigue este flujo orquestado por `TenantService`:
 2. `CREATE SCHEMA "{schema_name}"` en PostgreSQL.
 3. **Schema Reflection**: `Base.metadata.create_all()` sobre el nuevo esquema (crea todas las tablas automáticamente).
 4. **Seeding**: Se siembran datos iniciales (Admin, Tasas de Cambio, Métodos de Pago, Monedas, Almacén por defecto).
+
+---
+
+## Tablas del Sistema Multi-Empresa (schema `public`)
+
+Agregadas en Sprint 0-6 de `feature/multi-empresa`. Aplicadas en QA. Pendiente en PROD.
+
+### `public.organizations`
+Grupos empresariales que agrupan varios tenants.
+```sql
+id, name, slug, owner_email, owner_name,
+plan (duo|multi|enterprise), max_tenants,
+is_active, created_at, logo_url, primary_color,
+use_shared_whatsapp, whatsapp_instance,
+plan_expires_at, plan_price, plan_notes
+```
+
+### `public.organization_users`
+Miembros de cada grupo con permisos de switch entre empresas.
+```sql
+id, organization_id (FK), user_email, role (owner|manager|viewer),
+can_switch, invited_at, accepted_at
+```
+
+### `public.shared_products`
+Catálogo compartido del grupo (plantilla de productos).
+```sql
+id, organization_id (FK), name, sku, description, category_name,
+cost_price, suggested_price, image_url, created_at
+-- UNIQUE(organization_id, sku)
+```
+
+### `public.inter_company_transfers`
+Transferencias de stock entre empresas del grupo.
+```sql
+id, organization_id (FK), from_tenant_id (FK), to_tenant_id (FK),
+status (PENDING|ACCEPTED|REJECTED), notes, created_at, completed_at
+```
+
+### `public.inter_company_transfer_items`
+Ítems de cada transferencia.
+```sql
+id, transfer_id (FK), product_sku, product_name, quantity, unit_cost
+```
+
+### Columna nueva en `public.tenants`
+```sql
+organization_id INTEGER REFERENCES public.organizations(id) ON DELETE SET NULL
+```

@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import { Search, Save, Trash2, Plus, Minus, User, MapPin, Layers, UserPlus, FileText, ChevronRight, ShoppingCart, ArrowLeft, Printer, ArrowRight, CheckCircle } from 'lucide-react';
 import apiClient from '../../config/axios';
+import { normalizeSearch } from '../../utils/search';
 import { toast } from 'react-hot-toast';
 import ProductThumbnail from '../../components/products/ProductThumbnail';
 import QuickCustomerModal from '../../components/pos/QuickCustomerModal';
@@ -12,6 +15,8 @@ import clsx from 'clsx';
 
 const QuoteEditor = ({ quoteId, onBack }) => {
     // State
+    const help = useHelp();
+    const helpKey = 'sales/cotizaciones';
     const [searchTerm, setSearchTerm] = useState('');
     const [catalog, setCatalog] = useState([]);
     const [cart, setCart] = useState([]);
@@ -34,22 +39,39 @@ const QuoteEditor = ({ quoteId, onBack }) => {
 
     // Load initial data
     useEffect(() => {
-        fetchCatalog();
         fetchCustomers();
         if (quoteId) {
             loadQuote(quoteId);
         }
     }, [quoteId]);
 
-    const fetchCatalog = async () => {
+    // Server-side catalog search with debounce (must be before useEffects that use it)
+    const searchCatalog = useCallback(async (query) => {
         try {
-            const { data } = await apiClient.get('/products');
+            const params = { limit: 500 };
+            if (query && query.trim().length >= 1) {
+                params.search = query.trim();
+            }
+            const { data } = await apiClient.get('/products', { params });
             setCatalog(data);
         } catch (error) {
             console.error(error);
             toast.error("Error cargando productos");
         }
-    };
+    }, []);
+
+    // Debounced search effect
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            searchCatalog(searchTerm);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm, searchCatalog]);
+
+    // Initial catalog load
+    useEffect(() => {
+        searchCatalog('');
+    }, [searchCatalog]);
 
     const fetchCustomers = async () => {
         try {
@@ -88,8 +110,8 @@ const QuoteEditor = ({ quoteId, onBack }) => {
 
     // Filter Logic
     const filteredCatalog = catalog.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku?.toLowerCase().includes(searchTerm.toLowerCase())
+        normalizeSearch(p.name).includes(normalizeSearch(searchTerm)) ||
+        normalizeSearch(p.sku).includes(normalizeSearch(searchTerm))
     ).slice(0, 24);
 
     // Cart Logic
@@ -226,6 +248,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                         >
                             Volver al listado
                         </button>
+                <HelpButton contextKey={helpKey} onClick={help.open} />
                     </div>
                 </div>
             </div>
@@ -288,7 +311,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                                             <span className="text-xs text-slate-400">$</span>
                                             {Number(product.price).toFixed(2)}
                                         </span>
-                                        <div className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                                        <div className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">
                                             Stock: {Number(product.stock).toFixed(0)}
                                         </div>
                                     </div>
@@ -361,9 +384,9 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                                     ${Number(item.subtotal).toFixed(2)}
                                 </div>
                                 <div className="flex items-center bg-slate-100 rounded-lg border border-slate-200 p-0.5">
-                                    <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all text-slate-600"><Minus size={12} /></button>
+                                    <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600"><Minus size={12} /></button>
                                     <span className="w-6 text-center text-xs font-bold text-slate-700">{item.quantity}</span>
-                                    <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white hover:shadow-sm rounded-md transition-all text-indigo-600"><Plus size={12} /></button>
+                                    <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-white hover:shadow-sm rounded-lg transition-all text-indigo-600"><Plus size={12} /></button>
                                 </div>
                             </div>
 
@@ -463,6 +486,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                     )}
                 </button>
             </div>
+        {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

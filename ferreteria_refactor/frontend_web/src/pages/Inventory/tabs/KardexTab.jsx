@@ -4,6 +4,7 @@ import InventoryMovementSheet from '../../../components/inventory/InventoryMovem
 import apiClient from '../../../config/axios';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { normalizeSearch } from '../../../utils/search';
 
 const KardexTab = () => {
     const [kardex, setKardex] = useState([]);
@@ -135,7 +136,7 @@ const KardexTab = () => {
                             .filter(item => {
                                 if (!searchQuery) return true;
                                 const productName = item.product?.name || '';
-                                return productName.toLowerCase().includes(searchQuery.toLowerCase());
+                                return normalizeSearch(productName).includes(normalizeSearch(searchQuery));
                             })
                             .map((item, index) => {
                                 const style = getMovementStyle(item.movement_type);
@@ -190,7 +191,7 @@ const KardexTab = () => {
                     .filter(item => {
                         if (!searchQuery) return true;
                         const productName = item.product?.name || '';
-                        return productName.toLowerCase().includes(searchQuery.toLowerCase());
+                        return normalizeSearch(productName).includes(normalizeSearch(searchQuery));
                     })
                     .map(item => {
                         const style = getMovementStyle(item.movement_type);

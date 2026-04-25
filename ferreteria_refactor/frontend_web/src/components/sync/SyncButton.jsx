@@ -38,7 +38,7 @@ export default function SyncButton() {
                 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                 ${loading
                     ? 'bg-blue-100 text-blue-800 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
                 }
             `}
             title="Descargar catálogo actualizado"

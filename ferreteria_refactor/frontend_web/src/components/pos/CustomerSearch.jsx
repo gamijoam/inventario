@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, X, Check } from 'lucide-react';
+import { normalizeSearch } from '../../utils/search';
 
 const CustomerSearch = ({ customers, selectedCustomer, onSelect, disabled = false }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -13,8 +14,8 @@ const CustomerSearch = ({ customers, selectedCustomer, onSelect, disabled = fals
         if (c.is_active === false) return false;
         const term = searchTerm.toLowerCase();
         return (
-            c.name.toLowerCase().includes(term) ||
-            (c.id_number && c.id_number.toLowerCase().includes(term)) ||
+            normalizeSearch(c.name).includes(normalizeSearch(term)) ||
+            (c.id_number && normalizeSearch(c.id_number).includes(normalizeSearch(term))) ||
             (c.phone && c.phone.includes(term))
         );
     });

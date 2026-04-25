@@ -270,7 +270,7 @@ const ExternalTransferOut = () => {
                                         {product.name}
                                     </h3>
                                     <div className="flex items-center gap-3 mt-1 text-sm">
-                                        <span className={`px-2 py-0.5 rounded-md font-mono text-xs ${product.sku ? 'bg-slate-100 text-slate-600' : 'bg-red-50 text-red-600'}`}>
+                                        <span className={`px-2 py-0.5 rounded-lg font-mono text-xs ${product.sku ? 'bg-slate-100 text-slate-600' : 'bg-red-50 text-red-600'}`}>
                                             {product.sku || 'SIN SKU'}
                                         </span>
                                         <span className="text-slate-500">

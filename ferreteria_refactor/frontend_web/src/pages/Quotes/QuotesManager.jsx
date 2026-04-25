@@ -19,7 +19,7 @@ const QuotesManager = () => {
     };
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-slate-50 overflow-hidden p-4 gap-4">
+        <div className="animate-in fade-in duration-300 h-[calc(100vh-64px)] flex flex-col bg-slate-50 overflow-hidden p-4 gap-4">
             {/* Header / Sub-nav */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center shadow-sm z-30 flex-shrink-0">
                 <div className="flex items-center gap-3 mb-4 sm:mb-0">

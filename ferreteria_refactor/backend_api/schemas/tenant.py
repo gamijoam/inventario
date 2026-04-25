@@ -79,5 +79,6 @@ class TenantOut(TenantBase):
 
     # Optional computed fields
     user_count: Optional[int] = None
+    owner_email: Optional[str] = None   # email del admin/dueño principal
 
     model_config = ConfigDict(from_attributes=True)

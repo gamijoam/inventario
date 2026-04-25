@@ -92,7 +92,12 @@ const UserDetailRow = ({ userId }) => {
     return details.map(d => (
         <tr key={d.id} className="bg-slate-50/60 text-xs border-b border-slate-100">
             <td className="pl-12 py-2 text-slate-500">{fmtDate(d.created_at)}</td>
-            <td className="py-2 text-slate-500">{d.source_type || 'VENTA'}</td>
+            <td className="py-2 text-slate-500">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${d.commission_role === 'TECHNICIAN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {d.commission_role === 'TECHNICIAN' ? '🔧 Técnico' : '🛒 Vendedor'}
+                </span>
+            </td>
+            <td className="py-2 text-slate-500">{d.source_type === 'SERVICE' ? '🔧 Taller' : '🛒 POS'}</td>
             <td className="py-2 text-slate-500">{d.source_reference || `#${d.source_id || d.id}`}</td>
             <td className="py-2 text-right font-medium text-emerald-700">${parseFloat(d.amount).toFixed(2)}</td>
             <td className="py-2 pr-4 text-center">
@@ -308,7 +313,8 @@ const CommissionsTab = () => {
                                             <>
                                                 <tr className="bg-slate-50/40">
                                                     <th className="pl-12 py-1.5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Fecha</th>
-                                                    <th className="py-1.5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider" colSpan="2">Origen / Referencia</th>
+                                                    <th className="py-1.5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Rol</th>
+                                                    <th className="py-1.5 text-left text-xs font-bold text-slate-400 uppercase tracking-wider" colSpan="2">Módulo / Referencia</th>
                                                     <th className="py-1.5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Monto</th>
                                                     <th className="py-1.5 pr-4 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Estado</th>
                                                 </tr>

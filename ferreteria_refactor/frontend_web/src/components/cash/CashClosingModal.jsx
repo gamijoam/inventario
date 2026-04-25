@@ -179,7 +179,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                                                         </div>
                                                         <div>
                                                             <div className="font-bold text-slate-900 text-lg">{data.name}</div>
-                                                            <div className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-md inline-block mt-1">
+                                                            <div className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded-lg inline-block mt-1">
                                                                 Esperado: <span className="font-mono text-slate-900">{data.symbol === 'USD' ? '$' : data.symbol} {Number(data.expected).toFixed(2)}</span>
                                                             </div>
                                                         </div>
@@ -234,7 +234,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
                                         <CreditCard size={16} /> Pagos Digitales
                                     </h3>
-                                    <span className="text-[10px] bg-blue-50 text-blue-700 font-black px-2 py-1 rounded-md border border-blue-200">AUTO-VERIFICADO</span>
+                                    <span className="text-[10px] bg-blue-50 text-blue-700 font-black px-2 py-1 rounded-lg border border-blue-200">AUTO-VERIFICADO</span>
                                 </div>
 
                                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -252,7 +252,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
                                                         {Object.entries(methods).map(([method, amount]) => (
                                                             <div key={method} className="flex items-center justify-between group">
                                                                 <span className="text-sm font-medium text-slate-600 group-hover:text-indigo-600 transition-colors">{method}</span>
-                                                                <span className="text-sm font-bold font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">{Number(amount).toFixed(2)}</span>
+                                                                <span className="text-sm font-bold font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg">{Number(amount).toFixed(2)}</span>
                                                             </div>
                                                         ))}
                                                     </div>

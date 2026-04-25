@@ -1,4 +1,26 @@
 import React from 'react';
+import BloqueoCelular from './BloqueoCelular';
+
+// ── Recalcular plan de cuotas con el modelo plano (idéntico a BloqueCelular) ──
+function calcPlanCuotas(precio, enganche, tasaPct, n, freq) {
+  const intTotal   = precio * (tasaPct / 100);
+  const total      = precio + intTotal;
+  const financiado = Math.max(0, total - enganche);
+  const cuota      = n > 0 ? financiado / n : 0;
+  const dias       = { semanal: 7, quincenal: 15, mensual: 30 };
+  const cuotas     = [];
+  let fecha = new Date(); let saldo = financiado;
+  for (let i = 0; i < n; i++) {
+    if (i > 0) {
+      if (freq === 'mensual') fecha.setMonth(fecha.getMonth() + 1);
+      else fecha.setDate(fecha.getDate() + (dias[freq] || 30));
+    }
+    saldo = Math.max(0, saldo - cuota);
+    cuotas.push({ n: i+1, cuota: cuota.toFixed(2), saldo: saldo.toFixed(2),
+                  fecha: new Date(fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}) });
+  }
+  return { cuota, financiado, total, intTotal, cuotas };
+}
 import { X, Calendar, Hash, DollarSign, TrendingUp, User, Package } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 
@@ -219,6 +241,88 @@ const InvoiceDetailModal = ({ isOpen, onClose, sale }) => {
                         </div>
                     )}
                 </div>
+
+                {/* Plan de Cuotas — Solo si tiene datos de crédito */}
+                {sale.is_credit && sale.credit_installments && (
+                    <div className="px-6 pb-2">
+                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                            {/* Header colapsable */}
+                            <div className="flex items-center justify-between p-4 border-b border-slate-100">
+                                <div>
+                                    <p className="font-bold text-slate-800 text-sm">📋 Plan de Cuotas</p>
+                                    <p className="text-xs text-slate-400">
+                                        {sale.credit_installments} cuotas ·{' '}
+                                        ${parseFloat(sale.credit_installment_amount||0).toFixed(2)} c/u ·{' '}
+                                        {sale.credit_frequency || 'mensual'}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-slate-400">Financiado</p>
+                                    <p className="font-black text-indigo-600 text-sm">
+                                        ${(parseFloat(sale.total_amount||0) + parseFloat(sale.total_amount||0)*(parseFloat(sale.credit_interest_rate||0)/100) - parseFloat(sale.credit_down_payment||0)).toFixed(2)}
+                                    </p>
+                                </div>
+                            </div>
+                            {/* Resumen crédito */}
+                            <div className="grid grid-cols-4 gap-0 divide-x divide-slate-100 border-b border-slate-100">
+                                {[
+                                    { l:'Precio',   v:`$${parseFloat(sale.total_amount||0).toFixed(2)}` },
+                                    { l:'Enganche', v:`$${parseFloat(sale.credit_down_payment||0).toFixed(2)}` },
+                                    { l:'Interés',  v:`${parseFloat(sale.credit_interest_rate||0).toFixed(0)}%` },
+                                    { l:'Cuota',    v:`$${parseFloat(sale.credit_installment_amount||0).toFixed(2)}` },
+                                ].map(s => (
+                                    <div key={s.l} className="px-3 py-2.5 text-center">
+                                        <p className="text-[10px] text-slate-400 uppercase font-bold">{s.l}</p>
+                                        <p className="font-black text-slate-700 text-sm">{s.v}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            {/* Tabla de cuotas */}
+                            {(() => {
+                                const plan = calcPlanCuotas(
+                                    parseFloat(sale.total_amount||0),
+                                    parseFloat(sale.credit_down_payment||0),
+                                    parseFloat(sale.credit_interest_rate||0),
+                                    parseInt(sale.credit_installments||0),
+                                    sale.credit_frequency||'mensual'
+                                );
+                                return (
+                                    <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                                        <table className="w-full text-xs">
+                                            <thead className="bg-slate-50 sticky top-0">
+                                                <tr>
+                                                    {['#','Fecha','Cuota','Saldo'].map(h => (
+                                                        <th key={h} className="px-3 py-2 text-left font-bold text-slate-500 uppercase tracking-wider">{h}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {plan.cuotas.map(row => (
+                                                    <tr key={row.n} className="border-t border-slate-50 hover:bg-slate-50">
+                                                        <td className="px-3 py-2 font-bold text-slate-400">{row.n}</td>
+                                                        <td className="px-3 py-2 text-slate-600">{row.fecha}</td>
+                                                        <td className="px-3 py-2 font-bold text-slate-800">${row.cuota}</td>
+                                                        <td className="px-3 py-2 text-slate-500">${row.saldo}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                )}
+
+                {/* Panel de Control de Bloqueo — Solo para ventas a crédito */}
+                {sale.is_credit && (
+                    <div className="px-6 pb-4">
+                        <BloqueoCelular
+                            saleId={sale.id}
+                            isCredit={sale.is_credit}
+                        />
+                    </div>
+                )}
 
                 {/* Footer */}
                 <div className="p-5 border-t border-slate-100 bg-slate-50 flex justify-end">

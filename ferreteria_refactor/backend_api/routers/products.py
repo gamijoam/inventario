@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, joinedload, subqueryload
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import subqueryload
 from decimal import Decimal
 from typing import List
 import json
@@ -254,6 +256,9 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
     try:
         # A. Create Base Product
         product_data = product.dict(exclude={"units", "combo_items", "warehouse_stocks", "prices"})
+        # Fix: SKU vacío "" → None (evita violación del índice UNIQUE)
+        if 'sku' in product_data and (product_data['sku'] == '' or (product_data['sku'] and str(product_data['sku']).strip() == '')):
+            product_data['sku'] = None
         db_product = models.Product(**product_data)
         db.add(db_product)
         db.flush() # Generate ID
@@ -486,6 +491,10 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     # Capture Current State (Old) for Audit
     old_state = {c.name: getattr(db_product, c.name) for c in db_product.__table__.columns}
 
+    # Fix: SKU vacío "" → None (evita violación del índice UNIQUE ix_products_sku)
+    if 'sku' in update_data and (update_data['sku'] == '' or update_data['sku'] is not None and str(update_data['sku']).strip() == ''):
+        update_data['sku'] = None
+
     # Apply Scalar Updates
     for key, value in update_data.items():
         setattr(db_product, key, value)
@@ -505,12 +514,35 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     final_stocks = db_product.stocks
     final_prices = db_product.prices
     
-    # Handle Units Update
+    # Handle Units Update (SAFE: upsert to avoid FK violation with sale_details)
     if units_data is not None:
-        db.query(models.ProductUnit).filter(models.ProductUnit.product_id == product_id).delete()
+        incoming_ids = {u["id"] for u in units_data if "id" in u and u["id"]}
+        # Delete only units that are NOT referenced by any sale_detail and NOT in the incoming list
+        existing_units = db.query(models.ProductUnit).filter(models.ProductUnit.product_id == product_id).all()
+        referenced_ids = {
+            row[0] for row in db.execute(
+                __import__("sqlalchemy").text(
+                    "SELECT DISTINCT unit_id FROM sale_details WHERE unit_id IS NOT NULL"
+                )
+            ).fetchall()
+        }
+        for eu in existing_units:
+            if eu.id not in incoming_ids and eu.id not in referenced_ids:
+                db.delete(eu)
+        db.flush()
+        # Upsert: update existing, insert new
         new_units = []
         for unit in units_data:
-            db_unit = models.ProductUnit(**unit, product_id=product_id)
+            uid = unit.get("id")
+            if uid:
+                db_unit = db.query(models.ProductUnit).filter(models.ProductUnit.id == uid, models.ProductUnit.product_id == product_id).first()
+                if db_unit:
+                    for k, v in unit.items():
+                        if k != "id":
+                            setattr(db_unit, k, v)
+                    new_units.append(db_unit)
+                    continue
+            db_unit = models.ProductUnit(**{k: v for k, v in unit.items() if k != "id"}, product_id=product_id)
             db.add(db_unit)
             new_units.append(db_unit)
         final_units = new_units # Use the new list for response
@@ -657,7 +689,22 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
         log_action(db, user_id=current_user.id, action="UPDATE", table_name="products", record_id=db_product.id, changes=json.dumps(changes, default=str))
 
     # FINAL COMMIT
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as e:
+        db.rollback()
+        err = str(e.orig).lower()
+        if 'sku' in err or 'ix_products_sku' in err:
+            raise HTTPException(
+                status_code=400,
+                detail="El SKU ingresado ya está siendo usado por otro producto. Usa un código diferente o déjalo vacío para que se asigne automáticamente."
+            )
+        elif 'unique' in err or 'duplicate' in err:
+            raise HTTPException(
+                status_code=400,
+                detail="Ya existe un producto con ese valor. Verifica el SKU o el nombre del producto."
+            )
+        raise HTTPException(status_code=500, detail="Error al guardar el producto. Intenta de nuevo.")
 
     # Broadcast
     payload = {

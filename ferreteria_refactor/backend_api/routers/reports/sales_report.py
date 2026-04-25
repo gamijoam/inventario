@@ -283,7 +283,7 @@ def get_sales_by_product(
         models.Product.name.label('product_name'),
         models.Category.name.label('category_name'),
         func.sum(models.SaleDetail.quantity).label('total_qty'),
-        func.sum(models.SaleDetail.subtotal).label('total_rev')
+        func.sum(models.SaleDetail.subtotal).label('total_rev'), func.sum(models.SaleDetail.cost_at_sale * models.SaleDetail.quantity).label('total_cost')
     ).join(
         models.SaleDetail, models.Product.id == models.SaleDetail.product_id
     ).join(
@@ -309,7 +309,7 @@ def get_sales_by_product(
             "product_name": r.product_name,
             "category_name": r.category_name or "Sin Categoría",
             "total_quantity": float(r.total_qty or 0),
-            "total_revenue": float(r.total_rev or 0)
+            "total_revenue": float(r.total_rev or 0), "total_cost": float(r.total_cost or 0), "total_profit": float((r.total_rev or 0) - (r.total_cost or 0))
         }
         for r in results
     ]

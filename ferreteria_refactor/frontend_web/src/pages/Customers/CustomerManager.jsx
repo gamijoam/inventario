@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check, RotateCcw, Eye, EyeOff, UserX } from 'lucide-react';
+import Customer360 from '../../components/customers/Customer360';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
+import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check, RotateCcw, Eye, EyeOff, UserX, Zap } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
@@ -17,10 +20,13 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 
 const CustomerManager = () => {
+    const help = useHelp();
+    const helpKey = 'sales/clientes';
     const [customers, setCustomers] = useState([]);
     const [totalCustomers, setTotalCustomers] = useState(0);
     const [hasMoreCustomers, setHasMoreCustomers] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [show360, setShow360] = useState(false);
     const [financialStatus, setFinancialStatus] = useState(null);
     const [creditHistory, setCreditHistory] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -223,6 +229,7 @@ const CustomerManager = () => {
                         Gestión de Clientes
                     </h1>
                     <p className="text-slate-500 font-medium">Administra clientes, límites de crédito y estados de cuenta</p>
+                <HelpButton contextKey={helpKey} onClick={help.open} />
                 </div>
                 <Button id="tour-customers-add-btn" onClick={handleCreateClick} className="shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all">
                     <Plus size={20} className="mr-2" />
@@ -383,6 +390,14 @@ const CustomerManager = () => {
                             <p className="text-slate-500 max-w-sm mt-2">Selecciona un cliente de la lista para ver su perfil, historial de crédito y gestionar sus datos.</p>
                         </div>
                     ) : (
+                        <>
+                        <button
+                            onClick={() => setShow360(true)}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-md mb-2 w-full shrink-0"
+                        >
+                            <Zap size={16} />
+                            Ver historial completo — Vista 360°
+                        </button>
                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6">
                             {/* Mobile Back Button */}
                             <Button
@@ -423,7 +438,7 @@ const CustomerManager = () => {
                                         <div className="flex items-center gap-3 mb-2">
                                             <h2 className="text-xl md:text-3xl font-bold tracking-tight">{selectedCustomer.name}</h2>
                                             {selectedCustomer.is_blocked && (
-                                                <span className="bg-rose-500/20 text-rose-200 border border-rose-500/30 px-3 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                                                <span className="bg-rose-500/20 text-rose-200 border border-rose-500/30 px-3 py-0.5 rounded-xl text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
                                                     Bloqueado
                                                 </span>
                                             )}
@@ -435,7 +450,8 @@ const CustomerManager = () => {
                                         </div>
                                     </div>
 
-                                    <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center">
+                                    <div className="flex items-center gap-2">
+                                        <div className="bg-white/10 backdrop-blur-md p-1 rounded-xl flex items-center">
                                         <label className={clsx(
                                             "flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all select-none",
                                             selectedCustomer.is_blocked
@@ -454,6 +470,7 @@ const CustomerManager = () => {
                                             </div>
                                             <span className="font-bold text-xs uppercase tracking-wider">Bloqueo Crédito</span>
                                         </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -467,7 +484,7 @@ const CustomerManager = () => {
                             ) : financialStatus && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {/* Credit Limit */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 group hover:border-indigo-200 transition-colors">
+                                    <div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 p-5 group hover:border-indigo-400 transition-colors">
                                         <div className="flex items-center justify-between mb-3">
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Límite Crédito</p>
                                             {!editingCredit ? (
@@ -500,7 +517,7 @@ const CustomerManager = () => {
                                     </div>
 
                                     {/* Current Debt */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                                    <div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 p-5">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Deuda Actual</p>
                                         <p className={clsx("text-2xl font-black tracking-tight",
                                             financialStatus.total_debt > financialStatus.credit_limit * 0.8 ? 'text-rose-600' : 'text-slate-800'
@@ -510,7 +527,7 @@ const CustomerManager = () => {
                                     </div>
 
                                     {/* Available Credit */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                                    <div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 p-5">
                                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Cupo Disponible</p>
                                         <p className="text-2xl font-black text-emerald-600 tracking-tight">
                                             ${financialStatus.available_credit.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
@@ -518,7 +535,7 @@ const CustomerManager = () => {
                                     </div>
 
                                     {/* Payment Terms */}
-                                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 group hover:border-indigo-200 transition-colors">
+                                    <div className="bg-indigo-50 rounded-2xl shadow-sm border border-indigo-200 p-5 group hover:border-indigo-400 transition-colors">
                                         <div className="flex items-center justify-between mb-3">
                                             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Días Crédito</p>
                                             {!editingTerms ? (
@@ -625,6 +642,7 @@ const CustomerManager = () => {
                                 </div>
                             </div>
                         </div>
+                        </>
                     )}
                 </div>
             </div>
@@ -651,6 +669,14 @@ const CustomerManager = () => {
                     )}
                 </SheetContent>
             </Sheet>
+        {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
+        {show360 && selectedCustomer && (
+            <Customer360
+                customerId={selectedCustomer.id}
+                customerName={selectedCustomer.name}
+                onClose={() => setShow360(false)}
+            />
+        )}
         </div>
     );
 };

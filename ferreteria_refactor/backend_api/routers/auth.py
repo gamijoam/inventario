@@ -10,7 +10,7 @@ from ..models.tenant import Tenant
 from ..security import verify_password, create_access_token, get_password_hash, pwd_context
 from ..config import settings
 from .. import schemas
-from ..dependencies import limiter
+from ..dependencies import limiter, get_current_active_user
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -286,12 +286,156 @@ async def login_for_access_token(
         if tenant:
             tenant_slug = tenant.schema_name
 
+    # Multi-empresa: detectar si el usuario tiene acceso a varias empresas
+    org_companies = []
+    has_multiple_companies = False
+    try:
+        from .organizations import router as _org_router
+        from ..models.organization import OrganizationUser as _OrgUser
+        from ..models.tenant import Tenant as _Tenant
+
+        _memberships = db.query(_OrgUser).filter(
+            _OrgUser.user_email == user.email,
+            _OrgUser.can_switch == True
+        ).all()
+
+        for _m in _memberships:
+            _tenants = db.query(_Tenant).filter(
+                _Tenant.organization_id == _m.organization_id,
+                _Tenant.is_active == True
+            ).all()
+            for _t in _tenants:
+                org_companies.append({
+                    "tenant_id"  : _t.id,
+                    "schema_name": _t.schema_name,
+                    "name"       : _t.name,
+                    "switch_url" : f"https://{_t.schema_name}.miinventariofacil.com",
+                    "is_current" : _t.schema_name == tenant_slug,
+                    "org_id"     : _m.organization_id,
+                    "org_role"   : _m.role,       # "owner" | "manager"
+                    "can_switch" : _m.can_switch,
+                })
+
+        # También incluir el tenant actual si no está ya en la lista
+        if tenant_slug and not any(c["schema_name"] == tenant_slug for c in org_companies):
+            _current_t = db.query(_Tenant).filter(_Tenant.schema_name == tenant_slug).first()
+            if _current_t:
+                org_companies.insert(0, {
+                    "tenant_id"  : _current_t.id,
+                    "schema_name": _current_t.schema_name,
+                    "name"       : _current_t.name,
+                    "switch_url" : f"https://{_current_t.schema_name}.miinventariofacil.com",
+                    "is_current" : True,
+                })
+
+        has_multiple_companies = len(org_companies) > 1
+    except Exception as _org_err:
+        pass  # Si falla no rompemos el login
+
     # BACKWARD COMPATIBILITY: Also return token in JSON for legacy clients
     return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "tenant_slug": tenant_slug  # Frontend should store this as selected_tenant in localStorage
+        "access_token"          : access_token,
+        "token_type"            : "bearer",
+        "tenant_slug"           : tenant_slug,
+        "has_multiple_companies": has_multiple_companies,
+        "org_companies"         : org_companies,
     }
+
+@router.post("/switch-company")
+async def switch_company(
+    target_schema: str,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Cambiar de empresa dentro del mismo grupo organizacional.
+    El usuario debe ser miembro de la organización que contiene el target_schema.
+    Devuelve un nuevo token + cookie apuntando a la empresa destino.
+    """
+    from ..models.organization import OrganizationUser as _OrgUser
+    from ..models.tenant import Tenant as _Tenant
+
+    # Buscar el tenant destino
+    target_tenant = db.query(_Tenant).filter(
+        _Tenant.schema_name == target_schema,
+        _Tenant.is_active == True
+    ).first()
+    if not target_tenant:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada o inactiva")
+    if not target_tenant.organization_id:
+        raise HTTPException(status_code=400, detail="La empresa destino no pertenece a ninguna organización")
+
+    # Verificar que el usuario tiene acceso a esa organización
+    membership = db.query(_OrgUser).filter(
+        _OrgUser.organization_id == target_tenant.organization_id,
+        _OrgUser.user_email == current_user.email,
+        _OrgUser.can_switch == True
+    ).first()
+
+    if not membership and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="No tienes acceso a esa empresa")
+
+    # Buscar el usuario admin en el tenant destino (mismo email)
+    target_user = db.query(models.User).filter(
+        models.User.email == current_user.email,
+        models.User.tenant_id == target_tenant.id
+    ).first()
+
+    # Si no existe el usuario en el tenant destino, usar el actual (superadmin)
+    effective_user = target_user or current_user
+
+    # Generar nuevo token para el tenant destino
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    token_data = {"sub": effective_user.email, "role": effective_user.role.value}
+    new_token = create_access_token(data=token_data, expires_delta=access_token_expires)
+
+    # Setear cookie para el nuevo tenant
+    response.set_cookie(
+        key="access_token",
+        value=new_token,
+        httponly=True,
+        secure=settings.SECURE_COOKIES,
+        samesite="lax",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+        domain=settings.COOKIE_DOMAIN,
+    )
+
+    # Obtener otras empresas del grupo para actualizar el selector
+    org_companies = []
+    all_tenants = db.query(_Tenant).filter(
+        _Tenant.organization_id == target_tenant.organization_id,
+        _Tenant.is_active == True
+    ).all()
+    # Obtener el rol del usuario en esta organización
+    _membership_sw = db.query(_OrgUser).filter(
+        _OrgUser.organization_id == target_tenant.organization_id,
+        _OrgUser.user_email      == current_user.email,
+    ).first()
+    _org_role_sw = _membership_sw.role if _membership_sw else "manager"
+
+    for t in all_tenants:
+        org_companies.append({
+            "tenant_id"  : t.id,
+            "schema_name": t.schema_name,
+            "name"       : t.name,
+            "switch_url" : f"https://{t.schema_name}.miinventariofacil.com",
+            "is_current" : t.schema_name == target_schema,
+            "org_id"     : target_tenant.organization_id,
+            "org_role"   : _org_role_sw,
+            "can_switch" : True,
+        })
+
+    return {
+        "access_token"          : new_token,
+        "token_type"            : "bearer",
+        "tenant_slug"           : target_schema,
+        "target_company_name"   : target_tenant.name,
+        "has_multiple_companies": len(org_companies) > 1,
+        "org_companies"         : org_companies,
+    }
+
 
 @router.post("/logout")
 async def logout(response: Response):

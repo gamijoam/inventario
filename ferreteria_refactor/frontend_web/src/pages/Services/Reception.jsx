@@ -190,7 +190,7 @@ const Reception = () => {
                             type="button"
                             onClick={() => handleReprint(lastOrderId)}
                             title="Reimprimir ticket"
-                            className="ml-2 p-1.5 bg-green-200 hover:bg-green-300 rounded-md text-green-700 transition-colors"
+                            className="ml-2 p-1.5 bg-green-200 hover:bg-green-300 rounded-lg text-green-700 transition-colors"
                         >
                             <Printer size={14} />
                         </button>
@@ -466,7 +466,7 @@ const Reception = () => {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg shadow-blue-200 flex items-center gap-2 disabled:opacity-50 transition-all"
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:opacity-50 transition-all"
                                 >
                                     {loading ? 'Procesando...' : (
                                         <>

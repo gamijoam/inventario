@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
 import { cn } from '../utils/cn';
+import { normalizeSearch } from '../utils/search';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
@@ -60,6 +61,17 @@ const Products = () => {
 
     // Filters State
     const [categories, setCategories] = useState([]);
+
+    // Exponer refreshCategories para ProductForm (crear categoría inline)
+    useEffect(() => {
+        window.__refreshCategories = async () => {
+            try {
+                const res = await apiClient.get('/categories');
+                setCategories(res.data);
+            } catch {}
+        };
+        return () => { delete window.__refreshCategories; };
+    }, []);
     const [exchangeRates, setExchangeRates] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [filterCategory, setFilterCategory] = useState('');
@@ -243,7 +255,7 @@ const Products = () => {
                     <select
                         value={filterCategory}
                         onChange={(e) => setFilterCategory(e.target.value)}
-                        className="h-9 px-3 rounded-md border border-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-slate-50/50 text-slate-600 font-medium"
+                        className="h-9 px-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-slate-50/50 text-slate-600 font-medium"
                     >
                         <option value="">Todas las Categorías</option>
                         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -252,7 +264,7 @@ const Products = () => {
                     <select
                         value={filterWarehouse}
                         onChange={(e) => setFilterWarehouse(e.target.value)}
-                        className="h-9 px-3 rounded-md border border-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-slate-50/50 text-slate-600 font-medium"
+                        className="h-9 px-3 rounded-lg border border-slate-200 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-slate-50/50 text-slate-600 font-medium"
                     >
                         <option value="">Todas las Bodegas</option>
                         {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}

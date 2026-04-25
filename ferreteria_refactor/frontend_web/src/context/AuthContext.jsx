@@ -110,11 +110,19 @@ export const AuthProvider = ({ children }) => {
                 localStorage.setItem('selected_tenant', data.tenant_slug);
                 console.log(`🏢 Tenant context stored: ${data.tenant_slug}`);
             }
+            // Multi-empresa: guardar empresas del grupo para el CompanySwitcher
+            if (data.org_companies && data.org_companies.length > 0) {
+                localStorage.setItem('org_companies', JSON.stringify(data.org_companies));
+                console.log(`🏢 Org companies stored: ${data.org_companies.length} empresas`);
+            } else {
+                localStorage.removeItem('org_companies');
+            }
 
             // Fetch user profile immediately after login
             await fetchUserProfile();
 
-            return true;
+            // Retornar la data completa para que Login.jsx detecte multi-empresa
+            return data;
         } catch (error) {
             console.error("❌ Login failed", error);
             setUser(null);
@@ -145,6 +153,7 @@ export const AuthProvider = ({ children }) => {
 
             // Preserve "seen" flags so announcements and banners don't repeat after re-login
             const preserved = {};
+            // org_companies no se preserva en logout — se limpia con localStorage.clear()
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (

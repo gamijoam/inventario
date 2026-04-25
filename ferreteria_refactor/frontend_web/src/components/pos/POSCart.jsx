@@ -27,6 +27,14 @@ const formatLocalCurrency = (amount) => {
     }
 };
 
+// Helper: format quantity display - removes excessive decimals
+const formatQty = (qty, factor) => {
+    if (!factor || factor >= 1) return Number(qty).toFixed(0);
+    if (factor >= 0.01) return Number(qty).toFixed(2);
+    if (factor >= 0.001) return Number(qty).toFixed(3);
+    return Number(qty).toFixed(4);
+};
+
 const POSCart = ({
     cartItems = [],
     onRemoveItem,
@@ -341,11 +349,11 @@ const POSCart = ({
                                                     {item.name}
                                                 </h4>
                                                 <div className="flex items-center gap-1.5 mt-1">
-                                                    <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100/50">
+                                                    <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100/50">
                                                         {item.unit_name}
                                                     </span>
                                                     {item.discount_percentage > 0 && (
-                                                        <span className="text-[9px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-md">
+                                                        <span className="text-[9px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded-lg">
                                                             -{item.discount_percentage}%
                                                         </span>
                                                     )}
@@ -359,7 +367,7 @@ const POSCart = ({
                                                 {/* NEW: Barber assignment indicator */}
                                                 {item.is_barbershop_service && (
                                                     <div className={cn(
-                                                        "flex items-center gap-1 mt-1.5 px-1.5 py-0.5 rounded-md border w-max",
+                                                        "flex items-center gap-1 mt-1.5 px-1.5 py-0.5 rounded-lg border w-max",
                                                         item.employee_id
                                                             ? "bg-emerald-50 border-emerald-200 text-emerald-600"
                                                             : "bg-rose-50 border-rose-200 text-rose-600 animate-pulse"
@@ -392,7 +400,7 @@ const POSCart = ({
                                                         />
                                                         <button
                                                             onMouseDown={e => handleConfirmPriceEdit(e, item)}
-                                                            className="w-5 h-5 flex items-center justify-center rounded-md bg-blue-500 text-white hover:bg-blue-600"
+                                                            className="w-5 h-5 flex items-center justify-center rounded-lg bg-blue-500 text-white hover:bg-blue-600"
                                                         >
                                                             <Check size={10} strokeWidth={3} />
                                                         </button>
@@ -433,7 +441,7 @@ const POSCart = ({
                                                     const rateObj = currencies.find(r => r.id === item.exchange_rate_id);
                                                     const localSym = rateObj?.currency_symbol || rateObj?.currency_code || secondaryCurrency.symbol;
                                                     return (
-                                                        <div className="text-[10px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 rounded-md border border-emerald-200/50">
+                                                        <div className="text-[10px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 rounded-lg border border-emerald-200/50">
                                                             <span className="text-[8px] mr-1 italic opacity-60">{localSym}</span>
                                                             {formatLocalCurrency(item.subtotal_bs)}
                                                         </div>
@@ -458,7 +466,7 @@ const POSCart = ({
                                                 </button>
                                                 <input
                                                     type="number"
-                                                    value={item.quantity}
+                                                    value={formatQty(item.quantity, item.conversion_factor)}
                                                     onClick={(e) => { e.stopPropagation(); e.target.select(); }}
                                                     onChange={(e) => {
                                                         e.stopPropagation();
@@ -597,12 +605,12 @@ const POSCart = ({
                     <Button
                         id="tour-pos-pay-btn"
                         size="lg"
-                        className="w-full h-14 text-lg font-black bg-blue-600 hover:bg-blue-700 shadow-2xl shadow-blue-500/30 rounded-2xl transition-all hover:-translate-y-1 active:scale-[0.98] group"
+                        className="w-full h-14 text-lg font-black bg-indigo-600 hover:bg-indigo-700 shadow-2xl shadow-indigo-300/30 rounded-2xl transition-all hover:-translate-y-1 active:scale-[0.98] group"
                         onClick={onCheckout}
                         disabled={cartItems.length === 0}
                     >
                         <CreditCard className="mr-3 group-hover:animate-bounce" size={24} />
-                        COBRAR <span className="ml-2 text-[10px] opacity-60 bg-white/20 px-2 py-0.5 rounded-full font-mono">F5</span>
+                        COBRAR (V2) <span className="ml-2 text-[10px] opacity-60 bg-white/20 px-2 py-0.5 rounded-full font-mono">F5</span>
                     </Button>
                 </div>
             </div>

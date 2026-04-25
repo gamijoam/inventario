@@ -49,12 +49,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             // 2. 'password'
             // 3. Format: application/x-www-form-urlencoded
             const params = new URLSearchParams();
-            params.append('username', credentials.username); // This maps the form's 'username' (which holds the email) to the backend's 'username' field
+            params.append('username', credentials.username);
             params.append('password', credentials.password);
 
+            // Super admin login REQUIRES X-Tenant-ID: public
+            // Without it the backend uses tenant context and rejects superadmins
             const response = await api.post<AuthResponse>('/auth/token', params, {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Tenant-ID': 'public',
                 },
             });
 

@@ -1,9 +1,19 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+
+  resolve: {
+    alias: {
+      // Stubs para build web — evitan el "Illegal constructor" de Capacitor v8
+      '@capacitor/core': path.resolve('./src/stubs/capacitor-core.js'),
+      '@capacitor/app':  path.resolve('./src/stubs/capacitor-app.js'),
+      '@capacitor-community/barcode-scanner': path.resolve('./src/stubs/barcode-scanner.js'),
+    },
+  },
 
   // Use relative paths — required for Capacitor.
   base: './',
@@ -33,7 +43,7 @@ export default defineConfig({
   },
 
   build: {
-    target: 'es2015',
+    target: 'es2020',   // es2015 causa "Illegal constructor" con Capacitor v8 en browser
     sourcemap: false,
     minify: 'esbuild',
   },

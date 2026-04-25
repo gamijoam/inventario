@@ -15,7 +15,7 @@ ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
 # Construimos la app (Genera la carpeta dist)
-RUN npm run build
+RUN npm install react-is --legacy-peer-deps && npm run build
 
 # ETAPA 2: Servidor (Production)
 FROM nginx:1.27-alpine3.21

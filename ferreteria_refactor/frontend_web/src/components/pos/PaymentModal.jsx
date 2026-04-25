@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag, Calendar, FileText } from 'lucide-react';
 import { createPrescription } from '../../services/pharmacyService';
 import { useConfig } from '../../context/ConfigContext';
@@ -13,6 +14,7 @@ import QuickCustomerModal from './QuickCustomerModal';
 import CustomerSearch from './CustomerSearch';
 import CurrencyInput from '../common/CurrencyInput';
 import { cn } from '../../lib/utils';
+import CreditoCelularModal from '../credit/CreditoCelularModal';
 
 // Local formatCurrency removed to use ConfigContext one globaly
 
@@ -28,7 +30,7 @@ const formatLocalCurrency = (amount) => {
 };
 
 const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null, discountUSD = 0, cartDiscount = null }) => {
-    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency } = useConfig();
+    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency, featureFlags } = useConfig();
     const { subscribe } = useWebSocket();
     const { session } = useCash();
     const allCurrencies = [{ id: 'base', symbol: 'USD', name: 'Dólar', rate: 1, is_anchor: true }, ...getActiveCurrencies()];
@@ -43,7 +45,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const [processing, setProcessing] = useState(false);
 
     // Credit sale states
-    const [isCreditSale, setIsCreditSale] = useState(false);
+    const [isCreditSale, setIsCreditSale]         = useState(false);
+    const [showCalcCredito, setShowCalcCredito]   = useState(false);
     const [customers, setCustomers] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
 
@@ -177,18 +180,26 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         return round2(acc + round2(amount / rate));
     }, 0);
 
+
+    
     const remainingUSD = round2(Math.max(0, totalUSD - totalPaidUSD));
     const changeUSD    = round2(Math.max(0, totalPaidUSD - totalUSD));
     const isComplete   = remainingUSD <= 0.005;
 
+    // BLOQUECELULAR logic
+    const phoneItemsTotalUSD = cart?.filter(item => item.product?.requires_imei || item.requires_imei).reduce((sum, item) => sum + (item.subtotal || (item.quantity * item.unit_price)), 0) || 0;
+    const nonPhoneItemsTotalUSD = totalUSD - phoneItemsTotalUSD;
+    const phoneDebtUSD = Math.max(0, phoneItemsTotalUSD - Math.max(0, totalPaidUSD - nonPhoneItemsTotalUSD));
+    const showBloqueCelularAlert = isCreditSale && phoneItemsTotalUSD > 0 && featureFlags?.bloqueocelular_split_logic;
+
     const addPaymentRow = () => {
         const activeCurrencies = getActiveCurrencies();
-        const primaryLocal = activeCurrencies.find(c => c.symbol !== 'USD' && !c.is_anchor);
-        const defaultCurrency = primaryLocal ? primaryLocal.symbol : 'USD';
+        const primaryLocal = activeCurrencies.find(c => c.symbol !== "USD" && !c.is_anchor);
+        const defaultCurrency = primaryLocal ? primaryLocal.symbol : "USD";
         const defaultMethod = primaryLocal
-            ? (paymentMethods.find(m => m.is_active && m.name.toLowerCase().includes(defaultCurrency.toLowerCase()))?.name || paymentMethods.find(m => m.is_active)?.name || `Efectivo ${defaultCurrency}`)
-            : 'Efectivo USD';
-        setPayments([...payments, { amount: '', currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split('T')[0] }]);
+            ? (paymentMethods.find(m => m.is_active && m.name.toLowerCase().includes(defaultCurrency.toLowerCase()))?.name || paymentMethods.find(m => m.is_active)?.name || "Efectivo " + defaultCurrency)
+            : "Efectivo USD";
+        setPayments([...payments, { amount: "", currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split("T")[0] }]);
     };
 
     const removePaymentRow = (index) => {
@@ -203,6 +214,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         setPayments(newPayments);
     };
 
+    
     // Check if cart has any item requiring a prescription
     const cartRequiresPrescription = () => {
         if (!cart || cart.length === 0) return false;
@@ -278,10 +290,11 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     unit_price: item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd),
                     subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_unit_usd || item.price_usd)) * item.quantity,
                     conversion_factor: item.conversion_factor || 1,
+                    unit_id: item.unit_id || null,        // Presentación/unidad seleccionada (kg, litro, etc.)
                     discount: item.is_discount_active ? item.discount_percentage : 0,
                     discount_type: item.is_discount_active ? "PERCENT" : "NONE",
-                    salesperson_id: item.salesperson_id || null, // Vendedores
-                    employee_id: item.employee_id || null,       // Barbershop
+                    salesperson_id: item.salesperson_id || null,
+                    employee_id: item.employee_id || null,
                     serial_numbers: item.serial_numbers || []
                 })),
                 is_credit: isCreditSale,
@@ -449,7 +462,29 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         await executeSale();
     };
 
+    // Modal calculadora de crédito para celulares
+    const celularEnCarrito = cart.find(item => item.has_imei);
+    const clienteSeleccionado = selectedCustomer;
+
     return (
+        <>
+        {showCalcCredito && celularEnCarrito && createPortal(
+            <CreditoCelularModal
+                isOpen={showCalcCredito}
+                onClose={() => setShowCalcCredito(false)}
+                producto={celularEnCarrito}
+                cliente={clienteSeleccionado}
+                sessionId={session?.id || null}
+                exchangeRate={defaultBsRate}
+                onVentaExitosa={() => {
+                    // La venta fue registrada — cerrar TODO y limpiar el carrito
+                    setShowCalcCredito(false);
+                    onClose?.();
+                    onConfirm?.();   // limpia el carrito en el POS
+                }}
+            />,
+            document.body
+        )}
         <div className="fixed inset-0 bg-[#0f172a]/70 flex items-end sm:items-center justify-center z-50 backdrop-blur-md p-0 sm:p-4 transition-all duration-300">
             <div className="bg-white rounded-t-2xl sm:rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-auto sm:max-h-[85vh] animate-in fade-in zoom-in-95 slide-in-from-bottom-5 duration-300 ring-1 ring-white/20">
 
@@ -469,7 +504,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         <div className="text-xs text-slate-400 font-medium mb-1">Total a Pagar (Divisa)</div>
                         <div className="flex items-baseline gap-1">
                             <span className="text-xl text-blue-400 font-light">$</span>
-                            <span className="text-5xl font-black text-white tracking-tighter shadow-blue-500/10 drop-shadow-lg">
+                            <span className="text-5xl font-black text-white tracking-tighter shadow-indigo-300/10 drop-shadow-lg">
                                 {formatLocalCurrency(totalUSD)}
                             </span>
                         </div>
@@ -759,6 +794,22 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             </div>
                         </label>
 
+                        {/* Calculadora de Crédito — solo si hay celulares y venta a crédito */}
+                        {isCreditSale && cart.some(item => item.has_imei) && (
+                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs font-bold text-indigo-700">📱 Celular detectado en el carrito</p>
+                                    <p className="text-[10px] text-indigo-500">Calcula las cuotas exactas antes de confirmar</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowCalcCredito(true)}
+                                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
+                                >
+                                    🧮 Calculadora
+                                </button>
+                            </div>
+                        )}
+
                         {/* Payments Section - Compact */}
                         {!isCreditSale && (
                             <div className="space-y-3">
@@ -790,7 +841,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                     {/* Method & Currency */}
                                                     <div className="flex flex-col gap-1.5 w-full sm:w-5/12">
                                                         <select
-                                                            className="w-full bg-slate-50 border-none text-[11px] font-bold text-slate-700 rounded-md py-1.5 pl-2 pr-6 focus:ring-0 leading-tight"
+                                                            className="w-full bg-slate-50 border-none text-[11px] font-bold text-slate-700 rounded-lg py-1.5 pl-2 pr-6 focus:ring-0 leading-tight"
                                                             value={payment.method}
                                                             onChange={(e) => updatePayment(index, 'method', e.target.value)}
                                                         >
@@ -805,7 +856,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                                     size="sm"
                                                                     variant={payment.currency === c.symbol ? "default" : "outline"}
                                                                     onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                                    className={`flex-1 h-7 text-[11px] font-bold px-2 rounded-md min-w-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
+                                                                    className={`flex-1 h-7 text-[11px] font-bold px-2 rounded-lg min-w-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
                                                                 >
                                                                     {c.symbol}
                                                                 </Button>
@@ -860,7 +911,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                         <Input
                                                             type="text"
                                                             placeholder="Referencia / # Transferencia"
-                                                            className="flex-1 bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 placeholder:text-indigo-300 h-7 rounded-md"
+                                                            className="flex-1 bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 placeholder:text-indigo-300 h-7 rounded-lg"
                                                             value={payment.reference || ''}
                                                             onChange={(e) => updatePayment(index, 'reference', e.target.value)}
                                                         />
@@ -868,7 +919,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                             <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
                                                             <Input
                                                                 type="date"
-                                                                className="bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 h-7 rounded-md pl-6 w-full"
+                                                                className="bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 h-7 rounded-lg pl-6 w-full"
                                                                 value={payment.payment_date || new Date().toISOString().split('T')[0]}
                                                                 onChange={(e) => updatePayment(index, 'payment_date', e.target.value)}
                                                             />
@@ -1030,6 +1081,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 </div>
             )}
         </div>
+        </>
     );
 };
 

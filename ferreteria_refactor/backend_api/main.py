@@ -24,6 +24,9 @@ from .config import settings
 from .database.db import engine
 from .routers.products import router as products_router
 from .routers.customers import router as customers_router
+from .routers.whatsapp import router as whatsapp_router
+from .routers.onboarding import router as onboarding_router
+from .routers.public_catalog import router as public_catalog_router
 from .routers.quotes import router as quotes_router
 from .routers.cash import router as cash_router
 from .routers.suppliers import router as suppliers_router
@@ -45,6 +48,7 @@ from .routers.credits import router as credits_router
 from .routers.services import router as services_router
 from .routers.service_templates import router as service_templates_router
 from .routers.commissions import router as commissions_router
+from .routers.commission_config import router as commission_config_router
 from .routers.rma import router as rma_router
 from .routers.price_lists import router as price_lists_router
 from .routers.employees import router as employees_router
@@ -228,6 +232,9 @@ v1_router = APIRouter(prefix="/api/v1")
 
 v1_router.include_router(products_router, tags=["Inventario"])
 v1_router.include_router(customers_router, tags=["Clientes"])
+v1_router.include_router(whatsapp_router, tags=["WhatsApp"])
+v1_router.include_router(onboarding_router, tags=["Onboarding"])
+v1_router.include_router(public_catalog_router, tags=["Catálogo Público"])
 v1_router.include_router(quotes_router, tags=["Presupuestos"])
 v1_router.include_router(cash_router, tags=["Caja"])
 v1_router.include_router(suppliers_router, tags=["Proveedores"])
@@ -250,6 +257,7 @@ v1_router.include_router(transfers_router, tags=["Traslados"])
 v1_router.include_router(services_router, tags=["Servicios Técnicos"])
 v1_router.include_router(service_templates_router, tags=["Plantillas de Servicio"])
 v1_router.include_router(commissions_router, tags=["Comisiones"])
+v1_router.include_router(commission_config_router, tags=["Comisiones - Configuración"])
 v1_router.include_router(rma_router, tags=["Garantías RMA"])
 v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
 v1_router.include_router(employees_router, tags=["Barbería y Empleados"])
@@ -272,6 +280,8 @@ v1_router.include_router(admin_flags_router, tags=["Feature Flags"])
 
 # Include Public Auth and Restaurant in v1 hierarchy too
 from .routers import public_auth
+from .routers import organizations
+from .routers import inter_transfers, bloqueo as bloqueo_mod
 v1_router.include_router(public_auth.router, tags=["Public Auth"])
 
 from .routers.modules.restaurant import tables as restaurant_tables
@@ -284,6 +294,9 @@ v1_router.include_router(restaurant_menu.router, prefix="/restaurant", tags=["Re
 
 # Finally, include the master router into the app
 app.include_router(v1_router)
+app.include_router(organizations.router, prefix="/api/v1")
+app.include_router(inter_transfers.router, prefix="/api/v1")
+app.include_router(bloqueo_mod.router,     prefix="/api/v1")
 
 # DEBUG ENDPOINT - Remove after debugging
 @app.get("/api/v1/debug/routes", dependencies=[Depends(get_current_superuser)])

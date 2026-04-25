@@ -2,6 +2,24 @@
 
 Este documento ofrece una visión panorámica de la plataforma **Mi Inventario Fácil**, detallando los componentes actuales, los que están en desarrollo y la visión de crecimiento del ecosistema.
 
+## [2026-04-05] Multi-Empresa — COMPLETADO ✅
+
+Sistema completo de grupos empresariales implementado en `feature/multi-empresa`:
+
+- Sprint 0: BD (5 tablas nuevas + organization_id en tenants)
+- Sprint 1: 22+ endpoints backend
+- Sprint 2: Login unificado + switch de empresa
+- Sprint 3: Dashboard consolidado del grupo
+- Sprint 4: Catálogo compartido
+- Sprint 5: Transferencias de stock entre empresas con Kardex
+- Sprint 6: WhatsApp compartido + configuración de planes
+- Panel SaaS Admin: módulo Organizaciones completo
+- Bot Telegram: 10 comandos /org
+
+Tests: 30/30 con datos reales. Pendiente: merge a main + migraciones en prod.
+
+
+
 ## 1. El Ecosistema de Mi Inventario Fácil
 
 La plataforma no es solo un POS, sino un conjunto de herramientas interconectadas que facilitan la vida del comerciante:

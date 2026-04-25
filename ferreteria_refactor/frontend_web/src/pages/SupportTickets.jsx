@@ -178,7 +178,16 @@ const SupportTickets = () => {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {tickets.map((ticket) => (
+                            {tickets.length === 0 && !loading && (
+                <div className="col-span-full py-20 text-center">
+                    <div className="flex flex-col items-center gap-3 text-slate-400">
+                        <span className="text-5xl">🎫</span>
+                        <p className="font-bold text-slate-600 text-lg">Sin tickets de soporte</p>
+                        <p className="text-sm">Cuando necesites ayuda, crea un ticket aquí</p>
+                    </div>
+                </div>
+            )}
+            {tickets.map((ticket) => (
                                 <div
                                     key={ticket.id}
                                     className={clsx(
@@ -235,7 +244,7 @@ const SupportTickets = () => {
                                             {ticket.admin_response ? (
                                                 <div className="bg-emerald-50 border-l-4 border-emerald-400 p-5 rounded-r-2xl">
                                                     <div className="flex items-center gap-2 mb-3">
-                                                        <div className="bg-emerald-600 text-white p-1 rounded-md shadow-sm">
+                                                        <div className="bg-emerald-600 text-white p-1 rounded-lg shadow-sm">
                                                             <MessageSquare size={14} />
                                                         </div>
                                                         <div className="text-[11px] uppercase font-black text-emerald-800 tracking-wider">Respuesta de Soporte</div>

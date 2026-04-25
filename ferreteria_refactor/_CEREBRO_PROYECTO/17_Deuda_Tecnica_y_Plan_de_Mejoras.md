@@ -542,3 +542,95 @@ Estas partes del sistema están bien diseñadas y no requieren cambios:
 > **Nota:** Este documento debe actualizarse conforme se van resolviendo
 > los puntos. Mover los ítems completados al documento
 > `10_Registro_Actualizaciones.md`.
+
+---
+
+## Backlog de Features — Sesión 2026-04-01
+
+> Ideas identificadas como mejoras de alto valor. Ordenadas por impacto estimado.
+
+### 🔴 ALTA PRIORIDAD
+
+#### F-01 — Notificaciones y alertas inteligentes
+**Problema:** El sistema sabe muchas cosas pero no le avisa a nadie.
+**Propuesta:**
+- Alerta de stock mínimo al cajero/admin cuando un producto baja del umbral
+- Notificación de orden de taller sin movimiento > N días
+- Aviso de cambio de tasa BCV
+- Recordatorio de comisiones pendientes de pagar
+**Stack sugerido:** WebSockets (ya existe), tabla `notifications` en BD, panel de notificaciones en header.
+
+#### F-02 — Integración WhatsApp Business
+**Problema:** Tickets, órdenes listas y cotizaciones se envían manualmente copiando y pegando.
+**Propuesta:**
+- Botón "Enviar ticket por WhatsApp" en POS y Taller
+- Notificación automática "Su equipo está listo" al cambiar orden a READY
+- Envío de cotizaciones/presupuestos en formato limpio
+**Stack sugerido:** Twilio API o Meta Business API, campo `whatsapp` en tabla clientes.
+
+#### F-03 — Dashboard Ejecutivo Mejorado ← EN DESARROLLO
+**Problema:** El dashboard actual solo muestra ventas del día sin profundidad analítica.
+**Propuesta:** Ver documento de propuesta técnica generado en la sesión.
+**Estado:** Propuesta aprobada — pendiente desarrollo.
+
+### 🟡 PRIORIDAD MEDIA
+
+#### F-04 — Presupuestos / Cotizaciones formales
+**Problema:** El módulo de Quotes existe pero está muy básico. Los clientes no pueden enviar cotizaciones profesionales.
+**Propuesta:** PDF generado desde el sistema, validez configurable, estado (pendiente/aprobado/rechazado), conversión directa a venta.
+
+#### F-05 — Programa de fidelización / Puntos
+**Problema:** No hay incentivo para que el cliente vuelva.
+**Propuesta:** Cada compra acumula puntos, el cliente puede canjearlos. Especialmente útil para lavanderías, repuestos y negocios frecuentes.
+**BD:** Tabla `loyalty_points` por tenant, campo `points_balance` en clientes.
+
+#### F-06 — Módulo Cuentas por Pagar (Proveedores)
+**Problema:** El sistema controla lo que le deben los clientes pero no lo que el negocio le debe a proveedores.
+**Propuesta:** Registrar facturas de compra, fechas de vencimiento, pagos parciales, alertas de vencimiento.
+
+#### F-07 — Facturación electrónica (SENIAT)
+**Problema:** Cuando el SENIAT implemente facturación electrónica obligatoria, los negocios sin sistema estarán en problemas.
+**Propuesta:** Anticiparse con el módulo. El sistema ya tiene estructura de impuestos (IVA, IGTF).
+**Estado:** Esperar resolución oficial del SENIAT. Diseñar la BD ahora.
+
+#### F-08 — PWA (App instalable en móvil)
+**Problema:** El frontend no es instalable en teléfono. Los cajeros no tienen una experiencia "app nativa".
+**Propuesta:** Service Worker + manifest.json + modo offline básico para POS. Sin código nativo.
+
+### 🟢 MEJORAS DE CALIDAD
+
+#### F-09 — Búsqueda global Ctrl+K
+**Problema:** Para encontrar un producto, cliente u orden hay que navegar al módulo correcto.
+**Propuesta:** Buscador flotante accesible desde cualquier pantalla. Busca en productos, clientes, órdenes, ventas simultáneamente.
+
+#### F-10 — Historial del cliente unificado
+**Problema:** Las compras POS, órdenes de taller y créditos están en módulos separados sin vista unificada.
+**Propuesta:** Vista 360° del cliente: compras, taller, crédito, comisiones (si es empleado), puntos.
+
+#### F-11 — Backups automáticos programados
+**Problema:** No hay backup automático visible de la BD de prod.
+**Propuesta:** Cron job que haga pg_dump diario y lo suba a Google Drive o S3. Alerta si falla.
+**Urgencia:** CRÍTICO para clientes que pierdan datos — implementar pronto.
+
+#### F-12 — Modo offline básico para POS
+**Problema:** Si se cae el internet, la caja se paraliza.
+**Propuesta:** Service Worker que cachee catálogo y permita registrar ventas offline para sincronizar después.
+
+---
+
+### Tabla de priorización
+
+| ID | Feature | Impacto | Esfuerzo | Prioridad |
+|---|---|---|---|---|
+| F-03 | Dashboard ejecutivo | Alto | Medio | 🔴 Ahora |
+| F-01 | Notificaciones | Alto | Medio | 🔴 Próximo |
+| F-02 | WhatsApp | Alto | Alto | 🔴 Próximo |
+| F-11 | Backups automáticos | Crítico | Bajo | 🔴 Pronto |
+| F-09 | Búsqueda global | Medio | Bajo | 🟡 |
+| F-04 | Cotizaciones PDF | Medio | Medio | 🟡 |
+| F-08 | PWA offline | Alto | Alto | 🟡 |
+| F-05 | Fidelización puntos | Medio | Medio | 🟢 |
+| F-06 | Cuentas por pagar | Medio | Alto | 🟢 |
+| F-10 | Historial cliente 360 | Medio | Medio | 🟢 |
+| F-07 | Facturación SENIAT | Alto | Alto | 🟢 Futuro |
+| F-12 | POS offline | Alto | Muy alto | 🟢 Futuro |

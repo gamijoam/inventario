@@ -1,4 +1,6 @@
 import React, { lazy, Suspense } from 'react';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
     FileText, Users, CornerDownLeft, ShieldCheck, CreditCard, Info
@@ -54,6 +56,14 @@ const SalesCenter = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const activeTab = searchParams.get('tab') || 'cotizaciones';
+    const help = useHelp();
+    const helpKey = {
+        cotizaciones: 'sales/cotizaciones',
+        clientes:     'sales/clientes',
+        devoluciones: 'sales/devoluciones',
+        garantias:    'sales/garantias',
+        creditos:     'sales/creditos',
+    }[activeTab] || null;
 
     const setActiveTab = (tabId) => {
         setSearchParams({ tab: tabId });
@@ -118,6 +128,7 @@ const SalesCenter = () => {
                             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Centro de Ventas</h1>
                             <p className="text-slate-500 text-sm font-medium">Gestión completa de clientes, cotizaciones y postventa</p>
                         </div>
+                        {helpKey && <HelpButton contextKey={helpKey} onClick={help.open} />}
                     </div>
 
                     {/* Tab Navigation */}
@@ -159,6 +170,7 @@ const SalesCenter = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
                 {renderTabContent()}
             </div>
+            {help.isOpen && helpKey && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div>
     );
 };

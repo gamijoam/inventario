@@ -1,10 +1,11 @@
 import { useAuth } from '../context/AuthContext';
+import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
+import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
-import { Layers, Settings as SettingsIcon, Users } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { useCart } from '../context/CartContext';
@@ -27,6 +28,7 @@ import CashMovementModal from '../components/cash/CashMovementModal';
 import CashAdvanceModal from '../components/cash/CashAdvanceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
+import SplitCartModal from "../components/pos/SplitCartModal";
 import usePOSCatalog from '../hooks/usePOSCatalog';
 import ServiceImportModal from './POS/ServiceImportModal';
 import SerializedItemModal from '../components/pos/SerializedItemModal';
@@ -46,7 +48,7 @@ const formatStock = (stock) => {
 
 const POS = () => {
     const { user, updateUserPreferences } = useAuth();
-    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart } = useCart();
+    const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
     const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
     const { subscribe } = useWebSocket();
@@ -58,12 +60,15 @@ const POS = () => {
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
     // Toggle por moneda: { VES: true, COP: false } — default ON para todas
+    const help = useHelp();
+    const helpKey = 'pos';
     const [showCurrencies, setShowCurrencies] = useState(() => {
         try {
             const s = localStorage.getItem('pos_show_currencies');
             return s ? JSON.parse(s) : {};
         } catch { return {}; }
     });
+    
     const isCurrencyVisible = (code) => showCurrencies[code] !== false;
     const toggleCurrency = (code) => {
         setShowCurrencies(prev => {
@@ -105,6 +110,8 @@ const POS = () => {
     const [selectedProductForUnits, setSelectedProductForUnits] = useState(null);
     const [selectedItemForEdit, setSelectedItemForEdit] = useState(null);
     const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+    const [isSplitCartModalOpen, setIsSplitCartModalOpen] = useState(false);
+    const [pendingCreditItems, setPendingCreditItems] = useState(null);
     const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
     const [isMovementOpen, setIsMovementOpen] = useState(false);
     const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
@@ -159,7 +166,7 @@ const POS = () => {
     useHotkeys('f5', (e) => {
         e.preventDefault();
         if (cart.length > 0) {
-            setIsPaymentOpen(true);
+            handleCheckoutClick();
         }
     }, {
         preventDefault: true,  // Critical: prevent browser refresh
@@ -324,7 +331,7 @@ const POS = () => {
                     // The catch block already handles errors silently, so no toast needed.
                     const [usersRes, employeesRes] = await Promise.all([
                         apiClient.get('/users', { _silent403: true, _silentNetworkError: true }),
-                        apiClient.get('/employees/', { _silent403: true, _silentNetworkError: true })
+                        apiClient.get('/employees', { _silent403: true, _silentNetworkError: true })
                     ]);
 
                     if (Array.isArray(usersRes.data)) {
@@ -598,6 +605,45 @@ const POS = () => {
         return response;
     };
 
+    
+    const handleCheckoutClick = () => {
+        const imeiItems = cart.filter(item => item.has_imei === true || item.product?.requires_imei === true || item.requires_imei === true);
+        const hasNonIMEI = cart.some(item => !item.has_imei && !item.product?.requires_imei && !item.requires_imei);
+        
+        const hasMultipleIMEI = imeiItems.length > 1;
+
+        if (hasNonIMEI && imeiItems.length > 0) {
+            // Caso 1: Mixto (Accesorios + Celulares)
+            setIsSplitCartModalOpen(true);
+        } else if (hasMultipleIMEI) {
+            // Caso 2: Múltiples Celulares (Deben ir uno por uno)
+            import("react-hot-toast").then(m => m.toast.loading("Procesando dispositivos uno por uno...", { duration: 3000 }));
+            handleSplitCart(); // Reutilizamos la lógica de split
+        } else {
+            setIsPaymentOpen(true);
+        }
+    };
+
+    const handleSplitCart = () => {
+        const imeiItems = cart.filter(item => item.product?.requires_imei || item.requires_imei || item.has_imei);
+        const nonImeiItems = cart.filter(item => !(item.product?.requires_imei || item.requires_imei || item.has_imei));
+
+        if (nonImeiItems.length > 0 && imeiItems.length > 0) {
+            // Prioridad: Sacar accesorios primero (contado)
+            setPendingCreditItems(imeiItems);
+            overwriteCart(nonImeiItems);
+        } else if (imeiItems.length > 1) {
+            // Si solo hay teléfonos, dejamos el primero y mandamos el resto a la cola
+            const firstPhone = imeiItems[0];
+            const restOfPhones = imeiItems.slice(1);
+            setPendingCreditItems(restOfPhones);
+            overwriteCart([firstPhone]);
+        }
+        
+        setIsSplitCartModalOpen(false);
+        setIsPaymentOpen(true);
+    };
+
     const handleCheckout = (paymentData) => {
         setLastSaleData({
             cart: [...cart],
@@ -618,6 +664,14 @@ const POS = () => {
         }
         setLastSaleData(null);
         clearCart();
+        const toRestore = pendingCreditItems;
+        if (toRestore && toRestore.length > 0) {
+            setPendingCreditItems(null);
+            setTimeout(() => {
+                overwriteCart(toRestore);
+                import("react-hot-toast").then(m => m.toast.success("Teléfono restaurado para facturar a crédito"));
+            }, 600);
+        }
         setActiveServiceOrderId(null);
         setServiceOrderTicket(null);
         setQuoteCustomer(null);
@@ -684,6 +738,7 @@ const POS = () => {
                     </Link>
                     <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
                     <h1 className="text-lg font-black text-slate-800 tracking-tight hidden md:block">Punto de Venta</h1>
+                        <HelpButton contextKey={helpKey} onClick={help.open} />
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -855,7 +910,7 @@ const POS = () => {
                                 totals={{ totalUSD, totalBs }}
                                 totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
-                                onCheckout={() => setIsPaymentOpen(true)}
+                                onCheckout={() => handleCheckoutClick()}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
@@ -905,7 +960,7 @@ const POS = () => {
                                 totals={{ totalUSD, totalBs }}
                                 totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
-                                onCheckout={() => setIsPaymentOpen(true)}
+                                onCheckout={() => handleCheckoutClick()}
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
@@ -947,7 +1002,7 @@ const POS = () => {
                                 totals={{ totalUSD, totalBs }}
                                 totalsByCurrency={totalsByCurrency}
                                 anchorCurrency={anchorCurrency}
-                                onCheckout={() => { setIsMobileCartOpen(false); setIsPaymentOpen(true); }}
+                                onCheckout={() => { setIsMobileCartOpen(false); handleCheckoutClick(); }}
                                 onItemClick={(item) => { setIsMobileCartOpen(false); setSelectedItemForEdit(item); }}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
@@ -1005,8 +1060,14 @@ const POS = () => {
                 <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
                 <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
+                <SplitCartModal 
+                    isOpen={isSplitCartModalOpen} 
+                    onClose={() => setIsSplitCartModalOpen(false)} 
+                    onSplit={handleSplitCart} 
+                />
                 <CashClosingModal isOpen={isClosingOpen} onClose={() => setIsClosingOpen(false)} />
             </div>
+        {help.isOpen && <HelpDrawer contextKey={helpKey} onClose={help.close} />}
         </div >
     );
 };

@@ -112,7 +112,7 @@ const UnitSelectionModal = ({ isOpen, onClose, product, onSelect }) => {
                             {/* Factor Info */}
                             {!opt.is_base && (
                                 <div className="mt-3 text-xs text-slate-400 border-t border-slate-100 pt-2 w-full">
-                                    Factor: x{opt.factor}
+                                    {(opt.factor >= 1) ? `Contiene ${Number(opt.factor).toFixed(0)} unidades` : `1 unidad = ${(1/Number(opt.factor)).toFixed(0)} ${product.unit_type || 'unidades'}`}
                                 </div>
                             )}
                         </button>

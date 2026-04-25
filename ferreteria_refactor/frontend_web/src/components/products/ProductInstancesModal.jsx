@@ -3,6 +3,7 @@ import { X, Search, Loader2, Copy, Check, Filter } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { Badge } from '../../components/ui/badge';
 import { toast } from 'react-hot-toast';
+import { normalizeSearch } from '../../utils/search';
 
 const ProductInstancesModal = ({ isOpen, onClose, product }) => {
     const [instances, setInstances] = useState([]);
@@ -50,7 +51,7 @@ const ProductInstancesModal = ({ isOpen, onClose, product }) => {
     };
 
     const filteredInstances = instances.filter(instance => {
-        const matchesSearch = instance.serial_number.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = normalizeSearch(instance.serial_number).includes(normalizeSearch(searchTerm));
         const matchesStatus = !statusFilter || instance.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
@@ -142,7 +143,7 @@ const ProductInstancesModal = ({ isOpen, onClose, product }) => {
                                             <td className="px-6 py-3 text-right">
                                                 <button
                                                     onClick={() => copyToClipboard(instance.serial_number)}
-                                                    className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                                    className="p-1.5 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                                                     title="Copiar Serial"
                                                 >
                                                     <Copy size={14} />

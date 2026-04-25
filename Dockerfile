@@ -6,7 +6,7 @@ WORKDIR /app/frontend
 COPY ferreteria_refactor/frontend_web/package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 # Copy source code and build
 COPY ferreteria_refactor/frontend_web/ ./

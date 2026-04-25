@@ -15,10 +15,13 @@ import { Capacitor } from '@capacitor/core';
 import AndroidBackButton from './components/common/AndroidBackButton';
 
 // Eager imports — critical path only
+import OnboardingWizard from './components/onboarding/OnboardingWizard';
+import { useOnboarding } from './hooks/useOnboarding';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
 // Lazy-loaded pages (all non-critical-path pages)
+import PublicCatalog from './pages/Catalog/PublicCatalog';
 const ForgotPassword = React.lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('./pages/ResetPassword'));
 const Unauthorized = React.lazy(() => import('./pages/Unauthorized'));
@@ -33,7 +36,8 @@ const POS = React.lazy(() => import('./pages/POS'));
 const CashClose = React.lazy(() => import('./pages/CashClose'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Purchases = React.lazy(() => import('./pages/Purchases'));
-const CreatePurchase = React.lazy(() => import('./pages/Purchases/CreatePurchase'));
+const CreatePurchase  = React.lazy(() => import('./pages/Purchases/CreatePurchase'));
+const ImportHistory   = React.lazy(() => import('./pages/Purchases/ImportHistory'));
 const PurchaseDetail = React.lazy(() => import('./pages/Purchases/PurchaseDetail'));
 // Supplier Ledger
 const SupplierLedger = React.lazy(() => import('./pages/Suppliers/SupplierLedger'));
@@ -62,8 +66,9 @@ const MobileWaiterLayout = React.lazy(() => import('./layouts/MobileWaiterLayout
 const WaiterLogin = React.lazy(() => import('./pages/Mobile/WaiterLogin'));
 const MobileTableGrid = React.lazy(() => import('./pages/Mobile/MobileTableGrid'));
 const MobileOrderTaker = React.lazy(() => import('./pages/Mobile/MobileOrderTaker'));
-const ServicesUnified = React.lazy(() => import('./pages/Services/ServicesUnified'));
-const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // Fallback para links directos
+const ServicesUnified = React.lazy(() => import('./pages/Services/ServicesUnified')); // LEGACY
+const ServiceManager = React.lazy(() => import('./pages/Services/ServiceManager')); // LEGACY
+const ServicesDashboard = React.lazy(() => import('./pages/Services/ServicesDashboard')); // NEW v2
 const ReportsCenter = React.lazy(() => import('./pages/Reports/ReportsCenter')); // NEW: Unified Reports Center
 const InventoryCenter = React.lazy(() => import('./pages/Inventory/InventoryCenter')); // NEW: Unified Inventory Center
 const SalesCenter = React.lazy(() => import('./pages/Sales/SalesCenter')); // NEW: Unified Sales Center
@@ -87,6 +92,14 @@ const LaundryTicket = React.lazy(() => import('./pages/Laundry/components/Laundr
 const SupportTickets = React.lazy(() => import('./pages/SupportTickets'));
 const MiSuscripcion = React.lazy(() => import('./pages/MiSuscripcion'));
 const FuncionesPage = React.lazy(() => import('./pages/Settings/FuncionesPage'));
+// Multi-empresa — Sprint 3
+const ConsolidatedDashboard = React.lazy(() => import('./pages/Org/ConsolidatedDashboard'));
+// Multi-empresa — Sprint 4
+const SharedCatalog = React.lazy(() => import('./pages/Org/SharedCatalog'));
+// Multi-empresa — Sprint 5
+const InterCompanyTransfers = React.lazy(() => import('./pages/Org/InterCompanyTransfers'));
+// Multi-empresa — Sprint 6
+const OrgConfig = React.lazy(() => import('./pages/Org/OrgConfig'));
 
 // Suspense fallback spinner
 const SuspenseFallback = (
@@ -98,18 +111,33 @@ const SuspenseFallback = (
 class LazyErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null, componentStack: '' };
   }
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[LazyErrorBoundary]', error?.message, info?.componentStack);
+    this.setState({ componentStack: info?.componentStack || '' });
   }
   render() {
     if (this.state.hasError) {
+      const msg   = this.state.error?.message || '';
+      // componentStack muestra la jerarquía: el primer componente es el que crashea
+      const compStack = (this.state.componentStack || '')
+        .split('\n')
+        .filter(l => l.trim() && !l.includes('at '))
+        .slice(0, 6)
+        .join(' > ');
+      const lines = (this.state.componentStack || '')
+        .split('\n').slice(1, 5).join(' | ');
       return (
-        <div className="flex flex-col items-center justify-center h-screen gap-4">
-          <p className="text-gray-600">Error al cargar la página</p>
+        <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
+          <p className="text-gray-600 font-bold">Error al cargar la página</p>
+          {msg && <p className="text-xs text-red-600 max-w-lg text-center font-mono bg-red-50 p-2 rounded border border-red-200">{msg}</p>}
+          {lines && <p className="text-xs text-blue-600 max-w-lg text-center font-mono bg-blue-50 p-2 rounded border border-blue-200 break-all">Componente: {lines}</p>}
           <button
-            onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+            onClick={() => { this.setState({ hasError: false, error: null, componentStack: '' }); window.location.reload(); }}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Reintentar
@@ -121,6 +149,27 @@ class LazyErrorBoundary extends React.Component {
   }
 }
 
+// ── Onboarding Gate ─────────────────────────────────────────
+// Muestra el wizard de configuración inicial si el tenant no lo completó
+function OnboardingGate({ children }) {
+  const { completed, loading, refresh } = useOnboarding();
+  const [dismissed, setDismissed] = React.useState(false);
+
+  if (loading) return children;
+  if (!completed && !dismissed) {
+    return (
+      <>
+        {children}
+        <OnboardingWizard
+          onClose={() => { setDismissed(true); refresh(); }}
+        />
+      </>
+    );
+  }
+  return children;
+}
+
+
 function App() {
 
   // 🛡️ STARTUP LOADER (Chicken & Egg Fix)
@@ -130,6 +179,23 @@ function App() {
 
   React.useEffect(() => {
     const initApp = async () => {
+
+      // ── Procesar org_data de URL (switch entre dominios de org) ──────────────
+      // Cuando el CompanySwitcher redirige a otro subdominio, pasa las empresas
+      // de la organización en ?org_data=BASE64 para que el switcher siga visible
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const orgData = urlParams.get('org_data');
+        if (orgData) {
+          const orgs = JSON.parse(decodeURIComponent(atob(orgData)));
+          if (Array.isArray(orgs) && orgs.length > 0) {
+            localStorage.setItem('org_companies', JSON.stringify(orgs));
+          }
+          // Limpiar el parámetro de la URL sin recargar
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      } catch (_) {}
 
       if (Capacitor.isNativePlatform()) {
         const apiUrl = localStorage.getItem('api_url');
@@ -180,10 +246,30 @@ function App() {
     );
   }
 
+  // ── Catálogo público — sin providers de autenticación ──
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  if (hash === '#/catalogo' || hash.startsWith('#/catalogo?') || hash.startsWith('#/catalogo/')) {
+    return <PublicCatalog />;
+  }
+
   return (
     <CloudConfigProvider>
       <AuthProvider>
-        <Toaster position="top-right" />
+        <Toaster
+          position="top-left"
+          toastOptions={{
+            style: {
+              zIndex: 99999,
+              fontSize: '14px',
+              fontWeight: '600',
+              borderRadius: '12px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+            },
+            success: { duration: 3000 },
+            error:   { duration: 4000 },
+          }}
+          containerStyle={{ zIndex: 99999, top: 16, left: 16 }}
+        />
         <AppWithCloudConfig>
           <AutoSyncProvider>
             <WebSocketProvider>
@@ -205,6 +291,7 @@ function App() {
 
                           {/* Mobile Waiter Routes */}
                           <Route path="/mobile/login" element={<WaiterLogin />} />
+
                           <Route path="/mobile" element={
                             <ProtectedRoute>
                               <MobileWaiterLayout />
@@ -230,7 +317,15 @@ function App() {
                           {/* Dashboard Layout Routes */}
                           <Route element={<ProtectedRoute />}>
                             <Route element={<DashboardLayout />}>
-                              <Route path="/" element={<Dashboard />} />
+                              <Route path="/" element={<OnboardingGate><Dashboard /></OnboardingGate>} />
+                              {/* Multi-empresa: dashboard consolidado del grupo */}
+                              <Route path="/org/dashboard" element={<ConsolidatedDashboard />} />
+                              {/* Multi-empresa: catálogo compartido del grupo */}
+                              <Route path="/org/catalog" element={<SharedCatalog />} />
+                              {/* Multi-empresa: transferencias de stock entre empresas */}
+                              <Route path="/org/transfers" element={<InterCompanyTransfers />} />
+                              {/* Multi-empresa: configuración del grupo */}
+                              <Route path="/org/config" element={<OrgConfig />} />
 
                               {/* Unified Inventory Center */}
                               <Route path="/inventory-center" element={
@@ -366,6 +461,7 @@ function App() {
                               */}
 
                               {/* Admin Only */}
+                              <Route path="/settings" element={<Navigate to="/config-center" replace />} />
                               <Route path="/config-center" element={
                                 <ProtectedRoute roles={['ADMIN']}>
                                   <ConfigCenter />
@@ -434,12 +530,13 @@ function App() {
                               {/* Service Module Routes — ADMIN + CASHIER */}
                               <Route path="/services" element={
                                 <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <ServicesUnified />
+                                  <ServicesDashboard />
                                 </ProtectedRoute>
                               } />
+                              {/* LEGACY routes — kept for direct-link compatibility */}
                               <Route path="/services/orders/:id" element={
                                 <ProtectedRoute roles={['ADMIN', 'CASHIER']}>
-                                  <ServiceManager />
+                                  <ServicesDashboard />
                                 </ProtectedRoute>
                               } />
 

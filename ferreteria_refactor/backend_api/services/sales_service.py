@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, text
 from datetime import datetime, timedelta
+from ..tenant_context import get_tenant_schema
+from ..utils.time_utils import get_venezuela_now
 from fastapi import HTTPException, BackgroundTasks
 from decimal import Decimal
 import requests
@@ -9,7 +11,9 @@ from ..models.restaurant import RestaurantRecipe
 from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
+from . import webhook_service
 import asyncio
+from ..models.tenant import Tenant
 import asyncio
 import uuid
 from ..template_presets import (
@@ -18,6 +22,8 @@ from ..template_presets import (
     get_services_sale_80_template,
 )
 from ..audit_utils import log_action
+from ..commission_engine import CommissionEngine
+ 
 
 # DUPLICATED HELPER due to circular import risks if we try to import from routers
 def run_broadcast(event: str, data: dict):
@@ -45,7 +51,16 @@ class SalesService:
     def create_sale(db: Session, sale_data: schemas.SaleCreate, user_id: int, background_tasks: BackgroundTasks = None):
         try:
             updated_products_info = []
-            
+
+            # ── Commission Engine: cargar feature flags del tenant ──────────
+            _user_obj = db.query(models.User).filter(models.User.id == user_id).first()
+            _tenant_flags = {}
+            if _user_obj and _user_obj.tenant_id:
+                _tenant = db.query(Tenant).filter(Tenant.id == _user_obj.tenant_id).first()
+                _tenant_flags = _tenant.feature_flags or {} if _tenant else {}
+            commission_engine = CommissionEngine(db, _tenant_flags)
+            # ────────────────────────────────────────────────────────────────
+
             # Credit Validation for Credit Sales
             if sale_data.is_credit and sale_data.customer_id:
                 customer = db.query(models.Customer).filter(models.Customer.id == sale_data.customer_id).first()
@@ -97,10 +112,16 @@ class SalesService:
                     models.CashSession.status == "OPEN"
                 ).first()
             if not open_session:
-                # Fallback: find the session opened by THIS user (prevents cross-register contamination)
+                # Fallback: sesión del usuario actual
                 open_session = db.query(models.CashSession).filter(
                     models.CashSession.status == "OPEN",
                     models.CashSession.user_id == user_id
+                ).first()
+            if not open_session and getattr(sale_data, 'is_credit', False):
+                # Para ventas a crédito: usar cualquier caja abierta del tenant
+                # (el dueño de org puede no tener caja propia pero sí existe una abierta)
+                open_session = db.query(models.CashSession).filter(
+                    models.CashSession.status == "OPEN"
                 ).first()
             if not open_session:
                 raise HTTPException(status_code=400, detail="No hay una caja abierta. Debe abrir caja para realizar ventas.")
@@ -146,18 +167,32 @@ class SalesService:
             # 1. Create Sale Header
             # CRITICAL FIX: Respect Frontend's VES calculation (preserves anchoring)
             total_bs = sale_data.total_amount_bs
-            current_time = datetime.now() # Explicitly set time to avoid refresh need
+            current_time = get_venezuela_now() # Explicitly set time to avoid refresh need
             
             print(f"[DEBUG] Creating Sale. Method: {sale_data.payment_method}. Payments: {sale_data.payments}")
 
             # Calculate due date for credit sales
             due_date = None
             balance_pending = None
-            if sale_data.is_credit and sale_data.customer_id:
-                customer = db.query(models.Customer).filter(models.Customer.id == sale_data.customer_id).first()
-                if customer:
-                    due_date = current_time + timedelta(days=customer.payment_term_days)
-                    balance_pending = sale_data.total_amount
+            if sale_data.is_credit:
+                # Calcular balance_pending usando el enganche si viene de CalculadoraCredito
+                if sale_data.credit_down_payment is not None and float(sale_data.credit_down_payment) > 0:
+                    # Modelo plano: total = precio + interes, financiado = total - enganche
+                    precio    = float(sale_data.total_amount)
+                    enganche  = float(sale_data.credit_down_payment)
+                    tasa      = float(sale_data.credit_interest_rate or 0)
+                    interes   = precio * (tasa / 100)
+                    total_con_interes = precio + interes
+                    balance_pending = max(0.0, total_con_interes - enganche)
+                else:
+                    # Venta a crédito simple sin calculadora — saldo = monto total
+                    balance_pending = float(sale_data.total_amount)
+
+                if sale_data.customer_id:
+                    customer = db.query(models.Customer).filter(models.Customer.id == sale_data.customer_id).first()
+                    if customer:
+                        _term_days = customer.payment_term_days if customer.payment_term_days is not None else 30
+                        due_date = current_time + timedelta(days=_term_days)
             
             new_sale = models.Sale(
                 date=current_time, # Explicitly set date
@@ -165,7 +200,12 @@ class SalesService:
                 payment_method=sale_data.payment_method,
                 customer_id=sale_data.customer_id,
                 is_credit=sale_data.is_credit,
-                paid=not sale_data.is_credit, 
+                paid=not sale_data.is_credit,
+                credit_down_payment       = float(sale_data.credit_down_payment)       if sale_data.credit_down_payment       else None,
+                credit_installments       = int(sale_data.credit_installments)         if sale_data.credit_installments       else None,
+                credit_interest_rate      = float(sale_data.credit_interest_rate)      if sale_data.credit_interest_rate      else None,
+                credit_frequency          = sale_data.credit_frequency                 if sale_data.credit_frequency          else None,
+                credit_installment_amount = float(sale_data.credit_installment_amount) if sale_data.credit_installment_amount else None, 
                 currency=sale_data.currency,
                 exchange_rate_used=sale_data.exchange_rate,
                 total_amount_bs=total_bs,
@@ -200,6 +240,15 @@ class SalesService:
             sale_payment_method = new_sale.payment_method
             sale_customer_id = new_sale.customer_id
             sale_date_iso = current_time.isoformat()
+            sale_change_amount   = float(new_sale.change_amount)   if new_sale.change_amount   else 0.0
+            sale_change_currency = new_sale.change_currency or ""
+            sale_exchange_rate   = float(new_sale.exchange_rate_used) if new_sale.exchange_rate_used else 1.0
+            sale_total_bs        = float(new_sale.total_amount_bs) if new_sale.total_amount_bs else 0.0
+            # Snapshot de pagos para el ticket WhatsApp (sale_data disponible aquí)
+            sale_payments_snapshot = [
+                {"currency": p.currency, "amount": float(p.amount)}
+                for p in (sale_data.payments or [])
+            ]
 
             # Update Quote Status if this sale comes from a quote
             if sale_data.quote_id:
@@ -427,29 +476,51 @@ class SalesService:
                     
                     # NEW: SERIALIZED INVENTORY LOGIC
                     if product.has_imei:
-                        if not item.serial_numbers:
-                            raise HTTPException(status_code=400, detail=f"Product '{product.name}' is serialized (has_imei=True) but no serial numbers provided.")
+                        # ── Productos serializados (con IMEI) ──────────────────────────────
+                        # Para ventas a crédito sin seriales: auto-seleccionar instancias AVAILABLE
+                        # Para ventas normales: se deben proveer los seriales
                         
-                        # Verify quantity match
-                        # Serialized items usually behave as Units (factor 1). 
-                        if len(item.serial_numbers) != units_to_deduct:
-                             raise HTTPException(status_code=400, detail=f"Discrepancia de cantidad para producto serializado '{product.name}'. Esperado {int(units_to_deduct)}, recibido {len(item.serial_numbers)}.")
+                        if not item.serial_numbers and not sale_data.is_credit:
+                            raise HTTPException(status_code=400,
+                                detail=f"Product '{product.name}' is serialized (has_imei=True) but no serial numbers provided.")
 
-                        # Fetch and Lock Instances
-                        sold_instances = db.query(models.ProductInstance).filter(
-                            models.ProductInstance.product_id == product.id,
-                            models.ProductInstance.warehouse_id == warehouse_id,
-                            models.ProductInstance.serial_number.in_(item.serial_numbers),
-                            models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
-                        ).with_for_update().all()
-                        
-                        # Validate Existence
-                        if len(sold_instances) != len(item.serial_numbers):
-                            found_sns = {i.serial_number for i in sold_instances}
-                            missing = set(item.serial_numbers) - found_sns
-                            raise HTTPException(status_code=400, detail=f"Números de serie no encontrados o no disponibles en este almacén: {list(missing)}")
-                            
-                        # Update Status to SOLD
+                        # Verificar cantidad vs seriales provistos (solo si se enviaron)
+                        if item.serial_numbers and len(item.serial_numbers) != units_to_deduct:
+                            raise HTTPException(status_code=400,
+                                detail=f"Discrepancia de cantidad para producto serializado '{product.name}'. "
+                                       f"Esperado {int(units_to_deduct)}, recibido {len(item.serial_numbers)}.")
+
+                        sold_instances = []
+
+                        if item.serial_numbers:
+                            # Caso normal: seriales especificados → buscar y bloquear
+                            sold_instances = db.query(models.ProductInstance).filter(
+                                models.ProductInstance.product_id == product.id,
+                                models.ProductInstance.warehouse_id == warehouse_id,
+                                models.ProductInstance.serial_number.in_(item.serial_numbers),
+                                models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                            ).with_for_update().all()
+
+                            if len(sold_instances) != len(item.serial_numbers):
+                                found_sns = {i.serial_number for i in sold_instances}
+                                missing = set(item.serial_numbers) - found_sns
+                                raise HTTPException(status_code=400,
+                                    detail=f"Números de serie no encontrados o no disponibles: {list(missing)}")
+                        else:
+                            # Crédito sin seriales → auto-seleccionar las primeras instancias AVAILABLE
+                            # Esto evita que el stock quede desincronizado con las instancias
+                            sold_instances = db.query(models.ProductInstance).filter(
+                                models.ProductInstance.product_id == product.id,
+                                models.ProductInstance.warehouse_id == warehouse_id,
+                                models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                            ).with_for_update().limit(int(units_to_deduct)).all()
+
+                            if len(sold_instances) < int(units_to_deduct):
+                                raise HTTPException(status_code=400,
+                                    detail=f"Stock insuficiente para '{product.name}': "
+                                           f"solo {len(sold_instances)} unidades disponibles con IMEI registrado.")
+
+                        # Marcar instancias como SOLD
                         for instance in sold_instances:
                             instance.status = models.ProductInstanceStatus.SOLD
                             # instance.updated_at = datetime.now() # Auto
@@ -559,24 +630,23 @@ class SalesService:
                         )
                         db.add(sdi)
 
-                # AUTO-COMMISSION: Based on logged-in user's rate and product flag
-                if product.is_commissionable and user_id:
-                    salesperson = db.query(models.User).filter(models.User.id == user_id).first()
-                    if salesperson and salesperson.commission_percentage and salesperson.commission_percentage > 0:
-                        commission_amount = subtotal * (salesperson.commission_percentage / 100)
-                        if commission_amount > 0:
-                            comm_log = models.CommissionLog(
-                                user_id=salesperson.id,
-                                sale_detail_id=detail.id,
-                                amount=commission_amount,
-                                currency=new_sale.currency,
-                                percentage_applied=salesperson.commission_percentage
-                            )
-                            db.add(comm_log)
+                # ── COMMISSION ENGINE v2 ────────────────────────────────────
+                # Usa salesperson_id del ítem (no el usuario logueado)
+                # Jerarquía: regla de categoría > % del usuario > sin comisión
+                _sp_id = getattr(item, 'salesperson_id', None) or user_id
+                if _sp_id:
+                    _salesperson = db.query(models.User).filter(models.User.id == _sp_id).first()
+                    if _salesperson:
+                        commission_engine.record_vendor_commission(
+                            sale_id=new_sale.id,
+                            detail=detail,
+                            salesperson=_salesperson,
+                        )
+                # ────────────────────────────────────────────────────────────
         
             # 3. Process Payments (New Multi-Payment Logic)
+            total_paid_usd = Decimal("0.00")
             if sale_data.payments:
-                total_paid_usd = Decimal("0.00")
 
                 for p in sale_data.payments:
                     # =========================================================================
@@ -671,6 +741,102 @@ class SalesService:
             # Audit log
             log_action(db, user_id=user_id, action="CREATE", table_name="sales", record_id=new_sale_id, changes=None, ip_address=None)
 
+            # ── BloqueCelular: Sincronizar venta a crédito (solo celulares) ───────────
+            # REGLA: Solo se sincronizan productos con has_imei=True (celulares).
+            # Productos sin IMEI (ropa, alimentos, etc.) NO se envían a BloqueCelular.
+            # No-bloqueante: si falla, la venta ya fue guardada correctamente.
+            if sale_data.is_credit and sale_customer_id:
+                try:
+                    from ..services.bloqueocelular_service import sincronizar_venta_credito, is_enabled
+                    from ..tenant_context import get_tenant_schema as _gts
+                    from sqlalchemy import text as _blq_text
+                    _schema = _gts()
+
+                    if is_enabled(db, _schema):
+                        # --- AUDITORIA: Split Logic (Credito vs Contado) ---
+                        # --- AUDITORIA: Feature Flag Logic ---
+                         
+                        _tenant = db.query(Tenant).filter(Tenant.schema_name == _schema).first()
+                        _is_split_active = False
+                        if _tenant and _tenant.feature_flags:
+                            _is_split_active = _tenant.feature_flags.get("bloqueocelular_split_logic", False)
+                        # -------------------------------------
+                        
+                        # Calcular el total solo de los celulares (con IMEI)
+                        _total_celulares = db.execute(_blq_text(
+                            f"SELECT SUM(sd.unit_price * sd.quantity) FROM \"{_schema}\".sale_details sd "
+                            f"JOIN \"{_schema}\".products p ON p.id = sd.product_id "
+                            f"WHERE sd.sale_id = :sid AND p.has_imei = TRUE"
+                        ), {"sid": new_sale_id}).scalar() or 0
+                        # --------------------------------------------------\n                        # Verificar si algún producto de la venta es celular (has_imei=True)
+                        _tiene_celular = db.execute(_blq_text(
+                            f'SELECT COUNT(*) FROM "{_schema}".sale_details sd '
+                            f'JOIN "{_schema}".products p ON p.id = sd.product_id '
+                            f'WHERE sd.sale_id = :sid AND p.has_imei = TRUE'
+                        ), {"sid": new_sale_id}).scalar() or 0
+
+                        if not _tiene_celular:
+                            print(f"[Bloqueo] ℹ️ Venta #{new_sale_id}: sin celulares — omitiendo sync")
+                        else:
+                            # Obtener datos del cliente
+                            _cust_row = db.execute(
+                                _blq_text(f'SELECT name, phone, id_number, email FROM "{_schema}".customers WHERE id = :cid'),
+                                {"cid": sale_customer_id}
+                            ).fetchone()
+
+                            # Buscar serial_number del celular en la venta
+                            _imei = None
+                            _prod_name = "Celular"
+                            _inst_row = db.execute(_blq_text(
+                                f'SELECT pi.serial_number, p.name '
+                                f'FROM "{_schema}".sale_detail_instances sdi '
+                                f'JOIN "{_schema}".sale_details sd ON sd.id = sdi.sale_detail_id '
+                                f'JOIN "{_schema}".product_instances pi ON pi.id = sdi.product_instance_id '
+                                f'JOIN "{_schema}".products p ON p.id = pi.product_id '
+                                f'WHERE sd.sale_id = :sid AND pi.serial_number IS NOT NULL LIMIT 1'
+                            ), {"sid": new_sale_id}).fetchone()
+
+                            if _inst_row:
+                                _imei      = _inst_row[0]
+                                _prod_name = _inst_row[1]
+                            else:
+                                _prod_row = db.execute(_blq_text(
+                                    f'SELECT p.name FROM "{_schema}".sale_details sd '
+                                    f'JOIN "{_schema}".products p ON p.id = sd.product_id '
+                                    f'WHERE sd.sale_id = :sid AND p.has_imei = TRUE '
+                                    f'ORDER BY sd.id ASC LIMIT 1'
+                                ), {"sid": new_sale_id}).fetchone()
+                                if _prod_row:
+                                    _prod_name = _prod_row[0]
+
+                            _blq_result = sincronizar_venta_credito(
+                                db                 = db,
+                                schema             = _schema,
+                                sale_id            = new_sale_id,
+                                customer_name      = _cust_row[0] if _cust_row else "Cliente",
+                                customer_phone     = _cust_row[1] if _cust_row else None,
+                                customer_id_number = _cust_row[2] if _cust_row else None,
+                                customer_email     = _cust_row[3] if _cust_row else None,
+                                total_amount       = float(sale_total_amount),
+                                balance_pending    = min(float(_total_celulares), float(sale_total_amount) - float(total_paid_usd)) if _is_split_active else float(sale_total_amount) - float(total_paid_usd),
+                                due_date           = None,
+                                imei               = _imei,
+                                product_name       = _prod_name,
+                                num_cuotas         = getattr(sale_data, "credit_installments", 6) or 6,
+                            )
+
+                            if _blq_result.get("ok"):
+                                print(f"[Bloqueo] ✅ Venta #{new_sale_id} sincronizada "
+                                      f"código: {_blq_result.get('codigo_activacion')}")
+                            else:
+                                print(f"[Bloqueo] ⚠️ Venta #{new_sale_id}: {_blq_result.get('error')}")
+                except Exception as _blq_e:
+                    import logging as _blq_log
+                    _blq_log.getLogger(__name__).warning(
+                        f"[Bloqueo] Error sincronizando venta #{new_sale_id}: {_blq_e}"
+                    )
+            # ── Fin BloqueCelular ───────────────────────────────────────────────────
+
             # NO db.refresh(new_sale) here! It causes "ObjectDeletedError" if session is unclean.
             # We already have all data captured in local variables.
             
@@ -683,7 +849,7 @@ class SalesService:
                         "stock": p_info["stock"]
                     })
                 
-                # Emit Sale Event
+                # Emit Sale Event (WebSocket frontend)
                 background_tasks.add_task(run_broadcast, WebSocketEvents.SALE_COMPLETED, {
                     "id": new_sale_id,
                     "total_amount": sale_total_amount,
@@ -692,6 +858,107 @@ class SalesService:
                     "customer_id": sale_customer_id,
                     "date": sale_date_iso
                 })
+
+                # WhatsApp — enviar ticket al cliente directamente vía servicio Baileys
+                if sale_customer_id:
+                    try:
+                        from sqlalchemy import text as _text
+                        from ..tenant_context import get_tenant_schema as _get_schema
+                        import httpx as _httpx
+                        _schema = _get_schema()
+
+                        # Obtener datos del cliente y config del negocio
+                        _row = db.execute(
+                            _text(f'SELECT name, phone FROM "{_schema}".customers WHERE id = :cid'),
+                            {"cid": sale_customer_id}
+                        ).fetchone()
+
+                        if _row and _row[1]:
+                            _name, _phone = _row[0], _row[1]
+
+                            # Verificar config WhatsApp en una sola query
+                            _wa_rows = db.execute(
+                                _text(
+                                    f"SELECT key, value FROM \"{_schema}\".business_config "
+                                    "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                                    "'whatsapp_notify_sale','business_name','whatsapp_template_sale')"
+                                )
+                            ).fetchall()
+                            _wa_cfg = {r[0]: r[1] for r in _wa_rows}
+                            _inst   = _wa_cfg.get("whatsapp_instance_name", "")
+                            _status = _wa_cfg.get("whatsapp_instance_status", "")
+                            _notify = _wa_cfg.get("whatsapp_notify_sale") != "false"  # None o "true" = habilitado
+
+                            if _inst and _status == "CONNECTED" and _notify:
+                                # Obtener nombre del negocio
+                                _biz_name = _wa_cfg.get("business_name") or "Mi Inventario"
+
+                                _clean_phone = "".join(c for c in _phone if c.isdigit())
+                                _tpl = _wa_cfg.get("whatsapp_template_sale") or (
+                                    "🧾 *{{negocio}}*\n¡Gracias por tu compra, {{cliente}}!\n\n"
+                                    "📋 Venta #{{id}}\n📦 {{metodo_pago}}\n\n"
+                                    "*PAGOS:*\n{{pagos}}\n\n*TOTAL: {{total}}*{{vuelto}}\n\n"
+                                    "¡Gracias por preferirnos! 😊"
+                                )
+
+                                # Construir líneas de pago con moneda real
+                                _pay_lines = []
+                                for _p in sale_payments_snapshot:
+                                    _cur = _p["currency"]
+                                    _amt = _p["amount"]
+                                    # Si pagó en bolívares mostrar Bs, si en USD mostrar $
+                                    if _cur in ("VES", "Bs", "BS", "BsF"):
+                                        _pay_lines.append(f"  💳 Bs {_amt:,.2f}")
+                                    elif _cur in ("USD", "$"):
+                                        _pay_lines.append(f"  💵 $ {_amt:,.2f}")
+                                    else:
+                                        _pay_lines.append(f"  💰 {_cur} {_amt:,.2f}")
+
+                                if not _pay_lines:
+                                    # Fallback: mostrar el total en la moneda correcta
+                                    if sale_currency in ("VES", "Bs", "BS"):
+                                        _pay_lines = [f"  💳 Bs {sale_total_bs:,.2f}"]
+                                    else:
+                                        _pay_lines = [f"  💵 $ {sale_total_amount:,.2f}"]
+
+                                _pay_str = "\n".join(_pay_lines)
+
+                                # Línea de total según moneda de la venta
+                                if sale_currency in ("VES", "Bs", "BS", "BsF"):
+                                    _total_str = f"Bs {sale_total_bs:,.2f}"
+                                else:
+                                    _total_str = f"$ {sale_total_amount:,.2f}"
+
+                                # Vuelto
+                                _change_str = ""
+                                if sale_change_amount and sale_change_amount > 0.005:
+                                    if sale_change_currency in ("VES", "Bs", "BS", "BsF"):
+                                        _change_str = f"\n🔄 Vuelto: Bs {sale_change_amount:,.2f}"
+                                    elif sale_change_currency in ("USD", "$"):
+                                        _change_str = f"\n🔄 Vuelto: $ {sale_change_amount:,.2f}"
+                                    else:
+                                        _change_str = f"\n🔄 Vuelto: {sale_change_amount:,.2f}"
+
+                                # Tasa de cambio (mostrar solo si la venta es en Bs o hay pagos mixtos)
+                                # Aplicar plantilla con variables
+                                _msg = _tpl \
+                                    .replace("{{negocio}}",     _biz_name) \
+                                    .replace("{{cliente}}",     _name) \
+                                    .replace("{{id}}",          f"{new_sale_id:04d}") \
+                                    .replace("{{metodo_pago}}", sale_payment_method) \
+                                    .replace("{{pagos}}",       _pay_str) \
+                                    .replace("{{total}}",       _total_str) \
+                                    .replace("{{vuelto}}",      _change_str)
+                                # httpx síncrono — no bloquea significativamente (timeout 5s)
+                                with _httpx.Client(timeout=5) as _c:
+                                    _c.post(
+                                        f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                        json={"phone": _clean_phone, "message": _msg}
+                                    )
+
+                    except Exception as _wa_err:
+                        import logging as _log
+                        _log.getLogger(__name__).warning(f"[WA] Ticket venta falló (no afecta la venta): {_wa_err}")
                 
                 # AUTO-PRINT TICKET
                 # REMOVED: Server-side printing is incompatible with SaaS architecture.
@@ -729,7 +996,7 @@ class SalesService:
         
         # Get business info
         business_config = {}
-        configs = db.query(models.BusinessConfig).all()
+        configs = db.execute(text(f"SELECT key, value FROM {get_tenant_schema()}.business_config")).all()
         for config in configs:
             business_config[config.key] = config.value
             
@@ -812,9 +1079,21 @@ class SalesService:
             except Exception:
                 pass
 
+            # Unidad de venta — prioridad: unit vinculada > unit_type del producto > "Unid"
+            unit_name = ""
+            try:
+                if item.unit and item.unit.unit_name:
+                    unit_name = item.unit.unit_name
+                elif item.product and item.product.unit_type:
+                    unit_name = item.product.unit_type
+            except Exception:
+                pass
+
             formatted_items.append({
                 "product": {"name": display_name},
                 "quantity": float(item.quantity) if item.quantity % 1 != 0 else int(item.quantity),
+                "unit_name": unit_name,   # Ej: "Kg", "Litro", "Gramo", "Caja"
+                "unit_type": item.product.unit_type if item.product else "",  # unit_type base del producto
                 # Raw values (Backward Compatibility)
                 "unit_price": raw_price,
                 "subtotal": raw_total,
@@ -962,7 +1241,7 @@ class SalesService:
             
         # Get Business Config
         business_config = {}
-        configs = db.query(models.BusinessConfig).all()
+        configs = db.execute(text(f"SELECT key, value FROM {get_tenant_schema()}.business_config")).all()
         for config in configs:
             business_config[config.key] = config.value
 
@@ -1211,7 +1490,75 @@ Cierre:   {{ session.end_time }}
         
         db.commit()
         db.expunge(payment)
-        
+
+        # ── BloqueCelular: notificar abono ──────────────────────────────────────────
+        try:
+            from ..services.bloqueocelular_service import registrar_pago as _blq_pago, is_enabled
+            from ..tenant_context import get_tenant_schema as _gts
+            from sqlalchemy import text as _bt
+            _sch = _gts()
+            if sale.is_credit and is_enabled(db, _sch):
+                _blq_row = db.execute(
+                    _bt(f'SELECT bloqueo_dispositivo_id FROM "{_sch}".sales WHERE id = :id'),
+                    {"id": sale.id}
+                ).fetchone()
+                if _blq_row and _blq_row[0]:
+                    _blq_pago(
+                        db             = db,
+                        schema         = _sch,
+                        dispositivo_id = _blq_row[0],
+                        monto          = amount_usd,
+                        metodo         = payment_data.payment_method or "efectivo",
+                        num_cuota      = 1,  # Sin rastreo de número de cuota por ahora
+                    )
+        except Exception as _pe:
+            import logging as _pl
+            _pl.getLogger(__name__).warning(f"[Bloqueo] Error notificando abono: {_pe}")
+        # ── Fin BloqueCelular ───────────────────────────────────────────────────────
+
+        # WhatsApp — confirmar recepción del abono al cliente
+        try:
+            import httpx as _httpx
+            from sqlalchemy import text as _text
+            from ..tenant_context import get_tenant_schema as _gs
+            _s = _gs()
+            if sale.customer_id:
+                _cust = db.execute(
+                    _text(f'SELECT name, phone FROM "{_s}".customers WHERE id = :cid'),
+                    {"cid": sale.customer_id}
+                ).fetchone()
+                if _cust and _cust[1]:
+                    _wa = {r[0]: r[1] for r in db.execute(
+                        _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                              "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                              "'whatsapp_notify_sale','business_name')")).fetchall()}
+                    _inst   = _wa.get("whatsapp_instance_name","")
+                    _status = _wa.get("whatsapp_instance_status","")
+                    _notify = _wa.get("whatsapp_notify_sale") != "false"
+                    _biz    = _wa.get("business_name") or "Mi Inventario"
+                    if _inst and _status == "CONNECTED" and _notify:
+                        _cur = payment_data.currency
+                        if _cur in ("VES","Bs","BS"):
+                            _amt_str = f"Bs {float(payment_data.amount):,.2f}"
+                        else:
+                            _amt_str = f"$ {float(payment_data.amount):,.2f}"
+                        _status_str = "✅ *¡Saldo cancelado completamente!*" if sale.paid else f"📋 Saldo restante: $ {new_balance:,.2f}"
+                        _msg = (
+                            f"💳 *{_biz}*\n"
+                            f"Hola {_cust[0]}, confirmamos tu abono:\n\n"
+                            f"💰 Pago recibido: {_amt_str}\n"
+                            f"📄 Factura #{sale.id}\n"
+                            f"{_status_str}\n\n"
+                            f"¡Gracias por tu puntualidad! 🙏"
+                        )
+                        _phone = "".join(c for c in _cust[1] if c.isdigit())
+                        with _httpx.Client(timeout=5) as _c:
+                            _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                    json={"phone": _phone, "message": _msg})
+        except Exception as _e:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[WA] Confirmación abono falló: {_e}")
+
         return {
             "status": "success",
             "payment_id": payment.id,

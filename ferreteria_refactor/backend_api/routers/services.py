@@ -168,6 +168,52 @@ def create_service_order(
 
         db.commit()
 
+        # WhatsApp — confirmar recepción del equipo al cliente
+        try:
+            import httpx as _httpx
+            from sqlalchemy import text as _text
+            from ..tenant_context import get_tenant_schema as _gs
+            _s = _gs()
+            if new_order.customer_id:
+                _cust = db.execute(
+                    _text(f'SELECT name, phone FROM "{_s}".customers WHERE id = :cid'),
+                    {"cid": new_order.customer_id}
+                ).fetchone()
+                if _cust and _cust[1]:
+                    _wa = {r[0]: r[1] for r in db.execute(
+                        _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                              "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                              "'whatsapp_notify_order_ready','business_name')")).fetchall()}
+                    _inst   = _wa.get("whatsapp_instance_name","")
+                    _status = _wa.get("whatsapp_instance_status","")
+                    _notify = _wa.get("whatsapp_notify_order_ready") != "false"
+                    _biz    = _wa.get("business_name") or "Mi Inventario"
+                    if _inst and _status == "CONNECTED" and _notify:
+                        _device = (f"{new_order.brand or ''} {new_order.model or ''}".strip()
+                                   or new_order.device_type or "Equipo")
+                        _eta = ""
+                        if new_order.estimated_delivery:
+                            try:
+                                _eta = f"\n📅 Entrega estimada: {new_order.estimated_delivery.strftime('%d/%m/%Y')}"
+                            except Exception:
+                                pass
+                        _msg = (
+                            f"📥 *{_biz}*\n"
+                            f"Hola {_cust[0]}, hemos recibido tu equipo:\n\n"
+                            f"📱 {_device}\n"
+                            f"🎫 Orden: {ticket_number}\n"
+                            f"🔍 {new_order.problem_description or 'En diagnóstico'}\n"
+                            f"{_eta}\n\n"
+                            f"Te avisaremos cuando esté listo. ¡Gracias por tu preferencia!"
+                        )
+                        _phone = "".join(c for c in _cust[1] if c.isdigit())
+                        with _httpx.Client(timeout=5) as _c:
+                            _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                                    json={"phone": _phone, "message": _msg})
+        except Exception as _wa_e:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[WA] Notif recepción taller falló: {_wa_e}")
+
         return schemas.ServiceOrderRead.model_validate(final_order)
         
     except Exception as e:
@@ -200,20 +246,28 @@ def delete_service_order(
 
 @router.get("/orders", response_model=List[schemas.ServiceOrderRead])
 def get_service_orders(
-    skip: int = 0, 
-    limit: int = 100, 
+    skip: int = 0,
+    limit: int = 100,
     status: Optional[str] = None,
     customer_id: Optional[int] = None,
     service_type: Optional[str] = None,
-    search: Optional[str] = None, # NEW: Search term
+    search: Optional[str] = None,
+    show_archived: bool = False,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
     """List service orders with filters"""
-    # 🔒 Multi-Tenant Filter
     tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
-    
+
     query = db.query(models.ServiceOrder).filter(models.ServiceOrder.tenant_id == tenant_id)
+
+    # Por defecto excluir archivadas; con show_archived=true mostrar solo archivadas
+    if show_archived:
+        query = query.filter(models.ServiceOrder.is_archived == True)
+    else:
+        query = query.filter(
+            (models.ServiceOrder.is_archived == False) | (models.ServiceOrder.is_archived == None)
+        )
     
     if status:
         query = query.filter(models.ServiceOrder.status == status)
@@ -396,7 +450,82 @@ def update_service_order_status(
         if update_data.status not in models.ServiceOrderStatus.__members__:
              raise HTTPException(status_code=400, detail=f"Invalid status")
         order.status = models.ServiceOrderStatus[update_data.status]
-    
+
+        # WhatsApp — notificar al cliente en TODOS los cambios de estado
+        # con progresión acumulada (muestra los estados previos implícitos)
+        _WA_NOTIFY_STATES = {"DIAGNOSING", "APPROVED", "IN_PROGRESS", "READY", "DELIVERED"}
+        if update_data.status in _WA_NOTIFY_STATES and order.customer and order.customer.phone:
+            try:
+                import httpx as _httpx
+                from sqlalchemy import text as _text
+                from ..tenant_context import get_tenant_schema as _gts_wa
+
+                _s_wa = _gts_wa()
+                _cfg_wa = {r[0]: r[1] for r in db.execute(
+                    _text(f"SELECT key, value FROM \"{_s_wa}\".business_config "
+                          "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                          "'whatsapp_notify_order_ready','business_name')")
+                ).fetchall()}
+                _inst_wa   = _cfg_wa.get("whatsapp_instance_name", "")
+                _status_wa = _cfg_wa.get("whatsapp_instance_status", "")
+                _notify_wa = _cfg_wa.get("whatsapp_notify_order_ready") != "false"
+                _biz_wa    = _cfg_wa.get("business_name") or "Mi Inventario"
+
+                if _inst_wa and _status_wa == "CONNECTED" and _notify_wa:
+                    # Progresión de estados en orden lógico
+                    _STATE_ORDER = [
+                        ("RECEIVED",    "📥 Recibido"),
+                        ("DIAGNOSING",  "🔍 En diagnóstico"),
+                        ("APPROVED",    "✅ Aprobado"),
+                        ("IN_PROGRESS", "🔧 En reparación"),
+                        ("READY",       "✨ Listo para recoger"),
+                        ("DELIVERED",   "📦 Entregado"),
+                    ]
+                    _target_idx = next(
+                        (i for i, (s, _) in enumerate(_STATE_ORDER) if s == update_data.status), -1
+                    )
+                    # Construir progresión: todos los estados hasta el actual
+                    _progression = ""
+                    if _target_idx > 0:
+                        _steps = [label for _, label in _STATE_ORDER[1:_target_idx]]
+                        if _steps:
+                            _progression = "\n".join(f"  ✓ {s}" for s in _steps) + "\n"
+
+                    _current_label = _STATE_ORDER[_target_idx][1] if _target_idx >= 0 else update_data.status
+                    _ticket_wa = order.ticket_number or f"#{order.id}"
+                    _device_wa = (f"{order.brand or ''} {order.model or ''}".strip()
+                                  or order.device_type or "Equipo")
+                    _total_wa  = sum(float(d.quantity * d.unit_price) for d in order.details)
+                    _paid_wa   = sum(float(p.amount) for p in order.payments)
+                    _pend_wa   = max(0.0, _total_wa - _paid_wa)
+                    _total_str_wa   = f"${_total_wa:,.2f}" if _total_wa > 0 else ""
+                    _pending_str_wa = f"\n💰 Saldo pendiente: ${_pend_wa:,.2f}" if _pend_wa > 0.01 else ""
+
+                    _msg_wa = (
+                        f"🔧 *{_biz_wa}*\n"
+                        f"Actualización de tu orden *{_ticket_wa}*\n"
+                        f"📱 {_device_wa}\n\n"
+                    )
+                    if _progression:
+                        _msg_wa += f"{_progression}"
+                    _msg_wa += f"➡️ *{_current_label}*"
+                    if _total_str_wa:
+                        _msg_wa += f"\n\n💰 Total: {_total_str_wa}{_pending_str_wa}"
+
+                    # Mensaje especial para READY y DELIVERED
+                    if update_data.status == "READY":
+                        _msg_wa += "\n\n¡Puedes pasar a recogerlo en nuestro horario habitual! 🎉"
+                    elif update_data.status == "DELIVERED":
+                        _msg_wa += "\n\n¡Gracias por elegirnos! 🙌"
+
+                    _phone_wa = "".join(c for c in order.customer.phone if c.isdigit())
+                    with _httpx.Client(timeout=5) as _c_wa:
+                        _c_wa.post(f"http://whatsapp_service:3000/instance/{_inst_wa}/send",
+                                   json={"phone": _phone_wa, "message": _msg_wa})
+            except Exception as _wa_err:
+                import logging as _log
+                _log.getLogger(__name__).warning(f"[WA] Notif estado falló: {_wa_err}")
+
     if update_data.diagnosis_notes:
         order.diagnosis_notes = update_data.diagnosis_notes
         
@@ -512,11 +641,84 @@ def add_service_payment(
     db.add(new_payment)
     db.flush()
 
-    # Nota: payment_status=PAID solo se marca en el checkout (cuando se crea la Sale).
-    # Los abonos se acumulan como ServicePayment y se migran al checkout.
+    # ── Calcular totales actualizados ─────────────────────────────────
+    all_payments = db.query(models.ServicePayment).filter(
+        models.ServicePayment.service_order_id == order.id
+    ).all()
+    order_total  = sum(float(d.quantity * d.unit_price) for d in order.details)
+    total_paid   = sum(float(p.amount) for p in all_payments)
+    pending      = max(0.0, order_total - total_paid)
 
-    db.flush()
-    # Re-query con eager loading ANTES del commit (search_path se pierde después)
+    # ── WhatsApp: confirmación de abono al cliente ────────────────────
+    if order.customer and order.customer.phone:
+        try:
+            import httpx as _httpx
+            from sqlalchemy import text as _text
+            from ..tenant_context import get_tenant_schema as _gts
+            _s = _gts()
+            _wa = {r[0]: r[1] for r in db.execute(
+                _text(f"SELECT key, value FROM \"{_s}\".business_config "
+                      "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+                      "'whatsapp_notify_sale','business_name')")
+            ).fetchall()}
+            _inst   = _wa.get("whatsapp_instance_name", "")
+            _status = _wa.get("whatsapp_instance_status", "")
+            _notify = _wa.get("whatsapp_notify_sale") != "false"
+            _biz    = _wa.get("business_name") or "Mi Inventario"
+            if _inst and _status == "CONNECTED" and _notify:
+                _ticket = order.ticket_number or f"#{order.id}"
+                _total_str   = f"${order_total:,.2f}" if order_total > 0 else "—"
+                _paid_str    = f"${total_paid:,.2f}"
+                _pending_str = f"${pending:,.2f}"
+                _msg = (
+                    f"💳 *{_biz}*\n"
+                    f"✅ Abono registrado en orden *{_ticket}*\n\n"
+                    f"Abono: ${float(payment.amount):,.2f}\n"
+                    f"Total pagado: {_paid_str} de {_total_str}\n"
+                    f"Saldo pendiente: {_pending_str}"
+                )
+                if pending <= 0.01 and order_total > 0:
+                    _msg += "\n\n🎉 ¡Saldo cancelado completamente!"
+                _phone = "".join(c for c in order.customer.phone if c.isdigit())
+                with _httpx.Client(timeout=5) as _c:
+                    _c.post(f"http://whatsapp_service:3000/instance/{_inst}/send",
+                            json={"phone": _phone, "message": _msg})
+        except Exception as _wa_err:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[WA] Abono notif falló: {_wa_err}")
+
+    # ── Auto-checkout: si los abonos cubren el total → generar venta ──
+    is_paid = (order.order_metadata or {}).get("payment_status") == "PAID"
+    if not is_paid and order_total > 0 and pending <= 0.01:
+        try:
+            from decimal import Decimal as _Dec
+            _checkout_data = schemas.ServiceCheckoutPayment(
+                total_amount    = _Dec(str(order_total)),
+                total_amount_bs = _Dec("0.00"),
+                payment_method  = new_payment.payment_method or "Efectivo",
+                payments        = [],
+            )
+            # checkout necesita status=READY
+            _prev_status   = order.status
+            order.status   = models.ServiceOrderStatus.READY
+            db.flush()
+            ServiceCheckoutService.convert_order_to_sale(
+                db, order.id, _checkout_data, current_user.id
+            )
+            # Restaurar status original después del checkout
+            _schema = get_tenant_schema()
+            if _schema and _schema != "public":
+                db.execute(text(f'SET search_path TO "{_schema}", public'))
+            order2 = db.query(models.ServiceOrder).options(
+                *_service_order_options()
+            ).filter(models.ServiceOrder.id == order.id).first()
+            return schemas.ServiceOrderRead.model_validate(order2)
+        except Exception as _ce:
+            import logging as _log
+            _log.getLogger(__name__).warning(f"[Checkout-auto] falló: {_ce}")
+            db.rollback()
+
+    # ── Respuesta normal (sin auto-checkout) ──────────────────────────
     result = db.query(models.ServiceOrder).options(
         *_service_order_options(),
     ).filter(models.ServiceOrder.id == order.id).first()
@@ -549,6 +751,29 @@ def checkout_service_order(
     return {"status": "success", "sale_id": sale.id, "ticket_number": sale.id}
 
 
+@router.patch("/orders/{order_id}/archive")
+def archive_service_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Archivar u ocultar una orden (solo ADMIN). Solo órdenes DELIVERED o CANCELLED."""
+    if current_user.role != models.UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Solo administradores pueden archivar órdenes")
+    tenant_id = str(current_user.tenant_id) if current_user.tenant_id else "public"
+    order = db.query(models.ServiceOrder).filter(
+        models.ServiceOrder.id == order_id,
+        models.ServiceOrder.tenant_id == tenant_id
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    if order.status not in [models.ServiceOrderStatus.DELIVERED, models.ServiceOrderStatus.CANCELLED]:
+        raise HTTPException(status_code=400, detail="Solo se pueden archivar órdenes ENTREGADAS o CANCELADAS")
+    order.is_archived = not order.is_archived  # toggle
+    db.commit()
+    return {"id": order.id, "ticket_number": order.ticket_number, "is_archived": order.is_archived}
+
+
 @router.get("/orders/{order_id}/print/thermal")
 def get_laundry_thermal_payload(
     order_id: int,
@@ -577,7 +802,7 @@ def get_laundry_thermal_payload(
 
     # Business config (same pattern as sales_service)
     business_config = {}
-    configs = db.query(models.BusinessConfig).all()
+    configs = db.execute(text(f"SELECT key, value FROM {get_tenant_schema()}.business_config")).all()
     for config in configs:
         business_config[config.key] = config.value
 

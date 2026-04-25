@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check, RotateCcw, Eye, EyeOff, UserX } from 'lucide-react';
+import Customer360 from '../../../components/customers/Customer360';
+import { Zap, Search, User, Edit2, Save, X, Plus, Trash2, Users, FileText, AlertTriangle, CheckCircle, CreditCard, Calendar, Phone, Mail, MapPin, Building2, Truck, Check, RotateCcw, Eye, EyeOff, UserX } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
@@ -23,6 +24,7 @@ const ClientesTab = () => {
     const [totalCustomers, setTotalCustomers] = useState(0);
     const [hasMoreCustomers, setHasMoreCustomers] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [show360, setShow360] = useState(false);
     const [financialStatus, setFinancialStatus] = useState(null);
     const [creditHistory, setCreditHistory] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -462,6 +464,15 @@ const ClientesTab = () => {
                                 </div>
                             </div>
 
+                            {/* Botón Vista 360° */}
+                            <button
+                                onClick={() => setShow360(true)}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-md"
+                            >
+                                <Zap size={16} />
+                                Ver historial completo — Vista 360°
+                            </button>
+
                             {/* Financial KPIs */}
                             {loading ? (
                                 <div className="text-center p-12">
@@ -655,6 +666,13 @@ const ClientesTab = () => {
                     )}
                 </SheetContent>
             </Sheet>
+            {show360 && selectedCustomer && (
+                <Customer360
+                    customerId={selectedCustomer.id}
+                    customerName={selectedCustomer.name}
+                    onClose={() => setShow360(false)}
+                />
+            )}
         </div>
     );
 };

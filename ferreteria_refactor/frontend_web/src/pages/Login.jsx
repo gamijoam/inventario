@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
 import { useNavigate, Link } from 'react-router-dom';
@@ -7,6 +7,8 @@ import authService from '../services/authService';
 import toast from 'react-hot-toast';
 import { Capacitor } from '@capacitor/core';
 import apiClient from '../config/axios';
+
+import OrgSelector from './Org/OrgSelector';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -19,7 +21,9 @@ const Login = () => {
     const [contactForm, setContactForm] = useState({ full_name: '', email: '', phone: '', message: '' });
     const [contactLoading, setContactLoading] = useState(false);
 
-    const { login, user, isAuthenticated, refreshUser } = useAuth();
+    const { login, user, isAuthenticated, refreshUser, logout } = useAuth();
+    const [showOrgSelector, setShowOrgSelector] = useState(false);
+    const [orgCompanies, setOrgCompanies]       = useState([]);
     const { business } = useConfig();
     const navigate = useNavigate();
 
@@ -56,6 +60,17 @@ const Login = () => {
 
                     // 2. Refresh User Profile (checks cookie)
                     await refreshUser();
+
+                    // 3. Restaurar org_companies si vienen en la URL (switch entre dominios)
+                    const orgData = searchParams.get('org_data');
+                    if (orgData) {
+                        try {
+                            const orgs = JSON.parse(decodeURIComponent(atob(orgData)));
+                            if (Array.isArray(orgs) && orgs.length > 0) {
+                                localStorage.setItem('org_companies', JSON.stringify(orgs));
+                            }
+                        } catch (_) {}
+                    }
 
                     toast.success('Sesión iniciada como Soporte/Admin');
                     navigate('/');
@@ -104,13 +119,30 @@ const Login = () => {
         }
 
         try {
-            await login(username, password);
-            navigate('/');
+            const loginData = await login(username, password);
+            // Multi-empresa: si el usuario tiene varias empresas → mostrar selector
+            if (loginData?.has_multiple_companies && loginData?.org_companies?.length > 1) {
+                setOrgCompanies(loginData.org_companies);
+                setShowOrgSelector(true);
+            } else {
+                navigate('/');
+            }
         } catch (err) {
             setError(err.response?.data?.detail || 'Credenciales inválidas. Por favor intenta nuevamente.');
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleOrgSelect = (company) => {
+        // Si ya estamos en esa empresa → ir al dashboard
+        if (company.is_current || !company.switch_url) {
+            navigate('/');
+            return;
+        }
+        // Ir al subdominio de la empresa seleccionada
+        localStorage.setItem('selected_tenant', company.schema_name);
+        window.location.href = company.switch_url + '/#/';
     };
 
     const handleContactSubmit = async (e) => {
@@ -131,6 +163,17 @@ const Login = () => {
             setContactLoading(false);
         }
     };
+
+    if (showOrgSelector) {
+        return (
+            <OrgSelector
+                companies={orgCompanies}
+                onSelect={handleOrgSelect}
+                onLogout={() => { logout(); setShowOrgSelector(false); }}
+                userName={username}
+            />
+        );
+    }
 
     return (
         <>

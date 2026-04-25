@@ -158,13 +158,13 @@ const ProductCard = ({
                     {secondaryPrices.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                             {secondaryPrices.map(({ code, sym, price }) => (
-                                <span key={code} className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                                <span key={code} className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg">
                                     {sym} {fmt(price)}
                                 </span>
                             ))}
                         </div>
                     ) : (priceBS > 0 && secSymbol && (
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg">
                             {secSymbol} {fmt(priceBS)}
                         </span>
                     ))}

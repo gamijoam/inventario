@@ -100,19 +100,19 @@ const POSSettingsModal = ({
 
                                 <p className="text-sm text-slate-600 mb-5 leading-relaxed">
                                     Para imprimir recibos directamente en tu impresora térmica ESC/POS, necesitas instalar el puente local{' '}
-                                    <span className="font-bold text-slate-800">"ConexionImpresora.exe"</span>.
+                                    <span className="font-bold text-slate-800">"ConexionImpresora.zip"</span>.
                                     Una vez instalado, el sistema se conectará automáticamente.
                                 </p>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <Button
                                         onClick={() => window.location.href = getMagicLink()}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 shadow-lg shadow-blue-500/20"
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-11 shadow-lg shadow-indigo-300/20"
                                     >
                                         🚀 Conectar Ahora
                                     </Button>
                                     <a
-                                        href="/downloads/ConexionImpresora.exe"
+                                        href="/downloads/ConexionImpresora.zip"
                                         download
                                         className="flex items-center justify-center gap-2 h-11 text-sm font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                                     >

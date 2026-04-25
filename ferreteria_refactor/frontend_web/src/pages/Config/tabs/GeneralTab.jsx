@@ -12,7 +12,7 @@ import { Button } from '../../../components/ui/button';
 const GeneralTab = () => {
     const { business, refreshConfig } = useConfig();
 
-    const [bizForm, setBizForm] = useState({ name: '', document_id: '', address: '', phone: '', email: '' });
+    const [bizForm, setBizForm] = useState({ name: '', document_id: '', address: '', phone: '', email: '', credit_default_down_payment_pct: 20, credit_default_interest_rate: 10 });
 
     useEffect(() => {
         if (business) {
@@ -21,7 +21,7 @@ const GeneralTab = () => {
                 document_id: business.document_id || '',
                 address: business.address || '',
                 phone: business.phone || '',
-                email: business.email || ''
+                email: business.email || '', credit_default_down_payment_pct: business.credit_default_down_payment_pct || 20, credit_default_interest_rate: business.credit_default_interest_rate || 10
             });
         }
     }, [business]);
@@ -79,13 +79,19 @@ const GeneralTab = () => {
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="bizPhone">Teléfono Principal</Label>
+                        <Label htmlFor="bizPhone">Teléfono / WhatsApp del negocio</Label>
                         <Input
                             id="bizPhone"
                             value={bizForm.phone}
                             onChange={e => setBizForm({ ...bizForm, phone: e.target.value })}
-                            placeholder="+58 412 1234567"
+                            placeholder="584121234567"
+                            className="font-mono"
                         />
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                            Incluye el código de país <strong>sin el signo +</strong>.
+                            Este número se usa para el botón WhatsApp del catálogo público.<br/>
+                            🇻🇪 Venezuela: <strong>58</strong> + número · 🇨🇴 Colombia: <strong>57</strong> · 🇲🇽 México: <strong>52</strong>
+                        </p>
                     </div>
                     <div className="grid gap-2 md:col-span-2">
                         <Label htmlFor="bizEmail">Correo Electrónico</Label>
@@ -104,6 +110,42 @@ const GeneralTab = () => {
                             onChange={e => setBizForm({ ...bizForm, address: e.target.value })}
                             placeholder="Av. Principal, Edif. A, Local 1"
                         />
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Credit Configuration Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Configuración de Créditos (Celulares)</CardTitle>
+                    <CardDescription>Valores predeterminados para la calculadora de crédito</CardDescription>
+                </CardHeader>
+                <CardContent className="grid md:grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="defaultDownPayment">% Enganche Predeterminado</Label>
+                        <div className="relative">
+                            <Input
+                                id="defaultDownPayment"
+                                type="number"
+                                value={bizForm.credit_default_down_payment_pct}
+                                onChange={e => setBizForm({ ...bizForm, credit_default_down_payment_pct: e.target.value })}
+                                placeholder="20"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="defaultInterest">% Interés Predeterminado</Label>
+                        <div className="relative">
+                            <Input
+                                id="defaultInterest"
+                                type="number"
+                                value={bizForm.credit_default_interest_rate}
+                                onChange={e => setBizForm({ ...bizForm, credit_default_interest_rate: e.target.value })}
+                                placeholder="10"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

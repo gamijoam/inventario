@@ -465,7 +465,7 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                                             <button
                                                 key={note}
                                                 onClick={() => setNotes(prev => prev ? `${prev}, ${note}` : note)}
-                                                className="px-2 py-0.5 bg-white border border-indigo-200 rounded-md text-[11px] font-bold text-indigo-600 hover:bg-indigo-100 transition"
+                                                className="px-2 py-0.5 bg-white border border-indigo-200 rounded-lg text-[11px] font-bold text-indigo-600 hover:bg-indigo-100 transition"
                                             >
                                                 {note}
                                             </button>
@@ -511,7 +511,7 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0">
-                                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border flex items-center gap-1 ${statusCfg.color}`}>
+                                                        <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black border flex items-center gap-1 ${statusCfg.color}`}>
                                                             <StatusIcon size={10} />
                                                             {statusCfg.label}
                                                         </span>
@@ -557,7 +557,7 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                             >
                                 <Send size={16} />
                                 Enviar a Cocina
-                                <span className="bg-white/20 px-1.5 py-0.5 rounded-md text-xs">{pendingCount}</span>
+                                <span className="bg-white/20 px-1.5 py-0.5 rounded-lg text-xs">{pendingCount}</span>
                             </button>
                         )}
                     </div>
@@ -573,7 +573,7 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                                 className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black rounded-xl shadow-lg shadow-indigo-200 hover:shadow-xl transition flex items-center gap-2 text-sm active:scale-95"
                             >
                                 💰 Cobrar
-                                <span className="bg-white/20 px-2 py-0.5 rounded-md">${parseFloat(order.total_amount).toFixed(2)}</span>
+                                <span className="bg-white/20 px-2 py-0.5 rounded-lg">${parseFloat(order.total_amount).toFixed(2)}</span>
                             </button>
                         )}
                     </div>

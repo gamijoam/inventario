@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { normalizeSearch } from '../../utils/search';
 
 const RecipeEditor = () => {
     // State
@@ -76,12 +77,12 @@ const RecipeEditor = () => {
     };
 
     // Filter helpers
-    const dishList = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const dishList = products.filter(p => normalizeSearch(p.name).includes(normalizeSearch(searchTerm)));
 
     // Filter ingredients: Exclude the selected product itself to avoid recursion
     const ingredientList = products.filter(p =>
         p.id !== selectedProduct?.id &&
-        p.name.toLowerCase().includes(ingredientSearch.toLowerCase())
+        normalizeSearch(p.name).includes(normalizeSearch(ingredientSearch))
     ).slice(0, 10); // Limit results
 
     return (

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Package, DollarSign, Barcode, Tag, Layers, AlertTriangle, ShieldCheck, Calculator, Image as ImageIcon, Check, Bell, Warehouse, AlertCircle, ScanBarcode, Zap, Search, ChevronDown, Scissors, Snowflake, Shield } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import apiClient from '../../config/axios';
 import ProductPriceListManager from './ProductPriceListManager';
 import ProductUnitManager from './ProductUnitManager';
@@ -43,9 +44,11 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Separator } from '../../components/ui/separator';
 import { Textarea } from '../../components/ui/textarea';
+import { normalizeSearch } from '../../utils/search';
 
 const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories = [], warehouses = [], exchangeRates = [] }) => {
     const { getActiveCurrencies, currencies, modules } = useConfig();
+    const useGrossMargin = useFeatureFlag('precio_margen_bruto');
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
     // categories, warehouses, and exchangeRates are now props. No need for local state for them if we trust the parent.
@@ -53,6 +56,32 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     // We still need local state for priceLists as parent doesn't have it.
 
     const [priceLists, setPriceLists] = useState([]);
+
+    // ── Crear categoría inline ────────────────────────────────────────────────
+    const handleCreateCategory = async () => {
+        const name = newCategoryName.trim();
+        if (!name) return;
+        setSavingCategory(true);
+        try {
+            const res = await apiClient.post('/categories', { name, description: '' });
+            const created = res.data;
+            // Notificar al padre para que refresque las categorías
+            if (typeof window.__refreshCategories === 'function') {
+                await window.__refreshCategories();
+            }
+            // Seleccionar la nueva categoría automáticamente
+            setFormData(prev => ({ ...prev, category_id: created.id.toString() }));
+            setNewCategoryName('');
+            setShowNewCategoryInput(false);
+            setIsCategoryOpen(false);
+            toast.success(`Categoría "${name}" creada y seleccionada`);
+        } catch (e) {
+            const msg = e.response?.data?.detail || 'Error al crear la categoría';
+            toast.error(typeof msg === 'string' ? msg : 'Error al crear la categoría');
+        } finally {
+            setSavingCategory(false);
+        }
+    };
     const [policies, setPolicies] = useState([]); // NEW: Warranty Policies
     const [formData, setFormData] = useState({
         name: '',
@@ -95,6 +124,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     // Category dropdown specific state
     const [isCategoryOpen, setIsCategoryOpen] = useState(false);
     const [categorySearchTerm, setCategorySearchTerm] = useState('');
+    const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+    const [newCategoryName, setNewCategoryName]           = useState('');
+    const [savingCategory, setSavingCategory]             = useState(false);
 
     const handleScanResult = (code) => {
         setFormData(prev => ({ ...prev, sku: code }));
@@ -201,7 +233,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                 const margin = name === 'profit_margin' ? parseFloat(value) : parseFloat(prev.profit_margin);
 
                 if (!isNaN(cost) && !isNaN(margin)) {
-                    const calculatedPrice = cost * (1 + (margin / 100));
+                    const calculatedPrice = useGrossMargin ? cost / (1 - (margin / 100)) : cost * (1 + (margin / 100));
                     updated.price = calculatedPrice.toFixed(2);
                 }
             }
@@ -211,7 +243,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                 const price = parseFloat(value);
                 const cost = parseFloat(prev.cost);
                 if (!isNaN(price) && price > 0 && !isNaN(cost) && cost > 0) {
-                    const margin = ((price - cost) / cost) * 100;
+                    const margin = useGrossMargin ? ((1 - cost / price) * 100) : ((price - cost) / cost) * 100;
                     updated.profit_margin = margin.toFixed(2);
                 }
             }
@@ -397,13 +429,55 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     </div>
                                                 </div>
                                                 <div className="space-y-1.5 relative">
-                                                    <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Categoría</Label>
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Categoría</Label>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => { setShowNewCategoryInput(v => !v); setIsCategoryOpen(false); }}
+                                                            title="Crear nueva categoría"
+                                                            className="flex items-center gap-1 text-[10px] text-indigo-600 hover:text-indigo-800 font-bold px-1.5 py-0.5 rounded-md hover:bg-indigo-50 transition-colors"
+                                                        >
+                                                            <Plus size={11} /> Nueva
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Input inline para crear nueva categoría */}
+                                                    {showNewCategoryInput && (
+                                                        <div className="flex gap-1.5 mb-1.5">
+                                                            <Input
+                                                                autoFocus
+                                                                placeholder="Nombre de la categoría..."
+                                                                className="h-9 text-sm flex-1"
+                                                                value={newCategoryName}
+                                                                onChange={e => setNewCategoryName(e.target.value)}
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') { e.preventDefault(); handleCreateCategory(); }
+                                                                    if (e.key === 'Escape') { setShowNewCategoryInput(false); setNewCategoryName(''); }
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleCreateCategory}
+                                                                disabled={savingCategory || !newCategoryName.trim()}
+                                                                className="px-3 h-9 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+                                                            >
+                                                                {savingCategory ? '...' : 'Guardar'}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setShowNewCategoryInput(false); setNewCategoryName(''); }}
+                                                                className="px-2 h-9 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
 
                                                     {/* Custom Searchable Dropdown Button */}
                                                     <button
                                                         type="button"
                                                         onClick={() => setIsCategoryOpen(!isCategoryOpen)}
-                                                        className="w-full h-11 px-3 text-left border rounded-md bg-slate-50/30 border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"
+                                                        className="w-full h-11 px-3 text-left border rounded-lg bg-slate-50/30 border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 flex items-center justify-between"
                                                     >
                                                         <span className={formData.category_id ? "text-slate-900" : "text-slate-500"}>
                                                             {formData.category_id
@@ -435,7 +509,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                 </div>
                                                                 <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
                                                                     <div
-                                                                        className="flex items-center px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-md cursor-pointer transition-colors"
+                                                                        className="flex items-center px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
                                                                         onClick={() => {
                                                                             setFormData({ ...formData, category_id: null });
                                                                             setIsCategoryOpen(false);
@@ -444,14 +518,14 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                         -- Sin Categoría --
                                                                     </div>
                                                                     {categories
-                                                                        .filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase()))
+                                                                        .filter(c => normalizeSearch(c.name).includes(normalizeSearch(categorySearchTerm)))
                                                                         .map(c => {
                                                                             const isSelected = formData.category_id?.toString() === c.id.toString();
                                                                             return (
                                                                                 <div
                                                                                     key={c.id}
                                                                                     className={cn(
-                                                                                        "flex items-center justify-between px-3 py-2 text-sm rounded-md cursor-pointer transition-colors font-medium",
+                                                                                        "flex items-center justify-between px-3 py-2 text-sm rounded-lg cursor-pointer transition-colors font-medium",
                                                                                         isSelected ? "bg-indigo-50 text-indigo-700" : "text-slate-700 hover:bg-slate-100"
                                                                                     )}
                                                                                     onClick={() => {
@@ -464,7 +538,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                                 </div>
                                                                             );
                                                                         })}
-                                                                    {categories.filter(c => c.name.toLowerCase().includes(categorySearchTerm.toLowerCase())).length === 0 && (
+                                                                    {categories.filter(c => normalizeSearch(c.name).includes(normalizeSearch(categorySearchTerm))).length === 0 && (
                                                                         <div className="p-3 text-center text-sm text-slate-400 italic">No se encontraron resultados</div>
                                                                     )}
                                                                 </div>
@@ -476,7 +550,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                                             {/* Combo Toggle */}
                                             <div className={cn(
-                                                "flex items-center gap-4 p-4 rounded-xl transition-all border",
+                                                "hidden flex items-center gap-4 p-4 rounded-xl transition-all border",
                                                 formData.is_combo
                                                     ? "bg-violet-50 border-violet-200 ring-1 ring-violet-500/10"
                                                     : "bg-slate-50 border-slate-100 hover:border-slate-200"
@@ -1019,6 +1093,30 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     ></div>
                                                 </div>
                                                 <p className="text-[11px] text-slate-500 mt-0.5">El POS solicitará confirmación antes de agregar al carrito.</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Destacar en catálogo público */}
+                                        <div className="flex items-start gap-3 pt-3 border-t border-slate-100">
+                                            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                                                <span className="text-base">⭐</span>
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <Label htmlFor="featured" className="text-sm font-bold text-slate-800 cursor-pointer">Destacar en catálogo público</Label>
+                                                    <input
+                                                        type="checkbox"
+                                                        id="featured"
+                                                        checked={formData.featured || false}
+                                                        onChange={(e) => setFormData(p => ({ ...p, featured: e.target.checked }))}
+                                                        className="sr-only peer"
+                                                    />
+                                                    <div
+                                                        onClick={() => setFormData(p => ({ ...p, featured: !p.featured }))}
+                                                        className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[\'\'] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400 peer-checked:after:translate-x-5"
+                                                    ></div>
+                                                </div>
+                                                <p className="text-[11px] text-slate-500 mt-0.5">Aparece primero en el catálogo con una etiqueta dorada ⭐.</p>
                                             </div>
                                         </div>
                                     </CardContent>

@@ -370,7 +370,7 @@ const CashTab = ({ dateRange }) => {
                                                             <span className="font-black text-slate-700 text-lg">{curr.currency_symbol}</span>
                                                             {isClosed && Math.abs(diff) >= 0.01 && (
                                                                 <span className={clsx(
-                                                                    "text-xs font-bold px-2 py-1 rounded-md border",
+                                                                    "text-xs font-bold px-2 py-1 rounded-lg border",
                                                                     diff > 0 ? "bg-blue-50 text-blue-700 border-blue-100" : "bg-rose-50 text-rose-700 border-rose-100"
                                                                 )}>
                                                                     {diff > 0 ? 'Sobrante' : 'Faltante'}

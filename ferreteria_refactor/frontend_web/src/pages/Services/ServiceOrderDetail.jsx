@@ -1,0 +1,470 @@
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, Plus, Download, MoreVertical, Check, AlertCircle, ShoppingCart, X, ShieldCheck } from 'lucide-react';
+import apiClient from '../../config/axios';
+import { toast } from 'react-hot-toast';
+import DiagnosisPanel from './components/DiagnosisPanel';
+import PaymentTimeline from './components/PaymentTimeline';
+import QuickItemForm from './components/QuickItemForm';
+import { useServiceOrder, useServiceCalculations } from './hooks/useServiceOrder';
+import { useAuth } from '../../context/AuthContext';
+import printerService from '../../services/printerService';
+import { useConfig } from '../../context/ConfigContext';
+import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
+import { useHelp } from '../../help/useHelp';
+
+const SERVICE_STATUSES = [
+    { id: 'RECEIVED', label: '📥 Recibido', color: 'slate' },
+    { id: 'DIAGNOSING', label: '🔍 Diagnóstico', color: 'yellow' },
+    { id: 'APPROVED', label: '✓ Aprobado', color: 'blue' },
+    { id: 'IN_PROGRESS', label: '🔧 Reparando', color: 'purple' },
+    { id: 'READY', label: '✨ Listo', color: 'emerald' },
+    { id: 'DELIVERED', label: '📦 Entregado', color: 'teal' },
+];
+
+const ServiceOrderDetail = ({ orderId, onClose }) => {
+    const { business } = useConfig();
+    const paperWidth = business?.paper_width || '80';
+    const { order, loading, error, fetchOrder, updateStatus, deleteItem } = useServiceOrder(orderId);
+    const { user: currentUser } = useAuth();
+    const calculations = useServiceCalculations(order);
+    
+    const help = useHelp();
+    const [showItemForm, setShowItemForm]     = useState(false);
+    const [showCheckout, setShowCheckout]       = useState(false);
+    const [checkoutLoading, setCheckoutLoading] = useState(false);
+    const [checkoutPayment, setCheckoutPayment] = useState({ amount: '', method: 'CASH' });
+    const [archiving, setArchiving]             = useState(false);
+    const [actionMenuOpen, setActionMenuOpen] = useState(null);
+
+    useEffect(() => {
+        if (orderId) {
+            fetchOrder();
+        }
+    }, [orderId, fetchOrder]);
+
+    const handleStatusChange = async (newStatus) => {
+        try {
+            await updateStatus(newStatus);
+            toast.success(`Estado cambiado a ${SERVICE_STATUSES.find(s => s.id === newStatus)?.label}`);
+        } catch (err) {
+            toast.error('Error al actualizar estado');
+        }
+    };
+
+    const handleDeleteItem = async (itemId) => {
+        if (window.confirm('¿Eliminar este ítem?')) {
+            try {
+                await deleteItem(itemId);
+                toast.success('Ítem eliminado');
+            } catch (err) {
+                toast.error('Error al eliminar ítem');
+            }
+        }
+    };
+
+    const handleCheckout = async () => {
+        const pending = calculations.orderPending;
+        const amount  = parseFloat(checkoutPayment.amount || pending);
+        if (amount <= 0) { toast.error('Ingresa el monto a cobrar'); return; }
+
+        setCheckoutLoading(true);
+        try {
+            await apiClient.post(`/services/orders/${orderId}/checkout`, {
+                total_amount:    calculations.orderTotal,
+                total_amount_bs: 0,
+                payment_method:  checkoutPayment.method,
+                currency: 'USD',
+                exchange_rate: 1,
+                payments: [{
+                    amount:         amount,
+                    currency:       'USD',
+                    payment_method: checkoutPayment.method,
+                    exchange_rate:  1,
+                    reference:      null,
+                    payment_date:   new Date().toISOString(),
+                }],
+            });
+            toast.success('✅ Orden cobrada y entregada');
+            setShowCheckout(false);
+            fetchOrder();
+            if (onClose) onClose();
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Error al procesar el cobro');
+        } finally {
+            setCheckoutLoading(false);
+        }
+    };
+
+        const handleArchive = async () => {
+            if (!window.confirm('¿Archivar esta orden? Quedará oculta del tablero pero podrás verla en "Archivadas".')) return;
+            setArchiving(true);
+            try {
+                await apiClient.patch(`/services/orders/${orderId}/archive`);
+                toast.success('✅ Orden archivada');
+                if (onClose) onClose();
+            } catch (err) {
+                toast.error(err.response?.data?.detail || 'Error al archivar');
+            } finally {
+                setArchiving(false);
+            }
+        };
+
+        const handlePrintWarranty = async () => {
+        try {
+            // 1. Intentar obtener el PDF global del negocio
+            const res = await apiClient.get("/config/business");
+            const warrantyUrl = res.data.warranty_format_url;
+            
+            if (!warrantyUrl) {
+                toast.error("No se ha detectado el formato de garantía en Configuración.");
+                return;
+            }
+
+            const baseUrl = import.meta.env.VITE_API_URL.replace(/\/api\/v1\/?$/, "");
+            const fullUrl = warrantyUrl.startsWith("http") ? warrantyUrl : `${baseUrl}${warrantyUrl}`;
+            
+            window.open(fullUrl, "_blank");
+        } catch (error) {
+            toast.error("Error al obtener el formato de garantía.");
+        }
+    };
+
+    const handlePrint = async () => {
+        try {
+            const res = await apiClient.get(`/services/orders/${orderId}/print/thermal?width=${paperWidth}`);
+            await printerService.printRaw(res.data);
+            toast.success('Ticket enviado a impresora');
+        } catch (err) {
+            toast.error('Error al imprimir');
+        }
+    };
+
+    if (loading) {
+        return (
+            <>
+                <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                    <div className="text-center">
+                        <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-slate-600">Cargando orden...</p>
+                    </div>
+                </div>
+            </>
+        );
+    }
+
+    if (error || !order) {
+        return (
+            <>
+                <div className="min-h-screen bg-slate-50 p-6">
+                    <div className="max-w-2xl mx-auto">
+                        <button
+                            onClick={onClose}
+                            className="mb-6 flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900"
+                        >
+                            <ChevronLeft size={20} /> Atrás
+                        </button>
+                        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-8 text-center">
+                            <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
+                            <h2 className="text-xl font-bold text-red-900 mb-2">Error</h2>
+                            <p className="text-red-700">{error || 'Orden no encontrada'}</p>
+                        </div>
+                    </div>
+                </div>
+            </>
+        );
+    }
+
+    return (
+        <>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+                <div className="max-w-6xl mx-auto">
+                    {/* Header */}
+                    <button
+                        onClick={onClose}
+                        className="mb-6 flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors"
+                    >
+                        <ChevronLeft size={20} /> Atrás
+                    </button>
+
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                        {/* Header de orden */}
+                        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-8">
+                            <div className="flex items-start justify-between mb-6">
+                                <div>
+                                    <h1 className="text-3xl font-bold font-mono mb-2">{order.ticket_number}</h1>
+                                    <p className="text-blue-100">{order.customer?.name}</p>
+                                </div>
+                                <div className="relative flex gap-2">
+                                    {(order.status === 'READY' || (order.status === 'DELIVERED' && calculations.orderPending > 0.01 && (order.order_metadata?.payment_status !== 'PAID'))) && (
+                                        <button
+                                            onClick={() => {
+                                                setCheckoutPayment({ amount: String(calculations.orderPending || calculations.orderTotal), method: 'CASH' });
+                                                setShowCheckout(true);
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white rounded-lg font-bold transition-colors"
+                                            title="Cobrar orden"
+                                        >
+                                            <ShoppingCart size={18} /> Cobrar
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={handlePrintWarranty}
+                                        className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors text-white"
+                                        title="Imprimir Garantía Corporativa"
+                                    >
+                                        <ShieldCheck size={20} />
+                                    </button>
+                                    <button
+                                        onClick={handlePrint}
+                                        className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                                        title="Imprimir Ticket"
+                                    >
+                                        <Download size={20} />
+                                    </button>
+                                    {/* Botón ⋮ solo si hay acciones disponibles */}
+                                    {currentUser?.role === 'ADMIN' &&
+                                     (order.status === 'DELIVERED' || order.status === 'CANCELLED') && (
+                                        <div className="relative">
+                                            <button
+                                                onClick={() => setActionMenuOpen(prev => !prev)}
+                                                className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                                                title="Más opciones"
+                                            >
+                                                <MoreVertical size={20} />
+                                            </button>
+                                            {actionMenuOpen && (
+                                                <div
+                                                    className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 min-w-[190px] py-1 overflow-hidden"
+                                                    onClick={() => setActionMenuOpen(false)}
+                                                >
+                                                    <button
+                                                        onClick={handleArchive}
+                                                        disabled={archiving}
+                                                        className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <span>🗂️</span>
+                                                        <span>{archiving ? 'Archivando...' : 'Archivar orden'}</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Quick info */}
+                            <div className="grid grid-cols-3 gap-4 text-sm">
+                                <div>
+                                    <p className="text-blue-100 text-xs">Equipo</p>
+                                    <p className="font-semibold">{order.brand} {order.model}</p>
+                                </div>
+                                <div>
+                                    <p className="text-blue-100 text-xs">Recibido</p>
+                                    <p className="font-semibold">{new Date(order.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <div>
+                                    <p className="text-blue-100 text-xs">Total</p>
+                                    <p className="font-semibold">${calculations.orderTotal.toFixed(2)}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Main Content */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 p-8">
+                            {/* LEFT: Detalles Orden */}
+                            <div className="lg:col-span-2 space-y-8">
+                                {/* Status Stepper */}
+                                <div>
+                                    <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wider mb-3">Estado del Servicio</h3>
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                        {SERVICE_STATUSES.map((status, idx) => {
+                                            const currentIdx  = SERVICE_STATUSES.findIndex(s => s.id === order.status);
+                                            const isCurrent   = order.status === status.id;
+                                            const isDone      = idx < currentIdx;
+                                            const btnClass    = isCurrent ? status.active : isDone ? status.done : status.inactive;
+                                            return (
+                                                <div key={status.id} className="flex items-center">
+                                                    <button
+                                                        onClick={() => handleStatusChange(status.id)}
+                                                        title={`Cambiar a: ${status.label}`}
+                                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${btnClass} ${isCurrent ? 'shadow-md ring-2 ring-offset-1 ring-current' : 'opacity-80 hover:opacity-100'}`}
+                                                    >
+                                                        <span>{status.icon}</span>
+                                                        <span>{status.label}</span>
+                                                        {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-white/70 ml-0.5" />}
+                                                    </button>
+                                                    {idx < SERVICE_STATUSES.length - 1 && (
+                                                        <div className={`w-4 h-px mx-1 ${idx < currentIdx ? 'bg-slate-400' : 'bg-slate-200'}`} />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Items */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-bold text-slate-900">Repuestos y Servicios</h3>
+                                        <button
+                                            onClick={() => setShowItemForm(true)}
+                                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                                        >
+                                            <Plus size={18} /> Agregar
+                                        </button>
+                                    </div>
+
+                                    {order.details && order.details.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {order.details.map((item, idx) => (
+                                                <div key={item.id || idx} className="bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between hover:bg-slate-100 transition-colors">
+                                                    <div className="flex-1">
+                                                        <p className="font-semibold text-slate-900">{item.description || item.product_id}</p>
+                                                        <p className="text-sm text-slate-600">Cantidad: {item.quantity}</p>
+                                                    </div>
+                                                    <div className="text-right mr-4">
+                                                        <p className="font-bold text-slate-900">${(Number(item.unit_price) * Number(item.quantity)).toFixed(2)}</p>
+                                                        <p className="text-xs text-slate-600">${Number(item.unit_price).toFixed(2)} c/u</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleDeleteItem(item.id)}
+                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-lg p-8 text-center">
+                                            <p className="text-slate-500">Sin items. Haz click en "+ Agregar"</p>
+                                        </div>
+                                    )}
+
+                                    {/* Totales */}
+                                    <div className="mt-6 bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-6">
+                                        <div className="grid grid-cols-3 gap-4 text-center">
+                                            <div>
+                                                <p className="text-slate-600 text-sm">Subtotal</p>
+                                                <p className="text-2xl font-bold text-slate-900">${calculations.orderTotal.toFixed(2)}</p>
+                                            </div>
+                                            <div className="border-l border-r border-slate-300">
+                                                <p className="text-slate-600 text-sm">Pagado</p>
+                                                <p className="text-2xl font-bold text-emerald-600">${calculations.orderPaid.toFixed(2)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-600 text-sm">Pendiente</p>
+                                                <p className="text-2xl font-bold text-amber-600">${calculations.orderPending.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* RIGHT: Sidebar */}
+                            <div className="space-y-8">
+                                {/* Diagnosis Panel */}
+                                <DiagnosisPanel
+                                    orderId={orderId}
+                                    initialDiagnosis={order.problem_description}
+                                    onSave={(diagnosis) => {
+                                        toast.success('Diagnóstico guardado');
+                                    }}
+                                />
+
+                                {/* Payment Timeline */}
+                                <PaymentTimeline
+                                    order={order}
+                                    calculations={calculations}
+                                    onPaymentSuccess={fetchOrder}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Modales */}
+            {/* ── MODAL COBRAR ── */}
+            {showCheckout && (
+                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                        <div className="flex items-center justify-between p-5 border-b bg-emerald-50 rounded-t-2xl">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-100 rounded-xl text-emerald-700">
+                                    <ShoppingCart size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-lg">Cobrar Orden</h3>
+                                    <p className="text-sm text-slate-500">{order.ticket_number}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowCheckout(false)} className="p-1.5 hover:bg-slate-100 rounded-lg">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50 rounded-xl text-center text-sm">
+                                <div>
+                                    <p className="text-slate-500">Total</p>
+                                    <p className="font-bold text-slate-800">${calculations.orderTotal.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-slate-500">Pagado</p>
+                                    <p className="font-bold text-emerald-600">${calculations.orderPaid.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-slate-500">Pendiente</p>
+                                    <p className="font-bold text-amber-600">${calculations.orderPending.toFixed(2)}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Monto a cobrar *</label>
+                                <input type="number" step="0.01" min="0"
+                                    value={checkoutPayment.amount}
+                                    onChange={e => setCheckoutPayment(p => ({ ...p, amount: e.target.value }))}
+                                    className="w-full px-4 py-2.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-lg font-bold" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Método de pago</label>
+                                <select value={checkoutPayment.method}
+                                    onChange={e => setCheckoutPayment(p => ({ ...p, method: e.target.value }))}
+                                    className="w-full px-4 py-2.5 border-2 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                                    <option value="CASH">Efectivo</option>
+                                    <option value="CARD">Tarjeta</option>
+                                    <option value="TRANSFER">Transferencia</option>
+                                    <option value="PAGO_MOVIL">Pago Móvil</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 p-5 border-t">
+                            <button onClick={() => setShowCheckout(false)}
+                                className="flex-1 py-2.5 border-2 border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+                                Cancelar
+                            </button>
+                            <button onClick={handleCheckout} disabled={checkoutLoading}
+                                className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                                {checkoutLoading ? 'Procesando...' : <><ShoppingCart size={18} /> Confirmar Cobro</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showItemForm && (
+                <QuickItemForm
+                    orderId={orderId}
+                    onClose={() => setShowItemForm(false)}
+                    onSuccess={() => {
+                        setShowItemForm(false);
+                        fetchOrder();
+                        toast.success('Ítem agregado');
+                    }}
+                />
+            )}
+            {help.isOpen && <HelpDrawer contextKey="services/order-detail" onClose={help.close} />}
+        </>
+    );
+};
+
+export default ServiceOrderDetail;

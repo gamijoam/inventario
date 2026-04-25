@@ -1,8 +1,9 @@
+import CreditosCelularesTab from "../../Sales/tabs/CreditosCelularesTab";
 import { useState, useEffect, useMemo } from 'react';
 import {
     DollarSign, Calendar, AlertCircle, CheckCircle, X, Filter,
     Eye, Users, ChevronDown, Calculator, CheckSquare, Search,
-    Wallet, Printer, FileText
+    Wallet, Printer, FileText, Smartphone
 } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
@@ -13,11 +14,6 @@ import clsx from 'clsx';
 // ---------------------------------------------------------------------------
 // Sub-tab definitions
 // ---------------------------------------------------------------------------
-const SUB_TABS = [
-    { id: 'cxc', label: 'Cuentas por Cobrar', icon: Wallet },
-    { id: 'aging', label: 'Antigüedad', icon: Calendar },
-    { id: 'ledger', label: 'Estado de Cuenta', icon: FileText },
-];
 
 // ---------------------------------------------------------------------------
 // Currency helpers
@@ -33,6 +29,25 @@ const formatUSD = (amount) =>
 // COMPONENT
 // ---------------------------------------------------------------------------
 const CreditsTab = ({ dateRange }) => {
+    const [bloqueoEnabled, setBloqueoEnabled] = useState(false);
+    useEffect(() => {
+        const checkBloqueo = async () => {
+            try {
+                const r = await apiClient.get("/bloqueo/config/estado");
+                setBloqueoEnabled(r.data?.enabled === true);
+            } catch (e) {}
+        };
+        checkBloqueo();
+    }, []);
+    const SUB_TABS = useMemo(() => {
+        const tabs = [
+            { id: "cxc", label: "Cuentas por Cobrar", icon: Wallet },
+            { id: "aging", label: "Antigüedad", icon: Calendar },
+            { id: "ledger", label: "Estado de Cuenta", icon: FileText },
+        ];
+        if (bloqueoEnabled) tabs.splice(1, 0, { id: "celulares", label: "📱 Créditos Celular", icon: Smartphone });
+        return tabs;
+    }, [bloqueoEnabled]);
     const { getExchangeRate, currencies, getActiveCurrencies, paymentMethods } = useConfig();
 
     // Active currencies unique by symbol
@@ -136,7 +151,7 @@ const CreditsTab = ({ dateRange }) => {
         setLoadingAging(true);
         try {
             const response = await apiClient.get('/credits/aging-report');
-            const sorted = response.data.sort((a, b) => b.total_debt - a.total_debt);
+            const rawData = Array.isArray(response.data) ? response.data : (response.data?.items || []); const sorted = rawData.sort((a, b) => b.total_debt - a.total_debt);
             setAgingReport(sorted);
             // Build client list for ledger selector
             setClientsList(sorted.map(item => ({ id: item.client_id, name: item.client_name })));
@@ -1384,6 +1399,7 @@ const CreditsTab = ({ dateRange }) => {
             {/* Sub-tab Content */}
             {activeSubTab === 'cxc' && renderCxc()}
             {activeSubTab === 'aging' && renderAging()}
+            {activeSubTab === 'celulares' && <CreditosCelularesTab onPay={handleRegisterPayment} />}
             {activeSubTab === 'ledger' && renderLedger()}
 
             {/* Payment Modal (always rendered when active) */}

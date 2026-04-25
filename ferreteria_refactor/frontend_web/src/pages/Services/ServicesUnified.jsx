@@ -427,7 +427,7 @@ const ServicesUnified = () => {
                         </button>
                         <button
                             onClick={() => setShowNewOrderModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition-colors"
                         >
                             <Plus size={16} /> Nueva
                         </button>
@@ -929,7 +929,7 @@ const ServicesUnified = () => {
                                             setPaymentRef('');
                                             setShowPaymentForm(true);
                                         }}
-                                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
+                                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm shadow-sm transition-colors flex items-center justify-center gap-2"
                                     >
                                         <DollarSign size={16} />
                                         Registrar Pago ({formatCurrency(orderPending)} pendiente)

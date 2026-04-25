@@ -27,18 +27,18 @@ class ProductBase(BaseModel):
     # Pricing System Fields
     profit_margin: Optional[Decimal] = Field(None, description="Margen de ganancia en porcentaje", json_schema_extra={'example': "30.00"})
     discount_percentage: Optional[Decimal] = Field(Decimal("0.00"), description="Descuento promocional en porcentaje", json_schema_extra={'example': "10.00"})
-    is_discount_active: bool = Field(False, description="Activar/desactivar descuento promocional")
+    is_discount_active: Optional[bool] = Field(False, description="Activar/desactivar descuento promocional")
     tax_rate: Optional[Decimal] = Field(Decimal("0.00"), description="Porcentaje de Impuesto (IVA)", json_schema_extra={'example': "16.00"})
     
     min_stock: Optional[Decimal] = Field(Decimal("5.000"), description="Nivel mínimo para alerta de reabastecimiento", json_schema_extra={'example': "5.000"})
     unit_type: Optional[str] = Field("Unidad", description="Unidad de medida base", json_schema_extra={'example': "Unidad"})
-    is_box: bool = Field(False, description="Indica si es vendido por caja (Legacy)")
-    conversion_factor: Decimal = Field(Decimal("1.0"), description="Factor de conversión", json_schema_extra={'example': "1.0"})
+    is_box: Optional[bool] = Field(False, description="Indica si es vendido por caja (Legacy)")
+    conversion_factor: Optional[Decimal] = Field(Decimal("1.0"), description="Factor de conversión", json_schema_extra={'example': "1.0"})
     category_id: Optional[int] = Field(None, description="ID de la categoría a la que pertenece", json_schema_extra={'example': 3})
     supplier_id: Optional[int] = Field(None, description="ID del proveedor principal", json_schema_extra={'example': 1})
     location: Optional[str] = Field(None, description="Ubicación física en almacén", json_schema_extra={'example': "Pasillo 4, Estante B"})
     exchange_rate_id: Optional[int] = Field(None, description="ID de tasa de cambio específica (opcional)", json_schema_extra={'example': 2})
-    is_combo: bool = Field(False, description="Indica si el producto es un combo/bundle")
+    is_combo: Optional[bool] = Field(False, description="Indica si el producto es un combo/bundle")
     has_imei: bool = Field(False, description="Indica si el producto maneja seriales/IMEIs") # NEW
     is_service: bool = Field(False, description="Indica si es un servicio (no requiere stock)") # NEW
     is_commissionable: bool = Field(False, description="Indica si genera comision al vendedor") # NEW
@@ -336,6 +336,13 @@ class SaleCreate(BaseModel):
     exchange_rate: Decimal = Field(Decimal("1.0"), description="Tasa de cambio global (Referencia)", json_schema_extra={'example': "35.5"})
     notes: Optional[str] = Field(None, description="Notas adicionales o observaciones", json_schema_extra={'example': "Entregar en puerta trasera"})
     is_credit: bool = Field(False, description="Indica si es una venta a crédito")
+
+    # Datos del crédito (de la CalculadoraCredito — modelo plano)
+    credit_down_payment      : Optional[Decimal] = Field(None, description="Enganche pagado por el cliente")
+    credit_installments      : Optional[int]     = Field(None, description="Número de cuotas pactadas")
+    credit_interest_rate     : Optional[Decimal] = Field(None, description="Tasa de interés % sobre el precio")
+    credit_frequency         : Optional[str]     = Field(None, description="Frecuencia: semanal/quincenal/mensual")
+    credit_installment_amount: Optional[Decimal] = Field(None, description="Monto de cada cuota calculado")
     
     # Hybrid/Sync Fields (Optional, for offline sales)
     unique_uuid: Optional[str] = Field(None, description="UUID único generado offline")
@@ -461,6 +468,16 @@ class SaleRead(BaseModel):
     balance_pending: Optional[Decimal] = None
     is_credit: bool = False
     paid: bool = True
+    credit_down_payment      : Optional[Decimal] = None
+    credit_installments      : Optional[int]     = None
+    credit_interest_rate     : Optional[Decimal] = None
+    credit_frequency         : Optional[str]     = None
+    credit_installment_amount: Optional[Decimal] = None
+    bloqueo_sincronizado      : Optional[bool]   = None
+    bloqueo_codigo_activacion : Optional[str]    = None
+    bloqueo_estado            : Optional[str]    = None
+    bloqueo_cliente_id        : Optional[int]    = None
+    bloqueo_dispositivo_id    : Optional[int]    = None
     currency: str = "USD"  # NEW: Include currency
     exchange_rate_used: Decimal = Decimal("1.0")  # NEW: Include exchange rate
     status: str = "COMPLETED" # Derived from property
@@ -497,9 +514,9 @@ class CustomerBase(BaseModel):
     email: Optional[str] = Field(None, description="Correo electrónico para facturación", json_schema_extra={'example': "compras@global.com"})
     address: Optional[str] = Field(None, description="Dirección fiscal o de entrega", json_schema_extra={'example': "Av. Principal, Edif. Azul"})
     credit_limit: Decimal = Field(Decimal("100.00"), description="Límite máximo de crédito permitido en USD", ge=0)
-    payment_term_days: int = Field(15, description="Días de crédito otorgados", ge=0)
+    payment_term_days: Optional[int] = Field(15, description="Días de crédito otorgados", ge=0)
     unique_uuid: Optional[str] = Field(None, description="UUID único para sync")
-    is_blocked: bool = Field(False, description="Bloqueo administrativo para impedir nuevas ventas")
+    is_blocked: Optional[bool] = Field(False, description="Bloqueo administrativo para impedir nuevas ventas")
     is_active: bool = Field(True, description="Estado activo del cliente (False = eliminado lógicamente)")
 
 
@@ -557,9 +574,10 @@ class QuoteRead(BaseModel):
     total_amount: Decimal
     status: str = "PENDING"
     notes: Optional[str]
+    valid_until: Optional[datetime] = None
     customer: Optional[CustomerRead] = None
     user: Optional[QuoteCreatorInfo] = None
-    details: List[QuoteDetailRead] = [] # Include details for counts in list view
+    details: List[QuoteDetailRead] = []
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -771,10 +789,11 @@ class UserRead(BaseModel):
     is_active: bool
     created_at: Optional[datetime]
     commission_percentage: Optional[Decimal] = Decimal("0.00")
-    preferences: Optional[Dict[str, Any]] = {} # NEW
-    is_onboarding_completed: bool = False # NEW
-    tenant_id: Optional[int] = None # NEW: Expose tenant_id as int (ID) to frontend
-
+    commission_vendor_pct: Optional[Decimal] = Decimal("0.00")        # v2 comisiones
+    commission_technician_pct: Optional[Decimal] = Decimal("0.00")    # v2 comisiones
+    preferences: Optional[Dict[str, Any]] = {}
+    is_onboarding_completed: Optional[bool] = False   # Optional — tolera NULL en BD
+    tenant_id: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -916,21 +935,36 @@ class PurchaseOrderBase(BaseModel):
     invoice_number: Optional[str] = None
     notes: Optional[str] = None
 
+class QuickProductCreate(BaseModel):
+    """Producto rápido creado al vuelo desde el módulo de compras."""
+    name: str
+    sku: Optional[str] = None
+    cost_price: Decimal             # precio de costo inicial
+    sale_price: Optional[Decimal] = None  # precio de venta sugerido
+    category_id: Optional[int] = None
+
 class PurchaseItemCreate(BaseModel):
-    product_id: int
+    product_id: Optional[int] = None      # None si se crea producto nuevo
+    quick_product: Optional[QuickProductCreate] = None  # producto nuevo al vuelo
     quantity: Decimal
     unit_cost: Decimal
+    discount_pct: Optional[Decimal] = Decimal("0")      # % descuento por ítem
+    discount_amount: Optional[Decimal] = Decimal("0")   # monto descuento por ítem
     update_cost: bool = False
-    update_price: bool = False  # NEW: Update sale price?
-    new_sale_price: Optional[Decimal] = None # NEW: The new sale price if update_price is True
+    update_price: bool = False
+    new_sale_price: Optional[Decimal] = None
 
 class PurchaseOrderCreate(PurchaseOrderBase):
     total_amount: Decimal
     items: List[PurchaseItemCreate] = []
     payment_type: str = "CREDIT"  # CASH or CREDIT
-    warehouse_id: int # NEW: Required warehouse
-    purchase_date: Optional[datetime] = None  # User-selected date; overrides server datetime.now()
-    due_date: Optional[datetime] = None  # User-selected due date; overrides supplier-term calculation
+    warehouse_id: int
+    purchase_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    # Descuentos del proveedor
+    discount_amount: Optional[Decimal] = Decimal("0")   # descuento global en monto
+    discount_type: Optional[str] = "NONE"               # NONE / PERCENT / FIXED
+    discount_notes: Optional[str] = None                # ej: "descuento pronto pago"
 
 class PurchaseOrderUpdate(BaseModel):
     invoice_number: Optional[str] = None
@@ -1009,6 +1043,10 @@ class BusinessInfo(BaseModel):
     logo_url: Optional[str] = None # URL for displayed logo
     ticket_template: Optional[str] = None  # NEW: Jinja2 template for tickets
     default_tax_rate: Optional[Decimal] = Decimal("0.00")
+    warranty_format_url: Optional[str] = None
+    # Credit Defaults
+    credit_default_down_payment_pct: Optional[Decimal] = Decimal("20.00")
+    credit_default_interest_rate: Optional[Decimal] = Decimal("10.00")
 
 # ========================
 # Audit Log Schemas
@@ -1355,6 +1393,9 @@ class CommissionLogRead(BaseModel):
 class CommissionSummaryRead(BaseModel):
     user_id: int
     user_name: str
+    full_name: Optional[str] = None
+    commission_role: Optional[str] = "VENDOR"
+    total_earned: Optional[Decimal] = Decimal("0.00")
     pending_amount: Decimal
     count: int
 

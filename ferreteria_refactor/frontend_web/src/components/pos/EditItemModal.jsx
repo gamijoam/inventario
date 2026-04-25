@@ -347,7 +347,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
                 )}
 
                 {/* Price List Selector */}
-                {modules?.services && (
+                {priceLists.length > 0 && (
                     <div className="mb-6 space-y-1.5">
                         <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
                             <Tag size={12} />
@@ -460,7 +460,7 @@ const EditItemModal = ({ isOpen, onClose, item, onUpdate, onDelete, priceLists =
                             onUpdate(item.id, quantity, extra);
                             onClose();
                         }}
-                        className="flex-[2] h-12 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:-translate-y-1 transition-all"
+                        className="flex-[2] h-12 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-indigo-300/30 hover:-translate-y-1 transition-all"
                     >
                         <Save size={18} className="mr-2" /> Actualizar
                     </Button>

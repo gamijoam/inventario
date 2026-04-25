@@ -196,6 +196,16 @@ def list_tenants(
             # Map to TenantOut manually to include runtime computed fields
             t_out = TenantOut.model_validate(tenant)
             t_out.user_count = user_count
+            # Buscar email del admin principal del tenant
+            try:
+                sql_email = text(
+                    "SELECT email FROM public.users "
+                    "WHERE tenant_id = :t_id AND role::text IN ('ADMIN','admin','SUPERADMIN') "
+                    "ORDER BY id ASC LIMIT 1"
+                )
+                t_out.owner_email = db.execute(sql_email, {"t_id": tenant.id}).scalar()
+            except Exception:
+                t_out.owner_email = None
             tenant_list.append(t_out)
         
         return {
@@ -881,16 +891,26 @@ def get_tenant_activity(
             "user_count": 0,
         }
 
-        # User count from public schema
-        metrics["user_count"] = db.query(func.count(User.id)).filter(
-            User.tenant_id == t.id
-        ).scalar() or 0
+        # User count — con rollback previo si la sesión está en error
+        try:
+            db.rollback()  # Asegurar sesión limpia antes de cada tenant
+            metrics["user_count"] = db.query(func.count(User.id)).filter(
+                User.tenant_id == t.id
+            ).scalar() or 0
+        except Exception as e:
+            db.rollback()
+            print(f"[ACTIVITY] Error user_count schema '{schema}': {e}")
 
         # Check if schema exists before querying
-        schema_exists = db.execute(
-            text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :s"),
-            {"s": schema}
-        ).fetchone()
+        try:
+            schema_exists = db.execute(
+                text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :s"),
+                {"s": schema}
+            ).fetchone()
+        except Exception:
+            db.rollback()
+            activity_data.append(metrics)
+            continue
 
         if not schema_exists:
             activity_data.append(metrics)
@@ -933,8 +953,13 @@ def get_tenant_activity(
                 metrics["last_login"] = last_login.isoformat()
 
         except Exception as e:
-            # Schema may exist but tables may not (partial setup)
+            # Schema may exist but tables may not — rollback para limpiar la transacción
+            db.rollback()
             print(f"[ACTIVITY] Error querying schema '{schema}': {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
         activity_data.append(metrics)
 

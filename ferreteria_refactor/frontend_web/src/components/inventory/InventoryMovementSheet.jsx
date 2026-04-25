@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Sheet,
     SheetContent,
@@ -71,12 +71,12 @@ const InventoryMovementSheet = ({ isOpen, onClose, onSuccess }) => {
         }
     ];
 
+    // Fetch warehouses on open (static, low count)
     useEffect(() => {
         if (isOpen) {
             setStep(1);
             setSearchTerm('');
             setSelectedProduct(null);
-            setLoadingProducts(true);
             setAdjustmentData({
                 type: 'ADJUSTMENT_IN',
                 quantity: 1,
@@ -85,16 +85,9 @@ const InventoryMovementSheet = ({ isOpen, onClose, onSuccess }) => {
                 warehouse_id: ''
             });
 
-            // Parallel fetch: Products + Warehouses
-            setLoadingProducts(true);
-            Promise.all([
-                apiClient.get('/products/'),
-                apiClient.get('/warehouses')
-            ])
-                .then(([prodRes, whRes]) => {
-                    setProducts(prodRes.data);
+            apiClient.get('/warehouses')
+                .then(whRes => {
                     setWarehouses(whRes.data);
-                    // Default to first warehouse (Main usually)
                     if (whRes.data?.length > 0) {
                         const mainWh = whRes.data.find(w => w.is_main) || whRes.data[0];
                         setAdjustmentData(prev => ({ ...prev, warehouse_id: mainWh.id }));
@@ -103,12 +96,39 @@ const InventoryMovementSheet = ({ isOpen, onClose, onSuccess }) => {
                 .catch(err => {
                     console.error(err);
                     toast.error('Error al cargar datos necesarios');
-                })
-                .finally(() => setLoadingProducts(false));
+                });
         }
     }, [isOpen]);
 
-    const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    // Server-side product search with debounce
+    const searchProducts = useCallback(async (query) => {
+        setLoadingProducts(true);
+        try {
+            const params = { limit: 500 };
+            if (query && query.trim().length >= 1) {
+                params.search = query.trim();
+            }
+            const { data } = await apiClient.get('/products/', { params });
+            setProducts(data);
+        } catch (err) {
+            console.error(err);
+            toast.error('Error al buscar productos');
+        } finally {
+            setLoadingProducts(false);
+        }
+    }, []);
+
+    // Debounced search effect
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (isOpen && step === 1) {
+                searchProducts(searchTerm);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm, isOpen, step, searchProducts]);
+
+    const filteredProducts = products;
 
     const handleSelectProduct = (product) => {
         setSelectedProduct(product);

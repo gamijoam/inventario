@@ -1,6 +1,7 @@
 """APScheduler para tareas programadas del sistema."""
 import logging
 from datetime import datetime, timedelta
+from .services import whatsapp_scheduler as _wa_sched
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import or_, and_
@@ -160,6 +161,79 @@ def _auto_backup(keep_last: int = 7):
         logger.exception(f"[BACKUP] Error in auto_backup: {e}")
 
 
+def _sync_bloqueos_pendientes(db_session_factory):
+    """Reintenta sincronizar ventas a crédito pendientes con BloqueCelular. Corre cada hora."""
+    from .services import bloqueocelular_service as bcs
+    from .models.models import Sale, Customer, ProductInstance, SaleDetailInstance
+    
+    db: Session = db_session_factory()
+    try:
+        # Check all schemas
+        from sqlalchemy import text as _sched_text
+        result = db.execute(_sched_text("SELECT schema_name FROM information_schema.schemata"))
+        schemas = [row[0] for row in result.fetchall() if row[0] not in ('pg_catalog', 'information_schema', 'pg_toast') and not row[0].startswith('pg_')]
+        
+        for schema in schemas:
+            try:
+                # Find pending sales
+                pending_sales = db.query(Sale).filter(
+                    Sale.is_credit == True,
+                    Sale.bloqueo_sincronizado == False,
+                    Sale.bloqueo_dispositivo_id == None
+                ).execution_options(schema_translate_map={None: schema}).all()
+                
+                if not pending_sales:
+                    continue
+                    
+                if not bcs.is_enabled(db, schema):
+                    continue
+                    
+                logger.info(f"[Bloqueo] {schema}: Encontradas {len(pending_sales)} ventas pendientes de sincronizar.")
+                
+                for sale in pending_sales:
+                    # Get customer
+                    customer = db.query(Customer).filter(Customer.id == sale.customer_id).execution_options(schema_translate_map={None: schema}).first()
+                    if not customer:
+                        continue
+                        
+                    # Find IMEI from details
+                    imei = None
+                    product_name = "Dispositivo"
+                    instances = db.query(ProductInstance).join(SaleDetailInstance).filter(
+                        SaleDetailInstance.sale_detail_id.in_([d.id for d in sale.details])
+                    ).execution_options(schema_translate_map={None: schema}).all()
+                    
+                    if instances:
+                        imei = instances[0].serial_number
+                        product_name = instances[0].product.name
+                        
+                    res = bcs.sincronizar_venta_credito(
+                        db=db,
+                        schema=schema,
+                        sale_id=sale.id,
+                        customer_name=customer.name,
+                        customer_phone=customer.phone,
+                        customer_id_number=customer.id_number,
+                        customer_email=customer.email,
+                        total_amount=float(sale.total_amount),
+                        balance_pending=float(sale.balance_pending),
+                        due_date=sale.due_date,
+                        imei=imei,
+                        product_name=product_name,
+                        num_cuotas=sale.credit_installments or 6
+                    )
+                    
+                    if res.get("ok"):
+                        logger.info(f"[Bloqueo] {schema}: Venta {sale.id} sincronizada correctamente en reintento.")
+                    else:
+                        logger.warning(f"[Bloqueo] {schema}: Reintento fallido para venta {sale.id} - {res.get('error')}")
+            except Exception as e:
+                logger.error(f"[Bloqueo] Error iterando esquema {schema}: {e}")
+    except Exception as e:
+        logger.exception(f"[Bloqueo] Error in _sync_bloqueos_pendientes: {e}")
+    finally:
+        db.close()
+
 def start_scheduler(db_session_factory):
     """Registra los jobs y arranca el scheduler."""
     from .config import settings
@@ -193,6 +267,52 @@ def start_scheduler(db_session_factory):
         id="auto_backup",
         replace_existing=True,
     )
+
+    scheduler.add_job(
+        _sync_bloqueos_pendientes,
+        trigger="interval",
+        hours=1,
+        args=[db_session_factory],
+        id="sync_bloqueos_pendientes",
+        replace_existing=True,
+    )
+
+    # WhatsApp — recordatorio de deuda diario a las 09:00 Venezuela
+    scheduler.add_job(
+        _wa_sched.job_credit_reminders,
+        trigger="cron",
+        hour=9,
+        minute=0,
+        timezone="America/Caracas",
+        id="whatsapp_credit_reminders",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    # WhatsApp — alertas de stock bajo a las 08:00 Venezuela (antes de abrir)
+    scheduler.add_job(
+        _wa_sched.job_stock_alerts,
+        trigger="cron",
+        hour=8, minute=0, timezone="America/Caracas",
+        id="whatsapp_stock_alerts", replace_existing=True, misfire_grace_time=3600,
+    )
+
+    # WhatsApp — cotizaciones por vencer (2 días) a las 10:00 Venezuela
+    scheduler.add_job(
+        _wa_sched.job_quote_expiry_reminders,
+        trigger="cron",
+        hour=10, minute=0, timezone="America/Caracas",
+        id="whatsapp_quote_expiry", replace_existing=True, misfire_grace_time=3600,
+    )
+
+    # WhatsApp — garantías por vencer (7 días) a las 10:30 Venezuela
+    scheduler.add_job(
+        _wa_sched.job_warranty_reminders,
+        trigger="cron",
+        hour=10, minute=30, timezone="America/Caracas",
+        id="whatsapp_warranty_reminders", replace_existing=True, misfire_grace_time=3600,
+    )
+
     scheduler.start()
     logger.info(
         "[SCHEDULER] Started. Jobs: auto_expire_tenants @ 00:05 UTC daily, "

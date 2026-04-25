@@ -47,7 +47,7 @@ const ServiceTemplatesManager = ({ onClose }) => {
     const fetchTemplates = async () => {
         setLoading(true);
         try {
-            const res = await apiClient.get('/service-templates/all');
+            const res = await apiClient.get('/service-templates/all').catch(() => apiClient.get('/service-templates'));
             setTemplates(res.data || []);
         } catch {
             toast.error('Error al cargar plantillas');

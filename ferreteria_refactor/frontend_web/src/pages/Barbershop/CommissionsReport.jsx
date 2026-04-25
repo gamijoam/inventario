@@ -7,6 +7,7 @@ import {
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../context/AuthContext';
+import { normalizeSearch } from '../../utils/search';
 
 // Inline confirmation modal
 const ConfirmPayModal = ({ commission, onConfirm, onCancel, isProcessing }) => {
@@ -146,7 +147,7 @@ const CommissionsReport = () => {
 
     const filtered = commissions.filter(c => {
         const name = (c.user_name || '').toLowerCase();
-        const matchesSearch = name.includes(searchTerm.toLowerCase());
+        const matchesSearch = normalizeSearch(name).includes(normalizeSearch(searchTerm));
         const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
         return matchesSearch && matchesStatus;
     });

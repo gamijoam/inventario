@@ -180,11 +180,11 @@ const PagosTab = () => {
                                     <div className="flex flex-col gap-2 mt-3">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             {method.is_system ? (
-                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2.5 py-1 rounded-md border border-slate-200">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 px-2.5 py-1 rounded-lg border border-slate-200">
                                                     Sistema
                                                 </span>
                                             ) : (
-                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-md border border-indigo-100">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-lg border border-indigo-100">
                                                     Personalizado
                                                 </span>
                                             )}
