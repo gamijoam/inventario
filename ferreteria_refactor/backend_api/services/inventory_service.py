@@ -42,7 +42,7 @@ def _get_schema_by_company(db: Session, source_company: str) -> str:
 
 
 
-def _notify_transfer_export(db: Session, current_schema: str, source_company: str, items_count: int):
+def _notify_transfer_export(db: Session, current_schema: str, source_company: str, items_count: int, items_data: List[Dict[str, Any]] = None):
     """
     Envía notificación WhatsApp al admin cuando se genera un transfer de salida.
     Se ejecuta en un thread separado para no bloquear la respuesta.
@@ -67,9 +67,18 @@ def _notify_transfer_export(db: Session, current_schema: str, source_company: st
         ).scalar() or source_company
 
         friendly_time = datetime.now().strftime("%d/%m/%Y %I:%M %p")
+        # Show product NAME and QUANTITY
+        if items_data:
+            items_list = [f"{i.get('name', i.get('sku'))} ({float(i.get('quantity', 1))})" for i in items_data[:5]]
+            items_sample = "\n".join(items_list)
+            extra_items = f"\n... y {len(items_data)-5} más" if len(items_data) > 5 else ""
+        else:
+            items_sample = ""
+            extra_items = ""
         msg = (
             f"🚚 *Traslado de Salida — {b_name}*\n\n"
             f"📦 *{items_count} producto(s)* confirmados\n\n"
+            f"📋 Productos:\n{items_sample}{extra_items}\n\n"
             f"🕐 Generado: {friendly_time}\n\n"
             f"✅ Paquete listo para enviar."
         )
@@ -127,15 +136,24 @@ def _notify_transfer_import(db: Session, source_schema: str, source_company: str
             text(f'SELECT value FROM "{source_schema}".business_config WHERE key = \'business_name\'')
         ).scalar() or source_schema
 
+        # Get current tenant (destination) business name
+        current_schema = get_tenant_schema()
+        dest_b_name = db.execute(
+            text(f'SELECT value FROM "{current_schema}".business_config WHERE key = \'business_name\'')
+        ).scalar() or current_schema
+
         friendly_time = datetime.now().strftime("%d/%m/%Y %I:%M %p")
         source_business = data.get("source_business_name", source_company)
-        items_sample = ", ".join([f"{i['sku']}" for i in data.get("items", [])[:3]])
-        extra_items = f" y {len(data.get('items', []))-3} más" if len(data.get('items', [])) > 3 else ""
+        # Show product NAME and QUANTITY
+        items_list = [f"{i.get('name', i.get('sku'))} ({i.get('quantity', 1)})" for i in data.get("items", [])[:5]]
+        items_sample = ", ".join(items_list)
+        extra_items = f" y {len(data.get('items', []))-5} más" if len(data.get('items', [])) > 5 else ""
         msg = (
             f"✅ *Traslado Recibido*\n\n"
-            f"📦 Tu empresa *{source_b_name}* ha recibido mercancía.\n"
-            f"🏪 De: *{source_company}* ({source_business})\n\n"
-            f"📋 Productos: {items_sample}{extra_items}\n"
+            f"📦 Tu empresa *{dest_b_name}* ha recibido mercancía.\n"
+            f"🏪 De: *{source_business}*\n\n"
+            f"📋 Productos:\n"
+            f"{items_sample}{extra_items}\n\n"
             f"🕐 Recibido: {friendly_time}\n\n"
             f"✅ Inventario sincronizado."
         )
@@ -310,6 +328,7 @@ class InventoryService:
             current_schema=get_tenant_schema(),
             source_company=source_company,
             items_count=len(items_data),
+            items_data=items_data,
         )
 
         return package
