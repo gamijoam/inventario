@@ -198,11 +198,6 @@ class SalesService:
                 customer_id=sale_data.customer_id,
                 is_credit=sale_data.is_credit,
                 paid=not sale_data.is_credit,
-                credit_down_payment       = float(sale_data.credit_down_payment)       if sale_data.credit_down_payment       else None,
-                credit_installments       = int(sale_data.credit_installments)         if sale_data.credit_installments       else None,
-                credit_interest_rate      = float(sale_data.credit_interest_rate)      if sale_data.credit_interest_rate      else None,
-                credit_frequency          = sale_data.credit_frequency                 if sale_data.credit_frequency          else None,
-                credit_installment_amount = float(sale_data.credit_installment_amount) if sale_data.credit_installment_amount else None, 
                 currency=sale_data.currency,
                 exchange_rate_used=sale_data.exchange_rate,
                 total_amount_bs=total_bs,
@@ -340,7 +335,7 @@ class SalesService:
                         if not ingredient:
                             continue
                         
-                        qty_to_deduct = Decimal(str(item.quantity)) * Decimal(str(recipe_item.quantity))
+                        qty_to_deduct = Decimal(str(item.quantity)) * Decimal(str(recipe_item.quantity)) * Decimal(str(getattr(item, "recipe_factor", 1.0)))
                         
                         # Check and deduct from WAREHOUSE
                         ing_stock = db.query(models.ProductStock).filter(

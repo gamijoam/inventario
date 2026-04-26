@@ -74,6 +74,32 @@ const restaurantService = {
     getOrder: async (orderId) => {
         const response = await axiosInstance.get(`/restaurant/orders/${orderId}`);
         return response.data;
+    },
+
+    // --- MODIFIERS ---
+    getProductModifiers: async (productId) => {
+        const response = await axiosInstance.get(`/restaurant/modifiers/product/${productId}`);
+        return response.data;
+    },
+
+    createModifierGroup: async (productId, groupData) => {
+        const response = await axiosInstance.post(`/restaurant/modifiers/product/${productId}`, groupData);
+        return response.data;
+    },
+
+    deleteModifierGroup: async (groupId) => {
+        await axiosInstance.delete(`/restaurant/modifiers/group/${groupId}`);
+        return true;
+    },
+
+    addModifierOption: async (groupId, optionData) => {
+        const response = await axiosInstance.post(`/restaurant/modifiers/option/${groupId}`, optionData);
+        return response.data;
+    },
+
+    deleteModifierOption: async (optionId) => {
+        await axiosInstance.delete(`/restaurant/modifiers/option/${optionId}`);
+        return true;
     }
 };
 

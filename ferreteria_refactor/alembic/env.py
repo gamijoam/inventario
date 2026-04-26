@@ -23,19 +23,14 @@ from backend_api.config import settings
 from backend_api.database.db import DATABASE_URL as REAL_DATABASE_URL
 
 # Import ALL models to ensure detection
-from backend_api.models.restaurant import (
-    RestaurantTable, RestaurantOrder, RestaurantOrderItem,
-    RestaurantRecipe, RestaurantMenuSection, RestaurantMenuItem
-)
-from backend_api.models.prueba import PruebaActualizacion
-from backend_api.models.prueba_vps import PruebaVPS
-from backend_api.models.notas import NotasRapidas
-from backend_api.models.tenant import Tenant
-from backend_api.models.payment import TenantPayment
-from backend_api.models.system_messages import SystemMessage
-from backend_api.models.support import SupportTicket
-from backend_api.models.admin_task import AdminTask
-
+import backend_api.models.models
+import backend_api.models.restaurant
+import backend_api.models.desktop_license
+import backend_api.models.organization
+import backend_api.models.payment
+import backend_api.models.support
+import backend_api.models.system_messages
+import backend_api.models.tenant
 # Alembic Config
 config = context.config
 config.set_main_option("sqlalchemy.url", REAL_DATABASE_URL)

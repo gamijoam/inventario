@@ -208,7 +208,7 @@ const RecipeEditor = () => {
                                             </td>
                                             <td className="p-3 text-right">
                                                 <button
-                                                    onClick={() => handleRemoveItem(item.id)}
+                                                    onClick={() => handleRemoveIngredient(item.id)}
                                                     className="text-red-500 hover:text-red-700 text-sm underline"
                                                 >
                                                     Quitar

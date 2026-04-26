@@ -701,7 +701,7 @@ const CreditosTab = ({ dateRange }) => {
                                                         <div className="text-[10px] text-slate-400 mt-0.5">
                                                             {inv.credit_installments} cuotas · ${parseFloat(inv.credit_installment_amount||0).toFixed(2)} c/u · {inv.credit_frequency||'mensual'}
                                                         </div>
-                                                    )}}
+                                                    )}
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
                                                     {inv.paid ? (

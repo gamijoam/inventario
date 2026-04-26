@@ -31,6 +31,7 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
     const [showMoveModal, setShowMoveModal] = useState(false);
     const [showSplitModal, setShowSplitModal] = useState(false);
     const [showOptions, setShowOptions] = useState(false);
+    const [pendingProduct, setPendingProduct] = useState(null); // Product awaiting modifier selection
 
     // Selection State
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -507,7 +508,16 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                                                         </span>
                                                         <div className="min-w-0">
                                                             <p className="font-bold text-slate-800 text-sm truncate">{item.product_name}</p>
-                                                            {item.notes && <p className="text-[11px] text-orange-500 font-semibold truncate">📝 {item.notes}</p>}
+                                                            {item.modifiers && item.modifiers.length > 0 && (
+                                                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                                                    {item.modifiers.map(m => (
+                                                                        <span key={m.id} className="inline-flex items-center text-[10px] bg-orange-50 border border-orange-200 text-orange-700 px-1.5 py-0.5 rounded-md font-semibold">
+                                                                            {m.name}{parseFloat(m.price_applied) !== 0 ? ` (+${parseFloat(m.price_applied).toFixed(2)})` : ""}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {item.notes && <p className="text-[11px] text-slate-400 mt-0.5 truncate">📝 {item.notes}</p>}
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 shrink-0">
@@ -622,6 +632,14 @@ const OrderModal = ({ table, onClose, onUpdate }) => {
                     onClose={() => setShowSplitModal(false)}
                     order={order}
                     onSplitSuccess={handleSplitSuccess}
+                />
+            )}
+
+            {pendingProduct && (
+                <ModifierModal
+                    product={pendingProduct}
+                    onConfirm={handleModifierConfirm}
+                    onCancel={() => setPendingProduct(null)}
                 />
             )}
         </div>

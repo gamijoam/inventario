@@ -22,9 +22,15 @@ export default defineConfig({
   clearScreen: false,
 
   server: {
+    allowedHosts: true,
     host: true,
     port: 5173,
     strictPort: true,
+
+    hmr: {
+      clientPort: 443,
+    },
+
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000', // Backend local (dev)
