@@ -189,3 +189,7 @@ class RestaurantOrderItemModifier(Base):
 
     order_item = relationship("RestaurantOrderItem", back_populates="modifiers")
     option = relationship("ProductModifierOption")
+
+    @property
+    def name(self):
+        return self.option.name if self.option else "Unknown"
