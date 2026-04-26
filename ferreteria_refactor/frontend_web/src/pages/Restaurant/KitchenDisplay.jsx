@@ -96,6 +96,30 @@ const KitchenDisplay = () => {
         }
     };
 
+    const handleMarkOrderReady = async (orderId, activeItems) => {
+        // Optimistic update
+        setOrders(prev => prev.map(order => {
+            if (order.id === orderId) {
+                return {
+                    ...order,
+                    items: order.items.map(item =>
+                        (item.status === 'PENDING' || item.status === 'SENT' || item.status === 'PREPARING') ? { ...item, status: 'READY' } : item
+                    )
+                };
+            }
+            return order;
+        }));
+
+        try {
+            const itemsToUpdate = activeItems.filter(i => i.status === 'PENDING' || i.status === 'SENT' || i.status === 'PREPARING');
+            await Promise.all(itemsToUpdate.map(item => kitchenService.updateItemStatus(item.id, 'READY')));
+            toast.success("¡Orden lista!");
+        } catch (error) {
+            toast.error('Error al actualizar orden completa');
+            fetchOrders(); // Revert on error
+        }
+    };
+
     const getElapsedMinutes = (dateString) => {
         const start = new Date(dateString);
         return Math.floor((now - start) / 60000);
@@ -205,7 +229,7 @@ const KitchenDisplay = () => {
                         <span className="text-sm mt-1">Los pedidos aparecerán aquí automáticamente</span>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                    <div className="flex gap-4 overflow-x-auto pb-6 snap-x" style={{ scrollBehavior: 'smooth' }}>
                         {orders.map(order => {
                             const urgency = getUrgencyLevel(order.created_at);
                             const style = urgencyStyles[urgency];
@@ -216,7 +240,7 @@ const KitchenDisplay = () => {
                             return (
                                 <div
                                     key={order.id}
-                                    className={`flex flex-col rounded-xl overflow-hidden border-2 shadow-lg ${style.border} bg-slate-900`}
+                                    className={`flex-none w-80 flex flex-col rounded-xl overflow-hidden border-2 shadow-lg ${style.border} bg-slate-900 snap-start shrink-0`}
                                 >
                                     {/* Card Header */}
                                     <div className={`px-4 py-3 flex justify-between items-center ${style.header}`}>
@@ -230,9 +254,19 @@ const KitchenDisplay = () => {
                                             </h3>
                                             <span className="text-[10px] text-slate-500 font-mono">#{order.id}</span>
                                         </div>
-                                        <div className={`px-3 py-1.5 rounded-lg font-mono text-lg font-black flex items-center gap-1.5 ${style.timerBg} ${style.timer}`}>
-                                            <Clock size={16} />
-                                            {getElapsedFormatted(order.created_at)}
+                                        <div className="flex flex-col items-end gap-2">
+                                            <div className={`px-3 py-1.5 rounded-lg font-mono text-lg font-black flex items-center gap-1.5 ${style.timerBg} ${style.timer}`}>
+                                                <Clock size={16} />
+                                                {getElapsedFormatted(order.created_at)}
+                                            </div>
+                                            {activeItems.some(i => i.status !== 'READY') && (
+                                                <button
+                                                    onClick={() => handleMarkOrderReady(order.id, activeItems)}
+                                                    className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 transition-colors flex items-center gap-1"
+                                                >
+                                                    <CheckCircle size={14} /> Todo Listo
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 

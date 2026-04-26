@@ -1,0 +1,116 @@
+services:
+  # ------------------------------------------------
+  # 🗄️ BASE DE DATOS QA (AISLADA)
+  # ------------------------------------------------
+  db_qa:
+    image: postgres:15-alpine
+    container_name: db_qa_server
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      TZ: America/Caracas
+      PGTZ: America/Caracas
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      qa_internal:
+        ipv4_address: 172.20.0.10
+        aliases:
+          - db_qa
+
+  # ------------------------------------------------
+  # 🧠 BACKEND QA (API)
+  # ------------------------------------------------
+  backend_qa:
+    image: gamijoam/ferreteria-backend:${TAG}
+   #entrypoint: ["./docker-entrypoint.sh"]
+    container_name: backend_qa_server
+    environment:
+      - TZ=America/Caracas
+    restart: always
+    env_file: .env
+    depends_on:
+      - db_qa
+    volumes:
+      - ./data/media:/app/media
+      - ./backups:/app/backups
+    networks:
+      - web_publica
+      - qa_internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend-qa.rule=Host(`api-qa.miinventariofacil.com`)"
+      - "traefik.http.routers.backend-qa.entrypoints=websecure"
+      - "traefik.http.routers.backend-qa.tls.certresolver=myresolver"
+      - "traefik.http.services.backend-qa.loadbalancer.server.port=8000"
+      - "traefik.docker.network=web_publica"
+
+  # ------------------------------------------------
+  # 🚀 LANDING PAGE QA
+  # ------------------------------------------------
+  landing_qa:
+    image: gamijoam/ferreteria-landing:${TAG}
+    container_name: landing_qa_server
+    restart: always
+    networks:
+      - web_publica
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.landing-qa.rule=Host(`qa.miinventariofacil.com`)"
+      - "traefik.http.routers.landing-qa.entrypoints=websecure"
+      - "traefik.http.routers.landing-qa.tls.certresolver=myresolver"
+      - "traefik.http.services.landing-qa.loadbalancer.server.port=80"
+      - "traefik.docker.network=web_publica"
+
+  # ------------------------------------------------
+  # 🎨 FRONTEND QA (APP CLIENTES)
+  # ------------------------------------------------
+  frontend_qa:
+    image: gamijoam/ferreteria-app:${TAG}
+    container_name: frontend_qa_server
+    restart: always
+    env_file: .env
+    networks:
+      - web_publica
+    labels:
+      - "traefik.enable=true"
+      # REGLA UNIFICADA: Atrapa app-qa O cualquier subdominio (ferreteria1.qa...)
+      - "traefik.http.routers.frontend-qa.rule=Host(`app-qa.miinventariofacil.com`) || HostRegexp(`{subdomain:[a-z0-9-]+}.qa.miinventariofacil.com`)"
+      - "traefik.http.routers.frontend-qa.entrypoints=websecure"
+      - "traefik.http.routers.frontend-qa.tls.certresolver=myresolver"
+      - "traefik.http.services.frontend-qa.loadbalancer.server.port=80"
+      - "traefik.docker.network=web_publica"
+
+  # ------------------------------------------------
+  # 👮 PANEL ADMIN (NUEVO)
+  # ------------------------------------------------
+  frontend_admin:
+    # USAMOS LA IMAGEN DE DOCKER HUB, NO CONSTRUIMOS AQUÍ
+    image: gamijoam/ferreteria-admin-panel:${TAG}
+    container_name: admin_panel_qa
+    restart: always
+    networks:
+      - web_publica
+    labels:
+      - "traefik.enable=true"
+      # Prioridad 100 para ganar a la regla wildcard de arriba
+      - "traefik.http.routers.frontend-admin.priority=2000"
+      - "traefik.http.routers.frontend-admin.rule=Host(`admin-qa.miinventariofacil.com`)"
+      - "traefik.http.routers.frontend-admin.entrypoints=websecure"
+      - "traefik.http.routers.frontend-admin.tls.certresolver=myresolver"
+      - "traefik.http.services.frontend-admin.loadbalancer.server.port=80"
+      - "traefik.docker.network=web_publica"
+
+# ------------------------------------------------
+# 🌐 REDES
+# ------------------------------------------------
+networks:
+  web_publica:
+    external: true
+  qa_internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

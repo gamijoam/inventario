@@ -1,0 +1,1340 @@
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Numeric, Text, DateTime, Date, Enum, JSON, UniqueConstraint
+from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+from ..database.db import Base
+import datetime
+import enum
+from ..utils.time_utils import get_venezuela_now
+
+class MovementType(enum.Enum):
+    PURCHASE = "PURCHASE"
+    SALE = "SALE"
+    ADJUSTMENT = "ADJUSTMENT"  # For shrinkage, discounts, damaged goods
+    RETURN = "RETURN"
+    ADJUSTMENT_IN = "ADJUSTMENT_IN"
+    ADJUSTMENT_OUT = "ADJUSTMENT_OUT"
+    EXTERNAL_TRANSFER_IN = "EXTERNAL_TRANSFER_IN"
+    EXTERNAL_TRANSFER_OUT = "EXTERNAL_TRANSFER_OUT"
+
+class ProductInstanceStatus(enum.Enum):
+    AVAILABLE = "AVAILABLE"
+    SOLD = "SOLD"
+    RMA = "RMA"
+    TRANSIT = "TRANSIT"
+    DAMAGED = "DAMAGED"
+
+class WarrantyUnit(str, enum.Enum):
+    DAYS = "DAYS"
+    MONTHS = "MONTHS"
+    YEARS = "YEARS"
+
+class PaymentStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    PARTIAL = "PARTIAL"
+    PAID = "PAID"
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    description = Column(Text, nullable=True)
+    parent_id = Column(Integer, ForeignKey('categories.id'), nullable=True)  # For subcategories
+
+    # Relationships
+    children = relationship("Category", backref="parent", remote_side=[id])
+    products = relationship("Product", back_populates="category")
+
+    def __repr__(self):
+        return f"<Category(name='{self.name}', parent_id={self.parent_id})>"
+
+class Supplier(Base):
+    __tablename__ = "suppliers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    contact_person = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    address = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    
+    # Financial fields for Accounts Payable
+    current_balance = Column(Numeric(12, 2), default=0.00)  # Current debt
+    credit_limit = Column(Numeric(12, 2), nullable=True)  # Optional credit limit
+    payment_terms = Column(Integer, default=30)  # Payment terms in days
+
+    products = relationship("Product", back_populates="supplier")
+    purchase_orders = relationship("PurchaseOrder", back_populates="supplier")
+
+    def __repr__(self):
+        return f"<Supplier(name='{self.name}')>"
+
+class ExchangeRate(Base):
+    """
+    Exchange Rate Model - Supports multiple rates per currency
+    Examples: BCV, Paralelo, Preferencial for VES
+    """
+    __tablename__ = "exchange_rates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)  # "BCV", "Paralelo", "Preferencial"
+    currency_code = Column(String, nullable=False)  # "VES", "COP", "PEN"
+    currency_symbol = Column(String, nullable=False)  # "Bs", "COP", "S/"
+    rate = Column(Numeric(20, 8), nullable=False)  # Exchange rate to USD (8 decimals for micro-currencies like COP)
+    is_default = Column(Boolean, default=False)  # Default rate for this currency
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)
+    
+    # Relationships
+    products = relationship("Product", back_populates="exchange_rate")
+    product_units = relationship("ProductUnit", back_populates="exchange_rate")
+    
+    
+    def __repr__(self):
+        return f"<ExchangeRate(name='{self.name}', code='{self.currency_code}', rate={self.rate})>"
+
+class PriceList(Base):
+    __tablename__ = "price_lists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)  # "Retail", "Wholesale", "VIP"
+    requires_auth = Column(Boolean, default=False)  # If True, requires Supervisor PIN
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    product_prices = relationship("ProductPrice", back_populates="price_list", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<PriceList(name='{self.name}', auth={self.requires_auth})>"
+
+class ProductPrice(Base):
+    __tablename__ = "product_prices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    price_list_id = Column(Integer, ForeignKey("price_lists.id"), nullable=False)
+    price = Column(Numeric(18, 4), nullable=False, default=0.0000)
+    
+    # __table_args__ = (
+    #    UniqueConstraint('product_id', 'price_list_id', name='uix_product_price_list'),
+    # ) 
+    # Commented out constraint to avoid import error if UniqueConstraint isn't imported
+    # Will add import in a separate step or just assume application logic handles it?
+    # Better to add the import.
+                 
+    product = relationship("Product", back_populates="prices")
+    price_list = relationship("PriceList", back_populates="product_prices")
+
+    def __repr__(self):
+        return f"<ProductPrice(product={self.product_id}, list={self.price_list_id}, price={self.price})>"
+
+class Product(Base):
+    __tablename__ = "products"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True, nullable=False)
+    sku = Column(String, unique=True, index=True, nullable=True) # Barcode
+    description = Column(Text, nullable=True)
+    price = Column(Numeric(18, 4), nullable=False, default=0.0000)
+    price_mayor_1 = Column(Numeric(18, 4), default=0.0000) # Wholesale Price 1
+    price_mayor_2 = Column(Numeric(18, 4), default=0.0000) # Wholesale Price 2
+    cost_price = Column(Numeric(18, 4), default=0.0000)  # Cost for profit margin calculation
+    
+    # Pricing System Fields
+    profit_margin = Column(Numeric(5, 2), nullable=True)  # Profit margin percentage (e.g., 30.00 = 30%)
+    discount_percentage = Column(Numeric(5, 2), default=0.00)  # Promotional discount percentage
+    is_discount_active = Column(Boolean, default=False)  # Enable/disable promotional discount
+    tax_rate = Column(Numeric(5, 2), default=0.00) # Tax rate percentage (e.g. 16.00 for 16%)
+    
+    stock = Column(Numeric(12, 3), default=0.000) # Base units
+    min_stock = Column(Numeric(12, 3), default=5.000) # Low stock alert threshold
+    is_active = Column(Boolean, default=True) # Logical delete
+
+    # Warranty Configuration
+    warranty_duration = Column(Integer, default=0)
+    warranty_unit = Column(Enum(WarrantyUnit), default=WarrantyUnit.DAYS)
+    warranty_notes = Column(String, nullable=True)
+
+    # Core Logic for Hardware Store
+    is_box = Column(Boolean, default=False)
+    location = Column(String, nullable=True) # Shelf/Department location
+    conversion_factor = Column(Integer, default=1) # How many units in the box?
+    unit_type = Column(String, default="Unidad") # Unidad, Metro, Kilo, Litro
+    
+    # NEW: Combo/Bundle Support
+    is_combo = Column(Boolean, default=False)  # True if this product is a combo/bundle
+    
+    # NEW: Serialized Inventory Support
+    has_imei = Column(Boolean, default=False)
+    
+    # NEW: Service/Non-Stock Product Flag
+    is_service = Column(Boolean, default=False)  # True = no requiere seguimiento de stock
+
+    # NEW: Commission Flag
+    is_commissionable = Column(Boolean, default=False)  # True = genera comision al vendedor
+
+    # NEW: Barbershop / Salon Module
+    is_barbershop_service = Column(Boolean, default=False)
+    commission_amount = Column(Numeric(18, 4), nullable=True) # Fixed amount overrides employee base
+    commission_percentage = Column(Numeric(5, 2), nullable=True) # Percentage overrides employee base
+
+    
+    # NEW: Pharmacy Module Fields
+    drug_classification = Column(String(20), nullable=True)  # OTC, PRESCRIPTION, CONTROLLED
+    active_ingredient = Column(String(200), nullable=True)
+    storage_condition = Column(String(20), nullable=True, default='AMBIENT')  # AMBIENT, REFRIGERATED, FROZEN
+    requires_prescription = Column(Boolean, nullable=True, default=False)
+
+    # Image Support
+    image_url = Column(String(255), nullable=True)  # Relative path to product image
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)  # Auto-updated timestamp
+
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    exchange_rate_id = Column(Integer, ForeignKey("exchange_rates.id"), nullable=True)  # Product-level default rate
+
+    category = relationship("Category", back_populates="products")
+    supplier = relationship("Supplier", back_populates="products")
+    exchange_rate = relationship("ExchangeRate", back_populates="products")
+    price_rules = relationship("PriceRule", back_populates="product")
+    units = relationship("ProductUnit", back_populates="product", cascade="all, delete-orphan")
+    
+    # NEW: Combo relationships
+    # Items that are part of THIS combo (if this product is a combo)
+    combo_items = relationship(
+        "ComboItem", 
+        foreign_keys="ComboItem.parent_product_id",
+        back_populates="parent_product",
+        cascade="all, delete-orphan"
+    )
+    
+    # Combos that include THIS product as a component
+    parent_combos = relationship(
+        "ComboItem",
+        foreign_keys="ComboItem.child_product_id",
+        back_populates="child_product"
+    )
+    
+    # NEW: Multi-Warehouse Stocks
+    stocks = relationship("ProductStock", back_populates="product", cascade="all, delete-orphan")
+    
+    # NEW: Serialized Inventory
+    instances = relationship("ProductInstance", back_populates="product", cascade="all, delete-orphan")
+
+    # NEW: Multiple Price Lists Support
+    prices = relationship("ProductPrice", back_populates="product", cascade="all, delete-orphan")
+
+    # NEW: Quantity-Based Discount Rules
+    discount_rules = relationship("DiscountRule", back_populates="product", cascade="all, delete-orphan")
+
+    # NEW: Warranty Policy Link
+    warranty_policy_id = Column(Integer, ForeignKey("warranty_policies.id"), nullable=True)
+    warranty_policy = relationship("WarrantyPolicy", back_populates="products")
+
+    # NEW: Pharmacy lot tracking
+    lots = relationship("ProductLot", back_populates="product", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Product(name='{self.name}', is_box={self.is_box}, is_combo={self.is_combo}, factor={self.conversion_factor})>"
+
+# NEW: Quantity-Based Discount Rules (Feature 2)
+class DiscountRule(Base):
+    __tablename__ = "discount_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    min_quantity = Column(Numeric(12, 3), nullable=False)
+    discount_percentage = Column(Numeric(5, 2), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    product = relationship("Product", back_populates="discount_rules")
+
+class ProductUnit(Base):
+    __tablename__ = "product_units"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    unit_name = Column(String, nullable=False)  # Ej: "Saco", "Caja", "Gramo"
+    conversion_factor = Column(Numeric(14, 4), nullable=False) # Ej: 50.0 (Saco), 0.001 (Gramo)
+    barcode = Column(String, nullable=True) # Código específico de la presentación
+    cost_price = Column(Numeric(18, 4), nullable=True)  # Cost calculated: base_cost * factor
+    price_usd = Column(Numeric(18, 4), nullable=True) # Precio específico (opcional)
+    
+    # Pricing System Fields
+    profit_margin = Column(Numeric(5, 2), nullable=True)  # Unit-specific profit margin
+    discount_percentage = Column(Numeric(5, 2), default=0.00)  # Unit-specific discount
+    is_discount_active = Column(Boolean, default=False)  # Enable/disable unit discount
+    
+    is_default = Column(Boolean, default=False)
+    exchange_rate_id = Column(Integer, ForeignKey("exchange_rates.id"), nullable=True)  # Unit-specific rate
+
+    product = relationship("Product", back_populates="units")
+    exchange_rate = relationship("ExchangeRate", back_populates="product_units")
+
+    def __repr__(self):
+        return f"<ProductUnit(name='{self.unit_name}', factor={self.conversion_factor})>"
+
+class ComboItem(Base):
+    """
+    Combo/Bundle Item Model - Defines components of a combo product
+    Example: "Combo Emprendedor" contains "2x Cemento" + "1x Pala"
+    """
+    __tablename__ = "combo_items"
+    __table_args__ = (
+        UniqueConstraint('parent_product_id', 'child_product_id', name='uq_combo_item_parent_child'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    parent_product_id = Column(Integer, ForeignKey("products.id"), nullable=False)  # The combo product
+    child_product_id = Column(Integer, ForeignKey("products.id"), nullable=False)   # The component product
+    quantity = Column(Numeric(12, 3), nullable=False, default=1.000)  # Quantity of child in combo
+    unit_id = Column(Integer, ForeignKey("product_units.id"), nullable=True)  # NEW: Optional unit/presentation
+    
+    # Relationships
+    parent_product = relationship(
+        "Product",
+        foreign_keys=[parent_product_id],
+        back_populates="combo_items"
+    )
+    child_product = relationship(
+        "Product",
+        foreign_keys=[child_product_id],
+        back_populates="parent_combos"
+    )
+    unit = relationship("ProductUnit", foreign_keys=[unit_id])  # NEW: Link to specific unit
+    
+    def __repr__(self):
+        return f"<ComboItem(parent={self.parent_product_id}, child={self.child_product_id}, qty={self.quantity})>"
+
+class Kardex(Base):
+    __tablename__ = "kardex"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    date = Column(DateTime, default=get_venezuela_now)
+    movement_type = Column(Enum(MovementType), nullable=False)
+    quantity = Column(Numeric(12, 3), nullable=False) # Positive or Negative
+    balance_after = Column(Numeric(12, 3), nullable=False)
+    description = Column(Text, nullable=True)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True) # NEW: Warehouse link
+
+    product = relationship("Product")
+
+    def __repr__(self):
+        return f"<Kardex(product='{self.product_id}', type='{self.movement_type}', qty={self.quantity})>"
+
+class Sale(Base):
+    __tablename__ = "sales"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(DateTime, default=get_venezuela_now, index=True)
+    total_amount = Column(Numeric(18, 4), nullable=False)
+    payment_method = Column(String, default="Efectivo") # Efectivo, Tarjeta, Credito
+    
+    # Dual Currency Support
+    currency = Column(String, default="USD") # USD or BS
+    exchange_rate_used = Column(Numeric(14, 4), default=1.0000) # Rate at time of sale
+    total_amount_bs = Column(Numeric(18, 4), nullable=True) # Amount in Bs if applicable
+    
+    # Cart Global Discount
+    total_discount_usd = Column(Numeric(18, 4), default=0.0000)
+    cart_discount_type = Column(String, nullable=True) # 'percent', 'fixed', 'fixed_bs', 'target'
+    discount_auth_user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
+    
+    # Change / Vuelto Logic
+    change_amount = Column(Numeric(18, 4), default=0.0000) # Amount returned to customer
+    change_currency = Column(String(3), default='VES') # Currency of the change (usually VES)
+    
+    # Credit Sales
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    is_credit = Column(Boolean, default=False, index=True)
+    paid = Column(Boolean, default=True, index=True) # False for credit sales
+    due_date = Column(DateTime, nullable=True, index=True)  # Payment deadline for credit sales
+    balance_pending = Column(Numeric(18, 4), nullable=True)  # Remaining balance for partial payments
+
+    # Credit Details (from CalculadoraCredito — modelo plano)
+    credit_down_payment      = Column(Numeric(18,4), nullable=True)  # Enganche pagado
+    credit_installments      = Column(Integer,       nullable=True)  # Número de cuotas
+    credit_interest_rate     = Column(Numeric(8,4),  nullable=True)  # Tasa de interés %
+    credit_frequency         = Column(String(20),    nullable=True)  # semanal/quincenal/mensual
+    credit_installment_amount= Column(Numeric(18,4), nullable=True)  # Monto de cada cuota
+
+    # BloqueCelular Integration
+    bloqueo_cliente_id = Column(Integer, nullable=True)
+    bloqueo_dispositivo_id = Column(Integer, nullable=True)
+    bloqueo_codigo_activacion = Column(String(20), nullable=True)
+    bloqueo_sincronizado = Column(Boolean, default=False)
+    bloqueo_estado = Column(String(20), nullable=True) # activo, bloqueado, liberado
+    bloqueo_error = Column(Text, nullable=True)
+
+    # Sale Notes
+    notes = Column(Text, nullable=True)  # Special observations or instructions
+    
+    # Hybrid/Sync Fields
+    unique_uuid = Column(String(36), nullable=True, unique=True, index=True)
+    sync_status = Column(String(20), default="SYNCED") # SYNCED, PENDING
+    is_offline_sale = Column(Boolean, default=False)
+    
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True) # Linked warehouse
+    # Cash register session this sale was made in (for multi-register support)
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=True)
+
+    details = relationship("SaleDetail", back_populates="sale")
+    customer = relationship("Customer", back_populates="sales")
+    payments = relationship("SalePayment", back_populates="sale", lazy="joined")
+    returns = relationship("Return", back_populates="sale")
+    warehouse = relationship("Warehouse")
+    cash_session = relationship("CashSession", foreign_keys=[session_id])
+
+    @property
+    def status(self):
+        if not self.returns:
+            return "COMPLETED"
+        # Solo VOIDED si la devolución cubre todos los ítems de la venta
+        total_sold = sum(float(d.quantity or 0) for d in (self.details or []) if d.product_id)
+        total_returned = sum(
+            float(rd.quantity or 0)
+            for r in self.returns
+            for rd in (r.details or [])
+        )
+        if total_sold > 0 and total_returned >= total_sold:
+            return "VOIDED"
+        return "PARTIAL_RETURN"  # Devolución parcial — la venta sigue vigente
+
+    def __repr__(self):
+        return f"<Sale(id={self.id}, total={self.total_amount})>"
+
+class SalePayment(Base):
+    __tablename__ = "sale_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False, index=True)
+    amount = Column(Numeric(18, 4), nullable=False)
+    currency = Column(String, default="USD") # USD or Bs
+    payment_method = Column(String, default="Efectivo") # Efectivo, Tarjeta, etc.
+    exchange_rate = Column(Numeric(14, 4), default=1.0000) # Rate used for this specific payment
+    
+    # New Fields for Laundry/Mobile Payments
+    reference = Column(String, nullable=True) # Transfer Reference / Detail
+    payment_date = Column(DateTime, nullable=True) # Actual date of payment (for reconciliation)
+
+    sale = relationship("Sale", back_populates="payments")
+
+class SaleDetail(Base):
+    __tablename__ = "sale_details"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    quantity = Column(Numeric(12, 3), nullable=False) # Units sold
+    unit_price = Column(Numeric(18, 4), nullable=False) # Price at moment of sale
+    
+    # Discount Support
+    discount = Column(Numeric(12, 2), default=0.00)  # Discount amount or percentage
+    discount_type = Column(String, default="NONE")  # NONE, PERCENT, FIXED
+    
+    # Tax Support
+    tax_rate = Column(Numeric(5, 2), default=0.00)  # Tax rate applied at moment of sale (e.g. 16.00)
+    
+    # Financial Integrity
+    cost_at_sale = Column(Numeric(18, 4), default=0.0000)  # Historical cost at moment of sale
+
+    subtotal = Column(Numeric(18, 4), nullable=False)
+    is_box_sale = Column(Boolean, default=False) # Was it sold as a box?
+    
+    # NEW: Manual Description for Service Items
+    description = Column(Text, nullable=True)
+    
+    # NEW: Unit/Presentation Support
+    unit_id = Column(Integer, ForeignKey("product_units.id"), nullable=True)  # Which presentation was sold
+    
+    # NEW: Commission Support
+    salesperson_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Who sold this item
+    
+    # Warranty Snapshot
+    warranty_expiration_date = Column(DateTime, nullable=True)
+
+    sale = relationship("Sale", back_populates="details")
+    product = relationship("Product")
+    unit = relationship("ProductUnit")  # NEW: Link to presentation used
+    salesperson = relationship("User", foreign_keys=[salesperson_id]) # NEW
+    instances = relationship("SaleDetailInstance", back_populates="sale_detail", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<SaleDetail(product='{self.product_id}', qty={self.quantity}, tax={self.tax_rate})>"
+
+class CashRegister(Base):
+    """Represents a physical cash register terminal (e.g. 'Caja 1', 'Caja 2')."""
+    __tablename__ = "cash_registers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)           # e.g. "Caja 1", "Caja Central"
+    code = Column(String(20), nullable=False, unique=True)  # e.g. "C01", "C02"
+    description = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    # Hardware Bridge client ID — matches the "Client ID" configured in Windows Bridge app.
+    # Used to route print jobs to the correct printer for each physical register.
+    hardware_client_id = Column(String, nullable=True, default=None)
+
+    sessions = relationship("CashSession", back_populates="register")
+
+    def __repr__(self):
+        return f"<CashRegister(id={self.id}, code='{self.code}', name='{self.name}')>"
+
+
+class CashSession(Base):
+    __tablename__ = "cash_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
+    # Multi-register support: which cash register this session belongs to
+    register_id = Column(Integer, ForeignKey("cash_registers.id"), nullable=True)
+    start_time = Column(DateTime, default=get_venezuela_now)
+    end_time = Column(DateTime, nullable=True)
+    initial_cash = Column(Numeric(18, 4), default=0.0000)
+    initial_cash_bs = Column(Numeric(18, 4), default=0.0000) # Initial amount in Bs
+    final_cash_reported = Column(Numeric(18, 4), nullable=True) # What user counted (USD)
+    final_cash_reported_bs = Column(Numeric(18, 4), nullable=True) # What user counted (Bs)
+    final_cash_expected = Column(Numeric(18, 4), nullable=True) # Calculated (USD)
+    final_cash_expected_bs = Column(Numeric(18, 4), nullable=True) # Calculated (Bs)
+    difference = Column(Numeric(18, 4), nullable=True) # USD difference
+    difference_bs = Column(Numeric(18, 4), nullable=True) # Bs difference
+    status = Column(String, default="OPEN") # OPEN, CLOSED
+
+    movements = relationship("CashMovement", back_populates="session")
+    currencies = relationship("CashSessionCurrency", back_populates="session", cascade="all, delete-orphan")
+    user = relationship("User", foreign_keys=[user_id])
+    register = relationship("CashRegister", back_populates="sessions")
+
+    def __repr__(self):
+        return f"<CashSession(id={self.id}, status='{self.status}', register_id={self.register_id})>"
+
+class CashSessionCurrency(Base):
+    __tablename__ = "cash_session_currencies"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=False)
+    currency_symbol = Column(String, nullable=False)
+    initial_amount = Column(Numeric(12, 2), default=0.00)
+    final_reported = Column(Numeric(12, 2), nullable=True)
+    final_expected = Column(Numeric(12, 2), nullable=True)
+    difference = Column(Numeric(12, 2), nullable=True)
+    
+    session = relationship("CashSession", back_populates="currencies")
+    
+    def __repr__(self):
+        return f"<CashSessionCurrency(session={self.session_id}, currency='{self.currency_symbol}')>"
+
+
+class CashMovement(Base):
+    __tablename__ = "cash_movements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=False, index=True)
+    type = Column(String, nullable=False) # EXPENSE, WITHDRAWAL, DEPOSIT, CASH_ADVANCE
+    amount = Column(Numeric(18, 4), nullable=False)
+    currency = Column(String, default="USD") # USD or BS
+    exchange_rate = Column(Numeric(14, 4), default=1.0000)
+    description = Column(Text, nullable=True)
+    
+    # Dual Transaction Support (Digital Inflow)
+    incoming_amount = Column(Numeric(18, 4), nullable=True) # Total Customer Paid (e.g. 110.00)
+    incoming_currency = Column(String, nullable=True)       # e.g. USD, BS
+    incoming_method = Column(String, nullable=True)         # e.g. Zelle, Biopago
+    incoming_reference = Column(String, nullable=True)      # e.g. Ref 123456
+    
+    date = Column(DateTime, default=get_venezuela_now)
+
+    session = relationship("CashSession", back_populates="movements")
+
+    def __repr__(self):
+        return f"<CashMovement(type='{self.type}', amount={self.amount})>"
+
+class UserRole(str, enum.Enum):
+    ADMIN = "ADMIN"
+    CASHIER = "CASHIER"
+    WAREHOUSE = "WAREHOUSE"
+    WAITER = "WAITER"
+    KITCHEN = "KITCHEN"
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = {"schema": "public"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, nullable=True) # Now optional/display name
+    password_hash = Column(String, nullable=False)
+    pin = Column(String, nullable=True)  # 4-6 digit PIN for discount authorization
+    role = Column(Enum(UserRole), default=UserRole.CASHIER)
+    
+    # Tenant Isolation
+    tenant_id = Column(Integer, ForeignKey("public.tenants.id"), nullable=True) # Nullable for Superadmins or initial migration
+    full_name = Column(String, nullable=True)
+    email = Column(String(255), unique=True, index=True, nullable=False) # Login ID
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)  # NEW: Superuser flag for admin panel
+    commission_percentage = Column(Numeric(5, 2), default=0.00)     # LEGACY — kept for compatibility
+    commission_vendor_pct = Column(Numeric(5, 2), default=0.00)       # % que gana como VENDEDOR (POS)
+    commission_technician_pct = Column(Numeric(5, 2), default=0.00)   # % que gana como TÉCNICO (Taller)
+    
+    # User Preferences (Theme, shortcuts, etc.)
+    preferences = Column(JSON, default={}, nullable=True) # NEW: JSON Configuration
+    is_onboarding_completed = Column(Boolean, default=False) # NEW: Onboarding tour state
+
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    def __repr__(self):
+        return f"<User(username='{self.username}', role='{self.role}')>"
+
+class CommissionStatus(enum.Enum):
+    PENDING = "PENDING"
+    PAID = "PAID"
+    CANCELLED = "CANCELLED"
+    VOIDED = "VOIDED"
+
+class CommissionLog(Base):
+    """
+    Tracks commissions earned by users per sale item or service
+    """
+    __tablename__ = "commission_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=False)
+    
+    # Legacy/Specific Link
+    sale_detail_id = Column(Integer, ForeignKey("sale_details.id"), nullable=True) # Now Nullable for generic support
+    
+    # Generic Link
+    source_type = Column(String, default="SALE") # SALE, SERVICE
+    source_id = Column(Integer, nullable=True) # ID of the source (SaleDetail ID or ServiceOrder ID)
+    source_reference = Column(String, nullable=True) # Backup Ref (Ticket #)
+
+    amount = Column(Numeric(12, 2), nullable=False) # Commission amount in USD
+    currency = Column(String, default="USD")
+    percentage_applied = Column(Numeric(5, 2), nullable=True) # Snapshot of % used
+
+    # Status
+    status = Column(Enum(CommissionStatus), default=CommissionStatus.PENDING)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    paid_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    # v2 — Commission Engine
+    commission_role = Column(String, default="VENDOR")          # VENDOR | TECHNICIAN
+    voided_at = Column(DateTime, nullable=True)                  # Fecha anulación (si aplica)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=True)  # Link directo a venta
+
+    user = relationship("User")
+    sale_detail = relationship("SaleDetail")
+
+    def __repr__(self):
+        return f"<CommissionLog(user={self.user_id}, amount={self.amount}, status='{self.status}')>"
+
+
+class CommissionSettings(Base):
+    """
+    Configuración de comisiones por tenant.
+    Una sola fila por tenant. Se crea automáticamente al primer acceso.
+    """
+    __tablename__ = "commission_settings"
+
+    id = Column(Integer, primary_key=True)
+    global_enabled = Column(Boolean, default=False)                    # Master ON/OFF
+    pos_module_enabled = Column(Boolean, default=True)                 # POS activo
+    taller_module_enabled = Column(Boolean, default=True)              # Taller activo
+    taller_vendor_commission_enabled = Column(Boolean, default=False)  # Cajera también comisiona en taller
+    strict_mode = Column(Boolean, default=True)                        # Sin categoría = sin comisión
+    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=get_venezuela_now)
+
+    def __repr__(self):
+        return f"<CommissionSettings(global={self.global_enabled})>"
+
+
+class CommissionRule(Base):
+    """
+    Reglas de comisión por categoría de producto.
+    Permiten % específico por categoría que sobrescriben el % del usuario.
+    """
+    __tablename__ = "commission_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)                     # "Celulares 10%"
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    module = Column(String, nullable=True)                    # 'POS' | 'TALLER' | None = ambos
+    percentage = Column(Numeric(5, 2), nullable=False)
+    is_active = Column(Boolean, default=True)
+    priority = Column(Integer, default=0)                     # Mayor = gana sobre otras
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    category = relationship("Category")
+
+    def __repr__(self):
+        return f"<CommissionRule(cat={self.category_id}, pct={self.percentage})>"
+
+class Return(Base):
+    __tablename__ = "returns"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=False)
+    date = Column(DateTime, default=get_venezuela_now)
+    total_refunded = Column(Numeric(12, 2), nullable=False)
+    reason = Column(Text, nullable=True)
+
+    sale = relationship("Sale", back_populates="returns")
+    details = relationship("ReturnDetail", back_populates="return_obj")
+
+    def __repr__(self):
+        return f"<Return(id={self.id}, sale={self.sale_id})>"
+
+class ReturnDetail(Base):
+    __tablename__ = "return_details"
+
+    id = Column(Integer, primary_key=True, index=True)
+    return_id = Column(Integer, ForeignKey("returns.id"), nullable=False, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False, index=True)
+    quantity = Column(Numeric(12, 3), nullable=False) # Units returned
+    unit_price = Column(Numeric(12, 2), default=0.00)  # Price at time of return
+    unit_cost = Column(Numeric(14, 4), default=0.0000) # Cost at time of return (historical)
+
+    return_obj = relationship("Return", back_populates="details")
+    product = relationship("Product")
+
+    def __repr__(self):
+        return f"<ReturnDetail(product='{self.product_id}', qty={self.quantity})>"
+
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    id_number = Column(String, nullable=True, index=True)  # Cédula/ID
+    phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
+    address = Column(Text, nullable=True)
+    credit_limit = Column(Numeric(12, 2), default=100.00)
+    payment_term_days = Column(Integer, default=15)  # Default payment term in days
+    is_blocked = Column(Boolean, default=False)  # Manual credit block flag
+    is_active = Column(Boolean, default=True, nullable=False)  # Soft delete flag
+
+
+    # Hybrid/Sync Fields
+    unique_uuid = Column(String(36), nullable=True, unique=True, index=True)
+    sync_status = Column(String(20), default="SYNCED") # SYNCED, PENDING
+
+    sales = relationship("Sale", back_populates="customer")
+    payments = relationship("Payment", back_populates="customer")
+
+    def __repr__(self):
+        return f"<Customer(name='{self.name}')>"
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    amount = Column(Numeric(18, 4), nullable=False)
+    date = Column(DateTime, default=get_venezuela_now)
+    description = Column(Text, nullable=True)
+    
+    # Dual Currency Support
+    currency = Column(String, default="USD") # USD or BS
+    exchange_rate_used = Column(Numeric(14, 4), default=1.0000) # Rate at time of payment
+    amount_bs = Column(Numeric(12, 2), nullable=True) # Amount in Bs if applicable
+    payment_method = Column(String, default="Efectivo") # Efectivo, Transferencia, Tarjeta
+    
+    # Financial Integrity
+    session_id = Column(Integer, ForeignKey("cash_sessions.id"), nullable=True) # Linked Cash Session
+
+    customer = relationship("Customer", back_populates="payments")
+
+    def __repr__(self):
+        return f"<Payment(customer={self.customer_id}, amount={self.amount})>"
+
+
+class PriceRule(Base):
+    __tablename__ = "price_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    min_quantity = Column(Numeric(12, 3), nullable=False)  # Minimum qty to apply this price
+    price = Column(Numeric(12, 2), nullable=False)  # Special price for this tier
+
+    product = relationship("Product", back_populates="price_rules")
+
+    def __repr__(self):
+        return f"<PriceRule(product={self.product_id}, min_qty={self.min_quantity}, price={self.price})>"
+
+class Quote(Base):
+    __tablename__ = "quotes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True)
+    date = Column(DateTime, default=get_venezuela_now)
+    total_amount = Column(Numeric(18, 4), nullable=False)
+    status = Column(String, default="PENDING")  # PENDING, CONVERTED, EXPIRED
+    notes = Column(Text, nullable=True)
+
+    customer = relationship("Customer")
+    user = relationship("User", foreign_keys=[user_id])
+    details = relationship("QuoteDetail", back_populates="quote")
+
+    def __repr__(self):
+        return f"<Quote(id={self.id}, total={self.total_amount}, status='{self.status}')>"
+
+class QuoteDetail(Base):
+    __tablename__ = "quote_details"
+
+    id = Column(Integer, primary_key=True, index=True)
+    quote_id = Column(Integer, ForeignKey("quotes.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Numeric(12, 3), nullable=False)
+    unit_price = Column(Numeric(18, 4), nullable=False)
+    subtotal = Column(Numeric(18, 4), nullable=False)
+    is_box_sale = Column(Boolean, default=False)
+    
+    # NEW: Manual Description for Service Items
+    description = Column(String, nullable=True)
+
+    quote = relationship("Quote", back_populates="details")
+    product = relationship("Product")
+
+    def __repr__(self):
+        return f"<QuoteDetail(product={self.product_id}, qty={self.quantity})>"
+
+class BusinessConfig(Base):
+    __tablename__ = "business_config"
+
+    key = Column(String, primary_key=True, index=True)
+    value = Column(Text, nullable=True)
+    
+    # Dual Currency Support (stored as special keys)
+    # exchange_rate: Current USD to Bs rate
+    # exchange_rate_updated_at: Last update timestamp
+
+    def __repr__(self):
+        return f"<BusinessConfig(key='{self.key}', value='{self.value}')>"
+
+class PaymentMethod(Base):
+    __tablename__ = "payment_methods"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    is_active = Column(Boolean, default=True)
+    requires_reference = Column(Boolean, default=False) # New: Require reference for this method (e.g. Zelle, Transfer)
+    is_system = Column(Boolean, default=False) # Prevent deletion of core methods
+
+    def __repr__(self):
+        return f"<PaymentMethod(name='{self.name}')>"
+
+class Currency(Base):
+    __tablename__ = "business_currencies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    symbol = Column(String, nullable=False)
+    rate = Column(Numeric(14, 4), default=1.0000)
+    is_anchor = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    
+    def __repr__(self):
+        return f"<Currency(symbol='{self.symbol}', rate={self.rate})>"
+
+# Purchase Order and Payment Models for Accounts Payable
+
+class PurchaseOrder(Base):
+    __tablename__ = "purchase_orders"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=False)
+    purchase_date = Column(DateTime, default=get_venezuela_now)
+    due_date = Column(DateTime, nullable=True)  # Calculated from purchase_date + payment_terms
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True) # NEW: Receiving warehouse
+    
+    # Payment tracking
+    total_amount = Column(Numeric(18, 4), default=0.00)
+    paid_amount  = Column(Numeric(18, 4), default=0.00)
+    payment_status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
+    # Descuentos del proveedor (Herramienta 2)
+    discount_amount = Column(Numeric(18, 4), default=0)
+    discount_type   = Column(String(20), default="NONE")   # NONE / PERCENT / FIXED
+    discount_notes  = Column(Text, nullable=True)
+    
+    # Additional info
+    invoice_number = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    
+    # Relationships
+    supplier = relationship("Supplier", back_populates="purchase_orders")
+    warehouse = relationship("Warehouse")  # Receiving warehouse for display
+    payments = relationship("PurchasePayment", back_populates="purchase", cascade="all, delete-orphan")
+    items = relationship("PurchaseItem", back_populates="purchase", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<PurchaseOrder(id={self.id}, supplier={self.supplier_id}, total={self.total_amount}, status={self.payment_status})>"
+
+class PurchasePayment(Base):
+    __tablename__ = "purchase_payments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    purchase_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    payment_date = Column(DateTime, default=get_venezuela_now)
+    payment_method = Column(String, default="Efectivo")  # Efectivo, Transferencia, Cheque
+    reference = Column(String, nullable=True)  # Transfer/check number
+    notes = Column(Text, nullable=True)
+    currency = Column(String, default="USD")
+    exchange_rate = Column(Numeric(14, 4), default=1.0000)
+    
+    # Relationship
+    purchase = relationship("PurchaseOrder", back_populates="payments")
+    
+    
+    def __repr__(self):
+        return f"<PurchasePayment(id={self.id}, purchase={self.purchase_id}, amount={self.amount})>"
+
+class PurchaseItem(Base):
+    __tablename__ = "purchase_items"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    purchase_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
+    product_id  = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity    = Column(Numeric(12, 3), nullable=False)
+    unit_cost   = Column(Numeric(14, 4), nullable=False)
+    # Descuentos por ítem — Herramienta 2
+    discount_pct    = Column(Numeric(10, 4), default=0, server_default="0")
+    discount_amount = Column(Numeric(18, 4), default=0, server_default="0")
+    subtotal        = Column(Numeric(18, 4), nullable=True)
+    
+    # Relationships
+    purchase = relationship("PurchaseOrder", back_populates="items")
+    product  = relationship("Product")
+    
+    def __repr__(self):
+        return f"<PurchaseItem(purchase={self.purchase_id}, product={self.product_id}, qty={self.quantity})>"
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Nullable for system actions or if user deleted
+    action = Column(String, nullable=False) # CREATE, UPDATE, DELETE, LOGIN
+    table_name = Column(String, nullable=False)
+    record_id = Column(Integer, nullable=True)
+    changes = Column(Text, nullable=True) # JSON String
+    ip_address = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=get_venezuela_now, index=True)
+
+    user = relationship("User")
+
+class Warehouse(Base):
+    __tablename__ = "warehouses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    address = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    is_main = Column(Boolean, default=False) # To identify the primary/default warehouse
+
+    stocks = relationship("ProductStock", back_populates="warehouse")
+
+    def __repr__(self):
+        return f"<Warehouse(name='{self.name}', main={self.is_main})>"
+
+class ProductStock(Base):
+    __tablename__ = "product_stocks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    quantity = Column(Numeric(12, 3), default=0.000)
+    location = Column(String, nullable=True) # Specific shelf/bin in this warehouse
+
+    product = relationship("Product", back_populates="stocks")
+    warehouse = relationship("Warehouse", back_populates="stocks")
+
+    def __repr__(self):
+        return f"<ProductStock(product={self.product_id}, warehouse={self.warehouse_id}, qty={self.quantity})>"
+
+class ProductInstance(Base):
+    __tablename__ = "product_instances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    serial_number = Column(String, unique=True, index=True, nullable=False)
+    status = Column(Enum(ProductInstanceStatus), default=ProductInstanceStatus.AVAILABLE)
+    cost = Column(Numeric(18, 4), default=0.0000)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, onupdate=datetime.datetime.now)
+
+    product = relationship("Product", back_populates="instances")
+    warehouse = relationship("Warehouse")
+
+    def __repr__(self):
+        return f"<ProductInstance(sn='{self.serial_number}', status='{self.status}')>"
+
+class SaleDetailInstance(Base):
+    __tablename__ = "sale_detail_instances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sale_detail_id = Column(Integer, ForeignKey("sale_details.id"), nullable=False)
+    product_instance_id = Column(Integer, ForeignKey("product_instances.id"), nullable=False)
+    warranty_end_date = Column(DateTime, nullable=True) # Legacy / Backup
+    warranty_expiration_date = Column(DateTime, nullable=True) # Standardized Field
+
+    sale_detail = relationship("SaleDetail", back_populates="instances")
+    product_instance = relationship("ProductInstance")
+
+    def __repr__(self):
+        return f"<SaleDetailInstance(detail={self.sale_detail_id}, instance={self.product_instance_id})>"
+
+
+
+# ============================================
+# TABLA DE PRUEBA PARA AUTO-MIGRACION
+# ============================================
+class TestAutoMigration(Base):
+    """Tabla de prueba para verificar el sistema de auto-migracion."""
+    __tablename__ = "test_auto_migration"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    test_name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    is_active = Column(Boolean, default=True)
+
+
+class InventoryTransfer(Base):
+    __tablename__ = "inventory_transfers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    target_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    date = Column(DateTime, default=get_venezuela_now)
+    status = Column(String, default="PENDING") # PENDING, COMPLETED, CANCELLED
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, onupdate=datetime.datetime.now)
+
+    source_warehouse = relationship("Warehouse", foreign_keys=[source_warehouse_id])
+    target_warehouse = relationship("Warehouse", foreign_keys=[target_warehouse_id])
+    details = relationship("TransferDetail", back_populates="transfer", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<InventoryTransfer(id={self.id}, s={self.source_warehouse_id}, t={self.target_warehouse_id}, status={self.status})>"
+
+class TransferDetail(Base):
+    __tablename__ = "transfer_details"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transfer_id = Column(Integer, ForeignKey("inventory_transfers.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Numeric(12, 3), nullable=False)
+
+    transfer = relationship("InventoryTransfer", back_populates="details")
+    product = relationship("Product")
+
+    def __repr__(self):
+        return f"<TransferDetail(t={self.transfer_id}, p={self.product_id}, q={self.quantity})>"
+
+class WarrantyPolicy(Base):
+    __tablename__ = "warranty_policies"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("public.tenants.id"), nullable=False)
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=False) # DAYS, MONTHS, YEARS, LIFETIME
+    duration = Column(Integer, nullable=True) # Null for LIFETIME
+    description = Column(Text, nullable=True)
+    is_default = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, onupdate=datetime.datetime.now)
+    
+    products = relationship("Product", back_populates="warranty_policy")
+    
+    def __repr__(self):
+        return f"<WarrantyPolicy(name='{self.name}', type='{self.type}', duration={self.duration})>"
+
+class WarrantyClaim(Base):
+    __tablename__ = "warranty_claims"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("public.tenants.id"), nullable=False)
+    
+    # We link to SaleDetail to know EXACTLY what item was claimed
+    # But since SaleDetail might be archived or complex, we store ID.
+    # ideally we should have a relationship.
+    sale_item_id = Column(Integer, nullable=False) # ID of SaleDetail
+    customer_id = Column(Integer, nullable=False)
+    
+    policy_snapshot = Column(JSON, nullable=True) # What was the policy at that time?
+    
+    status = Column(String, default="PENDING") # PENDING, APPROVED, REJECTED, COMPLETED
+    reason = Column(Text, nullable=False)
+    diagnosis = Column(Text, nullable=True)
+    
+    resolution_type = Column(String, nullable=True) # REFUND, REPLACE, REPAIR, CREDIT
+    resolution_notes = Column(Text, nullable=True)
+    
+    claimed_at = Column(DateTime, default=get_venezuela_now)
+    resolved_at = Column(DateTime, nullable=True)
+    
+    # Relationships (optional, need imports if we want strong links)
+    # sale_item = relationship("SaleDetail") 
+    # customer = relationship("Customer")
+    
+    def __repr__(self):
+        return f"<WarrantyClaim(id={self.id}, status='{self.status}')>"
+
+
+
+
+
+# ============================================
+# RESTAURANT MODULE
+# ============================================
+from .restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem
+
+# ============================================
+# CASH REGISTER & COMMISSIONS MODULE
+# ============================================
+
+
+
+
+
+class ServiceOrderStatus(str, enum.Enum):
+    RECEIVED = "RECEIVED"
+    DIAGNOSING = "DIAGNOSING"
+    APPROVED = "APPROVED"
+    IN_PROGRESS = "IN_PROGRESS"
+    READY = "READY"
+    DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
+
+class ServiceType(str, enum.Enum):
+    REPAIR = "REPAIR"
+    LAUNDRY = "LAUNDRY"
+
+class ServicePriority(str, enum.Enum):
+    NORMAL = "NORMAL"
+    HIGH = "HIGH"
+    URGENT = "URGENT"
+
+class ServiceOrder(Base):
+    __tablename__ = "service_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_number = Column(String, unique=True, index=True, nullable=False) # SRV-0001
+    tenant_id = Column(String, index=True, nullable=True) # Multi-tenant isolation
+    
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    technician_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Assigned Technician
+    
+    status = Column(Enum(ServiceOrderStatus), default=ServiceOrderStatus.RECEIVED)
+    service_type = Column(Enum(ServiceType), default=ServiceType.REPAIR)
+    priority = Column(Enum(ServicePriority), default=ServicePriority.NORMAL)
+    
+    # Device Info (Made Nullable for Laundry)
+    device_type = Column(String, nullable=True) # "Smartphone", "Laptop", "Ropa"
+    brand = Column(String, nullable=True)
+    model = Column(String, nullable=True)
+    serial_imei = Column(String, nullable=True, index=True) 
+    passcode_pattern = Column(Text, nullable=True)
+    
+    # Diagnosis / Details
+    problem_description = Column(Text, nullable=True) # Optional for Laundry (implied by items)
+    physical_condition = Column(Text, nullable=True) 
+    diagnosis_notes = Column(Text, nullable=True)
+    
+    # Flexible Data
+    order_metadata = Column(JSON, nullable=True) # Bag color, weight, etc.
+
+    # Warranty Policy (optional: overrides tenant default when printing)
+    warranty_policy_id = Column(Integer, ForeignKey("warranty_policies.id"), nullable=True)
+
+    # Dates
+    created_at = Column(DateTime, default=get_venezuela_now)
+    updated_at = Column(DateTime, onupdate=datetime.datetime.now)
+    estimated_delivery = Column(DateTime, nullable=True)
+
+    # Archivo
+    is_archived = Column(Boolean, default=False, nullable=True)
+
+    # Relationships
+    customer = relationship("Customer")
+    technician = relationship("User", foreign_keys=[technician_id])
+    warranty_policy = relationship("WarrantyPolicy", foreign_keys=[warranty_policy_id])
+    details = relationship("ServiceOrderDetail", back_populates="service_order", cascade="all, delete-orphan")
+    payments = relationship("ServicePayment", back_populates="service_order", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<ServiceOrder(ticket='{self.ticket_number}', type='{self.service_type}', status='{self.status}')>"
+
+class ServicePayment(Base):
+    __tablename__ = "service_payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(String, index=True, nullable=True) # Multi-tenant isolation
+    service_order_id = Column(Integer, ForeignKey("service_orders.id"), nullable=False)
+    amount = Column(Numeric(18, 4), nullable=False)
+    currency = Column(String, default="USD")
+    payment_method = Column(String, default="Efectivo")
+    reference = Column(String, nullable=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+    
+    service_order = relationship("ServiceOrder", back_populates="payments")
+
+    def __repr__(self):
+        return f"<ServicePayment(order={self.service_order_id}, amount={self.amount})>"
+
+class ServiceOrderDetail(Base):
+    """
+    Spare parts or labor added to the service order.
+    Basically a 'SaleDetail' but for Services.
+    """
+    __tablename__ = "service_order_details"
+
+    id = Column(Integer, primary_key=True, index=True)
+    service_order_id = Column(Integer, ForeignKey("service_orders.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=True) # Can be NULL for manual items
+    
+    description = Column(String, nullable=True) # Manual description or Product Name snapshot
+    is_manual = Column(Boolean, default=False)
+    observations = Column(String, nullable=True) # Special notes/instructions for this item
+    
+    quantity = Column(Numeric(12, 3), default=1.000)
+    unit_price = Column(Numeric(12, 2), nullable=False)
+    cost = Column(Numeric(14, 4), default=0.0000)
+    
+    technician_id = Column(Integer, ForeignKey("public.users.id"), nullable=True) # Who performed this specific task?
+    
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    service_order = relationship("ServiceOrder", back_populates="details")
+    product = relationship("Product")
+    technician = relationship("User", foreign_keys=[technician_id])
+
+    def __repr__(self):
+        return f"<ServiceOrderDetail(order={self.service_order_id}, product={self.product_id})>"
+
+# ==========================================
+# SERVICE TEMPLATES
+# ==========================================
+
+class ServiceTemplate(Base):
+    """Pre-built service templates for quick order creation."""
+    __tablename__ = "service_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    category = Column(String, nullable=True)
+    estimated_days = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    items = relationship("ServiceTemplateItem", back_populates="template", cascade="all, delete-orphan")
+
+
+class ServiceTemplateItem(Base):
+    """Individual line items belonging to a ServiceTemplate."""
+    __tablename__ = "service_template_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    template_id = Column(Integer, ForeignKey("service_templates.id"), nullable=False)
+    description = Column(String, nullable=False)
+    unit_price = Column(Numeric(12, 2), nullable=False)
+    quantity = Column(Numeric(12, 3), default=1.000)
+
+    template = relationship("ServiceTemplate", back_populates="items")
+
+# ==========================================
+# BARBERSHOP & SALON MODULE
+# ==========================================
+
+class Employee(Base):
+    __tablename__ = "employees"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, index=True, nullable=False) # For cross-schema safety/routing if needed
+    name = Column(String, nullable=False, index=True)
+    document_id = Column(String, nullable=True)
+    phone = Column(String, nullable=True)
+    status = Column(String, default="ACTIVE") # ACTIVE, INACTIVE
+    base_commission_percentage = Column(Numeric(5, 2), default=50.00) # Base % earned per service if explicit rule isn't set
+    created_at = Column(DateTime, default=get_venezuela_now)
+    
+    # Relationships
+    commissions = relationship("Commission", back_populates="employee")
+
+class Commission(Base):
+    __tablename__ = "commissions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, index=True, nullable=False)
+    employee_id = Column(Integer, ForeignKey("employees.id"), index=True, nullable=False)
+    sale_item_id = Column(Integer, ForeignKey("sale_details.id"), index=True, nullable=False)
+    
+    # Calculation Auditing
+    base_amount = Column(Numeric(18, 4), nullable=False) # Total cost of the service sold
+    calculated_commission = Column(Numeric(18, 4), nullable=False) # The payout amount to the employee
+    
+    status = Column(String, default="PENDING") # PENDING, PAID, CANCELLED
+    created_at = Column(DateTime, default=get_venezuela_now)
+    
+    # Relationships
+    employee = relationship("Employee", back_populates="commissions")
+    sale_item = relationship("SaleDetail", foreign_keys=[sale_item_id])
+
+# ==========================================
+# PHARMACY MODULE
+# ==========================================
+
+class ProductLot(Base):
+    """Pharmacy: batch/lot tracking with expiry dates"""
+    __tablename__ = "product_lots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    lot_number = Column(String(100), nullable=False)
+    expiry_date = Column(Date, nullable=False, index=True)
+    quantity = Column(Numeric(12, 2), default=0)
+    received_date = Column(Date, nullable=True)
+    status = Column(String(20), default="ACTIVE")  # ACTIVE, EXPIRED, RECALLED, QUARANTINE
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    product = relationship("Product", back_populates="lots")
+
+    def __repr__(self):
+        return f"<ProductLot(product_id={self.product_id}, lot={self.lot_number}, expiry={self.expiry_date})>"
+
+
+class Prescription(Base):
+    """Pharmacy: prescription records linked to sales"""
+    __tablename__ = "prescriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sale_id = Column(Integer, ForeignKey("sales.id", ondelete="SET NULL"), nullable=True, index=True)
+    patient_name = Column(String(200), nullable=False)
+    patient_cedula = Column(String(20), nullable=False, index=True)
+    doctor_name = Column(String(200), nullable=False)
+    doctor_mpps = Column(String(50), nullable=True)
+    prescription_date = Column(Date, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Prescription(patient={self.patient_name}, doctor={self.doctor_name})>"

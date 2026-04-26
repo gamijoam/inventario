@@ -26,7 +26,13 @@ def get_warranty_policies(
     current_user: models.User = Depends(get_current_active_user)
 ):
     """List all warranty policies for the current tenant"""
-    # Note: Tenant filtering is handled by the search_path middleware
+    from ..tenant_context import get_tenant_schema
+    
+    current_schema = get_tenant_schema()
+    
+    if current_user.is_superuser and not current_user.tenant_id and current_schema == "public":
+        return []
+    
     return db.query(models.WarrantyPolicy).offset(skip).limit(limit).all()
 
 def get_effective_tenant_id(user: models.User, db: Session) -> int:

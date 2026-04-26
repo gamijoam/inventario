@@ -117,6 +117,12 @@ export const ConfigProvider = ({ children }) => {
                         if (backendModules.has_pharmacy_module !== undefined) {
                             backendModules.pharmacy = parseBool(backendModules.has_pharmacy_module);
                         }
+                        if (backendModules.has_restaurant_module !== undefined) {
+                            backendModules.restaurant = parseBool(backendModules.has_restaurant_module);
+                        }
+                        if (backendModules.has_services_module !== undefined) {
+                            backendModules.services = parseBool(backendModules.has_services_module);
+                        }
                         setModules(prev => ({ ...prev, ...backendModules }));
                     }
                     // Feature flags a la carta

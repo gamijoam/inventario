@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import restaurantService from '../../services/restaurantService';
-import { RefreshCw, Plus, Trash2, Edit2, X, Users, Clock } from 'lucide-react';
-import OrderModal from './components/OrderModal';
+import { RefreshCw, Plus, Trash2, Edit2, X, Users, Clock, Calendar, Sparkles, DollarSign } from 'lucide-react';
+import OrderPanel from './components/OrderPanel';
 import { toast } from 'react-hot-toast';
 
 const TableMap = () => {
@@ -10,6 +10,8 @@ const TableMap = () => {
     const [selectedZone, setSelectedZone] = useState('ALL');
     const [zones, setZones] = useState([]);
     const [selectedTable, setSelectedTable] = useState(null);
+    const [isAddingProducts, setIsAddingProducts] = useState(false);
+    const [draggedTable, setDraggedTable] = useState(null);
 
     // New Table Modal
     const [showNewTableModal, setShowNewTableModal] = useState(false);
@@ -34,6 +36,52 @@ const TableMap = () => {
         }
     };
 
+    const handleDragStart = (e, table) => {
+        if (table.status === 'OCCUPIED' && table.current_order_id) {
+            setDraggedTable(table);
+            e.dataTransfer.setData('text/plain', table.id);
+            e.dataTransfer.effectAllowed = 'move';
+        } else {
+            e.preventDefault();
+        }
+    };
+
+    const handleDragOver = (e, targetTable) => {
+        e.preventDefault();
+        if (draggedTable && draggedTable.id !== targetTable.id && targetTable.status === 'AVAILABLE') {
+            e.dataTransfer.dropEffect = 'move';
+        } else {
+            e.dataTransfer.dropEffect = 'none';
+        }
+    };
+
+    const handleDrop = async (e, targetTable) => {
+        e.preventDefault();
+        if (!draggedTable || draggedTable.id === targetTable.id) return;
+        if (targetTable.status !== 'AVAILABLE') {
+            toast.error("Solo puedes mover cuentas a mesas disponibles.");
+            return;
+        }
+        
+        if (window.confirm(`¿Mover cuenta de ${draggedTable.name} a ${targetTable.name}?`)) {
+            try {
+                await restaurantService.moveOrder(draggedTable.current_order_id, targetTable.id);
+                toast.success(`Cuenta movida a ${targetTable.name}`);
+                fetchTables();
+                if (selectedTable && selectedTable.id === draggedTable.id) {
+                    handleCloseModal();
+                }
+            } catch (error) {
+                toast.error(error.response?.data?.detail || "Error al mover la cuenta");
+            }
+        }
+        setDraggedTable(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedTable(null);
+    };
+
     useEffect(() => {
         fetchTables();
         const interval = setInterval(fetchTables, 10000); // Auto-refresh every 10s
@@ -46,6 +94,7 @@ const TableMap = () => {
 
     const handleCloseModal = () => {
         setSelectedTable(null);
+        setIsAddingProducts(false);
     };
 
     const handleUpdateMap = () => {
@@ -84,6 +133,17 @@ const TableMap = () => {
             fetchTables();
         } catch (error) {
             toast.error("Error eliminando mesa");
+        }
+    };
+
+    const handleChangeStatus = async (e, tableId, newStatus) => {
+        e.stopPropagation();
+        try {
+            await restaurantService.updateTableStatus(tableId, newStatus);
+            toast.success(`Mesa marcada como ${newStatus.toLowerCase()}`);
+            fetchTables();
+        } catch (error) {
+            toast.error(error.response?.data?.detail || "Error cambiando estado");
         }
     };
 
@@ -132,13 +192,26 @@ const TableMap = () => {
         }
     };
 
+    const formatDuration = (startTimeStr) => {
+        if (!startTimeStr) return '';
+        const start = new Date(startTimeStr + 'Z'); // Add 'Z' to ensure it's treated as UTC if backend sends naive UTC
+        const now = new Date();
+        const diffMs = Math.max(0, now - start); // Ensure we don't get negative values due to slight clock drift
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 60) return `${diffMins}m`;
+        const hours = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+        return `${hours}h ${mins}m`;
+    };
+
     const filteredTables = selectedZone === 'ALL'
         ? tables
         : tables.filter(t => t.zone === selectedZone);
 
     return (
-        <div id="tour-restaurant-tablemap" className="p-6 h-screen flex flex-col bg-slate-50">
-            {/* Header */}
+        <div className="flex h-screen bg-slate-50 overflow-hidden relative">
+            <div id="tour-restaurant-tablemap" className={`flex-1 p-6 flex flex-col transition-all duration-300 overflow-hidden ${selectedTable ? 'pr-6 opacity-60 xl:opacity-100' : ''}`}>
+                {/* Header */}
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -221,10 +294,16 @@ const TableMap = () => {
                             <div
                                 key={table.id}
                                 onClick={() => handleTableClick(table)}
+                                draggable={table.status === 'OCCUPIED' && !!table.current_order_id}
+                                onDragStart={(e) => handleDragStart(e, table)}
+                                onDragOver={(e) => handleDragOver(e, table)}
+                                onDrop={(e) => handleDrop(e, table)}
+                                onDragEnd={handleDragEnd}
                                 className={`
                                     relative rounded-2xl border-2 p-5 cursor-pointer shadow-sm
                                     transition-all transform hover:scale-[1.03] hover:shadow-lg
                                     ${status.bg} ${status.border}
+                                    ${draggedTable?.id === table.id ? 'opacity-50 ring-4 ring-indigo-400' : ''}
                                     min-h-[140px] flex flex-col justify-between
                                 `}
                             >
@@ -240,12 +319,65 @@ const TableMap = () => {
                                     <Trash2 size={14} />
                                 </button>
 
-                                <div className="text-center">
+                                {/* Status Action Buttons (bottom) */}
+                                {table.status === 'AVAILABLE' && (
+                                    <button
+                                        onClick={(e) => handleChangeStatus(e, table.id, 'RESERVED')}
+                                        className="absolute bottom-2 left-2 px-2 py-1 rounded-lg bg-amber-100 text-amber-700 text-[10px] font-bold hover:bg-amber-200 transition"
+                                        title="Reservar Mesa"
+                                    >
+                                        <Calendar size={10} className="inline mr-1" />Reservar
+                                    </button>
+                                )}
+                                {table.status === 'OCCUPIED' && (
+                                    <button
+                                        onClick={(e) => handleChangeStatus(e, table.id, 'CLEANING')}
+                                        className="absolute bottom-2 left-2 px-2 py-1 rounded-lg bg-blue-100 text-blue-700 text-[10px] font-bold hover:bg-blue-200 transition"
+                                        title="Marcar en Limpieza"
+                                    >
+                                        <Sparkles size={10} className="inline mr-1" />Limpieza
+                                    </button>
+                                )}
+                                {table.status === 'RESERVED' && (
+                                    <button
+                                        onClick={(e) => handleChangeStatus(e, table.id, 'AVAILABLE')}
+                                        className="absolute bottom-2 left-2 px-2 py-1 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold hover:bg-slate-200 transition"
+                                        title="Cancelar Reserva"
+                                    >
+                                        ✕ Cancelar
+                                    </button>
+                                )}
+                                {table.status === 'CLEANING' && (
+                                    <button
+                                        onClick={(e) => handleChangeStatus(e, table.id, 'AVAILABLE')}
+                                        className="absolute bottom-2 left-2 px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-[10px] font-bold hover:bg-emerald-200 transition"
+                                        title="Terminar Limpieza"
+                                    >
+                                        <Sparkles size={10} className="inline mr-1" />Limpia
+                                    </button>
+                                )}
+
+                                <div className="text-center mt-2">
                                     <span className="text-3xl font-bold mb-1 block">{table.name}</span>
-                                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${status.text} bg-white/60`}>
+                                    <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${status.text} bg-white/60`}>
                                         {status.icon} {status.label}
                                     </span>
                                 </div>
+
+                                {table.current_order_id && table.status === 'OCCUPIED' && (
+                                    <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+                                        {table.current_order_total != null && (
+                                            <span className="inline-flex items-center gap-0.5 bg-white/90 text-emerald-700 text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-sm border border-emerald-100">
+                                                <DollarSign size={10} /> {parseFloat(table.current_order_total).toFixed(2)}
+                                            </span>
+                                        )}
+                                        {table.current_order_time && (
+                                            <span className="inline-flex items-center gap-0.5 bg-white/90 text-slate-600 text-[10px] font-bold px-1.5 py-0.5 rounded-md shadow-sm border border-slate-200">
+                                                <Clock size={10} /> {formatDuration(table.current_order_time)}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div className="flex justify-between items-end mt-3">
                                     <div className="flex items-center gap-1 text-xs text-slate-500">
@@ -273,13 +405,19 @@ const TableMap = () => {
                 </div>
             )}
 
-            {/* Order Modal */}
+            </div>
+
+            {/* Side Panel (Order Panel) */}
             {selectedTable && (
-                <OrderModal
-                    table={selectedTable}
-                    onClose={handleCloseModal}
-                    onUpdate={handleUpdateMap}
-                />
+                <div className={`absolute right-0 top-0 bottom-0 z-20 flex flex-col bg-white xl:relative xl:flex-shrink-0 transition-all duration-300 shadow-[-8px_0_30px_-15px_rgba(0,0,0,0.15)] border-l border-slate-200 ${isAddingProducts ? 'w-full xl:w-[75vw] 2xl:w-[70vw]' : 'w-full sm:w-[480px]'}`}>
+                    <OrderPanel
+                        table={selectedTable}
+                        onClose={handleCloseModal}
+                        onUpdate={handleUpdateMap}
+                        isAddingProducts={isAddingProducts}
+                        onToggleAddProducts={setIsAddingProducts}
+                    />
+                </div>
             )}
 
             {/* NEW TABLE MODAL */}

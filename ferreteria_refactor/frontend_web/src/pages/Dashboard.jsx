@@ -84,10 +84,11 @@ const CashierDashboard = () => {
         { label: 'Registrar Cliente',   icon: UserPlus,     path: '/sales-center?tab=clientes', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
         { label: 'Cotizaciones',        icon: FileText,     path: '/quotes',                 color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
         { label: 'Apertura / Cierre Caja', icon: Landmark,  path: '/cash-close',             color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' },
-        ...(effectiveModules?.services   ? [{ label: 'Taller / Servicios', icon: Wrench,      path: '/services',   color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
-        ...(effectiveModules?.laundry    ? [{ label: 'Lavandería',         icon: Droplets,    path: '/laundry',    color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
-        ...(effectiveModules?.barbershop ? [{ label: 'Barbería',           icon: Scissors,    path: '/barbershop', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
-        ...(effectiveModules?.pharmacy   ? [{ label: 'Farmacia',           icon: FlaskConical, path: '/pharmacy',  color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+        ...(effectiveModules?.services    ? [{ label: 'Taller / Servicios', icon: Wrench,       path: '/services',    color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+        ...(effectiveModules?.laundry     ? [{ label: 'Lavandería',        icon: Droplets,     path: '/laundry',     color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+        ...(effectiveModules?.barbershop  ? [{ label: 'Barbería',          icon: Scissors,     path: '/barbershop',  color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+        ...(effectiveModules?.pharmacy    ? [{ label: 'Farmacia',          icon: FlaskConical, path: '/pharmacy',   color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
+        ...(effectiveModules?.restaurant  ? [{ label: 'Restaurante',       icon: UtensilsCrossed, path: '/restaurant/tables', color: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200' }] : []),
     ];
     return (
         <div className="space-y-6 animate-in fade-in duration-500 max-w-2xl mx-auto pb-10">

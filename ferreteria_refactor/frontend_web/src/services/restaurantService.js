@@ -22,6 +22,13 @@ const restaurantService = {
         return true;
     },
 
+    updateTableStatus: async (id, status) => {
+        const response = await axiosInstance.patch(`/restaurant/tables/${id}/status`, null, {
+            params: { status }
+        });
+        return response.data;
+    },
+
     // --- MENU ---
     getMenuFull: async () => {
         const response = await axiosInstance.get('/restaurant/menu/full');

@@ -48,6 +48,8 @@ class TableUpdate(BaseModel):
 class TableRead(RestaurantTableBase):
     id: int
     current_order_id: Optional[int] = None # ID de la orden activa si está ocupada
+    current_order_total: Optional[Decimal] = None
+    current_order_time: Optional[datetime] = None
 
     class Config:
         from_attributes = True
