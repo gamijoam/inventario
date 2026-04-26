@@ -11,6 +11,11 @@ import datetime
 # or simpler: redefine standard Enums here for DB mapping.
 import enum
 
+
+class SelectionTypeDB(enum.Enum):
+    SINGLE = "SINGLE"
+    MULTIPLE = "MULTIPLE"
+
 class TableStatusDB(enum.Enum):
     AVAILABLE = "AVAILABLE"
     OCCUPIED = "OCCUPIED"
@@ -48,7 +53,11 @@ class RestaurantTable(Base):
     orders = relationship("RestaurantOrder", back_populates="table")
 
     def __repr__(self):
-        return f"<RestaurantTable(name='{self.name}', zone='{self.zone}', status='{self.status}')>"
+        try:
+            state = object.__getattribute__(self, '__dict__')
+        except AttributeError:
+            return f"<RestaurantTable (detached)>"
+        return f"<RestaurantTable(name={state.get('name')}, zone={state.get('zone')}, status={state.get('status')})>"
 
 class RestaurantOrder(Base):
     __tablename__ = "restaurant_orders"
@@ -75,7 +84,11 @@ class RestaurantOrder(Base):
     items = relationship("RestaurantOrderItem", back_populates="order", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<RestaurantOrder(id={self.id}, table={self.table_id}, is_takeout={self.is_takeout}, customer_name='{self.customer_name}')>"
+        try:
+            state = object.__getattribute__(self, '__dict__')
+        except AttributeError:
+            return f"<RestaurantOrder (detached)>"
+        return f"<RestaurantOrder(id={state.get('id')}, table={state.get('table_id')}, is_takeout={state.get('is_takeout')}, customer_name={state.get('customer_name')})>"
 
 class RestaurantOrderItem(Base):
     __tablename__ = "restaurant_order_items"
@@ -92,6 +105,7 @@ class RestaurantOrderItem(Base):
     subtotal = Column(Numeric(12, 2), nullable=False)
 
     order = relationship("RestaurantOrder", back_populates="items")
+    modifiers = relationship("RestaurantOrderItemModifier", back_populates="order_item", cascade="all, delete-orphan")
     product = relationship("Product")
 
     @property
@@ -99,7 +113,11 @@ class RestaurantOrderItem(Base):
         return self.product.name if self.product else "Unknown Product"
 
     def __repr__(self):
-        return f"<RestaurantOrderItem(order={self.order_id}, product={self.product_id}, status='{self.status}')>"
+        try:
+            state = object.__getattribute__(self, '__dict__')
+        except AttributeError:
+            return f"<RestaurantOrderItem (detached)>"
+        return f"<RestaurantOrderItem(order={state.get('order_id')}, product={state.get('product_id')}, status={state.get('status')})>"
 
 class RestaurantRecipe(Base):
     __tablename__ = "restaurant_recipes"
@@ -136,3 +154,38 @@ class RestaurantMenuItem(Base):
 
     section = relationship("RestaurantMenuSection", back_populates="items")
     product = relationship("Product")
+
+class ProductModifierGroup(Base):
+    __tablename__ = "product_modifier_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    name = Column(String, nullable=False) # e.g., "Tamaño", "Porción", "Extras"
+    selection_type = Column(Enum(SelectionTypeDB), default=SelectionTypeDB.SINGLE)
+    is_required = Column(Boolean, default=False)
+
+    options = relationship("ProductModifierOption", back_populates="group", cascade="all, delete-orphan")
+    product = relationship("Product")
+
+class ProductModifierOption(Base):
+    __tablename__ = "product_modifier_options"
+
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("product_modifier_groups.id"), nullable=False)
+    name = Column(String, nullable=False) # e.g., "Familiar", "1/2 Pollo", "Extra Queso"
+    price_adjustment = Column(Numeric(12, 2), default=0.00)
+    recipe_factor = Column(Numeric(12, 3), default=1.000) # How much of the base recipe is consumed? (e.g. 0.5 for half)
+    is_active = Column(Boolean, default=True)
+
+    group = relationship("ProductModifierGroup", back_populates="options")
+
+class RestaurantOrderItemModifier(Base):
+    __tablename__ = "restaurant_order_item_modifiers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_item_id = Column(Integer, ForeignKey("restaurant_order_items.id"), nullable=False)
+    option_id = Column(Integer, ForeignKey("product_modifier_options.id"), nullable=False)
+    price_applied = Column(Numeric(12, 2), default=0.00) # Snapshot of the adjustment
+
+    order_item = relationship("RestaurantOrderItem", back_populates="modifiers")
+    option = relationship("ProductModifierOption")

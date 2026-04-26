@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, ShieldCheck, Check, Clock, Info } from 'lucide-react';
+import { Plus, Edit2, Trash2, ShieldCheck, Check, Clock, Info, Upload, FileText, Download } from 'lucide-react';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
 import {
@@ -198,6 +198,8 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
         is_active: policy?.is_active ?? true
     });
     const [loading, setLoading] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [pdfFile, setPdfFile] = useState(null);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -222,6 +224,48 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
             toast.error(error.response?.data?.detail || 'Error al guardar política');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUploadPdf = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+            toast.error('Solo se permiten archivos PDF');
+            return;
+        }
+
+        if (!policy?.id) {
+            toast.error('Primero guarda la política antes de subir un PDF');
+            return;
+        }
+
+        setUploading(true);
+        try {
+            const formDataUpload = new FormData();
+            formDataUpload.append('file', file);
+
+            await apiClient.put(
+                `/warranties/policies/${policy.id}/upload-template`,
+                formDataUpload,
+                { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
+
+            toast.success('PDF de garantía subido correctamente');
+            onSuccess();
+        } catch (error) {
+            toast.error(error.response?.data?.detail || 'Error al subir el PDF');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDownloadTemplate = () => {
+        if (policy?.pdf_template_path) {
+            toast.success('El PDF se imprimirá al finalizar ventas con IMEI');
+        } else {
+            toast('No se ha subido un PDF template aún. Se generará uno automático.', { icon: 'ℹ️' });
         }
     };
 
@@ -296,6 +340,59 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
                             />
                         </div>
 
+                        {/* PDF Template Upload Section */}
+                        {policy && (
+                            <div className="space-y-3 pt-4 border-t border-slate-100">
+                                <div className="flex items-center gap-2">
+                                    <FileText size={18} className="text-emerald-600" />
+                                    <Label className="text-base font-bold text-slate-800 m-0">PDF de Garantía</Label>
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    Sube tu formato de garantía en PDF. Se imprimirá con los datos del cliente y equipo al vender productos con IMEI.
+                                </p>
+
+                                <div className="flex items-center gap-3">
+                                    <label className="flex-1 cursor-pointer">
+                                        <div className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-emerald-300 rounded-xl bg-emerald-50 hover:bg-emerald-100 transition-colors">
+                                            <Upload size={16} className="text-emerald-600" />
+                                            <span className="text-sm font-medium text-emerald-700">
+                                                {uploading ? 'Subiendo...' : policy.pdf_template_path ? 'Reemplazar PDF' : 'Subir PDF'}
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept=".pdf"
+                                            onChange={handleUploadPdf}
+                                            disabled={uploading}
+                                            className="hidden"
+                                        />
+                                    </label>
+
+                                    {policy.pdf_template_path && (
+                                        <button
+                                            type="button"
+                                            onClick={handleDownloadTemplate}
+                                            className="p-3 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+                                            title="Estado del template"
+                                        >
+                                            <Download size={16} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {policy.pdf_template_path && (
+                                    <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                                        <Check size={12} /> PDF template configurado — se usará al imprimir garantías
+                                    </p>
+                                )}
+                                {!policy.pdf_template_path && (
+                                    <p className="text-xs text-slate-400 italic">
+                                        Sin PDF personalizado. Se generará un certificado automático al imprimir.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         <div className="space-y-4 pt-4 border-t border-slate-100">
                             <div className="flex items-center justify-between">
                                 <div className="space-y-0.5">
@@ -329,6 +426,11 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
                             <p className="text-xs text-blue-700 leading-relaxed font-medium">
                                 Los cambios en las políticas solo afectarán a los productos vinculados a partir de este momento. Reclamos existentes mantendrán las condiciones originales del momento de la venta.
                             </p>
+                                {!policy && (
+                                    <p className="mt-2 text-xs font-bold text-blue-800 bg-blue-100 px-2 py-1 rounded">
+                                        💡 Tip: Guardá la política primero. Después al editarla aparece la opción de subir el PDF de garantía.
+                                    </p>
+                                )}
                         </div>
                     </div>
 

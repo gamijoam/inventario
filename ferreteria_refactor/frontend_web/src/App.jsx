@@ -472,7 +472,7 @@ function App() {
                               <Route path="/settings" element={<Navigate to="/config-center" replace />} />
                               <Route path="/users" element={<Navigate to="/config-center?tab=usuarios" replace />} />
                               <Route path="/audit-logs" element={<Navigate to="/config-center?tab=auditoria" replace />} />
-                              <Route path="/warranty-policies" element={<Navigate to="/config-center?tab=garantias" replace />} />
+                              <Route path="/warranty-policies" element={<WarrantyPolicies />} />
                               <Route path="/hr/commissions" element={<Navigate to="/reports" replace />} />
 
                               {/* Unified Reports Center */}

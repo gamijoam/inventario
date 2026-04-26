@@ -6,9 +6,9 @@ from decimal import Decimal
 
 from ....database.db import get_db
 from ....dependencies import get_current_active_user, require_restaurant_module
-from ....models.restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem, RestaurantRecipe, TableStatusDB, OrderStatusDB, OrderItemStatusDB
+from ....models.restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem, RestaurantRecipe, TableStatusDB, OrderStatusDB, OrderItemStatusDB, RestaurantOrderItemModifier, ProductModifierOption
 from ....models.models import Product
-from ....schemas.restaurant import OrderCreate, OrderRead, OrderItemCreate, TableRead, OrderMove, OrderSplit
+from ....schemas.restaurant import OrderCreate, OrderRead, OrderItemCreate, OrderItemCreateWithModifiers, TableRead, OrderMove, OrderSplit
 from ....schemas.restaurant_checkout import RestaurantCheckout
 from ....services.sales_service import SalesService
 from ....services.printer_service import PrinterService
@@ -42,10 +42,8 @@ def open_table(table_id: int, db: Session = Depends(get_db), current_user = Depe
     table = db.query(RestaurantTable).filter(RestaurantTable.id == table_id).first()
     if not table:
         raise HTTPException(status_code=404, detail="Table not found")
-    
+
     if table.status == TableStatusDB.OCCUPIED:
-        # Si ya está ocupada, retornar la orden actual activa (idempotencia o error, aquí error por claridad)
-        # Opcional: Buscar orden activa y retornarla
         raise HTTPException(status_code=400, detail="Table is already occupied")
 
     # 2. Crear Orden
@@ -56,13 +54,25 @@ def open_table(table_id: int, db: Session = Depends(get_db), current_user = Depe
         total_amount=0
     )
     db.add(new_order)
-    
+
     # 3. Actualizar Mesa
     table.status = TableStatusDB.OCCUPIED
-    
+
     db.flush()
     db.commit()
-    return new_order
+
+    # Return plain dict to avoid ORM lazy-load issues
+    return {
+        "id": new_order.id,
+        "table_id": new_order.table_id,
+        "waiter_id": new_order.waiter_id,
+        "status": new_order.status.value if hasattr(new_order.status, 'value') else new_order.status,
+        "is_takeout": new_order.is_takeout or False,
+        "customer_name": new_order.customer_name,
+        "total_amount": float(new_order.total_amount),
+        "created_at": new_order.created_at.isoformat() if new_order.created_at else None,
+        "items": []
+    }
 
 @router.post("/open-takeout", response_model=OrderRead)
 def open_takeout(customer_name: Optional[str] = None, db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):
@@ -80,7 +90,19 @@ def open_takeout(customer_name: Optional[str] = None, db: Session = Depends(get_
     db.add(new_order)
     db.flush()
     db.commit()
-    return new_order
+
+    # Return plain dict to avoid ORM lazy-load issues
+    return {
+        "id": new_order.id,
+        "table_id": new_order.table_id,
+        "waiter_id": new_order.waiter_id,
+        "status": new_order.status.value if hasattr(new_order.status, 'value') else new_order.status,
+        "is_takeout": new_order.is_takeout or True,
+        "customer_name": new_order.customer_name,
+        "total_amount": float(new_order.total_amount),
+        "created_at": new_order.created_at.isoformat() if new_order.created_at else None,
+        "items": []
+    }
 
 @router.get("/{table_id}/current", response_model=OrderRead)
 def get_current_order(table_id: int, db: Session = Depends(get_db)):
@@ -103,7 +125,7 @@ def get_current_order(table_id: int, db: Session = Depends(get_db)):
 @router.get("/{order_id}", response_model=OrderRead)
 def get_order_by_id(order_id: int, db: Session = Depends(get_db)):
     """
-    Obtener una orden específica por ID.
+    Obtener una orden específica por ID, incluyendo modificadores de cada item.
     """
     order = db.query(RestaurantOrder).filter(RestaurantOrder.id == order_id).options(
         joinedload(RestaurantOrder.items).joinedload(RestaurantOrderItem.product)
@@ -112,10 +134,43 @@ def get_order_by_id(order_id: int, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    return order
+    # Build response with modifiers
+    items_data = []
+    for item in order.items:
+        item_mods = db.query(RestaurantOrderItemModifier).filter(
+            RestaurantOrderItemModifier.order_item_id == item.id
+        ).all()
+        mods_data = []
+        for m in item_mods:
+            opt = db.query(ProductModifierOption).filter(ProductModifierOption.id == m.option_id).first()
+            if opt:
+                mods_data.append({"id": opt.id, "name": opt.name, "price_applied": float(m.price_applied or 0)})
+        items_data.append({
+            "id": item.id,
+            "product_id": item.product_id,
+            "quantity": float(item.quantity),
+            "notes": item.notes,
+            "status": item.status.value if hasattr(item.status, "value") else item.status,
+            "unit_price": float(item.unit_price),
+            "subtotal": float(item.subtotal),
+            "product_name": item.product.name if item.product else "Unknown",
+            "modifiers": mods_data
+        })
+    
+    return {
+        "id": order.id,
+        "table_id": order.table_id,
+        "waiter_id": order.waiter_id,
+        "status": order.status.value if hasattr(order.status, "value") else order.status,
+        "is_takeout": order.is_takeout or False,
+        "customer_name": order.customer_name,
+        "total_amount": float(order.total_amount),
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "items": items_data
+    }
 
 @router.post("/{order_id}/items", response_model=OrderRead)
-def add_items_to_order(order_id: int, items: List[OrderItemCreate], background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers], background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """
     Agregar productos a una orden existente. recalcula el total.
     """
@@ -134,24 +189,45 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreate], background_t
         if not product:
             continue # O lanzar error
             
-        # Calcular subtotal
-        price = product.price # Precio snapshot
-        subtotal = price * item_in.quantity
+        # Calcular precio base + ajuste de modificadores
+        price = product.price  # Precio snapshot base
+        modifier_adjustment = Decimal("0.00")
+        modifier_ids = item_in.modifier_option_ids or []
+        
+        selected_options = []
+        if modifier_ids:
+            selected_options = db.query(ProductModifierOption).filter(
+                ProductModifierOption.id.in_(modifier_ids)
+            ).all()
+            for opt in selected_options:
+                modifier_adjustment += opt.price_adjustment or Decimal("0.00")
+        
+        effective_price = price + modifier_adjustment
+        subtotal = effective_price * item_in.quantity
         
         # Crear item
         new_item = RestaurantOrderItem(
             order_id=order.id,
             product_id=product.id,
-            product=product, # Populate relationship for Pydantic response
+            product=product,  # Populate relationship for Pydantic response
             quantity=item_in.quantity,
             notes=item_in.notes,
-            unit_price=price,
+            unit_price=effective_price,
             subtotal=subtotal
         )
         db.add(new_item)
-        db.flush() # Get ID and auto-populate defaults
+        db.flush()  # Get ID and auto-populate defaults
         
-        # Actualizar total de la orden (simple suma incremental o recalculo total)
+        # Guardar modificadores seleccionados
+        for opt in selected_options:
+            mod_record = RestaurantOrderItemModifier(
+                order_item_id=new_item.id,
+                option_id=opt.id,
+                price_applied=opt.price_adjustment or Decimal("0.00")
+            )
+            db.add(mod_record)
+        
+        # Actualizar total de la orden
         order.total_amount += subtotal
         
         # Collect for printing
@@ -159,27 +235,51 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreate], background_t
         
     order.updated_at = datetime.now()
     db.commit()
-    
-    # TRIGGER KITCHEN PRINT
+
+    # TRIGGER KITCHEN PRINT - but don't fail the response if this errors
     try:
         if new_items_list:
-            # Generate Payload
             print_payload = PrinterService.generate_kitchen_ticket(order, new_items_list)
-            
-            # Send to WebSocket (Target: Kitchen)
             background_tasks.add_task(
-                run_broadcast, 
-                "print_kitchen_ticket", 
+                run_broadcast,
+                "print_kitchen_ticket",
                 {
                     "type": "print",
-                    "sale_id": order.id, # Using order ID as sale ID context
+                    "sale_id": order.id,
                     "payload": print_payload
                 }
             )
     except Exception as e:
         print(f"Error queuing kitchen ticket: {e}")
 
-    return order
+    # Return plain dict using new_items_list data
+    items_data = []
+    for item in new_items_list:
+        product_name = None
+        if item.product:
+            product_name = item.product.name
+        items_data.append({
+            "id": item.id,
+            "product_id": item.product_id,
+            "quantity": float(item.quantity),
+            "notes": item.notes,
+            "status": item.status.value if hasattr(item.status, 'value') else item.status,
+            "unit_price": float(item.unit_price),
+            "subtotal": float(item.subtotal),
+            "product_name": product_name or "Unknown"
+        })
+
+    return {
+        "id": order.id,
+        "table_id": order.table_id,
+        "waiter_id": order.waiter_id,
+        "status": order.status.value if hasattr(order.status, 'value') else order.status,
+        "is_takeout": order.is_takeout or False,
+        "customer_name": order.customer_name,
+        "total_amount": float(order.total_amount),
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "items": items_data
+    }
 
 # --- KITCHEN ENDPOINTS ---
 
@@ -275,6 +375,12 @@ def checkout_order(
         if not item.product:
              continue 
         
+        # Calculate aggregate recipe factor from modifiers
+        aggregate_factor = Decimal("1.0")
+        for mod in item.modifiers:
+            if mod.option and mod.option.recipe_factor:
+                aggregate_factor *= Decimal(str(mod.option.recipe_factor))
+        
         # SalesService now handles Recipe/Escandallo inventory deduction automatically
         
         sale_items.append(schemas.SaleDetailCreate(
@@ -284,7 +390,8 @@ def checkout_order(
             subtotal=float(item.subtotal), 
             conversion_factor=1,
             discount=0,
-            discount_type="NONE"
+            discount_type="NONE",
+            recipe_factor=aggregate_factor
         ))
     
     # Construir SaleCreate

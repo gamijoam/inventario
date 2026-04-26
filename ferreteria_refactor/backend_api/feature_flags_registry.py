@@ -29,15 +29,25 @@ REGISTRY: dict[str, dict] = {
         "description": "Permite al cajero modificar el precio unitario de cualquier producto en el carrito y editar el total final, sin requerir autorización adicional.",
         "category": "pos",
     },
-    "sistema_comisiones": {
-        "label": "Sistema de Comisiones Global",
-        "description": "Habilita el panel de configuración de comisiones para vendedores y técnicos. Aplica a ventas POS y Taller con reglas por categoría.",
-        "category": "ventas",
-    },
     "impresion_factura_a4": {
         "label": "Impresión factura A4 (impresora normal)",
         "description": "Habilita botón 'Imprimir Factura' en A4/Carta al finalizar venta. Para clientes con impresora de hoja normal en lugar de térmica.",
         "category": "pos",
+    },
+    "impresion_garantia_pdf": {
+        "label": "Imprimir garantía PDF (equipos con IMEI)",
+        "description": "Habilita botón 'Imprimir Garantía' al finalizar venta de equipos con serial/IMEI. Imprime el PDF de garantía personalizado del cliente con los datos de la venta inyectados.",
+        "category": "pos",
+    },
+    "whatsapp_business": {
+        "label": "WhatsApp Business 📱",
+        "description": "Módulo premium de automatización WhatsApp. Envía tickets de venta, notificaciones de taller, cotizaciones en PDF y recordatorios de deuda automáticamente al cliente. Incluye editor de plantillas personalizables.",
+        "category": "automatizacion",
+    },
+    "catalogo_publico": {
+        "label": "Catálogo público de productos",
+        "description": "Expone un catálogo de productos en línea accesible públicamente.",
+        "category": "restaurant",
     },
 }
 
@@ -66,3 +76,4 @@ REGISTRY["pos_multi_payment"] = {
     "description": "Permite al cajero dividir el cobro de una factura en múltiples métodos de pago (ej. Parte en Zelle, parte a Crédito).",
     "category": "ventas",
 }
+CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "automatizacion", "restaurant", "otros"]

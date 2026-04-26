@@ -129,6 +129,7 @@ const ExternalTransferIn = () => {
 
   const [previewItems, setPreviewItems] = useState([]);
   const [sourceCompany, setSourceCompany] = useState('');
+  const [sourceSchema, setSourceSchema] = useState('');
 
   const [warehouses, setWarehouses] = useState([]);
   const [globalWarehouseId, setGlobalWarehouseId] = useState('');
@@ -176,6 +177,7 @@ const ExternalTransferIn = () => {
 
       const data = res.data;
       setSourceCompany(data.source_company || '');
+      setSourceSchema(data.source_schema || '');
       setPhotoUrls(data.photo_urls || []);
       const items = (data.items || []).map((item) => ({
         sku: item.sku,
@@ -254,6 +256,7 @@ const ExternalTransferIn = () => {
       setConfirming(true);
       const res = await apiClient.post('/inventory/transfer/import-mapped', {
         source_company: sourceCompany,
+        source_schema: sourceSchema || null,
         warehouse_id: globalWarehouseId ? parseInt(globalWarehouseId, 10) : null,
         items,
       });

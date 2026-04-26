@@ -300,6 +300,7 @@ class SaleDetailCreate(BaseModel):
     serial_numbers: Optional[List[str]] = Field(None, description="Lista de seriales para productos serializados") # NEW
     price_list_id: Optional[int] = None # NEW: Price List Validation
     auth_user_id: Optional[int] = None # NEW: Supervisor Auth for Price List
+    recipe_factor: Decimal = Decimal("1.0")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -379,6 +380,7 @@ class ServiceCheckoutPayment(BaseModel):
     total_discount_usd: Optional[Decimal] = Decimal("0.00")
     cart_discount_type: Optional[str] = None
     discount_auth_user_id: Optional[int] = None
+    recipe_factor: Decimal = Decimal("1.0")
     
     # NEW
     reference: Optional[str] = None
@@ -455,6 +457,7 @@ class SaleRead(BaseModel):
     total_discount_usd: Decimal = Decimal("0.00")
     cart_discount_type: Optional[str] = None
     discount_auth_user_id: Optional[int] = None
+    recipe_factor: Decimal = Decimal("1.0")
     
     change_amount: Decimal = Decimal("0.00")
     change_currency: str = "VES"
@@ -1167,6 +1170,10 @@ class TransferPackageSchema(BaseModel):
     source_company: str
     generated_at: datetime
     items: List[TransferItemSchema]
+    source_schema: Optional[str] = None
+    source_business_name: Optional[str] = None
+    generated_at_friendly: Optional[str] = None
+    items_count: Optional[int] = None
     photo_urls: Optional[List[str]] = None
 
 class TransferResultSchema(BaseModel):
@@ -1188,6 +1195,7 @@ class TransferPreviewResult(BaseModel):
     source_company: str
     items: List[TransferPreviewItemResult]
     photo_urls: Optional[List[str]] = None
+    source_schema: Optional[str] = None
 
 class TransferImportV2Item(BaseModel):
     sku: str
@@ -1201,6 +1209,7 @@ class TransferImportV2Request(BaseModel):
     source_company: str
     warehouse_id: Optional[int] = None
     items: List[TransferImportV2Item]
+    source_schema: Optional[str] = None
 
 # ========================
 # SERVICE MODULE SCHEMAS

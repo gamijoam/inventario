@@ -537,10 +537,8 @@ const CreditosTab = ({ dateRange }) => {
         }
     ];
 
-    // ===================================================================
-    // RENDER: CXC Sub-tab
-    // ===================================================================
-    const renderCxc = () => (
+    // ============================================================    // RENDER: CXC Sub-tab
+    // ============================================================    const renderCxc = () => (
         <div className="space-y-6">
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -702,6 +700,7 @@ const CreditosTab = ({ dateRange }) => {
                                                             {inv.credit_installments} cuotas · ${parseFloat(inv.credit_installment_amount||0).toFixed(2)} c/u · {inv.credit_frequency||'mensual'}
                                                         </div>
                                                       )}
+                                                    )}
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
                                                     {inv.paid ? (
@@ -921,10 +920,8 @@ const CreditosTab = ({ dateRange }) => {
         </div>
     );
 
-    // ===================================================================
-    // RENDER: Aging Sub-tab
-    // ===================================================================
-    const renderAging = () => (
+    // ============================================================    // RENDER: Aging Sub-tab
+    // ============================================================    const renderAging = () => (
         <div className="space-y-4">
             {loadingAging ? (
                 <div className="text-center py-10 text-slate-400">Cargando reporte de antigüedad...</div>
@@ -989,10 +986,8 @@ const CreditosTab = ({ dateRange }) => {
         </div>
     );
 
-    // ===================================================================
-    // RENDER: Ledger Sub-tab
-    // ===================================================================
-    const renderLedger = () => (
+    // ============================================================    // RENDER: Ledger Sub-tab
+    // ============================================================    const renderLedger = () => (
         <div className="space-y-4">
             {/* Client Selector */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -1113,10 +1108,8 @@ const CreditosTab = ({ dateRange }) => {
         </div>
     );
 
-    // ===================================================================
-    // RENDER: Payment Modal
-    // ===================================================================
-    const renderPaymentModal = () => {
+    // ============================================================    // RENDER: Payment Modal
+    // ============================================================    const renderPaymentModal = () => {
         if (!showPaymentModal || (!selectedInvoice && !isBulkPay)) return null;
 
         return (
@@ -1340,10 +1333,8 @@ const CreditosTab = ({ dateRange }) => {
         );
     };
 
-    // ===================================================================
-    // MAIN RENDER
-    // ===================================================================
-    return (
+    // ============================================================    // MAIN RENDER
+    // ============================================================    return (
         <div className="space-y-6">
             {/* Sub-tab Navigation (pill style) */}
             <div className="flex bg-slate-100 p-1.5 rounded-xl w-fit">

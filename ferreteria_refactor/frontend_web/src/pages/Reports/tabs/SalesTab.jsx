@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Search, Trash2, Eye, Printer, AlertTriangle, X, FileText,
-    Filter, FileDown, MoreHorizontal, ScanBarcode,
-    Wallet, Users, Package
+    Filter, FileDown, MoreHorizontal, ScanBarcode, Shield
 } from 'lucide-react';
+import { Wallet, Users, Package } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfig } from '../../../context/ConfigContext';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import { pdf } from '@react-pdf/renderer';
 import InvoicePDF from '../../../components/pdf/InvoicePDF';
 import clsx from 'clsx';
@@ -61,6 +62,7 @@ const fmtVES = (amount) =>
 const SalesTab = ({ dateRange }) => {
     const { user } = useAuth();
     const { business, paymentMethods: configPaymentMethods, formatCurrency } = useConfig();
+    const warrantyPdfActive = useFeatureFlag('impresion_garantia_pdf');
 
     // Sub-view toggle
     const [activeSubTab, setActiveSubTab] = useState('historial');
@@ -196,11 +198,7 @@ const SalesTab = ({ dateRange }) => {
 
     const handleVoidClick = (sale) => {
         if (sale.status === 'VOIDED') {
-            toast.error('Esta venta ya está anulada');
-            return;
-        }
-        if (sale.status === 'PARTIAL_RETURN') {
-            toast.error('Esta venta tiene una devolución parcial. Para anular ve a Centro de Ventas → Devoluciones.');
+            toast.error('Esta venta ya esta anulada');
             return;
         }
         setSaleToVoid(sale);
@@ -224,9 +222,18 @@ const SalesTab = ({ dateRange }) => {
                 return;
             }
 
-            // Usar el endpoint de anulación directa — más completo y seguro
-            await apiClient.post(`/returns/void/${saleToVoid.id}`, null, {
-                params: { reason: 'ANULACIÓN DE VENTA - ERROR OPERATIVO' }
+            const items = saleToVoid.details?.map(detail => ({
+                product_id: detail.product_id,
+                quantity: detail.quantity,
+                condition: 'GOOD',
+            })) || [];
+
+            await apiClient.post('/returns', {
+                sale_id: saleToVoid.id,
+                items,
+                reason: 'ANULACION DE VENTA - ERROR OPERATIVO',
+                refund_currency: 'USD',
+                exchange_rate: 1.0,
             });
 
             const updatedSales = sales.map(s =>
@@ -267,6 +274,26 @@ const SalesTab = ({ dateRange }) => {
         } catch (error) {
             console.error('Error reprinting:', error);
             toast.error(`Error al reimprimir: ${error.message}`);
+        }
+    };
+
+    const handleReprintWarranty = async (sale) => {
+        try {
+            const response = await apiClient.get(`/warranties/print/${sale.id}`, {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `garantia_venta_${sale.id}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Garantía descargada. Ábrela e imprímela desde tu visor de PDF.');
+        } catch (error) {
+            const detail = error.response?.data?.detail || 'Error al generar la garantía';
+            toast.error(detail);
         }
     };
 
@@ -440,7 +467,7 @@ const SalesTab = ({ dateRange }) => {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="outline" className="gap-2 border-slate-200 text-slate-600">
-                                <Filter size={14} /> Filtro: {selectedStatus === '' ? 'Todos' : selectedStatus === 'VOIDED' ? 'Anuladas' : selectedStatus === 'PARTIAL_RETURN' ? 'Dev. Parcial' : 'Completadas'}
+                                <Filter size={14} /> Filtro: {selectedStatus === '' ? 'Todos' : selectedStatus === 'VOIDED' ? 'Anulados' : 'Completados'}
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -448,8 +475,7 @@ const SalesTab = ({ dateRange }) => {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setSelectedStatus('')}>Todos</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setSelectedStatus('COMPLETED')}>Completados</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSelectedStatus('VOIDED')}>Anuladas</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setSelectedStatus('PARTIAL_RETURN')}>Dev. Parcial</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setSelectedStatus('VOIDED')}>Anulados</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
 
@@ -543,10 +569,6 @@ const SalesTab = ({ dateRange }) => {
                                             <Badge variant="destructive" className="bg-rose-50 text-rose-600 border-rose-100 hover:bg-rose-100">
                                                 Anulada
                                             </Badge>
-                                        ) : sale.status === 'PARTIAL_RETURN' ? (
-                                            <Badge className="bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-100 shadow-none">
-                                                Dev. Parcial
-                                            </Badge>
                                         ) : (
                                             <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100 shadow-none">
                                                 Completada
@@ -573,7 +595,12 @@ const SalesTab = ({ dateRange }) => {
                                                 <DropdownMenuItem onClick={() => handleReprint(sale)}>
                                                     <Printer className="mr-2 h-4 w-4" /> Reimprimir Ticket
                                                 </DropdownMenuItem>
-                                                {sale.status !== 'VOIDED' && sale.status !== 'PARTIAL_RETURN' && user?.role === 'ADMIN' && (
+                                                {warrantyPdfActive && sale.details?.some(d => d.instances?.length > 0) && (
+                                                    <DropdownMenuItem onClick={() => handleReprintWarranty(sale)}>
+                                                        <Shield className="mr-2 h-4 w-4 text-emerald-600" /> Reimprimir Garantía
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {sale.status !== 'VOIDED' && user?.role === 'ADMIN' && (
                                                     <>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem onClick={() => handleVoidClick(sale)} className="text-rose-600 focus:text-rose-600 focus:bg-rose-50">
@@ -609,7 +636,7 @@ const SalesTab = ({ dateRange }) => {
                                 key={tab.id}
                                 onClick={() => setAnalysisTab(tab.id)}
                                 className={clsx(
-                                    'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all',
+                                    'px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
                                     isActive
                                         ? 'bg-white text-indigo-600 shadow-sm border border-slate-200'
                                         : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
@@ -839,7 +866,7 @@ const SalesTab = ({ dateRange }) => {
                         key={tab.id}
                         onClick={() => setActiveSubTab(tab.id)}
                         className={clsx(
-                            'px-4 py-2 rounded-lg text-sm font-bold transition-all',
+                            'px-4 py-2 rounded-md text-sm font-bold transition-all',
                             activeSubTab === tab.id
                                 ? 'bg-white text-slate-900 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
@@ -1059,13 +1086,20 @@ const SalesTab = ({ dateRange }) => {
                         )}
 
                         {/* Footer */}
-                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex gap-3">
-                            <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={() => handlePrintPDF(selectedSale)}>
-                                <FileText className="mr-2 h-4 w-4" /> Generar PDF
-                            </Button>
-                            <Button variant="outline" className="flex-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50" onClick={() => handleReprint(selectedSale)}>
-                                <Printer className="mr-2 h-4 w-4" /> Reimprimir
-                            </Button>
+                        <div className="p-4 border-t border-slate-100 bg-slate-50 flex flex-col gap-3">
+                            <div className="flex gap-3">
+                                <Button className="flex-1 bg-indigo-600 hover:bg-indigo-700" onClick={() => handlePrintPDF(selectedSale)}>
+                                    <FileText className="mr-2 h-4 w-4" /> Generar PDF
+                                </Button>
+                                <Button variant="outline" className="flex-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50" onClick={() => handleReprint(selectedSale)}>
+                                    <Printer className="mr-2 h-4 w-4" /> Reimprimir
+                                </Button>
+                            </div>
+                            {warrantyPdfActive && selectedSale.details?.some(d => d.instances?.length > 0) && (
+                                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => handleReprintWarranty(selectedSale)}>
+                                    <Shield className="mr-2 h-4 w-4" /> Reimprimir Garantía
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>

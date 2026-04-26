@@ -1,7 +1,9 @@
+import asyncio
+import logging
 from datetime import datetime
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, text
 from fastapi import HTTPException, UploadFile
 import json
 import re
@@ -10,6 +12,179 @@ from decimal import Decimal
 from ..models import models
 from ..schemas import TransferPackageSchema, TransferItemSchema, TransferResultSchema
 from .. import schemas
+from ..tenant_context import get_tenant_schema
+
+logger = logging.getLogger(__name__)
+
+
+def _get_schema_by_company(db: Session, source_company: str) -> str:
+    """
+    Busca el schema_name de un tenant buscando business_name en business_config de cada schema.
+    Retorna None si no lo encuentra.
+    """
+    try:
+        tenants = db.execute(text("SELECT schema_name FROM public.tenants")).fetchall()
+        for (schema,) in tenants:
+            try:
+                b_name = db.execute(
+                    text(f'SELECT value FROM "{schema}".business_config WHERE key = \'business_name\'')
+                ).scalar()
+                if b_name and b_name.strip().lower() == source_company.strip().lower():
+                    logger.warning(f"[DEBUG] Found schema by business_name: {schema}")
+                    return schema
+            except:
+                continue
+        logger.warning(f"[DEBUG] No schema found for company: {source_company}")
+        return None
+    except Exception as e:
+        logger.warning(f"[DEBUG] _get_schema_by_company error: {e}")
+        return None
+
+
+
+def _notify_transfer_export(db: Session, current_schema: str, source_company: str, items_count: int, items_data: List[Dict[str, Any]] = None):
+    """
+    Envía notificación WhatsApp al admin cuando se genera un transfer de salida.
+    Se ejecuta en un thread separado para no bloquear la respuesta.
+    """
+    try:
+        from ..routers.whatsapp import send_whatsapp_message, KEY_ADMIN_PHONE, KEY_NOTIFY_TRANSFER
+
+        config_rows = db.execute(
+            text(f'SELECT key, value FROM "{current_schema}".business_config WHERE key IN (:p, :n)'),
+            {"p": KEY_ADMIN_PHONE, "n": KEY_NOTIFY_TRANSFER}
+        ).fetchall()
+        config = {r[0]: r[1] for r in config_rows}
+
+        admin_phone = config.get(KEY_ADMIN_PHONE)
+        notify_enabled = str(config.get(KEY_NOTIFY_TRANSFER, "true")).lower() == "true"
+
+        if not admin_phone or not notify_enabled:
+            return
+
+        b_name = db.execute(
+            text(f'SELECT value FROM "{current_schema}".business_config WHERE key = \'business_name\'')
+        ).scalar() or source_company
+
+        friendly_time = datetime.now().strftime("%d/%m/%Y %I:%M %p")
+        # Show product NAME and QUANTITY
+        if items_data:
+            items_list = [f"{i.get('name', i.get('sku'))} ({float(i.get('quantity', 1))})" for i in items_data[:5]]
+            items_sample = "\n".join(items_list)
+            extra_items = f"\n... y {len(items_data)-5} más" if len(items_data) > 5 else ""
+        else:
+            items_sample = ""
+            extra_items = ""
+        msg = (
+            f"🚚 *Traslado de Salida — {b_name}*\n\n"
+            f"📦 *{items_count} producto(s)* confirmados\n\n"
+            f"📋 Productos:\n{items_sample}{extra_items}\n\n"
+            f"🕐 Generado: {friendly_time}\n\n"
+            f"✅ Paquete listo para enviar."
+        )
+
+        def _send_in_thread():
+            import asyncio
+            from ..database.db import SessionLocal
+            from ..tenant_context import set_tenant_schema
+
+            async def _send_async():
+                tmp_db = SessionLocal()
+                try:
+                    set_tenant_schema(current_schema)
+                    await send_whatsapp_message(tmp_db, admin_phone, msg)
+                except Exception as e:
+                    logger.warning(f"[WA] Error enviando notificación de export: {e}")
+                finally:
+                    tmp_db.close()
+
+            try:
+                asyncio.run(_send_async())
+            except Exception as e:
+                logger.warning(f"[WA] Error ejecutando notificación de export: {e}")
+
+        import threading
+        t = threading.Thread(target=_send_in_thread, daemon=True)
+        t.start()
+
+    except Exception as e:
+        logger.warning(f"[WA] Error en notificación de export: {e}")
+
+
+def _notify_transfer_import(db: Session, source_schema: str, source_company: str, items_count: int, data: Dict[str, Any] = None):
+    """
+    Envía notificación WhatsApp al ADMIN DEL ORIGEN (source_schema) cuando otro tenant importa su transfer.
+    Se ejecuta en un thread separado para no bloquear la respuesta.
+    """
+    try:
+        from ..routers.whatsapp import send_whatsapp_message, KEY_ADMIN_PHONE, KEY_NOTIFY_TRANSFER
+        logger.warning(f"[DEBUG] _notify_transfer_import called: source_schema={source_schema}, source_company={source_company}")
+
+        config_rows = db.execute(
+            text(f'SELECT key, value FROM "{source_schema}".business_config WHERE key IN (:p, :n)'),
+            {"p": KEY_ADMIN_PHONE, "n": KEY_NOTIFY_TRANSFER}
+        ).fetchall()
+        config = {r[0]: r[1] for r in config_rows}
+
+        admin_phone = config.get(KEY_ADMIN_PHONE)
+        notify_enabled = str(config.get(KEY_NOTIFY_TRANSFER, "true")).lower() == "true"
+
+        if not admin_phone or not notify_enabled:
+            return
+
+        source_b_name = db.execute(
+            text(f'SELECT value FROM "{source_schema}".business_config WHERE key = \'business_name\'')
+        ).scalar() or source_schema
+
+        # Get current tenant (destination) business name
+        current_schema = get_tenant_schema()
+        dest_b_name = db.execute(
+            text(f'SELECT value FROM "{current_schema}".business_config WHERE key = \'business_name\'')
+        ).scalar() or current_schema
+
+        friendly_time = datetime.now().strftime("%d/%m/%Y %I:%M %p")
+        source_business = data.get("source_business_name", source_company)
+        # Show product NAME and QUANTITY
+        items_list = [f"{i.get('name', i.get('sku'))} ({i.get('quantity', 1)})" for i in data.get("items", [])[:5]]
+        items_sample = ", ".join(items_list)
+        extra_items = f" y {len(data.get('items', []))-5} más" if len(data.get('items', [])) > 5 else ""
+        msg = (
+            f"✅ *Traslado Recibido*\n\n"
+            f"📦 Tu empresa *{dest_b_name}* ha recibido mercancía.\n"
+            f"🏪 De: *{source_business}*\n\n"
+            f"📋 Productos:\n"
+            f"{items_sample}{extra_items}\n\n"
+            f"🕐 Recibido: {friendly_time}\n\n"
+            f"✅ Inventario sincronizado."
+        )
+
+        def _send_in_thread():
+            import asyncio
+            from ..database.db import SessionLocal
+            from ..tenant_context import set_tenant_schema
+
+            async def _send_async():
+                tmp_db = SessionLocal()
+                try:
+                    set_tenant_schema(source_schema)
+                    await send_whatsapp_message(tmp_db, admin_phone, msg)
+                except Exception as e:
+                    logger.warning(f"[WA] Error enviando notificación de import: {e}")
+                finally:
+                    tmp_db.close()
+
+            try:
+                asyncio.run(_send_async())
+            except Exception as e:
+                logger.warning(f"[WA] Error ejecutando notificación de import: {e}")
+
+        import threading
+        t = threading.Thread(target=_send_in_thread, daemon=True)
+        t.start()
+
+    except Exception as e:
+        logger.warning(f"[WA] Error en notificación de import: {e}"); import traceback; logger.warning(traceback.format_exc())
+
 
 class InventoryService:
     
@@ -128,14 +303,34 @@ class InventoryService:
             raise HTTPException(status_code=500, detail=f"Database error during transfer: {str(e)}")
             
         # Build Package
+        business_name_row = db.execute(
+            text(f'SELECT value FROM "{get_tenant_schema()}".business_config WHERE key = \'business_name\'')
+        ).scalar()
+        business_name = business_name_row or source_company
+        friendly_time = datetime.now().strftime("%d/%m/%Y %I:%M %p")
+        items_total = len(transfer_items)
+
         package = {
             "source_company": source_company,
-            "source_warehouse_id": warehouse_id, # Include source metadata
+            "source_warehouse_id": warehouse_id,
+            "source_schema": get_tenant_schema(),
+            "source_business_name": business_name,
             "generated_at": datetime.now().isoformat(),
+            "generated_at_friendly": friendly_time,
+            "items_count": items_total,
             "items": transfer_items,
             "photo_urls": photo_urls or []
         }
-        
+
+        # --- WHATSAPP NOTIFICATION (EXPORT) ---
+        _notify_transfer_export(
+            db=db,
+            current_schema=get_tenant_schema(),
+            source_company=source_company,
+            items_count=len(items_data),
+            items_data=items_data,
+        )
+
         return package
 
     @staticmethod
@@ -434,6 +629,7 @@ class InventoryService:
 
         return {
             "source_company": source_company,
+            "source_schema": data.get("source_schema"),
             "items": preview_items,
             "photo_urls": data.get("photo_urls", []),
         }
@@ -444,6 +640,9 @@ class InventoryService:
         Processes a mapped transfer import (v2).
         Each item can either be mapped to an existing product or flagged to create a new one.
         """
+        keys_str = str(list(data.keys()))
+        src_schema = data.get("source_schema")
+        logger.warning(f"[DEBUG] process_transfer_package_v2: keys={keys_str}, source_schema={src_schema}")
         success_count = 0
         failure_count = 0
         created_count = 0
@@ -553,6 +752,21 @@ class InventoryService:
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Database commit error: {str(e)}")
+
+        # --- WHATSAPP NOTIFICATION TO ORIGIN ---
+        source_schema = data.get("source_schema")
+        logger.warning(f"[DEBUG] About to call _notify_transfer_import: source_schema={source_schema}, data={data}")
+        if not source_schema:
+            source_schema = _get_schema_by_company(db, source_company)
+            logger.warning(f"[DEBUG] Fallback lookup: source_schema={source_schema}")
+        if source_schema:
+            _notify_transfer_import(
+                db=db,
+                source_schema=source_schema,
+                source_company=source_company,
+                items_count=len(data.get("items", [])),
+                data=data,
+            )
 
         return {
             "success_count": success_count,
