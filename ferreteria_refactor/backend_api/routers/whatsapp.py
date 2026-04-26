@@ -32,6 +32,7 @@ KEY_NOTIFY_ORDER  = "whatsapp_notify_order_ready"
 KEY_NOTIFY_CREDIT = "whatsapp_notify_credit_reminder"
 KEY_NOTIFY_QUOTE  = "whatsapp_notify_quote"
 KEY_ADMIN_PHONE   = "whatsapp_admin_phone"   # Número del dueño para alertas internas
+KEY_NOTIFY_TRANSFER = "whatsapp_notify_transfer"   # Feature flag para notificar transfers
 KEY_CREDIT_AUTO   = "whatsapp_credit_reminder_auto"
 KEY_CREDIT_HOUR   = "whatsapp_credit_reminder_hour"
 KEY_CREDIT_DAYS   = "whatsapp_credit_reminder_days"

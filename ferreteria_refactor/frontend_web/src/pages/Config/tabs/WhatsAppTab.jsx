@@ -524,6 +524,7 @@ export default function WhatsAppTab() {
             )}
 
             {/* ── NÚMERO DEL ADMINISTRADOR ── */}
+            {/* ── NÚMERO DEL ADMINISTRADOR ──  */}
             {(isConnected || isPendingQr) && (
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
                     <div className="flex items-center gap-2 mb-1">

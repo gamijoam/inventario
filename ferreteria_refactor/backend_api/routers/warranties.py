@@ -1,10 +1,12 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from ..dependencies import get_current_user, get_current_active_user, admin_only
+from ..services import warranty_pdf_service
 
 router = APIRouter(
     prefix="/warranties",
@@ -170,3 +172,78 @@ def update_warranty_claim(
         
     db.commit()
     return db_claim
+
+
+# ========================
+# WARRANTY PDF PRINTING
+# ========================
+
+@router.put("/policies/{policy_id}/upload-template", response_model=schemas.WarrantyPolicyRead)
+async def upload_warranty_template(
+    policy_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(admin_only)
+):
+    """
+    Sube un PDF template de garantía para una política específica.
+    Este template se usará para imprimir garantías al finalizar ventas con IMEI.
+    """
+    # Ensure tenant context is set from current user
+    from ..tenant_context import set_tenant_schema
+    if current_user.tenant_id:
+        from .models.tenant import Tenant
+        tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+        if tenant:
+            set_tenant_schema(tenant.schema_name)
+
+    policy = await warranty_pdf_service.upload_warranty_template(
+        file=file,
+        policy_id=policy_id,
+        db=db,
+        current_user=current_user,
+    )
+    return policy
+
+
+@router.get("/print/{sale_id}")
+def print_warranty_pdf(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Genera y retorna el PDF de garantía para una venta con productos IMEI.
+    Verifica que el tenant tenga el feature flag 'impresion_garantia_pdf' activo.
+    """
+    # Check feature flag
+    tenant = None
+    if current_user.tenant_id:
+        from .models.tenant import Tenant
+        tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
+    elif current_user.is_superuser:
+        from .tenant_context import get_tenant_schema
+        from .models.tenant import Tenant
+        current_schema = get_tenant_schema()
+        if current_schema and current_schema != "public":
+            tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
+
+    if tenant:
+        flags = tenant.feature_flags or {}
+        if not flags.get("impresion_garantia_pdf"):
+            raise HTTPException(
+                status_code=403,
+                detail="El feature 'Imprimir garantía PDF' no está activado para este tenant. Actívalo desde el panel SaaS Admin."
+            )
+
+    pdf_bytes = warranty_pdf_service.generate_warranty_pdf(
+        sale_id=sale_id,
+        db=db,
+        current_user=current_user,
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=garantia_venta_{sale_id}.pdf"}
+    )

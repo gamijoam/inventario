@@ -393,18 +393,7 @@ class Sale(Base):
 
     @property
     def status(self):
-        if not self.returns:
-            return "COMPLETED"
-        # Solo VOIDED si la devolución cubre todos los ítems de la venta
-        total_sold = sum(float(d.quantity or 0) for d in (self.details or []) if d.product_id)
-        total_returned = sum(
-            float(rd.quantity or 0)
-            for r in self.returns
-            for rd in (r.details or [])
-        )
-        if total_sold > 0 and total_returned >= total_sold:
-            return "VOIDED"
-        return "PARTIAL_RETURN"  # Devolución parcial — la venta sigue vigente
+        return "VOIDED" if self.returns else "COMPLETED"
 
     def __repr__(self):
         return f"<Sale(id={self.id}, total={self.total_amount})>"
@@ -579,9 +568,7 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False) # Login ID
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)  # NEW: Superuser flag for admin panel
-    commission_percentage = Column(Numeric(5, 2), default=0.00)     # LEGACY — kept for compatibility
-    commission_vendor_pct = Column(Numeric(5, 2), default=0.00)       # % que gana como VENDEDOR (POS)
-    commission_technician_pct = Column(Numeric(5, 2), default=0.00)   # % que gana como TÉCNICO (Taller)
+    commission_percentage = Column(Numeric(5, 2), default=0.00) # NEW: Commission %
     
     # User Preferences (Theme, shortcuts, etc.)
     preferences = Column(JSON, default={}, nullable=True) # NEW: JSON Configuration
@@ -597,6 +584,29 @@ class CommissionStatus(enum.Enum):
     PAID = "PAID"
     CANCELLED = "CANCELLED"
     VOIDED = "VOIDED"
+
+class CommissionSettings(Base):
+    __tablename__ = "commission_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    global_enabled = Column(Boolean, default=False)
+    pos_module_enabled = Column(Boolean, default=False)
+    taller_module_enabled = Column(Boolean, default=False)
+    default_percentage = Column(Numeric(5, 2), default=0.00)
+
+class CommissionRule(Base):
+    __tablename__ = "commission_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    module = Column(String, nullable=True)  # POS, TALLER, or None for all
+    percentage = Column(Numeric(5, 2), default=0.00)
+    is_active = Column(Boolean, default=True)
+    priority = Column(Integer, default=0)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    category = relationship("Category")
 
 class CommissionLog(Base):
     """
@@ -624,58 +634,13 @@ class CommissionLog(Base):
     created_at = Column(DateTime, default=get_venezuela_now)
     paid_at = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)
-
-    # v2 — Commission Engine
-    commission_role = Column(String, default="VENDOR")          # VENDOR | TECHNICIAN
-    voided_at = Column(DateTime, nullable=True)                  # Fecha anulación (si aplica)
-    sale_id = Column(Integer, ForeignKey("sales.id"), nullable=True)  # Link directo a venta
+    commission_role = Column(String, nullable=True, default="VENDOR") # Role user had when earning commission
 
     user = relationship("User")
     sale_detail = relationship("SaleDetail")
 
     def __repr__(self):
         return f"<CommissionLog(user={self.user_id}, amount={self.amount}, status='{self.status}')>"
-
-
-class CommissionSettings(Base):
-    """
-    Configuración de comisiones por tenant.
-    Una sola fila por tenant. Se crea automáticamente al primer acceso.
-    """
-    __tablename__ = "commission_settings"
-
-    id = Column(Integer, primary_key=True)
-    global_enabled = Column(Boolean, default=False)                    # Master ON/OFF
-    pos_module_enabled = Column(Boolean, default=True)                 # POS activo
-    taller_module_enabled = Column(Boolean, default=True)              # Taller activo
-    taller_vendor_commission_enabled = Column(Boolean, default=False)  # Cajera también comisiona en taller
-    strict_mode = Column(Boolean, default=True)                        # Sin categoría = sin comisión
-    updated_at = Column(DateTime, default=get_venezuela_now, onupdate=get_venezuela_now)
-
-    def __repr__(self):
-        return f"<CommissionSettings(global={self.global_enabled})>"
-
-
-class CommissionRule(Base):
-    """
-    Reglas de comisión por categoría de producto.
-    Permiten % específico por categoría que sobrescriben el % del usuario.
-    """
-    __tablename__ = "commission_rules"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)                     # "Celulares 10%"
-    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
-    module = Column(String, nullable=True)                    # 'POS' | 'TALLER' | None = ambos
-    percentage = Column(Numeric(5, 2), nullable=False)
-    is_active = Column(Boolean, default=True)
-    priority = Column(Integer, default=0)                     # Mayor = gana sobre otras
-    created_at = Column(DateTime, default=get_venezuela_now)
-
-    category = relationship("Category")
-
-    def __repr__(self):
-        return f"<CommissionRule(cat={self.category_id}, pct={self.percentage})>"
 
 class Return(Base):
     __tablename__ = "returns"
@@ -858,13 +823,9 @@ class PurchaseOrder(Base):
     warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True) # NEW: Receiving warehouse
     
     # Payment tracking
-    total_amount = Column(Numeric(18, 4), default=0.00)
-    paid_amount  = Column(Numeric(18, 4), default=0.00)
+    total_amount = Column(Numeric(12, 2), default=0.00)
+    paid_amount = Column(Numeric(12, 2), default=0.00)
     payment_status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING)
-    # Descuentos del proveedor (Herramienta 2)
-    discount_amount = Column(Numeric(18, 4), default=0)
-    discount_type   = Column(String(20), default="NONE")   # NONE / PERCENT / FIXED
-    discount_notes  = Column(Text, nullable=True)
     
     # Additional info
     invoice_number = Column(String, nullable=True)
@@ -904,17 +865,13 @@ class PurchaseItem(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     purchase_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
-    product_id  = Column(Integer, ForeignKey("products.id"), nullable=False)
-    quantity    = Column(Numeric(12, 3), nullable=False)
-    unit_cost   = Column(Numeric(14, 4), nullable=False)
-    # Descuentos por ítem — Herramienta 2
-    discount_pct    = Column(Numeric(10, 4), default=0, server_default="0")
-    discount_amount = Column(Numeric(18, 4), default=0, server_default="0")
-    subtotal        = Column(Numeric(18, 4), nullable=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    quantity = Column(Numeric(12, 3), nullable=False)
+    unit_cost = Column(Numeric(14, 4), nullable=False) # Store cost at time of purchase
     
     # Relationships
     purchase = relationship("PurchaseOrder", back_populates="items")
-    product  = relationship("Product")
+    product = relationship("Product")
     
     def __repr__(self):
         return f"<PurchaseItem(purchase={self.purchase_id}, product={self.product_id}, qty={self.quantity})>"
@@ -997,10 +954,8 @@ class SaleDetailInstance(Base):
 
 
 
-# ============================================
-# TABLA DE PRUEBA PARA AUTO-MIGRACION
-# ============================================
-class TestAutoMigration(Base):
+# =====================================# TABLA DE PRUEBA PARA AUTO-MIGRACION
+# =====================================class TestAutoMigration(Base):
     """Tabla de prueba para verificar el sistema de auto-migracion."""
     __tablename__ = "test_auto_migration"
     
@@ -1046,7 +1001,7 @@ class TransferDetail(Base):
 
 class WarrantyPolicy(Base):
     __tablename__ = "warranty_policies"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     tenant_id = Column(Integer, ForeignKey("public.tenants.id"), nullable=False)
     name = Column(String, nullable=False)
@@ -1055,12 +1010,13 @@ class WarrantyPolicy(Base):
     description = Column(Text, nullable=True)
     is_default = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
-    
+    pdf_template_path = Column(String, nullable=True)  # Path to uploaded PDF template for warranty printing
+
     created_at = Column(DateTime, default=get_venezuela_now)
     updated_at = Column(DateTime, onupdate=datetime.datetime.now)
-    
+
     products = relationship("Product", back_populates="warranty_policy")
-    
+
     def __repr__(self):
         return f"<WarrantyPolicy(name='{self.name}', type='{self.type}', duration={self.duration})>"
 
@@ -1099,15 +1055,11 @@ class WarrantyClaim(Base):
 
 
 
-# ============================================
-# RESTAURANT MODULE
-# ============================================
-from .restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem
+# =====================================# RESTAURANT MODULE
+# =====================================from .restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem
 
-# ============================================
-# CASH REGISTER & COMMISSIONS MODULE
-# ============================================
-
+# =====================================# CASH REGISTER & COMMISSIONS MODULE
+# =====================================
 
 
 
@@ -1167,9 +1119,6 @@ class ServiceOrder(Base):
     updated_at = Column(DateTime, onupdate=datetime.datetime.now)
     estimated_delivery = Column(DateTime, nullable=True)
 
-    # Archivo
-    is_archived = Column(Boolean, default=False, nullable=True)
-
     # Relationships
     customer = relationship("Customer")
     technician = relationship("User", foreign_keys=[technician_id])
@@ -1227,10 +1176,8 @@ class ServiceOrderDetail(Base):
     def __repr__(self):
         return f"<ServiceOrderDetail(order={self.service_order_id}, product={self.product_id})>"
 
-# ==========================================
-# SERVICE TEMPLATES
-# ==========================================
-
+# ===================================# SERVICE TEMPLATES
+# ===================================
 class ServiceTemplate(Base):
     """Pre-built service templates for quick order creation."""
     __tablename__ = "service_templates"
@@ -1258,10 +1205,8 @@ class ServiceTemplateItem(Base):
 
     template = relationship("ServiceTemplate", back_populates="items")
 
-# ==========================================
-# BARBERSHOP & SALON MODULE
-# ==========================================
-
+# ===================================# BARBERSHOP & SALON MODULE
+# ===================================
 class Employee(Base):
     __tablename__ = "employees"
     
@@ -1296,10 +1241,8 @@ class Commission(Base):
     employee = relationship("Employee", back_populates="commissions")
     sale_item = relationship("SaleDetail", foreign_keys=[sale_item_id])
 
-# ==========================================
-# PHARMACY MODULE
-# ==========================================
-
+# ===================================# PHARMACY MODULE
+# ===================================
 class ProductLot(Base):
     """Pharmacy: batch/lot tracking with expiry dates"""
     __tablename__ = "product_lots"

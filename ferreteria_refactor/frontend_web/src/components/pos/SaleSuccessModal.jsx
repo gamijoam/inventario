@@ -9,6 +9,21 @@ import { printFacturaA4 } from "./FacturaA4";
 const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     const [printing, setPrinting] = useState(false);
     const [warrantyUrl, setWarrantyUrl] = useState("");
+import { useState } from 'react';
+import { CheckCircle, Printer, FileText, Shield } from 'lucide-react';
+import printerService from '../../services/printerService';
+import toast from 'react-hot-toast';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { useConfig } from '../../context/ConfigContext';
+import { printFacturaA4 } from './FacturaA4';
+import apiClient from '../../config/axios';
+
+const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
+    const [printing, setPrinting] = useState(false);
+    const [printStatus, setPrintStatus] = useState(null); // 'success' | 'error'
+    const [printingWarranty, setPrintingWarranty] = useState(false);
+    const facturaA4Active = useFeatureFlag('impresion_factura_a4');
+    const warrantyPdfActive = useFeatureFlag('impresion_garantia_pdf');
     const { business } = useConfig();
 
     useEffect(() => {
@@ -36,6 +51,10 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     if (!isOpen || !saleData) return null;
 
     const handlePrintTicket = async () => {
+    // Check if sale has IMEI products
+    const hasImeiProducts = saleData.items?.some(item => item.has_imei || (item.serial_numbers && item.serial_numbers.length > 0));
+
+    const handlePrint = async () => {
         setPrinting(true);
         try {
             await printerService.printTicket(saleData.saleId);
@@ -70,6 +89,33 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
         printFacturaA4(saleData, business);
     };
 
+    const handlePrintWarranty = async () => {
+        if (!saleData.saleId) {
+            toast.error("No se encontró ID de venta");
+            return;
+        }
+        setPrintingWarranty(true);
+        try {
+            const response = await apiClient.get(`/warranties/print/${saleData.saleId}`, {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `garantia_venta_${saleData.saleId}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success('Garantía descargada. Ábrela e imprímela desde tu visor de PDF.');
+        } catch (error) {
+            const detail = error.response?.data?.detail || 'Error al generar la garantía';
+            toast.error(detail);
+        } finally {
+            setPrintingWarranty(false);
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md">
             <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
@@ -96,6 +142,18 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                                 <Download size={14} /> Imprimir Garantía Corporativa
                             </button>
                         </div>
+                <div className="space-y-3">
+                    <button
+                        onClick={handlePrint}
+                        disabled={printing}
+                        className={`w-full py-3 px-4 rounded-lg shadow font-bold flex items-center justify-center transition-colors ${printStatus === 'success' ? 'bg-gray-800 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                    >
+                        <Printer size={20} className="mr-2" />
+                        {printing ? 'Enviando...' : (printStatus === 'success' ? 'Re-imprimir Ticket' : 'Imprimir Ticket')}
+                    </button>
+
+                    {printStatus === 'success' && (
+                        <p className="text-xs text-green-600 font-medium">Ticket enviado a cola de impresión.</p>
                     )}
 
                     <div className="grid grid-cols-2 gap-4">
@@ -111,6 +169,22 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
 
                     <button onClick={onClose} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black uppercase text-xs flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl">
                         Nueva Venta <ArrowRight size={18} />
+                    {warrantyPdfActive && hasImeiProducts && (
+                        <button
+                            onClick={handlePrintWarranty}
+                            disabled={printingWarranty}
+                            className="w-full py-3 px-4 rounded-lg shadow font-bold flex items-center justify-center transition-colors bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                        >
+                            <Shield size={20} className="mr-2" />
+                            {printingWarranty ? 'Generando...' : 'Imprimir Garantía'}
+                        </button>
+                    )}
+
+                    <button
+                        onClick={onClose}
+                        className="w-full bg-white border-2 border-gray-200 text-gray-600 hover:bg-gray-50 font-bold py-3 px-4 rounded-lg transition-colors"
+                    >
+                        Cerrar y Nueva Venta
                     </button>
                 </div>
             </div>

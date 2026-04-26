@@ -249,6 +249,15 @@ const KitchenDisplay = () => {
                                                     </span>
                                                 </div>
 
+                                                {item.modifiers && item.modifiers.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {item.modifiers.map(m => (
+                                                            <span key={m.id} className="inline-flex items-center bg-orange-500/20 border border-orange-500/50 text-orange-300 text-xs font-black px-2 py-1 rounded-lg uppercase tracking-wide">
+                                                                ⚡ {m.name}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
                                                 {item.notes && (
                                                     <div className="bg-amber-950/50 text-amber-200 px-3 py-1.5 rounded-lg text-sm font-semibold border border-amber-800/50 flex items-start gap-1.5">
                                                         <AlertTriangle size={14} className="mt-0.5 shrink-0" />

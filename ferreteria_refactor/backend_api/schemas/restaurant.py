@@ -58,16 +58,30 @@ class OrderItemCreate(BaseModel):
     quantity: Decimal = Field(..., gt=0)
     notes: Optional[str] = None
 
+class OrderItemCreateWithModifiers(BaseModel):
+    product_id: int
+    quantity: Decimal = Field(..., gt=0)
+    notes: Optional[str] = None
+    modifier_option_ids: Optional[List[int]] = []  # IDs de ProductModifierOption seleccionados
+
+class ModifierOptionSummary(BaseModel):
+    id: int
+    name: str
+    price_applied: float
+    class Config:
+        from_attributes = True
+
 class OrderItemRead(BaseModel):
     id: int
     product_id: int
-    product_name: str # Para mostrar sin hacer join en frontend todo el tiempo
+    product_name: str  # Para mostrar sin hacer join en frontend todo el tiempo
     quantity: Decimal
     status: OrderItemStatus
     notes: Optional[str] = None
     unit_price: Decimal
     subtotal: Decimal
-    
+    modifiers: Optional[List[ModifierOptionSummary]] = []
+
     class Config:
         from_attributes = True
 
