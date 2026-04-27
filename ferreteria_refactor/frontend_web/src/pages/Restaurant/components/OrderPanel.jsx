@@ -46,14 +46,14 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
 
     // Initial Load & Polling
     useEffect(() => {
-        if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED' || table?.status === 'TAKEOUT') {
+        if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED' || table?.status === 'TAKEOUT' || table?.status === 'WAITING_BILL') {
             loadCurrentOrder();
         }
         loadMenu();
 
         // Polling to keep order status in sync (since WebSocket is failing)
         const interval = setInterval(() => {
-            if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED' || table?.status === 'TAKEOUT') {
+            if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED' || table?.status === 'TAKEOUT' || table?.status === 'WAITING_BILL') {
                 loadCurrentOrder();
             }
             loadMenu();

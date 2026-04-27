@@ -68,6 +68,7 @@ class InventoryService:
         """
         Reversa el stock de un RestaurantOrderItem cuando se cancela/elimina.
         Retorna True si se reversó exitosamente.
+        Raises ValueError if no warehouse is configured.
         """
         if not order_item.stock_deducted:
             return False
@@ -80,7 +81,7 @@ class InventoryService:
         if not warehouse:
             warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_active == True).first()
         if not warehouse:
-            return False
+            raise ValueError(f"No hay almacén configurado para revertir stock del producto '{product.name}'")
 
         recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product.id).all()
         qty = float(order_item.quantity)
@@ -189,15 +190,20 @@ class InventoryService:
             models.ProductStock.product_id == product.id,
             models.ProductStock.warehouse_id == warehouse_id
         ).first()
-        
+
         if not stock_entry:
             stock_entry = models.ProductStock(product_id=product.id, warehouse_id=warehouse_id, quantity=0)
             db.add(stock_entry)
             db.flush()
-            
+
+        if stock_entry.quantity < quantity:
+            raise ValueError(
+                f"Stock insuficiente para '{product.name}': necesario {quantity}, disponible {stock_entry.quantity}"
+            )
+
         stock_entry.quantity -= quantity
         product.stock -= quantity # Legacy sync
-        
+
         # Kardex
         db.add(models.Kardex(
             product_id=product.id,

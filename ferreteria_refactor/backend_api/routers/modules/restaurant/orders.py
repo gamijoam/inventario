@@ -265,15 +265,13 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
     warehouse = db.query(core_models.Warehouse).filter(core_models.Warehouse.is_main == True).first()
     if not warehouse:
         warehouse = db.query(core_models.Warehouse).filter(core_models.Warehouse.is_active == True).first()
-    
-    if warehouse and new_items_list:
-        try:
-            InventoryService.deduct_order_items_stock(db, new_items_list, warehouse.id, removed_ingredients_map=removed_ingredients_map)
-            db.flush()
-        except Exception as e:
-            print(f"[WARNING] Stock deduction failed: {e}")
-            # We don't block the order if stock deduction fails, but we log it.
-            # In a strict environment, we might want to raise an error.
+
+    if not warehouse:
+        raise HTTPException(status_code=400, detail="No hay ningún almacén configurado para deductar stock")
+
+    if new_items_list:
+        InventoryService.deduct_order_items_stock(db, new_items_list, warehouse.id, removed_ingredients_map=removed_ingredients_map)
+        db.flush()
     # ---------------------------------
 
     db.commit()
