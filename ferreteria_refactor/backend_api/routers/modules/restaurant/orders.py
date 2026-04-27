@@ -234,6 +234,25 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
         new_items_list.append(new_item)
         
     order.updated_at = datetime.now()
+    
+    # --- IMMEDIATE STOCK DEDUCTION ---
+    from ....services.inventory_service import InventoryService
+    from ....models import models as core_models
+    
+    # Find Restaurant Warehouse (Main or First active)
+    warehouse = db.query(core_models.Warehouse).filter(core_models.Warehouse.is_main == True).first()
+    if not warehouse:
+        warehouse = db.query(core_models.Warehouse).filter(core_models.Warehouse.is_active == True).first()
+    
+    if warehouse and new_items_list:
+        try:
+            InventoryService.deduct_order_items_stock(db, new_items_list, warehouse.id)
+        except Exception as e:
+            print(f"[WARNING] Stock deduction failed: {e}")
+            # We don't block the order if stock deduction fails, but we log it.
+            # In a strict environment, we might want to raise an error.
+    # ---------------------------------
+
     db.commit()
 
     # TRIGGER KITCHEN PRINT - but don't fail the response if this errors
@@ -392,7 +411,8 @@ def checkout_order(
             discount=0,
             discount_type="NONE",
             recipe_factor=aggregate_factor,
-            modifier_option_ids=modifier_option_ids # Pass modifier IDs to SalesService
+            modifier_option_ids=modifier_option_ids, # Pass modifier IDs to SalesService
+            skip_stock_deduction=item.stock_deducted or False
         ))
     
     # Construir SaleCreate

@@ -306,6 +306,7 @@ class SaleDetailCreate(BaseModel):
     auth_user_id: Optional[int] = None # NEW: Supervisor Auth for Price List
     recipe_factor: Decimal = Decimal("1.0")
     modifier_option_ids: Optional[List[int]] = [] # NEW: IDs of selected modifier options
+    skip_stock_deduction: bool = False # New: avoid double deduction in restaurant flow
 
     model_config = ConfigDict(from_attributes=True)
 

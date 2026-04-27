@@ -100,6 +100,7 @@ class RestaurantOrderItem(Base):
     quantity = Column(Numeric(12, 3), nullable=False)
     notes = Column(Text, nullable=True) # "Sin cebolla", "Bien cocido"
     status = Column(Enum(OrderItemStatusDB), default=OrderItemStatusDB.PENDING)
+    stock_deducted = Column(Boolean, default=False) # New: track if inventary was already reduced
     
     unit_price = Column(Numeric(12, 2), nullable=False) # Snapshot price
     subtotal = Column(Numeric(12, 2), nullable=False)
