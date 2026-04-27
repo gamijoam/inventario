@@ -953,9 +953,10 @@ class SaleDetailInstance(Base):
         return f"<SaleDetailInstance(detail={self.sale_detail_id}, instance={self.product_instance_id})>"
 
 
-
-# =====================================# TABLA DE PRUEBA PARA AUTO-MIGRACION
-# =====================================class TestAutoMigration(Base):
+# =====================================
+# TABLA DE PRUEBA PARA AUTO-MIGRACION
+# =====================================
+class TestAutoMigration(Base):
     """Tabla de prueba para verificar el sistema de auto-migracion."""
     __tablename__ = "test_auto_migration"
     
