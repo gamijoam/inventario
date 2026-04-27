@@ -144,7 +144,7 @@ const WaiterStation = () => {
                         </div>
                         <div className="flex gap-2">
                             <button
-                                onClick={() => { toast.dismiss(t.id); setSelectedTable({ id: data.table_id, name: data.table_name }); setShowOrderPanel(true); setActiveTab('tables'); }}
+                                onClick={() => { toast.dismiss(t.id); setSelectedTable({ id: data.table_id, name: data.table_name, status: 'WAITING_BILL' }); setShowOrderPanel(true); setActiveTab('tables'); }}
                                 className="flex-1 bg-emerald-600 text-white text-xs font-bold py-2 rounded-lg"
                             >Ir a Mesa</button>
                             <button

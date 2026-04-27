@@ -21,6 +21,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const isAdmin = user?.role === 'ADMIN';
     const isWaiter = user?.role === 'WAITER';
     const isAdminOrWaiter = isAdmin || isWaiter;
+    const [localTableStatus, setLocalTableStatus] = useState(table?.status || 'OCCUPIED');
     const [order, setOrder] = useState(null);
     const [loadingOrder, setLoadingOrder] = useState(false);
     const [cart, setCart] = useState([]); // Items not yet sent to kitchen
@@ -291,9 +292,9 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
         if (!window.confirm(`¿Confirmar? La mesa aparecerá en naranja y se podrá cobrar.`)) return;
         try {
             await restaurantService.setTableStatus(table.id, 'WAITING_BILL');
-            toast.success(`Mesa ${table.name} marcada como lista para cobrar`, { icon: '🟠' });
+            toast.success(`Mesa ${table.name} lista para cobrar`, { icon: '🟠' });
+            setLocalTableStatus('WAITING_BILL');
             onUpdate();
-            onClose();
         } catch (err) {
             toast.error("Error: " + (err.response?.data?.detail || err.message));
         }
@@ -340,15 +341,15 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                     <div className="flex items-center gap-4">
                         <div className={cn(
                             "w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-xl transform rotate-3",
-                            table.status === 'AVAILABLE' ? 'bg-gradient-to-br from-emerald-400 to-teal-600' : 'bg-gradient-to-br from-blue-500 to-indigo-700'
+                            localTableStatus === 'AVAILABLE' ? 'bg-gradient-to-br from-emerald-400 to-teal-600' : 'bg-gradient-to-br from-blue-500 to-indigo-700'
                         )}>
                             {table.name}
                         </div>
                         <div>
                             <h2 className="text-xl font-black text-slate-800 tracking-tight">Mesa {table.name}</h2>
                             <p className="text-sm text-slate-400 font-medium flex items-center gap-2">
-                                <span className={cn("w-2 h-2 rounded-full", table.status === 'AVAILABLE' ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500')} />
-                                {table.status === 'AVAILABLE' ? 'Mesa Libre' : 'Servicio en curso'}
+                                <span className={cn("w-2 h-2 rounded-full", localTableStatus === 'AVAILABLE' ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500')} />
+                                {localTableStatus === 'AVAILABLE' ? 'Mesa Libre' : 'Servicio en curso'}
                                 {order && <span className="text-slate-300 ml-1">• Orden #{order.id}</span>}
                             </p>
                         </div>
@@ -622,7 +623,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
 
                             {order && (
                                 <div className="flex gap-3 pt-2">
-                                    {table.status === 'WAITING_BILL' && isAdmin && (
+                                    {localTableStatus === 'WAITING_BILL' && isAdmin && (
                                         <button
                                             onClick={() => setShowPaymentModal(true)}
                                             className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -631,7 +632,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                             FINALIZAR Y COBRAR
                                         </button>
                                     )}
-                                    {table.status === 'OCCUPIED' && isAdminOrWaiter && (
+                                    {localTableStatus === 'OCCUPIED' && isAdminOrWaiter && (
                                         <button
                                             onClick={handleMarkReadyToBill}
                                             className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-orange-200 hover:bg-orange-600 active:scale-95 transition-all flex items-center justify-center gap-2"
