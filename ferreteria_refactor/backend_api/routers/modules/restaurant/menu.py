@@ -36,7 +36,22 @@ def get_full_menu(db: Session = Depends(get_db)):
                 
             prod_name = item.product.name if item.product else "Unknown"
             final_price = item.price_override if item.price_override else (item.product.price if item.product else 0)
+            
+            # --- STOCK CALCULATION LOGIC ---
             prod_stock = item.product.stock if item.product else 0
+            
+            # If product has a recipe, calculate availability based on ingredients
+            recipe_items = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == item.product_id).all()
+            if recipe_items:
+                potential_stocks = []
+                for ri in recipe_items:
+                    ing = db.query(Product).filter(Product.id == ri.ingredient_id).first()
+                    if ing and ri.quantity > 0:
+                        potential_stocks.append(ing.stock / ri.quantity)
+                
+                if potential_stocks:
+                    prod_stock = min(potential_stocks)
+            # -------------------------------
             
             items_data.append(schemas.MenuItemRead(
                 id=item.id,
@@ -44,7 +59,7 @@ def get_full_menu(db: Session = Depends(get_db)):
                 product_id=item.product_id,
                 alias=item.alias or prod_name,
                 price=final_price,
-                stock=prod_stock,
+                stock=float(prod_stock),
                 product_name=prod_name,
                 sort_order=item.sort_order,
                 is_active=item.is_active
