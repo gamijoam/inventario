@@ -26,6 +26,13 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const [activeSectionId, setActiveSectionId] = useState(null);
     const [menuLoading, setMenuLoading] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showCustomizeModal, setShowCustomizeModal] = useState(false);
+    const [customizingProduct, setCustomizingProduct] = useState(null);
+    const [productModifiers, setProductModifiers] = useState([]);
+    const [selectedModifiers, setSelectedModifiers] = useState({});
+    const [itemNotes, setItemNotes] = useState('');
+    const [itemQuantity, setItemQuantity] = useState(1);
+    const [loadingModifiers, setLoadingModifiers] = useState(false);
 
     // Initial Load & Polling
     useEffect(() => {
@@ -81,38 +88,77 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
         }
     };
 
-    const handleAddToCart = (product) => {
-        const existing = cart.find(item => item.id === product.id);
-        const currentQty = existing ? existing.quantity : 0;
+    const handleAddToCart = async (product) => {
         const availableStock = product.stock_available ?? 0;
-
-        if (currentQty + 1 > availableStock) {
-            if (availableStock <= 0) {
-                toast.error("AGOTADO", { icon: '⚠️' });
-            } else {
-                toast.error(`Solo quedan ${availableStock} unidades`, { icon: '⚠️' });
-            }
+        if (availableStock <= 0) {
+            toast.error("AGOTADO", { icon: '⚠️' });
             return;
         }
 
-        if (existing) {
-            setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
-        } else {
-            setCart([...cart, { ...product, quantity: 1, stock_available: availableStock }]);
+        setLoadingModifiers(true);
+        setCustomizingProduct(product);
+        setItemQuantity(1);
+        setItemNotes('');
+        setSelectedModifiers({});
+
+        try {
+            const mods = await restaurantService.getProductModifiers(product.id);
+            setProductModifiers(mods || []);
+        } catch {
+            setProductModifiers([]);
+        } finally {
+            setLoadingModifiers(false);
+            setShowCustomizeModal(true);
         }
-        toast.success(`${product.alias || product.product_name} añadido`, { duration: 1000, icon: '🛒' });
     };
 
-    const handleUpdateCartQty = (productId, delta) => {
+    const handleConfirmAddToCart = () => {
+        const availableStock = customizingProduct?.stock_available ?? 0;
+        if (itemQuantity > availableStock) {
+            toast.error(`Solo quedan ${availableStock} unidades`, { icon: '⚠️' });
+            return;
+        }
+
+        const modifierOptionIds = Object.values(selectedModifiers).flatMap(arr => Array.isArray(arr) ? arr : [arr]).filter(Boolean);
+
+        const cartItem = {
+            cartId: Date.now(),
+            id: customizingProduct.id,
+            name: customizingProduct.alias || customizingProduct.product_name,
+            price: customizingProduct.price,
+            quantity: itemQuantity,
+            notes: itemNotes,
+            modifierOptionIds,
+            selectedModifiers: { ...selectedModifiers },
+            stock_available: availableStock
+        };
+
+        setCart(prev => [...prev, cartItem]);
+        setShowCustomizeModal(false);
+        toast.success(`${itemQuantity}x ${customizingProduct.alias || customizingProduct.product_name} añadido`, { duration: 1000, icon: '🛒' });
+    };
+
+    const handleToggleModifier = (groupId, optionId, selectionType) => {
+        setSelectedModifiers(prev => {
+            const current = prev[groupId] || [];
+            if (selectionType === 'SINGLE') {
+                return { ...prev, [groupId]: [optionId] };
+            } else {
+                if (current.includes(optionId)) {
+                    return { ...prev, [groupId]: current.filter(id => id !== optionId) };
+                } else {
+                    return { ...prev, [groupId]: [...current, optionId] };
+                }
+            }
+        });
+    };
+
+    const handleUpdateCartQty = (cartId, delta) => {
         setCart(cart.map(item => {
-            if (item.id === productId) {
+            if (item.cartId === cartId) {
                 const newQty = item.quantity + delta;
                 if (newQty <= 0) return item;
-
-                const itemInCart = cart.find(i => i.id === productId);
-                const availableStock = itemInCart?.stock_available ?? 0;
-
-                if (newQty > availableStock) {
+                if (newQty > item.stock_available) {
                     toast.error("Stock máximo alcanzado", { icon: '⚠️' });
                     return item;
                 }
@@ -122,8 +168,8 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
         }));
     };
 
-    const handleRemoveFromCart = (productId) => {
-        setCart(cart.filter(item => item.id !== productId));
+    const handleRemoveFromCart = (cartId) => {
+        setCart(cart.filter(item => item.cartId !== cartId));
     };
 
     const handleSendToKitchen = async () => {
@@ -154,7 +200,8 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
             const itemsToAdd = itemsCopy.map(item => ({
                 product_id: item.id,
                 quantity: item.quantity,
-                notes: ''
+                notes: item.notes || '',
+                modifier_option_ids: item.modifierOptionIds || []
             }));
 
             await restaurantService.addItemsToOrder(currentOrderId, itemsToAdd);
@@ -370,19 +417,22 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                     <div className="bg-blue-600 rounded-[2rem] p-4 shadow-xl shadow-blue-200">
                                         <div className="space-y-3 mb-4">
                                             {cart.map(item => (
-                                                <div key={item.id} className="flex items-center justify-between gap-3 group">
+                                                <div key={item.cartId} className="flex items-center justify-between gap-3 group">
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="font-bold text-white text-sm truncate">{item.name}</p>
-                                                        <div className="flex items-center gap-2">
-                                                            <button onClick={() => handleUpdateCartQty(item.id, -1)} className="text-white/60 hover:text-white transition-colors p-1"><Minus className="w-3 h-3"/></button>
-                                                            <span className="text-white font-black text-xs">x{item.quantity}</span>
-                                                            <button onClick={() => handleUpdateCartQty(item.id, 1)} className="text-white/60 hover:text-white transition-colors p-1"><Plus className="w-3 h-3"/></button>
+                                                        <p className="font-bold text-white text-sm">{item.quantity}x {item.name}</p>
+                                                        {item.notes && (
+                                                            <p className="text-white/50 text-[10px] italic truncate max-w-[150px]">Notita: {item.notes}</p>
+                                                        )}
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <button onClick={() => handleUpdateCartQty(item.cartId, -1)} className="text-white/60 hover:text-white transition-colors p-1"><Minus className="w-3 h-3"/></button>
+                                                            <span className="text-white font-black text-xs">{item.quantity}</span>
+                                                            <button onClick={() => handleUpdateCartQty(item.cartId, 1)} className="text-white/60 hover:text-white transition-colors p-1"><Plus className="w-3 h-3"/></button>
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <span className="text-white/80 font-bold text-xs">${(item.price * item.quantity).toFixed(2)}</span>
-                                                        <button 
-                                                            onClick={() => handleRemoveFromCart(item.id)}
+                                                        <button
+                                                            onClick={() => handleRemoveFromCart(item.cartId)}
                                                             className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"
                                                         >
                                                             <Trash2 className="w-4 h-4" />
@@ -535,6 +585,132 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                             }
                         }}
                     />
+                )}
+
+                {/* Customize Item Modal */}
+                {showCustomizeModal && customizingProduct && (
+                    <div className="fixed inset-0 z-[60] bg-black/60 flex items-end sm:items-center justify-center">
+                        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl max-h-[85vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom sm:slide-in-from-right-0 duration-300">
+                            {/* Header */}
+                            <div className="p-4 border-b flex items-center justify-between bg-emerald-500 text-white">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                                        {customizingProduct.image_url ? (
+                                            <img src={customizingProduct.image_url} className="w-full h-full object-cover rounded-xl" alt="" />
+                                        ) : (
+                                            <UtensilsCrossed className="w-5 h-5" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <p className="font-black text-sm">{customizingProduct.alias || customizingProduct.product_name}</p>
+                                        <p className="text-xs opacity-80">${customizingProduct.price}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setShowCustomizeModal(false)}
+                                    className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            {/* Body */}
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                {/* Quantity */}
+                                <div className="flex items-center justify-between">
+                                    <p className="font-bold text-slate-700 text-sm">Cantidad</p>
+                                    <div className="flex items-center gap-3 bg-slate-100 rounded-xl px-2 py-1">
+                                        <button
+                                            onClick={() => setItemQuantity(q => Math.max(1, q - 1))}
+                                            className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg transition-colors"
+                                        >
+                                            <Minus className="w-4 h-4" />
+                                        </button>
+                                        <span className="font-black text-slate-800 w-6 text-center">{itemQuantity}</span>
+                                        <button
+                                            onClick={() => setItemQuantity(q => q + 1)}
+                                            className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg transition-colors"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Modifier Groups */}
+                                {loadingModifiers ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                                    </div>
+                                ) : productModifiers.length > 0 ? (
+                                    productModifiers.map(group => (
+                                        <div key={group.id}>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <p className="font-bold text-slate-700 text-sm">{group.name}</p>
+                                                {group.is_required && (
+                                                    <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-bold">Requerido</span>
+                                                )}
+                                            </div>
+                                            <div className="space-y-1">
+                                                {group.options.map(option => {
+                                                    const isSelected = (selectedModifiers[group.id] || []).includes(option.id);
+                                                    return (
+                                                        <button
+                                                            key={option.id}
+                                                            onClick={() => handleToggleModifier(group.id, option.id, group.selection_type)}
+                                                            className={cn(
+                                                                "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all border-2",
+                                                                isSelected
+                                                                    ? "bg-emerald-50 border-emerald-400 text-emerald-700"
+                                                                    : "bg-slate-50 border-transparent text-slate-600 hover:border-slate-200"
+                                                            )}
+                                                        >
+                                                            <span className="font-medium">{option.name}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                {option.price_adjustment !== 0 && (
+                                                                    <span className={cn(
+                                                                        "text-xs font-bold",
+                                                                        option.price_adjustment > 0 ? "text-amber-600" : "text-emerald-600"
+                                                                    )}>
+                                                                        {option.price_adjustment > 0 ? '+' : ''}{option.price_adjustment > 0 ? '$' : '-$'}{Math.abs(option.price_adjustment)}
+                                                                    </span>
+                                                                )}
+                                                                {isSelected && (
+                                                                    <Check className="w-4 h-4 text-emerald-600" />
+                                                                )}
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : null}
+
+                                {/* Notes */}
+                                <div>
+                                    <p className="font-bold text-slate-700 text-sm mb-2">Notas / Observaciones</p>
+                                    <textarea
+                                        value={itemNotes}
+                                        onChange={(e) => setItemNotes(e.target.value)}
+                                        placeholder="Ej: bien cocida, sin cebolla..."
+                                        rows={2}
+                                        className="w-full px-3 py-2.5 bg-slate-50 border-2 border-slate-100 rounded-xl text-sm text-slate-700 focus:border-emerald-400 focus:bg-white focus:outline-none transition-all resize-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div className="p-4 border-t bg-slate-50">
+                                <button
+                                    onClick={handleConfirmAddToCart}
+                                    className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition-all text-white rounded-2xl font-black text-sm flex items-center justify-center gap-2"
+                                >
+                                    <Plus className="w-5 h-5" />
+                                    AGREGAR AL PEDIDO
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
