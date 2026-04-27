@@ -86,26 +86,39 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
             if (table.is_takeout) {
                 data = await restaurantService.openTakeout(customerName);
             } else {
-                await restaurantService.openTable(table.id);
-                data = await restaurantService.getCurrentOrder(table.id);
+                try {
+                    await restaurantService.openTable(table.id);
+                    data = await restaurantService.getCurrentOrder(table.id);
+                } catch (err) {
+                    // Si ya está ocupada (400), simplemente intentamos cargar la orden actual
+                    if (err.response?.status === 400) {
+                        data = await restaurantService.getCurrentOrder(table.id);
+                    } else {
+                        throw err;
+                    }
+                }
             }
             onUpdate();
             setOrder(data);
-            if (!table.is_takeout) table.status = 'OCCUPIED';
         } catch (err) {
-            toast.error("Error al abrir el pedido: " + err.message);
+            console.error("Error opening table:", err);
+            toast.error("Error al abrir el pedido: " + (err.response?.data?.detail || err.message));
         }
     };
 
     // Load order if occupied, or auto-open if available/reserved
     useEffect(() => {
+        if (!table?.id) return;
+
         if (table.status === 'OCCUPIED') {
             loadCurrentOrder();
         } else if (table.status === 'AVAILABLE' || table.status === 'RESERVED') {
-            // Auto-open the table so the user sees the menu immediately
-            handleOpenTable();
+            // Only auto-open if we don't have an order loaded yet
+            if (!order) {
+                handleOpenTable();
+            }
         }
-    }, [table.status, table.id, table.is_takeout, customerName, onUpdate, handleOpenTable, loadCurrentOrder]);
+    }, [table.status, table.id]); // Reduced dependencies to avoid loops
 
     useEffect(() => {
         loadMenu();
