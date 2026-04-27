@@ -396,6 +396,24 @@ def update_order_item_status(
             "product_name": item.product.name if item.product else "Unknown",
             "waiter_id": order.waiter_id
         })
+
+    if new_status == OrderItemStatusDB.SERVED:
+        all_served = all(
+            i.status == OrderItemStatusDB.SERVED or i.status == OrderItemStatusDB.CANCELLED
+            for i in order.items
+        )
+        if all_served and order.table_id:
+            table = db.query(RestaurantTable).filter(RestaurantTable.id == order.table_id).first()
+            if table:
+                table.status = TableStatusDB.WAITING_BILL
+                db.commit()
+                manager.broadcast(WebSocketEvents.SYSTEM_NOTIFICATION, {
+                    "type": "order:ready_to_bill",
+                    "order_id": order.id,
+                    "table_id": order.table_id,
+                    "table_name": table.name,
+                    "waiter_id": order.waiter_id
+                })
     
     return {"status": "success", "item_id": item_id, "new_status": new_status.value}
 

@@ -10,6 +10,7 @@ import printerService from '../../services/printerService';
 import toast from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
+import { useWebSocket } from '../../context/WebSocketContext';
 import OrderPanel from './components/OrderPanel';
 
 const TABS = {
@@ -40,6 +41,8 @@ const WaiterStation = () => {
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [screenSize, setScreenSize] = useState({ width: window.innerWidth, height: window.innerHeight });
     const prevReadyCountRef = useRef(0);
+    const notifiedTablesRef = useRef(new Set());
+    const { subscribe } = useWebSocket();
 
     const updateScreenSize = useCallback(() => {
         setScreenSize({ width: window.innerWidth, height: window.innerHeight });
@@ -123,6 +126,39 @@ const WaiterStation = () => {
         const interval = setInterval(loadData, 5000);
         return () => clearInterval(interval);
     }, [loadData]);
+
+    useEffect(() => {
+        const unsub = subscribe('order:ready_to_bill', (data) => {
+            if (notifiedTablesRef.current.has(data.table_id)) return;
+            notifiedTablesRef.current.add(data.table_id);
+            playReadySound();
+            toast(
+                (t) => (
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-2xl">🟠</span>
+                            <div>
+                                <p className="font-black text-sm">Mesa {data.table_name} lista para cobrar</p>
+                                <p className="text-xs opacity-80">¿Ir a cobrar ahora?</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => { toast.dismiss(t.id); setSelectedTable({ id: data.table_id, name: data.table_name }); setShowOrderPanel(true); setActiveTab('tables'); }}
+                                className="flex-1 bg-emerald-600 text-white text-xs font-bold py-2 rounded-lg"
+                            >Ir a Mesa</button>
+                            <button
+                                onClick={() => toast.dismiss(t.id)}
+                                className="flex-1 bg-slate-200 text-slate-700 text-xs font-bold py-2 rounded-lg"
+                            >Más Tarde</button>
+                        </div>
+                    </div>
+                ),
+                { duration: 15000, style: { borderRadius: '12px', padding: '4px' } }
+            );
+        });
+        return unsub;
+    }, [subscribe]);
 
     const handleDeliverItem = async (itemId) => {
         try {

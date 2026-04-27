@@ -181,6 +181,14 @@ const TableMap = () => {
                 label: 'Limpieza',
                 icon: '🔵'
             };
+            case 'WAITING_BILL': return {
+                bg: 'bg-gradient-to-br from-orange-50 to-amber-100',
+                border: 'border-orange-400',
+                text: 'text-orange-700',
+                badge: 'bg-orange-500',
+                label: 'Por Cobrar',
+                icon: '🟠'
+            };
             default: return {
                 bg: 'bg-gray-100',
                 border: 'border-gray-300',
@@ -277,6 +285,7 @@ const TableMap = () => {
             <div className="flex gap-4 mb-4 text-xs text-slate-500">
                 <span className="flex items-center gap-1">🟢 Disponible</span>
                 <span className="flex items-center gap-1">🔴 Ocupada</span>
+                <span className="flex items-center gap-1">🟠 Por Cobrar</span>
                 <span className="flex items-center gap-1">🟡 Reservada</span>
                 <span className="flex items-center gap-1">🔵 Limpieza</span>
             </div>

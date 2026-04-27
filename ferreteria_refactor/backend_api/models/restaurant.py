@@ -21,6 +21,7 @@ class TableStatusDB(enum.Enum):
     OCCUPIED = "OCCUPIED"
     RESERVED = "RESERVED"
     CLEANING = "CLEANING"
+    WAITING_BILL = "WAITING_BILL"
 
 class OrderStatusDB(enum.Enum):
     PENDING = "PENDING"
