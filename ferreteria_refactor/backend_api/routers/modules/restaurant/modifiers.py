@@ -66,6 +66,32 @@ def get_product_modifiers(product_id: int, db: Session = Depends(get_db)):
         result.append({"id": g.id, "product_id": g.product_id, "name": g.name, "selection_type": g.selection_type.value if hasattr(g.selection_type, 'value') else g.selection_type, "is_required": g.is_required, "options": opts})
     return result
 
+@router.get("/all-with-options", response_model=List[ModifierGroupRead])
+def get_all_modifiers_with_options(db: Session = Depends(get_db)):
+    """Devuelve todos los grupos de modificadores con sus opciones (para el editor de recetas de modificadores)."""
+    groups = db.query(ProductModifierGroup).all()
+    result = []
+    for g in groups:
+        opts = [
+            {
+                "id": o.id,
+                "name": o.name,
+                "price_adjustment": float(o.price_adjustment),
+                "recipe_factor": float(o.recipe_factor),
+                "is_active": o.is_active
+            }
+            for o in g.options
+        ]
+        result.append({
+            "id": g.id,
+            "product_id": g.product_id,
+            "name": g.name,
+            "selection_type": g.selection_type.value if hasattr(g.selection_type, 'value') else g.selection_type,
+            "is_required": g.is_required,
+            "options": opts
+        })
+    return result
+
 @router.post("/product/{product_id}", response_model=ModifierGroupRead)
 def create_modifier_group(product_id: int, group_in: ModifierGroupCreate, db: Session = Depends(get_db)):
     sel_type = SelectionTypeDB.SINGLE
