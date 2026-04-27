@@ -34,10 +34,29 @@ const KitchenDisplay = () => {
     const updateItemStatus = async (itemId, newStatus) => {
         try {
             await restaurantService.updateItemStatus(itemId, newStatus);
-            toast.success(`Item marcado como ${newStatus}`);
-            loadKitchenOrders();
+            // Update local state immediately for snappy UI
+            setOrders(prev => prev.map(order => ({
+                ...order,
+                items: order.items.map(item => 
+                    item.id === itemId ? { ...item, status: newStatus } : item
+                )
+            })));
+            toast.success(`Plato ${newStatus === 'READY' ? 'Listo' : 'en preparación'}`, { icon: '✅' });
         } catch (err) {
             toast.error("Error al actualizar estado");
+        }
+    };
+
+    const handleCompleteOrder = async (orderId, items) => {
+        try {
+            // Mark all items as SERVED to clear from KDS
+            await Promise.all(items.map(item => 
+                restaurantService.updateItemStatus(item.id, 'SERVED')
+            ));
+            toast.success("Orden completada y enviada a mesa", { icon: '🚀' });
+            loadKitchenOrders();
+        } catch (err) {
+            toast.error("Error al completar la orden");
         }
     };
 
@@ -47,7 +66,7 @@ const KitchenDisplay = () => {
         const start = new Date(created_at);
         const now = new Date();
         const diff = Math.floor((now - start) / 60000);
-        return diff;
+        return Math.max(0, diff);
     };
 
     return (
@@ -184,6 +203,7 @@ const KitchenDisplay = () => {
                                     {/* Ticket Footer */}
                                     <div className="p-5 bg-slate-50 border-t border-slate-200">
                                         <button 
+                                            onClick={() => handleCompleteOrder(order.id, order.items)}
                                             disabled={!order.items.every(i => i.status === 'READY')}
                                             className={cn(
                                                 "w-full py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-2",
