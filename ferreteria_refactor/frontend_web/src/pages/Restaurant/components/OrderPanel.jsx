@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search, Plus, Minus, ChefHat, Settings, ArrowRight, Split, Send, Clock, CheckCircle, Flame, UtensilsCrossed, ShoppingBag, Trash2, Check, Info } from 'lucide-react';
+import { X, Search, Plus, Minus, ChefHat, Settings, ArrowRight, Split, Send, Clock, CheckCircle, Flame, UtensilsCrossed, ShoppingBag, Trash2, Check, Info, Pencil } from 'lucide-react';
+import { useAuth } from '../../../context/AuthContext';
 import { useConfig } from '../../../context/ConfigContext';
 import restaurantService from '../../../services/restaurantService';
 import PaymentModal from '../../../components/pos/PaymentModal';
@@ -16,6 +17,8 @@ const STATUS_CONFIG = {
 
 const OrderPanel = ({ table, onClose, onUpdate }) => {
     const { getExchangeRate } = useConfig();
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'ADMIN';
     const [order, setOrder] = useState(null);
     const [loadingOrder, setLoadingOrder] = useState(false);
     const [cart, setCart] = useState([]); // Items not yet sent to kitchen
@@ -27,6 +30,8 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const [menuLoading, setMenuLoading] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showCustomizeModal, setShowCustomizeModal] = useState(false);
+    const [editingItemId, setEditingItemId] = useState(null);
+    const [editingQuantity, setEditingQuantity] = useState(1);
     const [customizingProduct, setCustomizingProduct] = useState(null);
     const [productModifiers, setProductModifiers] = useState([]);
     const [selectedModifiers, setSelectedModifiers] = useState({});
@@ -241,6 +246,35 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
         } catch (err) {
             toast.error("Error al cancelar: " + (err.response?.data?.detail || err.message));
         }
+    };
+
+    const handleUpdateItemQuantity = async (item) => {
+        if (editingQuantity < 1 || editingQuantity === Number(item.quantity)) {
+            setEditingItemId(null);
+            return;
+        }
+        try {
+            await restaurantService.cancelItem(item.id);
+            await restaurantService.addItemsToOrder(order.id, [{
+                product_id: item.product_id,
+                quantity: editingQuantity,
+                modifier_option_ids: item.modifier_option_ids || [],
+                removed_ingredient_ids: item.removed_ingredient_ids || [],
+                notes: item.notes || ''
+            }]);
+            toast.success("Cantidad actualizada");
+            setEditingItemId(null);
+            await loadCurrentOrder();
+            loadMenu();
+            onUpdate();
+        } catch (err) {
+            toast.error("Error al actualizar: " + (err.response?.data?.detail || err.message));
+        }
+    };
+
+    const startEditingQuantity = (item) => {
+        setEditingItemId(item.id);
+        setEditingQuantity(Number(item.quantity));
     };
 
     // Filtered Menu
@@ -487,7 +521,21 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                     <div className="flex-1 min-w-0">
                                                         <p className="font-bold text-slate-700 text-sm truncate">{item.product_name}</p>
                                                         <div className="flex items-center gap-2 mt-2">
-                                                            <span className="text-xs font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">x{item.quantity}</span>
+                                                            {editingItemId === item.id ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <button onClick={() => setEditingQuantity(q => Math.max(1, q - 1))} className="p-1 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="1"
+                                                                        value={editingQuantity}
+                                                                        onChange={(e) => setEditingQuantity(Number(e.target.value))}
+                                                                        className="w-12 text-center text-sm font-black border border-slate-300 rounded-lg py-0.5"
+                                                                    />
+                                                                    <button onClick={() => setEditingQuantity(q => q + 1)} className="p-1 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-xs font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">x{item.quantity}</span>
+                                                            )}
                                                             <div className={cn("px-2 py-0.5 rounded-lg text-[9px] font-black uppercase flex items-center gap-1 border", config.color)}>
                                                                 <StatusIcon className="w-3 h-3" />
                                                                 {config.label}
@@ -496,14 +544,26 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <p className="text-sm font-black text-slate-800">${parseFloat(item.subtotal).toFixed(2)}</p>
-                                                        {canCancel && (
-                                                            <button
-                                                                onClick={() => handleCancelItem(item.id)}
-                                                                className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-colors"
-                                                                title="Cancelar item"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
+                                                        {editingItemId === item.id ? (
+                                                            <>
+                                                                <button onClick={() => handleUpdateItemQuantity(item)} className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-xl transition-colors"><Check className="w-4 h-4" /></button>
+                                                                <button onClick={() => setEditingItemId(null)} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors"><X className="w-4 h-4" /></button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                {canCancel && (
+                                                                    <button onClick={() => startEditingQuantity(item)} className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-500 rounded-xl transition-colors" title="Editar cantidad"><Pencil className="w-4 h-4" /></button>
+                                                                )}
+                                                                {canCancel && (
+                                                                    <button
+                                                                        onClick={() => handleCancelItem(item.id)}
+                                                                        className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-colors"
+                                                                        title="Cancelar item"
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </button>
+                                                                )}
+                                                            </>
                                                         )}
                                                     </div>
                                                 </div>
@@ -539,13 +599,15 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
 
                             {order && (
                                 <div className="flex gap-3 pt-2">
-                                    <button 
-                                        onClick={() => setShowPaymentModal(true)}
-                                        className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <CheckCircle className="w-5 h-5" />
-                                        FINALIZAR Y COBRAR
-                                    </button>
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => setShowPaymentModal(true)}
+                                            className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <CheckCircle className="w-5 h-5" />
+                                            FINALIZAR Y COBRAR
+                                        </button>
+                                    )}
                                     <button className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-colors">
                                         <Settings className="w-5 h-5" />
                                     </button>
