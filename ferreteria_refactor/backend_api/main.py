@@ -288,7 +288,7 @@ from .routers.modules.restaurant import tables as restaurant_tables
 from .routers.modules.restaurant import orders as restaurant_orders
 from .routers.modules.restaurant import menu as restaurant_menu
 from .routers.modules.restaurant import modifiers as restaurant_modifiers
-from .routers.modules.restaurant import print_module as restaurant_print
+from .routers.modules.restaurant import print as restaurant_print
 
 v1_router.include_router(restaurant_tables.router, prefix="/restaurant", tags=["Restaurante"])
 v1_router.include_router(restaurant_orders.router, prefix="/restaurant")
