@@ -250,6 +250,7 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
     if warehouse and new_items_list:
         try:
             InventoryService.deduct_order_items_stock(db, new_items_list, warehouse.id)
+            db.flush()
         except Exception as e:
             print(f"[WARNING] Stock deduction failed: {e}")
             # We don't block the order if stock deduction fails, but we log it.
