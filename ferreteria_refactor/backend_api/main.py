@@ -288,11 +288,13 @@ from .routers.modules.restaurant import tables as restaurant_tables
 from .routers.modules.restaurant import orders as restaurant_orders
 from .routers.modules.restaurant import menu as restaurant_menu
 from .routers.modules.restaurant import modifiers as restaurant_modifiers
+from .routers.modules.restaurant import print_module as restaurant_print
 
 v1_router.include_router(restaurant_tables.router, prefix="/restaurant", tags=["Restaurante"])
 v1_router.include_router(restaurant_orders.router, prefix="/restaurant")
 v1_router.include_router(restaurant_menu.router, prefix="/restaurant", tags=["Restaurante - Menú"])
 v1_router.include_router(restaurant_modifiers.router, prefix="/restaurant")
+v1_router.include_router(restaurant_print.router, prefix="/restaurant")
 
 # Finally, include the master router into the app
 app.include_router(v1_router)

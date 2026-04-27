@@ -7,6 +7,8 @@ import MoveTableModal from './MoveTableModal';
 import SplitCheckModal from './SplitCheckModal';
 import ModifierModal from './ModifierModal';
 import toast from 'react-hot-toast';
+import printService from '../../../services/printService';
+import { PrintType } from '../../../schemas/print';
 
 const STATUS_CONFIG = {
     PENDING: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-700 border-yellow-200', icon: Clock },
@@ -170,6 +172,8 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
             ));
             toast.success(`${pendingItems.length} item(s) enviados a cocina 🍳`);
             loadCurrentOrder();
+            // Send print job to kitchen
+            await printService.sendPrintJob(order.id, PrintType.KITCHEN_COMMAND, "COCINA");
         } catch (err) {
             toast.error("Error enviando a cocina");
         }
@@ -195,6 +199,8 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
 
             const response = await restaurantService.checkoutOrder(order.id, checkoutData);
             toast.success("Mesa cobrada y cerrada exitosamente");
+            // Send INVOICE print job
+            await printService.sendPrintJob(order.id, PrintType.INVOICE, "CAJA");
             setShowPaymentModal(false);
             onClose();
             onUpdate();
@@ -589,7 +595,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
                             <button
                                 onClick={async () => {
                                     try {
-                                        await restaurantService.printPreCheck(order.id);
+                                        await printService.sendPrintJob(order.id, PrintType.PRE_CHECK, "CAJA");
                                         toast.success("Pre-cuenta enviada a imprimir");
                                     } catch (e) {
                                         toast.error("Error imprimiendo pre-cuenta");
