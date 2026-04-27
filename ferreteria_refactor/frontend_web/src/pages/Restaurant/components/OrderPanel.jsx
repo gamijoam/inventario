@@ -434,9 +434,9 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                         amount: parseFloat(p.amount),
                                         currency: p.currency === "$" ? "USD" : p.currency,
                                         payment_method: p.method,
-                                        exchange_rate: 1 // Default
+                                        exchange_rate: saleData.exchange_rate || 1
                                     })),
-                                    exchange_rate: 1,
+                                    exchange_rate: saleData.exchange_rate || 1,
                                     currency: saleData.currency || "USD",
                                     total_amount_bs: 0,
                                     change_amount: saleData.changeUSD || 0,
