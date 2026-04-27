@@ -42,7 +42,7 @@ const KitchenDisplay = () => {
                 )
             })));
             toast.success(`Plato ${newStatus === 'READY' ? 'Listo' : 'en preparación'}`, { icon: '✅' });
-        } catch (err) {
+        } catch {
             toast.error("Error al actualizar estado");
         }
     };
@@ -56,7 +56,7 @@ const KitchenDisplay = () => {
             ));
             toast.success("Items entregados", { icon: '🚀' });
             loadKitchenOrders();
-        } catch (err) {
+        } catch {
             toast.error("Error al completar la orden");
         }
     };
@@ -81,7 +81,7 @@ const KitchenDisplay = () => {
             }
             
             return Math.max(0, diff);
-        } catch (e) { return 0; }
+        } catch { return 0; }
     };
 
     // Filter out items that are already SERVED
@@ -166,57 +166,101 @@ const KitchenDisplay = () => {
                                     </div>
 
                                     {/* Items List */}
-                                    <div className="flex-1 p-5 space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar-slate">
-                                        {pendingItems.map(item => (
-                                            <div key={item.id} className="group relative">
-                                                <div className={cn(
-                                                    "p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-4",
-                                                    item.status === 'READY' ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-100"
-                                                )}>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center font-black text-sm shrink-0">
-                                                                {item.quantity}
-                                                            </span>
-                                                            <p className={cn(
-                                                                "font-bold text-slate-800 text-lg leading-tight truncate",
-                                                                item.status === 'READY' && "line-through text-slate-400"
-                                                            )}>
-                                                                {item.product_name}
-                                                            </p>
-                                                        </div>
-                                                        {item.notes && (
-                                                            <div className="mt-2 flex items-start gap-2 bg-amber-100/50 p-2 rounded-lg border border-amber-200">
-                                                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                                                                <p className="text-xs font-bold text-amber-700 leading-tight uppercase italic">{item.notes}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                    <div className="flex-1 p-5 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar-slate">
+                                        {pendingItems.map(item => {
+                                            const rawNotes = item.notes || '';
+                                            const removedMatch = rawNotes.match(/\[(.*?)\]/);
+                                            const removedIngredients = removedMatch ? removedMatch[1].split('|').map(s => s.trim()) : [];
+                                            const chefNotes = rawNotes.replace(/\[.*?\]/, '').trim();
 
-                                                    <div className="flex gap-2">
-                                                        {item.status === 'SENT' || item.status === 'PENDING' ? (
-                                                            <button 
-                                                                onClick={() => updateItemStatus(item.id, 'PREPARING')}
-                                                                className="w-12 h-12 bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white rounded-xl flex items-center justify-center transition-all shadow-sm"
-                                                            >
-                                                                <Play className="w-6 h-6 fill-current" />
-                                                            </button>
-                                                        ) : item.status === 'PREPARING' ? (
-                                                            <button 
-                                                                onClick={() => updateItemStatus(item.id, 'READY')}
-                                                                className="w-12 h-12 bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-xl flex items-center justify-center transition-all shadow-sm animate-bounce"
-                                                            >
-                                                                <CheckCircle className="w-6 h-6" />
-                                                            </button>
-                                                        ) : (
-                                                            <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center">
-                                                                <CheckCircle className="w-6 h-6" />
+                                            return (
+                                                <div key={item.id} className="group relative">
+                                                    <div className={cn(
+                                                        "rounded-2xl border-2 transition-all overflow-hidden",
+                                                        item.status === 'READY' ? "bg-emerald-50 border-emerald-300" : "bg-white border-slate-200"
+                                                    )}>
+                                                        {/* Item Header - BIG QUANTITY + NAME */}
+                                                        <div className={cn(
+                                                            "p-4 flex items-center gap-4",
+                                                            item.status === 'READY' ? "bg-emerald-100/50" : "bg-slate-800"
+                                                        )}>
+                                                            <div className={cn(
+                                                                "w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shrink-0",
+                                                                item.status === 'READY'
+                                                                    ? "bg-emerald-500 text-white"
+                                                                    : "bg-orange-500 text-white"
+                                                            )}>
+                                                                {item.quantity}×
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className={cn(
+                                                                    "font-black text-xl text-white leading-tight truncate",
+                                                                    item.status === 'READY' && "opacity-60"
+                                                                )}>
+                                                                    {item.product_name}
+                                                                </p>
+                                                                {item.status === 'PREPARING' && (
+                                                                    <p className="text-[10px] font-bold text-orange-300 uppercase tracking-widest mt-1">Preparando...</p>
+                                                                )}
+                                                                {item.status === 'READY' && (
+                                                                    <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest mt-1">Listo para servir</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Removed Ingredients - RED ALERT */}
+                                                        {removedIngredients.length > 0 && (
+                                                            <div className="px-4 py-2 bg-red-50 border-t-2 border-red-200 flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
+                                                                    <span className="text-xs font-black">✕</span>
+                                                                </div>
+                                                                <div className="flex-1 flex flex-wrap gap-1">
+                                                                    {removedIngredients.map((ing, idx) => (
+                                                                        <span key={idx} className="text-xs font-black text-red-700 bg-red-100 px-2 py-0.5 rounded-lg uppercase">
+                                                                            {ing}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
                                                             </div>
                                                         )}
+
+                                                        {/* Chef Notes - AMBER */}
+                                                        {chefNotes && (
+                                                            <div className="px-4 py-2 bg-amber-50 border-t border-amber-200 flex items-start gap-2">
+                                                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                                                <p className="text-xs font-bold text-amber-700 leading-tight">{chefNotes}</p>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Action Button */}
+                                                        <div className="p-3 bg-slate-50 border-t border-slate-100">
+                                                            {item.status === 'SENT' || item.status === 'PENDING' ? (
+                                                                <button
+                                                                    onClick={() => updateItemStatus(item.id, 'PREPARING')}
+                                                                    className="w-full py-3 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] transition-all text-white rounded-xl font-black text-sm flex items-center justify-center gap-2"
+                                                                >
+                                                                    <Play className="w-5 h-5 fill-current" />
+                                                                    INICIAR PREPARACIÓN
+                                                                </button>
+                                                            ) : item.status === 'PREPARING' ? (
+                                                                <button
+                                                                    onClick={() => updateItemStatus(item.id, 'READY')}
+                                                                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition-all text-white rounded-xl font-black text-sm flex items-center justify-center gap-2 animate-pulse"
+                                                                >
+                                                                    <CheckCircle className="w-5 h-5" />
+                                                                    MARCAR COMO LISTO
+                                                                </button>
+                                                            ) : (
+                                                                <div className="w-full py-3 bg-emerald-500 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2">
+                                                                    <CheckCircle className="w-5 h-5" />
+                                                                    LISTO PARA SERVIR
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
 
                                     {/* Ticket Footer */}
