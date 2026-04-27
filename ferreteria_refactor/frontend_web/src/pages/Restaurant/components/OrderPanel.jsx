@@ -132,6 +132,10 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
             toast.error(`Solo quedan ${availableStock} unidades`, { icon: '⚠️' });
             return;
         }
+        if (itemQuantity <= 0) {
+            toast.error("La cantidad debe ser mayor a 0", { icon: '⚠️' });
+            return;
+        }
 
         const modifierOptionIds = Object.values(selectedModifiers).flatMap(arr => Array.isArray(arr) ? arr : [arr]).filter(Boolean);
 
@@ -169,9 +173,12 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     };
 
     const handleUpdateCartQty = (cartId, delta) => {
+        const step = delta > 0
+            ? (Number(cart.find(i => i.cartId === cartId)?.quantity) >= 1 ? 1 : 0.25)
+            : (Number(cart.find(i => i.cartId === cartId)?.quantity) > 1 ? 1 : 0.25);
         setCart(cart.map(item => {
             if (item.cartId === cartId) {
-                const newQty = item.quantity + delta;
+                const newQty = Math.round((item.quantity + (delta > 0 ? step : -step)) * 1000) / 1000;
                 if (newQty <= 0) return item;
                 if (newQty > item.stock_available) {
                     toast.error("Stock máximo alcanzado", { icon: '⚠️' });
@@ -249,7 +256,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     };
 
     const handleUpdateItemQuantity = async (item) => {
-        if (editingQuantity < 1 || editingQuantity === Number(item.quantity)) {
+        if (editingQuantity < 0.125 || Math.abs(editingQuantity - Number(item.quantity)) < 0.001) {
             setEditingItemId(null);
             return;
         }
@@ -470,7 +477,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                         )}
                                                         <div className="flex items-center gap-2 mt-1">
                                                             <button onClick={() => handleUpdateCartQty(item.cartId, -1)} className="text-white/60 hover:text-white transition-colors p-1"><Minus className="w-3 h-3"/></button>
-                                                            <span className="text-white font-black text-xs">{item.quantity}</span>
+                                                            <span className="text-white font-black text-xs w-8 text-center">{Number(item.quantity) % 1 === 0 ? item.quantity : item.quantity.toFixed(2).replace(/\.?0+$/, '')}</span>
                                                             <button onClick={() => handleUpdateCartQty(item.cartId, 1)} className="text-white/60 hover:text-white transition-colors p-1"><Plus className="w-3 h-3"/></button>
                                                         </div>
                                                     </div>
@@ -523,18 +530,19 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                         <div className="flex items-center gap-2 mt-2">
                                                             {editingItemId === item.id ? (
                                                                 <div className="flex items-center gap-2">
-                                                                    <button onClick={() => setEditingQuantity(q => Math.max(1, q - 1))} className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors active:scale-95"><Minus className="w-4 h-4" /></button>
+                                                                    <button onClick={() => setEditingQuantity(q => Math.max(0.125, Math.round((q - 0.25) * 1000) / 1000))} className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors active:scale-95"><Minus className="w-4 h-4" /></button>
                                                                     <input
                                                                         type="number"
-                                                                        min="1"
+                                                                        min="0.125"
+                                                                        step="0.125"
                                                                         value={editingQuantity}
-                                                                        onChange={(e) => setEditingQuantity(Number(e.target.value))}
+                                                                        onChange={(e) => setEditingQuantity(Math.max(0.125, Number(e.target.value)))}
                                                                         className="w-14 text-center text-base font-black border-2 border-blue-400 rounded-lg py-2 px-1 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm"
                                                                     />
-                                                                    <button onClick={() => setEditingQuantity(q => q + 1)} className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors active:scale-95"><Plus className="w-4 h-4" /></button>
+                                                                    <button onClick={() => setEditingQuantity(q => Math.round((q + 0.25) * 1000) / 1000)} className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors active:scale-95"><Plus className="w-4 h-4" /></button>
                                                                 </div>
                                                             ) : (
-                                                                <span className="text-xs font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">x{item.quantity}</span>
+                                                                <span className="text-xs font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">x{Number(item.quantity) % 1 === 0 ? item.quantity : item.quantity.toFixed(2).replace(/\.?0+$/, '')}</span>
                                                             )}
                                                             <div className={cn("px-2 py-0.5 rounded-lg text-[9px] font-black uppercase flex items-center gap-1 border", config.color)}>
                                                                 <StatusIcon className="w-3 h-3" />
@@ -690,22 +698,41 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                             {/* Body */}
                             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                 {/* Quantity */}
-                                <div className="flex items-center justify-between">
-                                    <p className="font-bold text-slate-700 text-sm">Cantidad</p>
-                                    <div className="flex items-center gap-3 bg-slate-100 rounded-xl px-2 py-1">
-                                        <button
-                                            onClick={() => setItemQuantity(q => Math.max(1, q - 1))}
-                                            className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg transition-colors"
-                                        >
-                                            <Minus className="w-4 h-4" />
-                                        </button>
-                                        <span className="font-black text-slate-800 w-6 text-center">{itemQuantity}</span>
-                                        <button
-                                            onClick={() => setItemQuantity(q => q + 1)}
-                                            className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg transition-colors"
-                                        >
-                                            <Plus className="w-4 h-4" />
-                                        </button>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="font-bold text-slate-700 text-sm">Cantidad</p>
+                                        <div className="flex items-center gap-1 bg-slate-100 rounded-xl px-1.5 py-1">
+                                            <button
+                                                onClick={() => setItemQuantity(q => Math.max(0.125, Math.round((q - 0.25) * 1000) / 1000))}
+                                                className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg transition-colors"
+                                            >
+                                                <Minus className="w-4 h-4" />
+                                            </button>
+                                            <span className="font-black text-slate-800 w-10 text-center text-sm">{Number(itemQuantity) % 1 === 0 ? itemQuantity : itemQuantity.toFixed(2).replace(/\.?0+$/, '')}</span>
+                                            <button
+                                                onClick={() => setItemQuantity(q => Math.round((q + 0.25) * 1000) / 1000)}
+                                                className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-white rounded-lg transition-colors"
+                                            >
+                                                <Plus className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {/* Fraction quick-select */}
+                                    <div className="flex gap-2">
+                                        {[{ label: '1', value: 1 }, { label: '1/2', value: 0.5 }, { label: '1/4', value: 0.25 }, { label: '1/8', value: 0.125 }].map(f => (
+                                            <button
+                                                key={f.value}
+                                                onClick={() => setItemQuantity(f.value)}
+                                                className={cn(
+                                                    "flex-1 py-2 rounded-xl text-xs font-black transition-all",
+                                                    itemQuantity === f.value
+                                                        ? "bg-emerald-600 text-white shadow"
+                                                        : "bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600"
+                                                )}
+                                            >
+                                                {f.label}
+                                            </button>
+                                        ))}
                                     </div>
                                 </div>
 
