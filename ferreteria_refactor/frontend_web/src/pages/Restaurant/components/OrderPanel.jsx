@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Plus, Minus, ChefHat, Settings, ArrowRight, Split, Send, Clock, CheckCircle, Flame, UtensilsCrossed, ShoppingBag, Trash2, Check, Info } from 'lucide-react';
 import { useConfig } from '../../../context/ConfigContext';
 import restaurantService from '../../../services/restaurantService';
-import axiosInstance from '../../../config/axios';
 import PaymentModal from '../../../components/pos/PaymentModal';
 import toast from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
@@ -30,14 +29,14 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
 
     // Initial Load & Polling
     useEffect(() => {
-        if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED') {
+        if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED' || table?.status === 'TAKEOUT') {
             loadCurrentOrder();
         }
         loadMenu();
 
         // Polling to keep order status in sync (since WebSocket is failing)
         const interval = setInterval(() => {
-            if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED') {
+            if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED' || table?.status === 'TAKEOUT') {
                 loadCurrentOrder();
             }
             loadMenu();
@@ -50,7 +49,12 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
         if (!table?.id) return;
         setLoadingOrder(true);
         try {
-            const data = await restaurantService.getCurrentOrder(table.id);
+            let data;
+            if (table?.status === 'TAKEOUT' && table?.current_order_id) {
+                data = await restaurantService.getOrder(table.current_order_id);
+            } else {
+                data = await restaurantService.getCurrentOrder(table.id);
+            }
             setOrder(data);
         } catch (err) {
             console.error("Error loading order:", err);

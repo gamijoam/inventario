@@ -331,27 +331,61 @@ def get_pending_kitchen_orders(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/items/{item_id}/status")
-def update_order_item_status(item_id: int, status: str, db: Session = Depends(get_db)):
+def update_order_item_status(
+    item_id: int, 
+    status: str, 
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
     """
-    Actualizar estado de un item (ej: PENDING -> READY)
+    Actualizar estado de un item (ej: PENDING -> READY, READY -> SERVED).
+    
+    Validaciones:
+    - Solo ADMIN o el mesero ASIGNADO a la orden puede modificar
+    - SERVED solo puede ser marcado por el mesero asignado (no por cocina)
     """
     try:
-        # Validate Enum
         new_status = OrderItemStatusDB(status)
     except ValueError:
-         raise HTTPException(status_code=400, detail=f"Invalid status. Allowed: {[e.value for e in OrderItemStatusDB]}")
+        raise HTTPException(status_code=400, detail=f"Invalid status. Allowed: {[e.value for e in OrderItemStatusDB]}")
 
     item = db.query(RestaurantOrderItem).filter(RestaurantOrderItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
+    order = item.order
+    
+    is_admin = getattr(current_user, 'role', None) == models.UserRole.ADMIN
+    is_assigned_waiter = order.waiter_id == current_user.id
+    
+    if not (is_admin or is_assigned_waiter):
+        raise HTTPException(
+            status_code=403, 
+            detail="No tienes permiso para modificar esta orden. Solo el mesero asignado o un administrador puede hacerlo."
+        )
+
+    old_status = item.status
     item.status = new_status
     db.commit()
+
+    if new_status == OrderItemStatusDB.READY and old_status != OrderItemStatusDB.READY:
+        manager.broadcast(WebSocketEvents.SYSTEM_NOTIFICATION, {
+            "type": "order:item_ready",
+            "order_id": order.id,
+            "table_id": order.table_id,
+            "item_id": item_id,
+            "product_name": item.product.name if item.product else "Unknown",
+            "waiter_id": order.waiter_id
+        })
     
     return {"status": "success", "item_id": item_id, "new_status": new_status.value}
 
 @router.delete("/items/{item_id}")
-def cancel_order_item(item_id: int, db: Session = Depends(get_db)):
+def cancel_order_item(
+    item_id: int, 
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
     """
     Cancela un item de orden y revierte el stock reservado.
     Solo funciona para items que aún no han sido servidos.
@@ -359,11 +393,21 @@ def cancel_order_item(item_id: int, db: Session = Depends(get_db)):
     item = db.query(RestaurantOrderItem).filter(RestaurantOrderItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+
+    order = item.order
+
+    is_admin = getattr(current_user, 'role', None) == models.UserRole.ADMIN
+    is_assigned_waiter = order.waiter_id == current_user.id
+
+    if not (is_admin or is_assigned_waiter):
+        raise HTTPException(
+            status_code=403,
+            detail="No tienes permiso para cancelar este item."
+        )
     
     if item.status == OrderItemStatusDB.SERVED:
         raise HTTPException(status_code=400, detail="No se puede cancelar un item ya servido")
     
-    order = item.order
     if order.status == OrderStatusDB.PAID:
         raise HTTPException(status_code=400, detail="No se puede modificar una orden pagada")
     

@@ -60,6 +60,7 @@ const AuditLogs = React.lazy(() => import('./pages/AuditLogs'));
 const Help = React.lazy(() => import('./pages/Help'));
 const TableMap = React.lazy(() => import('./pages/Restaurant/TableMap'));
 const KitchenDisplay = React.lazy(() => import('./pages/Restaurant/KitchenDisplay'));
+const WaiterStation = React.lazy(() => import('./pages/Restaurant/WaiterStation'));
 const MenuManager = React.lazy(() => import('./pages/Restaurant/MenuManager'));
 const RecipeEditor = React.lazy(() => import('./pages/Restaurant/RecipeEditor'));
 const ModifierRecipeEditor = React.lazy(() => import('./pages/Restaurant/ModifierRecipeEditor'));
@@ -504,6 +505,11 @@ function App() {
                               <Route path="/restaurant/kitchen" element={
                                 <ProtectedRoute roles={['ADMIN', 'KITCHEN']}>
                                   <KitchenDisplay />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/waiter" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAITER', 'CASHIER']}>
+                                  <WaiterStation />
                                 </ProtectedRoute>
                               } />
 
