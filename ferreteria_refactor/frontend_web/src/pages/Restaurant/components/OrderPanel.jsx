@@ -168,17 +168,16 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const filteredProducts = useMemo(() => {
         if (searchTerm) {
             // Global search across all categories
-            const allItems = menuSections.flatMap(s => s.items || []);
-            return allItems
+            return menuSections.flatMap(sec => sec.items || [])
                 .filter(item => 
                     item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     item.alias?.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map(item => ({
+                ).map(item => ({
                     id: item.product_id,
                     name: item.alias || item.product_name,
                     price: item.price,
-                    image_url: item.image_url
+                    image_url: item.image_url,
+                    stock: item.stock
                 }));
         }
 
@@ -188,7 +187,8 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
             id: item.product_id,
             name: item.alias || item.product_name,
             price: item.price,
-            image_url: item.image_url
+            image_url: item.image_url,
+            stock: item.stock
         }));
     }, [menuSections, activeSectionId, searchTerm]);
 
