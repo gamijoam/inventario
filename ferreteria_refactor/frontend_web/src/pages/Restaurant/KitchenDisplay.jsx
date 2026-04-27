@@ -126,47 +126,54 @@ const KitchenDisplay = () => {
                         <p className="text-sm font-bold opacity-20">No hay pedidos pendientes en este momento</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in duration-500">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 p-2 animate-in fade-in duration-500">
                         {orders.map(order => {
                             const pendingItems = getPendingItems(order.items);
-                            if (pendingItems.length === 0) return null; // Don't show empty tickets
+                            if (pendingItems.length === 0) return null;
 
                             const minutes = getElapsedTime(order.created_at);
                             const isDelayed = minutes > 15;
                             const allReady = pendingItems.every(i => i.status === 'READY');
-                            
+
                             return (
-                                <div 
-                                    key={order.id} 
+                                <div
+                                    key={order.id}
                                     className={cn(
-                                        "bg-white rounded-[2rem] overflow-hidden flex flex-col shadow-2xl transition-all hover:scale-[1.02]",
-                                        isDelayed ? "ring-4 ring-rose-500/50" : "ring-1 ring-slate-200"
+                                        "bg-white rounded-3xl overflow-hidden flex flex-col shadow-2xl border-2 transition-all",
+                                        isDelayed ? "border-rose-500" : "border-transparent"
                                     )}
                                 >
-                                    {/* Ticket Header */}
+                                    {/* Ticket Header - FULL WIDTH */}
                                     <div className={cn(
-                                        "p-5 flex justify-between items-start",
+                                        "px-5 py-4 flex justify-between items-center gap-3",
                                         isDelayed ? "bg-rose-500" : "bg-slate-800"
                                     )}>
-                                        <div>
-                                            <h3 className="text-2xl font-black text-white leading-none mb-1 text-ellipsis overflow-hidden whitespace-nowrap max-w-[150px]">
-                                                {order.table_id ? `MESA ${order.table_id}` : "PARA LLEVAR"}
-                                            </h3>
-                                            <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
-                                                ORDEN #{order.id}
-                                            </p>
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <div className={cn(
+                                                "w-16 h-16 rounded-2xl flex flex-col items-center justify-center font-black text-2xl leading-none shrink-0",
+                                                isDelayed ? "bg-white text-rose-500" : "bg-slate-700 text-white"
+                                            )}>
+                                                <span className="text-[10px] font-bold opacity-60 uppercase">Mesa</span>
+                                                <span>{order.table_id || '-'}</span>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Orden #{order.id}</p>
+                                                <p className="text-sm font-bold text-white/80">
+                                                    {order.is_takeout ? '📦 Para Llevar' : ''}
+                                                </p>
+                                            </div>
                                         </div>
                                         <div className={cn(
-                                            "px-3 py-1.5 rounded-xl flex items-center gap-2 font-black text-sm",
+                                            "px-4 py-2 rounded-2xl flex items-center gap-2 font-black text-2xl shrink-0",
                                             isDelayed ? "bg-white text-rose-500 animate-pulse" : "bg-slate-700 text-white"
                                         )}>
-                                            <Clock className="w-4 h-4" />
+                                            <Clock className="w-5 h-5" />
                                             {minutes}'
                                         </div>
                                     </div>
 
-                                    {/* Items List */}
-                                    <div className="flex-1 p-5 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar-slate">
+                                    {/* Items List - NO HEIGHT LIMIT */}
+                                    <div className="flex-1 p-3 space-y-3 overflow-y-auto">
                                         {pendingItems.map(item => {
                                             const rawNotes = item.notes || '';
                                             const removedMatch = rawNotes.match(/\[(.*?)\]/);
@@ -174,55 +181,62 @@ const KitchenDisplay = () => {
                                             const chefNotes = rawNotes.replace(/\[.*?\]/, '').trim();
 
                                             return (
-                                                <div key={item.id} className="group relative">
+                                                <div key={item.id}>
                                                     <div className={cn(
-                                                        "rounded-2xl border-2 transition-all overflow-hidden",
-                                                        item.status === 'READY' ? "bg-emerald-50 border-emerald-300" : "bg-white border-slate-200"
+                                                        "rounded-2xl border-2 overflow-hidden",
+                                                        item.status === 'READY' ? "bg-emerald-50 border-emerald-300" : "bg-slate-50 border-slate-200"
                                                     )}>
                                                         {/* Item Header - BIG QUANTITY + NAME */}
                                                         <div className={cn(
-                                                            "p-4 flex items-center gap-3",
+                                                            "p-4 flex items-start gap-4",
                                                             item.status === 'READY' ? "bg-emerald-100/50" : "bg-slate-800"
                                                         )}>
                                                             <div className={cn(
-                                                                "min-w-[48px] h-12 px-2 rounded-2xl flex items-center justify-center font-black text-xl shrink-0 leading-none",
+                                                                "w-16 h-16 rounded-2xl flex items-center justify-center font-black text-3xl leading-none shrink-0",
                                                                 item.status === 'READY'
                                                                     ? "bg-emerald-500 text-white"
-                                                                    : "bg-orange-500 text-white"
+                                                                    : item.status === 'PREPARING'
+                                                                    ? "bg-orange-500 text-white"
+                                                                    : "bg-slate-600 text-white"
                                                             )}>
-                                                                <span className="truncate">{item.quantity}×</span>
+                                                                {item.quantity}×
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className={cn(
-                                                                    "font-black text-lg text-white leading-tight truncate",
-                                                                    item.status === 'READY' && "opacity-60"
+                                                                    "font-black text-2xl text-white leading-tight break-words",
+                                                                    item.status === 'READY' && "opacity-50 line-through"
                                                                 )}>
                                                                     {item.product_name}
                                                                 </p>
-                                                                {item.status === 'PREPARING' && (
-                                                                    <p className="text-[10px] font-bold text-orange-300 uppercase tracking-widest mt-0.5">Preparando...</p>
-                                                                )}
-                                                                {item.status === 'READY' && (
-                                                                    <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest mt-0.5">Listo para servir</p>
-                                                                )}
-                                                                {item.status === 'PENDING' && (
-                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Recibido</p>
-                                                                )}
-                                                                {item.status === 'SENT' && (
-                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Enviado</p>
-                                                                )}
+                                                                <div className="mt-1">
+                                                                    {item.status === 'PREPARING' && (
+                                                                        <span className="text-xs font-black text-orange-300 bg-orange-900/30 px-2 py-0.5 rounded uppercase tracking-wider">Preparando...</span>
+                                                                    )}
+                                                                    {item.status === 'READY' && (
+                                                                        <span className="text-xs font-black text-emerald-300 bg-emerald-900/30 px-2 py-0.5 rounded uppercase tracking-wider">Listo!</span>
+                                                                    )}
+                                                                    {item.status === 'PENDING' && (
+                                                                        <span className="text-xs font-black text-slate-400 bg-slate-700 px-2 py-0.5 rounded uppercase tracking-wider">Recibido</span>
+                                                                    )}
+                                                                    {item.status === 'SENT' && (
+                                                                        <span className="text-xs font-black text-slate-400 bg-slate-700 px-2 py-0.5 rounded uppercase tracking-wider">Enviado</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
 
-                                                        {/* Removed Ingredients - RED ALERT */}
+                                                        {/* Removed Ingredients - RED */}
                                                         {removedIngredients.length > 0 && (
-                                                            <div className="px-4 py-2.5 bg-red-50 border-t-2 border-red-200 flex items-center gap-2">
-                                                                <div className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
-                                                                    <span className="text-[10px] font-black">✕</span>
+                                                            <div className="px-4 py-3 bg-red-50 border-t-2 border-red-200">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <div className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
+                                                                        <span className="text-[10px] font-black">✕</span>
+                                                                    </div>
+                                                                    <span className="text-xs font-black text-red-600 uppercase tracking-wider">Ingredientes Removidos</span>
                                                                 </div>
-                                                                <div className="flex-1 flex flex-wrap gap-1">
+                                                                <div className="flex flex-wrap gap-1.5 ml-8">
                                                                     {removedIngredients.map((ing, idx) => (
-                                                                        <span key={idx} className="text-xs font-black text-red-700 bg-red-100 px-2 py-0.5 rounded-lg uppercase">
+                                                                        <span key={idx} className="text-sm font-black text-red-700 bg-red-100 px-3 py-1 rounded-xl uppercase">
                                                                             {ing}
                                                                         </span>
                                                                     ))}
@@ -232,34 +246,36 @@ const KitchenDisplay = () => {
 
                                                         {/* Chef Notes - AMBER */}
                                                         {chefNotes && (
-                                                            <div className="px-4 py-2.5 bg-amber-50 border-t border-amber-200 flex items-start gap-2">
-                                                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                                                                <p className="text-xs font-bold text-amber-700 leading-tight">{chefNotes}</p>
+                                                            <div className="px-4 py-3 bg-amber-50 border-t border-amber-200">
+                                                                <div className="flex items-start gap-2">
+                                                                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                                                    <p className="text-sm font-bold text-amber-800 leading-snug">{chefNotes}</p>
+                                                                </div>
                                                             </div>
                                                         )}
 
-                                                        {/* Action Button */}
-                                                        <div className="p-3 bg-slate-50 border-t border-slate-100">
+                                                        {/* Action Button - LARGE TOUCH TARGET */}
+                                                        <div className="p-2 bg-white border-t border-slate-100">
                                                             {item.status === 'SENT' || item.status === 'PENDING' ? (
                                                                 <button
                                                                     onClick={() => updateItemStatus(item.id, 'PREPARING')}
-                                                                    className="w-full py-3 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] transition-all text-white rounded-xl font-black text-sm flex items-center justify-center gap-2"
+                                                                    className="w-full py-4 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] transition-all text-white rounded-xl font-black text-base flex items-center justify-center gap-3"
                                                                 >
-                                                                    <Play className="w-5 h-5 fill-current" />
-                                                                    INICIAR PREPARACIÓN
+                                                                    <Play className="w-6 h-6 fill-current" />
+                                                                    INICIAR
                                                                 </button>
                                                             ) : item.status === 'PREPARING' ? (
                                                                 <button
                                                                     onClick={() => updateItemStatus(item.id, 'READY')}
-                                                                    className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition-all text-white rounded-xl font-black text-sm flex items-center justify-center gap-2 animate-pulse"
+                                                                    className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition-all text-white rounded-xl font-black text-base flex items-center justify-center gap-3 animate-pulse"
                                                                 >
-                                                                    <CheckCircle className="w-5 h-5" />
-                                                                    MARCAR COMO LISTO
+                                                                    <CheckCircle className="w-6 h-6" />
+                                                                    LISTO
                                                                 </button>
                                                             ) : (
-                                                                <div className="w-full py-3 bg-emerald-500 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2">
-                                                                    <CheckCircle className="w-5 h-5" />
-                                                                    LISTO PARA SERVIR
+                                                                <div className="w-full py-4 bg-emerald-500 text-white rounded-xl font-black text-base flex items-center justify-center gap-3">
+                                                                    <CheckCircle className="w-6 h-6" />
+                                                                    LISTO
                                                                 </div>
                                                             )}
                                                         </div>
@@ -270,18 +286,19 @@ const KitchenDisplay = () => {
                                     </div>
 
                                     {/* Ticket Footer */}
-                                    <div className="p-5 bg-slate-50 border-t border-slate-200">
-                                        <button 
+                                    <div className="p-3 bg-slate-100 border-t border-slate-200">
+                                        <button
                                             onClick={() => handleCompleteOrder(order.id, pendingItems)}
                                             disabled={!allReady}
                                             className={cn(
-                                                "w-full py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-2",
-                                                allReady 
-                                                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95" 
+                                                "w-full py-4 rounded-2xl font-black text-base transition-all flex items-center justify-center gap-3",
+                                                allReady
+                                                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95"
                                                     : "bg-slate-200 text-slate-400 cursor-not-allowed"
                                             )}
                                         >
-                                            COMPLETAR {pendingItems.length > 1 ? 'ITEMS' : 'PLATO'}
+                                            <UtensilsCrossed className="w-5 h-5" />
+                                            COMPLETAR ORDEN
                                         </button>
                                     </div>
                                 </div>
