@@ -52,16 +52,22 @@ const WaiterStation = () => {
     const playReadySound = () => {
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            oscillator.frequency.value = 880;
-            oscillator.type = 'sine';
-            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-            oscillator.start(audioCtx.currentTime);
-            oscillator.stop(audioCtx.currentTime + 0.5);
+            const now = audioCtx.currentTime;
+            const playTone = (freq, start, dur) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.value = freq;
+                osc.type = 'sine';
+                gain.gain.setValueAtTime(0.25, now + start);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + start + dur);
+                osc.start(now + start);
+                osc.stop(now + start + dur);
+            };
+            playTone(523, 0, 0.15);
+            playTone(659, 0.12, 0.15);
+            playTone(784, 0.24, 0.2);
         } catch {
             console.log('Audio not supported');
         }
