@@ -7,15 +7,18 @@ from decimal import Decimal
 from ....database.db import get_db
 from ....dependencies import get_current_active_user, require_restaurant_module
 from ....models.restaurant import RestaurantTable, RestaurantOrder, RestaurantOrderItem, RestaurantRecipe, TableStatusDB, OrderStatusDB, OrderItemStatusDB, RestaurantOrderItemModifier, ProductModifierOption
+from ....models import models
 from ....models.models import Product
 from ....schemas.restaurant import OrderCreate, OrderRead, OrderItemCreate, OrderItemCreateWithModifiers, TableRead, OrderMove, OrderSplit
 from ....schemas.restaurant_checkout import RestaurantCheckout
+from ....services.inventory_service import InventoryService
 from ....services.sales_service import SalesService
 from ....services.printer_service import PrinterService
 from ....websocket.manager import manager
 from ....websocket.events import WebSocketEvents
 from .... import schemas
 from fastapi import BackgroundTasks
+from pydantic import BaseModel
 import asyncio
 
 # Helper for WebSocket broadcast
@@ -345,6 +348,85 @@ def update_order_item_status(item_id: int, status: str, db: Session = Depends(ge
     db.commit()
     
     return {"status": "success", "item_id": item_id, "new_status": new_status.value}
+
+@router.delete("/items/{item_id}")
+def cancel_order_item(item_id: int, db: Session = Depends(get_db)):
+    """
+    Cancela un item de orden y revierte el stock reservado.
+    Solo funciona para items que aún no han sido servidos.
+    """
+    item = db.query(RestaurantOrderItem).filter(RestaurantOrderItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    if item.status == OrderItemStatusDB.SERVED:
+        raise HTTPException(status_code=400, detail="No se puede cancelar un item ya servido")
+    
+    order = item.order
+    if order.status == OrderStatusDB.PAID:
+        raise HTTPException(status_code=400, detail="No se puede modificar una orden pagada")
+    
+    item_price = float(item.subtotal)
+    item_quantity = float(item.quantity)
+    
+    InventoryService.reverse_stock_for_item(db, item)
+    
+    db.delete(item)
+    
+    order.total_amount = max(0, float(order.total_amount) - item_price)
+    order.updated_at = datetime.now()
+    
+    db.commit()
+    
+    return {"status": "success", "message": "Item cancelado y stock revertido"}
+
+@router.get("/stock/{product_id}")
+def get_product_stock(product_id: int, db: Session = Depends(get_db)):
+    """
+    Retorna la disponibilidad real de un producto considerando stock físico
+    y reservas en órdenes activas de restaurante.
+    """
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    main_warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_main == True).first()
+    if not main_warehouse:
+        main_warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_active == True).first()
+    
+    if not main_warehouse:
+        return {
+            "product_id": product_id,
+            "product_name": product.name,
+            "stock_total": 0,
+            "stock_reserved": 0,
+            "stock_available": 0,
+            "warehouse_id": None,
+            "has_recipe": False,
+            "recipe_ingredients": []
+        }
+    
+    availability = InventoryService.get_product_availability(db, product_id, main_warehouse.id)
+    
+    recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product_id).all()
+    
+    return {
+        "product_id": product_id,
+        "product_name": product.name,
+        "stock_total": availability["stock_total"],
+        "stock_reserved": availability["stock_reserved"],
+        "stock_available": availability["stock_available"],
+        "warehouse_id": availability["warehouse_id"],
+        "has_recipe": len(recipes) > 0,
+        "recipe_ingredients": [
+            {
+                "ingredient_id": r.ingredient_id,
+                "ingredient_name": r.ingredient.name if r.ingredient else "Unknown",
+                "quantity_per_dish": float(r.quantity)
+            }
+            for r in recipes
+        ]
+    }
 
 @router.post("/{order_id}/checkout")
 def checkout_order(

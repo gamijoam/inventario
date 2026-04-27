@@ -40,7 +40,8 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
             if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED') {
                 loadCurrentOrder();
             }
-        }, 15000); // Sync every 15s
+            loadMenu();
+        }, 10000); // Sync every 10s
 
         return () => clearInterval(interval);
     }, [table?.id, table?.status]);
@@ -79,18 +80,21 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const handleAddToCart = (product) => {
         const existing = cart.find(item => item.id === product.id);
         const currentQty = existing ? existing.quantity : 0;
-        const availableStock = product.stock ?? 0;
-        
-        // Stock Validation
+        const availableStock = product.stock_available ?? 0;
+
         if (currentQty + 1 > availableStock) {
-            toast.error(`Stock insuficiente. Disponible: ${availableStock}`, { icon: '⚠️' });
+            if (availableStock <= 0) {
+                toast.error("AGOTADO", { icon: '⚠️' });
+            } else {
+                toast.error(`Solo quedan ${availableStock} unidades`, { icon: '⚠️' });
+            }
             return;
         }
 
         if (existing) {
             setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
         } else {
-            setCart([...cart, { ...product, quantity: 1, stock: availableStock }]);
+            setCart([...cart, { ...product, quantity: 1, stock_available: availableStock }]);
         }
         toast.success(`${product.alias || product.product_name} añadido`, { duration: 1000, icon: '🛒' });
     };
@@ -100,11 +104,10 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
             if (item.id === productId) {
                 const newQty = item.quantity + delta;
                 if (newQty <= 0) return item;
-                
-                const itemInCart = cart.find(i => i.id === productId);
-                const availableStock = itemInCart?.stock ?? 0;
 
-                // Stock Validation
+                const itemInCart = cart.find(i => i.id === productId);
+                const availableStock = itemInCart?.stock_available ?? 0;
+
                 if (newQty > availableStock) {
                     toast.error("Stock máximo alcanzado", { icon: '⚠️' });
                     return item;
@@ -164,12 +167,25 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
         }
     };
 
+    const handleCancelItem = async (itemId) => {
+        if (!window.confirm('¿Cancelar este item? Se revertirá el stock.')) return;
+        
+        try {
+            await restaurantService.cancelItem(itemId);
+            toast.success("Item cancelado, stock revertido");
+            await loadCurrentOrder();
+            loadMenu();
+            onUpdate();
+        } catch (err) {
+            toast.error("Error al cancelar: " + (err.response?.data?.detail || err.message));
+        }
+    };
+
     // Filtered Menu
     const filteredProducts = useMemo(() => {
         if (searchTerm) {
-            // Global search across all categories
             return menuSections.flatMap(sec => sec.items || [])
-                .filter(item => 
+                .filter(item =>
                     item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     item.alias?.toLowerCase().includes(searchTerm.toLowerCase())
                 ).map(item => ({
@@ -177,18 +193,21 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                     name: item.alias || item.product_name,
                     price: item.price,
                     image_url: item.image_url,
-                    stock: item.stock
+                    stock_total: item.stock_total,
+                    stock_reserved: item.stock_reserved,
+                    stock_available: item.stock_available
                 }));
         }
 
-        // Category based view
         const activeSection = menuSections.find(s => s.id === activeSectionId);
         return (activeSection?.items || []).map(item => ({
             id: item.product_id,
             name: item.alias || item.product_name,
             price: item.price,
             image_url: item.image_url,
-            stock: item.stock
+            stock_total: item.stock_total,
+            stock_reserved: item.stock_reserved,
+            stock_available: item.stock_available
         }));
     }, [menuSections, activeSectionId, searchTerm]);
 
@@ -287,18 +306,29 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                     {product.product_name || product.name}
                                                 </h4>
                                                 <div className="mt-auto flex items-center justify-between">
-                                                    <div className={cn(
-                                                        "text-[9px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1",
-                                                        (product.stock || 0) > 0 
-                                                            ? "bg-slate-100 text-slate-500" 
-                                                            : "bg-red-100 text-red-600 animate-pulse"
-                                                    )}>
-                                                        <ShoppingBag size={10} />
-                                                        {product.stock > 0 ? `${product.stock} DISP.` : 'AGOTADO'}
-                                                    </div>
-                                                    {product.stock > 0 && (
+                                                    {product.stock_reserved > 0 ? (
+                                                        <div className="text-[9px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1 bg-amber-50 text-amber-600 border border-amber-200">
+                                                            <ShoppingBag size={10} />
+                                                            {product.stock_available} DISP. ({product.stock_reserved} RES.)
+                                                        </div>
+                                                    ) : (
+                                                        <div className={cn(
+                                                            "text-[9px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1",
+                                                            (product.stock_available || 0) > 0
+                                                                ? "bg-slate-100 text-slate-500"
+                                                                : "bg-red-100 text-red-600 animate-pulse"
+                                                        )}>
+                                                            <ShoppingBag size={10} />
+                                                            {product.stock_available > 0 ? `${product.stock_available} DISP.` : 'AGOTADO'}
+                                                        </div>
+                                                    )}
+                                                    {(product.stock_available || 0) > 0 ? (
                                                         <div className="bg-blue-50 text-blue-600 p-1.5 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
                                                             <Plus size={14} strokeWidth={3} />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-slate-100 text-slate-400 p-1.5 rounded-xl">
+                                                            <X size={14} strokeWidth={3} />
                                                         </div>
                                                     )}
                                                 </div>
@@ -386,6 +416,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                         {order.items.map(item => {
                                             const config = STATUS_CONFIG[item.status] || STATUS_CONFIG.PENDING;
                                             const StatusIcon = config.icon;
+                                            const canCancel = item.status !== 'SERVED' && item.status !== 'CANCELLED';
                                             return (
                                                 <div key={item.id} className="bg-white border border-slate-200 p-4 rounded-2xl flex items-center justify-between group hover:border-slate-300 transition-colors shadow-sm">
                                                     <div className="flex-1 min-w-0">
@@ -398,8 +429,17 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
+                                                    <div className="flex items-center gap-2">
                                                         <p className="text-sm font-black text-slate-800">${parseFloat(item.subtotal).toFixed(2)}</p>
+                                                        {canCancel && (
+                                                            <button
+                                                                onClick={() => handleCancelItem(item.id)}
+                                                                className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-colors opacity-0 group-hover:opacity-100"
+                                                                title="Cancelar item"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             );

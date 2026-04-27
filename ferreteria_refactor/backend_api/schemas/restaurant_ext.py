@@ -35,7 +35,9 @@ class MenuItemRead(MenuItemBase):
     section_id: int
     product_name: Optional[str] = None
     price: Optional[float] = None
-    stock: float = 0.0
+    stock_total: float = 0.0
+    stock_reserved: float = 0.0
+    stock_available: float = 0.0
 
     class Config:
         from_attributes = True

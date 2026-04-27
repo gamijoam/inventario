@@ -120,6 +120,16 @@ const restaurantService = {
             params: { status }
         });
         return response.data;
+    },
+
+    cancelItem: async (itemId) => {
+        const response = await axiosInstance.delete(`/restaurant/orders/items/${itemId}`);
+        return response.data;
+    },
+
+    getProductStock: async (productId) => {
+        const response = await axiosInstance.get(`/restaurant/orders/stock/${productId}`);
+        return response.data;
     }
 };
 

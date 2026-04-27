@@ -3,11 +3,107 @@ from sqlalchemy import text
 from decimal import Decimal
 from datetime import datetime
 from ..models import models
-from ..models.restaurant import RestaurantRecipe, ProductModifierOption, RestaurantOrderItem
+from ..models.restaurant import RestaurantRecipe, ProductModifierOption, RestaurantOrderItem, RestaurantOrder, OrderStatusDB
 from ..utils.time_utils import get_venezuela_now
 from fastapi import HTTPException
 
 class InventoryService:
+    @staticmethod
+    def get_product_availability(db: Session, product_id: int, warehouse_id: int = None) -> dict:
+        """
+        Retorna disponibilidad real de un producto considerando:
+        - Stock total en ProductStock
+        - Reservas en RestaurantOrderItem (órdenes activas no cobradas)
+        """
+        if not warehouse_id:
+            warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_main == True).first()
+            if not warehouse:
+                warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_active == True).first()
+            warehouse_id = warehouse.id if warehouse else None
+
+        if not warehouse_id:
+            return {"product_id": product_id, "stock_total": 0, "stock_reserved": 0, "stock_available": 0, "warehouse_id": None}
+
+        stock_entry = db.query(models.ProductStock).filter(
+            models.ProductStock.product_id == product_id,
+            models.ProductStock.warehouse_id == warehouse_id
+        ).first()
+        stock_total = float(stock_entry.quantity) if stock_entry else 0.0
+
+        reserved_query = db.query(RestaurantOrderItem).join(RestaurantOrder).filter(
+            RestaurantOrderItem.product_id == product_id,
+            RestaurantOrder.status.notin_([OrderStatusDB.PAID, OrderStatusDB.CANCELLED]),
+            RestaurantOrderItem.stock_deducted == False
+        )
+        stock_reserved = sum(float(item.quantity) for item in reserved_query.all())
+
+        stock_available = max(0.0, stock_total - stock_reserved)
+
+        return {
+            "product_id": product_id,
+            "stock_total": stock_total,
+            "stock_reserved": stock_reserved,
+            "stock_available": stock_available,
+            "warehouse_id": warehouse_id
+        }
+
+    @staticmethod
+    def reverse_stock_for_item(db: Session, order_item) -> bool:
+        """
+        Reversa el stock de un RestaurantOrderItem cuando se cancela/elimina.
+        Retorna True si se reversó exitosamente.
+        """
+        if not order_item.stock_deducted:
+            return False
+
+        product = db.query(models.Product).filter(models.Product.id == order_item.product_id).first()
+        if not product or product.is_service:
+            return False
+
+        warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_main == True).first()
+        if not warehouse:
+            warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_active == True).first()
+        if not warehouse:
+            return False
+
+        recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product.id).all()
+        qty = float(order_item.quantity)
+
+        if recipes:
+            for recipe_item in recipes:
+                ingredient = db.query(models.Product).filter(models.Product.id == recipe_item.ingredient_id).first()
+                if not ingredient: continue
+                reverse_qty = Decimal(str(qty)) * Decimal(str(recipe_item.quantity))
+                InventoryService._apply_reverse(db, ingredient, reverse_qty, warehouse.id, f"Cancelado: {product.name} (Orden #{order_item.order_id})")
+        else:
+            InventoryService._apply_reverse(db, product, Decimal(str(qty)), warehouse.id, f"Cancelado: {product.name} (Orden #{order_item.order_id})")
+
+        order_item.stock_deducted = False
+        return True
+
+    @staticmethod
+    def _apply_reverse(db: Session, product, quantity: Decimal, warehouse_id: int, description: str):
+        stock_entry = db.query(models.ProductStock).filter(
+            models.ProductStock.product_id == product.id,
+            models.ProductStock.warehouse_id == warehouse_id
+        ).first()
+
+        if not stock_entry:
+            stock_entry = models.ProductStock(product_id=product.id, warehouse_id=warehouse_id, quantity=0)
+            db.add(stock_entry)
+            db.flush()
+
+        stock_entry.quantity += quantity
+        product.stock += quantity
+
+        db.add(models.Kardex(
+            product_id=product.id,
+            movement_type="SALE_REVERSED",
+            quantity=quantity,
+            balance_after=product.stock,
+            description=description
+        ))
+
     @staticmethod
     def deduct_order_items_stock(db: Session, order_items: list, warehouse_id: int):
         """

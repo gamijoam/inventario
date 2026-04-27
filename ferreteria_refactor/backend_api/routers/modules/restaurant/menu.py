@@ -5,8 +5,9 @@ from typing import List
 from ....database.db import get_db
 from ....dependencies import get_current_active_user, require_admin_role
 from ....models.restaurant import RestaurantMenuSection, RestaurantMenuItem, RestaurantRecipe
-from ....models.models import Product
+from ....models.models import Product, Warehouse
 from ....schemas import restaurant_ext as schemas
+from ....services.inventory_service import InventoryService
 
 router = APIRouter(
     prefix="/menu",
@@ -20,13 +21,16 @@ router = APIRouter(
 
 @router.get("/full", response_model=schemas.FullMenu)
 def get_full_menu(db: Session = Depends(get_db)):
-    """Get complete menu tree for POS"""
+    """Get complete menu tree for POS with real-time stock availability"""
+    
+    main_warehouse = db.query(Warehouse).filter(Warehouse.is_main == True).first()
+    if not main_warehouse:
+        main_warehouse = db.query(Warehouse).filter(Warehouse.is_active == True).first()
+    
     sections = db.query(RestaurantMenuSection).filter(
         RestaurantMenuSection.is_active == True
     ).order_by(RestaurantMenuSection.sort_order).all()
     
-    # Enrich simple objects for response
-    # Real implementation might need careful query opt, especially for prices
     result_sections = []
     for sec in sections:
         items_data = []
@@ -37,52 +41,26 @@ def get_full_menu(db: Session = Depends(get_db)):
             prod_name = item.product.name if item.product else "Unknown"
             final_price = item.price_override if item.price_override else (item.product.price if item.product else 0)
 
-            # --- ROBUST STOCK CALCULATION ---
             product = item.product
-            if not product:
-                prod_stock = 0
-            else:
-                # 1. Sum stock from ALL warehouses for this product
-                manual_stock = sum(s.quantity for s in product.stocks) if product.stocks else product.stock
-                
-                # 2. Calculate recipe-based stock if applicable
-                calculated_recipe_stock = 999999 # Infinity by default
-                recipe_items = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == item.product_id).all()
-                
-                if recipe_items:
-                    potential_stocks = []
-                    for ri in recipe_items:
-                        # Sum ingredient stock from all warehouses
-                        ing_manual_stock = sum(s.quantity for s in ri.ingredient.stocks) if ri.ingredient.stocks else ri.ingredient.stock
-                        if ri.quantity > 0:
-                            potential_stocks.append(ing_manual_stock / ri.quantity)
-                    
-                    if potential_stocks:
-                        calculated_recipe_stock = min(potential_stocks)
-                
-                # The real available stock is what we have physically OR what we can make
-                # If it's a dish (manual_stock usually 0), we rely on recipe.
-                # If it's a soda (no recipe), we rely on manual_stock.
-                if not recipe_items:
-                    prod_stock = manual_stock
-                else:
-                    # If it has a recipe, we can sell what's already made PLUS what we can make
-                    prod_stock = manual_stock + calculated_recipe_stock
-            # --------------------------------
-            
+            availability = {"stock_total": 0.0, "stock_reserved": 0.0, "stock_available": 0.0}
+
+            if product and main_warehouse:
+                availability = InventoryService.get_product_availability(db, product.id, main_warehouse.id)
+
             items_data.append(schemas.MenuItemRead(
                 id=item.id,
                 section_id=sec.id,
                 product_id=item.product_id,
                 alias=item.alias or prod_name,
                 price=final_price,
-                stock=float(prod_stock),
+                stock_total=availability["stock_total"],
+                stock_reserved=availability["stock_reserved"],
+                stock_available=availability["stock_available"],
                 product_name=prod_name,
                 sort_order=item.sort_order,
                 is_active=item.is_active
             ))
         
-        # Sort items in Python (simple enough for small menus)
         items_data.sort(key=lambda x: x.sort_order)
         
         result_sections.append(schemas.MenuSectionRead(
