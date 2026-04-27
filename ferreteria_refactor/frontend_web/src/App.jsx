@@ -194,7 +194,9 @@ function App() {
           const cleanUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, document.title, cleanUrl);
         }
-      } catch (err) {}
+      } catch (e) {
+        console.error("Error parsing org_data from URL:", e);
+      }
 
       if (Capacitor.isNativePlatform()) {
         const apiUrl = localStorage.getItem('api_url');

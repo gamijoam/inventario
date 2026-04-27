@@ -43,7 +43,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
     // Menu State
     const [menuSections, setMenuSections] = useState([]);
     const [activeSectionId, setActiveSectionId] = useState(null);
-    const [menuLoading, setMenuLoading] = useState(false);
+    const [_menuLoading, setMenuLoading] = useState(false);
 
     // Quick notes
     const QUICK_NOTES = ['Sin cebolla', 'Extra queso', 'Bien cocido', 'Término medio', 'Sin sal', 'Sin picante', 'Para compartir'];
@@ -66,7 +66,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
                 setOrder(data);
                 if (data.customer_name) setCustomerName(data.customer_name);
             }
-        } catch (error) {
+        } catch (err) {
             console.error("Error loading order:", error);
         } finally {
             setLoadingOrder(false);
@@ -81,7 +81,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
                 setMenuSections(data.sections);
                 setActiveSectionId(data.sections[0].id);
             }
-        } catch (error) {
+        } catch (err) {
             console.error("Error loading menu:", error);
         } finally {
             setMenuLoading(false);
@@ -104,7 +104,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
             onUpdate();
             setOrder(data);
             if (!table.is_takeout) table.status = 'OCCUPIED';
-        } catch (error) {
+        } catch (err) {
             toast.error("Error al abrir el pedido: " + error.message);
         }
     };
@@ -170,7 +170,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
             ));
             toast.success(`${pendingItems.length} item(s) enviados a cocina 🍳`);
             loadCurrentOrder();
-        } catch (error) {
+        } catch (err) {
             toast.error("Error enviando a cocina");
         }
     };
@@ -199,7 +199,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
             onClose();
             onUpdate();
             return response;
-        } catch (error) {
+        } catch (err) {
             console.error("Checkout error:", error);
             toast.error(error.response?.data?.detail || "Error al procesar el cobro");
             throw error;
@@ -213,7 +213,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
             setShowSplitModal(false);
             setShowPaymentModal(true);
             toast("Sub-cuenta lista para cobrar");
-        } catch (error) {
+        } catch (err) {
             toast.error("Error cargando la nueva cuenta");
         }
     };
@@ -689,4 +689,3 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
 };
 
 export default OrderPanel;
-nel;

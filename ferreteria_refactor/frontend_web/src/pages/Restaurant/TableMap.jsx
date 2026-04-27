@@ -71,7 +71,7 @@ const TableMap = () => {
                 if (selectedTable && selectedTable.id === draggedTable.id) {
                     handleCloseModal();
                 }
-            } catch (error) {
+            } catch (err) {
                 toast.error(error.response?.data?.detail || "Error al mover la cuenta");
             }
         }
@@ -115,7 +115,7 @@ const TableMap = () => {
             setNewTable({ name: '', zone: newTable.zone, capacity: 4 });
             setShowNewTableModal(false);
             fetchTables();
-        } catch (error) {
+        } catch (err) {
             console.error(error);
             toast.error(error.response?.data?.detail || "Error creando mesa");
         } finally {
@@ -131,7 +131,7 @@ const TableMap = () => {
             await restaurantService.deleteTable(tableId);
             toast.success("Mesa eliminada");
             fetchTables();
-        } catch (error) {
+        } catch (err) {
             toast.error("Error eliminando mesa");
         }
     };
@@ -142,7 +142,7 @@ const TableMap = () => {
             await restaurantService.updateTableStatus(tableId, newStatus);
             toast.success(`Mesa marcada como ${newStatus.toLowerCase()}`);
             fetchTables();
-        } catch (error) {
+        } catch (err) {
             toast.error(error.response?.data?.detail || "Error cambiando estado");
         }
     };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import kitchenService from '../../services/kitchenService';
-import { Clock, CheckCircle, Flame, ChefHat, AlertTriangle, RefreshCw, Volume2, VolumeX, UtensilsCrossed } from 'lucide-react';
+import { Clock, CheckCircle, Flame, ChefHat, AlertTriangle, RefreshCw, Volume2, VolumeX, UtensilsCrossed, Utensils, ShoppingBag } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../context/AuthContext'; // Import useAuth
 import { useConfig } from '../../context/ConfigContext'; // Import useConfig
@@ -20,8 +20,9 @@ const KitchenDisplay = () => {
     const [now, setNow] = useState(new Date());
     const [soundEnabled, setSoundEnabled] = useState(true);
     const previousOrderCountRef = useRef(0);
-    const audioRef = useRef(null);
+    const _audioRef = useRef(null);
     const [filterType, setFilterType] = useState('ALL'); // 'ALL', 'DINE_IN', 'TAKEOUT'
+
 
     // Live timer — update "now" every second
     useEffect(() => {
@@ -58,7 +59,7 @@ const KitchenDisplay = () => {
                 osc2.start(ctx.currentTime);
                 osc2.stop(ctx.currentTime + 0.5);
             }, 300);
-        } catch (e) {
+        } catch (err) { // Using _ to indicate unused error variable
             // Audio not supported
         }
     }, [soundEnabled]);
@@ -70,8 +71,8 @@ const KitchenDisplay = () => {
             setLastUpdated(new Date());
             setLoading(false);
             return data; // Return data for potential use in WS onmessage
-        } catch (error) {
-            console.error("Error fetching kitchen orders:", error);
+        } catch (err) { // Using _ to indicate unused error variable
+            console.error("Error fetching kitchen orders:", _);
             toast.error("Error cargando pedidos de cocina.");
             return [];
         }
@@ -91,7 +92,6 @@ const KitchenDisplay = () => {
 
         ws.onopen = () => {
             console.log('[WS KDS] Conectado al WebSocket.');
-            // Enviar un ping cada 20 segundos para mantener la conexión viva (Traefik idle timeout is 30s)
             const pingInterval = setInterval(() => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send('ping');
@@ -105,35 +105,29 @@ const KitchenDisplay = () => {
             console.log('[WS KDS] Mensaje recibido:', message);
 
             if (message.type === 'kitchen_order_update' && message.payload) {
-                // Fetch the latest orders to ensure full data consistency and handle potential diffs or deletions
                 await fetchOrders(); // This will update local state
 
-                // Check for new orders if the update implies one
                 const newPendingItems = message.payload.reduce((sum, o) => sum + o.items.filter(i => i.status === 'PENDING' || i.status === 'SENT').length, 0);
-                // We use previousOrderCountRef.current based on the LAST fetch, not the message payload, to trigger alert correctly
                 if (newPendingItems > previousOrderCountRef.current) {
                      playAlert();
                      toast('🔔 ¡Nuevo pedido!', { icon: '🍳', style: { background: '#1e293b', color: '#fff' } });
                 }
-                previousOrderCountRef.current = newPendingItems; // Update after checking
+                previousOrderCountRef.current = newPendingItems;
 
             } else if (message.type === 'conn_ack') {
                 console.log('[WS KDS] ACK de conexión recibido:', message);
             }
-            // Otros tipos de mensaje pueden ser manejados aquí
         };
 
-        ws.onerror = (error) => {
-            console.error('[WS KDS] Error en WebSocket:', error);
+        ws.onerror = (e) => {
+            console.error('[WS KDS] Error en WebSocket:', e);
             toast.error('Error de conexión con el servidor de cocina en tiempo real.');
         };
 
         ws.onclose = (event) => {
             console.log(`[WS KDS] Conexión WebSocket cerrada. Código: ${event.code}, Razón: ${event.reason}`);
-            // Manejar reconexión si es necesario, ej. si el código no es un cierre normal
-            if (event.code !== 1000 && event.code !== 1001) { // 1000: Normal Closure, 1001: Going Away
+            if (event.code !== 1000 && event.code !== 1001) {
                 console.warn('[WS KDS] Intentando reconectar en 3 segundos...');
-                // setTimeout(() => fetchOrders(), 3000); // Re-fetch on reconnect attempt
             }
         };
 
@@ -144,7 +138,6 @@ const KitchenDisplay = () => {
     }, [tenantId, token, wsBaseUrl, fetchOrders, playAlert]);
 
     const handleStatusChangeGrouped = async (groupedItem, newStatus) => {
-        // Optimistic update
         setOrders(prev => prev.map(order => ({
             ...order,
             items: order.items.map(item =>
@@ -156,14 +149,13 @@ const KitchenDisplay = () => {
             await Promise.all(groupedItem.original_items.map(item =>
                 kitchenService.updateItemStatus(item.id, newStatus)
             ));
-        } catch (_) { // Using _ to indicate unused error variable
+        } catch (err) { // Using _ to indicate unused error variable
             toast.error('Error actualizando estado de grupo de ítems');
             fetchOrders(); // Revert on error
         }
     };
 
     const handleMarkOrderReady = async (orderId, activeItems) => {
-        // Optimistic update
         setOrders(prev => prev.map(order => {
             if (order.id === orderId) {
                 return {
@@ -180,7 +172,7 @@ const KitchenDisplay = () => {
             const itemsToUpdate = activeItems.filter(i => i.status === 'PENDING' || i.status === 'SENT' || i.status === 'PREPARING');
             await Promise.all(itemsToUpdate.map(item => kitchenService.updateItemStatus(item.id, 'READY')));
             toast.success("¡Orden lista!");
-        } catch (error) {
+        } catch (err) { // Using _ to indicate unused error variable
             toast.error('Error al actualizar orden completa');
             fetchOrders(); // Revert on error
         }
@@ -351,132 +343,111 @@ const KitchenDisplay = () => {
 
                                 return (
                                     <div
-                                    key={order.id}
-                                    className={`flex-none w-80 flex flex-col rounded-xl overflow-hidden border-2 shadow-lg ${style.border} bg-slate-900 snap-start shrink-0`}
-                                >
-                                    {/* Card Header */}
-                                    <div className={`px-4 py-3 flex justify-between items-center ${style.header}`}>
-                                        <div>
-                                            <h3 className="text-xl font-black text-white">
-                                                {order.is_takeout ? (
-                                                    <span className="text-orange-400">🥡 LLEVAR {order.customer_name ? `— ${order.customer_name}` : ''}</span>
-                                                ) : (
-                                                    <span>{order.table_name || `Mesa ${order.table_id}`}</span>
-                                                )}
-                                            </h3>
-                                            <span className="text-[10px] text-slate-500 font-mono">#{order.id}</span>
-                                        </div>
-                                        <div className="flex flex-col items-end gap-2">
-                                            <div className={`px-3 py-1.5 rounded-lg font-mono text-lg font-black flex items-center gap-1.5 ${style.timerBg} ${style.timer}`}>
-                                                <Clock size={16} />
-                                                {getElapsedFormatted(order.created_at)}
+                                        key={order.id}
+                                        className={`flex-none w-80 flex flex-col rounded-xl overflow-hidden border-2 shadow-lg ${style.border} bg-slate-900 snap-start shrink-0`}
+                                    >
+                                        {/* Card Header */}
+                                        <div className={`px-4 py-3 flex justify-between items-center ${style.header}`}>
+                                            <div>
+                                                <h3 className="text-xl font-black text-white">
+                                                    {order.is_takeout ? (
+                                                        <span className="text-orange-400">🥡 LLEVAR {order.customer_name ? `— ${order.customer_name}` : ''}</span>
+                                                    ) : (
+                                                        <span>{order.table_name || `Mesa ${order.table_id}`}</span>
+                                                    )}
+                                                </h3>
+                                                <span className="text-[10px] text-slate-500 font-mono">#{order.id}</span>
                                             </div>
-                                            {activeItems.some(i => i.status !== 'READY') && (
-                                                <button
-                                                    onClick={() => handleMarkOrderReady(order.id, activeItems)}
-                                                    className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 transition-colors flex items-center gap-1"
-                                                >
-                                                    <CheckCircle size={14} /> Todo Listo
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Items */}
-                                    <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[500px]">
-                                        {groupedItems.map(groupedItem => (
-                                            <div key={groupedItem.original_items[0].id} className="bg-slate-800 rounded-lg p-3 space-y-2">
-                                                <div className="flex justify-between items-start">
-                                                    <span className="text-base font-bold text-white flex gap-2 items-center">
-                                                        <span className="bg-slate-700 px-2.5 py-0.5 rounded-lg text-orange-300 font-black text-lg min-w-[32px] text-center">
-                                                            {groupedItem.quantity}
-                                                        </span>
-                                                        <span className="leading-tight">{groupedItem.product_name}</span>
-                                                    </span>
+                                            <div className="flex flex-col items-end gap-2">
+                                                <div className={`px-3 py-1.5 rounded-lg font-mono text-lg font-black flex items-center gap-1.5 ${style.timerBg} ${style.timer}`}>
+                                                    <Clock size={16} />
+                                                    {getElapsedFormatted(order.created_at)}
                                                 </div>
+                                                {activeItems.some(i => i.status !== 'READY') && (
+                                                    <button
+                                                        onClick={() => handleMarkOrderReady(order.id, activeItems)}
+                                                        className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 transition-colors flex items-center gap-1"
+                                                    >
+                                                        <CheckCircle size={14} /> Todo Listo
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
 
-                                                {groupedItem.modifiers && groupedItem.modifiers.length > 0 && (
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {groupedItem.modifiers.map(m => (
-                                                            <span key={m.id} className="inline-flex items-center bg-orange-500/20 border border-orange-500/50 text-orange-300 text-xs font-black px-2 py-1 rounded-lg uppercase tracking-wide">
-                                                                ⚡ {m.name}
+                                        {/* Items */}
+                                        <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[500px]">
+                                            {groupedItems.map(groupedItem => (
+                                                <div key={groupedItem.original_items[0].id} className="bg-slate-800 rounded-lg p-3 space-y-2">
+                                                    <div className="flex justify-between items-start">
+                                                        <span className="text-base font-bold text-white flex gap-2 items-center">
+                                                            <span className="bg-slate-700 px-2.5 py-0.5 rounded-lg text-orange-300 font-black text-lg min-w-[32px] text-center">
+                                                                {groupedItem.quantity}
                                                             </span>
-                                                        ))}
+                                                            <span className="leading-tight">{groupedItem.product_name}</span>
+                                                        </span>
                                                     </div>
-                                                )}
-                                                {groupedItem.notes && (
-                                                    <div className="bg-amber-950/50 text-amber-200 px-3 py-1.5 rounded-lg text-sm font-semibold border border-amber-800/50 flex items-start gap-1.5">
-                                                        <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                                                        <span>{groupedItem.notes}</span>
-                                                    </div>
-                                                )}
 
-                                                {/* Status Actions */}
-                                                <div className="flex gap-2">
-                                                    {(groupedItem.status === 'PENDING' || groupedItem.status === 'SENT') && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleStatusChangeGrouped(groupedItem, 'PREPARING')}
-                                                                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg font-black flex justify-center items-center gap-2 transition-all text-sm touch-manipulation"
-                                                            >
-                                                                <Flame size={18} /> COCINAR
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleStatusChangeGrouped(groupedItem, 'READY')}
-                                                                className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg font-black flex justify-center items-center gap-1 transition-all text-sm touch-manipulation"
-                                                            >
-                                                                <CheckCircle size={18} />
-                                                            </button>
-                                                        </>
-                                                    )}
-
-                                                    {groupedItem.status === 'PREPARING' && (
-                                                        <button
-                                                            onClick={() => handleStatusChangeGrouped(groupedItem, 'READY')}
-                                                            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg font-black flex justify-center items-center gap-2 transition-all text-sm touch-manipulation"
-                                                        >
-                                                            <CheckCircle size={18} /> ¡LISTO!
-                                                        </button>
-                                                    )}
-
-                                                    {groupedItem.status === 'READY' && (
-                                                        <div className="flex-1 py-2.5 bg-emerald-900/30 text-emerald-400 text-center font-black border border-emerald-700/50 rounded-lg flex items-center justify-center gap-2">
-                                                            <CheckCircle size={18} className="animate-bounce" /> PARA SERVIR
+                                                    {groupedItem.modifiers && groupedItem.modifiers.length > 0 && (
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {groupedItem.modifiers.map(m => (
+                                                                <span key={m.id} className="inline-flex items-center bg-orange-500/20 border border-orange-500/50 text-orange-300 text-xs font-black px-2 py-1 rounded-lg uppercase tracking-wide">
+                                                                    ⚡ {m.name}
+                                                                </span>
+                                                            ))}
                                                         </div>
                                                     )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </main>
-        </div>
-    );
-};
-
-export default KitchenDisplay;
-                                         </div>
+                                                    {groupedItem.notes && (
+                                                        <div className="bg-amber-950/50 text-amber-200 px-3 py-1.5 rounded-lg text-sm font-semibold border border-amber-800/50 flex items-start gap-1.5">
+                                                            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                                                            <span>{groupedItem.notes}</span>
+                                                        </div>
                                                     )}
+
+                                                    {/* Status Actions */}
+                                                    <div className="flex gap-2">
+                                                        {(groupedItem.status === 'PENDING' || groupedItem.status === 'SENT') && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleStatusChangeGrouped(groupedItem, 'PREPARING')}
+                                                                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg font-black flex justify-center items-center gap-2 transition-all text-sm touch-manipulation"
+                                                                >
+                                                                    <Flame size={18} /> COCINAR
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleStatusChangeGrouped(groupedItem, 'READY')}
+                                                                    className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg font-black flex justify-center items-center gap-1 transition-all text-sm touch-manipulation"
+                                                                >
+                                                                    <CheckCircle size={18} />
+                                                                </button>
+                                                            </>
+                                                        )}
+
+                                                        {groupedItem.status === 'PREPARING' && (
+                                                            <button
+                                                                onClick={() => handleStatusChangeGrouped(groupedItem, 'READY')}
+                                                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg font-black flex justify-center items-center gap-2 transition-all text-sm touch-manipulation"
+                                                            >
+                                                                <CheckCircle size={18} /> ¡LISTO!
+                                                            </button>
+                                                        )}
+
+                                                        {groupedItem.status === 'READY' && (
+                                                            <div className="flex-1 py-2.5 bg-emerald-900/30 text-emerald-400 text-center font-black border border-emerald-700/50 rounded-lg flex items-center justify-center gap-2">
+                                                                <CheckCircle size={18} className="animate-bounce" /> PARA SERVIR
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
                     </div>
                 )}
             </main>
         </div>
     );
-};
-
-export default KitchenDisplay;
-);
 };
 
 export default KitchenDisplay;

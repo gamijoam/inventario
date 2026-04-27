@@ -72,7 +72,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     }, []);
 
     useEffect(() => {
-        fetchUnreadCount();
+        const initSupportUnread = async () => {
+          await fetchUnreadCount();
+        };
+        initSupportUnread();
         const interval = setInterval(fetchUnreadCount, 60000);
         return () => clearInterval(interval);
     }, [fetchUnreadCount]);
@@ -81,7 +84,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     useEffect(() => {
         if (location.pathname === '/support') {
             supportService.markAsRead();
-            setSupportUnread(0);
+            setSupportUnread(0); // This is fine, it's a reaction to navigation
         }
     }, [location.pathname]);
 

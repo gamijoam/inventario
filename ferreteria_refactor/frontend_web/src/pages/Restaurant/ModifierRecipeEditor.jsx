@@ -10,7 +10,7 @@ const ModifierRecipeEditor = () => {
     const [loading, setLoading] = useState(true);
 
     // Selected Modifier State
-    const [selectedGroup, _setSelectedGroup] = useState(null);
+    const [_selectedGroup, _setSelectedGroup] = useState(null);
     const [selectedOption, setSelectedOption] = useState(null);
 
     // Ingredient Assignment State
@@ -297,4 +297,4 @@ const ModifierRecipeEditor = () => {
     );
 };
 
-export default ModifierRecipeEditor;tor;
+export default ModifierRecipeEditor;
