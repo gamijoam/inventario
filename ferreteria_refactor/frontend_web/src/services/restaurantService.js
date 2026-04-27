@@ -107,6 +107,19 @@ const restaurantService = {
     deleteModifierOption: async (optionId) => {
         await axiosInstance.delete(`/restaurant/modifiers/option/${optionId}`);
         return true;
+    },
+
+    // --- KITCHEN (KDS) ---
+    getKitchenOrders: async () => {
+        const response = await axiosInstance.get('/restaurant/orders/kitchen/pending');
+        return response.data;
+    },
+
+    updateItemStatus: async (itemId, status) => {
+        const response = await axiosInstance.put(`/restaurant/orders/items/${itemId}/status`, null, {
+            params: { status }
+        });
+        return response.data;
     }
 };
 
