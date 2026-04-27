@@ -1,451 +1,207 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import kitchenService from '../../services/kitchenService';
-import { Clock, CheckCircle, Flame, ChefHat, AlertTriangle, RefreshCw, Volume2, VolumeX, UtensilsCrossed, Utensils, ShoppingBag } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChefHat, Clock, CheckCircle, Flame, UtensilsCrossed, AlertCircle, RefreshCw, Send, Play } from 'lucide-react';
+import restaurantService from '../../services/restaurantService';
 import toast from 'react-hot-toast';
-import { useAuth } from '../../context/AuthContext'; // Import useAuth
-import { useConfig } from '../../context/ConfigContext'; // Import useConfig
-import { API_BASE_URL } from '../../config/constants'; // Import API_BASE_URL
+import { cn } from '../../lib/utils';
 
 const KitchenDisplay = () => {
-    const { user, token } = useAuth(); // Get user and token from auth context
-    const { business } = useConfig(); // Get business config
-    const tenantId = business?.schema_name || user?.tenant_id; // Determine tenantId
-    const wsBaseUrl = useMemo(() => {
-        const url = API_BASE_URL.replace(/^http/, 'ws');
-        return url.replace('/api/v1', '');
-    }, [API_BASE_URL]);
     const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(new Date());
-    const [now, setNow] = useState(new Date());
-    const [soundEnabled, setSoundEnabled] = useState(true);
-    const previousOrderCountRef = useRef(0);
-    const _audioRef = useRef(null);
-    const [filterType, setFilterType] = useState('ALL'); // 'ALL', 'DINE_IN', 'TAKEOUT'
 
+    const loadKitchenOrders = async () => {
+        setLoading(true);
+        try {
+            const data = await restaurantService.getKitchenOrders();
+            // Sort by creation date (oldest first)
+            const sorted = data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            setOrders(sorted);
+            setLastUpdated(new Date());
+        } catch (err) {
+            console.error("Error loading kitchen orders:", err);
+            toast.error("Error al sincronizar cocina");
+        } finally {
+            setLoadingOrder(false); // Wait, loadingOrder doesn't exist here
+            setLoading(false);
+        }
+    };
 
-    // Live timer — update "now" every second
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 1000);
-        return () => clearInterval(timer);
+        loadKitchenOrders();
+        const interval = setInterval(loadKitchenOrders, 10000); // Auto-refresh every 10s
+        return () => clearInterval(interval);
     }, []);
 
-    // Sound alert
-    const playAlert = useCallback(() => {
-        if (!soundEnabled) return;
+    const updateItemStatus = async (itemId, newStatus) => {
         try {
-            // Use Web Audio API for a simple notification beep
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = 880;
-            osc.type = 'sine';
-            gain.gain.setValueAtTime(0.3, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-            osc.start(ctx.currentTime);
-            osc.stop(ctx.currentTime + 0.5);
-            // Second beep
-            setTimeout(() => {
-                const osc2 = ctx.createOscillator();
-                const gain2 = ctx.createGain();
-                osc2.connect(gain2);
-                gain2.connect(ctx.destination);
-                osc2.frequency.value = 1100;
-                osc2.type = 'sine';
-                gain2.gain.setValueAtTime(0.3, ctx.currentTime);
-                gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-                osc2.start(ctx.currentTime);
-                osc2.stop(ctx.currentTime + 0.5);
-            }, 300);
-        } catch (err) { // Using _ to indicate unused error variable
-            // Audio not supported
-        }
-    }, [soundEnabled]);
-
-    const fetchOrders = useCallback(async () => {
-        try {
-            const data = await kitchenService.getPendingOrders();
-            setOrders(data);
-            setLastUpdated(new Date());
-            setLoading(false);
-            return data; // Return data for potential use in WS onmessage
-        } catch (err) { // Using _ to indicate unused error variable
-            console.error("Error fetching kitchen orders:", _);
-            toast.error("Error cargando pedidos de cocina.");
-            return [];
-        }
-    }, []); // Empty dependencies, as it doesn't depend on anything that changes.
-
-    // Initial data load and WebSocket connection
-    useEffect(() => {
-        fetchOrders(); // Initial load
-
-        if (!tenantId || !token || !wsBaseUrl) {
-            console.warn('[WS KDS] Faltan datos para conectar WebSocket. tenantId, token, o wsBaseUrl no definidos.');
-            return;
-        }
-
-        const wsUrl = `${wsBaseUrl}/ws/hardware/connect?client_id=kitchen_display&tenant_id=${tenantId}&token=${token}`;
-        const ws = new WebSocket(wsUrl);
-
-        ws.onopen = () => {
-            console.log('[WS KDS] Conectado al WebSocket.');
-            const pingInterval = setInterval(() => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send('ping');
-                }
-            }, 20000);
-            return () => clearInterval(pingInterval);
-        };
-
-        ws.onmessage = async (event) => {
-            const message = JSON.parse(event.data);
-            console.log('[WS KDS] Mensaje recibido:', message);
-
-            if (message.type === 'kitchen_order_update' && message.payload) {
-                await fetchOrders(); // This will update local state
-
-                const newPendingItems = message.payload.reduce((sum, o) => sum + o.items.filter(i => i.status === 'PENDING' || i.status === 'SENT').length, 0);
-                if (newPendingItems > previousOrderCountRef.current) {
-                     playAlert();
-                     toast('🔔 ¡Nuevo pedido!', { icon: '🍳', style: { background: '#1e293b', color: '#fff' } });
-                }
-                previousOrderCountRef.current = newPendingItems;
-
-            } else if (message.type === 'conn_ack') {
-                console.log('[WS KDS] ACK de conexión recibido:', message);
-            }
-        };
-
-        ws.onerror = (e) => {
-            console.error('[WS KDS] Error en WebSocket:', e);
-            toast.error('Error de conexión con el servidor de cocina en tiempo real.');
-        };
-
-        ws.onclose = (event) => {
-            console.log(`[WS KDS] Conexión WebSocket cerrada. Código: ${event.code}, Razón: ${event.reason}`);
-            if (event.code !== 1000 && event.code !== 1001) {
-                console.warn('[WS KDS] Intentando reconectar en 3 segundos...');
-            }
-        };
-
-        return () => {
-            console.log('[WS KDS] Cerrando conexión WebSocket.');
-            ws.close();
-        };
-    }, [tenantId, token, wsBaseUrl, fetchOrders, playAlert]);
-
-    const handleStatusChangeGrouped = async (groupedItem, newStatus) => {
-        setOrders(prev => prev.map(order => ({
-            ...order,
-            items: order.items.map(item =>
-                groupedItem.original_items.some(original => original.id === item.id) ? { ...item, status: newStatus } : item
-            )
-        })));
-
-        try {
-            await Promise.all(groupedItem.original_items.map(item =>
-                kitchenService.updateItemStatus(item.id, newStatus)
-            ));
-        } catch (err) { // Using _ to indicate unused error variable
-            toast.error('Error actualizando estado de grupo de ítems');
-            fetchOrders(); // Revert on error
+            await restaurantService.updateItemStatus(itemId, newStatus);
+            toast.success(`Item marcado como ${newStatus}`);
+            loadKitchenOrders();
+        } catch (err) {
+            toast.error("Error al actualizar estado");
         }
     };
 
-    const handleMarkOrderReady = async (orderId, activeItems) => {
-        setOrders(prev => prev.map(order => {
-            if (order.id === orderId) {
-                return {
-                    ...order,
-                    items: order.items.map(item =>
-                        (item.status === 'PENDING' || item.status === 'SENT' || item.status === 'PREPARING') ? { ...item, status: 'READY' } : item
-                    )
-                };
-            }
-            return order;
-        }));
-
-        try {
-            const itemsToUpdate = activeItems.filter(i => i.status === 'PENDING' || i.status === 'SENT' || i.status === 'PREPARING');
-            await Promise.all(itemsToUpdate.map(item => kitchenService.updateItemStatus(item.id, 'READY')));
-            toast.success("¡Orden lista!");
-        } catch (err) { // Using _ to indicate unused error variable
-            toast.error('Error al actualizar orden completa');
-            fetchOrders(); // Revert on error
-        }
+    // Calculate elapsed minutes correctly
+    const getElapsedTime = (created_at) => {
+        if (!created_at) return 0;
+        const start = new Date(created_at);
+        const now = new Date();
+        const diff = Math.floor((now - start) / 60000);
+        return diff;
     };
-
-    const getElapsedMinutes = (dateString) => {
-        const start = new Date(dateString);
-        return Math.floor((now - start) / 60000);
-    };
-
-    const getElapsedFormatted = (dateString) => {
-        const start = new Date(dateString);
-        const diffMs = now - start;
-        const mins = Math.floor(diffMs / 60000);
-        const secs = Math.floor((diffMs % 60000) / 1000);
-        return `${mins}:${String(secs).padStart(2, '0')}`;
-    };
-
-    const getUrgencyLevel = (dateString) => {
-        const mins = getElapsedMinutes(dateString);
-        if (mins >= 20) return 'critical'; // Red pulsing
-        if (mins >= 10) return 'warning';   // Orange
-        return 'normal';                     // Green
-    };
-
-    const urgencyStyles = {
-        normal: {
-            border: 'border-slate-700',
-            header: 'bg-slate-800',
-            timer: 'text-emerald-400',
-            timerBg: 'bg-emerald-500/10',
-        },
-        warning: {
-            border: 'border-amber-500',
-            header: 'bg-amber-900/40',
-            timer: 'text-amber-400',
-            timerBg: 'bg-amber-500/10',
-        },
-        critical: {
-            border: 'border-red-500 animate-pulse',
-            header: 'bg-red-900/50',
-            timer: 'text-red-400',
-            timerBg: 'bg-red-500/10',
-        }
-    };
-
-    // Count stats
-    const totalPending = orders.reduce((s, o) => s + o.items.filter(i => i.status === 'PENDING' || i.status === 'SENT').length, 0);
-    const totalPreparing = orders.reduce((s, o) => s + o.items.filter(i => i.status === 'PREPARING').length, 0);
-    const totalReady = orders.reduce((s, o) => s + o.items.filter(i => i.status === 'READY').length, 0);
 
     return (
-        <div id="tour-restaurant-kitchen" className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-            {/* Header */}
-            <header className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center sticky top-0 z-10">
+        <div className="min-h-screen bg-slate-900 text-white p-4 sm:p-6 flex flex-col font-sans">
+            {/* Header KDS */}
+            <header className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 bg-slate-800/50 p-4 rounded-3xl border border-slate-700 backdrop-blur-md">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                        <ChefHat size={28} className="text-white" />
+                    <div className="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20">
+                        <ChefHat className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black tracking-tight">COCINA</h1>
-                        <p className="text-xs text-slate-500">Kitchen Display System</p>
+                        <h1 className="text-2xl font-black tracking-tight">KITCHEN DISPLAY (KDS)</h1>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            Sistema en tiempo real • {orders.length} Órdenes activas
+                        </p>
                     </div>
                 </div>
-
-                {/* Stats Bar */}
-                <div className="flex items-center gap-6">
-                    <div className="flex gap-3">
-                        <div className="flex items-center gap-2 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">
-                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                            <span className="text-red-400 font-bold text-sm">{totalPending} Pendientes</span>
-                        </div>
-                        <div className="flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20">
-                            <Flame size={14} className="text-blue-400" />
-                            <span className="text-blue-400 font-bold text-sm">{totalPreparing} Cocinando</span>
-                        </div>
-                        <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
-                            <CheckCircle size={14} className="text-emerald-400" />
-                            <span className="text-emerald-400 font-bold text-sm">{totalReady} Listos</span>
-                        </div>
+                <div className="flex items-center gap-3">
+                    <div className="text-right hidden sm:block">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase">Última actualización</p>
+                        <p className="text-sm font-mono text-slate-300">{lastUpdated.toLocaleTimeString()}</p>
                     </div>
-
-                    {/* Filter Bar */}
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setFilterType('ALL')}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${filterType === 'ALL' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                        >
-                            Todas
-                        </button>
-                        <button
-                            onClick={() => setFilterType('DINE_IN')}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1 ${filterType === 'DINE_IN' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                        >
-                            <Utensils size={14} /> En Mesa
-                        </button>
-                        <button
-                            onClick={() => setFilterType('TAKEOUT')}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors flex items-center gap-1 ${filterType === 'TAKEOUT' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
-                        >
-                            <ShoppingBag size={14} /> Para Llevar
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-slate-500 text-xs">
-                        <span>{lastUpdated.toLocaleTimeString()}</span>
-                        <button
-                            onClick={() => setSoundEnabled(!soundEnabled)}
-                            className={`p-2 rounded-lg transition ${soundEnabled ? 'bg-slate-800 text-orange-400' : 'bg-slate-800 text-slate-600'}`}
-                            title={soundEnabled ? 'Sonido activado' : 'Sonido desactivado'}
-                        >
-                            {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-                        </button>
-                        <button
-                            onClick={fetchOrders}
-                            className="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition text-slate-400"
-                        >
-                            <RefreshCw size={18} />
-                        </button>
-                    </div>
+                    <button 
+                        onClick={loadKitchenOrders}
+                        className="p-4 bg-slate-700 hover:bg-slate-600 rounded-2xl transition-all active:scale-90"
+                    >
+                        <RefreshCw className={cn("w-6 h-6", loading && "animate-spin")} />
+                    </button>
                 </div>
             </header>
 
-            {/* Content */}
-            <main className="flex-1 p-4 overflow-auto">
-                {loading ? (
-                    <div className="flex justify-center items-center h-96">
-                        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-orange-500"></div>
-                    </div>
-                ) : orders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-96 text-slate-600">
-                        <UtensilsCrossed size={80} className="mb-4 opacity-30" />
-                        <span className="text-2xl font-bold">Sin pedidos pendientes</span>
-                        <span className="text-sm mt-1">Los pedidos aparecerán aquí automáticamente</span>
+            {/* Orders Grid */}
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+                {orders.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-600">
+                        <UtensilsCrossed className="w-24 h-24 mb-4 opacity-10" />
+                        <h2 className="text-2xl font-black opacity-20">COCINA LIMPIA</h2>
+                        <p className="text-sm font-bold opacity-20">No hay pedidos pendientes en este momento</p>
                     </div>
                 ) : (
-                    <div className="flex gap-4 overflow-x-auto pb-6 snap-x" style={{ scrollBehavior: 'smooth' }}>
-                        {orders
-                            .filter(order => {
-                                if (filterType === 'ALL') return true;
-                                if (filterType === 'DINE_IN') return !order.is_takeout;
-                                if (filterType === 'TAKEOUT') return order.is_takeout;
-                                return true;
-                            })
-                            .map(order => {
-                                const urgency = getUrgencyLevel(order.created_at);
-                                const style = urgencyStyles[urgency];
-                                const activeItems = order.items.filter(i => i.status !== 'SERVED' && i.status !== 'CANCELLED');
-
-                                if (activeItems.length === 0) return null;
-
-                                const groupedItems = (() => { // Self-executing function to create groupedItems per order
-                                    const groups = {};
-                                    activeItems.forEach(item => {
-                                        // Create a unique key for grouping (product_id + sorted modifier IDs + notes + status)
-                                        const modifierKey = item.modifiers ? JSON.stringify(item.modifiers.map(m => m.id).sort()) : '';
-                                        const key = `${item.product_id}-${item.notes || ''}-${item.status}-${modifierKey}`;
-
-                                        if (groups[key]) {
-                                            groups[key].quantity += item.quantity;
-                                            groups[key].original_items.push(item); // Keep track of original items for status changes
-                                        } else {
-                                            groups[key] = { ...item, original_quantity: item.quantity, original_items: [item] }; // Store original item and its IDs
-                                        }
-                                    });
-                                    return Object.values(groups);
-                                })();
-
-                                return (
-                                    <div
-                                        key={order.id}
-                                        className={`flex-none w-80 flex flex-col rounded-xl overflow-hidden border-2 shadow-lg ${style.border} bg-slate-900 snap-start shrink-0`}
-                                    >
-                                        {/* Card Header */}
-                                        <div className={`px-4 py-3 flex justify-between items-center ${style.header}`}>
-                                            <div>
-                                                <h3 className="text-xl font-black text-white">
-                                                    {order.is_takeout ? (
-                                                        <span className="text-orange-400">🥡 LLEVAR {order.customer_name ? `— ${order.customer_name}` : ''}</span>
-                                                    ) : (
-                                                        <span>{order.table_name || `Mesa ${order.table_id}`}</span>
-                                                    )}
-                                                </h3>
-                                                <span className="text-[10px] text-slate-500 font-mono">#{order.id}</span>
-                                            </div>
-                                            <div className="flex flex-col items-end gap-2">
-                                                <div className={`px-3 py-1.5 rounded-lg font-mono text-lg font-black flex items-center gap-1.5 ${style.timerBg} ${style.timer}`}>
-                                                    <Clock size={16} />
-                                                    {getElapsedFormatted(order.created_at)}
-                                                </div>
-                                                {activeItems.some(i => i.status !== 'READY') && (
-                                                    <button
-                                                        onClick={() => handleMarkOrderReady(order.id, activeItems)}
-                                                        className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 text-xs font-bold rounded-lg border border-emerald-500/30 transition-colors flex items-center gap-1"
-                                                    >
-                                                        <CheckCircle size={14} /> Todo Listo
-                                                    </button>
-                                                )}
-                                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in duration-500">
+                        {orders.map(order => {
+                            const minutes = getElapsedTime(order.created_at);
+                            const isDelayed = minutes > 15;
+                            
+                            return (
+                                <div 
+                                    key={order.id} 
+                                    className={cn(
+                                        "bg-white rounded-[2rem] overflow-hidden flex flex-col shadow-2xl transition-all hover:scale-[1.02]",
+                                        isDelayed ? "ring-4 ring-rose-500/50" : "ring-1 ring-slate-200"
+                                    )}
+                                >
+                                    {/* Ticket Header */}
+                                    <div className={cn(
+                                        "p-5 flex justify-between items-start",
+                                        isDelayed ? "bg-rose-500" : "bg-slate-800"
+                                    )}>
+                                        <div>
+                                            <h3 className="text-2xl font-black text-white leading-none mb-1">
+                                                {order.table_id ? `MESA ${order.table_id}` : "PARA LLEVAR"}
+                                            </h3>
+                                            <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
+                                                ORDEN #{order.id} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
                                         </div>
+                                        <div className={cn(
+                                            "px-3 py-1.5 rounded-xl flex items-center gap-2 font-black text-sm",
+                                            isDelayed ? "bg-white text-rose-500 animate-pulse" : "bg-slate-700 text-white"
+                                        )}>
+                                            <Clock className="w-4 h-4" />
+                                            {minutes}'
+                                        </div>
+                                    </div>
 
-                                        {/* Items */}
-                                        <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[500px]">
-                                            {groupedItems.map(groupedItem => (
-                                                <div key={groupedItem.original_items[0].id} className="bg-slate-800 rounded-lg p-3 space-y-2">
-                                                    <div className="flex justify-between items-start">
-                                                        <span className="text-base font-bold text-white flex gap-2 items-center">
-                                                            <span className="bg-slate-700 px-2.5 py-0.5 rounded-lg text-orange-300 font-black text-lg min-w-[32px] text-center">
-                                                                {groupedItem.quantity}
+                                    {/* Items List */}
+                                    <div className="flex-1 p-5 space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar-slate">
+                                        {order.items.map(item => (
+                                            <div key={item.id} className="group relative">
+                                                <div className={cn(
+                                                    "p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-4",
+                                                    item.status === 'READY' ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-100"
+                                                )}>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center font-black text-sm shrink-0">
+                                                                {item.quantity}
                                                             </span>
-                                                            <span className="leading-tight">{groupedItem.product_name}</span>
-                                                        </span>
+                                                            <p className={cn(
+                                                                "font-bold text-slate-800 text-lg leading-tight truncate",
+                                                                item.status === 'READY' && "line-through text-slate-400"
+                                                            )}>
+                                                                {item.product_name}
+                                                            </p>
+                                                        </div>
+                                                        {item.notes && (
+                                                            <div className="mt-2 flex items-start gap-2 bg-amber-100/50 p-2 rounded-lg border border-amber-200">
+                                                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                                                <p className="text-xs font-bold text-amber-700 leading-tight uppercase italic">{item.notes}</p>
+                                                            </div>
+                                                        )}
                                                     </div>
 
-                                                    {groupedItem.modifiers && groupedItem.modifiers.length > 0 && (
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {groupedItem.modifiers.map(m => (
-                                                                <span key={m.id} className="inline-flex items-center bg-orange-500/20 border border-orange-500/50 text-orange-300 text-xs font-black px-2 py-1 rounded-lg uppercase tracking-wide">
-                                                                    ⚡ {m.name}
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                    {groupedItem.notes && (
-                                                        <div className="bg-amber-950/50 text-amber-200 px-3 py-1.5 rounded-lg text-sm font-semibold border border-amber-800/50 flex items-start gap-1.5">
-                                                            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                                                            <span>{groupedItem.notes}</span>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Status Actions */}
+                                                    {/* Actions per Item */}
                                                     <div className="flex gap-2">
-                                                        {(groupedItem.status === 'PENDING' || groupedItem.status === 'SENT') && (
-                                                            <>
-                                                                <button
-                                                                    onClick={() => handleStatusChangeGrouped(groupedItem, 'PREPARING')}
-                                                                    className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-lg font-black flex justify-center items-center gap-2 transition-all text-sm touch-manipulation"
-                                                                >
-                                                                    <Flame size={18} /> COCINAR
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleStatusChangeGrouped(groupedItem, 'READY')}
-                                                                    className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg font-black flex justify-center items-center gap-1 transition-all text-sm touch-manipulation"
-                                                                >
-                                                                    <CheckCircle size={18} />
-                                                                </button>
-                                                            </>
-                                                        )}
-
-                                                        {groupedItem.status === 'PREPARING' && (
-                                                            <button
-                                                                onClick={() => handleStatusChangeGrouped(groupedItem, 'READY')}
-                                                                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-lg font-black flex justify-center items-center gap-2 transition-all text-sm touch-manipulation"
+                                                        {item.status === 'SENT' || item.status === 'PENDING' ? (
+                                                            <button 
+                                                                onClick={() => updateItemStatus(item.id, 'PREPARING')}
+                                                                className="w-12 h-12 bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white rounded-xl flex items-center justify-center transition-all shadow-sm"
+                                                                title="Cocinar"
                                                             >
-                                                                <CheckCircle size={18} /> ¡LISTO!
+                                                                <Play className="w-6 h-6 fill-current" />
                                                             </button>
-                                                        )}
-
-                                                        {groupedItem.status === 'READY' && (
-                                                            <div className="flex-1 py-2.5 bg-emerald-900/30 text-emerald-400 text-center font-black border border-emerald-700/50 rounded-lg flex items-center justify-center gap-2">
-                                                                <CheckCircle size={18} className="animate-bounce" /> PARA SERVIR
+                                                        ) : item.status === 'PREPARING' ? (
+                                                            <button 
+                                                                onClick={() => updateItemStatus(item.id, 'READY')}
+                                                                className="w-12 h-12 bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-xl flex items-center justify-center transition-all shadow-sm animate-bounce"
+                                                                title="Listo"
+                                                            >
+                                                                <CheckCircle className="w-6 h-6" />
+                                                            </button>
+                                                        ) : (
+                                                            <div className="w-12 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center">
+                                                                <CheckCircle className="w-6 h-6" />
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                );
-                            })}
+
+                                    {/* Ticket Footer */}
+                                    <div className="p-5 bg-slate-50 border-t border-slate-200">
+                                        <button 
+                                            disabled={!order.items.every(i => i.status === 'READY')}
+                                            className={cn(
+                                                "w-full py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-2",
+                                                order.items.every(i => i.status === 'READY') 
+                                                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95" 
+                                                    : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                                            )}
+                                        >
+                                            COMPLETAR ORDEN
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
-            </main>
+            </div>
         </div>
     );
 };

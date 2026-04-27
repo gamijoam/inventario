@@ -26,12 +26,21 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const [menuLoading, setMenuLoading] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-    // Initial Load
+    // Initial Load & Polling
     useEffect(() => {
         if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED') {
             loadCurrentOrder();
         }
         loadMenu();
+
+        // Polling to keep order status in sync (since WebSocket is failing)
+        const interval = setInterval(() => {
+            if (table?.status === 'OCCUPIED' || table?.status === 'RESERVED') {
+                loadCurrentOrder();
+            }
+        }, 15000); // Sync every 15s
+
+        return () => clearInterval(interval);
     }, [table?.id, table?.status]);
 
     const loadCurrentOrder = async () => {
