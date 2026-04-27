@@ -428,7 +428,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                         onConfirm={async (saleData) => {
                             try {
                                 await restaurantService.checkoutOrder(order.id, {
-                                    client_id: saleData.customer?.id || 1,
+                                    client_id: saleData.customer?.id || null,
                                     payment_method: saleData.payment_method || (saleData.isCreditSale ? "Credito" : "Efectivo"),
                                     payments: (saleData.payments || []).map(p => ({
                                         amount: parseFloat(p.amount),
