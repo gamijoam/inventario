@@ -167,7 +167,7 @@ const KitchenDisplay = () => {
                         <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
                             <ChefHat className="w-5 h-5 text-white" />
                         </div>
-                        <span className="text-lg font-black text-slate-300">KDS - MODO TABLET</span>
+                        <span className="text-lg font-black text-slate-300">COCINA</span>
                     </div>
                     <div className="flex flex-col items-center">
                         <span className="text-4xl md:text-6xl font-black text-emerald-400 leading-none">
@@ -237,13 +237,6 @@ const KitchenDisplay = () => {
                                                     {order.is_takeout ? '📦 Para Llevar' : ''}
                                                 </p>
                                             </div>
-                                        </div>
-                                        <div className={cn(
-                                            "px-4 py-2 rounded-2xl flex items-center gap-2 font-black text-2xl shrink-0",
-                                            isDelayed ? "bg-white text-rose-500 animate-pulse" : "bg-slate-700 text-white"
-                                        )}>
-                                            <Clock className="w-5 h-5" />
-                                            {minutes}'
                                         </div>
                                     </div>
 
