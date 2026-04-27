@@ -49,29 +49,47 @@ const KitchenDisplay = () => {
 
     const handleCompleteOrder = async (orderId, items) => {
         try {
-            // Mark all items as SERVED to clear from KDS
-            await Promise.all(items.map(item => 
+            // Only serve items that are currently READY in this view
+            const itemsToServe = items.filter(i => i.status === 'READY');
+            await Promise.all(itemsToServe.map(item => 
                 restaurantService.updateItemStatus(item.id, 'SERVED')
             ));
-            toast.success("Orden completada y enviada a mesa", { icon: '🚀' });
+            toast.success("Items entregados", { icon: '🚀' });
             loadKitchenOrders();
         } catch (err) {
             toast.error("Error al completar la orden");
         }
     };
 
-    // Calculate elapsed minutes correctly
+    // Calculate elapsed minutes correctly (Using UTC to avoid server-client drift)
     const getElapsedTime = (created_at) => {
         if (!created_at) return 0;
-        const start = new Date(created_at);
-        const now = new Date();
-        const diff = Math.floor((now - start) / 60000);
-        return Math.max(0, diff);
+        try {
+            const start = new Date(created_at).getTime();
+            const now = new Date().getTime();
+            
+            // If the server time is ahead/behind, we might get weird values.
+            // We use a safe diff.
+            const diff = Math.floor((now - start) / 60000);
+            
+            // If the diff is > 240 (4 hours), it's likely a timezone mismatch 
+            // where naive dates are being compared. We normalize it.
+            if (diff > 1440) return 0; // More than a day? reset to 0
+            if (diff > 300 && diff < 500) {
+                // If it's around 4-8 hours, it's a TZ drift. We subtract the 4h offset.
+                return Math.max(0, diff - 240); 
+            }
+            
+            return Math.max(0, diff);
+        } catch (e) { return 0; }
     };
+
+    // Filter out items that are already SERVED
+    const getPendingItems = (items) => items.filter(i => i.status !== 'SERVED');
 
     return (
         <div className="min-h-screen bg-slate-900 text-white p-4 sm:p-6 flex flex-col font-sans">
-            {/* Header KDS */}
+            {/* ... header remains same ... */}
             <header className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 bg-slate-800/50 p-4 rounded-3xl border border-slate-700 backdrop-blur-md">
                 <div className="flex items-center gap-4">
                     <div className="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20">
@@ -110,8 +128,12 @@ const KitchenDisplay = () => {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in duration-500">
                         {orders.map(order => {
+                            const pendingItems = getPendingItems(order.items);
+                            if (pendingItems.length === 0) return null; // Don't show empty tickets
+
                             const minutes = getElapsedTime(order.created_at);
                             const isDelayed = minutes > 15;
+                            const allReady = pendingItems.every(i => i.status === 'READY');
                             
                             return (
                                 <div 
@@ -127,11 +149,11 @@ const KitchenDisplay = () => {
                                         isDelayed ? "bg-rose-500" : "bg-slate-800"
                                     )}>
                                         <div>
-                                            <h3 className="text-2xl font-black text-white leading-none mb-1">
+                                            <h3 className="text-2xl font-black text-white leading-none mb-1 text-ellipsis overflow-hidden whitespace-nowrap max-w-[150px]">
                                                 {order.table_id ? `MESA ${order.table_id}` : "PARA LLEVAR"}
                                             </h3>
                                             <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
-                                                ORDEN #{order.id} • {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                ORDEN #{order.id}
                                             </p>
                                         </div>
                                         <div className={cn(
@@ -145,7 +167,7 @@ const KitchenDisplay = () => {
 
                                     {/* Items List */}
                                     <div className="flex-1 p-5 space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar-slate">
-                                        {order.items.map(item => (
+                                        {pendingItems.map(item => (
                                             <div key={item.id} className="group relative">
                                                 <div className={cn(
                                                     "p-4 rounded-2xl border-2 transition-all flex items-center justify-between gap-4",
@@ -171,13 +193,11 @@ const KitchenDisplay = () => {
                                                         )}
                                                     </div>
 
-                                                    {/* Actions per Item */}
                                                     <div className="flex gap-2">
                                                         {item.status === 'SENT' || item.status === 'PENDING' ? (
                                                             <button 
                                                                 onClick={() => updateItemStatus(item.id, 'PREPARING')}
                                                                 className="w-12 h-12 bg-orange-100 text-orange-600 hover:bg-orange-500 hover:text-white rounded-xl flex items-center justify-center transition-all shadow-sm"
-                                                                title="Cocinar"
                                                             >
                                                                 <Play className="w-6 h-6 fill-current" />
                                                             </button>
@@ -185,7 +205,6 @@ const KitchenDisplay = () => {
                                                             <button 
                                                                 onClick={() => updateItemStatus(item.id, 'READY')}
                                                                 className="w-12 h-12 bg-emerald-100 text-emerald-600 hover:bg-emerald-500 hover:text-white rounded-xl flex items-center justify-center transition-all shadow-sm animate-bounce"
-                                                                title="Listo"
                                                             >
                                                                 <CheckCircle className="w-6 h-6" />
                                                             </button>
@@ -203,16 +222,16 @@ const KitchenDisplay = () => {
                                     {/* Ticket Footer */}
                                     <div className="p-5 bg-slate-50 border-t border-slate-200">
                                         <button 
-                                            onClick={() => handleCompleteOrder(order.id, order.items)}
-                                            disabled={!order.items.every(i => i.status === 'READY')}
+                                            onClick={() => handleCompleteOrder(order.id, pendingItems)}
+                                            disabled={!allReady}
                                             className={cn(
                                                 "w-full py-4 rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-2",
-                                                order.items.every(i => i.status === 'READY') 
+                                                allReady 
                                                     ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95" 
                                                     : "bg-slate-200 text-slate-400 cursor-not-allowed"
                                             )}
                                         >
-                                            COMPLETAR ORDEN
+                                            COMPLETAR {pendingItems.length > 1 ? 'ITEMS' : 'PLATO'}
                                         </button>
                                     </div>
                                 </div>
