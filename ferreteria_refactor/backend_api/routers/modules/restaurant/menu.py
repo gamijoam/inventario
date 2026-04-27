@@ -40,7 +40,7 @@ def get_full_menu(db: Session = Depends(get_db)):
                 prod_stock = 0
             else:
                 # 1. Sum stock from ALL warehouses for this product
-                manual_stock = sum(s.stock for s in product.stocks) if product.stocks else product.stock
+                manual_stock = sum(s.quantity for s in product.stocks) if product.stocks else product.stock
                 
                 # 2. Calculate recipe-based stock if applicable
                 calculated_recipe_stock = 999999 # Infinity by default
@@ -50,7 +50,7 @@ def get_full_menu(db: Session = Depends(get_db)):
                     potential_stocks = []
                     for ri in recipe_items:
                         # Sum ingredient stock from all warehouses
-                        ing_manual_stock = sum(s.stock for s in ri.ingredient.stocks) if ri.ingredient.stocks else ri.ingredient.stock
+                        ing_manual_stock = sum(s.quantity for s in ri.ingredient.stocks) if ri.ingredient.stocks else ri.ingredient.stock
                         if ri.quantity > 0:
                             potential_stocks.append(ing_manual_stock / ri.quantity)
                     
