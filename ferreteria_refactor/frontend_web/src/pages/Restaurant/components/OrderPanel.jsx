@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Plus, Minus, ChefHat, Settings, ArrowRight, Split, Send, Clock, CheckCircle, Flame, UtensilsCrossed, ShoppingBag, Trash2, Check, Info } from 'lucide-react';
+import { useConfig } from '../../../context/ConfigContext';
 import restaurantService from '../../../services/restaurantService';
 import axiosInstance from '../../../config/axios';
 import PaymentModal from '../../../components/pos/PaymentModal';
@@ -15,6 +16,7 @@ const STATUS_CONFIG = {
 };
 
 const OrderPanel = ({ table, onClose, onUpdate }) => {
+    const { getExchangeRate } = useConfig();
     const [order, setOrder] = useState(null);
     const [loadingOrder, setLoadingOrder] = useState(false);
     const [cart, setCart] = useState([]); // Items not yet sent to kitchen
@@ -427,6 +429,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                         }))}
                         onConfirm={async (saleData) => {
                             try {
+                                const currentRate = getExchangeRate('Bs') || getExchangeRate('VES') || 1;
                                 await restaurantService.checkoutOrder(order.id, {
                                     client_id: saleData.customer?.id || null,
                                     payment_method: saleData.payment_method || (saleData.isCreditSale ? "Credito" : "Efectivo"),
@@ -434,9 +437,9 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                         amount: parseFloat(p.amount),
                                         currency: p.currency === "$" ? "USD" : p.currency,
                                         payment_method: p.method,
-                                        exchange_rate: saleData.exchange_rate || 1
+                                        exchange_rate: currentRate
                                     })),
-                                    exchange_rate: saleData.exchange_rate || 1,
+                                    exchange_rate: currentRate,
                                     currency: saleData.currency || "USD",
                                     total_amount_bs: 0,
                                     change_amount: saleData.changeUSD || 0,
