@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ChefHat, Clock, CheckCircle, Flame, UtensilsCrossed, AlertCircle, RefreshCw, Send, Play } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ChefHat, Clock, CheckCircle, Flame, UtensilsCrossed, AlertCircle, RefreshCw, Send, Play, Maximize2, Minimize2, X } from 'lucide-react';
 import restaurantService from '../../services/restaurantService';
 import toast from 'react-hot-toast';
 import { cn } from '../../lib/utils';
@@ -8,6 +8,27 @@ const KitchenDisplay = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(new Date());
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [screenSize, setScreenSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+    const updateScreenSize = useCallback(() => {
+        setScreenSize({ width: window.innerWidth, height: window.innerHeight });
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('resize', updateScreenSize);
+        return () => window.removeEventListener('resize', updateScreenSize);
+    }, [updateScreenSize]);
+
+    const getGridCols = () => {
+        const w = screenSize.width;
+        if (w >= 1920) return 6;
+        if (w >= 1536) return 5;
+        if (w >= 1280) return 4;
+        if (w >= 1024) return 3;
+        if (w >= 768) return 2;
+        return 1;
+    };
 
     const loadKitchenOrders = async () => {
         setLoading(true);
@@ -87,34 +108,79 @@ const KitchenDisplay = () => {
     // Filter out items that are already SERVED
     const getPendingItems = (items) => items.filter(i => i.status !== 'SERVED');
 
-    return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans">
-            {/* Header - compact and full width */}
-            <header className="flex flex-col sm:flex-row justify-between items-center gap-3 px-4 py-2 bg-slate-800 border-b border-slate-700 shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                        <ChefHat className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-lg font-black tracking-tight">KDS</h1>
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            {orders.length} órdenes activas
-                        </p>
-                    </div>
+    const containerClass = isFullscreen
+        ? "fixed inset-0 z-[9999] bg-slate-900 text-white flex flex-col font-sans"
+        : "min-h-screen bg-slate-900 text-white flex flex-col font-sans";
+
+    const headerContent = (
+        <header className="flex justify-between items-center px-4 py-2 bg-slate-800 border-b border-slate-700 shrink-0">
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
+                    <ChefHat className="w-5 h-5 text-white" />
                 </div>
-                <div className="flex items-center gap-3">
+                <div>
+                    <h1 className="text-lg font-black tracking-tight">KDS</h1>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        {orders.length} órdenes activas
+                    </p>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                {!isFullscreen && (
                     <span className="text-xs text-slate-400 hidden md:block">
                         {lastUpdated.toLocaleTimeString()}
                     </span>
+                )}
+                <button
+                    onClick={loadKitchenOrders}
+                    className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all active:scale-90"
+                    title="Actualizar"
+                >
+                    <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
+                </button>
+                <button
+                    onClick={() => setIsFullscreen(!isFullscreen)}
+                    className={cn(
+                        "p-2 rounded-xl transition-all active:scale-90",
+                        isFullscreen ? "bg-red-600 hover:bg-red-700" : "bg-slate-700 hover:bg-slate-600"
+                    )}
+                    title={isFullscreen ? "Salir de pantalla completa" : "Modo Tablet"}
+                >
+                    {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                </button>
+            </div>
+        </header>
+    );
+
+    return (
+        <div className={containerClass}>
+            {/* Fullscreen header */}
+            {isFullscreen ? (
+                <div className="flex justify-between items-center px-4 py-2 bg-slate-800 border-b border-slate-700 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
+                            <ChefHat className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h1 className="text-lg font-black tracking-tight">KDS - MODO TABLET</h1>
+                            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                {orders.length} órdenes activas • {screenSize.width}×{screenSize.height}
+                            </p>
+                        </div>
+                    </div>
                     <button
-                        onClick={loadKitchenOrders}
-                        className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all active:scale-90"
+                        onClick={() => setIsFullscreen(false)}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-xl font-black text-sm transition-all active:scale-95"
                     >
-                        <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
+                        <X className="w-5 h-5" />
+                        SALIR
                     </button>
                 </div>
-            </header>
+            ) : (
+                headerContent
+            )}
 
             {/* Orders Grid */}
             <div className="flex-1 overflow-y-auto no-scrollbar">
@@ -125,7 +191,10 @@ const KitchenDisplay = () => {
                         <p className="text-sm font-bold opacity-20">No hay pedidos pendientes en este momento</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 animate-in fade-in duration-500">
+                    <div
+                        className="grid gap-3 animate-in fade-in duration-500 p-2"
+                        style={{ gridTemplateColumns: `repeat(${getGridCols()}, minmax(0, 1fr))` }}
+                    >
                         {orders.map(order => {
                             const pendingItems = getPendingItems(order.items);
                             if (pendingItems.length === 0) return null;
