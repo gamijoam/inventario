@@ -384,24 +384,36 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                     </div>
                 </main>
 
-                {/* MODALS */}
+                {/* Shared Modals */}
                 {showPaymentModal && order && (
                     <PaymentModal
                         isOpen={showPaymentModal}
                         onClose={() => setShowPaymentModal(false)}
                         totalUSD={parseFloat(order.total_amount)}
                         totalsByCurrency={{ USD: parseFloat(order.total_amount) }}
-                        onSuccess={async (saleData) => {
+                        cart={order.items.map(i => ({
+                            product_id: i.product_id,
+                            quantity: i.quantity,
+                            unit_price_usd: parseFloat(i.unit_price),
+                            subtotal: parseFloat(i.subtotal),
+                            product_name: i.product_name
+                        }))}
+                        onConfirm={async (saleData) => {
                             try {
                                 await restaurantService.checkoutOrder(order.id, {
-                                    client_id: saleData.customer_id || 1,
-                                    payment_method: saleData.payment_method,
-                                    payments: saleData.payments,
-                                    exchange_rate: saleData.exchange_rate,
-                                    currency: saleData.currency,
-                                    total_amount_bs: saleData.total_amount_bs,
-                                    change_amount: saleData.change_amount,
-                                    change_currency: saleData.change_currency
+                                    client_id: saleData.customer?.id || 1,
+                                    payment_method: saleData.payment_method || (saleData.isCreditSale ? "Credito" : "Efectivo"),
+                                    payments: (saleData.payments || []).map(p => ({
+                                        amount: parseFloat(p.amount),
+                                        currency: p.currency === "$" ? "USD" : p.currency,
+                                        payment_method: p.method,
+                                        exchange_rate: 1 // Default
+                                    })),
+                                    exchange_rate: 1,
+                                    currency: saleData.currency || "USD",
+                                    total_amount_bs: 0,
+                                    change_amount: saleData.changeUSD || 0,
+                                    change_currency: "USD"
                                 });
                                 toast.success("Mesa facturada y liberada");
                                 setShowPaymentModal(false);
