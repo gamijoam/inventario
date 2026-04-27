@@ -115,7 +115,23 @@ def remove_menu_item(id: int, db: Session = Depends(get_db)):
 @router.get("/recipes/{product_id}", response_model=List[schemas.RecipeRead])
 def get_product_recipe(product_id: int, db: Session = Depends(get_db)):
     recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product_id).all()
-    return recipes
+    result = []
+    for r in recipes:
+        ingredient_name = None
+        if r.ingredient:
+            ingredient_name = r.ingredient.name
+        product_name = None
+        if r.product:
+            product_name = r.product.name
+        result.append({
+            "id": r.id,
+            "product_id": r.product_id,
+            "ingredient_id": r.ingredient_id,
+            "quantity": float(r.quantity),
+            "product_name": product_name,
+            "ingredient_name": ingredient_name
+        })
+    return result
 
 @router.post("/recipes", response_model=schemas.RecipeRead)
 def add_ingredient_to_recipe(recipe: schemas.RecipeCreate, db: Session = Depends(get_db)):

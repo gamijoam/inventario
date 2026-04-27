@@ -706,6 +706,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                         <div className="space-y-1">
                                             {productRecipe.map(recipeItem => {
                                                 const isRemoved = removedIngredientIds.includes(recipeItem.ingredient_id);
+                                                const totalQty = (recipeItem.quantity || 0) * itemQuantity;
                                                 return (
                                                     <button
                                                         key={recipeItem.id}
@@ -732,11 +733,11 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                                 {isRemoved && <span className="text-red-600 text-xs font-black">✕</span>}
                                                             </div>
                                                             <span className={cn("font-medium", isRemoved && "line-through opacity-60")}>
-                                                                {recipeItem.ingredient_name || recipeItem.ingredient?.name || `Ingrediente #${recipeItem.ingredient_id}`}
+                                                                {recipeItem.ingredient_name || `Ingrediente #${recipeItem.ingredient_id}`}
                                                             </span>
                                                         </div>
                                                         <span className="text-xs opacity-60">
-                                                            x{recipeItem.quantity}
+                                                            x{totalQty.toFixed(2)}
                                                         </span>
                                                     </button>
                                                 );
