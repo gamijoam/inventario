@@ -15,7 +15,7 @@ const STATUS_CONFIG = {
     SERVED: { label: 'Servido', color: 'bg-slate-100 text-slate-500 border-slate-200', icon: UtensilsCrossed },
 };
 
-const OrderPanel = ({ table, onClose, onUpdate }) => {
+const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
     const { getExchangeRate } = useConfig();
     const { user } = useAuth();
     const isAdmin = user?.role === 'ADMIN';
@@ -294,7 +294,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
             await restaurantService.setTableStatus(table.id, 'WAITING_BILL');
             toast.success(`Mesa ${table.name} lista para cobrar`, { icon: '🟠' });
             setLocalTableStatus('WAITING_BILL');
-            onUpdate();
+            onTableStatusChange(table.id, 'WAITING_BILL');
         } catch (err) {
             toast.error("Error: " + (err.response?.data?.detail || err.message));
         }

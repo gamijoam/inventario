@@ -617,6 +617,7 @@ const WaiterStation = () => {
                                 setSelectedTable(null);
                             }}
                             onUpdate={loadData}
+                            onTableStatusChange={(id, status) => setSelectedTable(prev => prev ? { ...prev, status } : null)}
                         />
                     </div>
                 </div>
