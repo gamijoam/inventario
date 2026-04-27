@@ -78,18 +78,33 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
 
     const handleAddToCart = (product) => {
         const existing = cart.find(item => item.id === product.id);
+        const currentQty = existing ? existing.quantity : 0;
+        
+        // Stock Validation
+        if (currentQty + 1 > (product.stock || 0)) {
+            toast.error(`Stock insuficiente. Disponible: ${product.stock}`, { icon: '⚠️' });
+            return;
+        }
+
         if (existing) {
             setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
         } else {
             setCart([...cart, { ...product, quantity: 1 }]);
         }
-        toast.success(`${product.name} añadido al carrito`, { duration: 1500, icon: '🛒' });
+        toast.success(`${product.alias || product.product_name} añadido`, { duration: 1000, icon: '🛒' });
     };
 
     const handleUpdateCartQty = (productId, delta) => {
         setCart(cart.map(item => {
             if (item.id === productId) {
-                const newQty = Math.max(1, item.quantity + delta);
+                const newQty = item.quantity + delta;
+                if (newQty <= 0) return item;
+                
+                // Stock Validation
+                if (newQty > (item.stock || 0)) {
+                    toast.error("Máximo alcanzado", { icon: '⚠️' });
+                    return item;
+                }
                 return { ...item, quantity: newQty };
             }
             return item;
@@ -263,11 +278,26 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                     ${product.price}
                                                 </div>
                                             </div>
-                                            <div className="p-4 bg-white">
-                                                <h4 className="font-bold text-slate-800 text-sm line-clamp-2 leading-tight mb-1 group-hover:text-blue-600 transition-colors">
-                                                    {product.name}
+                                            <div className="p-4 bg-white flex-1 flex flex-col">
+                                                <h4 className="font-bold text-slate-800 text-sm line-clamp-2 leading-tight mb-2 group-hover:text-blue-600 transition-colors">
+                                                    {product.product_name || product.name}
                                                 </h4>
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Click para añadir</p>
+                                                <div className="mt-auto flex items-center justify-between">
+                                                    <div className={cn(
+                                                        "text-[9px] font-black px-2 py-0.5 rounded-lg flex items-center gap-1",
+                                                        (product.stock || 0) > 0 
+                                                            ? "bg-slate-100 text-slate-500" 
+                                                            : "bg-red-100 text-red-600 animate-pulse"
+                                                    )}>
+                                                        <ShoppingBag size={10} />
+                                                        {product.stock > 0 ? `${product.stock} DISP.` : 'AGOTADO'}
+                                                    </div>
+                                                    {product.stock > 0 && (
+                                                        <div className="bg-blue-50 text-blue-600 p-1.5 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all">
+                                                            <Plus size={14} strokeWidth={3} />
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                         </button>

@@ -36,6 +36,7 @@ def get_full_menu(db: Session = Depends(get_db)):
                 
             prod_name = item.product.name if item.product else "Unknown"
             final_price = item.price_override if item.price_override else (item.product.price if item.product else 0)
+            prod_stock = item.product.stock if item.product else 0
             
             items_data.append(schemas.MenuItemRead(
                 id=item.id,
@@ -43,6 +44,7 @@ def get_full_menu(db: Session = Depends(get_db)):
                 product_id=item.product_id,
                 alias=item.alias or prod_name,
                 price=final_price,
+                stock=prod_stock,
                 product_name=prod_name,
                 sort_order=item.sort_order,
                 is_active=item.is_active
