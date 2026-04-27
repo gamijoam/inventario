@@ -76,15 +76,19 @@ def get_public_config(db: Session = Depends(get_db)):
                 tenant_found = True
                 tenant_name = tenant_obj.name
 
-                # REFACTOR: Use the NEW boolean columns instead of .env or JSON config
+                # REFACTOR: Use the NEW boolean columns with .env fallback
                 modules = {
-                    "restaurant": tenant_obj.has_restaurant_module,
-                    "laundry": tenant_obj.has_laundry_module,
-                    "services": tenant_obj.has_services_module,
-                    "ferreteria": tenant_obj.has_hardware_module,
+                    "restaurant": tenant_obj.has_restaurant_module or settings.MODULE_RESTAURANT_ENABLED,
+                    "laundry": tenant_obj.has_laundry_module or settings.MODULE_RESTAURANT_ENABLED, # Using restaurant env for now if needed, or specific ones
+                    "services": tenant_obj.has_services_module or settings.MODULE_SERVICES_ENABLED,
+                    "ferreteria": tenant_obj.has_hardware_module or True,
                     "barbershop": tenant_obj.has_barbershop_module,
                     "pharmacy": tenant_obj.has_pharmacy_module,
                 }
+                # Ensure compatibility with frontend mapping logic
+                modules["has_restaurant_module"] = modules["restaurant"]
+                modules["has_pharmacy_module"] = modules["pharmacy"]
+                modules["has_services_module"] = modules["services"]
 
                 # Falling back to JSON config if all booleans are False (for existing tenants)
                 if not any(modules.values()) and tenant_obj.config:

@@ -410,8 +410,45 @@ def repair_public_schema():
                 ))
                 print(f"[REPAIR] ✅ Columna {col_name} añadida.")
 
+        # 4. Reparar esquemas de inquilinos (Añadir is_menu_item a products)
+        result = conn.execute(text("""
+            SELECT schema_name 
+            FROM information_schema.schemata 
+            WHERE schema_name NOT IN ('information_schema', 'pg_catalog', 'pg_toast', 'public')
+        """))
+        tenant_schemas = [row[0] for row in result.fetchall()]
+        
+        for schema in tenant_schemas:
+            try:
+                # Comprobar si existe la columna is_menu_item
+                res_col = conn.execute(text(f"""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.columns 
+                        WHERE table_schema = '{schema}' 
+                        AND table_name = 'products' 
+                        AND column_name = 'is_menu_item'
+                    )
+                """))
+                if not res_col.scalar():
+                    print(f"[REPAIR] 🔧 Añadiendo is_menu_item al esquema {schema}...")
+                    conn.execute(text(f'ALTER TABLE "{schema}".products ADD COLUMN is_menu_item BOOLEAN DEFAULT FALSE'))
+                
+                # Barbershop flag too
+                res_barber = conn.execute(text(f"""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.columns 
+                        WHERE table_schema = '{schema}' 
+                        AND table_name = 'products' 
+                        AND column_name = 'is_barbershop_service'
+                    )
+                """))
+                if not res_barber.scalar():
+                    conn.execute(text(f'ALTER TABLE "{schema}".products ADD COLUMN is_barbershop_service BOOLEAN DEFAULT FALSE'))
+            except Exception as e:
+                print(f"[REPAIR] ❌ Error reparando esquema {schema}: {e}")
+
         conn.commit()
-        print("[REPAIR] ✅ Reparación de esquema público completada.")
+        print("[REPAIR] ✅ Reparación de base de datos completada.")
 
 # --- LOGICA DE INICIALIZACION ---
 def run_migrations():

@@ -243,8 +243,7 @@ def read_products(
             joinedload(models.Product.prices),
             joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
             joinedload(models.Product.price_rules),
-            joinedload(models.Product.discount_rules),  # Feature 2: Load quantity discount rules
-            joinedload(models.Product.recipes).joinedload(models.RestaurantRecipe.ingredient) # NEW
+            joinedload(models.Product.recipes).subqueryload(models.RestaurantRecipe.ingredient).subqueryload(models.Product.stocks)
         ).filter(models.Product.is_active == True)
         
         # FILTER: Warehouse
