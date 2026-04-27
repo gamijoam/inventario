@@ -333,299 +333,299 @@ class SalesService:
 
                 # --- STOCK DEDUCTION LOGIC ---
                 if not skip_stock:
-                        # NEW: RECIPE LOGIC (ESCANDALLO) - Check if product has a restaurant recipe
+                    # NEW: RECIPE LOGIC (ESCANDALLO) - Check if product has a restaurant recipe
                     recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product.id).all()
-                    
+
                     if recipes:
-                        # It has a recipe! Deduct ingredients instead of the dish itself
-                        for recipe_item in recipes:
-                            ingredient = db.query(models.Product).filter(models.Product.id == recipe_item.ingredient_id).with_for_update().first()
-                            if not ingredient:
-                                continue
-                            
-                            qty_to_deduct = Decimal(str(item.quantity)) * Decimal(str(recipe_item.quantity)) * Decimal(str(getattr(item, "recipe_factor", 1.0)))
-                            
-                            # Check and deduct from WAREHOUSE
-                            ing_stock = db.query(models.ProductStock).filter(
-                                models.ProductStock.product_id == ingredient.id,
-                                models.ProductStock.warehouse_id == warehouse_id
-                            ).first()
-                            
-                            if not ing_stock:
-                                ing_stock = models.ProductStock(product_id=ingredient.id, warehouse_id=warehouse_id, quantity=0)
-                                db.add(ing_stock)
-                                db.flush()
-                            
-                            # Validate stock (ingredients usually MUST have stock)
-                            available_qty = ing_stock.quantity
-                            if available_qty < qty_to_deduct:
-                                wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
-                                raise HTTPException(
-                                    status_code=400,
-                                    detail=f"Stock insuficiente para ingrediente '{ingredient.name}' en '{wh_name}'. Necesario: {qty_to_deduct}, Disponible: {available_qty}"
-                                )
-                            
-                            ing_stock.quantity -= qty_to_deduct
-                            ingredient.stock -= qty_to_deduct # Update legacy total
-                            
-                            # Register Kardex for Ingredient
-                            db.add(models.Kardex(
-                                product_id=ingredient.id,
-                                movement_type="SALE",
-                                quantity=-qty_to_deduct,
-                                balance_after=ingredient.stock,
-                                description=f"Venta via Receta: {product.name} (Venta #{new_sale_id})"
-                            ))
-                            
-                            # Collect info for ingredient update
-                            updated_products_info.append({
-                                "id": ingredient.id,
-                                "name": ingredient.name,
-                                "price": float(ingredient.price),
-                                "stock": float(ingredient.stock),
-                                "exchange_rate_id": ingredient.exchange_rate_id
-                            })
-                        
-                        # IMPORTANT: Once recipe is processed, we DO NOT deduct the dish itself 
-                        # as its "stock" is usually irrelevant in a restaurant.
-                        pass
-                    
+                    # It has a recipe! Deduct ingredients instead of the dish itself
+                    for recipe_item in recipes:
+                    ingredient = db.query(models.Product).filter(models.Product.id == recipe_item.ingredient_id).with_for_update().first()
+                    if not ingredient:
+                    continue
+
+                    qty_to_deduct = Decimal(str(item.quantity)) * Decimal(str(recipe_item.quantity)) * Decimal(str(getattr(item, "recipe_factor", 1.0)))
+
+                    # Check and deduct from WAREHOUSE
+                    ing_stock = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == ingredient.id,
+                    models.ProductStock.warehouse_id == warehouse_id
+                    ).first()
+
+                    if not ing_stock:
+                    ing_stock = models.ProductStock(product_id=ingredient.id, warehouse_id=warehouse_id, quantity=0)
+                    db.add(ing_stock)
+                    db.flush()
+
+                    # Validate stock (ingredients usually MUST have stock)
+                    available_qty = ing_stock.quantity
+                    if available_qty < qty_to_deduct:
+                    wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
+                    raise HTTPException(
+                    status_code=400,
+                    detail=f"Stock insuficiente para ingrediente '{ingredient.name}' en '{wh_name}'. Necesario: {qty_to_deduct}, Disponible: {available_qty}"
+                    )
+
+                    ing_stock.quantity -= qty_to_deduct
+                    ingredient.stock -= qty_to_deduct # Update legacy total
+
+                    # Register Kardex for Ingredient
+                    db.add(models.Kardex(
+                    product_id=ingredient.id,
+                    movement_type="SALE",
+                    quantity=-qty_to_deduct,
+                    balance_after=ingredient.stock,
+                    description=f"Venta via Receta: {product.name} (Venta #{new_sale_id})"
+                    ))
+
+                    # Collect info for ingredient update
+                    updated_products_info.append({
+                    "id": ingredient.id,
+                    "name": ingredient.name,
+                    "price": float(ingredient.price),
+                    "stock": float(ingredient.stock),
+                    "exchange_rate_id": ingredient.exchange_rate_id
+                    })
+
+                    # IMPORTANT: Once recipe is processed, we DO NOT deduct the dish itself 
+                    # as its "stock" is usually irrelevant in a restaurant.
+                    pass
+
                     # NEW LOGIC: DEDUCT INGREDIENTS FOR MODIFIERS
                     elif item.modifier_option_ids: # Check if the SaleDetailCreate has modifier IDs
-                        modifier_options = db.query(ProductModifierOption).filter(
-                            ProductModifierOption.id.in_(item.modifier_option_ids)
-                        ).options(joinedload(ProductModifierOption.product)).all() # Eager load product for name
-                        
-                        for mod_opt in modifier_options:
-                            if mod_opt.ingredient_id and mod_opt.quantity_consumed > 0:
-                                ingredient_to_deduct = db.query(models.Product).filter(
-                                    models.Product.id == mod_opt.ingredient_id
-                                ).with_for_update().first()
-                                
-                                if not ingredient_to_deduct:
-                                    print(f"[WARNING] Modifier {mod_opt.name} refers to non-existent ingredient {mod_opt.ingredient_id}")
-                                    continue
-                                
-                                # Calculate total quantity to deduct for this modifier
-                                # item.quantity (main product quantity) * mod_opt.quantity_consumed (per modifier)
-                                qty_to_deduct = Decimal(str(item.quantity)) * mod_opt.quantity_consumed
-                                
-                                # Check and deduct from WAREHOUSE (same logic as for main recipe items)
-                                ing_stock = db.query(models.ProductStock).filter(
-                                    models.ProductStock.product_id == ingredient_to_deduct.id,
-                                    models.ProductStock.warehouse_id == warehouse_id
-                                ).first()
-                                
-                                if not ing_stock:
-                                    # Create stock entry if it doesn't exist
-                                    ing_stock = models.ProductStock(product_id=ingredient_to_deduct.id, warehouse_id=warehouse_id, quantity=0)
-                                    db.add(ing_stock)
-                                    db.flush()
-                                
-                                # Validate stock
-                                available_qty = ing_stock.quantity
-                                if available_qty < qty_to_deduct:
-                                    wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
-                                    raise HTTPException(
-                                        status_code=400,
-                                        detail=f"Stock insuficiente para ingrediente de modificador '{ingredient_to_deduct.name}' "
-                                               f"({mod_opt.name}) en '{wh_name}'. Necesario: {qty_to_deduct}, Disponible: {available_qty}"
-                                    )
-                                
-                                # Deduct stock
-                                ing_stock.quantity -= qty_to_deduct
-                                ingredient_to_deduct.stock -= qty_to_deduct # Update legacy total
-                                
-                                # Register Kardex for Modifier's Ingredient
-                                db.add(models.Kardex(
-                                    product_id=ingredient_to_deduct.id,
-                                    movement_type="SALE_MODIFIER", # New type for clarity
-                                    quantity=-qty_to_deduct,
-                                    balance_after=ingredient_to_deduct.stock,
-                                    description=f"Venta Modificador: {mod_opt.name} ({product.name} - Venta #{new_sale_id})"
-                                ))
-                                
-                                # Collect info for ingredient update broadcast
-                                updated_products_info.append({
-                                    "id": ingredient_to_deduct.id,
-                                    "name": ingredient_to_deduct.name,
-                                    "price": float(ingredient_to_deduct.price),
-                                    "stock": float(ingredient_to_deduct.stock),
-                                    "exchange_rate_id": ingredient_to_deduct.exchange_rate_id
-                                }) 
+                    modifier_options = db.query(ProductModifierOption).filter(
+                    ProductModifierOption.id.in_(item.modifier_option_ids)
+                    ).options(joinedload(ProductModifierOption.product)).all() # Eager load product for name
+
+                    for mod_opt in modifier_options:
+                    if mod_opt.ingredient_id and mod_opt.quantity_consumed > 0:
+                    ingredient_to_deduct = db.query(models.Product).filter(
+                    models.Product.id == mod_opt.ingredient_id
+                    ).with_for_update().first()
+
+                    if not ingredient_to_deduct:
+                    print(f"[WARNING] Modifier {mod_opt.name} refers to non-existent ingredient {mod_opt.ingredient_id}")
+                    continue
+
+                    # Calculate total quantity to deduct for this modifier
+                    # item.quantity (main product quantity) * mod_opt.quantity_consumed (per modifier)
+                    qty_to_deduct = Decimal(str(item.quantity)) * mod_opt.quantity_consumed
+
+                    # Check and deduct from WAREHOUSE (same logic as for main recipe items)
+                    ing_stock = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == ingredient_to_deduct.id,
+                    models.ProductStock.warehouse_id == warehouse_id
+                    ).first()
+
+                    if not ing_stock:
+                    # Create stock entry if it doesn't exist
+                    ing_stock = models.ProductStock(product_id=ingredient_to_deduct.id, warehouse_id=warehouse_id, quantity=0)
+                    db.add(ing_stock)
+                    db.flush()
+
+                    # Validate stock
+                    available_qty = ing_stock.quantity
+                    if available_qty < qty_to_deduct:
+                    wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
+                    raise HTTPException(
+                    status_code=400,
+                    detail=f"Stock insuficiente para ingrediente de modificador '{ingredient_to_deduct.name}' "
+                    f"({mod_opt.name}) en '{wh_name}'. Necesario: {qty_to_deduct}, Disponible: {available_qty}"
+                    )
+
+                    # Deduct stock
+                    ing_stock.quantity -= qty_to_deduct
+                    ingredient_to_deduct.stock -= qty_to_deduct # Update legacy total
+
+                    # Register Kardex for Modifier's Ingredient
+                    db.add(models.Kardex(
+                    product_id=ingredient_to_deduct.id,
+                    movement_type="SALE_MODIFIER", # New type for clarity
+                    quantity=-qty_to_deduct,
+                    balance_after=ingredient_to_deduct.stock,
+                    description=f"Venta Modificador: {mod_opt.name} ({product.name} - Venta #{new_sale_id})"
+                    ))
+
+                    # Collect info for ingredient update broadcast
+                    updated_products_info.append({
+                    "id": ingredient_to_deduct.id,
+                    "name": ingredient_to_deduct.name,
+                    "price": float(ingredient_to_deduct.price),
+                    "stock": float(ingredient_to_deduct.stock),
+                    "exchange_rate_id": ingredient_to_deduct.exchange_rate_id
+                    }) 
                     elif product.is_combo:
-                         # COMBO: Deduct stock from child components in specific warehouse
-                        if not product.combo_items:
-                            raise HTTPException(
-                                status_code=400, 
-                                detail=f"Combo product '{product.name}' has no components defined"
-                            )
-                        
-                        # Check stock for ALL child products first (fail fast)
-                        for combo_item in product.combo_items:
-                            child_product = combo_item.child_product
-                            
-                            if combo_item.unit_id and combo_item.unit:
-                                conversion_factor = combo_item.unit.conversion_factor
-                                qty_needed = item.quantity * combo_item.quantity * conversion_factor
-                            else:
-                                qty_needed = item.quantity * combo_item.quantity
-                            
-                            # CHECK WAREHOUSE STOCK
-                            child_stock = db.query(models.ProductStock).filter(
-                                models.ProductStock.product_id == child_product.id,
-                                models.ProductStock.warehouse_id == warehouse_id
-                            ).first()
-                            
-                            available_qty = child_stock.quantity if child_stock else 0
-                            
-                            if available_qty < qty_needed:
-                                 wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
-                                 raise HTTPException(
-                                    status_code=400,
-                                    detail=f"Stock insuficiente para el componente '{child_product.name}' en '{wh_name}'. Se necesita: {qty_needed}, Disponible: {available_qty}"
-                                )
-                        
-                        # All checks passed, now deduct stock from buffer/children
-                        for combo_item in product.combo_items:
-                            child_product = combo_item.child_product
-                            
-                            if combo_item.unit_id and combo_item.unit:
-                                conversion_factor = combo_item.unit.conversion_factor
-                                qty_to_deduct = item.quantity * combo_item.quantity * conversion_factor
-                                unit_description = f" ({combo_item.quantity}x {combo_item.unit.unit_name})"
-                            else:
-                                qty_to_deduct = item.quantity * combo_item.quantity
-                                unit_description = ""
-                            
-                            # Deduct stock from WAREHOUSE STOCK
-                            child_stock = db.query(models.ProductStock).filter(
-                                models.ProductStock.product_id == child_product.id,
-                                models.ProductStock.warehouse_id == warehouse_id
-                            ).first()
-    
-                            if not child_stock:
-                                 # Should have been caught by check, but just in case
-                                 child_stock = models.ProductStock(product_id=child_product.id, warehouse_id=warehouse_id, quantity=0)
-                                 db.add(child_stock)
-    
-                            child_stock.quantity -= qty_to_deduct
-                            
-                            # ALSO UPDATE TOTAL PRODUCT STOCK (Legacy Support)
-                            child_product.stock -= qty_to_deduct
-                            
-                            # Create Kardex entry
-                            kardex_entry = models.Kardex(
-                                product_id=child_product.id,
-                                movement_type="SALE",
-                                quantity=-qty_to_deduct,
-                                balance_after=child_product.stock, # Legacy balance
-                                description=f"Sale via combo: {product.name}{unit_description} (Sale #{new_sale_id})",
-                                # warehouse_id=warehouse_id # TODO: Add warehouse_id to Kardex
-                            )
-                            db.add(kardex_entry)
-                            
-                            # Collect info
-                            updated_products_info.append({
-                                "id": child_product.id,
-                                "name": child_product.name,
-                                "price": float(child_product.price),
-                                "stock": float(child_product.stock),
-                                "exchange_rate_id": child_product.exchange_rate_id
-                            })
-                    elif is_service:
-                         # SERVICE: Skip Stock Check / Deduction
-                         pass
+                    # COMBO: Deduct stock from child components in specific warehouse
+                    if not product.combo_items:
+                    raise HTTPException(
+                    status_code=400, 
+                    detail=f"Combo product '{product.name}' has no components defined"
+                    )
+
+                    # Check stock for ALL child products first (fail fast)
+                    for combo_item in product.combo_items:
+                    child_product = combo_item.child_product
+
+                    if combo_item.unit_id and combo_item.unit:
+                    conversion_factor = combo_item.unit.conversion_factor
+                    qty_needed = item.quantity * combo_item.quantity * conversion_factor
                     else:
-                        # NORMAL PRODUCT: Check and deduct stock from WAREHOUSE
-                        
-                        # NEW: SERIALIZED INVENTORY LOGIC
-                        if product.has_imei:
-                            # ── Productos serializados (con IMEI) ──────────────────────────────
-                            # Para ventas a crédito sin seriales: auto-seleccionar instancias AVAILABLE
-                            # Para ventas normales: se deben proveer los seriales
-                            
-                            if not item.serial_numbers and not sale_data.is_credit:
-                                raise HTTPException(status_code=400,
-                                    detail=f"Product '{product.name}' is serialized (has_imei=True) but no serial numbers provided.")
-    
-                            # Verificar cantidad vs seriales provistos (solo si se enviaron)
-                            if item.serial_numbers and len(item.serial_numbers) != units_to_deduct:
-                                raise HTTPException(status_code=400,
-                                    detail=f"Discrepancia de cantidad para producto serializado '{product.name}'. "
-                                           f"Esperado {int(units_to_deduct)}, recibido {len(item.serial_numbers)}.")
-    
-                            sold_instances = []
-    
-                            if item.serial_numbers:
-                                # Caso normal: seriales especificados → buscar y bloquear
-                                sold_instances = db.query(models.ProductInstance).filter(
-                                    models.ProductInstance.product_id == product.id,
-                                    models.ProductInstance.warehouse_id == warehouse_id,
-                                    models.ProductInstance.serial_number.in_(item.serial_numbers),
-                                    models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
-                                ).with_for_update().all()
-    
-                                if len(sold_instances) != len(item.serial_numbers):
-                                    found_sns = {i.serial_number for i in sold_instances}
-                                    missing = set(item.serial_numbers) - found_sns
-                                    raise HTTPException(status_code=400,
-                                        detail=f"Números de serie no encontrados o no disponibles: {list(missing)}")
-                            else:
-                                # Crédito sin seriales → auto-seleccionar las primeras instancias AVAILABLE
-                                # Esto evita que el stock quede desincronizado con las instancias
-                                sold_instances = db.query(models.ProductInstance).filter(
-                                    models.ProductInstance.product_id == product.id,
-                                    models.ProductInstance.warehouse_id == warehouse_id,
-                                    models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
-                                ).with_for_update().limit(int(units_to_deduct)).all()
-    
-                                if len(sold_instances) < int(units_to_deduct):
-                                    raise HTTPException(status_code=400,
-                                        detail=f"Stock insuficiente para '{product.name}': "
-                                               f"solo {len(sold_instances)} unidades disponibles con IMEI registrado.")
-    
-                            # Marcar instancias como SOLD
-                            for instance in sold_instances:
-                                instance.status = models.ProductInstanceStatus.SOLD
-                                # instance.updated_at = datetime.now() # Auto
-    
-                        product_stock = db.query(models.ProductStock).filter(
-                            models.ProductStock.product_id == product.id,
-                            models.ProductStock.warehouse_id == warehouse_id
-                        ).first()
-                        
-                        available_qty = product_stock.quantity if product_stock else 0
-    
-                        if available_qty < units_to_deduct:
-                            wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
-                            raise HTTPException(status_code=400, detail=f"Stock insuficiente para el producto '{product.name}' en almacén '{wh_name or 'Desconocido'}'. Disponible: {available_qty}")
-                        
-                        # Update Stock
-                        product_stock.quantity -= units_to_deduct
-                        
-                        # Update Total Legacy Stock
-                        product.stock -= units_to_deduct
-                        
-                        # Collect info for broadcast
-                        updated_products_info.append({
-                            "id": product.id,
-                            "name": product.name,
-                            "price": float(product.price),
-                            "stock": float(product.stock),
-                            "exchange_rate_id": product.exchange_rate_id
-                        })
-                        
-                        # Register Kardex Movement
-                        kardex_entry = models.Kardex(
-                            product_id=product.id,
-                            movement_type="SALE",
-                            quantity=-units_to_deduct,
-                            balance_after=product.stock,
-                            description=f"Sale #{new_sale_id} from Warehouse #{warehouse_id}"
-                        )
-                        db.add(kardex_entry)
-                    
+                    qty_needed = item.quantity * combo_item.quantity
+
+                    # CHECK WAREHOUSE STOCK
+                    child_stock = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == child_product.id,
+                    models.ProductStock.warehouse_id == warehouse_id
+                    ).first()
+
+                    available_qty = child_stock.quantity if child_stock else 0
+
+                    if available_qty < qty_needed:
+                    wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
+                    raise HTTPException(
+                    status_code=400,
+                    detail=f"Stock insuficiente para el componente '{child_product.name}' en '{wh_name}'. Se necesita: {qty_needed}, Disponible: {available_qty}"
+                    )
+
+                    # All checks passed, now deduct stock from buffer/children
+                    for combo_item in product.combo_items:
+                    child_product = combo_item.child_product
+
+                    if combo_item.unit_id and combo_item.unit:
+                    conversion_factor = combo_item.unit.conversion_factor
+                    qty_to_deduct = item.quantity * combo_item.quantity * conversion_factor
+                    unit_description = f" ({combo_item.quantity}x {combo_item.unit.unit_name})"
+                    else:
+                    qty_to_deduct = item.quantity * combo_item.quantity
+                    unit_description = ""
+
+                    # Deduct stock from WAREHOUSE STOCK
+                    child_stock = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == child_product.id,
+                    models.ProductStock.warehouse_id == warehouse_id
+                    ).first()
+
+                    if not child_stock:
+                    # Should have been caught by check, but just in case
+                    child_stock = models.ProductStock(product_id=child_product.id, warehouse_id=warehouse_id, quantity=0)
+                    db.add(child_stock)
+
+                    child_stock.quantity -= qty_to_deduct
+
+                    # ALSO UPDATE TOTAL PRODUCT STOCK (Legacy Support)
+                    child_product.stock -= qty_to_deduct
+
+                    # Create Kardex entry
+                    kardex_entry = models.Kardex(
+                    product_id=child_product.id,
+                    movement_type="SALE",
+                    quantity=-qty_to_deduct,
+                    balance_after=child_product.stock, # Legacy balance
+                    description=f"Sale via combo: {product.name}{unit_description} (Sale #{new_sale_id})",
+                    # warehouse_id=warehouse_id # TODO: Add warehouse_id to Kardex
+                    )
+                    db.add(kardex_entry)
+
+                    # Collect info
+                    updated_products_info.append({
+                    "id": child_product.id,
+                    "name": child_product.name,
+                    "price": float(child_product.price),
+                    "stock": float(child_product.stock),
+                    "exchange_rate_id": child_product.exchange_rate_id
+                    })
+                    elif is_service:
+                    # SERVICE: Skip Stock Check / Deduction
+                    pass
+                    else:
+                    # NORMAL PRODUCT: Check and deduct stock from WAREHOUSE
+
+                    # NEW: SERIALIZED INVENTORY LOGIC
+                    if product.has_imei:
+                    # ── Productos serializados (con IMEI) ──────────────────────────────
+                    # Para ventas a crédito sin seriales: auto-seleccionar instancias AVAILABLE
+                    # Para ventas normales: se deben proveer los seriales
+
+                    if not item.serial_numbers and not sale_data.is_credit:
+                    raise HTTPException(status_code=400,
+                    detail=f"Product '{product.name}' is serialized (has_imei=True) but no serial numbers provided.")
+
+                    # Verificar cantidad vs seriales provistos (solo si se enviaron)
+                    if item.serial_numbers and len(item.serial_numbers) != units_to_deduct:
+                    raise HTTPException(status_code=400,
+                    detail=f"Discrepancia de cantidad para producto serializado '{product.name}'. "
+                    f"Esperado {int(units_to_deduct)}, recibido {len(item.serial_numbers)}.")
+
+                    sold_instances = []
+
+                    if item.serial_numbers:
+                    # Caso normal: seriales especificados → buscar y bloquear
+                    sold_instances = db.query(models.ProductInstance).filter(
+                    models.ProductInstance.product_id == product.id,
+                    models.ProductInstance.warehouse_id == warehouse_id,
+                    models.ProductInstance.serial_number.in_(item.serial_numbers),
+                    models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                    ).with_for_update().all()
+
+                    if len(sold_instances) != len(item.serial_numbers):
+                    found_sns = {i.serial_number for i in sold_instances}
+                    missing = set(item.serial_numbers) - found_sns
+                    raise HTTPException(status_code=400,
+                    detail=f"Números de serie no encontrados o no disponibles: {list(missing)}")
+                    else:
+                    # Crédito sin seriales → auto-seleccionar las primeras instancias AVAILABLE
+                    # Esto evita que el stock quede desincronizado con las instancias
+                    sold_instances = db.query(models.ProductInstance).filter(
+                    models.ProductInstance.product_id == product.id,
+                    models.ProductInstance.warehouse_id == warehouse_id,
+                    models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                    ).with_for_update().limit(int(units_to_deduct)).all()
+
+                    if len(sold_instances) < int(units_to_deduct):
+                    raise HTTPException(status_code=400,
+                    detail=f"Stock insuficiente para '{product.name}': "
+                    f"solo {len(sold_instances)} unidades disponibles con IMEI registrado.")
+
+                    # Marcar instancias como SOLD
+                    for instance in sold_instances:
+                    instance.status = models.ProductInstanceStatus.SOLD
+                    # instance.updated_at = datetime.now() # Auto
+
+                    product_stock = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == product.id,
+                    models.ProductStock.warehouse_id == warehouse_id
+                    ).first()
+
+                    available_qty = product_stock.quantity if product_stock else 0
+
+                    if available_qty < units_to_deduct:
+                    wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
+                    raise HTTPException(status_code=400, detail=f"Stock insuficiente para el producto '{product.name}' en almacén '{wh_name or 'Desconocido'}'. Disponible: {available_qty}")
+
+                    # Update Stock
+                    product_stock.quantity -= units_to_deduct
+
+                    # Update Total Legacy Stock
+                    product.stock -= units_to_deduct
+
+                    # Collect info for broadcast
+                    updated_products_info.append({
+                    "id": product.id,
+                    "name": product.name,
+                    "price": float(product.price),
+                    "stock": float(product.stock),
+                    "exchange_rate_id": product.exchange_rate_id
+                    })
+
+                    # Register Kardex Movement
+                    kardex_entry = models.Kardex(
+                    product_id=product.id,
+                    movement_type="SALE",
+                    quantity=-units_to_deduct,
+                    balance_after=product.stock,
+                    description=f"Sale #{new_sale_id} from Warehouse #{warehouse_id}"
+                    )
+                    db.add(kardex_entry)
+
                     pass # End of stock deduction block
                 
                 # Calculate subtotal (before discount) - SAME FOR BOTH
