@@ -125,7 +125,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             items: [
                 { icon: Utensils, label: 'Mapa de Mesas', path: '/restaurant/tables' },
                 { icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' },
-                { icon: Smartphone, label: 'Comandera Móvil', path: '/mobile/login' },
+                { icon: Smartphone, label: 'Comandera', path: '/waiter' },
                 ...(isAdmin ? [
                     { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
                     { icon: ClipboardList, label: 'Recetas', path: '/restaurant/recipes' },
