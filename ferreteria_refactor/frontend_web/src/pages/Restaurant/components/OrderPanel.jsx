@@ -287,8 +287,8 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     };
 
     const handleMarkReadyToBill = async () => {
-        if (!window.confirm(`¿Marbar mesa ${table.name} como lista para cobrar?\n\nPrimero confirma con el cliente que ya no necesita nada.`)) return;
-        if (!window.confirm(`¿Estás seguro? No se podrá deshacer.`)) return;
+        if (!window.confirm(`¿Marcar mesa ${table.name} como lista para cobrar?\n\nPrimero confirma con el cliente que ya no necesita nada más.`)) return;
+        if (!window.confirm(`¿Confirmar? La mesa aparecerá en naranja y se podrá cobrar.`)) return;
         try {
             await restaurantService.setTableStatus(table.id, 'WAITING_BILL');
             toast.success(`Mesa ${table.name} marcada como lista para cobrar`, { icon: '🟠' });
