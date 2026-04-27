@@ -79,17 +79,18 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const handleAddToCart = (product) => {
         const existing = cart.find(item => item.id === product.id);
         const currentQty = existing ? existing.quantity : 0;
+        const availableStock = product.stock !== undefined ? product.stock : 999;
         
         // Stock Validation
-        if (currentQty + 1 > (product.stock || 0)) {
-            toast.error(`Stock insuficiente. Disponible: ${product.stock}`, { icon: '⚠️' });
+        if (currentQty + 1 > availableStock) {
+            toast.error(`Stock insuficiente. Disponible: ${availableStock}`, { icon: '⚠️' });
             return;
         }
 
         if (existing) {
             setCart(cart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
         } else {
-            setCart([...cart, { ...product, quantity: 1 }]);
+            setCart([...cart, { ...product, quantity: 1, stock: availableStock }]);
         }
         toast.success(`${product.alias || product.product_name} añadido`, { duration: 1000, icon: '🛒' });
     };
@@ -100,8 +101,10 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                 const newQty = item.quantity + delta;
                 if (newQty <= 0) return item;
                 
+                const availableStock = item.stock !== undefined ? item.stock : 999;
+
                 // Stock Validation
-                if (newQty > (item.stock || 0)) {
+                if (newQty > availableStock) {
                     toast.error("Máximo alcanzado", { icon: '⚠️' });
                     return item;
                 }
