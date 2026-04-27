@@ -21,7 +21,6 @@ const KitchenDisplay = () => {
             console.error("Error loading kitchen orders:", err);
             toast.error("Error al sincronizar cocina");
         } finally {
-            setLoadingOrder(false); // Wait, loadingOrder doesn't exist here
             setLoading(false);
         }
     };
