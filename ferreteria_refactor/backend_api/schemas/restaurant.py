@@ -10,6 +10,7 @@ class TableStatus(str, Enum):
     OCCUPIED = "OCCUPIED"
     RESERVED = "RESERVED"
     CLEANING = "CLEANING"
+    WAITING_BILL = "WAITING_BILL"
 
 class OrderStatus(str, Enum):
     PENDING = "PENDING"
