@@ -38,7 +38,8 @@ def get_full_menu(db: Session = Depends(get_db)):
             final_price = item.price_override if item.price_override else (item.product.price if item.product else 0)
             
             # --- STOCK CALCULATION LOGIC ---
-            prod_stock = item.product.stock if item.product else 0
+            manual_stock = item.product.stock if item.product else 0
+            calculated_stock = 0
             
             # If product has a recipe, calculate availability based on ingredients
             recipe_items = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == item.product_id).all()
@@ -50,7 +51,11 @@ def get_full_menu(db: Session = Depends(get_db)):
                         potential_stocks.append(ing.stock / ri.quantity)
                 
                 if potential_stocks:
-                    prod_stock = min(potential_stocks)
+                    calculated_stock = min(potential_stocks)
+            
+            # We take the MAX: If user manually added stock, respect it. 
+            # If they didn't, use the recipe calculation.
+            prod_stock = max(manual_stock, calculated_stock)
             # -------------------------------
             
             items_data.append(schemas.MenuItemRead(
