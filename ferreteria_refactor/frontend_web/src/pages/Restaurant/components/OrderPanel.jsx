@@ -120,7 +120,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
         const delayDebounce = setTimeout(async () => {
             setSearching(true);
             try {
-                const response = await axiosInstance.get('/products/', { params: { search: searchTerm, limit: 10 } });
+                const response = await axiosInstance.get('/products/', { params: { search: searchTerm, limit: 10, is_menu_item: true } });
                 setSearchResults(response.data.data || response.data);
             } catch (err) {
                 console.error(err);

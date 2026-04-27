@@ -55,6 +55,7 @@ def read_catalog_products(
     warehouse_id: Optional[int] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
+    is_menu_item: Optional[bool] = None, # NEW
     db: Session = Depends(get_db)
 ):
     """
@@ -86,6 +87,9 @@ def read_catalog_products(
 
     if category_id:
         base_query = base_query.filter(models.Product.category_id == category_id)
+
+    if is_menu_item is not None:
+        base_query = base_query.filter(models.Product.is_menu_item == is_menu_item)
 
     if search:
         # Split query into tokens and require ALL words to appear in name OR sku
@@ -129,12 +133,32 @@ def read_catalog_products(
         subqueryload(models.Product.combo_items)
             .subqueryload(models.ComboItem.child_product)
             .subqueryload(models.Product.stocks),
+        # Recipes: load ingredients + their stocks for virtual stock calculation
+        subqueryload(models.Product.recipes)
+            .subqueryload(models.RestaurantRecipe.ingredient)
+            .subqueryload(models.Product.stocks),
     ).order_by(models.Product.name).offset(skip).limit(limit).all()
 
-    # For combo products, replace stock with the effective quantity computable
-    # from component availability: min(floor(child_stock / qty_needed))
+    # For combo or recipe products, replace stock with the effective quantity
+    # from ingredient/component availability: min(floor(child_stock / qty_needed))
     for p in products:
-        if p.is_combo and p.combo_items:
+        # Priority: Recipes (Restaurant)
+        if p.recipes:
+            min_available = float('inf')
+            for rec in p.recipes:
+                ing = rec.ingredient
+                if not ing: continue
+                if warehouse_id:
+                    ing_stock = next((float(s.quantity) for s in ing.stocks if s.warehouse_id == warehouse_id), 0.0)
+                else:
+                    ing_stock = sum(float(s.quantity) for s in ing.stocks)
+                qty_needed = float(rec.quantity) if rec.quantity else 1.0
+                available = ing_stock / qty_needed
+                if available < min_available: min_available = available
+            p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
+            
+        # Fallback/Alternative: Combos
+        elif p.is_combo and p.combo_items:
             min_available = float('inf')
             for ci in p.combo_items:
                 child = ci.child_product
@@ -207,7 +231,8 @@ def read_products(
     skip: int = 0,
     limit: int = Query(default=100, le=2000),
     search: Optional[str] = None,
-    warehouse_id: Optional[int] = None,  # NEW PARAM
+    warehouse_id: Optional[int] = None,
+    is_menu_item: Optional[bool] = None, # NEW
     db: Session = Depends(get_db)
 ):
     try:
@@ -218,7 +243,8 @@ def read_products(
             joinedload(models.Product.prices),
             joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
             joinedload(models.Product.price_rules),
-            joinedload(models.Product.discount_rules)  # Feature 2: Load quantity discount rules
+            joinedload(models.Product.discount_rules),  # Feature 2: Load quantity discount rules
+            joinedload(models.Product.recipes).joinedload(models.RestaurantRecipe.ingredient) # NEW
         ).filter(models.Product.is_active == True)
         
         # FILTER: Warehouse
@@ -228,6 +254,9 @@ def read_products(
                 models.ProductStock.warehouse_id == warehouse_id,
                 models.ProductStock.quantity > 0
             )
+
+        if is_menu_item is not None:
+            query = query.filter(models.Product.is_menu_item == is_menu_item)
 
         if search:
             search_term = f"%{search}%"
@@ -239,6 +268,30 @@ def read_products(
             )
             
         products = query.offset(skip).limit(limit).all()
+        
+        # Calculate effective stock for combos/recipes
+        for p in products:
+            if p.recipes:
+                min_available = float('inf')
+                for rec in p.recipes:
+                    ing = rec.ingredient
+                    if not ing: continue
+                    ing_stock = sum(float(s.quantity) for s in ing.stocks)
+                    qty_needed = float(rec.quantity) if rec.quantity else 1.0
+                    available = ing_stock / qty_needed
+                    if available < min_available: min_available = available
+                p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
+            elif p.is_combo and p.combo_items:
+                min_available = float('inf')
+                for ci in p.combo_items:
+                    child = ci.child_product
+                    if not child: continue
+                    child_stock = sum(float(s.quantity) for s in child.stocks)
+                    qty_needed = float(ci.quantity) if ci.quantity else 1.0
+                    available = child_stock / qty_needed
+                    if available < min_available: min_available = available
+                p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
+
         return products
     except Exception as e:
         print(f"[ERROR] ERROR loading products: {type(e).__name__}: {str(e)}")

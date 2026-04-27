@@ -127,7 +127,7 @@ class RestaurantRecipe(Base):
     ingredient_id = Column(Integer, ForeignKey("products.id"), nullable=False) # The Ingredient (e.g. Bread)
     quantity = Column(Numeric(12, 3), nullable=False) # Amount to deduct per dish
     
-    product = relationship("Product", foreign_keys=[product_id])
+    product = relationship("Product", foreign_keys=[product_id], back_populates="recipes")
     ingredient = relationship("Product", foreign_keys=[ingredient_id])
 
 class RestaurantMenuSection(Base):

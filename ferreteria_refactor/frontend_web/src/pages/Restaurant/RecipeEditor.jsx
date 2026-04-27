@@ -141,7 +141,7 @@ const RecipeEditor = () => {
 
     const dishList = useMemo(() => {
         const term = normalizeSearch(searchTerm);
-        return products.filter(p => normalizeSearch(p.name).includes(term));
+        return products.filter(p => p.is_menu_item && normalizeSearch(p.name).includes(term));
     }, [products, searchTerm]);
 
     const ingredientList = useMemo(() => {

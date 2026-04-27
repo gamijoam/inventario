@@ -42,6 +42,8 @@ class ProductBase(BaseModel):
     has_imei: bool = Field(False, description="Indica si el producto maneja seriales/IMEIs") # NEW
     is_service: bool = Field(False, description="Indica si es un servicio (no requiere stock)") # NEW
     is_commissionable: bool = Field(False, description="Indica si genera comision al vendedor") # NEW
+    is_barbershop_service: bool = Field(False, description="Indica si es un servicio de barbería") # NEW
+    is_menu_item: bool = Field(False, description="Indica si es un item de menú de restaurante") # NEW
     is_active: Optional[bool] = True
     
     # Image Support
@@ -245,6 +247,8 @@ class ProductUpdate(BaseModel):
     has_imei: Optional[bool] = None # NEW: Allow updating serialized status
     is_service: Optional[bool] = None # NEW: Allow updating service status
     is_commissionable: Optional[bool] = None # NEW: Commission flag
+    is_barbershop_service: Optional[bool] = None # NEW
+    is_menu_item: Optional[bool] = None # NEW
     is_active: Optional[bool] = None
     # Pricing System Fields - Added for updates
     profit_margin: Optional[Decimal] = None
@@ -957,6 +961,10 @@ class PurchaseItemCreate(BaseModel):
     update_cost: bool = False
     update_price: bool = False
     new_sale_price: Optional[Decimal] = None
+    is_combo: bool = False
+    is_service: bool = False
+    is_barbershop_service: bool = False
+    is_menu_item: bool = False
 
 class PurchaseOrderCreate(PurchaseOrderBase):
     total_amount: Decimal

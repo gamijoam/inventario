@@ -179,6 +179,7 @@ class Product(Base):
 
     # NEW: Barbershop / Salon Module
     is_barbershop_service = Column(Boolean, default=False)
+    is_menu_item = Column(Boolean, default=False) # NEW: Restaurant Module Flag
     commission_amount = Column(Numeric(18, 4), nullable=True) # Fixed amount overrides employee base
     commission_percentage = Column(Numeric(5, 2), nullable=True) # Percentage overrides employee base
 
@@ -237,6 +238,14 @@ class Product(Base):
 
     # NEW: Pharmacy lot tracking
     lots = relationship("ProductLot", back_populates="product", cascade="all, delete-orphan")
+
+    # NEW: Restaurant Recipe
+    recipes = relationship(
+        "RestaurantRecipe",
+        foreign_keys="RestaurantRecipe.product_id",
+        back_populates="product",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Product(name='{self.name}', is_box={self.is_box}, is_combo={self.is_combo}, factor={self.conversion_factor})>"

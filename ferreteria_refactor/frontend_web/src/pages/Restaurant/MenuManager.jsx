@@ -132,8 +132,9 @@ const MenuManager = () => {
     const filteredProducts = useMemo(() => {
         const term = normalizeSearch(searchTerm);
         return products.filter(p =>
+            p.is_menu_item && (
             normalizeSearch(p.name).includes(term) ||
-            (p.sku && p.sku.toLowerCase().includes(term.toLowerCase()))
+            (p.sku && p.sku.toLowerCase().includes(term.toLowerCase())))
         );
     }, [products, searchTerm]);
 
