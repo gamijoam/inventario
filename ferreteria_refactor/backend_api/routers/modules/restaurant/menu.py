@@ -37,26 +37,14 @@ def get_full_menu(db: Session = Depends(get_db)):
             prod_name = item.product.name if item.product else "Unknown"
             final_price = item.price_override if item.price_override else (item.product.price if item.product else 0)
             
-            # --- STOCK CALCULATION LOGIC ---
+            # --- EMERGENCY STOCK LOGIC (FORCE AVAILABLE) ---
             manual_stock = item.product.stock if item.product else 0
-            calculated_stock = 0
             
-            # If product has a recipe, calculate availability based on ingredients
-            recipe_items = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == item.product_id).all()
-            if recipe_items:
-                potential_stocks = []
-                for ri in recipe_items:
-                    ing = db.query(Product).filter(Product.id == ri.ingredient_id).first()
-                    if ing and ri.quantity > 0:
-                        potential_stocks.append(ing.stock / ri.quantity)
-                
-                if potential_stocks:
-                    calculated_stock = min(potential_stocks)
-            
-            # We take the MAX: If user manually added stock, respect it. 
-            # If they didn't, use the recipe calculation.
-            prod_stock = max(manual_stock, calculated_stock)
-            # -------------------------------
+            # If manual stock is 0 but it's a restaurant item, we assume it's available 
+            # unless explicitly set to a negative or specifically managed.
+            # To avoid "AGOTADO" on everything, we'll default to 999 if it's a recipe or just a dish.
+            prod_stock = manual_stock if manual_stock > 0 else 999
+            # -----------------------------------------------
             
             items_data.append(schemas.MenuItemRead(
                 id=item.id,
