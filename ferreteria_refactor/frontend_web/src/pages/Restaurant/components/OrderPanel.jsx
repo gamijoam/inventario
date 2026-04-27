@@ -101,9 +101,12 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     };
 
     const handleSendToKitchen = async () => {
-        if (cart.length === 0) return;
+        if (cart.length === 0 || loadingOrder) return;
         
+        const itemsCopy = [...cart]; // Backup for restoration on error
         setLoadingOrder(true);
+        setCart([]); // Optimistic clear to prevent double-clicks
+        
         try {
             let currentOrderId = order?.id;
             
@@ -122,7 +125,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
             }
 
             // 2. Add items to the order
-            const itemsToAdd = cart.map(item => ({
+            const itemsToAdd = itemsCopy.map(item => ({
                 product_id: item.id,
                 quantity: item.quantity,
                 notes: ''
@@ -130,12 +133,12 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
 
             await restaurantService.addItemsToOrder(currentOrderId, itemsToAdd);
             
-            setCart([]);
             await loadCurrentOrder();
             onUpdate();
-            toast.success("¡Orden enviada a cocina!", { icon: '👨‍🍳', style: { borderRadius: '12px', background: '#333', color: '#fff' } });
+            toast.success("¡Orden enviada a cocina!", { icon: '👨‍🍳' });
         } catch (err) {
             console.error("Error sending to kitchen:", err);
+            setCart(itemsCopy); // Restore cart if failed
             toast.error("Error al procesar: " + (err.response?.data?.detail || err.message));
         } finally {
             setLoadingOrder(false);
