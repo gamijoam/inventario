@@ -67,6 +67,11 @@ const restaurantService = {
         return response.data;
     },
 
+    getPreCheckThermal: async (orderId, width = '58') => {
+        const response = await axiosInstance.get(`/restaurant/orders/${orderId}/print/thermal?width=${width}`);
+        return response.data;
+    },
+
     moveOrder: async (orderId, targetTableId) => {
         const response = await axiosInstance.post(`/restaurant/orders/${orderId}/move`, { target_table_id: targetTableId });
         return response.data;

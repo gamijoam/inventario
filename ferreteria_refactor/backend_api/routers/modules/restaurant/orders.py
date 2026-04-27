@@ -18,6 +18,9 @@ from ....websocket.manager import manager
 from ....websocket.events import WebSocketEvents
 from .... import schemas
 from fastapi import BackgroundTasks
+from sqlalchemy import text
+from ....database.db import get_tenant_schema
+from ....template_presets import get_restaurant_precheck_58_template, get_restaurant_precheck_80_template
 from pydantic import BaseModel
 import asyncio
 
@@ -656,6 +659,68 @@ def print_precheck(
         return {"status": "success", "message": "Pre-check print queued"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error printing pre-check: {e}")
+
+@router.get("/{order_id}/print/thermal")
+def get_restaurant_precheck_thermal(
+    order_id: int,
+    width: str = None,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_active_user)
+):
+    """
+    Genera un payload de impresion termica para la pre-cuenta de restaurante.
+    El frontend lo envia al Bridge via printerService.printRaw().
+    """
+    order = db.query(RestaurantOrder).options(
+        joinedload(RestaurantOrder.table),
+        joinedload(RestaurantOrder.items)
+            .joinedload(RestaurantOrderItem.product),
+        joinedload(RestaurantOrder.items)
+            .joinedload(RestaurantOrderItem.modifiers)
+            .joinedload(RestaurantOrderItemModifier.option)
+    ).filter(RestaurantOrder.id == order_id).first()
+
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    business_config = {}
+    configs = db.execute(text(f"SELECT key, value FROM {get_tenant_schema()}.business_config")).all()
+    for config in configs:
+        business_config[config.key] = config.value
+
+    total = sum(float(item.subtotal) for item in order.items if item.status != 'CANCELLED')
+
+    context = {
+        "business": {
+            "name": business_config.get("business_name", "MI NEGOCIO"),
+            "document_id": business_config.get("business_doc", ""),
+            "address": business_config.get("business_address", ""),
+            "phone": business_config.get("business_phone", ""),
+        },
+        "order": {
+            "table_name": order.table.name if order.table else ("LLEVAR (" + order.customer_name + ")" if order.customer_name else "PARA LLEVAR"),
+            "date": order.created_at.strftime("%d/%m/%Y") if order.created_at else "",
+            "time": order.created_at.strftime("%I:%M %p") if order.created_at else "",
+            "items": [
+                {
+                    "product_name": item.product.name,
+                    "quantity": int(float(item.quantity)) if float(item.quantity) % 1 == 0 else float(item.quantity),
+                    "subtotal": f"{float(item.subtotal):.2f}",
+                }
+                for item in order.items if item.status != 'CANCELLED'
+            ],
+            "total": f"{total:.2f}",
+        }
+    }
+
+    effective_width = width if width in ("58", "80") else business_config.get("paper_width", "58")
+    template = get_restaurant_precheck_80_template() if effective_width == "80" else get_restaurant_precheck_58_template()
+
+    return {
+        "status": "ready",
+        "template": template,
+        "context": context
+    }
 
 @router.post("/{order_id}/move")
 def move_order(order_id: int, move_data: OrderMove, db: Session = Depends(get_db)):

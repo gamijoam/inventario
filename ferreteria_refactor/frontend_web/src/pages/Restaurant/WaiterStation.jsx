@@ -6,6 +6,7 @@ import {
     CreditCard, Receipt, AlertCircle, X, Maximize2, Minimize2
 } from 'lucide-react';
 import restaurantService from '../../services/restaurantService';
+import printerService from '../../services/printerService';
 import toast from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../context/AuthContext';
@@ -156,8 +157,9 @@ const WaiterStation = () => {
 
     const handlePrecheck = async (orderId) => {
         try {
-            await restaurantService.printPreCheck(orderId);
-            toast.success("Pre-cuenta enviada a impresión");
+            const payload = await restaurantService.getPreCheckThermal(orderId);
+            await printerService.printRaw(payload);
+            toast.success("Pre-cuenta impresa");
         } catch {
             toast.error("Error al imprimir pre-cuenta");
         }

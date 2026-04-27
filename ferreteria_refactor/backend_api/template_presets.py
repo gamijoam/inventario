@@ -84,8 +84,81 @@ Vigencia: {{ item.warranty.duration_text }}
 {{ end }}{{ end }}
 ================================
 {{ end }}
-<center>Gracias por su compra</center>
-{{ if business.warranty_text }}<center>{{ business.warranty_text }}</center>{{ end }}
+
+
+<cut>
+"""
+
+
+def get_restaurant_precheck_58_template() -> str:
+    return """================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================
+<center>
+<bold>PRE-CUENTA</bold>
+<bold>Mesa: {{ order.table_name }}</bold>
+</center>
+Fecha: {{ order.date }}
+Hora: {{ order.time }}
+================================
+CANT  DESCRIPCION          TOTAL
+--------------------------------
+{{ for item in order.items }}
+{{ item.quantity | string.pad_right 4 }} {{ item.product_name | string.slice 0 14 | string.pad_right 14 }} {{ item.subtotal | string.pad_left 7 }}
+{{ end }}
+================================
+<right>
+<bold>TOTAL: ${{ order.total }}</bold>
+</right>
+================================
+<center>
+NO FISCAL
+Propina no incluida
+Gracias por su visita!
+</center>
+
+
+<cut>
+"""
+
+
+def get_restaurant_precheck_80_template() -> str:
+    return """================================================
+<center>
+<bold>{{ business.name }}</bold>
+{{ business.address }}
+RIF: {{ business.document_id }}
+Tel: {{ business.phone }}
+</center>
+================================================
+<center>
+<bold>PRE-CUENTA</bold>
+<bold>Mesa: {{ order.table_name }}</bold>
+</center>
+Fecha: {{ order.date }}    Hora: {{ order.time }}
+================================================
+CANT     DESCRIPCION                TOTAL
+------------------------------------------------
+{{ for item in order.items }}
+{{ item.quantity | string.pad_right 6 }} {{ item.product_name | string.slice 0 20 | string.pad_right 20 }} {{ item.subtotal | string.pad_left 8 }}
+{{ end }}
+================================================
+<right>
+<bold>TOTAL: ${{ order.total }}</bold>
+</right>
+================================================
+<center>
+NO FISCAL
+Propina no incluida
+Gracias por su visita!
+</center>
+
+
 <cut>
 """
 
