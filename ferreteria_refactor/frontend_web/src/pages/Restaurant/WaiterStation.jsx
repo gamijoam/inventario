@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-    ChefHat, Clock, CheckCircle, Flame, UtensilsCrossed, 
-    RefreshCw, Send, Play, Bell, MapPin, DollarSign, 
+import {
+    ChefHat, Clock, CheckCircle, Flame, UtensilsCrossed,
+    RefreshCw, Send, Play, Bell, MapPin, DollarSign,
     ShoppingBag, ArrowRightLeft, LogOut, Plus, Minus,
-    CreditCard, Receipt, AlertCircle, X
+    CreditCard, Receipt, AlertCircle, X, Maximize2, Minimize2
 } from 'lucide-react';
 import restaurantService from '../../services/restaurantService';
 import toast from 'react-hot-toast';
@@ -24,7 +24,6 @@ const WaiterStation = () => {
     const [myTables, setMyTables] = useState([]);
     const [availableTables, setAvailableTables] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [lastUpdated, setLastUpdated] = useState(new Date());
     const [selectedTable, setSelectedTable] = useState(null);
     const [showOrderPanel, setShowOrderPanel] = useState(false);
     const [showOpenTableModal, setShowOpenTableModal] = useState(false);
@@ -37,6 +36,17 @@ const WaiterStation = () => {
     const [transferring, setTransferring] = useState(false);
     const [showCloseShiftModal, setShowCloseShiftModal] = useState(false);
     const [closingShift, setClosingShift] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [screenSize, setScreenSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+
+    const updateScreenSize = useCallback(() => {
+        setScreenSize({ width: window.innerWidth, height: window.innerHeight });
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('resize', updateScreenSize);
+        return () => window.removeEventListener('resize', updateScreenSize);
+    }, [updateScreenSize]);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -60,7 +70,7 @@ const WaiterStation = () => {
                 });
             });
 
-            const myActiveTables = tables.filter(t => 
+            const myActiveTables = tables.filter(t =>
                 t.status === 'OCCUPIED' && t.current_order_id
             );
             const availTables = tables.filter(t => t.status === 'AVAILABLE');
@@ -68,7 +78,6 @@ const WaiterStation = () => {
             setReadyItems(allReadyItems);
             setMyTables(myActiveTables);
             setAvailableTables(availTables);
-            setLastUpdated(new Date());
         } catch (err) {
             console.error("Error loading data:", err);
             toast.error("Error al sincronizar");
@@ -189,48 +198,100 @@ const WaiterStation = () => {
         }
     };
 
+    const containerClass = isFullscreen
+        ? "fixed inset-0 z-[9999] bg-slate-900 text-white flex flex-col font-sans"
+        : "min-h-screen bg-slate-900 text-white flex flex-col font-sans";
+
+    const orderCountClass = isFullscreen ? "text-5xl md:text-7xl font-black" : "text-3xl md:text-4xl font-black";
+
+    const getGridCols = () => {
+        if (!isFullscreen) return 1;
+        const w = screenSize.width;
+        if (w >= 1920) return 4;
+        if (w >= 1280) return 3;
+        if (w >= 768) return 2;
+        return 1;
+    };
+
     return (
-        <div className="min-h-screen bg-slate-900 text-white flex flex-col max-w-[600px] mx-auto">
-            {/* Header - Compact for mobile */}
-            <header className="bg-slate-800 p-3 flex items-center justify-between border-b border-slate-700">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
-                        <UtensilsCrossed className="w-5 h-5 text-white" />
+        <div className={containerClass}>
+            {/* Fullscreen header */}
+            {isFullscreen ? (
+                <div className="flex justify-between items-center px-4 py-2 bg-slate-800 border-b border-slate-700 shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
+                            <UtensilsCrossed className="w-5 h-5 text-white" />
+                        </div>
+                        <span className="text-lg font-black text-slate-300">COCINA</span>
                     </div>
-                    <div>
-                        <h1 className="text-lg font-black">COMANDER</h1>
-                        <p className="text-[10px] text-slate-400 uppercase">Mesero</p>
+                    <div className="flex flex-col items-center">
+                        <span className="text-4xl md:text-6xl font-black text-emerald-400 leading-none">
+                            {readyItems.length}
+                        </span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                            {readyItems.length === 1 ? 'plato listo' : 'platos listos'}
+                        </span>
                     </div>
-                </div>
-                <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400 hidden sm:inline">{lastUpdated.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                    <button 
-                        onClick={loadData}
-                        className={cn(
-                            "p-2 bg-slate-700 rounded-xl active:scale-90 transition-all",
-                            loading && "animate-spin"
-                        )}
+                    <button
+                        onClick={() => setIsFullscreen(false)}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-xl font-black text-sm transition-all active:scale-95"
                     >
-                        <RefreshCw className="w-5 h-5" />
+                        <X className="w-5 h-5" />
+                        SALIR
                     </button>
                 </div>
-            </header>
+            ) : (
+                <header className="bg-slate-800 px-4 py-1 flex items-center justify-between border-b border-slate-700 shrink-0">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+                            <UtensilsCrossed className="w-4 h-4 text-white" />
+                        </div>
+                        <span className="text-sm font-bold text-slate-400 hidden md:inline">COMANDER</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className={cn("text-emerald-400 leading-none", orderCountClass)}>
+                            {readyItems.length}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            {readyItems.length === 1 ? 'listo' : 'listos'}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={loadData}
+                            className={cn(
+                                "p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-all active:scale-90",
+                                loading && "animate-spin"
+                            )}
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => setIsFullscreen(!isFullscreen)}
+                            className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-all active:scale-90"
+                            title="Modo Tablet"
+                        >
+                            <Maximize2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                </header>
+            )}
 
-            {/* Tab Navigation - Large touch targets */}
-            <nav className="flex bg-slate-800 border-b border-slate-700">
+            {/* Tab Navigation */}
+            <nav className="flex bg-slate-800 border-b border-slate-700 shrink-0">
                 <button
                     onClick={() => setActiveTab(TABS.READY)}
                     className={cn(
-                        "flex-1 py-4 px-2 flex flex-col items-center gap-1 transition-all border-b-2",
-                        activeTab === TABS.READY 
-                            ? "border-emerald-500 text-emerald-400" 
+                        "flex-1 py-3 md:py-4 px-2 flex flex-col items-center gap-1 transition-all border-b-2 relative",
+                        activeTab === TABS.READY
+                            ? "border-emerald-500 text-emerald-400"
                             : "border-transparent text-slate-400 hover:text-white"
                     )}
                 >
-                    <Bell className="w-5 h-5" />
+                    <Bell className="w-5 h-5 md:w-6 md:h-6" />
                     <span className="text-xs font-bold">LISTOS</span>
                     {readyItems.length > 0 && (
-                        <span className="absolute top-1 right-4 w-5 h-5 bg-red-500 rounded-full text-[10px] font-black flex items-center justify-center">
+                        <span className="absolute top-1 right-1/4 w-6 h-6 bg-red-500 rounded-full text-[10px] font-black flex items-center justify-center">
                             {readyItems.length}
                         </span>
                     )}
@@ -238,32 +299,32 @@ const WaiterStation = () => {
                 <button
                     onClick={() => setActiveTab(TABS.TABLES)}
                     className={cn(
-                        "flex-1 py-4 px-2 flex flex-col items-center gap-1 transition-all border-b-2",
-                        activeTab === TABS.TABLES 
-                            ? "border-emerald-500 text-emerald-400" 
+                        "flex-1 py-3 md:py-4 px-2 flex flex-col items-center gap-1 transition-all border-b-2",
+                        activeTab === TABS.TABLES
+                            ? "border-emerald-500 text-emerald-400"
                             : "border-transparent text-slate-400 hover:text-white"
                     )}
                 >
-                    <MapPin className="w-5 h-5" />
+                    <MapPin className="w-5 h-5 md:w-6 md:h-6" />
                     <span className="text-xs font-bold">MIS MESAS</span>
                     <span className="text-[10px] text-slate-500">{myTables.length}</span>
                 </button>
                 <button
                     onClick={() => setActiveTab(TABS.ACTIONS)}
                     className={cn(
-                        "flex-1 py-4 px-2 flex flex-col items-center gap-1 transition-all border-b-2",
-                        activeTab === TABS.ACTIONS 
-                            ? "border-emerald-500 text-emerald-400" 
+                        "flex-1 py-3 md:py-4 px-2 flex flex-col items-center gap-1 transition-all border-b-2",
+                        activeTab === TABS.ACTIONS
+                            ? "border-emerald-500 text-emerald-400"
                             : "border-transparent text-slate-400 hover:text-white"
                     )}
                 >
-                    <DollarSign className="w-5 h-5" />
+                    <DollarSign className="w-5 h-5 md:w-6 md:h-6" />
                     <span className="text-xs font-bold">ACCIONES</span>
                 </button>
             </nav>
 
             {/* Content Area */}
-            <main className="flex-1 overflow-y-auto p-3 pb-20">
+            <main className={cn("flex-1 overflow-y-auto", isFullscreen ? "p-3" : "p-3 pb-20")}>
                 {loading && readyItems.length === 0 && myTables.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-500">
                         <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -273,46 +334,49 @@ const WaiterStation = () => {
                     <>
                         {/* READY ITEMS VIEW */}
                         {activeTab === TABS.READY && (
-                            <div className="space-y-3">
+                            <div className={cn(
+                                "space-y-3",
+                                isFullscreen && "grid gap-4",
+                                isFullscreen && getGridCols() > 1 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                            )}>
                                 {readyItems.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-                                        <CheckCircle className="w-16 h-16 mb-3 opacity-20" />
-                                        <p className="text-lg font-bold opacity-30">Todo servido</p>
-                                        <p className="text-xs opacity-30 mt-1">No hay platos listos para entregar</p>
+                                        <CheckCircle className="w-20 h-20 mb-4 opacity-20" />
+                                        <p className="text-2xl font-bold opacity-30">Todo servido</p>
+                                        <p className="text-sm opacity-30 mt-1">No hay platos listos para entregar</p>
                                     </div>
                                 ) : (
                                     readyItems.map(item => (
-                                        <div 
+                                        <div
                                             key={`${item.order_id}-${item.id}`}
                                             className="bg-white rounded-2xl overflow-hidden shadow-lg"
                                         >
-                                            <div className="p-4 bg-emerald-500 text-white flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                                                        <UtensilsCrossed className="w-5 h-5" />
+                                            <div className="p-4 md:p-5 bg-emerald-500 text-white flex items-start justify-between gap-4">
+                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                    <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
+                                                        <span className="text-2xl font-black">{Number(item.quantity)}</span>
                                                     </div>
-                                                    <div>
-                                                        <p className="font-black text-lg">{item.product_name}</p>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="font-black text-lg md:text-xl truncate">{item.product_name}</p>
                                                         <p className="text-xs opacity-80">
-                                                            {item.order_id ? `Mesa ${item.table_id || item.order_id}` : 'Para llevar'} • {getElapsedTime(item.order_created_at)}
+                                                            Mesa {item.table_id || item.order_id} • {getElapsedTime(item.order_created_at)}
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <span className="text-3xl font-black">{item.quantity}x</span>
                                             </div>
-                                            
+
                                             {item.notes && (
-                                                <div className="px-4 py-2 bg-amber-50 flex items-center gap-2 border-t border-amber-100">
-                                                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                                                    <p className="text-xs font-bold text-amber-700 uppercase">{item.notes}</p>
+                                                <div className="px-4 py-3 bg-amber-50 flex items-start gap-2 border-t border-amber-100">
+                                                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                                                    <p className="text-sm font-bold text-amber-700">{item.notes}</p>
                                                 </div>
                                             )}
 
                                             <button
                                                 onClick={() => handleDeliverItem(item.id)}
-                                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all text-white font-black text-sm flex items-center justify-center gap-2"
+                                                className="w-full py-4 md:py-5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all text-white font-black text-base md:text-lg flex items-center justify-center gap-3"
                                             >
-                                                <CheckCircle className="w-5 h-5" />
+                                                <CheckCircle className="w-6 h-6" />
                                                 ENTREGAR
                                             </button>
                                         </div>
@@ -323,34 +387,37 @@ const WaiterStation = () => {
 
                         {/* MY TABLES VIEW */}
                         {activeTab === TABS.TABLES && (
-                            <div className="space-y-3">
+                            <div className={cn(
+                                "space-y-3",
+                                isFullscreen && getGridCols() > 1 && "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                            )}>
                                 {myTables.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-16 text-slate-500">
-                                        <MapPin className="w-16 h-16 mb-3 opacity-20" />
-                                        <p className="text-lg font-bold opacity-30">Sin mesas activas</p>
-                                        <p className="text-xs opacity-30 mt-1">No tienes mesas abiertas</p>
+                                        <MapPin className="w-20 h-20 mb-4 opacity-20" />
+                                        <p className="text-2xl font-bold opacity-30">Sin mesas activas</p>
+                                        <p className="text-sm opacity-30 mt-1">No tienes mesas abiertas</p>
                                     </div>
                                 ) : (
                                     myTables.map(table => (
-                                        <div 
+                                        <div
                                             key={table.id}
                                             className="bg-white rounded-2xl overflow-hidden"
                                         >
-                                            <div className="p-4 flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center text-white font-black text-lg">
+                                            <div className="p-4 md:p-5 flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-16 h-16 bg-red-500 rounded-2xl flex items-center justify-center text-white font-black text-2xl shrink-0">
                                                         {table.name}
                                                     </div>
                                                     <div>
-                                                        <p className="font-black text-slate-800">{table.name}</p>
-                                                        <p className="text-xs text-slate-500 flex items-center gap-1">
-                                                            <Clock className="w-3 h-3" />
+                                                        <p className="font-black text-xl md:text-2xl text-slate-800">Mesa {table.name}</p>
+                                                        <p className="text-sm text-slate-500 flex items-center gap-2 mt-1">
+                                                            <Clock className="w-4 h-4" />
                                                             {table.current_order_time ? getElapsedTime(table.current_order_time) : '0m'}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-lg font-black text-emerald-600">
+                                                    <p className="text-2xl md:text-3xl font-black text-emerald-600">
                                                         {formatCurrency(table.current_order_total)}
                                                     </p>
                                                 </div>
@@ -358,9 +425,9 @@ const WaiterStation = () => {
                                             <div className="flex border-t border-slate-200">
                                                 <button
                                                     onClick={() => handlePrecheck(table.current_order_id)}
-                                                    className="flex-1 py-3 flex items-center justify-center gap-2 text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all font-bold text-xs"
+                                                    className="flex-1 py-4 flex items-center justify-center gap-2 text-slate-600 hover:bg-slate-50 active:scale-[0.98] transition-all font-bold text-sm md:text-base"
                                                 >
-                                                    <Receipt className="w-4 h-4" />
+                                                    <Receipt className="w-5 h-5" />
                                                     PRE-CUENTA
                                                 </button>
                                                 <button
@@ -368,10 +435,10 @@ const WaiterStation = () => {
                                                         setSelectedTable(table);
                                                         setShowOrderPanel(true);
                                                     }}
-                                                    className="flex-1 py-3 flex items-center justify-center gap-2 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98] transition-all font-bold text-xs"
+                                                    className="flex-1 py-4 flex items-center justify-center gap-2 bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98] transition-all font-bold text-sm md:text-base"
                                                 >
-                                                    <CreditCard className="w-4 h-4" />
-                                                    COBRAR
+                                                    <CreditCard className="w-5 h-5" />
+                                                    TOMAR PEDIDO
                                                 </button>
                                             </div>
                                         </div>
@@ -382,16 +449,21 @@ const WaiterStation = () => {
 
                         {/* ACTIONS VIEW */}
                         {activeTab === TABS.ACTIONS && (
-                            <div className="space-y-3">
-                                <div className="bg-white rounded-2xl p-4">
-                                    <h3 className="text-sm font-bold text-slate-500 uppercase mb-3">Acciones Rápidas</h3>
-                                    <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-4 max-w-3xl mx-auto">
+                                <div className="bg-white rounded-2xl p-4 md:p-6">
+                                    <h3 className="text-base font-bold text-slate-500 uppercase mb-4">Acciones Rápidas</h3>
+                                    <div className={cn(
+                                        "gap-3",
+                                        isFullscreen ? "grid grid-cols-2 md:grid-cols-4" : "grid grid-cols-2"
+                                    )}>
                                         <button
                                             onClick={() => setShowOpenTableModal(true)}
-                                            className="py-4 bg-slate-100 rounded-xl flex flex-col items-center gap-2 text-slate-700 active:scale-95 transition-all"
+                                            className="py-5 bg-slate-100 rounded-2xl flex flex-col items-center gap-3 text-slate-700 active:scale-95 transition-all"
                                         >
-                                            <Plus className="w-6 h-6" />
-                                            <span className="text-xs font-bold">Abrir Mesa</span>
+                                            <div className="w-12 h-12 bg-emerald-500 rounded-xl flex items-center justify-center">
+                                                <Plus className="w-6 h-6 text-white" />
+                                            </div>
+                                            <span className="text-sm font-bold">Abrir Mesa</span>
                                         </button>
                                         <button
                                             onClick={() => {
@@ -401,41 +473,49 @@ const WaiterStation = () => {
                                                 }
                                                 handleTransferStep1(myTables[0]);
                                             }}
-                                            className="py-4 bg-slate-100 rounded-xl flex flex-col items-center gap-2 text-slate-700 active:scale-95 transition-all"
+                                            className="py-5 bg-slate-100 rounded-2xl flex flex-col items-center gap-3 text-slate-700 active:scale-95 transition-all"
                                         >
-                                            <ArrowRightLeft className="w-6 h-6" />
-                                            <span className="text-xs font-bold">Transferir</span>
+                                            <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
+                                                <ArrowRightLeft className="w-6 h-6 text-white" />
+                                            </div>
+                                            <span className="text-sm font-bold">Transferir</span>
                                         </button>
                                         <button
                                             onClick={() => setShowTakeoutModal(true)}
-                                            className="py-4 bg-slate-100 rounded-xl flex flex-col items-center gap-2 text-slate-700 active:scale-95 transition-all"
+                                            className="py-5 bg-slate-100 rounded-2xl flex flex-col items-center gap-3 text-slate-700 active:scale-95 transition-all"
                                         >
-                                            <ShoppingBag className="w-6 h-6" />
-                                            <span className="text-xs font-bold">Para Llevar</span>
+                                            <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center">
+                                                <ShoppingBag className="w-6 h-6 text-white" />
+                                            </div>
+                                            <span className="text-sm font-bold">Para Llevar</span>
                                         </button>
                                         <button
                                             onClick={() => setShowCloseShiftModal(true)}
-                                            className="py-4 bg-slate-100 rounded-xl flex flex-col items-center gap-2 text-slate-700 active:scale-95 transition-all"
+                                            className="py-5 bg-slate-100 rounded-2xl flex flex-col items-center gap-3 text-slate-700 active:scale-95 transition-all"
                                         >
-                                            <LogOut className="w-6 h-6" />
-                                            <span className="text-xs font-bold">Cerrar Turno</span>
+                                            <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center">
+                                                <LogOut className="w-6 h-6 text-white" />
+                                            </div>
+                                            <span className="text-sm font-bold">Cerrar Turno</span>
                                         </button>
                                     </div>
                                 </div>
 
-                                <div className="bg-white rounded-2xl p-4">
-                                    <h3 className="text-sm font-bold text-slate-500 uppercase mb-3">Mi Turno</h3>
-                                    <div className="flex items-center justify-between py-2">
-                                        <span className="text-sm text-slate-600">Mesero</span>
-                                        <span className="text-sm font-bold text-slate-800">{user?.full_name || 'Usuario'}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between py-2 border-t border-slate-100">
-                                        <span className="text-sm text-slate-600">Mesas atendidas</span>
-                                        <span className="text-sm font-bold text-emerald-600">{myTables.length}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between py-2 border-t border-slate-100">
-                                        <span className="text-sm text-slate-600">Platos servidos</span>
-                                        <span className="text-sm font-bold text-emerald-600">0</span>
+                                <div className="bg-white rounded-2xl p-4 md:p-6">
+                                    <h3 className="text-base font-bold text-slate-500 uppercase mb-4">Mi Turno</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-base text-slate-600">Mesero</span>
+                                            <span className="text-base font-bold text-slate-800">{user?.full_name || 'Usuario'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                                            <span className="text-base text-slate-600">Mesas atendidas</span>
+                                            <span className="text-base font-bold text-emerald-600">{myTables.length}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                                            <span className="text-base text-slate-600">Platos servidos</span>
+                                            <span className="text-base font-bold text-emerald-600">{readyItems.length}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -444,16 +524,18 @@ const WaiterStation = () => {
                 )}
             </main>
 
-            {/* Bottom Status Bar */}
-            <div className="fixed bottom-0 left-0 right-0 bg-emerald-600 text-white py-2 px-4 flex items-center justify-between max-w-[600px] mx-auto">
-                <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                    <span className="text-xs font-medium">En línea</span>
+            {/* Bottom Status Bar - only in normal mode */}
+            {!isFullscreen && (
+                <div className="fixed bottom-0 left-0 right-0 bg-emerald-600 text-white py-2 px-4 flex items-center justify-between max-w-[600px] mx-auto">
+                    <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                        <span className="text-xs font-medium">En línea</span>
+                    </div>
+                    <span className="text-xs font-medium">
+                        {readyItems.length} listos • {myTables.length} mesas
+                    </span>
                 </div>
-                <span className="text-xs font-medium">
-                    {readyItems.length} listos • {myTables.length} mesas
-                </span>
-            </div>
+            )}
 
             {/* OrderPanel Modal */}
             {showOrderPanel && selectedTable && (
