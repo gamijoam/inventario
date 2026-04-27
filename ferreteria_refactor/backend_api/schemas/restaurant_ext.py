@@ -33,8 +33,8 @@ class MenuItemCreate(MenuItemBase):
 class MenuItemRead(MenuItemBase):
     id: int
     section_id: int
-    product_name: str
-    price: float
+    product_name: Optional[str] = None
+    price: Optional[float] = None
     stock: float = 0.0
 
     class Config:
