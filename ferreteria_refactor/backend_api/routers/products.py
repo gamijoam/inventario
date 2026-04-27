@@ -9,6 +9,7 @@ from datetime import date, datetime
 from ..database.db import get_db
 from ..models import models
 from ..models.models import UserRole
+from ..models.restaurant import RestaurantRecipe # NEW
 from .. import schemas
 from ..dependencies import has_role, cashier_or_admin, get_current_active_user
 from ..websocket.manager import manager
@@ -135,7 +136,7 @@ def read_catalog_products(
             .subqueryload(models.Product.stocks),
         # Recipes: load ingredients + their stocks for virtual stock calculation
         subqueryload(models.Product.recipes)
-            .subqueryload(models.RestaurantRecipe.ingredient)
+            .subqueryload(RestaurantRecipe.ingredient)
             .subqueryload(models.Product.stocks),
     ).order_by(models.Product.name).offset(skip).limit(limit).all()
 
@@ -243,7 +244,7 @@ def read_products(
             joinedload(models.Product.prices),
             joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
             joinedload(models.Product.price_rules),
-            joinedload(models.Product.recipes).subqueryload(models.RestaurantRecipe.ingredient).subqueryload(models.Product.stocks)
+            joinedload(models.Product.recipes).subqueryload(RestaurantRecipe.ingredient).subqueryload(models.Product.stocks)
         ).filter(models.Product.is_active == True)
         
         # FILTER: Warehouse
