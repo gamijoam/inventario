@@ -50,16 +50,6 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
     // Quick notes
     const QUICK_NOTES = ['Sin cebolla', 'Extra queso', 'Bien cocido', 'Término medio', 'Sin sal', 'Sin picante', 'Para compartir'];
 
-    // Load order if occupied, or auto-open if available/reserved
-    useEffect(() => {
-        if (table.status === 'OCCUPIED') {
-            loadCurrentOrder();
-        } else if (table.status === 'AVAILABLE' || table.status === 'RESERVED') {
-            // Auto-open the table so the user sees the menu immediately
-            handleOpenTable();
-        }
-    }, [table.status, table.id, table.is_takeout, customerName, onUpdate, handleOpenTable, loadCurrentOrder]);
-
     const loadCurrentOrder = async () => {
         setLoadingOrder(true);
         try {
@@ -69,7 +59,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
                 if (data.customer_name) setCustomerName(data.customer_name);
             }
         } catch (err) {
-            console.error("Error loading order:", error);
+            console.error("Error loading order:", err);
         } finally {
             setLoadingOrder(false);
         }
@@ -84,15 +74,11 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
                 setActiveSectionId(data.sections[0].id);
             }
         } catch (err) {
-            console.error("Error loading menu:", error);
+            console.error("Error loading menu:", err);
         } finally {
             setMenuLoading(false);
         }
     };
-
-    useEffect(() => {
-        loadMenu();
-    }, []);
 
     const handleOpenTable = async () => {
         try {
@@ -107,9 +93,23 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
             setOrder(data);
             if (!table.is_takeout) table.status = 'OCCUPIED';
         } catch (err) {
-            toast.error("Error al abrir el pedido: " + error.message);
+            toast.error("Error al abrir el pedido: " + err.message);
         }
     };
+
+    // Load order if occupied, or auto-open if available/reserved
+    useEffect(() => {
+        if (table.status === 'OCCUPIED') {
+            loadCurrentOrder();
+        } else if (table.status === 'AVAILABLE' || table.status === 'RESERVED') {
+            // Auto-open the table so the user sees the menu immediately
+            handleOpenTable();
+        }
+    }, [table.status, table.id, table.is_takeout, customerName, onUpdate, handleOpenTable, loadCurrentOrder]);
+
+    useEffect(() => {
+        loadMenu();
+    }, []);
 
     // Search Products
     useEffect(() => {
