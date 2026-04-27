@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search, Plus, Minus, ChefHat, Settings, ArrowRight, Split, Send, Clock, CheckCircle, Flame, UtensilsCrossed, ShoppingBag, Trash2, Check, Info, Pencil } from 'lucide-react';
+import { X, Search, Plus, Minus, ChefHat, Settings, ArrowRight, Split, Send, Clock, CheckCircle, Flame, UtensilsCrossed, ShoppingBag, Trash2, Check, Info, Pencil, DollarSign } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfig } from '../../../context/ConfigContext';
 import restaurantService from '../../../services/restaurantService';
@@ -19,6 +19,8 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const { getExchangeRate } = useConfig();
     const { user } = useAuth();
     const isAdmin = user?.role === 'ADMIN';
+    const isWaiter = user?.role === 'WAITER';
+    const isAdminOrWaiter = isAdmin || isWaiter;
     const [order, setOrder] = useState(null);
     const [loadingOrder, setLoadingOrder] = useState(false);
     const [cart, setCart] = useState([]); // Items not yet sent to kitchen
@@ -282,6 +284,19 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const startEditingQuantity = (item) => {
         setEditingItemId(item.id);
         setEditingQuantity(Number(item.quantity));
+    };
+
+    const handleMarkReadyToBill = async () => {
+        if (!window.confirm(`¿Marbar mesa ${table.name} como lista para cobrar?\n\nPrimero confirma con el cliente que ya no necesita nada.`)) return;
+        if (!window.confirm(`¿Estás seguro? No se podrá deshacer.`)) return;
+        try {
+            await restaurantService.setTableStatus(table.id, 'WAITING_BILL');
+            toast.success(`Mesa ${table.name} marcada como lista para cobrar`, { icon: '🟠' });
+            onUpdate();
+            onClose();
+        } catch (err) {
+            toast.error("Error: " + (err.response?.data?.detail || err.message));
+        }
     };
 
     // Filtered Menu
@@ -607,13 +622,22 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
 
                             {order && (
                                 <div className="flex gap-3 pt-2">
-                                    {isAdmin && (
+                                    {table.status === 'WAITING_BILL' && isAdmin && (
                                         <button
                                             onClick={() => setShowPaymentModal(true)}
                                             className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all flex items-center justify-center gap-2"
                                         >
                                             <CheckCircle className="w-5 h-5" />
                                             FINALIZAR Y COBRAR
+                                        </button>
+                                    )}
+                                    {table.status === 'OCCUPIED' && isAdminOrWaiter && (
+                                        <button
+                                            onClick={handleMarkReadyToBill}
+                                            className="flex-1 py-4 bg-orange-500 text-white rounded-2xl font-black text-sm shadow-xl shadow-orange-200 hover:bg-orange-600 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <DollarSign className="w-5 h-5" />
+                                            MESA COMPLETA
                                         </button>
                                     )}
                                     <button className="p-4 bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition-colors">

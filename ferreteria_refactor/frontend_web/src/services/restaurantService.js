@@ -17,6 +17,11 @@ const restaurantService = {
         return response.data;
     },
 
+    setTableStatus: async (tableId, status) => {
+        const response = await axiosInstance.patch(`/restaurant/tables/${tableId}/status?status=${status}`);
+        return response.data;
+    },
+
     deleteTable: async (id) => {
         await axiosInstance.delete(`/restaurant/tables/${id}`);
         return true;
