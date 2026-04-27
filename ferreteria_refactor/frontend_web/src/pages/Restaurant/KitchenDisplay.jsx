@@ -232,10 +232,10 @@ const KitchenDisplay = () => {
                                                 <span>{order.table_id || '-'}</span>
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Orden #{order.id}</p>
-                                                <p className="text-sm font-bold text-white/80">
-                                                    {order.is_takeout ? '📦 Para Llevar' : ''}
-                                                </p>
+                                                <p className="text-xl font-black text-white leading-tight">Orden #{order.id}</p>
+                                                {order.is_takeout && (
+                                                    <p className="text-sm font-bold text-amber-400 mt-0.5">📦 Para Llevar</p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
