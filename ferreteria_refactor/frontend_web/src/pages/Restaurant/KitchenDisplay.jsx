@@ -181,38 +181,44 @@ const KitchenDisplay = () => {
                                                     )}>
                                                         {/* Item Header - BIG QUANTITY + NAME */}
                                                         <div className={cn(
-                                                            "p-4 flex items-center gap-4",
+                                                            "p-4 flex items-center gap-3",
                                                             item.status === 'READY' ? "bg-emerald-100/50" : "bg-slate-800"
                                                         )}>
                                                             <div className={cn(
-                                                                "w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shrink-0",
+                                                                "min-w-[48px] h-12 px-2 rounded-2xl flex items-center justify-center font-black text-xl shrink-0 leading-none",
                                                                 item.status === 'READY'
                                                                     ? "bg-emerald-500 text-white"
                                                                     : "bg-orange-500 text-white"
                                                             )}>
-                                                                {item.quantity}×
+                                                                <span className="truncate">{item.quantity}×</span>
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className={cn(
-                                                                    "font-black text-xl text-white leading-tight truncate",
+                                                                    "font-black text-lg text-white leading-tight truncate",
                                                                     item.status === 'READY' && "opacity-60"
                                                                 )}>
                                                                     {item.product_name}
                                                                 </p>
                                                                 {item.status === 'PREPARING' && (
-                                                                    <p className="text-[10px] font-bold text-orange-300 uppercase tracking-widest mt-1">Preparando...</p>
+                                                                    <p className="text-[10px] font-bold text-orange-300 uppercase tracking-widest mt-0.5">Preparando...</p>
                                                                 )}
                                                                 {item.status === 'READY' && (
-                                                                    <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest mt-1">Listo para servir</p>
+                                                                    <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-widest mt-0.5">Listo para servir</p>
+                                                                )}
+                                                                {item.status === 'PENDING' && (
+                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Recibido</p>
+                                                                )}
+                                                                {item.status === 'SENT' && (
+                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Enviado</p>
                                                                 )}
                                                             </div>
                                                         </div>
 
                                                         {/* Removed Ingredients - RED ALERT */}
                                                         {removedIngredients.length > 0 && (
-                                                            <div className="px-4 py-2 bg-red-50 border-t-2 border-red-200 flex items-center gap-2">
+                                                            <div className="px-4 py-2.5 bg-red-50 border-t-2 border-red-200 flex items-center gap-2">
                                                                 <div className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shrink-0">
-                                                                    <span className="text-xs font-black">✕</span>
+                                                                    <span className="text-[10px] font-black">✕</span>
                                                                 </div>
                                                                 <div className="flex-1 flex flex-wrap gap-1">
                                                                     {removedIngredients.map((ing, idx) => (
@@ -226,7 +232,7 @@ const KitchenDisplay = () => {
 
                                                         {/* Chef Notes - AMBER */}
                                                         {chefNotes && (
-                                                            <div className="px-4 py-2 bg-amber-50 border-t border-amber-200 flex items-start gap-2">
+                                                            <div className="px-4 py-2.5 bg-amber-50 border-t border-amber-200 flex items-start gap-2">
                                                                 <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                                                                 <p className="text-xs font-bold text-amber-700 leading-tight">{chefNotes}</p>
                                                             </div>

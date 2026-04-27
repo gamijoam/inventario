@@ -211,7 +211,8 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                 product_id: item.id,
                 quantity: item.quantity,
                 notes: item.notes || '',
-                modifier_option_ids: item.modifierOptionIds || []
+                modifier_option_ids: item.modifierOptionIds || [],
+                removed_ingredient_ids: item.removedIngredientIds || []
             }));
 
             await restaurantService.addItemsToOrder(currentOrderId, itemsToAdd);
