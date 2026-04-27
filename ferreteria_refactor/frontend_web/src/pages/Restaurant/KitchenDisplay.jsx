@@ -88,31 +88,30 @@ const KitchenDisplay = () => {
     const getPendingItems = (items) => items.filter(i => i.status !== 'SERVED');
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white p-4 sm:p-6 flex flex-col font-sans">
-            {/* ... header remains same ... */}
-            <header className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 bg-slate-800/50 p-4 rounded-3xl border border-slate-700 backdrop-blur-md">
-                <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20">
-                        <ChefHat className="w-8 h-8 text-white" />
+        <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans">
+            {/* Header - compact and full width */}
+            <header className="flex flex-col sm:flex-row justify-between items-center gap-3 px-4 py-2 bg-slate-800 border-b border-slate-700 shrink-0">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
+                        <ChefHat className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black tracking-tight">KITCHEN DISPLAY (KDS)</h1>
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                        <h1 className="text-lg font-black tracking-tight">KDS</h1>
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            Sistema en tiempo real • {orders.length} Órdenes activas
+                            {orders.length} órdenes activas
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="text-right hidden sm:block">
-                        <p className="text-[10px] text-slate-500 font-bold uppercase">Última actualización</p>
-                        <p className="text-sm font-mono text-slate-300">{lastUpdated.toLocaleTimeString()}</p>
-                    </div>
-                    <button 
+                    <span className="text-xs text-slate-400 hidden md:block">
+                        {lastUpdated.toLocaleTimeString()}
+                    </span>
+                    <button
                         onClick={loadKitchenOrders}
-                        className="p-4 bg-slate-700 hover:bg-slate-600 rounded-2xl transition-all active:scale-90"
+                        className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all active:scale-90"
                     >
-                        <RefreshCw className={cn("w-6 h-6", loading && "animate-spin")} />
+                        <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
                     </button>
                 </div>
             </header>
@@ -126,7 +125,7 @@ const KitchenDisplay = () => {
                         <p className="text-sm font-bold opacity-20">No hay pedidos pendientes en este momento</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 p-2 animate-in fade-in duration-500">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 animate-in fade-in duration-500">
                         {orders.map(order => {
                             const pendingItems = getPendingItems(order.items);
                             if (pendingItems.length === 0) return null;
