@@ -119,19 +119,23 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         },
         // RESTAURANT MODULE — ADMIN, CASHIER, WAITER, KITCHEN
         ...(effectiveModules?.restaurant && ['ADMIN', 'CASHIER', 'WAITER', 'KITCHEN'].includes(role) ? [{
-            type: 'group',
-            label: 'Restaurante',
-            icon: Utensils,
-            items: [
-                { icon: Utensils, label: 'Mapa de Mesas', path: '/restaurant/tables' },
-                { icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' },
-                { icon: Smartphone, label: 'Comandera', path: '/waiter' },
-                ...(isAdmin ? [
-                    { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
-                    { icon: ClipboardList, label: 'Recetas', path: '/restaurant/recipes' },
-                    { icon: Settings, label: 'Recetas Modificadores', path: '/restaurant/modifiers' },
-                ] : []),
-            ]
+            type: role === 'WAITER' ? 'single' : 'group',
+            ...(role === 'WAITER' ? {
+                item: { icon: Smartphone, label: 'Comandera', path: '/waiter' }
+            } : {
+                label: 'Restaurante',
+                icon: Utensils,
+                items: [
+                    { icon: Utensils, label: 'Mapa de Mesas', path: '/restaurant/tables' },
+                    { icon: ChefHat, label: 'Cocina', path: '/restaurant/kitchen' },
+                    { icon: Smartphone, label: 'Comandera', path: '/waiter' },
+                    ...(isAdmin ? [
+                        { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
+                        { icon: ClipboardList, label: 'Recetas', path: '/restaurant/recipes' },
+                        { icon: Settings, label: 'Recetas Modificadores', path: '/restaurant/modifiers' },
+                    ] : []),
+                ]
+            })
         }] : []),
         // SERVICE & LAUNDRY MODULES — ADMIN, CASHIER
         ...((effectiveModules?.services || effectiveModules?.laundry) && isAdminOrCashier ? [{

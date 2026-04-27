@@ -1262,7 +1262,7 @@ class RemotePrintPayloadRequest(BaseModel):
     client_id: str
     payload: dict
 
-@router.post("/print/remote/payload", dependencies=[Depends(cashier_or_admin)])
+@router.post("/print/remote/payload", tags=["Print"])
 async def print_remote_payload(
     request: RemotePrintPayloadRequest,
     current_user: models.User = Depends(get_current_active_user),
