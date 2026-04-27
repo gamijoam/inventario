@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ChefHat, Clock, CheckCircle, Flame, UtensilsCrossed, AlertCircle, RefreshCw, Send, Play, Maximize2, Minimize2, X } from 'lucide-react';
 import restaurantService from '../../services/restaurantService';
 import toast from 'react-hot-toast';
@@ -10,6 +10,31 @@ const KitchenDisplay = () => {
     const [lastUpdated, setLastUpdated] = useState(new Date());
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [screenSize, setScreenSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+    const prevPendingCountRef = useRef(0);
+
+    const playNewOrderSound = () => {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioCtx.currentTime;
+            const playAlert = (freq, start, dur, vol = 0.4) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.value = freq;
+                osc.type = 'sawtooth';
+                gain.gain.setValueAtTime(vol, now + start);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + start + dur);
+                osc.start(now + start);
+                osc.stop(now + start + dur);
+            };
+            playAlert(800, 0, 0.15);
+            playAlert(600, 0.12, 0.15);
+            playAlert(800, 0.24, 0.4, 0.5);
+        } catch {
+            console.log('Audio not supported');
+        }
+    };
 
     const updateScreenSize = useCallback(() => {
         setScreenSize({ width: window.innerWidth, height: window.innerHeight });
@@ -34,8 +59,17 @@ const KitchenDisplay = () => {
         setLoading(true);
         try {
             const data = await restaurantService.getKitchenOrders();
-            // Sort by creation date (oldest first)
             const sorted = data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+            const totalPending = sorted.reduce((acc, order) => {
+                return acc + order.items.filter(i => i.status === 'PENDING' || i.status === 'SENT').length;
+            }, 0);
+
+            if (totalPending > prevPendingCountRef.current) {
+                playNewOrderSound();
+            }
+            prevPendingCountRef.current = totalPending;
+
             setOrders(sorted);
             setLastUpdated(new Date());
         } catch (err) {

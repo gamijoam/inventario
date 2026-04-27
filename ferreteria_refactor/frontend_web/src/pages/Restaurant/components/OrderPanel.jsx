@@ -523,15 +523,15 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                         <div className="flex items-center gap-2 mt-2">
                                                             {editingItemId === item.id ? (
                                                                 <div className="flex items-center gap-2">
-                                                                    <button onClick={() => setEditingQuantity(q => Math.max(1, q - 1))} className="p-1 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"><Minus className="w-3 h-3" /></button>
+                                                                    <button onClick={() => setEditingQuantity(q => Math.max(1, q - 1))} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors active:scale-95"><Minus className="w-4 h-4" /></button>
                                                                     <input
                                                                         type="number"
                                                                         min="1"
                                                                         value={editingQuantity}
                                                                         onChange={(e) => setEditingQuantity(Number(e.target.value))}
-                                                                        className="w-12 text-center text-sm font-black border border-slate-300 rounded-lg py-0.5"
+                                                                        className="w-14 text-center text-base font-black border-2 border-blue-400 rounded-lg py-2 px-1 bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-300"
                                                                     />
-                                                                    <button onClick={() => setEditingQuantity(q => q + 1)} className="p-1 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"><Plus className="w-3 h-3" /></button>
+                                                                    <button onClick={() => setEditingQuantity(q => q + 1)} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors active:scale-95"><Plus className="w-4 h-4" /></button>
                                                                 </div>
                                                             ) : (
                                                                 <span className="text-xs font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-lg">x{item.quantity}</span>
