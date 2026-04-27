@@ -132,14 +132,32 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     };
 
     // Filtered Menu
-    const activeSection = menuSections.find(s => s.id === activeSectionId);
     const filteredProducts = useMemo(() => {
-        let prods = activeSection?.products || [];
         if (searchTerm) {
-            prods = prods.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+            // Global search across all categories
+            const allItems = menuSections.flatMap(s => s.items || []);
+            return allItems
+                .filter(item => 
+                    item.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    item.alias?.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .map(item => ({
+                    id: item.product_id,
+                    name: item.alias || item.product_name,
+                    price: item.price,
+                    image_url: item.image_url
+                }));
         }
-        return prods;
-    }, [activeSection, searchTerm]);
+
+        // Category based view
+        const activeSection = menuSections.find(s => s.id === activeSectionId);
+        return (activeSection?.items || []).map(item => ({
+            id: item.product_id,
+            name: item.alias || item.product_name,
+            price: item.price,
+            image_url: item.image_url
+        }));
+    }, [menuSections, activeSectionId, searchTerm]);
 
     if (!table) return null;
 
