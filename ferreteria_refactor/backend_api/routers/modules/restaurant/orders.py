@@ -286,36 +286,25 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
 @router.get("/kitchen/pending", response_model=List[OrderRead])
 def get_pending_kitchen_orders(db: Session = Depends(get_db)):
     """
-    Obtener todas las órdenes que tienen items PENDIENTES o EN PREPARACION.
-    Ideal para el KDS (Kitchen Display System).
+    Obtener todas las órdenes que tienen items PENDIENTES, ENVIADOS o EN PREPARACION.
     """
     try:
-        # Note: OrderItemStatusDB must have PREPARING.
-        # Ensure we are comparing against OrderItemStatusDB members, not OrderStatusDB
-        
+        # Define target statuses as strings to avoid Enum comparison issues in some environments
+        target_item_statuses = ['PENDING', 'SENT', 'PREPARING', 'READY']
+        closed_order_statuses = ['PAID', 'CANCELLED']
+
         orders = db.query(RestaurantOrder).filter(
-            RestaurantOrder.items.any(
-                RestaurantOrderItem.status.in_([
-                    OrderItemStatusDB.PENDING,
-                    OrderItemStatusDB.SENT,
-                    OrderItemStatusDB.PREPARING,
-                    OrderItemStatusDB.READY
-                ])
-            ),
-            RestaurantOrder.status.notin_([OrderStatusDB.PAID, OrderStatusDB.CANCELLED])
+            RestaurantOrder.items.any(RestaurantOrderItem.status.in_(target_item_statuses)),
+            RestaurantOrder.status.notin_(closed_order_statuses)
         ).options(
-            joinedload(RestaurantOrder.items).joinedload(RestaurantOrderItem.product)
+            joinedload(RestaurantOrder.items).joinedload(RestaurantOrderItem.product),
+            joinedload(RestaurantOrder.table)
         ).order_by(RestaurantOrder.created_at.asc()).all()
         
-        # print(f"DEBUG KITCHEN: Found {len(orders)} orders")
-        # if orders:
-        #    print(f"DEBUG KITCHEN: First order items: {orders[0].items}")
-            
         return orders
     except Exception as e:
         import traceback
         traceback.print_exc()
-        print(f"ERROR KITCHEN: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/items/{item_id}/status")
