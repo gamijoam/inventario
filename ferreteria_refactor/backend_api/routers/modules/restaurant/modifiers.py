@@ -57,15 +57,6 @@ router = APIRouter(
     dependencies=[Depends(get_current_active_user), Depends(require_restaurant_module)]
 )
 
-@router.get("/product/{product_id}", response_model=List[ModifierGroupRead])
-def get_product_modifiers(product_id: int, db: Session = Depends(get_db)):
-    groups = db.query(ProductModifierGroup).filter(ProductModifierGroup.product_id == product_id).all()
-    result = []
-    for g in groups:
-        opts = [{"id": o.id, "name": o.name, "price_adjustment": float(o.price_adjustment), "recipe_factor": float(o.recipe_factor), "is_active": o.is_active} for o in g.options if o.is_active]
-        result.append({"id": g.id, "product_id": g.product_id, "name": g.name, "selection_type": g.selection_type.value if hasattr(g.selection_type, 'value') else g.selection_type, "is_required": g.is_required, "options": opts})
-    return result
-
 @router.get("/all-with-options", response_model=List[ModifierGroupRead])
 def get_all_modifiers_with_options(db: Session = Depends(get_db)):
     """Devuelve todos los grupos de modificadores con sus opciones (para el editor de recetas de modificadores)."""
@@ -90,6 +81,15 @@ def get_all_modifiers_with_options(db: Session = Depends(get_db)):
             "is_required": g.is_required,
             "options": opts
         })
+    return result
+
+@router.get("/product/{product_id}", response_model=List[ModifierGroupRead])
+def get_product_modifiers(product_id: int, db: Session = Depends(get_db)):
+    groups = db.query(ProductModifierGroup).filter(ProductModifierGroup.product_id == product_id).all()
+    result = []
+    for g in groups:
+        opts = [{"id": o.id, "name": o.name, "price_adjustment": float(o.price_adjustment), "recipe_factor": float(o.recipe_factor), "is_active": o.is_active} for o in g.options if o.is_active]
+        result.append({"id": g.id, "product_id": g.product_id, "name": g.name, "selection_type": g.selection_type.value if hasattr(g.selection_type, 'value') else g.selection_type, "is_required": g.is_required, "options": opts})
     return result
 
 @router.post("/product/{product_id}", response_model=ModifierGroupRead)
