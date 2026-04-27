@@ -499,7 +499,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                                         {canCancel && (
                                                             <button
                                                                 onClick={() => handleCancelItem(item.id)}
-                                                                className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-colors opacity-0 group-hover:opacity-100"
+                                                                className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-xl transition-colors"
                                                                 title="Cancelar item"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
