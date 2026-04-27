@@ -356,12 +356,12 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between text-slate-400">
                                     <span className="text-xs font-bold uppercase">Subtotal</span>
-                                    <span className="text-sm font-bold">${((order?.total_amount || 0) + cart.reduce((acc, i) => acc + (i.price * i.quantity), 0)).toFixed(2)}</span>
+                                    <span className="text-sm font-bold">${(Number(order?.total_amount || 0) + cart.reduce((acc, i) => acc + (Number(i.price || 0) * i.quantity), 0)).toFixed(2)}</span>
                                 </div>
                                 <div className="flex items-center justify-between border-t pt-3">
                                     <span className="text-sm font-black text-slate-800 uppercase tracking-tighter">Total a Cobrar</span>
                                     <span className="text-3xl font-black text-slate-900 tracking-tight">
-                                        ${((order?.total_amount || 0) + cart.reduce((acc, i) => acc + (i.price * i.quantity), 0)).toFixed(2)}
+                                        ${(Number(order?.total_amount || 0) + cart.reduce((acc, i) => acc + (Number(i.price || 0) * i.quantity), 0)).toFixed(2)}
                                     </span>
                                 </div>
                             </div>
