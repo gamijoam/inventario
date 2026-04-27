@@ -7,11 +7,11 @@ import json
 
 from ....database.db import get_db
 from .... import models
-from ... import schemas
-from ...schemas.print import PrintJobRequest, PrintType
-from ...websocket.manager import manager
-from ...websocket.events import WebSocketEvents
-from ...models.restaurant import (
+from .... import schemas
+from ....schemas.print import PrintJobRequest, PrintType
+from ....websocket.manager import manager
+from ....websocket.events import WebSocketEvents
+from ....models.restaurant import (
     RestaurantOrder,
     RestaurantOrderItem,
     RestaurantOrderItemModifier,
@@ -20,8 +20,8 @@ from ...models.restaurant import (
     RestaurantMenuSection,
     RestaurantMenuItem
 )
-from ....products.models import Product  # Import global Product model
-from ....warehouse.models import Warehouse, ProductStock, Kardex  # Import warehouse models
+from ....models.models import Product  # Import global Product model
+# from ....models.models import Warehouse, ProductStock, Kardex  # Import warehouse models if needed
 
 router = APIRouter(
     prefix="/print",
@@ -107,7 +107,10 @@ async def create_print_job(
     
     bridge_client_id = print_request.printer_target # The Bridge should be configured to map this to its internal ID
     if not bridge_client_id:
-        bridge_client_id = models.AppConfig.get_config_value(db, "BRIDGE_DEFAULT_PRINTER_CLIENT_ID") # Fallback to a default config in DB
+        # Fallback to a default config in DB using BusinessConfig
+        config = db.query(models.BusinessConfig).filter(models.BusinessConfig.key == "BRIDGE_DEFAULT_PRINTER_CLIENT_ID").first()
+        bridge_client_id = config.value if config else None
+        
         if not bridge_client_id:
             raise HTTPException(status_code=500, detail="Default printer client ID not configured.")
 
