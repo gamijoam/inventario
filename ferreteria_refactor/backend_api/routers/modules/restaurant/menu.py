@@ -34,17 +34,38 @@ def get_full_menu(db: Session = Depends(get_db)):
             if not item.is_active: 
                 continue
                 
-            prod_name = item.product.name if item.product else "Unknown"
-            final_price = item.price_override if item.price_override else (item.product.price if item.product else 0)
-            
-            # --- EMERGENCY STOCK LOGIC (FORCE AVAILABLE) ---
-            manual_stock = item.product.stock if item.product else 0
-            
-            # If manual stock is 0 but it's a restaurant item, we assume it's available 
-            # unless explicitly set to a negative or specifically managed.
-            # To avoid "AGOTADO" on everything, we'll default to 999 if it's a recipe or just a dish.
-            prod_stock = manual_stock if manual_stock > 0 else 999
-            # -----------------------------------------------
+            # --- ROBUST STOCK CALCULATION ---
+            product = item.product
+            if not product:
+                prod_stock = 0
+            else:
+                # 1. Sum stock from ALL warehouses for this product
+                manual_stock = sum(s.stock for s in product.stocks) if product.stocks else product.stock
+                
+                # 2. Calculate recipe-based stock if applicable
+                calculated_recipe_stock = 999999 # Infinity by default
+                recipe_items = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == item.product_id).all()
+                
+                if recipe_items:
+                    potential_stocks = []
+                    for ri in recipe_items:
+                        # Sum ingredient stock from all warehouses
+                        ing_manual_stock = sum(s.stock for s in ri.ingredient.stocks) if ri.ingredient.stocks else ri.ingredient.stock
+                        if ri.quantity > 0:
+                            potential_stocks.append(ing_manual_stock / ri.quantity)
+                    
+                    if potential_stocks:
+                        calculated_recipe_stock = min(potential_stocks)
+                
+                # The real available stock is what we have physically OR what we can make
+                # If it's a dish (manual_stock usually 0), we rely on recipe.
+                # If it's a soda (no recipe), we rely on manual_stock.
+                if not recipe_items:
+                    prod_stock = manual_stock
+                else:
+                    # If it has a recipe, we can sell what's already made PLUS what we can make
+                    prod_stock = manual_stock + calculated_recipe_stock
+            # --------------------------------
             
             items_data.append(schemas.MenuItemRead(
                 id=item.id,
