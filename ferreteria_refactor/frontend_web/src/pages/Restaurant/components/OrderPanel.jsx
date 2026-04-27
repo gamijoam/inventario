@@ -79,7 +79,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const handleAddToCart = (product) => {
         const existing = cart.find(item => item.id === product.id);
         const currentQty = existing ? existing.quantity : 0;
-        const availableStock = product.stock !== undefined ? product.stock : 999;
+        const availableStock = product.stock ?? 0;
         
         // Stock Validation
         if (currentQty + 1 > availableStock) {
@@ -101,11 +101,12 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                 const newQty = item.quantity + delta;
                 if (newQty <= 0) return item;
                 
-                const availableStock = item.stock !== undefined ? item.stock : 999;
+                const itemInCart = cart.find(i => i.id === productId);
+                const availableStock = itemInCart?.stock ?? 0;
 
                 // Stock Validation
                 if (newQty > availableStock) {
-                    toast.error("Máximo alcanzado", { icon: '⚠️' });
+                    toast.error("Stock máximo alcanzado", { icon: '⚠️' });
                     return item;
                 }
                 return { ...item, quantity: newQty };

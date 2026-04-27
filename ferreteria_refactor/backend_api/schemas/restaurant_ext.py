@@ -33,9 +33,9 @@ class MenuItemCreate(MenuItemBase):
 class MenuItemRead(MenuItemBase):
     id: int
     section_id: int
-    product_name: Optional[str] = None
-    price: Optional[float] = None # Calculated (Override or Product Price)
-    stock: Optional[float] = 0 # New field for availability
+    product_name: str
+    price: float
+    stock: float = 0.0
 
     class Config:
         from_attributes = True
