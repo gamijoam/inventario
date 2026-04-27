@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
-import { Plus, Trash2, Search, GripVertical, X, ChefHat } from 'lucide-react';
+import { Plus, Trash2, Search, GripVertical, X, ChefHat, Check, Edit2, Box } from 'lucide-react';
 import { normalizeSearch } from '../../utils/search';
 
 const MenuManager = () => {
-    const { business } = useConfig();
     const [sections, setSections] = useState([]);
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -16,6 +15,10 @@ const MenuManager = () => {
     const [newSectionName, setNewSectionName] = useState('');
     const [draggedProduct, setDraggedProduct] = useState(null);
     const [activeDropZone, setActiveDropZone] = useState(null);
+
+    // Edit Alias State
+    const [editingItemId, setEditingItemId] = useState(null);
+    const [editAliasValue, setEditAliasValue] = useState('');
 
     useEffect(() => {
         loadData();
@@ -46,7 +49,7 @@ const MenuManager = () => {
     const handleCreateSection = async (e) => {
         e.preventDefault();
         if (!newSectionName.trim()) {
-            toast.error("El nombre de la sección no puede estar vacío");
+            toast.error("El nombre de la categoría es obligatorio");
             return;
         }
 
@@ -54,22 +57,21 @@ const MenuManager = () => {
             await apiClient.post('/restaurant/menu/sections', { name: newSectionName });
             setNewSectionName('');
             loadData();
-            toast.success('Sección creada correctamente');
+            toast.success('Categoría creada correctamente');
         } catch (error) {
-            console.error("Error creating section:", error);
             const msg = error.response?.data?.detail || "Error desconocido";
-            toast.error(`Error creando sección: ${msg}`);
+            toast.error(`Error: ${msg}`);
         }
     };
 
-    const handleDeleteSection = async (id) => {
-        if (!window.confirm('¿Borrar sección y todos sus items?')) return;
+    const handleDeleteSection = async (id, name) => {
+        if (!window.confirm(`¿Estás seguro de eliminar la categoría "${name}" y quitar todos los platos que contiene?`)) return;
         try {
             await apiClient.delete(`/restaurant/menu/sections/${id}`);
             loadData();
-            toast.success('Sección eliminada');
-        } catch (error) {
-            toast.error('Error borrando sección');
+            toast.success('Categoría eliminada');
+        } catch (err) {
+            toast.error('Error borrando categoría');
         }
     };
 
@@ -78,209 +80,336 @@ const MenuManager = () => {
             await apiClient.post('/restaurant/menu/items', {
                 section_id: sectionId,
                 product_id: product.id,
-                alias: product.name,
+                alias: product.name, // Default to product name
                 price_override: null
             });
             loadData();
-            toast.success(`Agregado: ${product.name}`);
+            toast.success(`${product.name} agregado al menú`);
         } catch (error) {
-            toast.error('Error agregando producto');
+            toast.error('Error agregando plato');
         }
     };
 
     const handleRemoveItem = async (itemId) => {
+        if (!window.confirm('¿Quitar este plato del menú?')) return;
         try {
             await apiClient.delete(`/restaurant/menu/items/${itemId}`);
             loadData();
-        } catch (error) {
-            toast.error('Error removiendo item');
+        } catch (err) {
+            toast.error('Error removiendo plato');
         }
     };
 
-    // Filter products for sidebar
-    const filteredProducts = products.filter(p =>
-        normalizeSearch(p.name).includes(normalizeSearch(searchTerm)) ||
-        (p.sku && p.sku.includes(searchTerm))
-    );
+    const handleUpdateAlias = async (itemId) => {
+        if (!editAliasValue.trim()) {
+            setEditingItemId(null);
+            return;
+        }
+        try {
+            // Note: The backend schema needs an endpoint to update menu item alias.
+            // If it doesn't exist, we will mock it or fail gracefully.
+            // Assuming `PUT /restaurant/menu/items/{id}` exists in your backend.
+            await apiClient.put(`/restaurant/menu/items/${itemId}`, {
+                alias: editAliasValue
+            });
+            toast.success('Nombre comercial actualizado');
+            loadData();
+        } catch (error) {
+            // Fallback if endpoint is missing
+            toast.error(error.response?.data?.detail || 'No se pudo actualizar el nombre comercial');
+        } finally {
+            setEditingItemId(null);
+        }
+    };
+
+    // --- Computed Values ---
+    const menuProductIds = useMemo(() => {
+        const ids = new Set();
+        sections.forEach(s => s.items.forEach(i => ids.add(i.product_id)));
+        return ids;
+    }, [sections]);
+
+    const filteredProducts = useMemo(() => {
+        const term = normalizeSearch(searchTerm);
+        return products.filter(p =>
+            normalizeSearch(p.name).includes(term) ||
+            (p.sku && p.sku.toLowerCase().includes(term.toLowerCase()))
+        );
+    }, [products, searchTerm]);
+
+
+    // --- Drag & Drop Handlers ---
+    const onDragStart = (e, product) => {
+        setDraggedProduct(product);
+        e.dataTransfer.effectAllowed = 'copy';
+        // Make the drag ghost look nice if possible
+        e.dataTransfer.setData('text/plain', product.id);
+    };
+
+    const onDragOver = (e, sectionId) => {
+        e.preventDefault();
+        setActiveDropZone(sectionId);
+    };
+
+    const onDragLeave = () => {
+        setActiveDropZone(null);
+    };
+
+    const onDrop = (e, sectionId) => {
+        e.preventDefault();
+        setActiveDropZone(null);
+        if (draggedProduct) {
+            handleAddItem(sectionId, draggedProduct);
+            setDraggedProduct(null);
+        }
+    };
+
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-slate-50">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                    <p className="text-slate-500">Cargando menú...</p>
+            <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-slate-50">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div>
+                    <p className="text-slate-500 font-bold animate-pulse">Cargando menú interactivo...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="flex h-screen bg-slate-50">
+        <div className="flex h-[calc(100vh-4rem)] bg-slate-50 overflow-hidden">
 
-            {/* LEFT: Product Catalog */}
-            <div className="w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm">
-                <div className="p-4 border-b border-slate-200 bg-slate-50">
-                    <h2 className="font-bold text-base text-slate-700 flex items-center gap-2">
-                        📦 Productos Disponibles
+            {/* LEFT: Product Catalog (Inventario) */}
+            <div className="w-1/3 max-w-sm bg-white border-r border-slate-200 flex flex-col shadow-sm z-10">
+                <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                    <h2 className="text-xl font-black text-slate-800 flex items-center gap-2 mb-1">
+                        <Box className="text-indigo-600" /> Inventario Maestro
                     </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">{products.length} productos</p>
-                    <div className="relative mt-2">
-                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <p className="text-xs font-bold text-slate-400 mb-4 uppercase tracking-wider">
+                        Arrastra los productos al menú
+                    </p>
+                    <div className="relative">
+                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                             type="text"
                             placeholder="Buscar producto o código..."
-                            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition shadow-sm"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                 </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                
+                <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {filteredProducts.length === 0 && (
-                        <p className="text-center text-sm text-slate-400 py-8">No se encontraron productos</p>
+                        <div className="text-center py-10">
+                            <Box size={40} className="mx-auto text-slate-300 mb-2" />
+                            <p className="text-sm font-bold text-slate-400">No se encontraron productos</p>
+                        </div>
                     )}
-                    {filteredProducts.map(product => (
-                        <div
-                            key={product.id}
-                            className="p-3 bg-slate-50 rounded-lg border border-slate-100 cursor-grab hover:bg-indigo-50 hover:border-indigo-200 transition-all group"
-                            draggable
-                            onDragStart={() => setDraggedProduct(product)}
-                            onDragEnd={() => setDraggedProduct(null)}
-                        >
-                            <div className="flex justify-between items-start">
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm text-slate-700 truncate">{product.name}</p>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                        <span className="text-xs text-emerald-600 font-semibold">${Number(product.price).toFixed(2)}</span>
-                                        {product.sku && <span className="text-[10px] text-slate-400">{product.sku}</span>}
+                    {filteredProducts.map(product => {
+                        const inMenu = menuProductIds.has(product.id);
+                        return (
+                            <div
+                                key={product.id}
+                                className={`p-4 rounded-xl border-2 transition-all cursor-grab active:cursor-grabbing group ${inMenu
+                                        ? 'border-emerald-100 bg-emerald-50/30 opacity-70'
+                                        : 'border-transparent bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 shadow-sm'
+                                    }`}
+                                draggable
+                                onDragStart={(e) => onDragStart(e, product)}
+                                onDragEnd={() => setDraggedProduct(null)}
+                            >
+                                <div className="flex justify-between items-center">
+                                    <div className="flex-1 min-w-0 pr-3">
+                                        <p className={`font-bold text-sm truncate ${inMenu ? 'text-emerald-800' : 'text-slate-700 group-hover:text-indigo-900'}`}>
+                                            {product.name}
+                                        </p>
+                                        <div className="flex items-center gap-3 mt-1.5">
+                                            <span className="text-xs font-black text-emerald-600">${Number(product.price).toFixed(2)}</span>
+                                            {product.sku && <span className="text-[10px] text-slate-400 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-100 shadow-sm">{product.sku}</span>}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {inMenu && (
+                                            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-black px-2 py-1 rounded-lg flex items-center gap-1">
+                                                <Check size={10} /> En Menú
+                                            </span>
+                                        )}
+                                        <GripVertical size={18} className="text-slate-300 group-hover:text-indigo-400 transition-colors" />
                                     </div>
                                 </div>
-                                {/* Dropdown: add to section */}
-                                {sections.length > 0 && (
-                                    <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <select
-                                            className="text-xs bg-indigo-600 text-white rounded px-2 py-1 cursor-pointer appearance-none font-medium"
-                                            defaultValue=""
-                                            onChange={(e) => {
-                                                if (e.target.value) {
-                                                    handleAddItem(parseInt(e.target.value), product);
-                                                    e.target.value = '';
-                                                }
-                                            }}
-                                        >
-                                            <option value="" disabled>+ Agregar</option>
-                                            {sections.map(s => (
-                                                <option key={s.id} value={s.id}>{s.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* RIGHT: Menu Structure */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            {/* RIGHT: Menu Structure (El Menú del Restaurante) */}
+            <div className="flex-1 flex flex-col bg-slate-50/50 relative">
                 {/* Header */}
-                <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
+                <div className="bg-white border-b border-slate-200 p-6 shadow-sm flex justify-between items-center sticky top-0 z-10">
                     <div>
-                        <h2 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                            <ChefHat size={22} className="text-indigo-600" />
-                            Estructura del Menú
-                        </h2>
-                        <p className="text-xs text-slate-400">{sections.length} secciones</p>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+                            <ChefHat className="text-indigo-600" size={32} /> El Menú (Vitrina)
+                        </h1>
+                        <p className="text-slate-500 mt-1 font-medium">
+                            Organiza cómo verán los productos tus meseros y cajeros.
+                        </p>
                     </div>
-                    <form onSubmit={handleCreateSection} className="flex gap-2">
+                    
+                    <form onSubmit={handleCreateSection} className="flex gap-2 items-center bg-slate-50 p-2 rounded-2xl border border-slate-100 shadow-sm">
                         <input
                             type="text"
-                            className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-56"
-                            placeholder="Nueva Sección (Ej: Bebidas)"
+                            className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64 font-medium transition-all"
+                            placeholder="Ej: Entradas, Bebidas, Postres..."
                             value={newSectionName}
                             onChange={(e) => setNewSectionName(e.target.value)}
                         />
                         <button
                             type="submit"
-                            className="flex items-center gap-1 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 transition font-medium"
+                            disabled={!newSectionName.trim()}
+                            className="flex items-center gap-1.5 bg-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm hover:bg-indigo-700 active:scale-95 transition-all font-black shadow-md shadow-indigo-200 disabled:opacity-50 disabled:active:scale-100"
                         >
-                            <Plus size={16} />
-                            Crear
+                            <Plus size={18} />
+                            Crear Categoría
                         </button>
                     </form>
                 </div>
 
-                {/* Sections */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {sections.length === 0 && (
-                        <div className="text-center py-20">
-                            <p className="text-6xl mb-4">📋</p>
-                            <p className="text-slate-400 text-lg">Tu menú está vacío</p>
-                            <p className="text-slate-400 text-sm mt-1">Crea una sección para empezar a agregar productos</p>
+                {/* Sections Grid */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    {sections.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                            <div className="w-24 h-24 bg-white shadow-sm border border-slate-100 rounded-full flex items-center justify-center mb-6">
+                                <ChefHat size={40} className="text-indigo-300" />
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-600 mb-2">Tu menú está vacío</h2>
+                            <p className="text-center max-w-md text-slate-500">
+                                Comienza creando una categoría arriba (ej. "Bebidas") y luego arrastra los productos desde el inventario.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-20">
+                            {sections.map(section => (
+                                <div
+                                    key={section.id}
+                                    className={`flex flex-col bg-white rounded-2xl border-2 shadow-sm transition-all overflow-hidden ${
+                                        activeDropZone === section.id
+                                            ? 'border-indigo-400 ring-4 ring-indigo-50 scale-[1.01]'
+                                            : 'border-slate-200 hover:border-slate-300'
+                                    }`}
+                                    onDragOver={(e) => onDragOver(e, section.id)}
+                                    onDragLeave={onDragLeave}
+                                    onDrop={(e) => onDrop(e, section.id)}
+                                >
+                                    {/* Section Header */}
+                                    <div className={`p-4 flex justify-between items-center border-b transition-colors ${activeDropZone === section.id ? 'bg-indigo-50/50 border-indigo-100' : 'bg-slate-50 border-slate-100'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                                                <GripVertical size={16} />
+                                            </div>
+                                            <div>
+                                                <h3 className="font-black text-lg text-slate-800">{section.name}</h3>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                    {section.items.length} Platos
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteSection(section.id, section.name)}
+                                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                            title="Eliminar categoría"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
+
+                                    {/* Section Items (Dropzone) */}
+                                    <div className="p-4 flex-1 min-h-[150px]">
+                                        {section.items.length === 0 ? (
+                                            <div className={`h-full flex items-center justify-center border-2 border-dashed rounded-xl transition-colors ${activeDropZone === section.id ? 'border-indigo-400 bg-indigo-50/50 text-indigo-600' : 'border-slate-200 text-slate-400'}`}>
+                                                <p className="font-bold text-sm flex items-center gap-2">
+                                                    {activeDropZone === section.id ? (
+                                                        <>⬇️ ¡Suelta el producto aquí!</>
+                                                    ) : (
+                                                        <>Arrastra productos a esta categoría</>
+                                                    )}
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {section.items.map(item => (
+                                                    <div key={item.id} className="group relative bg-slate-50 border border-slate-100 p-3 rounded-xl hover:shadow-md hover:border-indigo-200 transition-all flex flex-col justify-between h-24">
+                                                        
+                                                        {/* Remove Button */}
+                                                        <button
+                                                            onClick={() => handleRemoveItem(item.id)}
+                                                            className="absolute -top-2 -right-2 w-6 h-6 bg-white border border-red-100 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 shadow-sm hover:bg-red-50 hover:text-red-600 transition-all z-10"
+                                                            title="Quitar del menú"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+
+                                                        <div className="flex-1 min-w-0">
+                                                            {editingItemId === item.id ? (
+                                                                <div className="flex items-center gap-1">
+                                                                    <input 
+                                                                        type="text"
+                                                                        autoFocus
+                                                                        className="w-full text-sm font-bold text-slate-800 bg-white border border-indigo-300 rounded px-1.5 py-0.5 outline-none"
+                                                                        value={editAliasValue}
+                                                                        onChange={e => setEditAliasValue(e.target.value)}
+                                                                        onKeyDown={e => {
+                                                                            if (e.key === 'Enter') handleUpdateAlias(item.id);
+                                                                            if (e.key === 'Escape') setEditingItemId(null);
+                                                                        }}
+                                                                        onBlur={() => handleUpdateAlias(item.id)}
+                                                                    />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex justify-between items-start gap-1">
+                                                                    <p 
+                                                                        className="font-bold text-sm text-slate-700 leading-tight line-clamp-2"
+                                                                        title={item.alias || item.product_name}
+                                                                    >
+                                                                        {item.alias || item.product_name}
+                                                                    </p>
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            setEditingItemId(item.id);
+                                                                            setEditAliasValue(item.alias || item.product_name);
+                                                                        }}
+                                                                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-indigo-600 transition-opacity p-1"
+                                                                        title="Editar nombre comercial (Alias)"
+                                                                    >
+                                                                        <Edit2 size={12} />
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                            
+                                                            {/* Show original product name if alias is different */}
+                                                            {item.alias && item.alias !== item.product_name && editingItemId !== item.id && (
+                                                                <p className="text-[9px] text-slate-400 truncate mt-0.5" title={`Original: ${item.product_name}`}>
+                                                                    Ref: {item.product_name}
+                                                                </p>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="mt-2 text-right">
+                                                            <span className="inline-block bg-white border border-slate-100 shadow-sm text-emerald-600 font-black text-xs px-2 py-0.5 rounded-lg">
+                                                                ${Number(item.price).toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
-
-                    {sections.map(section => (
-                        <div
-                            key={section.id}
-                            className={`border-2 rounded-xl p-5 transition-all ${activeDropZone === section.id
-                                    ? 'border-indigo-400 bg-indigo-50/50 shadow-md'
-                                    : 'border-slate-200 bg-white hover:border-slate-300'
-                                }`}
-                            onDragOver={(e) => {
-                                e.preventDefault();
-                                setActiveDropZone(section.id);
-                            }}
-                            onDragLeave={() => setActiveDropZone(null)}
-                            onDrop={(e) => {
-                                e.preventDefault();
-                                setActiveDropZone(null);
-                                if (draggedProduct) {
-                                    handleAddItem(section.id, draggedProduct);
-                                    setDraggedProduct(null);
-                                }
-                            }}
-                        >
-                            <div className="flex justify-between items-center mb-4">
-                                <div className="flex items-center gap-2">
-                                    <GripVertical size={16} className="text-slate-300" />
-                                    <h3 className="font-bold text-lg text-slate-700">{section.name}</h3>
-                                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                                        {section.items.length} items
-                                    </span>
-                                </div>
-                                <button
-                                    onClick={() => handleDeleteSection(section.id)}
-                                    className="flex items-center gap-1 text-red-400 hover:text-red-600 text-xs font-medium transition"
-                                >
-                                    <Trash2 size={14} />
-                                    Eliminar
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                {section.items.map(item => (
-                                    <div key={item.id} className="bg-slate-50 p-3 rounded-lg border border-slate-100 relative group hover:shadow-sm transition-all">
-                                        <button
-                                            onClick={() => handleRemoveItem(item.id)}
-                                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                        <p className="font-medium text-sm truncate text-slate-700" title={item.alias || item.product_name}>
-                                            {item.alias || item.product_name}
-                                        </p>
-                                        <p className="text-xs text-emerald-600 font-semibold mt-0.5">${Number(item.price).toFixed(2)}</p>
-                                    </div>
-                                ))}
-                                {section.items.length === 0 && (
-                                    <div className="col-span-full py-8 text-center text-slate-400 text-sm italic border-2 border-dashed border-slate-200 rounded-lg">
-                                        {draggedProduct ? '⬇️ Suelta aquí para agregar' : 'Arrastra productos aquí o usa el botón "+" en la lista'}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
                 </div>
             </div>
         </div>

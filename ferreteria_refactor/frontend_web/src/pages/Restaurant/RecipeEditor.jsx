@@ -45,7 +45,8 @@ const RecipeEditor = () => {
                 stock: parseFloat(p.stock || 0)
             }));
             setProducts(parsedProducts);
-        } catch (err) {
+        } catch (error) {
+            console.error(error);
             toast.error('Error cargando productos');
         } finally {
             setLoading(false);
@@ -57,6 +58,7 @@ const RecipeEditor = () => {
             const res = await apiClient.get(`/restaurant/menu/recipes/${productId}`);
             setRecipeItems(res.data);
         } catch (error) {
+           console.error(error);
             console.error(error);
             toast.error('Error cargando la receta');
         }
@@ -83,6 +85,7 @@ const RecipeEditor = () => {
             setIngredientSearch('');
             setShowSuggestions(false);
         } catch (error) {
+            console.error(error);
             toast.error(error.response?.data?.detail || 'Error guardando ingrediente en la receta');
         }
     };
@@ -94,10 +97,46 @@ const RecipeEditor = () => {
             loadRecipe(selectedProduct.id);
             toast.success('Insumo eliminado');
         } catch (error) {
+            console.error(error);
             toast.error('Error eliminando insumo');
         }
     };
 
+    const handleClearRecipe = async () => {
+        if (recipeItems.length === 0) return;
+        if (!window.confirm(`¿Estás seguro que deseas eliminar TODOS los ingredientes de la receta para ${selectedProduct.name}?`)) return;
+
+        try {
+            await apiClient.delete(`/restaurant/menu/recipes/product/${selectedProduct.id}`);
+            setRecipeItems([]);
+            toast.success('Receta vaciada completamente');
+        } catch (error) {
+            console.error(error);
+            toast.error('Error vaciando receta');
+        }
+    };
+
+    const handleSyncCost = async () => {
+        if (!selectedProduct || recipeItems.length === 0) return;
+        if (!window.confirm(`¿Actualizar el costo maestro de "${selectedProduct.name}" a $${recipeCost.toFixed(2)}?`)) return;
+
+        try {
+            await apiClient.put(`/products/${selectedProduct.id}`, {
+                cost_price: recipeCost
+            });
+            toast.success('Costo maestro actualizado con éxito');
+
+            // Optimistic update in frontend state
+            const updatedProducts = products.map(p => 
+                p.id === selectedProduct.id ? { ...p, cost: recipeCost, cost_price: recipeCost } : p
+            );
+            setProducts(updatedProducts);
+            setSelectedProduct(prev => ({ ...prev, cost: recipeCost, cost_price: recipeCost }));
+        } catch (error) {
+            console.error(error);
+            toast.error('Error actualizando el costo del producto');
+        }
+    };
     // --- Computed Values & Filters ---
 
     const dishList = useMemo(() => {
@@ -206,14 +245,25 @@ const RecipeEditor = () => {
                             </div>
 
                             <div className="grid grid-cols-3 gap-4">
-                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                                        <Box size={24} />
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex justify-between items-center gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                                            <Box size={24} />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-500 uppercase">Costo Insumos</p>
+                                            <p className="text-xl font-black text-slate-800">${recipeCost.toFixed(2)}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-xs font-bold text-slate-500 uppercase">Costo Insumos</p>
-                                        <p className="text-xl font-black text-slate-800">${recipeCost.toFixed(2)}</p>
-                                    </div>
+                                    {recipeItems.length > 0 && (
+                                        <button
+                                            onClick={handleSyncCost}
+                                            className="px-2 py-1.5 bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 text-[10px] font-bold rounded-lg transition-all shadow-sm text-center"
+                                            title="Actualizar el costo del producto con este valor"
+                                        >
+                                            Sincronizar
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
@@ -318,7 +368,20 @@ const RecipeEditor = () => {
                             </div>
 
                             {/* Recipe Table */}
-                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                    <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                                        <Box size={16} className="text-slate-400" /> Ingredientes ({recipeItems.length})
+                                    </h3>
+                                    {recipeItems.length > 0 && (
+                                        <button
+                                            onClick={handleClearRecipe}
+                                            className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 font-bold rounded-lg transition-colors text-xs flex items-center gap-1.5"
+                                        >
+                                            <Trash2 size={14} /> Vaciar Receta
+                                        </button>
+                                    )}
+                                </div>
                                 <table className="w-full text-left border-collapse">
                                     <thead>
                                         <tr className="bg-slate-50/80 text-slate-500 text-xs uppercase tracking-wider">

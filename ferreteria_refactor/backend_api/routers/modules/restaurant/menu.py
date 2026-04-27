@@ -130,3 +130,12 @@ def remove_ingredient_from_recipe(id: int, db: Session = Depends(get_db)):
     db.delete(rec)
     db.commit()
     return {"message": "Ingredient removed"}
+
+@router.delete("/recipes/product/{product_id}")
+def clear_product_recipe(product_id: int, db: Session = Depends(get_db)):
+    """
+    Elimina todos los ingredientes de la receta de un producto específico.
+    """
+    deleted_count = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product_id).delete()
+    db.commit()
+    return {"message": f"Recipe cleared. {deleted_count} ingredients removed."}
