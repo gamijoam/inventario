@@ -14,6 +14,7 @@ class InventoryService:
         Retorna disponibilidad real de un producto considerando:
         - Stock total en ProductStock
         - Reservas en RestaurantOrderItem (órdenes activas no cobradas)
+        - Si tiene receta (escandallo), calcula disponibilidad basada en ingredientes
         """
         if not warehouse_id:
             warehouse = db.query(models.Warehouse).filter(models.Warehouse.is_main == True).first()
@@ -29,6 +30,21 @@ class InventoryService:
             models.ProductStock.warehouse_id == warehouse_id
         ).first()
         stock_total = float(stock_entry.quantity) if stock_entry else 0.0
+
+        recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product_id).all()
+
+        if recipes:
+            min_dishes = float('inf')
+            for recipe_item in recipes:
+                ingredient_stock_entry = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == recipe_item.ingredient_id,
+                    models.ProductStock.warehouse_id == warehouse_id
+                ).first()
+                ing_qty = float(ingredient_stock_entry.quantity) if ingredient_stock_entry else 0.0
+                if recipe_item.quantity > 0:
+                    dishes_possible = ing_qty / float(recipe_item.quantity)
+                    min_dishes = min(min_dishes, dishes_possible)
+            stock_total = min_dishes if min_dishes != float('inf') else 0.0
 
         reserved_query = db.query(RestaurantOrderItem).join(RestaurantOrder).filter(
             RestaurantOrderItem.product_id == product_id,
