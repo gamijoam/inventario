@@ -365,7 +365,10 @@ def checkout_order(
     order_items = db.query(RestaurantOrderItem).filter(
         RestaurantOrderItem.order_id == order.id,
         RestaurantOrderItem.status != OrderItemStatusDB.CANCELLED
-    ).options(joinedload(RestaurantOrderItem.product)).all()
+    ).options(
+        joinedload(RestaurantOrderItem.product),
+        joinedload(RestaurantOrderItem.modifiers).joinedload(RestaurantOrderItemModifier.option)
+    ).all()
     
     if not order_items:
          raise HTTPException(status_code=400, detail="Cannot checkout an empty order")
@@ -375,9 +378,17 @@ def checkout_order(
         if not item.product:
              continue 
         
+        # Load associated modifiers for the OrderItem
+        item_modifier_records = db.query(RestaurantOrderItemModifier).filter(
+            RestaurantOrderItemModifier.order_item_id == item.id
+        ).all()
+        
+        # Extract the option_ids from these modifier records
+        modifier_option_ids = [mod.option_id for mod in item_modifier_records]
+
         # Calculate aggregate recipe factor from modifiers
         aggregate_factor = Decimal("1.0")
-        for mod in item.modifiers:
+        for mod in item.modifiers: # Item.modifiers already loaded if OrderItem was queried with joinedload(RestaurantOrderItem.modifiers)
             if mod.option and mod.option.recipe_factor:
                 aggregate_factor *= Decimal(str(mod.option.recipe_factor))
         
@@ -391,7 +402,8 @@ def checkout_order(
             conversion_factor=1,
             discount=0,
             discount_type="NONE",
-            recipe_factor=aggregate_factor
+            recipe_factor=aggregate_factor,
+            modifier_option_ids=modifier_option_ids # Pass modifier IDs to SalesService
         ))
     
     # Construir SaleCreate

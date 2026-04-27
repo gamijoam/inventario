@@ -19,7 +19,7 @@ const TableMap = () => {
     const [saving, setSaving] = useState(false);
 
     // Edit/Delete
-    const [editingTable, setEditingTable] = useState(null);
+    const [_editingTable, _setEditingTable] = useState(null);
 
     const fetchTables = async () => {
         setLoading(true);
@@ -28,8 +28,8 @@ const TableMap = () => {
             setTables(data);
             const uniqueZones = [...new Set(data.map(t => t.zone))];
             setZones(uniqueZones);
-        } catch (error) {
-            console.error("Error fetching tables:", error);
+        } catch (_) {
+            console.error("Error fetching tables:", _);
             toast.error("Error cargando mesas");
         } finally {
             setLoading(false);

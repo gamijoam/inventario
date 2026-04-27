@@ -7,7 +7,7 @@ from fastapi import HTTPException, BackgroundTasks
 from decimal import Decimal
 import requests
 from ..models import models
-from ..models.restaurant import RestaurantRecipe
+from ..models.restaurant import RestaurantRecipe, ProductModifierOption
 from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
@@ -349,6 +349,7 @@ class SalesService:
                         if not ing_stock:
                             ing_stock = models.ProductStock(product_id=ingredient.id, warehouse_id=warehouse_id, quantity=0)
                             db.add(ing_stock)
+                            db.flush()
                         
                         # Validate stock (ingredients usually MUST have stock)
                         available_qty = ing_stock.quantity
@@ -382,7 +383,71 @@ class SalesService:
                     
                     # IMPORTANT: Once recipe is processed, we DO NOT deduct the dish itself 
                     # as its "stock" is usually irrelevant in a restaurant.
-                    pass 
+                    pass
+                
+                # NEW LOGIC: DEDUCT INGREDIENTS FOR MODIFIERS
+                elif item.modifier_option_ids: # Check if the SaleDetailCreate has modifier IDs
+                    modifier_options = db.query(ProductModifierOption).filter(
+                        ProductModifierOption.id.in_(item.modifier_option_ids)
+                    ).options(joinedload(ProductModifierOption.product)).all() # Eager load product for name
+                    
+                    for mod_opt in modifier_options:
+                        if mod_opt.ingredient_id and mod_opt.quantity_consumed > 0:
+                            ingredient_to_deduct = db.query(models.Product).filter(
+                                models.Product.id == mod_opt.ingredient_id
+                            ).with_for_update().first()
+                            
+                            if not ingredient_to_deduct:
+                                print(f"[WARNING] Modifier {mod_opt.name} refers to non-existent ingredient {mod_opt.ingredient_id}")
+                                continue
+                            
+                            # Calculate total quantity to deduct for this modifier
+                            # item.quantity (main product quantity) * mod_opt.quantity_consumed (per modifier)
+                            qty_to_deduct = Decimal(str(item.quantity)) * mod_opt.quantity_consumed
+                            
+                            # Check and deduct from WAREHOUSE (same logic as for main recipe items)
+                            ing_stock = db.query(models.ProductStock).filter(
+                                models.ProductStock.product_id == ingredient_to_deduct.id,
+                                models.ProductStock.warehouse_id == warehouse_id
+                            ).first()
+                            
+                            if not ing_stock:
+                                # Create stock entry if it doesn't exist
+                                ing_stock = models.ProductStock(product_id=ingredient_to_deduct.id, warehouse_id=warehouse_id, quantity=0)
+                                db.add(ing_stock)
+                                db.flush()
+                            
+                            # Validate stock
+                            available_qty = ing_stock.quantity
+                            if available_qty < qty_to_deduct:
+                                wh_name = db.query(models.Warehouse.name).filter(models.Warehouse.id == warehouse_id).scalar()
+                                raise HTTPException(
+                                    status_code=400,
+                                    detail=f"Stock insuficiente para ingrediente de modificador '{ingredient_to_deduct.name}' "
+                                           f"({mod_opt.name}) en '{wh_name}'. Necesario: {qty_to_deduct}, Disponible: {available_qty}"
+                                )
+                            
+                            # Deduct stock
+                            ing_stock.quantity -= qty_to_deduct
+                            ingredient_to_deduct.stock -= qty_to_deduct # Update legacy total
+                            
+                            # Register Kardex for Modifier's Ingredient
+                            db.add(models.Kardex(
+                                product_id=ingredient_to_deduct.id,
+                                movement_type="SALE_MODIFIER", # New type for clarity
+                                quantity=-qty_to_deduct,
+                                balance_after=ingredient_to_deduct.stock,
+                                description=f"Venta Modificador: {mod_opt.name} ({product.name} - Venta #{new_sale_id})"
+                            ))
+                            
+                            # Collect info for ingredient update broadcast
+                            updated_products_info.append({
+                                "id": ingredient_to_deduct.id,
+                                "name": ingredient_to_deduct.name,
+                                "price": float(ingredient_to_deduct.price),
+                                "stock": float(ingredient_to_deduct.stock),
+                                "exchange_rate_id": ingredient_to_deduct.exchange_rate_id
+                            }) 
                 elif product.is_combo:
                      # COMBO: Deduct stock from child components in specific warehouse
                     if not product.combo_items:

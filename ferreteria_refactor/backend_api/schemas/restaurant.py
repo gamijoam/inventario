@@ -70,6 +70,8 @@ class ModifierOptionSummary(BaseModel):
     id: int
     name: str
     price_applied: float
+    ingredient_id: Optional[int] = None
+    quantity_consumed: Optional[Decimal] = None
     class Config:
         from_attributes = True
 
@@ -92,7 +94,7 @@ class OrderCreate(BaseModel):
     waiter_id: Optional[int] = None
     is_takeout: bool = False
     customer_name: Optional[str] = None
-    items: List[OrderItemCreate] = []
+    items: List[OrderItemCreateWithModifiers] = []
 
 class OrderRead(BaseModel):
     id: int

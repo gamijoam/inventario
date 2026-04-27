@@ -175,6 +175,8 @@ class ProductModifierOption(Base):
     name = Column(String, nullable=False) # e.g., "Familiar", "1/2 Pollo", "Extra Queso"
     price_adjustment = Column(Numeric(12, 2), default=0.00)
     recipe_factor = Column(Numeric(12, 3), default=1.000) # How much of the base recipe is consumed? (e.g. 0.5 for half)
+    ingredient_id = Column(Integer, ForeignKey("products.id"), nullable=True) # Product ID of the ingredient consumed by this modifier
+    quantity_consumed = Column(Numeric(12, 3), default=0.000) # Quantity of the ingredient consumed
     is_active = Column(Boolean, default=True)
 
     group = relationship("ProductModifierGroup", back_populates="options")

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Search, Plus, Minus, ChefHat, Settings, ArrowRight, Split, Send, Clock, CheckCircle, Flame, UtensilsCrossed, ShoppingBag, Trash2 } from 'lucide-react';
+import { X, Search, Plus, Minus, ChefHat, Settings, ArrowRight, Split, Send, Clock, CheckCircle, Flame, UtensilsCrossed, ShoppingBag, Trash2, Check } from 'lucide-react';
 import restaurantService from '../../../services/restaurantService';
 import axiosInstance from '../../../config/axios';
 import PaymentModal from '../../../components/pos/PaymentModal';
@@ -56,7 +56,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
             // Auto-open the table so the user sees the menu immediately
             handleOpenTable();
         }
-    }, []);
+    }, [table.status, table.id, table.is_takeout, customerName, onUpdate, handleOpenTable, loadCurrentOrder]);
 
     const loadCurrentOrder = async () => {
         setLoadingOrder(true);
@@ -148,8 +148,8 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
             loadCurrentOrder();
             onUpdate();
             toast.success(`${prod.name} agregado`);
-        } catch (error) {
-            toast.error("Error agregando producto: " + error.message);
+        } catch (err) {
+            toast.error("Error agregando producto: " + err.message);
         }
     };
 
@@ -218,7 +218,7 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
         }
     };
 
-    const handleModifierConfirm = async (modifierData) => {
+    const handleModifierConfirm = async (_modifierData) => {
         // Implement modifier logic here or leave as a placeholder for now
         setPendingProduct(null);
         // handleAddItem(pendingProduct, modifierData);
@@ -543,7 +543,14 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
                                                             {item.quantity}
                                                         </span>
                                                         <div className="min-w-0">
-                                                            <p className="font-bold text-slate-800 text-sm truncate">{item.product_name}</p>
+                                                            <p className="font-bold text-slate-800 text-sm truncate flex items-center gap-2">
+                                                                {item.product_name}
+                                                                {item.status === 'SENT' && (
+                                                                    <span className="text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1">
+                                                                        <Check size={10} /> ENVIADO
+                                                                    </span>
+                                                                )}
+                                                            </p>
                                                             {item.modifiers && item.modifiers.length > 0 && (
                                                                 <div className="flex flex-wrap gap-1 mt-0.5">
                                                                     {item.modifiers.map(m => (
@@ -682,3 +689,4 @@ const OrderPanel = ({ table, onClose, onUpdate, isAddingProducts, onToggleAddPro
 };
 
 export default OrderPanel;
+nel;

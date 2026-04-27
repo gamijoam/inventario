@@ -62,6 +62,7 @@ const TableMap = React.lazy(() => import('./pages/Restaurant/TableMap'));
 const KitchenDisplay = React.lazy(() => import('./pages/Restaurant/KitchenDisplay'));
 const MenuManager = React.lazy(() => import('./pages/Restaurant/MenuManager'));
 const RecipeEditor = React.lazy(() => import('./pages/Restaurant/RecipeEditor'));
+const ModifierRecipeEditor = React.lazy(() => import('./pages/Restaurant/ModifierRecipeEditor'));
 const MobileWaiterLayout = React.lazy(() => import('./layouts/MobileWaiterLayout'));
 const WaiterLogin = React.lazy(() => import('./pages/Mobile/WaiterLogin'));
 const MobileTableGrid = React.lazy(() => import('./pages/Mobile/MobileTableGrid'));
@@ -124,13 +125,11 @@ class LazyErrorBoundary extends React.Component {
     if (this.state.hasError) {
       const msg   = this.state.error?.message || '';
       // componentStack muestra la jerarquía: el primer componente es el que crashea
-      const compStack = (this.state.componentStack || '')
+      const lines = (this.state.componentStack || '')
         .split('\n')
         .filter(l => l.trim() && !l.includes('at '))
         .slice(0, 6)
         .join(' > ');
-      const lines = (this.state.componentStack || '')
-        .split('\n').slice(1, 5).join(' | ');
       return (
         <div className="flex flex-col items-center justify-center h-screen gap-4 px-4">
           <p className="text-gray-600 font-bold">Error al cargar la página</p>
@@ -195,7 +194,7 @@ function App() {
           const cleanUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, document.title, cleanUrl);
         }
-      } catch (_) {}
+      } catch (err) {}
 
       if (Capacitor.isNativePlatform()) {
         const apiUrl = localStorage.getItem('api_url');
@@ -515,6 +514,11 @@ function App() {
                               <Route path="/restaurant/recipes" element={
                                 <ProtectedRoute roles={['ADMIN']}>
                                   <RecipeEditor />
+                                </ProtectedRoute>
+                              } />
+                              <Route path="/restaurant/modifiers" element={
+                                <ProtectedRoute roles={['ADMIN']}>
+                                  <ModifierRecipeEditor />
                                 </ProtectedRoute>
                               } />
 

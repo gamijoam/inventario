@@ -301,6 +301,7 @@ class SaleDetailCreate(BaseModel):
     price_list_id: Optional[int] = None # NEW: Price List Validation
     auth_user_id: Optional[int] = None # NEW: Supervisor Auth for Price List
     recipe_factor: Decimal = Decimal("1.0")
+    modifier_option_ids: Optional[List[int]] = [] # NEW: IDs of selected modifier options
 
     model_config = ConfigDict(from_attributes=True)
 

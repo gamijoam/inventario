@@ -57,7 +57,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const navigate = useNavigate();
     const { logout, user } = useAuth();
     const { modules } = useConfig();
-    const { startTour } = useAppTour();
+    const { startTour: _startTour } = useAppTour();
     const [isTourModalOpen, setIsTourModalOpen] = useState(false);
     const [supportUnread, setSupportUnread] = useState(0);
 
@@ -126,6 +126,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 ...(isAdmin ? [
                     { icon: BookOpen, label: 'Menú Digital', path: '/restaurant/menu' },
                     { icon: ClipboardList, label: 'Recetas', path: '/restaurant/recipes' },
+                    { icon: Settings, label: 'Recetas Modificadores', path: '/restaurant/modifiers' },
                 ] : []),
             ]
         }] : []),
@@ -199,7 +200,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 if (hasActiveItem) setExpandedGroup(group.label);
             }
         });
-    }, [location.pathname, isCollapsed]);
+    }, [location.pathname, isCollapsed, menuStructure]);
 
     const handleLogout = () => { logout(); navigate('/login'); };
 

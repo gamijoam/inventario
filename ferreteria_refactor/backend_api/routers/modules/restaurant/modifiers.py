@@ -26,6 +26,14 @@ class ModifierOptionRead(BaseModel):
     class Config:
         from_attributes = True
 
+class ModifierOptionUpdate(BaseModel):
+    name: Optional[str] = None
+    price_adjustment: Optional[Decimal] = None
+    recipe_factor: Optional[Decimal] = None
+    is_active: Optional[bool] = None
+    ingredient_id: Optional[int] = None
+    quantity_consumed: Optional[Decimal] = None
+
 class ModifierGroupCreate(BaseModel):
     name: str
     selection_type: str = "SINGLE"   # SINGLE | MULTIPLE
@@ -114,3 +122,23 @@ def delete_option(option_id: int, db: Session = Depends(get_db)):
     db.delete(option)
     db.commit()
     return {"status": "ok"}
+
+@router.patch("/option/{option_id}", response_model=ModifierOptionRead)
+def update_modifier_option(
+    option_id: int,
+    option_update: ModifierOptionUpdate,
+    db: Session = Depends(get_db)
+):
+    option = db.query(ProductModifierOption).filter(ProductModifierOption.id == option_id).first()
+    if not option:
+        raise HTTPException(status_code=404, detail="Modifier option not found")
+
+    for key, value in option_update.model_dump(exclude_unset=True).items():
+        if key == "selection_type": # Handle Enum if necessary
+            setattr(option, key, SelectionTypeDB(value))
+        else:
+            setattr(option, key, value)
+    
+    db.commit()
+    db.refresh(option)
+    return option
