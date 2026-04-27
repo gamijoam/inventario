@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     ChefHat, Clock, CheckCircle, Flame, UtensilsCrossed,
     RefreshCw, Send, Play, Bell, MapPin, DollarSign,
@@ -38,6 +38,7 @@ const WaiterStation = () => {
     const [closingShift, setClosingShift] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [screenSize, setScreenSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+    const prevReadyCountRef = useRef(0);
 
     const updateScreenSize = useCallback(() => {
         setScreenSize({ width: window.innerWidth, height: window.innerHeight });
@@ -47,6 +48,24 @@ const WaiterStation = () => {
         window.addEventListener('resize', updateScreenSize);
         return () => window.removeEventListener('resize', updateScreenSize);
     }, [updateScreenSize]);
+
+    const playReadySound = () => {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.frequency.value = 880;
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        } catch {
+            console.log('Audio not supported');
+        }
+    };
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -59,7 +78,7 @@ const WaiterStation = () => {
             const allReadyItems = [];
             kitchenOrders.forEach(order => {
                 order.items.forEach(item => {
-                    if (item.status === 'READY') {
+                    if (item.status === 'READY' || item.status === 'SERVED') {
                         allReadyItems.push({
                             ...item,
                             order_id: order.id,
@@ -74,6 +93,12 @@ const WaiterStation = () => {
                 t.status === 'OCCUPIED' && t.current_order_id
             );
             const availTables = tables.filter(t => t.status === 'AVAILABLE');
+
+            const newCount = allReadyItems.filter(i => i.status === 'READY').length;
+            if (newCount > prevReadyCountRef.current) {
+                playReadySound();
+            }
+            prevReadyCountRef.current = newCount;
 
             setReadyItems(allReadyItems);
             setMyTables(myActiveTables);
