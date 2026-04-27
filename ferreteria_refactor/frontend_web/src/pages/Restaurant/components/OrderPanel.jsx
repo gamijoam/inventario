@@ -33,6 +33,8 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
     const [itemNotes, setItemNotes] = useState('');
     const [itemQuantity, setItemQuantity] = useState(1);
     const [loadingModifiers, setLoadingModifiers] = useState(false);
+    const [productRecipe, setProductRecipe] = useState([]);
+    const [removedIngredientIds, setRemovedIngredientIds] = useState([]);
 
     // Initial Load & Polling
     useEffect(() => {
@@ -100,12 +102,19 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
         setItemQuantity(1);
         setItemNotes('');
         setSelectedModifiers({});
+        setRemovedIngredientIds([]);
+        setProductRecipe([]);
 
         try {
-            const mods = await restaurantService.getProductModifiers(product.id);
+            const [mods, recipe] = await Promise.all([
+                restaurantService.getProductModifiers(product.id),
+                restaurantService.getProductRecipe(product.id).catch(() => [])
+            ]);
             setProductModifiers(mods || []);
+            setProductRecipe(recipe || []);
         } catch {
             setProductModifiers([]);
+            setProductRecipe([]);
         } finally {
             setLoadingModifiers(false);
             setShowCustomizeModal(true);
@@ -130,6 +139,7 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
             notes: itemNotes,
             modifierOptionIds,
             selectedModifiers: { ...selectedModifiers },
+            removedIngredientIds,
             stock_available: availableStock
         };
 
@@ -685,6 +695,55 @@ const OrderPanel = ({ table, onClose, onUpdate }) => {
                                         </div>
                                     ))
                                 ) : null}
+
+                                {/* Recipe Ingredients (Remove from dish) */}
+                                {productRecipe.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <p className="font-bold text-slate-700 text-sm">Ingredientes</p>
+                                            <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded font-bold">Quitar los que no quiere</span>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {productRecipe.map(recipeItem => {
+                                                const isRemoved = removedIngredientIds.includes(recipeItem.ingredient_id);
+                                                return (
+                                                    <button
+                                                        key={recipeItem.id}
+                                                        onClick={() => {
+                                                            setRemovedIngredientIds(prev =>
+                                                                isRemoved
+                                                                    ? prev.filter(id => id !== recipeItem.ingredient_id)
+                                                                    : [...prev, recipeItem.ingredient_id]
+                                                            );
+                                                        }}
+                                                        className={cn(
+                                                            "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all border-2",
+                                                            isRemoved
+                                                                ? "bg-red-50 border-red-300 text-red-700"
+                                                                : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:border-emerald-300"
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={cn(
+                                                                "w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
+                                                                isRemoved ? "border-red-400 bg-red-100" : "border-emerald-400 bg-emerald-100"
+                                                            )}>
+                                                                {!isRemoved && <Check className="w-3 h-3 text-emerald-600" />}
+                                                                {isRemoved && <span className="text-red-600 text-xs font-black">✕</span>}
+                                                            </div>
+                                                            <span className={cn("font-medium", isRemoved && "line-through opacity-60")}>
+                                                                {recipeItem.ingredient_name || recipeItem.ingredient?.name || `Ingrediente #${recipeItem.ingredient_id}`}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-xs opacity-60">
+                                                            x{recipeItem.quantity}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Notes */}
                                 <div>

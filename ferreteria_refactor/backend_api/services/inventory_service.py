@@ -121,15 +121,16 @@ class InventoryService:
         ))
 
     @staticmethod
-    def deduct_order_items_stock(db: Session, order_items: list, warehouse_id: int):
+    def deduct_order_items_stock(db: Session, order_items: list, warehouse_id: int, removed_ingredients_map: dict = None):
         """
         Deduce el stock de una lista de RestaurantOrderItem de forma inmediata.
         Maneja recetas y modificadores.
+        removed_ingredients_map: {product_id: [ingredient_id, ...]} - ingredientes a skippear
         """
         for item in order_items:
             if item.stock_deducted:
                 continue
-                
+
             product = db.query(models.Product).filter(models.Product.id == item.product_id).with_for_update().first()
             if not product:
                 continue
@@ -139,28 +140,35 @@ class InventoryService:
                 item.stock_deducted = True
                 continue
 
+            # Obtener ingredientes removidos para este producto
+            removed_ids = (removed_ingredients_map or {}).get(item.product_id, [])
+
             # 2. Manejo de Recetas (Escandallo)
             recipes = db.query(RestaurantRecipe).filter(RestaurantRecipe.product_id == product.id).all()
-            
+
             if recipes:
                 for recipe_item in recipes:
+                    # Skip ingredientes removidos por el cliente
+                    if recipe_item.ingredient_id in removed_ids:
+                        continue
+
                     ingredient = db.query(models.Product).filter(models.Product.id == recipe_item.ingredient_id).with_for_update().first()
                     if not ingredient: continue
-                    
+
                     qty_to_deduct = Decimal(str(item.quantity)) * Decimal(str(recipe_item.quantity))
-                    
+
                     # Deduct from warehouse
-                    InventoryService._apply_deduction(db, ingredient, qty_to_deduct, warehouse_id, 
+                    InventoryService._apply_deduction(db, ingredient, qty_to_deduct, warehouse_id,
                                                     f"Pedido Cocina: {product.name} (Orden #{item.order_id})")
-                
+
                 item.stock_deducted = True
             else:
                 # 3. Producto directo (sin receta, ej: una Cerveza)
                 qty_to_deduct = Decimal(str(item.quantity))
-                InventoryService._apply_deduction(db, product, qty_to_deduct, warehouse_id, 
+                InventoryService._apply_deduction(db, product, qty_to_deduct, warehouse_id,
                                                 f"Pedido Cocina: {product.name} (Orden #{item.order_id})")
                 item.stock_deducted = True
-            
+
             # 4. Modificadores (Extras que consumen stock)
             if item.modifiers:
                 for mod_link in item.modifiers:
@@ -169,7 +177,7 @@ class InventoryService:
                         ing_mod = db.query(models.Product).filter(models.Product.id == mod_opt.ingredient_id).with_for_update().first()
                         if ing_mod:
                             mod_qty = Decimal(str(item.quantity)) * Decimal(str(mod_opt.quantity_consumed))
-                            InventoryService._apply_deduction(db, ing_mod, mod_qty, warehouse_id, 
+                            InventoryService._apply_deduction(db, ing_mod, mod_qty, warehouse_id,
                                                             f"Extra Pedido: {mod_opt.name} ({product.name})")
 
         db.flush()

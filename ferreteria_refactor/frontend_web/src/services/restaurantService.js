@@ -130,6 +130,11 @@ const restaurantService = {
     getProductStock: async (productId) => {
         const response = await axiosInstance.get(`/restaurant/orders/stock/${productId}`);
         return response.data;
+    },
+
+    getProductRecipe: async (productId) => {
+        const response = await axiosInstance.get(`/restaurant/menu/recipes/${productId}`);
+        return response.data;
     }
 };
 

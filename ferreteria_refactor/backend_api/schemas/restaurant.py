@@ -65,6 +65,7 @@ class OrderItemCreateWithModifiers(BaseModel):
     quantity: Decimal = Field(..., gt=0)
     notes: Optional[str] = None
     modifier_option_ids: Optional[List[int]] = []  # IDs de ProductModifierOption seleccionados
+    removed_ingredient_ids: Optional[List[int]] = []  # IDs de ingredientes removidos por el cliente (no se descuenta stock)
 
 class ModifierOptionSummary(BaseModel):
     id: int

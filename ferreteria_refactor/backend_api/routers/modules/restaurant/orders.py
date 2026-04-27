@@ -186,17 +186,20 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
 
     # Procesar items
     new_items_list = []
+    removed_ingredients_map = {}  # {item_id: [ingredient_id, ...]}
+
     for item_in in items:
         # Validar producto
         product = db.query(Product).filter(Product.id == item_in.product_id).first()
         if not product:
             continue # O lanzar error
-            
+
         # Calcular precio base + ajuste de modificadores
         price = product.price  # Precio snapshot base
         modifier_adjustment = Decimal("0.00")
         modifier_ids = item_in.modifier_option_ids or []
-        
+        removed_ingredient_ids = item_in.removed_ingredient_ids or []
+
         selected_options = []
         if modifier_ids:
             selected_options = db.query(ProductModifierOption).filter(
@@ -204,9 +207,22 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
             ).all()
             for opt in selected_options:
                 modifier_adjustment += opt.price_adjustment or Decimal("0.00")
-        
+
         effective_price = price + modifier_adjustment
         subtotal = effective_price * item_in.quantity
+
+        # Construir nota de ingredientes removidos para cocina
+        removed_notes = ""
+        if removed_ingredient_ids:
+            removed_ingredients = db.query(Product).filter(Product.id.in_(removed_ingredient_ids)).all()
+            removed_names = [f"SIN {ing.name.upper()}" for ing in removed_ingredients]
+            removed_notes = " | ".join(removed_names)
+            removed_ingredients_map[item_in.product_id] = removed_ingredient_ids
+
+        # Combinar notas del mesero con las de ingredientes removidos
+        final_notes = item_in.notes or ""
+        if removed_notes:
+            final_notes = f"{final_notes} [{removed_notes}]" if final_notes else removed_notes
         
         # Crear item
         new_item = RestaurantOrderItem(
@@ -214,13 +230,13 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
             product_id=product.id,
             product=product,  # Populate relationship for Pydantic response
             quantity=item_in.quantity,
-            notes=item_in.notes,
+            notes=final_notes,
             unit_price=effective_price,
             subtotal=subtotal
         )
         db.add(new_item)
         db.flush()  # Get ID and auto-populate defaults
-        
+
         # Guardar modificadores seleccionados
         for opt in selected_options:
             mod_record = RestaurantOrderItemModifier(
@@ -249,7 +265,7 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
     
     if warehouse and new_items_list:
         try:
-            InventoryService.deduct_order_items_stock(db, new_items_list, warehouse.id)
+            InventoryService.deduct_order_items_stock(db, new_items_list, warehouse.id, removed_ingredients_map=removed_ingredients_map)
             db.flush()
         except Exception as e:
             print(f"[WARNING] Stock deduction failed: {e}")
