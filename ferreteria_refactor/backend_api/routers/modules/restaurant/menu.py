@@ -34,6 +34,9 @@ def get_full_menu(db: Session = Depends(get_db)):
             if not item.is_active: 
                 continue
                 
+            prod_name = item.product.name if item.product else "Unknown"
+            final_price = item.price_override if item.price_override else (item.product.price if item.product else 0)
+
             # --- ROBUST STOCK CALCULATION ---
             product = item.product
             if not product:
