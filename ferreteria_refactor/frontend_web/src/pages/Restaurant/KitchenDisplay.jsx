@@ -112,42 +112,47 @@ const KitchenDisplay = () => {
         ? "fixed inset-0 z-[9999] bg-slate-900 text-white flex flex-col font-sans"
         : "min-h-screen bg-slate-900 text-white flex flex-col font-sans";
 
+    const orderCountClass = isFullscreen ? "text-5xl md:text-7xl font-black" : "text-3xl md:text-4xl font-black";
+
     const headerContent = (
-        <header className="flex justify-between items-center px-4 py-2 bg-slate-800 border-b border-slate-700 shrink-0">
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                    <ChefHat className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                    <h1 className="text-lg font-black tracking-tight">KDS</h1>
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        {orders.length} órdenes activas
-                    </p>
-                </div>
-            </div>
+        <header className="flex justify-between items-center px-4 py-1 bg-slate-800 border-b border-slate-700 shrink-0">
             <div className="flex items-center gap-2">
-                {!isFullscreen && (
-                    <span className="text-xs text-slate-400 hidden md:block">
-                        {lastUpdated.toLocaleTimeString()}
-                    </span>
-                )}
+                <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+                    <ChefHat className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-sm font-bold text-slate-400 hidden md:inline">KDS</span>
+            </div>
+
+            {/* Centered big counter */}
+            <div className="flex flex-col items-center">
+                <span className={cn("text-emerald-400 leading-none", orderCountClass)}>
+                    {orders.length}
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {orders.length === 1 ? 'orden activa' : 'órdenes activas'}
+                </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400 hidden md:block">
+                    {lastUpdated.toLocaleTimeString()}
+                </span>
                 <button
                     onClick={loadKitchenOrders}
-                    className="p-2 bg-slate-700 hover:bg-slate-600 rounded-xl transition-all active:scale-90"
+                    className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-all active:scale-90"
                     title="Actualizar"
                 >
-                    <RefreshCw className={cn("w-5 h-5", loading && "animate-spin")} />
+                    <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
                 </button>
                 <button
                     onClick={() => setIsFullscreen(!isFullscreen)}
                     className={cn(
-                        "p-2 rounded-xl transition-all active:scale-90",
+                        "p-2 rounded-lg transition-all active:scale-90",
                         isFullscreen ? "bg-red-600 hover:bg-red-700" : "bg-slate-700 hover:bg-slate-600"
                     )}
                     title={isFullscreen ? "Salir de pantalla completa" : "Modo Tablet"}
                 >
-                    {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                    {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                 </button>
             </div>
         </header>
@@ -162,13 +167,15 @@ const KitchenDisplay = () => {
                         <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
                             <ChefHat className="w-5 h-5 text-white" />
                         </div>
-                        <div>
-                            <h1 className="text-lg font-black tracking-tight">KDS - MODO TABLET</h1>
-                            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                {orders.length} órdenes activas • {screenSize.width}×{screenSize.height}
-                            </p>
-                        </div>
+                        <span className="text-lg font-black text-slate-300">KDS - MODO TABLET</span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                        <span className="text-4xl md:text-6xl font-black text-emerald-400 leading-none">
+                            {orders.length}
+                        </span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                            {orders.length === 1 ? 'orden activa' : 'órdenes activas'}
+                        </span>
                     </div>
                     <button
                         onClick={() => setIsFullscreen(false)}
@@ -260,14 +267,14 @@ const KitchenDisplay = () => {
                                                             item.status === 'READY' ? "bg-emerald-100/50" : "bg-slate-800"
                                                         )}>
                                                             <div className={cn(
-                                                                "w-16 h-16 rounded-2xl flex items-center justify-center font-black text-3xl leading-none shrink-0",
+                                                                "w-14 h-14 rounded-2xl flex items-center justify-center font-black text-3xl leading-none shrink-0",
                                                                 item.status === 'READY'
                                                                     ? "bg-emerald-500 text-white"
                                                                     : item.status === 'PREPARING'
                                                                     ? "bg-orange-500 text-white"
                                                                     : "bg-slate-600 text-white"
                                                             )}>
-                                                                {item.quantity}×
+                                                                {Number(item.quantity)}×
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className={cn(
