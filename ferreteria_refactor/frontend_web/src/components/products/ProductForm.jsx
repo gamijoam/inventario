@@ -651,8 +651,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 </div>
                                             )}
 
-                                            {/* needs_kitchen: Only if restaurant module active AND is_menu_item */}
-                                            {modules?.restaurant && formData.is_menu_item && (
+                                            {/* needs_kitchen: Only if restaurant module active, is_menu_item, AND category is NOT no-kitchen */}
+                                            {modules?.restaurant && formData.is_menu_item && !categories.find(c => c.id?.toString() === formData.category_id?.toString())?.is_no_kitchen_category && (
                                                 <div className={cn(
                                                     "flex items-center gap-4 p-4 rounded-xl transition-all border",
                                                     formData.needs_kitchen
@@ -685,7 +685,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                 )}
                                                             ></div>
                                                         </div>
-                                                        <p className="text-[11px] text-slate-500 mt-0.5">Si está activo, el item pasará por cocina. Si está apagado, lo sirve el mesero directamente.</p>
+                                                        <p className="text-[11px] text-slate-500 mt-0.5">Si está activo, el item pasará por cocina. Los de categoría "sin cocina" no muestran esto.</p>
                                                     </div>
                                                 </div>
                                             )}

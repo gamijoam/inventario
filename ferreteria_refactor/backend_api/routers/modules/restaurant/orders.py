@@ -230,8 +230,9 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
             final_notes = f"{final_notes} [{removed_notes}]" if final_notes else removed_notes
         
         # Crear item
-        # SIEMPRE chequear needs_kitchen
-        item_status = OrderItemStatusDB.PENDING if product.needs_kitchen else OrderItemStatusDB.SERVED
+        # Si needs_kitchen=False O la categoría tiene is_no_kitchen_category=True → no pasa por cocina
+        skip_kitchen = (product.needs_kitchen == False) or (product.category and product.category.is_no_kitchen_category == True)
+        item_status = OrderItemStatusDB.SERVED if skip_kitchen else OrderItemStatusDB.PENDING
         new_item = RestaurantOrderItem(
             order_id=order.id,
             product_id=product.id,
