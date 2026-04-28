@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
 import { Capacitor } from '@capacitor/core';
 import { X, Camera } from 'lucide-react';
+
+let BarcodeScanner;
+try {
+    BarcodeScanner = require('@capacitor-community/barcode-scanner').BarcodeScanner;
+} catch (e) {
+    BarcodeScanner = null;
+}
 
 const BarcodeScannerComponent = ({ onScanned, onClose }) => {
     const [hasPermission, setHasPermission] = useState(null);
@@ -11,15 +17,17 @@ const BarcodeScannerComponent = ({ onScanned, onClose }) => {
 
     useEffect(() => {
         if (!Capacitor.isNativePlatform()) {
-            console.warn("BarcodeScanner solo funciona en dispositivos nativos.");
-            const simulatedScan = setTimeout(() => {
-                onScanned("7501055311467");
-                onClose();
-            }, 2000);
-            return () => clearTimeout(simulatedScan);
+            console.warn("BarcodeScanner: modo simulado (solo funciona en dispositivos nativos).");
+            setHasPermission(true);
+            return;
         }
 
         const checkPermission = async () => {
+            if (!BarcodeScanner) {
+                console.warn("BarcodeScanner not available");
+                setHasPermission(false);
+                return;
+            }
             try {
                 const status = await BarcodeScanner.checkPermission({ force: true });
                 if (status.granted) {
@@ -41,6 +49,25 @@ const BarcodeScannerComponent = ({ onScanned, onClose }) => {
             stopScan();
         };
     }, []);
+
+    const stopScan = () => {
+        if (BarcodeScanner && Capacitor.isNativePlatform()) {
+            try {
+                BarcodeScanner.showBackground();
+                BarcodeScanner.stopScan();
+            } catch (e) {
+                console.warn("Error stopping scanner:", e);
+            }
+            hiddenElementsRef.current.forEach(({ el, prevDisplay }) => {
+                el.style.display = prevDisplay;
+            });
+            hiddenElementsRef.current = [];
+            document.body.style.backgroundColor = "";
+            document.documentElement.style.backgroundColor = "";
+            document.body.classList.remove('barcode-scanner-active');
+        }
+        onClose();
+    };
 
     const startScan = async () => {
         try {
@@ -79,19 +106,20 @@ const BarcodeScannerComponent = ({ onScanned, onClose }) => {
     };
 
     const stopScan = () => {
-        if (Capacitor.isNativePlatform()) {
-            BarcodeScanner.showBackground();
-            BarcodeScanner.stopScan();
-
-            // Restore all previously hidden elements
+        if (BarcodeScanner && Capacitor.isNativePlatform()) {
+            try {
+                BarcodeScanner.showBackground();
+                BarcodeScanner.stopScan();
+            } catch (e) {
+                console.warn("Error stopping scanner:", e);
+            }
             hiddenElementsRef.current.forEach(({ el, prevDisplay }) => {
                 el.style.display = prevDisplay;
             });
             hiddenElementsRef.current = [];
-
             document.body.style.backgroundColor = "";
             document.documentElement.style.backgroundColor = "";
-            document.querySelector('body').classList.remove('barcode-scanner-active');
+            document.body.classList.remove('barcode-scanner-active');
         }
         onClose();
     };
