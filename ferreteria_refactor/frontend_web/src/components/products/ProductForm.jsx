@@ -651,8 +651,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 </div>
                                             )}
 
-                                            {/* needs_kitchen: Only if restaurant module active */}
-                                            {modules?.restaurant && (
+                                            {/* needs_kitchen: Only if restaurant module active AND is_menu_item */}
+                                            {modules?.restaurant && formData.is_menu_item && (
                                                 <div className={cn(
                                                     "flex items-center gap-4 p-4 rounded-xl transition-all border",
                                                     formData.needs_kitchen === false
