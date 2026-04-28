@@ -197,6 +197,8 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
         if not product:
             continue # O lanzar error
 
+        print(f"[DEBUG] product_id={item_in.product_id} name={product.name} needs_kitchen={product.needs_kitchen} type={type(product.needs_kitchen)}")
+
         # Calcular precio base + ajuste de modificadores
         price = product.price  # Precio snapshot base
         modifier_adjustment = Decimal("0.00")
