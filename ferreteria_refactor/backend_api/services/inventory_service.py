@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from decimal import Decimal
 from datetime import datetime
+from typing import Dict, Any
 from ..models import models
 from ..models.restaurant import RestaurantRecipe, ProductModifierOption, RestaurantOrderItem, RestaurantOrder, OrderStatusDB
 from ..utils.time_utils import get_venezuela_now
@@ -212,3 +213,39 @@ class InventoryService:
             balance_after=product.stock,
             description=description
         ))
+        db.commit()
+        return True
+
+    @staticmethod
+    def validate_imei_availability(db: Session, product_id: int, imei: str) -> Dict[str, Any]:
+        """
+        Validates if an IMEI exists and is available for sale.
+        """
+        instance = db.query(models.ProductInstance).filter(
+            models.ProductInstance.product_id == product_id,
+            models.ProductInstance.serial_number == imei
+        ).first()
+
+        if not instance:
+            return {"valid": False, "message": "Serial no encontrado en inventario."}
+        
+        if instance.status != models.ProductInstanceStatus.AVAILABLE:
+            return {"valid": False, "message": f"Serial no disponible (Estado: {instance.status})"}
+            
+        return {"valid": True, "message": "Serial válido", "instance_id": instance.id}
+
+    @staticmethod
+    def validate_imei_for_entry(db: Session, imei: str) -> Dict[str, Any]:
+        """
+        Check if an IMEI is ALREADY in the database.
+        Used for Reception (Entry) to prevent duplicates.
+        Returns: {"exists": bool, "message": str}
+        """
+        instance = db.query(models.ProductInstance).filter(
+            models.ProductInstance.serial_number == imei
+        ).first()
+
+        if instance:
+            return {"exists": True, "message": f"IMEI {imei} ya existe en el sistema para el producto {instance.product_id}"}
+        
+        return {"exists": False, "message": "IMEI disponible para entrada"}
