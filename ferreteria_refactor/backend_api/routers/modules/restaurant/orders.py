@@ -197,6 +197,11 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
         if not product:
             continue # O lanzar error
 
+        # DEBUG
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"[DEBUG] product_id={item_in.product_id} name={product.name} needs_kitchen={product.needs_kitchen} type={type(product.needs_kitchen)}")
+
         # Calcular precio base + ajuste de modificadores
         price = product.price  # Precio snapshot base
         modifier_adjustment = Decimal("0.00")
@@ -228,6 +233,7 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
             final_notes = f"{final_notes} [{removed_notes}]" if final_notes else removed_notes
         
         # Crear item
+        item_status = OrderItemStatusDB.SERVED if product.needs_kitchen is False else OrderItemStatusDB.PENDING
         new_item = RestaurantOrderItem(
             order_id=order.id,
             product_id=product.id,
@@ -236,7 +242,7 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
             notes=final_notes,
             unit_price=effective_price,
             subtotal=subtotal,
-            status=OrderItemStatusDB.SERVED if not product.needs_kitchen else OrderItemStatusDB.PENDING
+            status=item_status
         )
         db.add(new_item)
         db.flush()  # Get ID and auto-populate defaults
