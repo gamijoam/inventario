@@ -281,7 +281,7 @@ def read_products(
             )
             
         products = query.offset(skip).limit(limit).all()
-        
+
         # Calculate effective stock for combos/recipes
         for p in products:
             if p.recipes:
@@ -289,7 +289,10 @@ def read_products(
                 for rec in p.recipes:
                     ing = rec.ingredient
                     if not ing: continue
-                    ing_stock = sum(float(s.quantity) for s in ing.stocks)
+                    if warehouse_id:
+                        ing_stock = next((float(s.quantity) for s in ing.stocks if s.warehouse_id == warehouse_id), 0.0)
+                    else:
+                        ing_stock = sum(float(s.quantity) for s in ing.stocks)
                     qty_needed = float(rec.quantity) if rec.quantity else 1.0
                     available = ing_stock / qty_needed
                     if available < min_available: min_available = available
@@ -299,11 +302,22 @@ def read_products(
                 for ci in p.combo_items:
                     child = ci.child_product
                     if not child: continue
-                    child_stock = sum(float(s.quantity) for s in child.stocks)
+                    if warehouse_id:
+                        child_stock = next((float(s.quantity) for s in child.stocks if s.warehouse_id == warehouse_id), 0.0)
+                    else:
+                        child_stock = sum(float(s.quantity) for s in child.stocks)
                     qty_needed = float(ci.quantity) if ci.quantity else 1.0
                     available = child_stock / qty_needed
                     if available < min_available: min_available = available
                 p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
+            else:
+                if warehouse_id:
+                    warehouse_stock = sum(float(s.quantity) for s in p.stocks if s.warehouse_id == warehouse_id)
+                    p.stock = Decimal(str(warehouse_stock))
+                else:
+                    p.stock = Decimal(str(sum(float(s.quantity) for s in p.stocks)))
+                if warehouse_id:
+                    p.stocks = [s for s in p.stocks if s.warehouse_id == warehouse_id]
 
         return products
     except Exception as e:
