@@ -249,3 +249,128 @@ class InventoryService:
             return {"exists": True, "message": f"IMEI {imei} ya existe en el sistema para el producto {instance.product_id}"}
         
         return {"exists": False, "message": "IMEI disponible para entrada"}
+
+    @staticmethod
+    def process_bulk_entry(db: Session, entry_data) -> Dict[str, Any]:
+        """
+        Efficiently processes mass entry of serialized items (IMEIs).
+        Uses bulk_save_objects for performance.
+        Agregates Kardex and Stock Updates.
+        """
+        from ..schemas import SerializedEntry
+        from ..models import ProductInstance, ProductStock, Kardex
+        from ..models.models import MovementType, ProductInstanceStatus
+
+        if isinstance(entry_data, dict):
+            entry_data = SerializedEntry(**entry_data)
+
+        product = db.query(models.Product).filter(models.Product.id == entry_data.product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
+        
+        if not product.has_imei:
+            raise HTTPException(status_code=400, detail=f"Product '{product.name}' is not serialized (has_imei=False). Cannot add IMEIs.")
+
+        existing_imeis = db.query(ProductInstance.serial_number).filter(
+            ProductInstance.serial_number.in_(entry_data.imeis)
+        ).all()
+        
+        if existing_imeis:
+            existing_list = [e[0] for e in existing_imeis]
+            raise HTTPException(status_code=400, detail=f"Duplicate IMEIs found in database: {existing_list[:5]}...")
+
+        instances_to_create = []
+        now = datetime.now()
+        
+        for imei in entry_data.imeis:
+            instance = ProductInstance(
+                product_id=product.id,
+                warehouse_id=entry_data.warehouse_id,
+                serial_number=imei,
+                status=ProductInstanceStatus.AVAILABLE,
+                cost=entry_data.cost or product.cost_price,
+                created_at=now
+            )
+            instances_to_create.append(instance)
+            
+        try:
+            db.bulk_save_objects(instances_to_create)
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Bulk Insert Error: {str(e)}")
+
+        qty_added = Decimal(len(instances_to_create))
+        
+        product.stock += qty_added
+        
+        p_stock = db.query(ProductStock).filter(
+            ProductStock.product_id == product.id,
+            ProductStock.warehouse_id == entry_data.warehouse_id
+        ).first()
+        
+        if p_stock:
+            p_stock.quantity += qty_added
+        else:
+            p_stock = ProductStock(
+                product_id=product.id,
+                warehouse_id=entry_data.warehouse_id,
+                quantity=qty_added
+            )
+            db.add(p_stock)
+
+        kardex = Kardex(
+            product_id=product.id,
+            warehouse_id=entry_data.warehouse_id,
+            movement_type=MovementType.PURCHASE,
+            quantity=qty_added,
+            balance_after=product.stock,
+            description=f"Bulk Import ({int(qty_added)} Units). Ref: IMEIs {entry_data.imeis[0]}...{entry_data.imeis[-1]}",
+            date=now
+        )
+        db.add(kardex)
+        
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Commit Error: {str(e)}")
+            
+        return {
+            "status": "success", 
+            "added_count": int(qty_added),
+            "new_stock_level": float(product.stock)
+        }
+
+    @staticmethod
+    def validate_imei_availability(db: Session, product_id: int, imei: str) -> Dict[str, Any]:
+        """
+        Validates if an IMEI exists and is available for sale.
+        """
+        instance = db.query(models.ProductInstance).filter(
+            models.ProductInstance.product_id == product_id,
+            models.ProductInstance.serial_number == imei
+        ).first()
+
+        if not instance:
+            return {"valid": False, "message": "Serial no encontrado en inventario."}
+        
+        if instance.status != models.ProductInstanceStatus.AVAILABLE:
+            return {"valid": False, "message": f"Serial no disponible (Estado: {instance.status})"}
+            
+        return {"valid": True, "message": "Serial válido", "instance_id": instance.id}
+
+    @staticmethod
+    def validate_imei_for_entry(db: Session, imei: str) -> Dict[str, Any]:
+        """
+        Check if an IMEI is ALREADY in the database.
+        Used for Reception (Entry) to prevent duplicates.
+        Returns: {"exists": bool, "message": str}
+        """
+        instance = db.query(models.ProductInstance).filter(
+            models.ProductInstance.serial_number == imei
+        ).first()
+
+        if instance:
+            return {"exists": True, "message": f"IMEI {imei} ya existe en el sistema para el producto {instance.product_id}"}
+        
+        return {"exists": False, "message": "IMEI disponible para entrada"}
