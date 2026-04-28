@@ -178,6 +178,13 @@ def read_catalog_products(
                 if available < min_available:
                     min_available = available
             p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
+        else:
+            if warehouse_id:
+                warehouse_stock = sum(
+                    float(s.quantity) for s in p.stocks if s.warehouse_id == warehouse_id
+                )
+                p.stock = Decimal(str(warehouse_stock))
+            # else: leave p.stock as-is (total across warehouses)
 
     return {
         "items": products,

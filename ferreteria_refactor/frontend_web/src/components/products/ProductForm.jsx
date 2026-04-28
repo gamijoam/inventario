@@ -860,7 +860,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8 pt-6 border-t border-slate-100">
-                                        <div className="flex items-center gap-4">
+                                        {/* <div className="flex items-center gap-4">
                                             <div className="space-y-1.5 flex-1">
                                                 <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">IVA (%)</Label>
                                                 <div className="flex items-center gap-2">
@@ -868,7 +868,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     <span className="text-xs text-slate-400">Impuesto aplicado por defecto</span>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </div> */}
                                         <div className="space-y-1.5 flex flex-col items-end">
                                             <Label className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Referencia Moneda</Label>
                                             <Select name="exchange_rate_id" value={formData.exchange_rate_id?.toString()} onValueChange={(val) => setFormData({ ...formData, exchange_rate_id: val })}>
