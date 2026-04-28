@@ -152,7 +152,8 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
             modifierOptionIds,
             selectedModifiers: { ...selectedModifiers },
             removedIngredientIds,
-            stock_available: availableStock
+            stock_available: availableStock,
+            needs_kitchen: customizingProduct.needs_kitchen ?? true
         };
 
         setCart(prev => [...prev, cartItem]);
