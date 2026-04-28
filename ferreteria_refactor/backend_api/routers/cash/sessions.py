@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload, subqueryload
 from sqlalchemy import text
 from typing import List, Optional
 from datetime import datetime
+from ....utils.time_utils import get_venezuela_now
 from decimal import Decimal
 import logging
 
@@ -229,7 +230,7 @@ async def open_cash_session(
         new_session = models.CashSession(
             user_id=current_user.id,
             register_id=register.id,
-            start_time=datetime.now(),
+            start_time=get_venezuela_now(),
             initial_cash=initial_cash.initial_cash,
             initial_cash_bs=initial_cash.initial_cash_bs,
             status="OPEN"
@@ -594,7 +595,7 @@ async def close_cash_session(
     total_credit_pending = sum(float(sale.balance_pending or 0) for sale in credit_sales)
 
     # Update Session
-    session.end_time = datetime.now()
+    session.end_time = get_venezuela_now()
     session.final_cash_reported = close_data.final_cash_reported
     session.final_cash_reported_bs = close_data.final_cash_reported_bs
     session.final_cash_expected = expected_usd
