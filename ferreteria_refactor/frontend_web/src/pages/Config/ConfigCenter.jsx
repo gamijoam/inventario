@@ -2,6 +2,7 @@ import React, { Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
+import { useConfig } from '../../context/ConfigContext';
 import MessageCircle from 'lucide-react/dist/esm/icons/message-circle';
 import ShoppingBag from 'lucide-react/dist/esm/icons/shopping-bag';
 import {
@@ -55,9 +56,6 @@ const GROUPS = [
     },
 ];
 
-// Aplanar para búsqueda rápida
-const ALL_TABS = GROUPS.flatMap(g => g.items);
-
 // ── Spinner ──────────────────────────────────────────────────────────────────
 const TabSpinner = () => (
     <div className="flex items-center justify-center h-64">
@@ -90,6 +88,7 @@ const renderTabContent = (activeTab) => {
 
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 const ConfigCenter = () => {
+    const { modules } = useConfig();
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'general';
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -101,7 +100,19 @@ const ConfigCenter = () => {
         setMobileOpen(false);
     };
 
-    const currentItem = ALL_TABS.find(t => t.id === activeTab);
+    // Filtrar tabs según módulos activos
+    const visibleGroups = GROUPS.map(group => ({
+        ...group,
+        items: group.items.filter(item => {
+            if (item.id === 'integraciones') return modules?.services;
+            return true;
+        })
+    })).filter(group => group.items.length > 0);
+
+    // Aplanar para búsqueda rápida (solo tabs visibles)
+    const allTabs = visibleGroups.flatMap(g => g.items);
+
+    const currentItem = allTabs.find(t => t.id === activeTab);
     const CurrentIcon = currentItem?.icon || Building2;
 
     // ── Sidebar Nav ──────────────────────────────────────────────────────────
@@ -122,7 +133,7 @@ const ConfigCenter = () => {
 
             {/* Grupos */}
             <div className="flex-1 overflow-y-auto py-3 px-3 space-y-5">
-                {GROUPS.map(group => (
+                {visibleGroups.map(group => (
                     <div key={group.label}>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1.5">
                             {group.label}
