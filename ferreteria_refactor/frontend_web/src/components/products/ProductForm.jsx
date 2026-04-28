@@ -655,19 +655,19 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                             {modules?.restaurant && formData.is_menu_item && (
                                                 <div className={cn(
                                                     "flex items-center gap-4 p-4 rounded-xl transition-all border",
-                                                    formData.needs_kitchen === false
+                                                    formData.needs_kitchen
                                                         ? "bg-amber-50 border-amber-200 ring-1 ring-amber-500/10"
                                                         : "bg-slate-50 border-slate-100 hover:border-slate-200"
                                                 )}>
                                                     <div className={cn(
                                                         "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
-                                                        formData.needs_kitchen === false ? "bg-amber-600 text-white" : "bg-slate-200 text-slate-400"
+                                                        formData.needs_kitchen ? "bg-amber-600 text-white" : "bg-slate-200 text-slate-400"
                                                     )}>
                                                         <ChefHat size={20} />
                                                     </div>
                                                     <div className="flex-1">
                                                         <div className="flex items-center justify-between">
-                                                            <Label htmlFor="needs_kitchen" className="text-sm font-bold text-slate-800 cursor-pointer">No necesita cocina</Label>
+                                                            <Label htmlFor="needs_kitchen" className="text-sm font-bold text-slate-800 cursor-pointer">Necesita cocina</Label>
                                                             <input
                                                                 type="checkbox"
                                                                 id="needs_kitchen"
@@ -679,13 +679,13 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                 onClick={() => setFormData(p => ({ ...p, needs_kitchen: !p.needs_kitchen }))}
                                                                 className={cn(
                                                                     "w-11 h-6 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all",
-                                                                    formData.needs_kitchen === false
+                                                                    formData.needs_kitchen
                                                                         ? "bg-amber-600 after:translate-x-5"
                                                                         : "bg-slate-200"
                                                                 )}
                                                             ></div>
                                                         </div>
-                                                        <p className="text-[11px] text-slate-500 mt-0.5">Cerveza, jugo, dulces — Lo sirve el mesero directamente.</p>
+                                                        <p className="text-[11px] text-slate-500 mt-0.5">Si está activo, el item pasará por cocina. Si está apagado, lo sirve el mesero directamente.</p>
                                                     </div>
                                                 </div>
                                             )}

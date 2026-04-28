@@ -230,7 +230,8 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
             final_notes = f"{final_notes} [{removed_notes}]" if final_notes else removed_notes
         
         # Crear item
-        item_status = OrderItemStatusDB.SERVED if product.needs_kitchen is False else OrderItemStatusDB.PENDING
+        # SIEMPRE chequear needs_kitchen
+        item_status = OrderItemStatusDB.PENDING if product.needs_kitchen else OrderItemStatusDB.SERVED
         new_item = RestaurantOrderItem(
             order_id=order.id,
             product_id=product.id,
