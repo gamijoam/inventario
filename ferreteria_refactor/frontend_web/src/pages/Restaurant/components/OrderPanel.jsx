@@ -527,7 +527,7 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
                                             ) : (
                                                 <>
                                                     <ChefHat className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                                                    {cart.some(item => item.needs_kitchen !== false) ? 'MANDAR A COCINA' : 'CONFIRMAR PEDIDO'}
+                                                    {cart.some(item => item.needs_kitchen === false) ? 'CONFIRMAR PEDIDO' : 'MANDAR A COCINA'}
                                                 </>
                                             )}
                                         </button>
