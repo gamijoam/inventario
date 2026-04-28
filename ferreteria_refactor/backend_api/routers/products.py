@@ -140,57 +140,63 @@ def read_catalog_products(
             .subqueryload(models.Product.stocks),
     ).order_by(models.Product.name).offset(skip).limit(limit).all()
 
-    # For combo or recipe products, replace stock with the effective quantity
-    # from ingredient/component availability: min(floor(child_stock / qty_needed))
-    for p in products:
-        # Priority: Recipes (Restaurant)
-        if p.recipes:
-            min_available = float('inf')
-            for rec in p.recipes:
-                ing = rec.ingredient
-                if not ing: continue
-                if warehouse_id:
-                    ing_stock = next((float(s.quantity) for s in ing.stocks if s.warehouse_id == warehouse_id), 0.0)
-                else:
-                    ing_stock = sum(float(s.quantity) for s in ing.stocks)
-                qty_needed = float(rec.quantity) if rec.quantity else 1.0
-                available = ing_stock / qty_needed
-                if available < min_available: min_available = available
-            p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
-            
-        # Fallback/Alternative: Combos
-        elif p.is_combo and p.combo_items:
-            min_available = float('inf')
-            for ci in p.combo_items:
-                child = ci.child_product
-                if not child:
-                    min_available = 0
-                    break
-                if warehouse_id:
-                    child_stock = next(
-                        (float(s.quantity) for s in child.stocks if s.warehouse_id == warehouse_id),
-                        0.0
-                    )
-                else:
-                    child_stock = sum(float(s.quantity) for s in child.stocks)
-                qty_needed = float(ci.quantity) if ci.quantity else 1.0
-                available = child_stock / qty_needed
-                if available < min_available:
-                    min_available = available
-            p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
-        else:
-            if warehouse_id:
-                warehouse_stock = sum(
-                    float(s.quantity) for s in p.stocks if s.warehouse_id == warehouse_id
-                )
-                p.stock = Decimal(str(warehouse_stock))
-            # else: leave p.stock as-is (total across warehouses)
+        # For combo or recipe products, replace stock with the effective quantity
+        # from ingredient/component availability: min(floor(child_stock / qty_needed))
+        for p in products:
+            # Priority: Recipes (Restaurant)
+            if p.recipes:
+                min_available = float('inf')
+                for rec in p.recipes:
+                    ing = rec.ingredient
+                    if not ing: continue
+                    if warehouse_id:
+                        ing_stock = next((float(s.quantity) for s in ing.stocks if s.warehouse_id == warehouse_id), 0.0)
+                    else:
+                        ing_stock = sum(float(s.quantity) for s in ing.stocks)
+                    qty_needed = float(rec.quantity) if rec.quantity else 1.0
+                    available = ing_stock / qty_needed
+                    if available < min_available: min_available = available
+                p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
 
-    return {
-        "items": products,
-        "total": total,
-        "has_more": (skip + limit) < total
-    }
+            # Fallback/Alternative: Combos
+            elif p.is_combo and p.combo_items:
+                min_available = float('inf')
+                for ci in p.combo_items:
+                    child = ci.child_product
+                    if not child:
+                        min_available = 0
+                        break
+                    if warehouse_id:
+                        child_stock = next(
+                            (float(s.quantity) for s in child.stocks if s.warehouse_id == warehouse_id),
+                            0.0
+                        )
+                    else:
+                        child_stock = sum(float(s.quantity) for s in child.stocks)
+                    qty_needed = float(ci.quantity) if ci.quantity else 1.0
+                    available = child_stock / qty_needed
+                    if available < min_available:
+                        min_available = available
+                p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
+            else:
+                if warehouse_id:
+                    warehouse_stock = sum(
+                        float(s.quantity) for s in p.stocks if s.warehouse_id == warehouse_id
+                    )
+                    p.stock = Decimal(str(warehouse_stock))
+                else:
+                    warehouse_stock = sum(float(s.quantity) for s in p.stocks)
+                    p.stock = Decimal(str(warehouse_stock))
+                # Filter stocks so only the relevant warehouse rows are serialized
+                if warehouse_id:
+                    filtered = [s for s in p.stocks if s.warehouse_id == warehouse_id]
+                    p.stocks = filtered
+
+        return {
+            "items": products,
+            "total": total,
+            "has_more": (skip + limit) < total
+        }
 
 @router.get("/lookup", response_model=schemas.ProductRead)
 @router.get("/lookup/", response_model=schemas.ProductRead, include_in_schema=False)
