@@ -250,6 +250,7 @@ class ProductUpdate(BaseModel):
     is_commissionable: Optional[bool] = None # NEW: Commission flag
     is_barbershop_service: Optional[bool] = None # NEW
     is_menu_item: Optional[bool] = None # NEW
+    needs_kitchen: Optional[bool] = None # NEW: False = servido directo por mesero sin pasar por KDS
     is_active: Optional[bool] = None
     # Pricing System Fields - Added for updates
     profit_margin: Optional[Decimal] = None
