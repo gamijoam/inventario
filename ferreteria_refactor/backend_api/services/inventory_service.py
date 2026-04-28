@@ -1,5 +1,10 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+import asyncio
+import logging
+import json
+import re
+from typing import List, Dict, Any
 from decimal import Decimal
 from datetime import datetime
 from typing import Dict, Any
@@ -342,35 +347,334 @@ class InventoryService:
         }
 
     @staticmethod
-    def validate_imei_availability(db: Session, product_id: int, imei: str) -> Dict[str, Any]:
+    def generate_transfer_package_v2(db: Session, items_data: List[Dict[str, Any]], source_company: str, warehouse_id: int = None) -> Dict[str, Any]:
         """
-        Validates if an IMEI exists and is available for sale.
+        items_data: List of dicts like {'product_id': 1, 'quantity': 10}
+        warehouse_id: Optional ID of the warehouse to deduct stock from
         """
-        instance = db.query(models.ProductInstance).filter(
-            models.ProductInstance.product_id == product_id,
-            models.ProductInstance.serial_number == imei
-        ).first()
-
-        if not instance:
-            return {"valid": False, "message": "Serial no encontrado en inventario."}
+        transfer_items = []
         
-        if instance.status != models.ProductInstanceStatus.AVAILABLE:
-            return {"valid": False, "message": f"Serial no disponible (Estado: {instance.status})"}
+        for item in items_data:
+            pid = item['product_id']
+            qty = Decimal(str(item['quantity']))
             
-        return {"valid": True, "message": "Serial válido", "instance_id": instance.id}
+            product = db.query(models.Product).filter(models.Product.id == pid).first()
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Product ID {pid} not found")
+            
+            if not product.sku:
+                 raise HTTPException(status_code=400, detail=f"Product '{product.name}' (ID: {pid}) has no SKU. Transfer denied.")
+            
+            balance_after = product.stock
+            
+            if warehouse_id:
+                p_stock = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == pid,
+                    models.ProductStock.warehouse_id == warehouse_id
+                ).first()
+                
+                if not p_stock:
+                    p_stock = models.ProductStock(
+                        product_id=pid,
+                        warehouse_id=warehouse_id,
+                        quantity=Decimal("0.000")
+                    )
+                    db.add(p_stock)
+                    db.flush()
+                
+                if p_stock.quantity < qty:
+                    raise HTTPException(status_code=400, detail=f"Insufficient stock in WAREHOUSE for '{product.name}'. Requested: {qty}, Available: {p_stock.quantity}")
+
+                p_stock.quantity -= qty
+                product.stock -= qty
+                balance_after = p_stock.quantity
+                
+            else:
+                if product.stock < qty:
+                    raise HTTPException(status_code=400, detail=f"Insufficient global stock for '{product.name}'. Requested: {qty}, Available: {product.stock}")
+                
+                product.stock -= qty
+                balance_after = product.stock
+            
+            kardex = models.Kardex(
+                product_id=product.id,
+                movement_type=models.MovementType.EXTERNAL_TRANSFER_OUT,
+                quantity=-qty,
+                balance_after=balance_after,
+                description=f"Transfer OUT to External (Generated package)",
+                warehouse_id=warehouse_id,
+                date=datetime.now()
+            )
+            db.add(kardex)
+            
+            transfer_items.append({
+                "sku": product.sku,
+                "quantity": float(qty),
+                "name": product.name
+            })
+            
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error during transfer: {str(e)}")
+            
+        package = {
+            "source_company": source_company,
+            "source_warehouse_id": warehouse_id,
+            "generated_at": datetime.now().isoformat(),
+            "items": transfer_items
+        }
+        
+        return package
 
     @staticmethod
-    def validate_imei_for_entry(db: Session, imei: str) -> Dict[str, Any]:
+    def process_transfer_package(db: Session, file_content: bytes) -> Dict[str, Any]:
         """
-        Check if an IMEI is ALREADY in the database.
-        Used for Reception (Entry) to prevent duplicates.
-        Returns: {"exists": bool, "message": str}
+        Parses JSON package and updates inventory (EXTERNAL_TRANSFER_IN).
         """
-        instance = db.query(models.ProductInstance).filter(
-            models.ProductInstance.serial_number == imei
-        ).first()
-
-        if instance:
-            return {"exists": True, "message": f"IMEI {imei} ya existe en el sistema para el producto {instance.product_id}"}
+        try:
+            data = json.loads(file_content.decode('utf-8'))
+        except json.JSONDecodeError:
+             raise HTTPException(status_code=400, detail="Invalid JSON file")
+             
+        if "items" not in data or not isinstance(data["items"], list):
+            raise HTTPException(status_code=400, detail="Invalid package format: Missing 'items' list")
+            
+        success_count = 0
+        failure_count = 0
+        errors = []
         
-        return {"exists": False, "message": "IMEI disponible para entrada"}
+        for item in data["items"]:
+            sku = item.get("sku")
+            qty = float(item.get("quantity", 0))
+            name = item.get("name", "Unknown")
+            
+            if not sku:
+                errors.append(f"Skipped item '{name}': No SKU provided")
+                failure_count += 1
+                continue
+                
+            product = db.query(models.Product).filter(models.Product.sku == sku).first()
+            
+            if product:
+                product.stock += Decimal(str(qty))
+                
+                kardex = models.Kardex(
+                    product_id=product.id,
+                    movement_type=models.MovementType.EXTERNAL_TRANSFER_IN,
+                    quantity=qty,
+                    balance_after=product.stock,
+                    description=f"Transfer IN from {data.get('source_company', 'Unknown')}",
+                    date=datetime.now()
+                )
+                db.add(kardex)
+                success_count += 1
+            else:
+                errors.append(f"SKU Not Found: {sku} ({name}) - Manual creation required")
+                failure_count += 1
+        
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database commit error: {str(e)}")
+            
+        return {
+            "success_count": success_count,
+            "failure_count": failure_count,
+            "errors": errors
+        }
+
+    @staticmethod
+    def preview_transfer_package(db: Session, file_content: bytes) -> Dict[str, Any]:
+        """
+        Parses a JSON transfer package and previews how items would match
+        against existing products using a 4-step cascade.
+        """
+        from sqlalchemy import func
+        
+        try:
+            data = json.loads(file_content.decode('utf-8'))
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON file")
+
+        if "items" not in data or not isinstance(data["items"], list):
+            raise HTTPException(status_code=400, detail="Invalid package format: Missing 'items' list")
+
+        source_company = data.get("source_company", "Unknown")
+        preview_items = []
+
+        for item in data["items"]:
+            sku = item.get("sku", "")
+            name = item.get("name", "")
+            qty = float(item.get("quantity", 0))
+
+            match_type = "none"
+            matched_product = None
+
+            if sku:
+                matched_product = db.query(models.Product).filter(
+                    models.Product.sku == sku
+                ).first()
+                if matched_product:
+                    match_type = "exact"
+
+            if not matched_product and sku:
+                matched_product = db.query(models.Product).filter(
+                    func.lower(models.Product.sku) == sku.lower()
+                ).first()
+                if matched_product:
+                    match_type = "fuzzy"
+
+            if not matched_product and sku:
+                normalized_sku = re.sub(r'[-\s.]', '', sku).lower()
+                candidates = db.query(models.Product).filter(
+                    models.Product.sku.isnot(None),
+                    models.Product.sku != ''
+                ).all()
+                for candidate in candidates:
+                    candidate_normalized = re.sub(r'[-\s.]', '', candidate.sku).lower()
+                    if candidate_normalized == normalized_sku:
+                        matched_product = candidate
+                        match_type = "fuzzy"
+                        break
+
+            if not matched_product and name and len(name) >= 4:
+                matched_product = db.query(models.Product).filter(
+                    models.Product.name.ilike(f'%{name}%')
+                ).first()
+                if matched_product:
+                    match_type = "name"
+
+            preview_item = {
+                "sku": sku,
+                "name": name,
+                "quantity": qty,
+                "match_type": match_type,
+                "matched_product_id": matched_product.id if matched_product else None,
+                "matched_sku": matched_product.sku if matched_product else None,
+                "matched_name": matched_product.name if matched_product else None,
+                "matched_stock": float(matched_product.stock) if matched_product else None,
+            }
+            preview_items.append(preview_item)
+
+        return {
+            "source_company": source_company,
+            "items": preview_items,
+            "photo_urls": data.get("photo_urls", []),
+        }
+
+    @staticmethod
+    def process_transfer_package_v2(db: Session, data: Dict[str, Any], warehouse_id: int = None) -> Dict[str, Any]:
+        """
+        Processes a mapped transfer import (v2).
+        Each item can either be mapped to an existing product or flagged to create a new one.
+        """
+        success_count = 0
+        failure_count = 0
+        created_count = 0
+        errors = []
+        source_company = data.get("source_company", "Unknown")
+
+        for item in data.get("items", []):
+            sku = item.get("sku", "")
+            name = item.get("name", "Unknown")
+            qty = Decimal(str(item.get("quantity", 0)))
+            target_product_id = item.get("target_product_id")
+            create_new = item.get("create_new", False)
+            item_warehouse_id = item.get("warehouse_id") or warehouse_id
+
+            try:
+                if target_product_id:
+                    product = db.query(models.Product).filter(
+                        models.Product.id == target_product_id
+                    ).first()
+                    if not product:
+                        errors.append(f"Product ID {target_product_id} not found for SKU '{sku}'")
+                        failure_count += 1
+                        continue
+
+                    product.stock += qty
+
+                    kardex = models.Kardex(
+                        product_id=product.id,
+                        movement_type=models.MovementType.EXTERNAL_TRANSFER_IN,
+                        quantity=qty,
+                        balance_after=product.stock,
+                        description=f"Transfer IN (v2) from {source_company}",
+                        warehouse_id=item_warehouse_id,
+                        date=datetime.now()
+                    )
+                    db.add(kardex)
+
+                    if item_warehouse_id:
+                        p_stock = db.query(models.ProductStock).filter(
+                            models.ProductStock.product_id == product.id,
+                            models.ProductStock.warehouse_id == item_warehouse_id
+                        ).first()
+                        if p_stock:
+                            p_stock.quantity += qty
+                        else:
+                            p_stock = models.ProductStock(
+                                product_id=product.id,
+                                warehouse_id=item_warehouse_id,
+                                quantity=qty
+                            )
+                            db.add(p_stock)
+
+                    success_count += 1
+
+                elif create_new:
+                    new_product = models.Product(
+                        name=name,
+                        sku=sku if sku else None,
+                        stock=qty,
+                        price=Decimal("0.0000"),
+                        cost_price=Decimal("0.0000"),
+                    )
+                    db.add(new_product)
+                    db.flush()
+
+                    kardex = models.Kardex(
+                        product_id=new_product.id,
+                        movement_type=models.MovementType.EXTERNAL_TRANSFER_IN,
+                        quantity=qty,
+                        balance_after=new_product.stock,
+                        description=f"Transfer IN (v2 - new product) from {source_company}",
+                        warehouse_id=item_warehouse_id,
+                        date=datetime.now()
+                    )
+                    db.add(kardex)
+
+                    if item_warehouse_id:
+                        p_stock = models.ProductStock(
+                            product_id=new_product.id,
+                            warehouse_id=item_warehouse_id,
+                            quantity=qty
+                        )
+                        db.add(p_stock)
+
+                    success_count += 1
+                    created_count += 1
+
+                else:
+                    errors.append(f"Skipped '{name}' (SKU: {sku}): No target product and create_new=false")
+                    failure_count += 1
+
+            except Exception as e:
+                errors.append(f"Error processing '{name}' (SKU: {sku}): {str(e)}")
+                failure_count += 1
+
+        try:
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database commit error: {str(e)}")
+
+        return {
+            "success_count": success_count,
+            "failure_count": failure_count,
+            "created_count": created_count,
+            "errors": errors
+        }
