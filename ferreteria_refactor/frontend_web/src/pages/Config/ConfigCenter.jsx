@@ -88,7 +88,7 @@ const renderTabContent = (activeTab) => {
 
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 const ConfigCenter = () => {
-    const { modules } = useConfig();
+    const { modules, featureFlags } = useConfig();
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'general';
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -100,11 +100,13 @@ const ConfigCenter = () => {
         setMobileOpen(false);
     };
 
-    // Filtrar tabs según módulos activos
+    // Filtrar tabs según módulos activos y feature flags
     const visibleGroups = GROUPS.map(group => ({
         ...group,
         items: group.items.filter(item => {
             if (item.id === 'integraciones') return modules?.services;
+            if (item.id === 'whatsapp') return featureFlags?.whatsapp_business;
+            if (item.id === 'catalogo') return featureFlags?.catalogo_publico;
             return true;
         })
     })).filter(group => group.items.length > 0);
