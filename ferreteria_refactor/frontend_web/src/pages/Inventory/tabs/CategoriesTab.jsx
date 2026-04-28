@@ -16,6 +16,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Textarea } from '../../../components/ui/textarea';
+import { useConfig } from '../../../context/ConfigContext';
 
 const CategoriesTab = () => {
     const [categories, setCategories] = useState([]);
@@ -296,10 +297,12 @@ const MobileCategoryItem = ({ category, level, getChildren, onEdit, onDelete }) 
 
 // Modal for Create/Edit - Using New Sheet Component
 const CategoryModal = ({ category, categories, onClose, onSuccess }) => {
+    const { modules } = useConfig();
     const [formData, setFormData] = useState({
         name: category?.name || '',
         description: category?.description || '',
-        parent_id: category?.parent_id || null
+        parent_id: category?.parent_id || null,
+        is_no_kitchen_category: category?.is_no_kitchen_category || false
     });
     const [loading, setLoading] = useState(false);
 
@@ -399,6 +402,49 @@ const CategoryModal = ({ category, categories, onClose, onSuccess }) => {
                                 Selecciona una categoría padre para crear una subcategoría.
                             </p>
                         </div>
+
+                        {/* is_no_kitchen_category: Only if restaurant module active */}
+                        {modules?.restaurant && (
+                            <div className={clsx(
+                                "flex items-center gap-4 p-4 rounded-xl transition-all border",
+                                formData.is_no_kitchen_category
+                                    ? "bg-emerald-50 border-emerald-200"
+                                    : "bg-slate-50 border-slate-100 hover:border-slate-200"
+                            )}>
+                                <div className={clsx(
+                                    "w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                                    formData.is_no_kitchen_category ? "bg-emerald-600 text-white" : "bg-slate-200 text-slate-400"
+                                )}>
+                                    <Tags size={20} />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="flex items-center justify-between">
+                                        <Label htmlFor="is_no_kitchen_category" className="text-sm font-bold text-slate-800 cursor-pointer">
+                                            Categoría Sin Cocina
+                                        </Label>
+                                        <input
+                                            type="checkbox"
+                                            id="is_no_kitchen_category"
+                                            checked={formData.is_no_kitchen_category}
+                                            onChange={(e) => setFormData({ ...formData, is_no_kitchen_category: e.target.checked })}
+                                            className="sr-only peer"
+                                        />
+                                        <div
+                                            onClick={() => setFormData(p => ({ ...p, is_no_kitchen_category: !p.is_no_kitchen_category }))}
+                                            className={clsx(
+                                                "w-11 h-6 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all",
+                                                formData.is_no_kitchen_category
+                                                    ? "bg-emerald-600 after:translate-x-5"
+                                                    : "bg-slate-200"
+                                            )}
+                                        ></div>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 mt-0.5">
+                                        Los productos de esta categoría no pasan por cocina y son servidos directamente por el mesero.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <SheetFooter className="gap-3">
