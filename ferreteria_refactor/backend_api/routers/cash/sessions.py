@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, joinedload, subqueryload
 from sqlalchemy import text
 from typing import List, Optional
 from datetime import datetime
-from ....utils.time_utils import get_venezuela_now
+from ...utils.time_utils import get_venezuela_now
 from decimal import Decimal
 import logging
 
