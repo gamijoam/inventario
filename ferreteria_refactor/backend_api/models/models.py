@@ -580,6 +580,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)  # NEW: Superuser flag for admin panel
     commission_percentage = Column(Numeric(5, 2), default=0.00) # NEW: Commission %
+    commission_vendor_pct = Column(Numeric(5, 2), default=0.00) # NEW: Vendor commission override
     
     # User Preferences (Theme, shortcuts, etc.)
     preferences = Column(JSON, default={}, nullable=True) # NEW: JSON Configuration
@@ -603,6 +604,7 @@ class CommissionSettings(Base):
     global_enabled = Column(Boolean, default=False)
     pos_module_enabled = Column(Boolean, default=False)
     taller_module_enabled = Column(Boolean, default=False)
+    taller_vendor_commission_enabled = Column(Boolean, default=False)
     default_percentage = Column(Numeric(5, 2), default=0.00)
 
 class CommissionRule(Base):
