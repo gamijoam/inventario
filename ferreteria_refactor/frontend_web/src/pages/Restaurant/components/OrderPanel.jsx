@@ -199,14 +199,14 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
 
     const handleSendToKitchen = async () => {
         if (cart.length === 0 || loadingOrder) return;
-        
+
         const itemsCopy = [...cart]; // Backup for restoration on error
         setLoadingOrder(true);
         setCart([]); // Optimistic clear to prevent double-clicks
-        
+
         try {
             let currentOrderId = order?.id;
-            
+
             // 1. If no order exists, open the table first
             if (!currentOrderId) {
                 try {
@@ -230,11 +230,18 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
                 removed_ingredient_ids: item.removedIngredientIds || []
             }));
 
-            await restaurantService.addItemsToOrder(currentOrderId, itemsToAdd);
-            
+            const result = await restaurantService.addItemsToOrder(currentOrderId, itemsToAdd);
+
             await loadCurrentOrder();
             onUpdate();
-            toast.success("¡Orden enviada a cocina!", { icon: '👨‍🍳' });
+
+            // Show appropriate toast based on what was served vs sent to kitchen
+            const hasKitchenItems = itemsCopy.some(item => item.needs_kitchen !== false);
+            if (hasKitchenItems) {
+                toast.success("¡Orden enviada a cocina!", { icon: '👨‍🍳' });
+            } else {
+                toast.success("¡Pedido listo para servir!", { icon: '✅' });
+            }
         } catch (err) {
             console.error("Error sending to kitchen:", err);
             setCart(itemsCopy); // Restore cart if failed
@@ -511,7 +518,7 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
                                         </div>
                                         <button 
                                             onClick={handleSendToKitchen}
-                                            disabled={loadingOrder}
+                                            disabled={loadingOrder || cart.length === 0}
                                             className="w-full py-4 bg-white text-blue-600 rounded-2xl font-black text-sm shadow-lg hover:bg-slate-50 active:scale-95 transition-all flex items-center justify-center gap-2 group"
                                         >
                                             {loadingOrder ? (
@@ -519,7 +526,7 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
                                             ) : (
                                                 <>
                                                     <ChefHat className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                                                    MANDAR A COCINA
+                                                    {cart.some(item => item.needs_kitchen !== false) ? 'MANDAR A COCINA' : 'CONFIRMAR PEDIDO'}
                                                 </>
                                             )}
                                         </button>
