@@ -235,7 +235,8 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
             quantity=item_in.quantity,
             notes=final_notes,
             unit_price=effective_price,
-            subtotal=subtotal
+            subtotal=subtotal,
+            status=OrderItemStatusDB.SERVED if not product.needs_kitchen else OrderItemStatusDB.PENDING
         )
         db.add(new_item)
         db.flush()  # Get ID and auto-populate defaults

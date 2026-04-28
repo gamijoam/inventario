@@ -174,6 +174,7 @@ class Product(Base):
     
     # NEW: Service/Non-Stock Product Flag
     is_service = Column(Boolean, default=False)  # True = no requiere seguimiento de stock
+    needs_kitchen = Column(Boolean, default=True)  # False = servido directo por mesero sin pasar por KDS
 
     # NEW: Commission Flag
     is_commissionable = Column(Boolean, default=False)  # True = genera comision al vendedor

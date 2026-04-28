@@ -44,6 +44,7 @@ class ProductBase(BaseModel):
     is_commissionable: bool = Field(False, description="Indica si genera comision al vendedor") # NEW
     is_barbershop_service: bool = Field(False, description="Indica si es un servicio de barbería") # NEW
     is_menu_item: bool = Field(False, description="Indica si es un item de menú de restaurante") # NEW
+    needs_kitchen: bool = Field(True, description="False = servido directo por mesero sin pasar por KDS") # NEW
     is_active: Optional[bool] = True
     
     # Image Support
