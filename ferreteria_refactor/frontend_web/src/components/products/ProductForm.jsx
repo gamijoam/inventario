@@ -307,7 +307,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             is_service: formData.is_service || false,
             is_barbershop_service: formData.is_barbershop_service || false,
             is_menu_item: formData.is_menu_item || false,
-            ...(modules?.restaurant && formData.is_menu_item ? { needs_kitchen: formData.needs_kitchen !== false } : {}),
+            ...(modules?.restaurant && formData.is_menu_item ? { needs_kitchen: !!formData.needs_kitchen } : {}),
             commission_amount: formData.commission_amount ? parseFloat(formData.commission_amount) : null,
             commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
             is_commissionable: formData.is_commissionable || false, // NEW: Commission flag
@@ -671,13 +671,18 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             <input
                                                                 type="checkbox"
                                                                 id="needs_kitchen"
-                                                                checked={formData.needs_kitchen !== false}
+                                                                checked={!!formData.needs_kitchen}
                                                                 onChange={(e) => setFormData({ ...formData, needs_kitchen: e.target.checked })}
                                                                 className="sr-only peer"
                                                             />
                                                             <div
-                                                                onClick={() => setFormData(p => ({ ...p, needs_kitchen: p.needs_kitchen === false ? true : false }))}
-                                                                className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600 peer-checked:after:translate-x-5"
+                                                                onClick={() => setFormData(p => ({ ...p, needs_kitchen: !p.needs_kitchen }))}
+                                                                className={cn(
+                                                                    "w-11 h-6 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all",
+                                                                    formData.needs_kitchen === false
+                                                                        ? "bg-amber-600 after:translate-x-5"
+                                                                        : "bg-slate-200"
+                                                                )}
                                                             ></div>
                                                         </div>
                                                         <p className="text-[11px] text-slate-500 mt-0.5">Cerveza, jugo, dulces — Lo sirve el mesero directamente.</p>
