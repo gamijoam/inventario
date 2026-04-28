@@ -651,8 +651,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 </div>
                                             )}
 
-                                            {/* needs_kitchen: Only if restaurant module active and is_menu_item */}
-                                            {modules?.restaurant && formData.is_menu_item && (
+                                            {/* needs_kitchen: Only if restaurant module active */}
+                                            {modules?.restaurant && (
                                                 <div className={cn(
                                                     "flex items-center gap-4 p-4 rounded-xl transition-all border",
                                                     formData.needs_kitchen === false
@@ -680,7 +680,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                 className="w-11 h-6 bg-slate-200 rounded-full cursor-pointer transition-colors relative after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600 peer-checked:after:translate-x-5"
                                                             ></div>
                                                         </div>
-                                                        <p className="text-[11px] text-slate-500 mt-0.5"> cerveza, jugo, dulces — Lo sirve el mesero directamente.</p>
+                                                        <p className="text-[11px] text-slate-500 mt-0.5">Cerveza, jugo, dulces — Lo sirve el mesero directamente.</p>
                                                     </div>
                                                 </div>
                                             )}
