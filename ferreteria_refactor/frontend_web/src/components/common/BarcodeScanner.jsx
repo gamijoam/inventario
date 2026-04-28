@@ -12,9 +12,9 @@ const BarcodeScannerComponent = ({ onScanned, onClose }) => {
     useEffect(() => {
         if (!Capacitor.isNativePlatform()) {
             console.warn("BarcodeScanner solo funciona en dispositivos nativos.");
-            // Simulación para web
             const simulatedScan = setTimeout(() => {
                 onScanned("7501055311467");
+                onClose();
             }, 2000);
             return () => clearTimeout(simulatedScan);
         }
