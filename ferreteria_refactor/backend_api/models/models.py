@@ -41,6 +41,7 @@ class Category(Base):
     name = Column(String, unique=True, index=True, nullable=False)
     description = Column(Text, nullable=True)
     parent_id = Column(Integer, ForeignKey('categories.id'), nullable=True)  # For subcategories
+    is_no_kitchen_category = Column(Boolean, default=False)  # Products in this category skip kitchen (served directly by waiter)
 
     # Relationships
     children = relationship("Category", backref="parent", remote_side=[id])

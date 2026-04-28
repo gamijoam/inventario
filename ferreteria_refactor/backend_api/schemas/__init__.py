@@ -890,6 +890,7 @@ class CategoryBase(BaseModel):
     name: str
     description: Optional[str] = None
     parent_id: Optional[int] = None
+    is_no_kitchen_category: Optional[bool] = False
 
 class CategoryCreate(CategoryBase):
     pass
@@ -898,6 +899,7 @@ class CategoryUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     parent_id: Optional[int] = None
+    is_no_kitchen_category: Optional[bool] = None
 
 class CategoryResponse(CategoryBase):
     id: int

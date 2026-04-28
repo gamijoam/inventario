@@ -38,6 +38,7 @@ class MenuItemRead(MenuItemBase):
     stock_total: float = 0.0
     stock_reserved: float = 0.0
     stock_available: float = 0.0
+    needs_kitchen: Optional[bool] = True
 
     class Config:
         from_attributes = True

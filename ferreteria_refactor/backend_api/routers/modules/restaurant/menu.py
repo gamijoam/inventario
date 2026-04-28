@@ -58,7 +58,8 @@ def get_full_menu(db: Session = Depends(get_db)):
                 stock_available=availability["stock_available"],
                 product_name=prod_name,
                 sort_order=item.sort_order,
-                is_active=item.is_active
+                is_active=item.is_active,
+                needs_kitchen=product.needs_kitchen if product else True
             ))
         
         items_data.sort(key=lambda x: x.sort_order)

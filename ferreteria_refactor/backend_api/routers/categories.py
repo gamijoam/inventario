@@ -54,7 +54,8 @@ def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_
     new_category = models.Category(
         name=category.name,
         description=category.description,
-        parent_id=category.parent_id
+        parent_id=category.parent_id,
+        is_no_kitchen_category=category.is_no_kitchen_category or False
     )
     
     
@@ -67,7 +68,8 @@ def create_category(category: schemas.CategoryCreate, db: Session = Depends(get_
         "id": new_category.id,
         "name": new_category.name,
         "description": new_category.description,
-        "parent_id": new_category.parent_id
+        "parent_id": new_category.parent_id,
+        "is_no_kitchen_category": new_category.is_no_kitchen_category
     }
     
     db.commit()
@@ -108,6 +110,9 @@ def update_category(category_id: int, category: schemas.CategoryUpdate, db: Sess
     
     if category.parent_id is not None:
         db_category.parent_id = category.parent_id
+    
+    if category.is_no_kitchen_category is not None:
+        db_category.is_no_kitchen_category = category.is_no_kitchen_category
     
     db.commit()
     db.expunge(db_category)

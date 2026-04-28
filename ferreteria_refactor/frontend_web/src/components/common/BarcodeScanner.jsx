@@ -1,163 +1,217 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { BarcodeScanner } from '@capacitor-community/barcode-scanner';
-import { Capacitor } from '@capacitor/core';
-import { X, Camera } from 'lucide-react';
+import { X, Camera, SwitchCamera } from 'lucide-react';
 
 const BarcodeScannerComponent = ({ onScanned, onClose }) => {
-    const [hasPermission, setHasPermission] = useState(null);
-    const [error, setError] = useState(null);
-    const hiddenElementsRef = useRef([]);
+    const [error, setError]                     = useState(null);
+    const [isStarting, setIsStarting]           = useState(true);
+    const [hasMultipleCameras, setHasMultipleCameras] = useState(false);
+    const [facingBack, setFacingBack]           = useState(true);
+    const videoRef      = useRef(null);
+    const controlsRef   = useRef(null);
+    const hasScannedRef = useRef(false);
+    const mountedRef    = useRef(true);
 
-    useEffect(() => {
-        if (!Capacitor.isNativePlatform()) {
-            console.warn("BarcodeScanner solo funciona en dispositivos nativos.");
-            // Simulación para web
-            const simulatedScan = setTimeout(() => {
-                onScanned("7501055311467");
-            }, 2000);
-            return () => clearTimeout(simulatedScan);
+    /* ── stop helper ─────────────────────────────────────────── */
+    const stopScanner = useCallback(() => {
+        const controls = controlsRef.current;
+        controlsRef.current = null;
+        if (controls) {
+            try { controls.stop(); } catch { /* ignore */ }
         }
-
-        const checkPermission = async () => {
-            try {
-                const status = await BarcodeScanner.checkPermission({ force: true });
-                if (status.granted) {
-                    setHasPermission(true);
-                    startScan();
-                } else {
-                    setHasPermission(false);
-                }
-            } catch (err) {
-                console.error("Error checking camera permission:", err);
-                setError(err.message);
-                setHasPermission(false);
-            }
-        };
-
-        checkPermission();
-
-        return () => {
-            stopScan();
-        };
     }, []);
 
-    const startScan = async () => {
+    /* ── start helper ────────────────────────────────────────── */
+    const startScanner = useCallback(async (useBackCamera) => {
+        stopScanner();
+        if (!mountedRef.current || !videoRef.current) return;
+
         try {
-            // Programmatically hide ALL body children except our scanner portal
-            const bodyChildren = document.body.children;
-            hiddenElementsRef.current = [];
-            for (let i = 0; i < bodyChildren.length; i++) {
-                const child = bodyChildren[i];
-                if (child.id !== 'barcode-scanner-portal') {
-                    const prevDisplay = child.style.display;
-                    const prevOpacity = child.style.opacity;
-                    child.style.display = 'none';
-                    hiddenElementsRef.current.push({ el: child, prevDisplay, prevOpacity });
+            const { BrowserMultiFormatReader } = await import('@zxing/browser');
+            const { DecodeHintType, BarcodeFormat } = await import('@zxing/library');
+
+            const hints = new Map();
+            hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+                BarcodeFormat.EAN_13,
+                BarcodeFormat.EAN_8,
+                BarcodeFormat.CODE_128,
+                BarcodeFormat.CODE_93,
+                BarcodeFormat.CODE_39,
+                BarcodeFormat.UPC_A,
+                BarcodeFormat.UPC_E,
+                BarcodeFormat.ITF,
+                BarcodeFormat.QR_CODE,
+            ]);
+
+            const reader = new BrowserMultiFormatReader(hints, {
+                delayBetweenScanAttempts: 100,
+                delayBetweenScanSuccess: 300,
+                tryPlayVideoTimeout: 10000,
+            });
+
+            const controls = await reader.decodeFromConstraints(
+                {
+                    video: {
+                        facingMode: useBackCamera ? 'environment' : 'user',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                    },
+                },
+                videoRef.current,
+                (result, err) => {
+                    if (result && !hasScannedRef.current) {
+                        hasScannedRef.current = true;
+                        if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+                        stopScanner();
+                        if (mountedRef.current) onScanned(result.getText().trim());
+                    }
                 }
+            );
+
+            if (!mountedRef.current) {
+                try { controls.stop(); } catch { /* ignore */ }
+                return;
+            }
+            controlsRef.current = controls;
+            setIsStarting(false);
+
+            if (!hasMultipleCameras) {
+                try {
+                    const { BrowserMultiFormatReader: BMR } = await import('@zxing/browser');
+                    const devices = await BMR.listVideoInputDevices();
+                    if (mountedRef.current && devices.length > 1) setHasMultipleCameras(true);
+                } catch { /* ignore */ }
             }
 
-            // Also add class for extra CSS control
-            document.querySelector('body').classList.add('barcode-scanner-active');
-
-            // Make background transparent for camera to show through
-            await BarcodeScanner.hideBackground();
-            document.body.style.backgroundColor = "transparent";
-            document.documentElement.style.backgroundColor = "transparent";
-
-            const result = await BarcodeScanner.startScan();
-
-            if (result.hasContent) {
-                onScanned(result.content);
-                stopScan();
-            }
         } catch (err) {
-            console.error("Error starting scan:", err);
-            setError(err.message);
-            stopScan();
+            if (!mountedRef.current) return;
+            const msg = String(err);
+            if (msg.includes('NotAllowedError') || msg.includes('Permission')) {
+                setError('Permiso de cámara denegado. Habilitarlo en la configuración del navegador.');
+            } else if (msg.includes('NotFoundError')) {
+                if (useBackCamera) { setFacingBack(false); startScanner(false); return; }
+                setError('No se encontró cámara en este dispositivo.');
+            } else if (msg.includes('NotReadableError') || msg.includes('Could not start video')) {
+                setError('La cámara está siendo usada por otra app. Ciérrala y reintenta.');
+            } else {
+                setError(`Error de cámara: ${err?.message || err}`);
+            }
+            setIsStarting(false);
         }
+    }, [onScanned, stopScanner, hasMultipleCameras]);
+
+    /* ── mount ───────────────────────────────────────────────── */
+    useEffect(() => {
+        mountedRef.current = true;
+        const init = async () => {
+            try {
+                const { BrowserMultiFormatReader } = await import('@zxing/browser');
+                const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+                if (mountedRef.current) setHasMultipleCameras(devices.length > 1);
+            } catch { /* still proceed */ }
+            if (mountedRef.current) startScanner(true);
+        };
+        init();
+        return () => { mountedRef.current = false; stopScanner(); };
+    }, []);
+
+    /* ── handlers ────────────────────────────────────────────── */
+    const handleSwitchCamera = () => {
+        const next = !facingBack;
+        setFacingBack(next);
+        setIsStarting(true);
+        hasScannedRef.current = false;
+        startScanner(next).catch(() => {});
     };
 
-    const stopScan = () => {
-        if (Capacitor.isNativePlatform()) {
-            BarcodeScanner.showBackground();
-            BarcodeScanner.stopScan();
-
-            // Restore all previously hidden elements
-            hiddenElementsRef.current.forEach(({ el, prevDisplay }) => {
-                el.style.display = prevDisplay;
-            });
-            hiddenElementsRef.current = [];
-
-            document.body.style.backgroundColor = "";
-            document.documentElement.style.backgroundColor = "";
-            document.querySelector('body').classList.remove('barcode-scanner-active');
-        }
+    const handleClose = () => {
+        mountedRef.current = false;
+        stopScanner();
         onClose();
     };
 
-    // Scanner UI rendered via portal to body
-    const scannerUI = (
-        <div id="barcode-scanner-portal" className="fixed inset-0 z-[9999] flex flex-col justify-between pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] bg-transparent">
-            {/* Fallback CSS in case programmatic hiding misses something */}
-            <style>{`
-                .barcode-scanner-active {
-                    background: transparent !important;
-                }
-            `}</style>
+    /* ── render ──────────────────────────────────────────────── */
+    return createPortal(
+        <div className="fixed inset-0 bg-black flex flex-col" style={{ zIndex: 99999 }}>
 
-            {/* Error State */}
-            {hasPermission === false && (
-                <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-6 text-white text-center">
-                    <Camera size={48} className="text-red-500 mb-4" />
-                    <h3 className="text-lg font-bold mb-2">Permiso denegado</h3>
-                    <p className="mb-6 text-sm text-slate-300">
-                        {error ? `Error: ${error}` : "Necesitamos acceso a la cámara para escanear códigos."}
-                    </p>
-                    <button onClick={stopScan} className="px-6 py-2 bg-slate-700 rounded-full font-bold">Cerrar</button>
+            {/* Header */}
+            <div className="relative flex items-center justify-between px-4 bg-black/90"
+                style={{ zIndex: 2, paddingTop: 'max(12px, env(safe-area-inset-top))', paddingBottom: 12 }}>
+                <span className="text-white font-semibold text-base">
+                    {isStarting ? 'Iniciando cámara…' : 'Escanear código'}
+                </span>
+                <div className="flex items-center gap-3">
+                    {hasMultipleCameras && (
+                        <button type="button"
+                            onClick={handleSwitchCamera}
+                            onTouchStart={(e) => { e.preventDefault(); handleSwitchCamera(); }}
+                            className="w-10 h-10 flex items-center justify-center text-white bg-white/20 active:bg-white/40 rounded-full">
+                            <SwitchCamera size={20} />
+                        </button>
+                    )}
+                    <button type="button"
+                        onClick={handleClose}
+                        onTouchStart={(e) => { e.preventDefault(); handleClose(); }}
+                        className="w-10 h-10 flex items-center justify-center text-white bg-red-500/90 active:bg-red-600 rounded-full">
+                        <X size={22} strokeWidth={2.5} />
+                    </button>
                 </div>
-            )}
+            </div>
 
-            {/* Scanning UI */}
-            {hasPermission === true && (
-                <>
-                    {/* Header */}
-                    <div className="p-4 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent">
-                        <div className="text-white font-bold drop-shadow-md text-lg">Escaneando...</div>
-                        <button
-                            onClick={stopScan}
-                            className="p-3 bg-white/20 rounded-full text-white backdrop-blur-md border border-white/30 hover:bg-white/30 transition-all active:scale-95"
-                        >
-                            <X size={24} strokeWidth={3} />
+            {/* Camera area */}
+            <div className="flex-1 relative overflow-hidden bg-black">
+                {error ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                        <Camera size={56} className="text-red-400 mb-4" />
+                        <h3 className="text-white font-bold text-lg mb-2">Cámara no disponible</h3>
+                        <p className="text-slate-400 text-sm mb-6 max-w-xs">{error}</p>
+                        <button type="button" onClick={handleClose}
+                            className="px-6 py-2.5 bg-white/10 active:bg-white/30 text-white rounded-full font-medium">
+                            Cerrar
                         </button>
                     </div>
+                ) : (
+                    <>
+                        <video
+                            ref={videoRef}
+                            className="w-full h-full object-contain"
+                            autoPlay
+                            muted
+                            playsInline
+                        />
 
-                    {/* Guía Visual (Cuadrado central) */}
-                    <div className="flex-1 flex items-center justify-center">
-                        <div className="w-72 h-48 border-2 border-white/30 rounded-2xl relative shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]">
-                            <div className="absolute inset-0 border-4 border-transparent border-t-indigo-500 border-r-indigo-500 rounded-tr-2xl w-12 h-12 right-0 top-0"></div>
-                            <div className="absolute inset-0 border-4 border-transparent border-t-indigo-500 border-l-indigo-500 rounded-tl-2xl w-12 h-12 left-0 top-0"></div>
-                            <div className="absolute inset-0 border-4 border-transparent border-b-indigo-500 border-r-indigo-500 rounded-br-2xl w-12 h-12 right-0 bottom-0"></div>
-                            <div className="absolute inset-0 border-4 border-transparent border-b-indigo-500 border-l-indigo-500 rounded-bl-2xl w-12 h-12 left-0 bottom-0"></div>
+                        {!isStarting && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="relative" style={{ width: '85%', maxWidth: 340, height: 110 }}>
+                                    <div className="absolute top-0 left-0 w-7 h-7 border-t-[3px] border-l-[3px] border-white rounded-tl-sm" />
+                                    <div className="absolute top-0 right-0 w-7 h-7 border-t-[3px] border-r-[3px] border-white rounded-tr-sm" />
+                                    <div className="absolute bottom-0 left-0 w-7 h-7 border-b-[3px] border-l-[3px] border-white rounded-bl-sm" />
+                                    <div className="absolute bottom-0 right-0 w-7 h-7 border-b-[3px] border-r-[3px] border-white rounded-br-sm" />
+                                    <div className="absolute inset-x-0 top-1/2 h-px bg-red-400/60" />
+                                </div>
+                            </div>
+                        )}
 
-                            {/* Línea de escaneo animada */}
-                            <div className="absolute left-4 right-4 h-0.5 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] top-1/2 -translate-y-1/2 animate-pulse"></div>
-                        </div>
-                    </div>
+                        {isStarting && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3" style={{ zIndex: 1 }}>
+                                <div className="w-10 h-10 border-[3px] border-white/20 border-t-white rounded-full animate-spin" />
+                                <p className="text-white/60 text-sm">Abriendo cámara…</p>
+                            </div>
+                        )}
+                    </>
+                )}
+            </div>
 
-                    {/* Footer / Instrucciones */}
-                    <div className="p-10 text-center bg-gradient-to-t from-black/50 to-transparent">
-                        <p className="text-white text-sm font-medium drop-shadow-md bg-black/40 px-6 py-3 rounded-full inline-block backdrop-blur-md border border-white/10">
-                            Apunta la cámara al código de barras
-                        </p>
-                    </div>
-                </>
-            )}
-        </div>
+            {/* Footer */}
+            <div className="relative px-4 py-3 bg-black/90 text-center"
+                style={{ zIndex: 2, paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+                <p className="text-white/60 text-xs">
+                    Coloca el código de barras dentro del recuadro
+                </p>
+            </div>
+        </div>,
+        document.body
     );
-
-    return createPortal(scannerUI, document.body);
 };
 
 export default BarcodeScannerComponent;
-
