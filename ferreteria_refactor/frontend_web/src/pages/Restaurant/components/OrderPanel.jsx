@@ -145,7 +145,7 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
         const cartItem = {
             cartId: Date.now(),
             id: customizingProduct.id,
-            name: customizingProduct.alias || customizingProduct.product_name,
+            name: customizingProduct.alias || customizingProduct.product_name || customizingProduct.name || 'Producto',
             price: customizingProduct.price,
             quantity: itemQuantity,
             notes: itemNotes,
@@ -158,7 +158,7 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
 
         setCart(prev => [...prev, cartItem]);
         setShowCustomizeModal(false);
-        toast.success(`${itemQuantity}x ${customizingProduct.alias || customizingProduct.product_name} añadido`, { duration: 1000, icon: '🛒' });
+        toast.success(`${itemQuantity}x ${customizingProduct.alias || customizingProduct.product_name || customizingProduct.name || 'Producto'} añadido`, { duration: 1000, icon: '🛒' });
     };
 
     const handleToggleModifier = (groupId, optionId, selectionType) => {
@@ -716,7 +716,7 @@ const OrderPanel = ({ table, onClose, onUpdate, onTableStatusChange }) => {
                                         )}
                                     </div>
                                     <div>
-                                        <p className="font-black text-sm">{customizingProduct.alias || customizingProduct.product_name}</p>
+                                        <p className="font-black text-sm">{customizingProduct.alias || customizingProduct.product_name || customizingProduct.name || 'Producto'}</p>
                                         <p className="text-xs opacity-80">${customizingProduct.price}</p>
                                     </div>
                                 </div>
