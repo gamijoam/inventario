@@ -884,7 +884,9 @@ class PurchaseItem(Base):
     quantity = Column(Numeric(12, 3), nullable=False)
     unit_cost = Column(Numeric(14, 4), nullable=False)
     discount_pct = Column(Numeric(5, 2), default=0)
-    
+    discount_amount = Column(Numeric(18, 4), default=0)
+    subtotal = Column(Numeric(18, 4), nullable=False)
+
     # Relationships
     purchase = relationship("PurchaseOrder", back_populates="items")
     product = relationship("Product")
