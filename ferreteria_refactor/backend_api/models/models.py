@@ -842,7 +842,10 @@ class PurchaseOrder(Base):
     # Additional info
     invoice_number = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
-    
+    discount_amount = Column(Numeric(18, 4), default=0)
+    discount_type = Column(String, nullable=True)
+    discount_notes = Column(Text, nullable=True)
+
     # Relationships
     supplier = relationship("Supplier", back_populates="purchase_orders")
     warehouse = relationship("Warehouse")  # Receiving warehouse for display
