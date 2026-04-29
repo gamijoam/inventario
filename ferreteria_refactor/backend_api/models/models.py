@@ -882,7 +882,8 @@ class PurchaseItem(Base):
     purchase_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Numeric(12, 3), nullable=False)
-    unit_cost = Column(Numeric(14, 4), nullable=False) # Store cost at time of purchase
+    unit_cost = Column(Numeric(14, 4), nullable=False)
+    discount_pct = Column(Numeric(5, 2), default=0)
     
     # Relationships
     purchase = relationship("PurchaseOrder", back_populates="items")
