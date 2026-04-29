@@ -844,7 +844,10 @@ class PurchaseOrder(Base):
     # Additional info
     invoice_number = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
-    
+    discount_amount = Column(Numeric(18, 4), default=0)
+    discount_type = Column(String, nullable=True)
+    discount_notes = Column(Text, nullable=True)
+
     # Relationships
     supplier = relationship("Supplier", back_populates="purchase_orders")
     warehouse = relationship("Warehouse")  # Receiving warehouse for display
@@ -881,8 +884,11 @@ class PurchaseItem(Base):
     purchase_id = Column(Integer, ForeignKey("purchase_orders.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Numeric(12, 3), nullable=False)
-    unit_cost = Column(Numeric(14, 4), nullable=False) # Store cost at time of purchase
-    
+    unit_cost = Column(Numeric(14, 4), nullable=False)
+    discount_pct = Column(Numeric(5, 2), default=0)
+    discount_amount = Column(Numeric(18, 4), default=0)
+    subtotal = Column(Numeric(18, 4), nullable=False)
+
     # Relationships
     purchase = relationship("PurchaseOrder", back_populates="items")
     product = relationship("Product")
