@@ -129,7 +129,7 @@ def read_catalog_products(
         joinedload(models.Product.category),
         joinedload(models.Product.units),
         joinedload(models.Product.stocks),
-        joinedload(models.Product.prices),
+        joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
         # Combos: load components + their stocks to compute effective availability
         subqueryload(models.Product.combo_items)
             .subqueryload(models.ComboItem.child_product)
@@ -212,7 +212,7 @@ def lookup_product(
         joinedload(models.Product.category),
         joinedload(models.Product.units),
         joinedload(models.Product.stocks),
-        joinedload(models.Product.prices),
+        joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
     ).filter(models.Product.is_active == True)
 
     if sku:
@@ -251,7 +251,7 @@ def read_products(
             joinedload(models.Product.category),  # Load category relationship
             joinedload(models.Product.units), 
             joinedload(models.Product.stocks), 
-            joinedload(models.Product.prices),
+            joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
             joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
             joinedload(models.Product.price_rules),
             joinedload(models.Product.recipes).subqueryload(rest_models.RestaurantRecipe.ingredient).subqueryload(models.Product.stocks)
@@ -536,7 +536,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     db_product = db.query(models.Product).options(
         joinedload(models.Product.units), 
         joinedload(models.Product.stocks), 
-        joinedload(models.Product.prices),
+        joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
         joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
         joinedload(models.Product.price_rules)
     ).filter(models.Product.id == product_id).first()
@@ -1042,7 +1042,7 @@ def read_product(product_id: int, db: Session = Depends(get_db)):
     product = db.query(models.Product).options(
         joinedload(models.Product.units), 
         joinedload(models.Product.stocks),
-        joinedload(models.Product.prices),
+        joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
         joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product),
         joinedload(models.Product.price_rules)
     ).filter(models.Product.id == product_id).first()
