@@ -25,7 +25,8 @@ const generateAndPrint = (products, instances, exchangeRate, tenantName) => {
             const insts = instMap[p.id] || [];
             const disponibles = insts.filter(i => i.status === 'AVAILABLE').length;
             const vendidos    = insts.filter(i => i.status === 'SOLD').length;
-            if (disponibles === 0) return null; // Solo con stock
+            // Excluir si no hay instancias AVAILABLE O si el stock del producto es 0
+            if (disponibles === 0 || Number(p.stock || 0) === 0) return null;
 
             const costo         = Number(p.cost_price || 0);
             const precio        = Number(p.price || 0);
