@@ -64,7 +64,7 @@ const CreatePurchase = () => {
 
     const fetchProducts = async () => {
         try {
-            const response = await apiClient.get('/products?limit=500');
+            const response = await apiClient.get('/products?limit=2000');
             setProducts(response.data);
         } catch (error) {
             console.error('Error fetching products:', error);
