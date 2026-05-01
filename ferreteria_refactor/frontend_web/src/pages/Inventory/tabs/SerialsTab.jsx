@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import SerializedReportPDF from '../../../components/inventory/SerializedReportPDF';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import {
@@ -512,13 +513,16 @@ const SerialsTab = () => {
                             : 'Gestión de equipos con número de serie / IMEI'}
                     </p>
                 </div>
-                <button
-                    onClick={loadData}
-                    className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 transition-all bg-white"
-                    title="Actualizar"
-                >
-                    <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-                </button>
+                <div className="flex items-center gap-2">
+                    <SerializedReportPDF />
+                    <button
+                        onClick={loadData}
+                        className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 transition-all bg-white"
+                        title="Actualizar"
+                    >
+                        <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                    </button>
+                </div>
             </div>
 
             {/* Vista principal */}

@@ -306,6 +306,22 @@ def validate_imei_for_entry(imei: str, db: Session = Depends(get_db)):
     """
     return InventoryService.validate_imei_for_entry(db, imei)
 
+
+@router.get("/serialized-instances", dependencies=[any_authenticated])
+def get_all_serialized_instances(db: Session = Depends(get_db)):
+    """
+    Get ALL serialized instances (IMEIs) across all products.
+    Used for the serialized report PDF.
+    """
+    instances = db.query(models.ProductInstance).options(
+        joinedload(models.ProductInstance.warehouse)
+    ).order_by(
+        models.ProductInstance.product_id,
+        models.ProductInstance.status,
+        models.ProductInstance.created_at.desc()
+    ).all()
+    return instances
+
 @router.get("/product/{product_id}/instances")
 def get_product_instances(product_id: int, db: Session = Depends(get_db)):
     """
