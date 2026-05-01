@@ -133,7 +133,13 @@ const Products = () => {
         fetchFilters();
 
         const unsubCreate = subscribe('product:created', (newProduct) => setProducts(prev => [newProduct, ...prev]));
-        const unsubUpdate = subscribe('product:updated', (updatedProduct) => setProducts(prev => prev.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p)));
+        const unsubUpdate = subscribe('product:updated', (updatedProduct) => setProducts(prev => prev.map(p => {
+            if (p.id !== updatedProduct.id) return p;
+            // Preservar prices con price_list si el WS no los trae
+            const merged = { ...p, ...updatedProduct };
+            if (!updatedProduct.prices || updatedProduct.prices.length === 0) merged.prices = p.prices;
+            return merged;
+        })));
         const unsubDelete = subscribe('product:deleted', (deletedProduct) => setProducts(prev => prev.filter(p => p.id !== deletedProduct.id)));
 
         return () => { unsubCreate(); unsubUpdate(); unsubDelete(); };
@@ -387,19 +393,16 @@ const Products = () => {
                                                     <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Precio base</div>
                                                 </div>
                                                 {/* Primera lista de precios */}
-                                                {product.prices && product.prices.length > 0 && (() => {
-                                                    const firstPrice = product.prices[0];
-                                                    return (
-                                                        <div className="flex flex-col items-end bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1">
-                                                            <div className="text-base font-black text-indigo-700 tracking-tight leading-none">
-                                                                ${Number(firstPrice.price).toFixed(2)}
-                                                            </div>
-                                                            <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-0.5 truncate max-w-[80px]">
-                                                                {firstPrice.price_list?.name || 'Lista 1'}
-                                                            </div>
+                                                {Array.isArray(product.prices) && product.prices.length > 0 && (
+                                                    <div className="flex flex-col items-end bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1">
+                                                        <div className="text-base font-black text-indigo-700 tracking-tight leading-none">
+                                                            ${Number(product.prices[0].price || 0).toFixed(2)}
                                                         </div>
-                                                    );
-                                                })()}
+                                                        <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-0.5 truncate max-w-[90px]">
+                                                            {product.prices[0].price_list?.name || 'Lista especial'}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell>
