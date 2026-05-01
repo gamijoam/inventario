@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import SerializedReportPDF from '../../../components/inventory/SerializedReportPDF';
+import InversionReportPDF from '../../../components/inventory/InversionReportPDF';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import {
@@ -514,6 +515,7 @@ const SerialsTab = () => {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <InversionReportPDF />
                     <SerializedReportPDF />
                     <button
                         onClick={loadData}
