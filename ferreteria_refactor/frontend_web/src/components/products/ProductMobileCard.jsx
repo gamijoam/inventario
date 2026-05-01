@@ -89,12 +89,22 @@ export default function ProductMobileCard({ product, onEdit, onDelete, onCategor
                 <div className="flex justify-between items-end mt-3 pt-3 border-t border-slate-50 border-dashed">
 
                     {/* Price */}
-                    <div className="flex flex-col">
-                        <span className="text-[9px] uppercase text-slate-400 font-bold tracking-wider mb-0.5">Precio</span>
-                        <div className="text-lg font-black text-slate-900 leading-none tracking-tight">
-                            ${Number(product.price).toFixed(2)}
-                            <span className="text-[10px] text-slate-400 font-medium ml-0.5">USD</span>
+                    <div className="flex flex-col gap-1">
+                        <div className="flex flex-col">
+                            <span className="text-[9px] uppercase text-slate-400 font-bold tracking-wider mb-0.5">Precio base</span>
+                            <div className="text-lg font-black text-slate-900 leading-none tracking-tight">
+                                ${Number(product.price).toFixed(2)}
+                                <span className="text-[10px] text-slate-400 font-medium ml-0.5">USD</span>
+                            </div>
                         </div>
+                        {product.prices && product.prices.length > 0 && (
+                            <div className="flex flex-col bg-indigo-50 border border-indigo-100 rounded-lg px-1.5 py-1">
+                                <span className="text-[9px] uppercase text-indigo-400 font-bold tracking-wider mb-0.5 truncate max-w-[70px]">{product.prices[0].price_list?.name || 'Lista 1'}</span>
+                                <div className="text-sm font-black text-indigo-700 leading-none">
+                                    ${Number(product.prices[0].price).toFixed(2)}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Stock Value */}

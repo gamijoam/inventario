@@ -378,11 +378,28 @@ const Products = () => {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex flex-col items-end">
-                                                <div className="text-2xl font-black text-slate-900 tracking-tighter leading-none">
-                                                    ${Number(product.price).toFixed(2)}
+                                            <div className="flex flex-col items-end gap-1.5">
+                                                {/* Precio base */}
+                                                <div className="flex flex-col items-end">
+                                                    <div className="text-2xl font-black text-slate-900 tracking-tighter leading-none">
+                                                        ${Number(product.price).toFixed(2)}
+                                                    </div>
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Precio base</div>
                                                 </div>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">USD</div>
+                                                {/* Primera lista de precios */}
+                                                {product.prices && product.prices.length > 0 && (() => {
+                                                    const firstPrice = product.prices[0];
+                                                    return (
+                                                        <div className="flex flex-col items-end bg-indigo-50 border border-indigo-100 rounded-lg px-2 py-1">
+                                                            <div className="text-base font-black text-indigo-700 tracking-tight leading-none">
+                                                                ${Number(firstPrice.price).toFixed(2)}
+                                                            </div>
+                                                            <div className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mt-0.5 truncate max-w-[80px]">
+                                                                {firstPrice.price_list?.name || 'Lista 1'}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </TableCell>
                                         <TableCell>
