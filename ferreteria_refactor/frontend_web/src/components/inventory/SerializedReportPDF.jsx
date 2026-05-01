@@ -39,19 +39,14 @@ const generateAndPrint = (products, exchangeRate, tenantName) => {
                 ${p.sku ? `<div style="font-size:9px;color:#94a3b8;font-family:monospace;margin-top:1px;">SKU: ${p.sku}</div>` : ''}
             </td>
             <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;
-                text-align:right;width:13%;">
+                text-align:right;width:18%;">
+                <div style="display:flex;flex-wrap:wrap;gap:2px;justify-content:flex-end;">
+                    ${listas || '<span style="font-size:10px;color:#cbd5e1;font-style:italic;">Sin lista</span>'}
+                </div>
+            </td>
+            <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;width:18%;">
                 <div style="font-size:13px;font-weight:900;color:#0f172a;">${fmt(p.price)}</div>
                 ${exchangeRate ? `<div style="font-size:9px;color:#94a3b8;margin-top:1px;">${fmtBs(p.price, exchangeRate)}</div>` : ''}
-            </td>
-            <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;border-right:1px solid #e2e8f0;
-                text-align:right;width:13%;">
-                <div style="font-size:13px;font-weight:900;color:#7c3aed;">${fmt(p.cost_price)}</div>
-                ${exchangeRate ? `<div style="font-size:9px;color:#94a3b8;margin-top:1px;">${fmtBs(p.cost_price, exchangeRate)}</div>` : ''}
-            </td>
-            <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;width:39%;">
-                <div style="display:flex;flex-wrap:wrap;gap:2px;">
-                    ${listas || '<span style="font-size:10px;color:#cbd5e1;font-style:italic;">Sin listas</span>'}
-                </div>
             </td>
         </tr>`;
     });
@@ -111,13 +106,12 @@ const generateAndPrint = (products, exchangeRate, tenantName) => {
       <tr style="background:linear-gradient(135deg,#4f46e5,#6366f1);">
         <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;text-align:center;width:5%;">#</th>
         <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;text-align:left;width:30%;">Producto</th>
-        <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;text-align:right;width:13%;">Precio Base</th>
-        <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;text-align:right;width:13%;">Costo</th>
-        <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;text-align:left;width:39%;">Listas de Precios</th>
+        <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;text-align:right;width:18%;">Precio Detal</th>
+        <th style="padding:9px 10px;color:#fff;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;text-align:right;width:18%;">Precio Mayor</th>
       </tr>
     </thead>
     <tbody>
-      ${rows || '<tr><td colspan="5" style="padding:20px;text-align:center;color:#94a3b8;">Sin productos</td></tr>'}
+      ${rows || '<tr><td colspan="4" style="padding:20px;text-align:center;color:#94a3b8;">Sin productos</td></tr>'}
     </tbody>
   </table>
 
