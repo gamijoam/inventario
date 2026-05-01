@@ -242,7 +242,8 @@ def read_products(
     limit: int = Query(default=100, le=2000),
     search: Optional[str] = None,
     warehouse_id: Optional[int] = None,
-    is_menu_item: Optional[bool] = None, # NEW
+    is_menu_item: Optional[bool] = None,
+    has_imei: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     try:
@@ -266,6 +267,9 @@ def read_products(
 
         if is_menu_item is not None:
             query = query.filter(models.Product.is_menu_item == is_menu_item)
+
+        if has_imei is not None:
+            query = query.filter(models.Product.has_imei == has_imei)
 
         if search:
             search_term = f"%{search}%"

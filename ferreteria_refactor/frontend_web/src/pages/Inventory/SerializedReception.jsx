@@ -31,7 +31,7 @@ const SerializedReception = () => {
         const loadData = async () => {
             try {
                 const [productsRes, warehousesRes] = await Promise.all([
-                    apiClient.get('/products/', { params: { limit: 500 } }),
+                    apiClient.get('/products/', { params: { limit: 2000, has_imei: true } }),
                     apiClient.get('/warehouses')
                 ]);
 
