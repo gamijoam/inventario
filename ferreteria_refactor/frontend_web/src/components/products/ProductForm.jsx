@@ -333,11 +333,17 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     };
 
 
-    // ── Redondeo: siempre al múltiplo de 5 superior ──────────────────────────
-    const roundPrice = (value) => {
+    // ── Redondeo inteligente ──────────────────────────────────────────────────
+    // Si precio base ≤ 20 → redondear al entero más cercano
+    // Si precio base > 20 → redondear al múltiplo de 5 superior
+    const roundPrice = (value, basePrice = null) => {
         const n = parseFloat(value);
-        if (isNaN(n) || n <= 0) return value;
-        if (n % 5 === 0) return n.toFixed(2); // ya es múltiplo de 5
+        if (isNaN(n) || n <= 0) return String(value);
+        const base = basePrice !== null ? parseFloat(basePrice) : n;
+        if (base <= 20) {
+            return Math.round(n).toFixed(2);
+        }
+        if (n % 5 === 0) return n.toFixed(2);
         return (Math.ceil(n / 5) * 5).toFixed(2);
     };
     const needsRound = (value) => {
@@ -794,7 +800,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             onClick={() => {
                                                                 const base = parseFloat(formData.price || 0);
                                                                 if (!base) return;
-                                                                const calculated = roundPrice(base * (1 + listPct / 100));
+                                                                const calculated = roundPrice(base * (1 + listPct / 100), base);
                                                                 setFormData(prev => ({
                                                                     ...prev,
                                                                     prices: { ...prev.prices, [pl.id]: calculated }
@@ -810,7 +816,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                         const base = parseFloat(formData.price || 0);
                                                         if (!base || !listPct) return null;
                                                         const exact = (base * (1 + listPct / 100)).toFixed(2);
-                                                        const rounded = roundPrice(base * (1 + listPct / 100));
+                                                        const rounded = roundPrice(base * (1 + listPct / 100), base);
                                                         if (exact === rounded) return null;
                                                         return (
                                                             <p className="text-[9px] text-slate-400 text-center mt-0.5">
