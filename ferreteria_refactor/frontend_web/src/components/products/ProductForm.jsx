@@ -768,7 +768,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                         <input
                                                             type="number"
                                                             step="0.01"
-                                                            value={formData.prices?.[pl.id] ? parseFloat(formData.prices[pl.id]) : ''}
+                                                            value={(() => { const v = parseFloat(formData.prices?.[pl.id]); return (!v || v === 0) ? ''  : v; })()}
                                                             onChange={e => {
                                                                 const val = e.target.value;
                                                                 setFormData(prev => ({
@@ -801,10 +801,12 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                                 const base = parseFloat(formData.price || 0);
                                                                 if (!base) return;
                                                                 const calculated = roundPrice(base * (1 + listPct / 100), base);
-                                                                setFormData(prev => ({
+                                                                // Limpiar primero para forzar re-render del input
+                                                                setFormData(prev => ({ ...prev, prices: { ...prev.prices, [pl.id]: null } }));
+                                                                requestAnimationFrame(() => setFormData(prev => ({
                                                                     ...prev,
                                                                     prices: { ...prev.prices, [pl.id]: calculated }
-                                                                }));
+                                                                })));
                                                             }}
                                                             className="text-[9px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg py-1 px-2 transition-all whitespace-nowrap"
                                                         >
