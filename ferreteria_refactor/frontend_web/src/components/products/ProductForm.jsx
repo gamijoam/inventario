@@ -341,7 +341,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     };
     const needsRound = (value) => {
         const n = parseFloat(value);
-        return !isNaN(n) && n > 0 && n % 5 !== 0;
+        if (isNaN(n) || n <= 0) return false;
+        // Usar Math.round para evitar errores de punto flotante
+        return Math.round(n * 100) % (5 * 100) !== 0;
     };
 
     // ── Toggle helper ──────────────────────────────────────────────────────────
@@ -759,7 +761,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                         <input
                                                             type="number"
                                                             step="0.01"
-                                                            value={formData.prices?.[pl.id] || ''}
+                                                            value={formData.prices?.[pl.id] ? parseFloat(formData.prices[pl.id]) : ''}
                                                             onChange={e => {
                                                                 const val = e.target.value;
                                                                 setFormData(prev => ({
@@ -1095,3 +1097,4 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 };
 
 export default ProductForm;
+
