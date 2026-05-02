@@ -56,6 +56,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     // We still need local state for priceLists as parent doesn't have it.
 
     const [priceLists, setPriceLists] = useState([]);
+    const [listPct, setListPct] = useState(45);
 
     // ── Crear categoría inline ────────────────────────────────────────────────
     const handleCreateCategory = async () => {
@@ -773,22 +774,37 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             placeholder="0.00"
                                                         />
                                                     </div>
-                                                    {/* Botón calcular precio lista (Precio Mayor + 45%) */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const base = parseFloat(formData.price || 0);
-                                                            if (!base) return;
-                                                            const calculated = roundPrice(base * 1.45);
-                                                            setFormData(prev => ({
-                                                                ...prev,
-                                                                prices: { ...prev.prices, [pl.id]: calculated }
-                                                            }));
-                                                        }}
-                                                        className="mt-1 text-[9px] font-black text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg py-1 transition-all w-full text-center"
-                                                    >
-                                                        Calcular +45%
-                                                    </button>
+                                                    {/* Campo porcentaje + botón calcular */}
+                                                    <div className="mt-1.5 flex items-center gap-1">
+                                                        <div className="relative flex-1">
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="999"
+                                                                step="1"
+                                                                value={listPct}
+                                                                onChange={e => setListPct(parseFloat(e.target.value) || 0)}
+                                                                className="w-full pl-2 pr-5 py-1 text-[11px] font-black text-slate-700 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 text-center"
+                                                                onClick={e => e.target.select()}
+                                                            />
+                                                            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">%</span>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const base = parseFloat(formData.price || 0);
+                                                                if (!base) return;
+                                                                const calculated = roundPrice(base * (1 + listPct / 100));
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    prices: { ...prev.prices, [pl.id]: calculated }
+                                                                }));
+                                                            }}
+                                                            className="text-[9px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg py-1 px-2 transition-all whitespace-nowrap"
+                                                        >
+                                                            Calcular
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             );
                                         })}
