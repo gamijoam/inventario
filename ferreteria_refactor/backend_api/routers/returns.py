@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, cast, String
+from sqlalchemy import or_, cast, String, func
 from typing import List, Optional
 from ..database.db import get_db
 from ..models import models
@@ -133,6 +133,33 @@ def process_return(
     sale = db.query(models.Sale).filter(models.Sale.id == return_data.sale_id).first()
     if not sale:
         raise HTTPException(status_code=404, detail="Sale not found")
+
+    # Validation: Check if sale is already fully returned
+    if sale.status == "VOIDED":
+        raise HTTPException(status_code=400, detail="Esta venta ya fue anulada completamente")
+
+    # Validation: Check that there are still items to return
+    all_fully_returned = True
+    for detail in sale.details:
+        if not detail.product_id or float(detail.quantity or 0) <= 0:
+            continue
+        already_ret = db.query(
+            func.coalesce(func.sum(models.ReturnDetail.quantity), 0)
+        ).join(
+            models.Return, models.Return.id == models.ReturnDetail.return_id
+        ).filter(
+            models.Return.sale_id == sale.id,
+            models.ReturnDetail.product_id == detail.product_id
+        ).scalar() or 0
+        if float(detail.quantity) - float(already_ret) > 0:
+            all_fully_returned = False
+            break
+
+    if all_fully_returned and sale.details:
+        raise HTTPException(
+            status_code=400,
+            detail="Esta venta ya fue devuelta en su totalidad. No se pueden registrar más devoluciones."
+        )
     
     # Create Return Record
     new_return = models.Return(
@@ -166,6 +193,23 @@ def process_return(
             raise HTTPException(
                 status_code=400,
                 detail=f"Cannot return more than purchased ({detail.quantity})"
+            )
+
+        # Validation: Cannot return more than what remains (considering previous returns)
+        already_returned = db.query(
+            func.coalesce(func.sum(models.ReturnDetail.quantity), 0)
+        ).join(
+            models.Return, models.Return.id == models.ReturnDetail.return_id
+        ).filter(
+            models.Return.sale_id == sale.id,
+            models.ReturnDetail.product_id == item.product_id
+        ).scalar() or 0
+
+        remaining_qty = float(detail.quantity) - float(already_returned)
+        if item.quantity > remaining_qty:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Solo quedan {remaining_qty} unidad(es) disponibles para devolver de este producto. Ya se devolvieron {already_returned}."
             )
         
         # Calculate refund amount
