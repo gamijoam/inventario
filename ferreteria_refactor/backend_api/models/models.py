@@ -607,6 +607,7 @@ class CommissionSettings(Base):
     taller_module_enabled = Column(Boolean, default=False)
     taller_vendor_commission_enabled = Column(Boolean, default=False)
     default_percentage = Column(Numeric(5, 2), default=0.00)
+    strict_mode = Column(Boolean, default=False)
 
 class CommissionRule(Base):
     __tablename__ = "commission_rules"
