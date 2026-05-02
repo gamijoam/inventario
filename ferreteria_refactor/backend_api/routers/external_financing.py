@@ -311,6 +311,45 @@ def search_sales_for_financing(
 
     return result
 
+@router.get("/commissions/{sale_id}", dependencies=[any_authenticated])
+def get_sale_commissions(sale_id: int, db: Session = Depends(get_db)):
+    """
+    Devuelve las comisiones generadas por una venta financiada externamente.
+    Útil para mostrar en la card de crédito externo.
+    """
+    from sqlalchemy import text as _txt
+
+    # Buscar commission_logs vinculados a esta venta via sale_detail
+    logs = db.execute(_txt("""
+        SELECT 
+            cl.id,
+            cl.amount,
+            cl.percentage_applied,
+            cl.status,
+            cl.commission_role,
+            cl.created_at,
+            u.full_name as user_name,
+            u.email as user_email
+        FROM commission_logs cl
+        JOIN sale_details sd ON sd.id = cl.sale_detail_id
+        JOIN public.users u ON u.id = cl.user_id
+        WHERE sd.sale_id = :sale_id
+        ORDER BY cl.created_at DESC
+    """), {"sale_id": sale_id}).fetchall()
+
+    return [
+        {
+            "id": row[0],
+            "amount": float(row[1] or 0),
+            "percentage_applied": float(row[2] or 0),
+            "status": str(row[3]),
+            "commission_role": row[4],
+            "created_at": row[5].isoformat() if row[5] else None,
+            "user_name": row[6] or row[7],
+        }
+        for row in logs
+    ]
+
 @router.get("/financers/list", dependencies=[any_authenticated])
 def list_financers(db: Session = Depends(get_db)):
     """Lista de financiadoras configuradas como métodos de pago."""

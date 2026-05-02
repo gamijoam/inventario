@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
 import {
-    Building2, Plus, Search, Filter, CheckCircle2, Clock, Calendar,
+    Building2, Plus, Search, Filter, CheckCircle2, Clock, Calendar, DollarSign, ChevronDown, ChevronUp,
     AlertCircle, ChevronDown, X, Loader2, RefreshCw,
     DollarSign, TrendingUp, Wallet, CreditCard, User,
     FileText, Calendar, Hash, ChevronRight, Edit3, Trash2
@@ -502,6 +502,20 @@ const FinancingCard = ({ record, onUpdate, onDelete }) => {
     const st = getStatus(record.financer_payment_status);
     const Icon = st.icon;
     const pending = Number(record.financed_amount) - Number(record.financer_paid_amount);
+    const [commissions, setCommissions] = useState([]);
+    const [showComm, setShowComm] = useState(false);
+    const [loadingComm, setLoadingComm] = useState(false);
+
+    const loadCommissions = async () => {
+        if (commissions.length > 0) { setShowComm(s => !s); return; }
+        setLoadingComm(true);
+        try {
+            const res = await apiClient.get(`/external-financing/commissions/${record.sale_id}`);
+            setCommissions(Array.isArray(res.data) ? res.data : []);
+            setShowComm(true);
+        } catch { }
+        finally { setLoadingComm(false); }
+    };
 
     return (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-all">
@@ -565,6 +579,44 @@ const FinancingCard = ({ record, onUpdate, onDelete }) => {
                     )}
                 </div>
             )}
+
+            {/* Comisiones del vendedor */}
+            <div className="px-4 pb-2">
+                <button
+                    onClick={loadCommissions}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors"
+                >
+                    <DollarSign size={12} />
+                    Comisiones
+                    {loadingComm ? <Loader2 size={11} className="animate-spin" /> : showComm ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                </button>
+
+                {showComm && (
+                    <div className="mt-2 space-y-1">
+                        {commissions.length === 0 ? (
+                            <p className="text-[10px] text-slate-400 italic">Sin comisiones registradas para esta venta</p>
+                        ) : commissions.map(c => (
+                            <div key={c.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-100">
+                                <div>
+                                    <span className="text-[10px] font-bold text-slate-600">{c.user_name}</span>
+                                    <span className="text-[9px] text-slate-400 ml-1.5">{c.commission_role === 'VENDOR' ? 'Vendedor' : 'Técnico'} · {c.percentage_applied}%</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs font-black text-emerald-600">${Number(c.amount).toFixed(2)}</span>
+                                    <span className={clsx(
+                                        'text-[8px] font-bold px-1.5 py-0.5 rounded-full',
+                                        c.status === 'PENDING' ? 'bg-amber-100 text-amber-600' :
+                                        c.status === 'PAID'    ? 'bg-emerald-100 text-emerald-600' :
+                                                                 'bg-slate-100 text-slate-400'
+                                    )}>
+                                        {c.status === 'PENDING' ? 'Pendiente' : c.status === 'PAID' ? 'Pagada' : c.status}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Acciones */}
             <div className="px-4 pb-4 flex gap-2">
