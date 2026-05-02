@@ -131,9 +131,8 @@ class CommissionEngine:
         log = models.CommissionLog(
             user_id=salesperson.id,
             sale_detail_id=detail.id,
-            sale_id=sale_id,
             source_type="SALE",
-            source_id=detail.id,
+            source_id=sale_id,
             source_reference=f"Venta #{sale_id}",
             amount=amount,
             currency="USD",
@@ -226,7 +225,6 @@ class CommissionEngine:
 
         log = models.CommissionLog(
             user_id=vendor.id,
-            sale_id=sale_id,
             source_type="SERVICE",
             source_id=service_order_id,
             source_reference=ticket_number,
@@ -248,10 +246,17 @@ class CommissionEngine:
         Retorna cuántas se anularon.
         """
         now = get_venezuela_now()
+        # Buscar commission_logs via sale_details (no hay sale_id directo en CommissionLog)
+        from sqlalchemy import select
+        detail_ids = [
+            row[0] for row in self.db.execute(
+                select(models.SaleDetail.id).where(models.SaleDetail.sale_id == sale_id)
+            ).fetchall()
+        ]
         logs = (
             self.db.query(models.CommissionLog)
             .filter(
-                models.CommissionLog.sale_id == sale_id,
+                models.CommissionLog.sale_detail_id.in_(detail_ids),
                 models.CommissionLog.status == models.CommissionStatus.PENDING,
             )
             .all()
