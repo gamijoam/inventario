@@ -4,6 +4,7 @@ import {
     X, TrendingUp, ChevronDown, ChevronUp, Eye
 } from 'lucide-react';
 import apiClient from '../../../config/axios';
+import { useConfig } from '../../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
 
 // ---------------------------------------------------------------------------
@@ -99,7 +100,10 @@ const UserDetailRow = ({ userId }) => {
             </td>
             <td className="py-2 text-slate-500">{d.source_type === 'SERVICE' ? '🔧 Taller' : '🛒 POS'}</td>
             <td className="py-2 text-slate-500">{d.source_reference || `#${d.source_id || d.id}`}</td>
-            <td className="py-2 text-right font-medium text-emerald-700">${parseFloat(d.amount).toFixed(2)}</td>
+            <td className="py-2 text-right">
+                <span className="font-bold text-emerald-700">${parseFloat(d.amount).toFixed(2)}</span>
+                {bsRate && <div className="text-[10px] text-slate-400 font-medium">{formatBs(d.amount, bsRate)}</div>}
+            </td>
             <td className="py-2 pr-4 text-center">
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${d.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border border-amber-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
                     {d.status === 'PENDING' ? 'PENDIENTE' : 'PAGADO'}
@@ -115,10 +119,26 @@ const UserDetailRow = ({ userId }) => {
 const formatUSD = (amount) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(Number(amount) || 0);
 
+const formatBs = (amountUSD, rate) => {
+    if (!rate || rate <= 0) return null;
+    const bs = Number(amountUSD) * Number(rate);
+    return new Intl.NumberFormat('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(bs) + ' Bs';
+};
+
 // ---------------------------------------------------------------------------
 // MAIN COMPONENT
 // ---------------------------------------------------------------------------
 const CommissionsTab = () => {
+    const { currencies } = useConfig();
+    // Obtener tasa VES activa (la tasa del día)
+    const bsRate = (() => {
+        if (!Array.isArray(currencies)) return null;
+        const ves = currencies.find(c =>
+            c.is_default && (c.currency_code === 'VES' || c.currency_symbol === 'Bs')
+        ) || currencies.find(c => c.currency_code === 'VES' || c.currency_symbol === 'Bs');
+        return ves ? parseFloat(ves.rate) : null;
+    })();
+
     const [summary, setSummary] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -217,7 +237,8 @@ const CommissionsTab = () => {
                         </div>
                     </div>
                     <h3 className="text-2xl font-black text-emerald-600 tracking-tight">{formatUSD(totalPendiente)}</h3>
-                    <p className="text-xs text-slate-400 font-medium mt-1">total acumulado</p>
+                    {bsRate && <p className="text-sm font-bold text-slate-500 mt-0.5">{formatBs(totalPendiente, bsRate)}</p>}
+                    <p className="text-xs text-slate-400 font-medium mt-0.5">total acumulado · tasa {bsRate ? bsRate.toFixed(2) : "—"} Bs/$</p>
                 </div>
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 group hover:-translate-y-0.5">
                     <div className="flex justify-between items-start mb-3">
@@ -288,6 +309,11 @@ const CommissionsTab = () => {
                                                 <span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-lg border border-emerald-200">
                                                     {formatUSD(s.pending_amount)}
                                                 </span>
+                                                {bsRate && (
+                                                    <div className="text-[10px] font-bold text-slate-400 mt-0.5 text-right">
+                                                        {formatBs(s.pending_amount, bsRate)}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="p-4 text-center">
                                                 <button
