@@ -3,7 +3,7 @@ import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2 } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -14,6 +14,7 @@ import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { Link, useSearchParams } from 'react-router-dom';
+import { cn } from '../lib/utils';
 
 // New Components
 import POSCatalog from '../components/pos/POSCatalog';
@@ -97,7 +98,21 @@ const POS = () => {
     // Express Mode State
     const isExpressMode = user?.preferences?.pos_mode === 'express';
     const isCashier = user?.role === 'CASHIER';
+    const [simpleMode, setSimpleMode] = useState(() => user?.preferences?.pos_simple_mode === true);
     const showCreditosExternos  = useFeatureFlag('creditos_externos');
+
+    const handleToggleSimpleMode = async () => {
+        const next = !simpleMode;
+        try {
+            await updateUserPreferences({ pos_simple_mode: next });
+        } catch {}
+        toast(
+            next ? '✅ Modo Sencillo activado — recarga para aplicar' : '🖼️ Modo Normal activado — recarga para aplicar',
+            { icon: null, duration: 4000,
+              style: { fontWeight: 700, borderRadius: '12px', padding: '12px 16px' } }
+        );
+        setTimeout(() => window.location.reload(), 1500);
+    };
     const showCajeroRestringido = useFeatureFlag('cajero_restringido_pos');
     const handleToggleExpressMode = () => {
         updateUserPreferences({ pos_mode: isExpressMode ? 'full' : 'express' });
@@ -785,6 +800,21 @@ const POS = () => {
                         </Button>
                     )}
 
+                    {/* Toggle Modo Sencillo */}
+                    <button
+                        onClick={handleToggleSimpleMode}
+                        title={simpleMode ? 'Desactivar modo sencillo' : 'Activar modo sencillo (sin imágenes)'}
+                        className={cn(
+                            'hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold border transition-all',
+                            simpleMode
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                                : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                        )}
+                    >
+                        {simpleMode ? <LayoutGrid size={15} /> : <Image size={15} />}
+                        <span className="hidden lg:inline">{simpleMode ? 'Sencillo' : 'Normal'}</span>
+                    </button>
+
                     {showCreditosExternos && (
                     <Link
                         to="/external-financing"
@@ -957,6 +987,7 @@ const POS = () => {
                                 totalCount={totalProducts}
                                 onSearchChange={setServerSearch}
                                 onCategoryChange={setServerCategory}
+                                simpleMode={simpleMode}
                             />
                         </div>
 

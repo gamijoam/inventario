@@ -7,11 +7,18 @@ import { cn } from '../../lib/utils';
 import ProductCard from './ProductCard';
 import SearchWithScanner from '../common/SearchWithScanner';
 
-const getColumnCount = (width) => {
-    if (width >= 1536) return 6;  // 2xl
-    if (width >= 1280) return 5;  // xl
-    if (width >= 1024) return 4;  // lg
-    if (width >= 768) return 3;   // md
+const getColumnCount = (width, simpleMode = false) => {
+    if (simpleMode) {
+        if (width >= 1536) return 9;
+        if (width >= 1280) return 7;
+        if (width >= 1024) return 6;
+        if (width >= 768) return 5;
+        return 3;
+    }
+    if (width >= 1536) return 6;
+    if (width >= 1280) return 5;
+    if (width >= 1024) return 4;
+    if (width >= 768) return 3;
     return 2;
 };
 
@@ -38,6 +45,7 @@ const POSCatalog = forwardRef(({
     totalCount = null,
     onSearchChange = null,
     onCategoryChange = null,
+    simpleMode = false,
 }, ref) => {
     const containerRef = useRef(null);
     const gridRef = useRef(null);
@@ -129,14 +137,14 @@ const POSCatalog = forwardRef(({
         }
     }, [onCategoryChange, onFilterCategory]);
 
-    const columnCount = getColumnCount(containerSize.width);
+    const columnCount = getColumnCount(containerSize.width, simpleMode);
     const rowCount = Math.ceil(products.length / columnCount);
     const GAP = 12; // gap-3 = 12px
     const PADDING = 16; // p-4 = 16px
     const columnWidth = containerSize.width > 0
         ? (containerSize.width - PADDING * 2 - GAP * (columnCount - 1)) / columnCount
         : 0;
-    const ROW_HEIGHT = 230; // tarjeta compacta ~210px + gap
+    const ROW_HEIGHT = simpleMode ? 110 : 230;
 
     const totalHeight = rowCount * ROW_HEIGHT;
     const gridHeight = containerSize.height;

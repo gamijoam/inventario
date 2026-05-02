@@ -22,7 +22,8 @@ const ProductCard = ({
     secondaryCurrencies = [],
     showSecondaryPrice = false,
     isSelected = false,
-    nearExpiry = false
+    nearExpiry = false,
+    simpleMode = false,
 }) => {
     const [isAnimating, setIsAnimating] = React.useState(false);
 
@@ -64,8 +65,8 @@ const ProductCard = ({
                 isAnimating && 'scale-95 ring-2 ring-blue-400'
             )}
         >
-            {/* ── Imagen ── */}
-            <div className="relative bg-slate-50 flex items-center justify-center overflow-hidden" style={{ height: '60%', minHeight: 110 }}>
+            {/* ── Imagen — oculta en modo sencillo ── */}
+            {!simpleMode && <div className="relative bg-slate-50 flex items-center justify-center overflow-hidden" style={{ height: '60%', minHeight: 110 }}>
                 <ProductThumbnail
                     imageUrl={product.image_url}
                     productName={product.name}
@@ -126,14 +127,19 @@ const ProductCard = ({
                         VENCE PRONTO
                     </div>
                 )}
-            </div>
+            </div>}
 
             {/* ── Info ── */}
-            <div className="flex flex-col gap-1 p-2 flex-1">
-                {/* Nombre */}
-                <p className="text-xs font-bold text-slate-800 leading-tight line-clamp-2 group-hover:text-blue-600 transition-colors">
-                    {product.name}
-                </p>
+            <div className={cn("flex flex-col gap-1 flex-1", simpleMode ? "p-2" : "p-2")}>
+                {/* Nombre + badges en modo sencillo */}
+                <div className="flex items-start gap-1">
+                    <p className={cn("font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors", simpleMode ? "text-[11px] line-clamp-2" : "text-xs line-clamp-2")}>
+                        {product.name}
+                    </p>
+                    {simpleMode && product.has_imei && (
+                        <span className="shrink-0 text-[7px] font-black bg-blue-100 text-blue-600 px-1 py-0.5 rounded">SN</span>
+                    )}
+                </div>
 
                 {/* SKU + stock */}
                 <div className="flex items-center justify-between">
