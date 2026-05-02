@@ -332,6 +332,20 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     };
 
 
+    // ── Redondeo inteligente ──────────────────────────────────────────────────
+    const roundPrice = (value) => {
+        const n = parseFloat(value);
+        if (isNaN(n) || n <= 0) return value;
+        const dec = n % 1; // parte decimal
+        if (dec === 0) return n.toFixed(2);
+        // Redondear al múltiplo de 5 más cercano hacia arriba
+        const base = Math.floor(n / 5) * 5;
+        const rounded = dec <= 0.5 ? base + (n - base > 0 ? 5 : 0) : base + 5;
+        // Si la diferencia es pequeña, redondear al entero más cercano
+        if (Math.abs(n - Math.round(n)) < 0.6) return Math.round(n).toFixed(2);
+        return rounded.toFixed(2);
+    };
+
     // ── Toggle helper ──────────────────────────────────────────────────────────
     const Toggle = ({ checked, onChange, color = 'bg-indigo-500' }) => (
         <button
@@ -663,6 +677,24 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                             />
                                         </div>
                                     </div>
+                                    {/* Botón redondeo precio principal */}
+                                    {parseFloat(formData.price) > 0 && formData.price % 1 !== 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const rounded = roundPrice(formData.price);
+                                                const price = parseFloat(rounded);
+                                                const cost = parseFloat(formData.cost) || 0;
+                                                const margin = cost > 0
+                                                    ? (useGrossMargin ? ((1 - cost/price)*100) : ((price-cost)/cost*100))
+                                                    : 0;
+                                                setFormData(p => ({ ...p, price: rounded, profit_margin: margin.toFixed(2) }));
+                                            }}
+                                            className="flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-3 py-1.5 rounded-xl transition-all w-fit"
+                                        >
+                                            ≈ Redondear a ${roundPrice(formData.price)}
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Tasa de referencia */}
@@ -703,9 +735,9 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                     <div className="flex flex-wrap gap-3">
                                         {/* Precio base como card referencia */}
                                         <div className="flex flex-col items-center bg-emerald-50 border-2 border-emerald-200 rounded-2xl px-4 py-3 min-w-[120px]">
-                                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Base</span>
+                                            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">P. Mayor</span>
                                             <span className="text-xl font-black text-emerald-700">${parseFloat(formData.price || 0).toFixed(2)}</span>
-                                            <span className="text-[9px] text-emerald-400 mt-0.5">Precio principal</span>
+                                            <span className="text-[9px] text-emerald-400 mt-0.5">Precio Mayor</span>
                                         </div>
 
                                         {/* Listas configuradas */}
@@ -741,6 +773,25 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             placeholder="0.00"
                                                         />
                                                     </div>
+                                                    {/* Botón redondeo lista */}
+                                                    {(() => {
+                                                        const v = parseFloat(formData.prices?.[pl.id] || 0);
+                                                        if (v <= 0) return null;
+                                                        const rounded = roundPrice(v);
+                                                        if (rounded === v.toFixed(2)) return null;
+                                                        return (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setFormData(prev => ({
+                                                                    ...prev,
+                                                                    prices: { ...prev.prices, [pl.id]: rounded }
+                                                                }))}
+                                                                className="mt-1 text-[9px] font-black text-amber-500 hover:text-amber-700 transition-colors w-full text-center"
+                                                            >
+                                                                ≈ Redondear a ${rounded}
+                                                            </button>
+                                                        );
+                                                    })()}
                                                 </div>
                                             );
                                         })}
