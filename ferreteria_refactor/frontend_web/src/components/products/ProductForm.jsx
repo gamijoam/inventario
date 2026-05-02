@@ -794,7 +794,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             onClick={() => {
                                                                 const base = parseFloat(formData.price || 0);
                                                                 if (!base) return;
-                                                                const calculated = (base * (1 + listPct / 100)).toFixed(2);
+                                                                const calculated = roundPrice(base * (1 + listPct / 100));
                                                                 setFormData(prev => ({
                                                                     ...prev,
                                                                     prices: { ...prev.prices, [pl.id]: calculated }
@@ -805,6 +805,19 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             Calcular
                                                         </button>
                                                     </div>
+                                                    {/* Resultado exacto sin redondear */}
+                                                    {(() => {
+                                                        const base = parseFloat(formData.price || 0);
+                                                        if (!base || !listPct) return null;
+                                                        const exact = (base * (1 + listPct / 100)).toFixed(2);
+                                                        const rounded = roundPrice(base * (1 + listPct / 100));
+                                                        if (exact === rounded) return null;
+                                                        return (
+                                                            <p className="text-[9px] text-slate-400 text-center mt-0.5">
+                                                                Exacto: <span className="font-bold text-slate-500">${exact}</span>
+                                                            </p>
+                                                        );
+                                                    })()}
                                                 </div>
                                             );
                                         })}
