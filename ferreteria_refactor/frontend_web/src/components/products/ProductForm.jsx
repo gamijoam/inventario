@@ -773,19 +773,22 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             placeholder="0.00"
                                                         />
                                                     </div>
-                                                    {/* Botón redondeo lista */}
-                                                    {needsRound(formData.prices?.[pl.id]) && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setFormData(prev => ({
+                                                    {/* Botón calcular precio detal (Precio Mayor + 45%) */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const base = parseFloat(formData.price || 0);
+                                                            if (!base) return;
+                                                            const calculated = roundPrice(base * 1.45);
+                                                            setFormData(prev => ({
                                                                 ...prev,
-                                                                prices: { ...prev.prices, [pl.id]: roundPrice(formData.prices?.[pl.id]) }
-                                                            }))}
-                                                            className="mt-1 text-[9px] font-black text-amber-500 hover:text-amber-700 transition-colors w-full text-center"
-                                                        >
-                                                            Redondear
-                                                        </button>
-                                                    )}
+                                                                prices: { ...prev.prices, [pl.id]: calculated }
+                                                            }));
+                                                        }}
+                                                        className="mt-1 text-[9px] font-black text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg py-1 transition-all w-full text-center"
+                                                    >
+                                                        Calcular +45%
+                                                    </button>
                                                 </div>
                                             );
                                         })}
