@@ -77,3 +77,40 @@ REGISTRY["pos_multi_payment"] = {
     "category": "ventas",
 }
 CATEGORIES = ["ventas", "pos", "inventario", "reportes", "config", "automatizacion", "restaurant", "otros"]
+
+# ── Flags OscarCell / Celulares ──────────────────────────────────────────────
+REGISTRY["precio_lista_en_inventario"] = {
+    "label": "Lista de precios en inventario 💰",
+    "description": "Muestra la primera lista de precios (ej. Precio Detal) junto al precio base en el catálogo de productos del inventario.",
+    "category": "inventario",
+}
+
+REGISTRY["kardex_imei_mejorado"] = {
+    "label": "Kardex mejorado con IMEI 📱",
+    "description": "Muestra el IMEI de cada movimiento en el kardex, filtros por tipo, filas expandibles y detección automática de teléfonos serializados.",
+    "category": "inventario",
+}
+
+REGISTRY["pdf_catalogo_seriales"] = {
+    "label": "PDF Catálogo de equipos serializados 📄",
+    "description": "Botón para generar PDF del catálogo de equipos con IMEI, mostrando precio detal, precio mayor y listas de precios asociadas.",
+    "category": "inventario",
+}
+
+REGISTRY["pdf_inversion_seriales"] = {
+    "label": "PDF Análisis de inversión en equipos 📊",
+    "description": "Genera PDF con análisis financiero: capital invertido, venta potencial y ganancia estimada por equipo en stock.",
+    "category": "reportes",
+}
+
+REGISTRY["creditos_externos"] = {
+    "label": "Módulo Créditos Externos (Cashea/Krece) 🏦",
+    "description": "Habilita el módulo para registrar y gestionar ventas financiadas por terceros como Cashea o Krece. Incluye botón en el POS y página de gestión independiente.",
+    "category": "ventas",
+}
+
+REGISTRY["cajero_restringido_pos"] = {
+    "label": "Restricciones de cajero en POS 🔒",
+    "description": "Oculta al cajero: Movimientos de caja, Avance y Cerrar Caja en el POS. También oculta Devoluciones, Garantías y Créditos CxC en el Centro de Ventas.",
+    "category": "pos",
+}

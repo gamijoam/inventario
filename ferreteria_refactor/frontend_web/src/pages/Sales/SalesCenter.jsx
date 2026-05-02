@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -58,7 +59,8 @@ const SalesCenter = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const isCashier = user?.role === 'CASHIER';
-    const TABS = ALL_TABS.filter(t => !t.adminOnly || !isCashier);
+    const showCajeroRestringido = useFeatureFlag('cajero_restringido_pos');
+    const TABS = ALL_TABS.filter(t => !t.adminOnly || !(isCashier && showCajeroRestringido));
 
     const activeTab = searchParams.get('tab') || 'cotizaciones';
     const help = useHelp();

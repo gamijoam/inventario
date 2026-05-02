@@ -6,6 +6,7 @@ import {
     X, Info, Hash, Calendar, BarChart2, Layers
 } from 'lucide-react';
 import InventoryMovementSheet from '../../../components/inventory/InventoryMovementSheet';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import apiClient from '../../../config/axios';
 import clsx from 'clsx';
 import { normalizeSearch } from '../../../utils/search';
@@ -349,6 +350,7 @@ const KardexCard = ({ item }) => {
 const ALL_TYPES = Object.entries(MOVEMENT_CONFIG).map(([k, v]) => ({ value: k, label: v.label }));
 
 const KardexTab = () => {
+    const kardexMejorado = useFeatureFlag('kardex_imei_mejorado');
     const [kardex, setKardex] = useState([]);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -383,12 +385,12 @@ const KardexTab = () => {
 
     // Filtrado: búsqueda por nombre, IMEI o descripción + tipo
     const filtered = kardex.filter(item => {
-        if (filterType !== 'ALL' && item.movement_type !== filterType) return false;
+        if (kardexMejorado && filterType !== 'ALL' && item.movement_type !== filterType) return false;
         if (!searchQuery) return true;
         const q = normalizeSearch(searchQuery);
         const name = normalizeSearch(item.product?.name || '');
-        const desc = normalizeSearch(item.description || '');
-        return name.includes(q) || desc.includes(q);
+        const desc = kardexMejorado ? normalizeSearch(item.description || '') : '';
+        return name.includes(q) || (kardexMejorado && desc.includes(q));
     });
 
     // Stats rápidas
@@ -423,7 +425,7 @@ const KardexTab = () => {
                 </div>
             </div>
 
-            {/* Panel de filtros */}
+            {/* Panel de filtros — avanzados solo con flag */}
             {showFilters && (
                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
                     {/* Búsqueda */}

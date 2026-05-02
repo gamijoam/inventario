@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import SerializedReportPDF from '../../../components/inventory/SerializedReportPDF';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import InversionReportPDF from '../../../components/inventory/InversionReportPDF';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -471,6 +472,8 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 const SerialsTab = () => {
+    const showPdfCatalogo  = useFeatureFlag('pdf_catalogo_seriales');
+    const showPdfInversion = useFeatureFlag('pdf_inversion_seriales');
     const [catalog, setCatalog]               = useState([]);
     const [warehouses, setWarehouses]         = useState([]);
     const [isLoading, setIsLoading]           = useState(true);

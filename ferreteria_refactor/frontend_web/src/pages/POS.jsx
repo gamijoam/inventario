@@ -1,4 +1,5 @@
 import { useAuth } from '../context/AuthContext';
+import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -96,6 +97,8 @@ const POS = () => {
     // Express Mode State
     const isExpressMode = user?.preferences?.pos_mode === 'express';
     const isCashier = user?.role === 'CASHIER';
+    const showCreditosExternos  = useFeatureFlag('creditos_externos');
+    const showCajeroRestringido = useFeatureFlag('cajero_restringido_pos');
     const handleToggleExpressMode = () => {
         updateUserPreferences({ pos_mode: isExpressMode ? 'full' : 'express' });
     };
@@ -743,7 +746,7 @@ const POS = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {!isCashier && (
+                    {!(isCashier && showCajeroRestringido) && (
                     <Button
                         variant="outline"
                         size="sm"
@@ -754,7 +757,7 @@ const POS = () => {
                     </Button>
                     )}
 
-                    {!isCashier && (
+                    {!(isCashier && showCajeroRestringido) && (
                     <Button
                         variant="outline"
                         size="sm"
@@ -782,6 +785,7 @@ const POS = () => {
                         </Button>
                     )}
 
+                    {showCreditosExternos && (
                     <Link
                         to="/external-financing"
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
@@ -789,7 +793,8 @@ const POS = () => {
                     >
                         <Building2 size={15} /> Créditos Ext.
                     </Link>
-                    {!isCashier && (
+                    )}
+                    {!(isCashier && showCajeroRestringido) && (
                     <Button
                         variant="ghost"
                         size="sm"

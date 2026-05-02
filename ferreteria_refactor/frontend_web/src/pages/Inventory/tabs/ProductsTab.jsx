@@ -14,6 +14,7 @@ import { useWebSocket } from '../../../context/WebSocketContext';
 import { useAuth } from '../../../context/AuthContext';
 import apiClient from '../../../config/axios';
 import clsx from 'clsx';
+import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import { cn } from '../../../utils/cn';
 import { normalizeSearch } from '../../../utils/search';
 import { Button } from '../../../components/ui/button';
@@ -44,6 +45,7 @@ const formatStock = (stock) => {
 
 const ProductsTab = () => {
     const { user } = useAuth();
+    const showPriceList = useFeatureFlag('precio_lista_en_inventario');
     const { getActiveCurrencies, convertProductPrice, modules } = useConfig();
     const { subscribe } = useWebSocket();
     const [isModalOpen, setIsModalOpen] = useState(false);
