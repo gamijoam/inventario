@@ -2,7 +2,7 @@ import { useAuth } from '../context/AuthContext';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2 } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -784,6 +784,13 @@ const POS = () => {
                         </Button>
                     )}
 
+                    <Link
+                        to="/external-financing"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                        title="Créditos Externos"
+                    >
+                        <Building2 size={15} /> Créditos Ext.
+                    </Link>
                     <Button
                         variant="ghost"
                         size="sm"

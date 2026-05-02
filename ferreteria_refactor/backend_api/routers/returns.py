@@ -30,14 +30,22 @@ def search_sales(
         """Search sales with filters"""
         query = db.query(models.Sale)
 
-        # Text Search
+        # Text Search — por ID, cliente o IMEI
         if q:
-            query = query.join(models.Customer, isouter=True).filter(
+            query = query.join(models.Customer, isouter=True).outerjoin(
+                models.SaleDetail, models.SaleDetail.sale_id == models.Sale.id
+            ).outerjoin(
+                models.SaleDetailInstance, models.SaleDetailInstance.sale_detail_id == models.SaleDetail.id
+            ).outerjoin(
+                models.ProductInstance, models.ProductInstance.id == models.SaleDetailInstance.product_instance_id
+            ).filter(
                 or_(
                     cast(models.Sale.id, String).ilike(f"%{q}%"),
-                    models.Customer.name.ilike(f"%{q}%")
+                    models.Customer.name.ilike(f"%{q}%"),
+                    models.Customer.phone.ilike(f"%{q}%"),
+                    models.ProductInstance.serial_number.ilike(f"%{q}%"),
                 )
-            )
+            ).distinct()
 
         # Filter by Payment Method
         if payment_method:

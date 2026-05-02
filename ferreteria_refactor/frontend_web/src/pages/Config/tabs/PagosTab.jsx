@@ -56,7 +56,6 @@ const PagosTab = () => {
                 m.id === method.id ? { ...m, requires_reference: !m.requires_reference } : m
             );
             setMethods(updatedMethods);
-
             await apiClient.put(`/payment-methods/${method.id}`, {
                 requires_reference: !method.requires_reference
             });
@@ -64,6 +63,24 @@ const PagosTab = () => {
             toast.success(`Referencia ${!method.requires_reference ? 'activada' : 'desactivada'}`);
         } catch (error) {
             console.error('Error updating reference requirement:', error);
+            fetchMethods();
+            toast.error('Error al actualizar configuración');
+        }
+    };
+
+    const handleToggleExternalFinancer = async (method) => {
+        try {
+            const updatedMethods = methods.map(m =>
+                m.id === method.id ? { ...m, is_external_financer: !m.is_external_financer } : m
+            );
+            setMethods(updatedMethods);
+            await apiClient.put(`/payment-methods/${method.id}`, {
+                is_external_financer: !method.is_external_financer
+            });
+            refreshConfig();
+            toast.success(`Financiadora externa ${!method.is_external_financer ? 'activada' : 'desactivada'}`);
+        } catch (error) {
+            console.error('Error updating external financer:', error);
             fetchMethods();
             toast.error('Error al actualizar configuración');
         }
@@ -202,6 +219,22 @@ const PagosTab = () => {
                                             </div>
                                             <span className={clsx("text-xs font-bold transition-colors", method.requires_reference ? "text-emerald-600" : "text-slate-400 group-hover/ref:text-slate-600")}>
                                                 {method.requires_reference ? "Exige Referencia" : "Sin Referencia"}
+                                            </span>
+                                        </label>
+
+                                        {/* Toggle Financiadora Externa */}
+                                        <label className="flex items-center gap-2 cursor-pointer group/fin p-1.5 -ml-1.5 hover:bg-indigo-50/50 rounded-lg transition-colors">
+                                            <div className="relative inline-flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={method.is_external_financer || false}
+                                                    onChange={() => handleToggleExternalFinancer(method)}
+                                                />
+                                                <div className="w-7 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-500"></div>
+                                            </div>
+                                            <span className={clsx("text-xs font-bold transition-colors", method.is_external_financer ? "text-indigo-600" : "text-slate-400 group-hover/fin:text-slate-600")}>
+                                                {method.is_external_financer ? "💳 Financiadora Externa" : "No es Financiadora"}
                                             </span>
                                         </label>
                                     </div>

@@ -42,6 +42,7 @@ from .routers.websocket import router as websocket_router
 from .routers.audit import router as audit_router
 from .routers.system import router as system_router
 from .routers.payment_methods import router as payment_methods_router
+from .routers.external_financing import router as external_financing_router
 from .routers.sync import router as sync_router
 from .routers.cloud import router as cloud_router
 from .routers.credits import router as credits_router
@@ -251,6 +252,7 @@ v1_router.include_router(audit_router, tags=["Auditoría"])
 v1_router.include_router(system_router, tags=["Sistema y Licencias"])
 v1_router.include_router(credits_router, tags=["Créditos y Cobranzas"])
 v1_router.include_router(payment_methods_router, tags=["Métodos de Pago"])
+v1_router.include_router(external_financing_router, tags=["Créditos Externos"])
 v1_router.include_router(sync_router, tags=["Sincronización Híbrida"])
 v1_router.include_router(warehouses_router, tags=["Almacenes"])
 v1_router.include_router(transfers_router, tags=["Traslados"])

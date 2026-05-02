@@ -807,10 +807,52 @@ class PaymentMethod(Base):
     name = Column(String, unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
     requires_reference = Column(Boolean, default=False) # New: Require reference for this method (e.g. Zelle, Transfer)
+    is_external_financer = Column(Boolean, default=False) # Is this an external financing company (Cashea, Krece, etc.)
     is_system = Column(Boolean, default=False) # Prevent deletion of core methods
 
     def __repr__(self):
         return f"<PaymentMethod(name='{self.name}')>"
+
+class ExternalFinancing(Base):
+    """
+    Registro de ventas financiadas por terceros (Cashea, Krece, etc.)
+    Se vincula a una Sale existente y agrega datos financieros adicionales.
+    """
+    __tablename__ = "external_financings"
+
+    id                    = Column(Integer, primary_key=True, index=True)
+    sale_id               = Column(Integer, ForeignKey("sales.id"), nullable=False, index=True)
+    customer_id           = Column(Integer, ForeignKey("customers.id"), nullable=True, index=True)
+    financer_name         = Column(String, nullable=False)          # Nombre de la financiadora (Cashea, Krece)
+    financer_payment_method_id = Column(Integer, ForeignKey("payment_methods.id"), nullable=True)
+
+    # Montos
+    total_price           = Column(Numeric(18,4), nullable=False)   # Precio total del equipo
+    initial_payment       = Column(Numeric(18,4), default=0)        # Inicial cobrado por la tienda
+    initial_currency      = Column(String(3), default="USD")        # USD o VES
+    financed_amount       = Column(Numeric(18,4), default=0)        # Monto que financia la empresa
+    
+    # Cuotas del cliente a la financiadora (solo referencial)
+    installments          = Column(Integer, nullable=True)          # Número de cuotas
+    installment_amount    = Column(Numeric(18,4), nullable=True)    # Monto de cada cuota
+    installment_frequency = Column(String(20), nullable=True)       # semanal/quincenal/mensual
+
+    # Estado del pago de la financiadora a la tienda
+    financer_payment_status = Column(String(20), default="PENDING") # PENDING / PARTIAL / COMPLETED
+    financer_paid_amount    = Column(Numeric(18,4), default=0)      # Cuánto ha pagado la financiadora a la tienda
+
+    # Metadata
+    notes                 = Column(Text, nullable=True)
+    created_at            = Column(DateTime, default=get_venezuela_now)
+    updated_at            = Column(DateTime, default=get_venezuela_now, onupdate=get_venezuela_now)
+
+    # Relaciones
+    sale                  = relationship("Sale", backref="external_financing")
+    customer              = relationship("Customer")
+    financer_method       = relationship("PaymentMethod")
+
+    def __repr__(self):
+        return f"<ExternalFinancing(sale={self.sale_id}, financer={self.financer_name})>"
 
 class Currency(Base):
     __tablename__ = "business_currencies"
@@ -1139,6 +1181,9 @@ class ServiceOrder(Base):
     created_at = Column(DateTime, default=get_venezuela_now)
     updated_at = Column(DateTime, onupdate=datetime.datetime.now)
     estimated_delivery = Column(DateTime, nullable=True)
+
+    # Archive flag
+    is_archived = Column(Boolean, default=False, nullable=False, server_default="false")
 
     # Relationships
     customer = relationship("Customer")

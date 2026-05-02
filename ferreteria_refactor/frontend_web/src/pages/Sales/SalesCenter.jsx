@@ -1,4 +1,5 @@
 import React, { lazy, Suspense } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -22,12 +23,12 @@ const TAB_DESCRIPTIONS = {
 };
 
 // --- Tab definitions ---
-const TABS = [
+const ALL_TABS = [
     { id: 'cotizaciones', label: 'Cotizaciones', icon: FileText },
-    { id: 'clientes', label: 'Clientes', icon: Users },
-    { id: 'devoluciones', label: 'Devoluciones', icon: CornerDownLeft },
-    { id: 'garantias', label: 'Garantías', icon: ShieldCheck },
-    { id: 'creditos', label: 'Créditos (CxC)', icon: CreditCard },
+    { id: 'clientes',     label: 'Clientes',     icon: Users },
+    { id: 'devoluciones', label: 'Devoluciones', icon: CornerDownLeft, adminOnly: true },
+    { id: 'garantias',    label: 'Garantías',    icon: ShieldCheck,    adminOnly: true },
+    { id: 'creditos',     label: 'Créditos (CxC)', icon: CreditCard,  adminOnly: true },
 ];
 
 // --- Loading spinner for Suspense ---
@@ -55,6 +56,10 @@ const TabPlaceholder = ({ label, icon: Icon }) => (
 const SalesCenter = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const isCashier = user?.role === 'CASHIER';
+    const TABS = ALL_TABS.filter(t => !t.adminOnly || !isCashier);
+
     const activeTab = searchParams.get('tab') || 'cotizaciones';
     const help = useHelp();
     const helpKey = {

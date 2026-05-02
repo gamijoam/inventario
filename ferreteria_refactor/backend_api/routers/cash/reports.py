@@ -239,10 +239,19 @@ def get_session_details(
     deposits_bs = sum((m.amount for m in movements if m.type in ["DEPOSIT", "IN"] and ((m.currency or "USD").upper() in ["BS", "VES", "VEF"])), Decimal("0.00"))
 
     # Calculate Expected Cash (Only Cash payments affect the drawer)
-    # Check for multiple possible cash payment method names using substring
+    # Load external financer method names to EXCLUDE them from cash calculation
+    external_financer_names = set(
+        m.name.lower() for m in db.query(models.PaymentMethod).filter(
+            models.PaymentMethod.is_external_financer == True
+        ).all()
+    )
+
     cash_by_currency = {}  # Track cash sales by currency
 
     for method_name in sales_by_method:
+        # Exclude external financers (Cashea, Krece, etc.) even if name contains "cash"
+        if method_name.lower() in external_financer_names:
+            continue
         # Flexible check: if "efectivo", "cash" or "divisa" is in the name (case-insensitive)
         if "efectivo" in method_name.lower() or "cash" in method_name.lower() or "divisa" in method_name.lower():
             for curr, amt in sales_by_method[method_name].items():
