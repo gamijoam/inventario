@@ -431,26 +431,38 @@ const ProductsTab = () => {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex flex-col items-end gap-0.5">
-                                                <div className="text-xl font-black text-slate-900 tracking-tighter leading-none">
-                                                    ${Number(product.price).toFixed(2)}
-                                                </div>
-                                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">USD</div>
-                                                {convertProductPrice && (
-                                                    <div className="text-xs font-bold text-emerald-600 mt-0.5">
-                                                        Bs {Number(convertProductPrice(product, 'VES') || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            <div className="flex flex-col items-end gap-1">
+
+                                                {/* Precio Mayor (base) */}
+                                                <div className="flex flex-col items-end">
+                                                    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">P. Mayor</div>
+                                                    <div className="text-xl font-black text-slate-900 tracking-tighter leading-none">
+                                                        ${Number(product.price).toFixed(2)}
                                                     </div>
-                                                )}
-                                                {Array.isArray(product.prices) && product.prices.length > 0 && (
-                                                    <div className="mt-1 flex flex-col items-end bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1">
-                                                        <div className="text-sm font-black text-indigo-700 leading-none">
-                                                            ${Number(product.prices[0].price || 0).toFixed(2)}
+                                                    {convertProductPrice && (
+                                                        <div className="text-[10px] font-semibold text-slate-400">
+                                                            Bs {Number(convertProductPrice(product, 'VES') || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                         </div>
-                                                        <div className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mt-0.5 truncate max-w-[90px]">
+                                                    )}
+                                                </div>
+
+                                                {/* Lista de precios (Detal u otra) */}
+                                                {Array.isArray(product.prices) && product.prices.length > 0 && (
+                                                    <div className="flex flex-col items-end bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1 w-full">
+                                                        <div className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">
                                                             {product.prices[0].price_list?.name || 'Lista'}
                                                         </div>
+                                                        <div className="text-base font-black text-indigo-700 leading-none">
+                                                            ${Number(product.prices[0].price || 0).toFixed(2)}
+                                                        </div>
+                                                        {convertProductPrice && (
+                                                            <div className="text-[10px] font-semibold text-indigo-300">
+                                                                Bs {Number((Number(product.prices[0].price || 0) * (convertProductPrice(product, 'VES') / (Number(product.price) || 1))).toFixed(2)).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
+
                                             </div>
                                         </TableCell>
                                         <TableCell>
