@@ -452,8 +452,8 @@ const ProductsTab = () => {
                                     {isAdmin && (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <button className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all opacity-0 group-hover:opacity-100">
-                                                    <MoreHorizontal size={16} />
+                                                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 transition-all">
+                                                    <Pencil size={13} /> Editar
                                                 </button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="rounded-2xl shadow-xl border-slate-100 min-w-[160px]">
