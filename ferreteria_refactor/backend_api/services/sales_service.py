@@ -677,9 +677,15 @@ class SalesService:
                         db.add(sdi)
 
                 # ── COMMISSION ENGINE v2 ────────────────────────────────────
-                # Usa salesperson_id del ítem (no el usuario logueado)
-                # Jerarquía: regla de categoría > % del usuario > sin comisión
-                _sp_id = getattr(item, 'salesperson_id', None) or user_id
+                # Jerarquía de salesperson:
+                # 1. salesperson_id del ítem (selección manual en POS)
+                # 2. user_id de la sesión de caja (quien abrió caja = cajero real)
+                # 3. user_id del request (fallback)
+                _sp_id = getattr(item, 'salesperson_id', None)
+                if not _sp_id and open_session and open_session.user_id:
+                    _sp_id = open_session.user_id
+                if not _sp_id:
+                    _sp_id = user_id
                 if _sp_id:
                     _salesperson = db.query(models.User).filter(models.User.id == _sp_id).first()
                     if _salesperson:
