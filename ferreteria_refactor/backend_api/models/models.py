@@ -582,6 +582,7 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)  # NEW: Superuser flag for admin panel
     commission_percentage = Column(Numeric(5, 2), default=0.00) # NEW: Commission %
     commission_vendor_pct = Column(Numeric(5, 2), default=0.00) # NEW: Vendor commission override
+    commission_technician_pct = Column(Numeric(5, 2), default=0.00) # NEW: Technician commission override
     
     # User Preferences (Theme, shortcuts, etc.)
     preferences = Column(JSON, default={}, nullable=True) # NEW: JSON Configuration
