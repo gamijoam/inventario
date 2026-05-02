@@ -54,10 +54,10 @@ const StockPill = ({ stock, minStock }) => {
 
     return (
         <div className="flex flex-col items-end gap-1">
-            <span className={cn('text-xl font-black tracking-tight', cfg.text)}>
+            <span className={cn('text-2xl font-black tracking-tight', cfg.text)}>
                 {formatStock(total)} <span className="text-[10px] font-bold opacity-60">un.</span>
             </span>
-            <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold', cfg.bg, cfg.text)}>
+            <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold', cfg.bg, cfg.text)}>
                 <span className={cn('w-1.5 h-1.5 rounded-full', cfg.dot, isOut && 'animate-pulse')} />
                 {cfg.label}
             </span>
@@ -73,7 +73,7 @@ const KpiCard = ({ icon: Icon, label, value, sub, iconBg, iconColor }) => (
         </div>
         <div className="min-w-0">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
-            <p className="text-xl font-black text-slate-800 leading-none truncate">{value}</p>
+            <p className="text-2xl font-black text-slate-800 leading-none truncate">{value}</p>
             {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
         </div>
     </div>
@@ -356,10 +356,10 @@ const ProductsTab = () => {
                     <thead>
                         <tr className="border-b border-slate-100 bg-slate-50/60">
                             <th className="w-14 px-4 py-3 text-left" />
-                            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Producto</th>
-                            <th className="px-4 py-3 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Categoría</th>
-                            <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Precios</th>
-                            <th className="px-4 py-3 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Stock</th>
+                            <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Producto</th>
+                            <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Categoría</th>
+                            <th className="px-4 py-3 text-right text-xs font-black text-slate-400 uppercase tracking-wider">Precios</th>
+                            <th className="px-4 py-3 text-right text-xs font-black text-slate-400 uppercase tracking-wider">Stock</th>
                             <th className="w-16 px-4 py-3" />
                         </tr>
                     </thead>
@@ -386,12 +386,12 @@ const ProductsTab = () => {
                                 </td>
 
                                 {/* Producto */}
-                                <td className="px-4 py-2.5 max-w-xs">
-                                    <div className="font-bold text-slate-900 text-sm leading-tight group-hover:text-indigo-700 transition-colors line-clamp-1">
+                                <td className="px-4 py-3.5 max-w-xs">
+                                    <div className="font-black text-slate-900 text-base leading-tight group-hover:text-indigo-700 transition-colors line-clamp-1">
                                         {product.name}
                                     </div>
                                     <div className="flex items-center gap-1.5 mt-0.5">
-                                        <span className="text-[10px] text-slate-400 font-mono">
+                                        <span className="text-xs text-slate-400 font-mono">
                                             {product.sku || '—'}
                                         </span>
                                         {product.has_imei && (
@@ -405,7 +405,7 @@ const ProductsTab = () => {
                                     {product.category?.name ? (
                                         <button
                                             onClick={() => setFilterCategory(product.category_id.toString())}
-                                            className="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 px-2.5 py-1 rounded-full transition-colors"
+                                            className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-indigo-100 hover:text-indigo-700 px-2.5 py-1.5 rounded-full transition-colors"
                                         >
                                             {product.category.name}
                                         </button>
@@ -415,11 +415,11 @@ const ProductsTab = () => {
                                 </td>
 
                                 {/* Precios */}
-                                <td className="px-4 py-2.5 text-right">
+                                <td className="px-4 py-3.5 text-right">
                                     <div className="flex items-stretch justify-end gap-2">
                                         <div className="flex flex-col items-end bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 min-w-[76px]">
                                             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">P. Mayor</span>
-                                            <span className="text-sm font-black text-slate-800 leading-none">${Number(product.price).toFixed(2)}</span>
+                                            <span className="text-base font-black text-slate-800 leading-none">${Number(product.price).toFixed(2)}</span>
                                             {convertProductPrice && (
                                                 <span className="text-[9px] text-slate-400 mt-0.5">
                                                     Bs {Number(convertProductPrice(product, 'VES') || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -431,7 +431,7 @@ const ProductsTab = () => {
                                                 <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest truncate max-w-[72px]">
                                                     {product.prices[0].price_list?.name || 'Lista'}
                                                 </span>
-                                                <span className="text-sm font-black text-indigo-700 leading-none">${Number(product.prices[0].price || 0).toFixed(2)}</span>
+                                                <span className="text-base font-black text-indigo-700 leading-none">${Number(product.prices[0].price || 0).toFixed(2)}</span>
                                                 {convertProductPrice && (
                                                     <span className="text-[9px] text-indigo-300 mt-0.5">
                                                         Bs {Number((Number(product.prices[0].price||0) * (convertProductPrice(product,'VES')/(Number(product.price)||1))).toFixed(2)).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})}
@@ -443,12 +443,12 @@ const ProductsTab = () => {
                                 </td>
 
                                 {/* Stock */}
-                                <td className="px-4 py-2.5 text-right">
+                                <td className="px-4 py-3.5 text-right">
                                     <StockPill stock={product.stock} minStock={product.min_stock} />
                                 </td>
 
                                 {/* Acciones */}
-                                <td className="px-3 py-2.5 text-right">
+                                <td className="px-3 py-3.5 text-right">
                                     {isAdmin && (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
