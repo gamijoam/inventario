@@ -332,18 +332,16 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
     };
 
 
-    // ── Redondeo inteligente ──────────────────────────────────────────────────
+    // ── Redondeo: siempre al múltiplo de 5 superior ──────────────────────────
     const roundPrice = (value) => {
         const n = parseFloat(value);
         if (isNaN(n) || n <= 0) return value;
-        const dec = n % 1; // parte decimal
-        if (dec === 0) return n.toFixed(2);
-        // Redondear al múltiplo de 5 más cercano hacia arriba
-        const base = Math.floor(n / 5) * 5;
-        const rounded = dec <= 0.5 ? base + (n - base > 0 ? 5 : 0) : base + 5;
-        // Si la diferencia es pequeña, redondear al entero más cercano
-        if (Math.abs(n - Math.round(n)) < 0.6) return Math.round(n).toFixed(2);
-        return rounded.toFixed(2);
+        if (n % 5 === 0) return n.toFixed(2); // ya es múltiplo de 5
+        return (Math.ceil(n / 5) * 5).toFixed(2);
+    };
+    const needsRound = (value) => {
+        const n = parseFloat(value);
+        return !isNaN(n) && n > 0 && n % 5 !== 0;
     };
 
     // ── Toggle helper ──────────────────────────────────────────────────────────
@@ -678,7 +676,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                         </div>
                                     </div>
                                     {/* Botón redondeo precio principal */}
-                                    {parseFloat(formData.price) > 0 && formData.price % 1 !== 0 && (
+                                    {needsRound(formData.price) && (
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -692,7 +690,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                             }}
                                             className="flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-3 py-1.5 rounded-xl transition-all w-fit"
                                         >
-                                            ≈ Redondear a ${roundPrice(formData.price)}
+                                            Redondear
                                         </button>
                                     )}
                                 </div>
@@ -774,24 +772,18 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                         />
                                                     </div>
                                                     {/* Botón redondeo lista */}
-                                                    {(() => {
-                                                        const v = parseFloat(formData.prices?.[pl.id] || 0);
-                                                        if (v <= 0) return null;
-                                                        const rounded = roundPrice(v);
-                                                        if (rounded === v.toFixed(2)) return null;
-                                                        return (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => setFormData(prev => ({
-                                                                    ...prev,
-                                                                    prices: { ...prev.prices, [pl.id]: rounded }
-                                                                }))}
-                                                                className="mt-1 text-[9px] font-black text-amber-500 hover:text-amber-700 transition-colors w-full text-center"
-                                                            >
-                                                                ≈ Redondear a ${rounded}
-                                                            </button>
-                                                        );
-                                                    })()}
+                                                    {needsRound(formData.prices?.[pl.id]) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFormData(prev => ({
+                                                                ...prev,
+                                                                prices: { ...prev.prices, [pl.id]: roundPrice(formData.prices?.[pl.id]) }
+                                                            }))}
+                                                            className="mt-1 text-[9px] font-black text-amber-500 hover:text-amber-700 transition-colors w-full text-center"
+                                                        >
+                                                            Redondear
+                                                        </button>
+                                                    )}
                                                 </div>
                                             );
                                         })}
