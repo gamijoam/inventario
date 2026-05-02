@@ -779,7 +779,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                         onClick={() => {
                                                             const base = parseFloat(formData.price || 0);
                                                             if (!base) return;
-                                                            const calculated = (base * 1.45).toFixed(2);
+                                                            const calculated = roundPrice(base * 1.45);
                                                             setFormData(prev => ({
                                                                 ...prev,
                                                                 prices: { ...prev.prices, [pl.id]: calculated }
