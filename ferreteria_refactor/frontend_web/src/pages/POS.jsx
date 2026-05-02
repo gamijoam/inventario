@@ -800,21 +800,6 @@ const POS = () => {
                         </Button>
                     )}
 
-                    {/* Toggle Modo Sencillo */}
-                    <button
-                        onClick={handleToggleSimpleMode}
-                        title={simpleMode ? 'Desactivar modo sencillo' : 'Activar modo sencillo (sin imágenes)'}
-                        className={cn(
-                            'hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold border transition-all',
-                            simpleMode
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                                : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
-                        )}
-                    >
-                        {simpleMode ? <LayoutGrid size={15} /> : <Image size={15} />}
-                        <span className="hidden lg:inline">{simpleMode ? 'Sencillo' : 'Normal'}</span>
-                    </button>
-
                     {showCreditosExternos && (
                     <Link
                         to="/external-financing"
