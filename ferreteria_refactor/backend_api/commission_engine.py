@@ -24,7 +24,7 @@ from .utils.time_utils import get_venezuela_now
 class CommissionEngine:
     def __init__(self, db: Session, feature_flags: dict):
         self.db = db
-        self.enabled = feature_flags.get("sistema_comisiones", False)
+        self.enabled = feature_flags.get("modulo_comisiones", False)
         self._settings: Optional[models.CommissionSettings] = None
 
     def _get_settings(self) -> models.CommissionSettings:

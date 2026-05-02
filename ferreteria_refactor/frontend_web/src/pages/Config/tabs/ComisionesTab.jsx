@@ -100,7 +100,7 @@ const RuleModal = ({ rule, categories, onSave, onClose }) => {
 
 /* ─── MAIN ───────────────────────────────────────────────────────── */
 const ComisionesTab = () => {
-    const hasFlag = useFeatureFlag('sistema_comisiones');
+    const hasFlag = useFeatureFlag('modulo_comisiones');
 
     const [settings, setSettings] = useState(null);
     const [rules, setRules] = useState([]);
