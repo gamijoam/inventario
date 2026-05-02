@@ -114,11 +114,14 @@ def get_summary(db: Session = Depends(get_db)):
 def list_external_financings(
     financer_name: Optional[str] = None,
     status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     skip: int = 0,
     limit: int = Query(default=50, le=200),
     db: Session = Depends(get_db)
 ):
-    """Lista de ventas financiadas con filtros."""
+    """Lista de ventas financiadas con filtros por estado, financiadora y fecha."""
+    from datetime import datetime
     query = db.query(models.ExternalFinancing).options(
         joinedload(models.ExternalFinancing.customer),
         joinedload(models.ExternalFinancing.sale),
@@ -128,6 +131,18 @@ def list_external_financings(
         query = query.filter(models.ExternalFinancing.financer_name.ilike(f"%{financer_name}%"))
     if status:
         query = query.filter(models.ExternalFinancing.financer_payment_status == status)
+    if date_from:
+        try:
+            dt_from = datetime.strptime(date_from, "%Y-%m-%d")
+            query = query.filter(models.ExternalFinancing.created_at >= dt_from)
+        except: pass
+    if date_to:
+        try:
+            dt_to = datetime.strptime(date_to, "%Y-%m-%d")
+            # Incluir todo el día hasta las 23:59:59
+            from datetime import timedelta
+            query = query.filter(models.ExternalFinancing.created_at < dt_to + timedelta(days=1))
+        except: pass
 
     return query.offset(skip).limit(limit).all()
 

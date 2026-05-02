@@ -107,6 +107,7 @@ const ConfigCenter = () => {
             if (item.id === 'integraciones') return modules?.services;
             if (item.id === 'whatsapp') return featureFlags?.whatsapp_business;
             if (item.id === 'catalogo') return featureFlags?.catalogo_publico;
+            if (item.id === 'comisiones') return featureFlags?.modulo_comisiones;
             return true;
         })
     })).filter(group => group.items.length > 0);

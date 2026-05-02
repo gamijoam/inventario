@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
 import {
-    Building2, Plus, Search, Filter, CheckCircle2, Clock,
+    Building2, Plus, Search, Filter, CheckCircle2, Clock, Calendar,
     AlertCircle, ChevronDown, X, Loader2, RefreshCw,
     DollarSign, TrendingUp, Wallet, CreditCard, User,
     FileText, Calendar, Hash, ChevronRight, Edit3, Trash2
@@ -603,13 +603,15 @@ const ExternalFinancing = () => {
     const [showNew, setShowNew] = useState(false);
     const [updateRecord, setUpdateRecord] = useState(null);
     const [filterStatus, setFilterStatus] = useState('');
+    const [filterDateFrom, setFilterDateFrom] = useState('');
+    const [filterDateTo, setFilterDateTo] = useState('');
     const [filterFinancer, setFilterFinancer] = useState('');
 
     const load = useCallback(async () => {
         setIsLoading(true);
         try {
             const [recRes, sumRes, finRes] = await Promise.all([
-                apiClient.get('/external-financing/', { params: { status: filterStatus || undefined, financer_name: filterFinancer || undefined } }),
+                apiClient.get('/external-financing/', { params: { status: filterStatus || undefined, financer_name: filterFinancer || undefined, date_from: filterDateFrom || undefined, date_to: filterDateTo || undefined } }),
                 apiClient.get('/external-financing/summary'),
                 apiClient.get('/external-financing/financers/list'),
             ]);
@@ -621,7 +623,7 @@ const ExternalFinancing = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [filterStatus, filterFinancer]);
+    }, [filterStatus, filterFinancer, filterDateFrom, filterDateTo]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -696,7 +698,8 @@ const ExternalFinancing = () => {
             )}
 
             {/* Filtros */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
+                {/* Estado */}
                 <select
                     value={filterStatus}
                     onChange={e => setFilterStatus(e.target.value)}
@@ -707,6 +710,8 @@ const ExternalFinancing = () => {
                     <option value="PARTIAL">Parcial</option>
                     <option value="COMPLETED">Completado</option>
                 </select>
+
+                {/* Financiadora */}
                 <select
                     value={filterFinancer}
                     onChange={e => setFilterFinancer(e.target.value)}
@@ -715,6 +720,36 @@ const ExternalFinancing = () => {
                     <option value="">Todas las financiadoras</option>
                     {financers.map(f => <option key={f.id} value={f.name}>{f.name}</option>)}
                 </select>
+
+                {/* Filtro por fecha */}
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2">
+                    <Calendar size={14} className="text-slate-400" />
+                    <input
+                        type="date"
+                        value={filterDateFrom}
+                        onChange={e => setFilterDateFrom(e.target.value)}
+                        className="text-sm font-medium text-slate-600 bg-transparent outline-none"
+                        title="Desde"
+                    />
+                    <span className="text-slate-300 text-xs font-bold">→</span>
+                    <input
+                        type="date"
+                        value={filterDateTo}
+                        onChange={e => setFilterDateTo(e.target.value)}
+                        className="text-sm font-medium text-slate-600 bg-transparent outline-none"
+                        title="Hasta"
+                    />
+                </div>
+
+                {/* Limpiar filtros */}
+                {(filterStatus || filterFinancer || filterDateFrom || filterDateTo) && (
+                    <button
+                        onClick={() => { setFilterStatus(''); setFilterFinancer(''); setFilterDateFrom(''); setFilterDateTo(''); }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-500 border border-rose-200 hover:bg-rose-50 transition-all"
+                    >
+                        <X size={13} /> Limpiar
+                    </button>
+                )}
             </div>
 
             {/* Lista */}

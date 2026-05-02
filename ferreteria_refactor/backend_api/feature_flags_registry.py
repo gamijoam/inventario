@@ -114,3 +114,9 @@ REGISTRY["cajero_restringido_pos"] = {
     "description": "Oculta al cajero: Movimientos de caja, Avance y Cerrar Caja en el POS. También oculta Devoluciones, Garantías y Créditos CxC en el Centro de Ventas.",
     "category": "pos",
 }
+
+REGISTRY["modulo_comisiones"] = {
+    "label": "Módulo de Comisiones 💵",
+    "description": "Habilita el sistema de comisiones para vendedores y cajeros. Permite configurar porcentajes por producto, usuario y categoría. Visible en Configuración → Comisiones.",
+    "category": "ventas",
+}
