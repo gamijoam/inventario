@@ -773,13 +773,13 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             placeholder="0.00"
                                                         />
                                                     </div>
-                                                    {/* Botón calcular precio detal (Precio Mayor + 45%) */}
+                                                    {/* Botón calcular precio lista (Precio Mayor + 45%) */}
                                                     <button
                                                         type="button"
                                                         onClick={() => {
                                                             const base = parseFloat(formData.price || 0);
                                                             if (!base) return;
-                                                            const calculated = roundPrice(base * 1.45);
+                                                            const calculated = (base * 1.45).toFixed(2);
                                                             setFormData(prev => ({
                                                                 ...prev,
                                                                 prices: { ...prev.prices, [pl.id]: calculated }
