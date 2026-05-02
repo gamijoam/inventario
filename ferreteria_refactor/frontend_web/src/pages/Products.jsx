@@ -1,3 +1,4 @@
+// @cache-bust: 20260502-124455
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -356,6 +357,11 @@ const Products = () => {
                                                     <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold border border-slate-200 uppercase tracking-tighter">
                                                         SKU: {product.sku || '---'}
                                                     </span>
+                                                    {Array.isArray(product.prices) && product.prices.length > 0 && (
+                                                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                                                            {product.prices[0].price_list?.name || 'Lista'}: ${Number(product.prices[0].price || 0).toFixed(2)}
+                                                        </span>
+                                                    )}
                                                     {product.has_imei && (
                                                         <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-1 border-blue-200 text-blue-700 bg-blue-50 font-black">
                                                             SERIAL
@@ -387,10 +393,10 @@ const Products = () => {
                                             <div className="flex flex-col items-end gap-1.5">
                                                 {/* Precio base */}
                                                 <div className="flex flex-col items-end">
-                                                    <div className="text-2xl font-black text-slate-900 tracking-tighter leading-none">
+                                                    <div className="text-2xl font-black text-indigo-700 tracking-tighter leading-none">
                                                         ${Number(product.price).toFixed(2)}
                                                     </div>
-                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Precio base</div>
+                                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">USD</div>
                                                 </div>
                                                 {/* Primera lista de precios */}
                                                 {Array.isArray(product.prices) && product.prices.length > 0 && (

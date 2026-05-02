@@ -441,6 +441,16 @@ const ProductsTab = () => {
                                                         Bs {Number(convertProductPrice(product, 'VES') || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </div>
                                                 )}
+                                                {Array.isArray(product.prices) && product.prices.length > 0 && (
+                                                    <div className="mt-1 flex flex-col items-end bg-indigo-50 border border-indigo-200 rounded-lg px-2 py-1">
+                                                        <div className="text-sm font-black text-indigo-700 leading-none">
+                                                            ${Number(product.prices[0].price || 0).toFixed(2)}
+                                                        </div>
+                                                        <div className="text-[9px] font-bold text-indigo-400 uppercase tracking-wide mt-0.5 truncate max-w-[90px]">
+                                                            {product.prices[0].price_list?.name || 'Lista'}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell>
