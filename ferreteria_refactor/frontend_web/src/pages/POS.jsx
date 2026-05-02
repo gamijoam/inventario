@@ -95,6 +95,7 @@ const POS = () => {
 
     // Express Mode State
     const isExpressMode = user?.preferences?.pos_mode === 'express';
+    const isCashier = user?.role === 'CASHIER';
     const handleToggleExpressMode = () => {
         updateUserPreferences({ pos_mode: isExpressMode ? 'full' : 'express' });
     };
@@ -742,6 +743,7 @@ const POS = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {!isCashier && (
                     <Button
                         variant="outline"
                         size="sm"
@@ -750,7 +752,9 @@ const POS = () => {
                     >
                         <ArrowRightLeft size={16} /> Movimientos
                     </Button>
+                    )}
 
+                    {!isCashier && (
                     <Button
                         variant="outline"
                         size="sm"
@@ -759,15 +763,9 @@ const POS = () => {
                     >
                         <Banknote size={16} /> Avance
                     </Button>
+                    )}
 
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsServiceImportOpen(true)}
-                        className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
-                    >
-                        <Layers size={16} /> Órdenes
-                    </Button>
+                    {/* Órdenes — oculto temporalmente para todos */}
 
                     {/* Pausar venta — siempre visible, desactivado sin items o con pausa activa */}
                     {!heldCart && (
@@ -791,6 +789,7 @@ const POS = () => {
                     >
                         <Building2 size={15} /> Créditos Ext.
                     </Link>
+                    {!isCashier && (
                     <Button
                         variant="ghost"
                         size="sm"
@@ -803,6 +802,7 @@ const POS = () => {
                     >
                         <Lock size={16} /> Cerrar Caja
                     </Button>
+                    )}
 
                     {/* Botón Modo Express — temporalmente oculto
                     <Button
