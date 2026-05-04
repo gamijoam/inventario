@@ -747,7 +747,7 @@ const POS = () => {
     };
 
     return (
-        <div id="tour-pos-container" className="flex flex-col h-screen bg-slate-100 overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div id="tour-pos-container" className="flex flex-col h-screen bg-slate-100 overflow-hidden" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
 
             {/* GLOBAL POS HEADER */}
             <div className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-20">
@@ -928,7 +928,7 @@ const POS = () => {
                             </div>
                         </div>
                         {/* Derecha: carrito normal (igual que modo completo) */}
-                        <div className="md:w-[300px] lg:w-[330px] flex-none h-full z-10 w-full hidden md:block">
+                        <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
@@ -977,7 +977,7 @@ const POS = () => {
                         </div>
 
                         {/* SECCIÓN DERECHA: CARRITO (Fixed Width on Desktop) */}
-                        <div className="md:w-[300px] lg:w-[330px] flex-none h-full z-10 w-full hidden md:block">
+                        <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
@@ -1019,7 +1019,7 @@ const POS = () => {
                         <SheetHeader className="px-4 pt-4 pb-2 border-b border-slate-100">
                             <SheetTitle className="text-lg font-black text-slate-800">Carrito ({cart.length})</SheetTitle>
                         </SheetHeader>
-                        <div className="flex-1 overflow-y-auto scrollbar-thin h-[calc(85vh-60px)]">
+                        <div className="flex-1 overflow-y-auto h-[calc(85vh-60px)]">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}

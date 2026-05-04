@@ -190,10 +190,10 @@ const POSCatalog = forwardRef(({
     const showTotalCount = isServerSide && totalCount != null && products.length > 0;
 
     return (
-        <div className="flex flex-col h-full bg-muted/10 rounded-3xl border border-slate-200 overflow-hidden">
+        <div className="flex flex-col h-full bg-muted/10 overflow-hidden rounded-3xl border border-slate-200">
 
             {/* Sticky Header */}
-            <div className="pt-4 px-4 pb-0 bg-background z-10 shadow-sm">
+            <div className="p-4 bg-background border-b z-10 space-y-4 shadow-sm">
                 {/* Row 1: Search */}
                 <SearchWithScanner
                     ref={searchInputRef}
@@ -204,55 +204,42 @@ const POSCatalog = forwardRef(({
                     autoFocus
                     inputClassName="h-10 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-xl"
                 />
-            </div>
 
-            {/* Row 2: Categories — contenedor independiente con overflow propio */}
-            <div className="bg-background border-b z-10" style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    overflowX: 'auto',
-                    overflowY: 'hidden',
-                    msOverflowStyle: 'none',
-                    scrollbarWidth: 'none',
-                    WebkitOverflowScrolling: 'touch',
-                    padding: '8px 16px 10px 16px',
-                }}>
-                    <style>{`
-                        .pos-categories-row::-webkit-scrollbar { display: none !important; }
-                    `}</style>
-                    <button
+                {/* Row 2: Categories + Count */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mask-gradient-right">
+                    <Button
+                        variant={selectedCategoryId === null ? "default" : "outline"}
+                        size="md"
                         onClick={() => handleCategoryClick(null)}
-                        style={{ flexShrink: 0 }}
                         className={cn(
-                            "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest border whitespace-nowrap",
+                            "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest",
                             selectedCategoryId === null
-                                ? "bg-slate-900 text-white border-slate-900 shadow-sm"
+                                ? "bg-slate-900 hover:bg-black text-white shadow-md shadow-slate-900/10"
                                 : "border-slate-200 text-slate-500 bg-white hover:text-slate-900 hover:border-slate-400"
                         )}
                     >
                         Todos
-                    </button>
+                    </Button>
                     {categories.map((cat) => (
-                        <button
+                        <Button
                             key={cat.id}
+                            variant={selectedCategoryId === cat.id ? "default" : "outline"}
+                            size="md"
                             onClick={() => handleCategoryClick(cat.id)}
-                            style={{ flexShrink: 0 }}
                             className={cn(
-                                "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest border whitespace-nowrap",
+                                "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest whitespace-nowrap",
                                 selectedCategoryId === cat.id
-                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                                    : "border-slate-200 text-slate-500 bg-white hover:text-indigo-600 hover:border-indigo-300"
+                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-300/20"
+                                    : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
                             )}
                         >
                             {cat.name}
-                        </button>
+                        </Button>
                     ))}
 
                     {/* Total count indicator */}
                     {showTotalCount && (
-                        <span style={{ marginLeft: 'auto', flexShrink: 0, paddingLeft: '16px' }} className="text-xs text-slate-400 font-medium whitespace-nowrap">
+                        <span className="ml-auto text-xs text-slate-400 font-medium whitespace-nowrap shrink-0 pl-4">
                             Mostrando {products.length} de {totalCount} productos
                         </span>
                     )}
@@ -292,8 +279,6 @@ const POSCatalog = forwardRef(({
                             width={containerSize.width}
                             overscanRowCount={2}
                             onScroll={isServerSide ? handleGridScroll : undefined}
-                            style={{ overflowX: 'hidden' }}
-                            className="scrollbar-thin"
                         >
                             {Cell}
                         </FixedSizeGrid>
