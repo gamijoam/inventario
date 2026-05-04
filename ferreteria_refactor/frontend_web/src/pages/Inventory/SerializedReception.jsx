@@ -5,134 +5,185 @@ import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import {
     Barcode, Loader2, Trash2, Save, X, Search, ExternalLink,
-    ChevronDown, Smartphone, AlertCircle, CheckCircle2,
-    Zap, Package, RefreshCw
+    Smartphone, AlertCircle, CheckCircle2, Zap, ArrowLeft
 } from 'lucide-react';
 
 const IMEI_API_KEY = '7c1c33d3-0604-43b8-b09e-41226ee7eacd';
-const IMEI_SERVICE_ID = 0; // Basic IMEI Check $0.02
+const IMEI_SERVICE_ID = 0;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const normalizar = (s = '') => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-// Búsqueda difusa — tolera 1-2 errores tipográficos (Levenshtein simplificado)
 const fuzzyMatch = (text, query) => {
     const t = normalizar(text);
     const q = normalizar(query);
     if (!q) return true;
-    // Coincidencia exacta por substring
     if (t.includes(q)) return true;
-    // Si la query es corta, solo substring
     if (q.length <= 2) return false;
-    // Buscar cada palabra del query por separado
     const words = q.split(/\s+/).filter(Boolean);
     if (words.every(w => t.includes(w))) return true;
-    // Levenshtein para queries cortas (<=8 chars) por palabra
     for (const word of words) {
         if (word.length < 3) continue;
-        // Buscar en ventanas del texto del mismo tamaño ±2
         for (let i = 0; i <= t.length - word.length + 2; i++) {
             const slice = t.slice(i, i + word.length);
             let diff = 0;
             const minLen = Math.min(slice.length, word.length);
             for (let j = 0; j < minLen; j++) { if (slice[j] !== word[j]) diff++; }
             diff += Math.abs(slice.length - word.length);
-            const maxErrors = word.length <= 4 ? 1 : 2;
-            if (diff <= maxErrors) return true;
+            if (diff <= (word.length <= 4 ? 1 : 2)) return true;
         }
     }
     return false;
 };
 
-// ─── Item de carrito ───────────────────────────────────────────────────────────
-const CartItem = ({ group, catalog, onRemoveImei, onChangeProduct }) => {
-    const [open, setOpen] = useState(false);
+// ─── Modal de selección de producto ──────────────────────────────────────────
+const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
     const [search, setSearch] = useState('');
-    const dropRef = useRef(null);
+    const searchRef = useRef(null);
 
-    const matches = catalog.filter(p =>
-        fuzzyMatch(p.name, search) ||
-        (p.sku && fuzzyMatch(p.sku, search))
-    ).slice(0, 8);
+    useEffect(() => { setTimeout(() => searchRef.current?.focus(), 100); }, []);
 
-    useEffect(() => {
-        const handleClick = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setOpen(false); };
-        document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
-    }, []);
-
-    const isUnmatched = !group.productId;
-    const borderColor = isUnmatched ? 'border-amber-300' : 'border-slate-200';
+    // Candidatos: primero los que hacen match con el modelo detectado, luego todos
+    const query = search || (detected?.model || '');
+    const matches = catalog.filter(p => fuzzyMatch(p.name, query) || (p.sku && fuzzyMatch(p.sku, query)));
+    const all = search ? matches : catalog;
 
     return (
-        <div className={`bg-white rounded-2xl border-2 ${borderColor} overflow-hidden`}>
-            {/* Header del grupo */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/50">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isUnmatched ? 'bg-amber-100' : 'bg-indigo-100'}`}>
-                    {isUnmatched ? <AlertCircle size={18} className="text-amber-600" /> : <Smartphone size={18} className="text-indigo-600" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                    {/* Selector de producto */}
-                    <div className="relative" ref={dropRef}>
-                        <button
-                            onClick={() => setOpen(o => !o)}
-                            className={`flex items-center gap-1.5 text-sm font-black truncate max-w-full ${isUnmatched ? 'text-amber-700' : 'text-slate-800'}`}
-                        >
-                            <span className="truncate">{group.productName || '⚠️ Sin identificar — selecciona producto'}</span>
-                            <ChevronDown size={14} className="shrink-0" />
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+
+                {/* Header */}
+                <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 px-6 py-5 text-white">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <Smartphone size={18} className="text-indigo-200" />
+                            <span className="text-xs font-black uppercase tracking-widest text-indigo-200">IMEI detectado</span>
+                        </div>
+                        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-xl transition-all">
+                            <X size={16} />
                         </button>
-                        {open && (
-                            <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-slate-200 rounded-2xl shadow-2xl z-30 overflow-hidden">
-                                <div className="p-2 border-b border-slate-100">
-                                    <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-2.5 py-1.5">
-                                        <Search size={13} className="text-slate-400" />
-                                        <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
-                                            placeholder="Buscar producto..." className="flex-1 bg-transparent text-xs outline-none" />
-                                    </div>
-                                </div>
-                                <div className="max-h-48 overflow-y-auto">
-                                    {matches.map(p => (
-                                        <button key={p.id} onClick={() => { onChangeProduct(group.groupId, p); setOpen(false); setSearch(''); }}
-                                            className="w-full text-left px-3 py-2.5 text-xs hover:bg-indigo-50 transition-colors">
-                                            <p className="font-bold text-slate-800 truncate">{p.name}</p>
-                                            {p.sku && <p className="text-slate-400 font-mono">{p.sku}</p>}
-                                        </button>
-                                    ))}
-                                    {matches.length === 0 && <p className="text-xs text-slate-400 px-3 py-4 text-center">Sin resultados</p>}
-                                </div>
-                            </div>
-                        )}
                     </div>
-                    {group.brand && (
-                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">{group.brand} · detectado por API</p>
+                    <p className="font-mono text-lg font-bold tracking-wider">{imei}</p>
+                    {detected?.brand && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <span className="bg-white/20 text-white text-xs font-black px-2.5 py-1 rounded-full">
+                                {detected.brand}
+                            </span>
+                            {detected.model && (
+                                <span className="bg-white/20 text-white text-xs font-black px-2.5 py-1 rounded-full">
+                                    {detected.model}
+                                </span>
+                            )}
+                            <span className="text-indigo-300 text-[10px] font-bold">vía IMEI.info</span>
+                        </div>
                     )}
+                </div>
+
+                {/* Body */}
+                <div className="p-4">
+                    <p className="text-sm font-bold text-slate-600 mb-3">
+                        ¿A cuál producto corresponde este equipo?
+                    </p>
+
+                    {/* Buscador */}
+                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 mb-3">
+                        <Search size={15} className="text-slate-400 shrink-0" />
+                        <input
+                            ref={searchRef}
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="Buscar producto..."
+                            className="flex-1 bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
+                        />
+                        {search && <button onClick={() => setSearch('')}><X size={13} className="text-slate-400" /></button>}
+                    </div>
+
+                    {/* Lista de productos */}
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                        {all.length === 0 ? (
+                            <div className="text-center py-8 text-slate-400">
+                                <Smartphone size={32} className="mx-auto mb-2 opacity-30" />
+                                <p className="text-xs font-bold">Sin productos encontrados</p>
+                            </div>
+                        ) : all.map(p => (
+                            <button
+                                key={p.id}
+                                onClick={() => onSelect(p)}
+                                className="w-full flex items-center gap-3 p-3 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-400 rounded-2xl text-left transition-all group"
+                            >
+                                <div className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center shrink-0 group-hover:border-indigo-300 transition-colors">
+                                    <Smartphone size={18} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-black text-slate-800 truncate group-hover:text-indigo-700 transition-colors">{p.name}</p>
+                                    {p.sku && <p className="text-[10px] text-slate-400 font-mono">{p.sku}</p>}
+                                    <p className="text-[10px] text-emerald-600 font-bold mt-0.5">{p.stock} en stock</p>
+                                </div>
+                                <CheckCircle2 size={16} className="text-slate-200 group-hover:text-indigo-500 transition-colors shrink-0" />
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Crear nuevo */}
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                        <a
+                            href={`#/products/new?name=${encodeURIComponent(detected?.model ? `${detected.brand} ${detected.model}` : '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-2.5 border-2 border-dashed border-slate-200 hover:border-indigo-400 text-slate-500 hover:text-indigo-600 rounded-2xl text-xs font-black transition-all"
+                        >
+                            <ExternalLink size={13} />
+                            El producto no existe — Crear nuevo
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ─── Item del carrito ─────────────────────────────────────────────────────────
+const CartGroup = ({ group, onRemoveImei, onClickGroup }) => {
+    const isUnmatched = !group.productId;
+
+    return (
+        <div className={`bg-white rounded-2xl border-2 overflow-hidden transition-all ${isUnmatched ? 'border-amber-300' : 'border-slate-200'}`}>
+            {/* Header */}
+            <button
+                onClick={() => isUnmatched && onClickGroup(group)}
+                className={`w-full flex items-center gap-3 px-4 py-3 border-b border-slate-100 ${isUnmatched ? 'bg-amber-50/50 cursor-pointer hover:bg-amber-50' : 'bg-slate-50/50 cursor-default'} transition-colors`}
+            >
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isUnmatched ? 'bg-amber-100' : 'bg-indigo-100'}`}>
+                    {isUnmatched
+                        ? <AlertCircle size={18} className="text-amber-600" />
+                        : <Smartphone size={18} className="text-indigo-600" />
+                    }
+                </div>
+                <div className="flex-1 min-w-0 text-left">
+                    <p className={`text-sm font-black truncate ${isUnmatched ? 'text-amber-700' : 'text-slate-800'}`}>
+                        {isUnmatched
+                            ? (group.detectedName ? `📱 ${group.detectedName}` : 'Sin identificar')
+                            : group.productName
+                        }
+                    </p>
+                    <p className="text-[10px] mt-0.5 font-mono">
+                        {isUnmatched
+                            ? <span className="text-amber-500 font-bold">⚠️ Toca para asignar producto</span>
+                            : <span className="text-slate-400">Stock actualizado al guardar</span>
+                        }
+                    </p>
                 </div>
                 <span className="shrink-0 text-[11px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
                     {group.imeis.length} IMEI{group.imeis.length !== 1 ? 's' : ''}
                 </span>
-            </div>
-            {/* Si no hay producto asignado, ofrecer crear uno nuevo */}
-            {isUnmatched && (
-                <div className="px-4 pb-3 flex items-center gap-2">
-                    <span className="text-[10px] text-amber-600 font-bold">¿El producto no existe?</span>
-                    <a
-                        href={`#/products/new?name=${encodeURIComponent(group.productName || '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-[10px] font-black text-indigo-600 hover:text-indigo-800 border border-indigo-200 bg-indigo-50 px-2 py-0.5 rounded-lg transition-colors"
-                    >
-                        <ExternalLink size={10} /> Crear producto nuevo
-                    </a>
-                </div>
-            )}
+            </button>
 
-            {/* Lista de IMEIs */}
+            {/* IMEIs */}
             <div className="px-4 py-2 space-y-1">
                 {group.imeis.map(item => (
                     <div key={item.imei} className="flex items-center gap-2 py-1">
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${item.validating ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${isUnmatched ? 'bg-amber-400' : 'bg-emerald-400'}`} />
                         <span className="flex-1 font-mono text-xs text-slate-700">{item.imei}</span>
-                        {item.validating && <Loader2 size={12} className="animate-spin text-amber-500 shrink-0" />}
                         <button onClick={() => onRemoveImei(group.groupId, item.imei)}
                             className="text-slate-300 hover:text-rose-500 transition-colors shrink-0">
                             <X size={14} />
@@ -146,23 +197,21 @@ const CartItem = ({ group, catalog, onRemoveImei, onChangeProduct }) => {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 const SerializedReception = () => {
-    const { modules } = useConfig();
-
     const navigate = useNavigate();
     const [catalog, setCatalog] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-
-    // Carrito: array de grupos { groupId, productId, productName, brand, imeis: [{imei, validating}] }
     const [groups, setGroups] = useState([]);
     const [imeiInput, setImeiInput] = useState('');
     const [scanning, setScanning] = useState(false);
 
+    // Modal de selección
+    const [pickerData, setPickerData] = useState(null); // { imei, detected, groupId }
+
     const inputRef = useRef(null);
 
-    // Cargar datos
     useEffect(() => {
         const load = async () => {
             try {
@@ -175,29 +224,24 @@ const SerializedReception = () => {
                 const whs = Array.isArray(wRes.data) ? wRes.data : [];
                 setWarehouses(whs);
                 if (whs.length > 0) setSelectedWarehouseId(whs[0].id);
-            } catch {
-                toast.error('Error cargando datos');
-            } finally {
-                setIsLoading(false);
-            }
+            } catch { toast.error('Error cargando datos'); }
+            finally { setIsLoading(false); }
         };
         load();
     }, []);
 
-    // Todos los IMEIs ya en carrito
     const allImeis = groups.flatMap(g => g.imeis.map(i => i.imei));
 
-    // Buscar match en catálogo por brand+model
-    const findProduct = useCallback((brand = '', model = '') => {
-        const q = normalizar(`${brand} ${model}`);
-        const byModel = catalog.filter(p => normalizar(p.name).includes(normalizar(model)));
-        if (byModel.length === 1) return byModel[0];
-        const byBrandModel = catalog.filter(p => normalizar(p.name).includes(q.trim()));
-        if (byBrandModel.length === 1) return byBrandModel[0];
-        return null; // ambiguo o no encontrado
+    // Buscar coincidencias en catálogo
+    const findMatches = useCallback((brand = '', model = '') => {
+        if (!model && !brand) return [];
+        const modelWords = normalizar(model).split(/\s+/).filter(Boolean);
+        return catalog.filter(p => {
+            const pName = normalizar(p.name);
+            return modelWords.length > 0 && modelWords.every(w => pName.includes(w));
+        });
     }, [catalog]);
 
-    // Agregar IMEI al carrito
     const addImei = useCallback(async () => {
         const imei = imeiInput.trim().toUpperCase();
         if (!imei) return;
@@ -221,8 +265,7 @@ const SerializedReception = () => {
         setScanning(true);
         toast.loading('Consultando IMEI.info...', { id: 'imei-api' });
 
-        // Consultar API IMEI.info
-        let brand = '', model = '', matchedProduct = null;
+        let brand = '', model = '', detected = null;
         try {
             const apiRes = await fetch(
                 `https://dash.imei.info/api/check/${IMEI_SERVICE_ID}/?API_KEY=${IMEI_API_KEY}&imei=${imei}`
@@ -231,53 +274,86 @@ const SerializedReception = () => {
             if (data?.result) {
                 brand = data.result.brand_name || '';
                 model = data.result.model || '';
-                matchedProduct = findProduct(brand, model);
+                detected = { brand, model };
             }
-        } catch {
-            // Si falla la API, agregamos igualmente sin identificar
-        }
+        } catch { /* sin API, continúa */ }
 
         toast.dismiss('imei-api');
         setScanning(false);
 
-        const imeiItem = { imei, validating: false };
-        const groupKey = matchedProduct
-            ? `product-${matchedProduct.id}`
-            : `unmatched-${brand || imei}`;
+        const imeiItem = { imei };
+        const matches = findMatches(brand, model);
 
-        setGroups(prev => {
-            // ¿Ya existe un grupo con ese key?
-            const exists = prev.find(g => g.groupId === groupKey);
-            if (exists) {
-                return prev.map(g => g.groupId === groupKey
-                    ? { ...g, imeis: [...g.imeis, imeiItem] }
-                    : g
-                );
-            }
-            // Crear nuevo grupo
-            return [...prev, {
-                groupId: groupKey,
-                productId: matchedProduct?.id || null,
-                productName: matchedProduct?.name || (model ? `${brand} ${model}` : null),
-                brand: brand || null,
-                imeis: [imeiItem],
-            }];
-        });
-
-        if (matchedProduct) {
-            toast.success(`✅ ${matchedProduct.name}`, { id: 'imei-scan', duration: 1500 });
-        } else if (model) {
-            toast(`📱 ${brand} ${model} — asigna producto`, { id: 'imei-scan', duration: 2000, icon: '⚠️' });
+        if (matches.length === 1) {
+            // Match único → agregar directo
+            const product = matches[0];
+            const groupKey = `product-${product.id}`;
+            setGroups(prev => {
+                const exists = prev.find(g => g.groupId === groupKey);
+                if (exists) return prev.map(g => g.groupId === groupKey ? { ...g, imeis: [...g.imeis, imeiItem] } : g);
+                return [...prev, { groupId: groupKey, productId: product.id, productName: product.name, detectedName: `${brand} ${model}`.trim(), imeis: [imeiItem] }];
+            });
+            toast.success(`✅ ${product.name}`, { id: 'imei-scan', duration: 1500 });
         } else {
-            toast(`IMEI agregado sin identificar`, { id: 'imei-scan', duration: 1500 });
+            // 0 o múltiples matches → abrir modal
+            const groupId = `unmatched-${imei}`;
+            setGroups(prev => [...prev, {
+                groupId,
+                productId: null,
+                productName: null,
+                detectedName: model ? `${brand} ${model}`.trim() : null,
+                imeis: [imeiItem],
+            }]);
+            // Abrir modal de selección
+            setPickerData({ imei, detected, groupId });
+            if (matches.length > 1) {
+                toast(`Múltiples versiones detectadas — elige cuál`, { icon: '📱', duration: 2000 });
+            }
         }
 
-        // Mantener foco en el input
         setTimeout(() => inputRef.current?.focus(), 50);
-    }, [imeiInput, allImeis, findProduct]);
+    }, [imeiInput, allImeis, findMatches]);
 
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') { e.preventDefault(); addImei(); }
+    };
+
+    // Al seleccionar producto en el modal
+    const handlePickerSelect = (product) => {
+        const { groupId } = pickerData;
+        const newKey = `product-${product.id}`;
+
+        setGroups(prev => {
+            // Buscar si ya existe un grupo para ese producto
+            const existingGroup = prev.find(g => g.groupId === newKey);
+            if (existingGroup) {
+                // Fusionar: agregar IMEIs del grupo sin asignar al grupo existente
+                const sourceGroup = prev.find(g => g.groupId === groupId);
+                return prev
+                    .filter(g => g.groupId !== groupId)
+                    .map(g => g.groupId === newKey
+                        ? { ...g, imeis: [...g.imeis, ...(sourceGroup?.imeis || [])] }
+                        : g
+                    );
+            }
+            // Convertir el grupo unmatched en uno con producto asignado
+            return prev.map(g => g.groupId === groupId
+                ? { ...g, groupId: newKey, productId: product.id, productName: product.name }
+                : g
+            );
+        });
+
+        setPickerData(null);
+        toast.success(`✅ Asignado a: ${product.name}`, { duration: 1500 });
+        setTimeout(() => inputRef.current?.focus(), 100);
+    };
+
+    const handleClickGroup = (group) => {
+        setPickerData({
+            imei: group.imeis[0]?.imei || '',
+            detected: group.detectedName ? { brand: '', model: group.detectedName } : null,
+            groupId: group.groupId,
+        });
     };
 
     const removeImei = (groupId, imei) => {
@@ -288,52 +364,21 @@ const SerializedReception = () => {
         }).filter(Boolean));
     };
 
-    const changeProduct = (groupId, product) => {
-        setGroups(prev => prev.map(g => {
-            if (g.groupId !== groupId) return g;
-            const newKey = `product-${product.id}`;
-            // Fusionar con grupo existente si el producto ya tiene grupo
-            const existingGroup = prev.find(g2 => g2.groupId === newKey && g2.groupId !== groupId);
-            if (existingGroup) {
-                // Marcar este para fusionar
-                return { ...g, _mergeInto: newKey, productId: product.id, productName: product.name };
-            }
-            return { ...g, groupId: newKey, productId: product.id, productName: product.name, brand: null };
-        }));
-        // Fusionar grupos si aplica
-        setGroups(prev => {
-            const toMerge = prev.filter(g => g._mergeInto);
-            if (toMerge.length === 0) return prev;
-            let result = prev.filter(g => !g._mergeInto);
-            toMerge.forEach(source => {
-                result = result.map(g => g.groupId === source._mergeInto
-                    ? { ...g, imeis: [...g.imeis, ...source.imeis] }
-                    : g
-                );
-            });
-            return result;
-        });
-    };
-
     const clearAll = () => {
         if (!confirm('¿Limpiar todo el carrito?')) return;
         setGroups([]);
     };
 
-    const totalImeis = groups.reduce((sum, g) => sum + g.imeis.length, 0);
+    const totalImeis = groups.reduce((s, g) => s + g.imeis.length, 0);
     const unmatchedGroups = groups.filter(g => !g.productId);
     const canSave = totalImeis > 0 && unmatchedGroups.length === 0 && selectedWarehouseId;
 
     const handleSave = async () => {
-        if (!canSave) {
-            if (unmatchedGroups.length > 0) toast.error('Asigna un producto a todos los grupos antes de guardar');
-            return;
-        }
+        if (!canSave) return;
         setIsSaving(true);
         const toastId = toast.loading('Procesando ingreso...');
         try {
-            // Enviar grupo por grupo
-            const results = await Promise.all(groups.map(g =>
+            await Promise.all(groups.map(g =>
                 apiClient.post('/inventory/bulk-entry', {
                     product_id: g.productId,
                     warehouse_id: parseInt(selectedWarehouseId),
@@ -342,35 +387,45 @@ const SerializedReception = () => {
                 })
             ));
             toast.dismiss(toastId);
-            toast.success(`✅ ${totalImeis} IMEI(s) ingresados correctamente`);
+            toast.success(`✅ ${totalImeis} IMEI(s) ingresados`);
             setGroups([]);
         } catch (err) {
             toast.dismiss(toastId);
-            toast.error(err.response?.data?.detail || 'Error al procesar el ingreso');
+            toast.error(err.response?.data?.detail || 'Error al procesar');
         } finally {
             setIsSaving(false);
         }
     };
 
     if (isLoading) {
-        return (
-            <div className="flex h-full items-center justify-center">
-                <Loader2 className="animate-spin text-indigo-600" size={48} />
-            </div>
-        );
+        return <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin text-indigo-600" size={48} /></div>;
     }
 
     return (
         <div className="h-full bg-slate-50 flex flex-col overflow-hidden">
 
+            {/* Modal selector */}
+            {pickerData && (
+                <ProductPickerModal
+                    detected={pickerData.detected}
+                    imei={pickerData.imei}
+                    catalog={catalog}
+                    onSelect={handlePickerSelect}
+                    onClose={() => { setPickerData(null); setTimeout(() => inputRef.current?.focus(), 100); }}
+                />
+            )}
+
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
-                <div>
+            <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4 shrink-0">
+                <button onClick={() => navigate(-1)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400 transition-colors">
+                    <ArrowLeft size={18} />
+                </button>
+                <div className="flex-1">
                     <h1 className="text-lg font-black text-slate-800 flex items-center gap-2">
                         <Barcode size={20} className="text-indigo-600" />
                         Recepción Serializada
                     </h1>
-                    <p className="text-xs text-slate-400 mt-0.5">Pistola el IMEI y se identifica automáticamente vía IMEI.info</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Pistola el IMEI — se identifica automáticamente vía IMEI.info</p>
                 </div>
                 <div className="flex items-center gap-2">
                     {totalImeis > 0 && (
@@ -378,11 +433,8 @@ const SerializedReception = () => {
                             <Trash2 size={13} /> Limpiar
                         </button>
                     )}
-                    <select
-                        value={selectedWarehouseId}
-                        onChange={e => setSelectedWarehouseId(e.target.value)}
-                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium bg-white focus:outline-none focus:border-indigo-400"
-                    >
+                    <select value={selectedWarehouseId} onChange={e => setSelectedWarehouseId(e.target.value)}
+                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium bg-white focus:outline-none focus:border-indigo-400">
                         {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                     </select>
                 </div>
@@ -390,7 +442,7 @@ const SerializedReception = () => {
 
             {/* Scanner */}
             <div className="px-6 py-4 bg-white border-b border-slate-100 shrink-0">
-                <div className={`flex items-center gap-3 bg-slate-50 border-2 rounded-2xl px-4 py-3 transition-all ${scanning ? 'border-amber-400' : 'border-slate-200 focus-within:border-indigo-500'}`}>
+                <div className={`flex items-center gap-3 bg-slate-50 border-2 rounded-2xl px-4 py-3 transition-all ${scanning ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 focus-within:border-indigo-500'}`}>
                     {scanning
                         ? <Loader2 size={20} className="text-amber-500 animate-spin shrink-0" />
                         : <Barcode size={20} className="text-slate-400 shrink-0" />
@@ -405,22 +457,19 @@ const SerializedReception = () => {
                         className="flex-1 bg-transparent outline-none text-sm font-mono text-slate-800 placeholder:text-slate-400"
                         autoFocus
                     />
-                    <button
-                        onClick={addImei}
-                        disabled={scanning || !imeiInput.trim()}
-                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl disabled:opacity-40 transition-all"
-                    >
+                    <button onClick={addImei} disabled={scanning || !imeiInput.trim()}
+                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl disabled:opacity-40 transition-all">
                         Agregar
                     </button>
                 </div>
-                {/* Stats */}
+
                 {totalImeis > 0 && (
                     <div className="flex items-center gap-4 mt-2 px-1">
-                        <span className="text-[11px] font-bold text-slate-500">{totalImeis} IMEI{totalImeis !== 1 ? 's' : ''} en carrito</span>
+                        <span className="text-[11px] font-bold text-slate-500">{totalImeis} IMEI{totalImeis !== 1 ? 's' : ''}</span>
                         <span className="text-[11px] font-bold text-slate-500">{groups.length} producto{groups.length !== 1 ? 's' : ''}</span>
                         {unmatchedGroups.length > 0 && (
                             <span className="text-[11px] font-bold text-amber-600 flex items-center gap-1">
-                                <AlertCircle size={11} /> {unmatchedGroups.length} sin asignar
+                                <AlertCircle size={11} /> {unmatchedGroups.length} sin asignar — toca la tarjeta
                             </span>
                         )}
                     </div>
@@ -434,44 +483,37 @@ const SerializedReception = () => {
                         <Barcode size={48} strokeWidth={1} />
                         <p className="text-sm font-bold text-center">Pistola el primer IMEI<br />para comenzar</p>
                         <p className="text-[11px] text-slate-400 text-center max-w-xs">
-                            Se identificará la marca y modelo automáticamente<br />a través de IMEI.info ($0.02 por consulta)
+                            Identificación automática vía IMEI.info ($0.02/consulta).<br />
+                            Si hay múltiples versiones, elige desde el selector.
                         </p>
                     </div>
-                ) : (
-                    groups.map(group => (
-                        <CartItem
-                            key={group.groupId}
-                            group={group}
-                            catalog={catalog}
-                            onRemoveImei={removeImei}
-                            onChangeProduct={changeProduct}
-                        />
-                    ))
-                )}
+                ) : groups.map(group => (
+                    <CartGroup
+                        key={group.groupId}
+                        group={group}
+                        onRemoveImei={removeImei}
+                        onClickGroup={handleClickGroup}
+                    />
+                ))}
             </div>
 
-            {/* Footer guardar */}
+            {/* Footer */}
             {totalImeis > 0 && (
                 <div className="bg-white border-t border-slate-200 px-6 py-4 shrink-0 flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-bold text-slate-500">
-                            {totalImeis} IMEI{totalImeis !== 1 ? 's' : ''} listos para ingresar
-                        </p>
+                        <p className="text-xs font-bold text-slate-500">{totalImeis} IMEI{totalImeis !== 1 ? 's' : ''} listos</p>
                         {unmatchedGroups.length > 0 && (
                             <p className="text-[11px] text-amber-600 font-bold mt-0.5">
                                 ⚠️ Asigna producto a {unmatchedGroups.length} grupo{unmatchedGroups.length !== 1 ? 's' : ''} primero
                             </p>
                         )}
                     </div>
-                    <button
-                        onClick={handleSave}
-                        disabled={!canSave || isSaving}
+                    <button onClick={handleSave} disabled={!canSave || isSaving}
                         className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-sm transition-all ${
                             canSave && !isSaving
                                 ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 hover:-translate-y-0.5'
                                 : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                        }`}
-                    >
+                        }`}>
                         {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                         Guardar todo
                     </button>
@@ -482,4 +524,3 @@ const SerializedReception = () => {
 };
 
 export default SerializedReception;
- 
