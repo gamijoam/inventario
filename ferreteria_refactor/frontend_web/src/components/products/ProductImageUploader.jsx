@@ -215,6 +215,7 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
 
       {currentImageUrl ? (
         <div className="relative group rounded-2xl border-2 border-slate-100 bg-white overflow-hidden aspect-square flex items-center justify-center transition-all hover:border-indigo-200 hover:shadow-lg">
+          {/* Click en imagen → lightbox */}
           <img
             src={getImageUrl(currentImageUrl)}
             alt="Product"
@@ -222,24 +223,31 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
             onClick={() => setLightbox(true)}
             onError={(e) => { e.target.src = noImgPlaceholder; }}
           />
-          {/* Indicador zoom */}
-          <div className="absolute top-2 left-2 bg-black/30 text-white rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+
+          {/* Botón ver grande — esquina superior izquierda */}
+          <button
+            onClick={() => setLightbox(true)}
+            className="absolute top-2 left-2 bg-black/40 hover:bg-black/70 text-white rounded-xl p-1.5 opacity-0 group-hover:opacity-100 transition-all z-10"
+            title="Ver imagen grande"
+          >
             <ZoomIn size={14} />
-          </div>
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-3">
+          </button>
+
+          {/* Botones editar — esquina inferior, no cubren toda la imagen */}
+          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-3 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
             {/* Galería */}
-            <label className="cursor-pointer bg-white text-slate-800 p-3 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-xl" title="Galería">
-              <RefreshCw size={20} className={cn(uploading && 'animate-spin')} />
+            <label className="cursor-pointer bg-white text-slate-700 px-3 py-1.5 rounded-xl text-[11px] font-bold hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow flex items-center gap-1.5" title="Galería">
+              <RefreshCw size={13} className={cn(uploading && 'animate-spin')} /> Galería
               <input type="file" className="hidden" accept="image/*" onChange={(e) => openEditor(e.target.files[0])} disabled={uploading} />
             </label>
             {/* Cámara */}
-            <label className="cursor-pointer bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-700 transition-all shadow-xl" title="Tomar foto">
-              <Camera size={20} />
+            <label className="cursor-pointer bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold hover:bg-indigo-700 transition-all shadow flex items-center gap-1.5" title="Tomar foto">
+              <Camera size={13} /> Foto
               <input type="file" className="hidden" accept="image/*" capture="environment" onChange={(e) => openEditor(e.target.files[0])} disabled={uploading} />
             </label>
             {/* Eliminar */}
-            <button onClick={handleDelete} disabled={uploading} className="bg-rose-500 text-white p-3 rounded-xl hover:bg-rose-600 transition-all shadow-xl">
-              <Trash2 size={20} />
+            <button onClick={handleDelete} disabled={uploading} className="bg-rose-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold hover:bg-rose-600 transition-all shadow flex items-center gap-1.5">
+              <Trash2 size={13} /> Borrar
             </button>
           </div>
           {uploading && (
