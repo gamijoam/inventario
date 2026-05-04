@@ -335,3 +335,40 @@ def get_product_instances(product_id: int, db: Session = Depends(get_db)):
     ).order_by(models.ProductInstance.status, models.ProductInstance.created_at.desc()).all()
 
     return instances
+
+
+@router.get("/lookup-imei", dependencies=[any_authenticated])
+def lookup_imei(imei: str, db: Session = Depends(get_db)):
+    """
+    Buscar un producto por IMEI/serial.
+    Devuelve el producto, almacén y estado del IMEI.
+    """
+    instance = db.query(models.ProductInstance).filter(
+        models.ProductInstance.serial_number == imei.strip().upper()
+    ).options(
+        joinedload(models.ProductInstance.product),
+        joinedload(models.ProductInstance.warehouse),
+    ).first()
+
+    if not instance:
+        raise HTTPException(status_code=404, detail="IMEI no encontrado en el inventario")
+
+    product = instance.product
+    return {
+        "imei": instance.serial_number,
+        "status": instance.status,
+        "warehouse": instance.warehouse.name if instance.warehouse else None,
+        "product": {
+            "id": product.id,
+            "name": product.name,
+            "sku": product.sku,
+            "price": float(product.price),
+            "cost": float(product.cost or 0),
+            "stock": float(product.stock),
+            "category_name": product.category.name if product.category else None,
+            "image_url": product.image_url,
+            "description": product.description,
+            "has_imei": product.has_imei,
+        } if product else None,
+        "sold_at": instance.updated_at.isoformat() if instance.status == "SOLD" and instance.updated_at else None,
+    }

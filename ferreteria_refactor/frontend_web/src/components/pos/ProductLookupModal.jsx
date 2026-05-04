@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, X, Package, Tag, Layers, AlertTriangle, Barcode, DollarSign, TrendingDown, Info } from 'lucide-react';
+import { Search, X, Package, Tag, Layers, AlertTriangle, Barcode, DollarSign, TrendingDown, Info, Wifi, CheckCircle2, XCircle } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { useConfig } from '../../context/ConfigContext';
 
@@ -40,18 +40,43 @@ const ProductLookupModal = ({ isOpen, onClose }) => {
         }
     }, [isOpen]);
 
+    // Detectar si es un IMEI (15 dígitos numéricos)
+    const isImei = (q) => /^\d{14,16}$/.test(q.trim());
+
     // Búsqueda con debounce
     const search = useCallback(async (q) => {
         if (!q || q.length < 2) { setResults([]); setNotFound(false); return; }
         setLoading(true);
         setNotFound(false);
         try {
-            const res = await apiClient.get('/products/', { params: { search: q, limit: 10 } });
-            const items = Array.isArray(res.data) ? res.data : res.data?.items || [];
-            setResults(items);
-            setNotFound(items.length === 0);
-            if (items.length === 1) setSelected(items[0]); // auto-seleccionar si hay uno solo
-            else setSelected(null);
+            if (isImei(q)) {
+                // Búsqueda por IMEI
+                try {
+                    const res = await apiClient.get('/inventory/lookup-imei', { params: { imei: q.trim() } });
+                    const data = res.data;
+                    if (data?.product) {
+                        // Enriquecer el producto con info del IMEI
+                        const product = { ...data.product, _imei_info: { imei: data.imei, status: data.status, warehouse: data.warehouse, sold_at: data.sold_at } };
+                        setSelected(product);
+                        setResults([product]);
+                        setNotFound(false);
+                    }
+                } catch (err) {
+                    if (err.response?.status === 404) {
+                        setNotFound(true);
+                        setResults([]);
+                        setSelected(null);
+                    }
+                }
+            } else {
+                // Búsqueda normal por nombre/SKU
+                const res = await apiClient.get('/products/', { params: { search: q, limit: 10 } });
+                const items = Array.isArray(res.data) ? res.data : res.data?.items || [];
+                setResults(items);
+                setNotFound(items.length === 0);
+                if (items.length === 1) setSelected(items[0]);
+                else setSelected(null);
+            }
         } catch {
             setResults([]);
         } finally {
