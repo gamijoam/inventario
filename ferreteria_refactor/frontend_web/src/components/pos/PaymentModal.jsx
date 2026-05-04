@@ -466,9 +466,6 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const celularEnCarrito = cart.find(item => item.has_imei);
     const clienteSeleccionado = selectedCustomer;
 
-    const celularEnCarrito = cart.find(item => item.has_imei);
-    const clienteSeleccionado = selectedCustomer;
-
     return (
         <>
         {showCalcCredito && celularEnCarrito && createPortal(
