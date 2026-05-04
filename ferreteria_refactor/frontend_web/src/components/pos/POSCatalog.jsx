@@ -206,35 +206,44 @@ const POSCatalog = forwardRef(({
                 />
 
                 {/* Row 2: Categories + Count */}
-                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 relative">
-                    <Button
-                        variant={selectedCategoryId === null ? "default" : "outline"}
-                        size="md"
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    msOverflowStyle: 'none',
+                    scrollbarWidth: 'none',
+                    WebkitOverflowScrolling: 'touch',
+                    paddingBottom: '2px',
+                }}>
+                    <style>{`.pos-cat-scroll::-webkit-scrollbar { display: none; }`}</style>
+                    <button
                         onClick={() => handleCategoryClick(null)}
+                        style={{ flexShrink: 0 }}
                         className={cn(
-                            "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest",
+                            "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest border whitespace-nowrap",
                             selectedCategoryId === null
-                                ? "bg-slate-900 hover:bg-black text-white shadow-md shadow-slate-900/10"
+                                ? "bg-slate-900 text-white border-slate-900 shadow-sm"
                                 : "border-slate-200 text-slate-500 bg-white hover:text-slate-900 hover:border-slate-400"
                         )}
                     >
                         Todos
-                    </Button>
+                    </button>
                     {categories.map((cat) => (
-                        <Button
+                        <button
                             key={cat.id}
-                            variant={selectedCategoryId === cat.id ? "default" : "outline"}
-                            size="md"
                             onClick={() => handleCategoryClick(cat.id)}
+                            style={{ flexShrink: 0 }}
                             className={cn(
-                                "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest whitespace-nowrap",
+                                "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest border whitespace-nowrap",
                                 selectedCategoryId === cat.id
-                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-300/20"
-                                    : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
+                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                                    : "border-slate-200 text-slate-500 bg-white hover:text-indigo-600 hover:border-indigo-300"
                             )}
                         >
                             {cat.name}
-                        </Button>
+                        </button>
                     ))}
 
                     {/* Total count indicator */}
@@ -279,6 +288,8 @@ const POSCatalog = forwardRef(({
                             width={containerSize.width}
                             overscanRowCount={2}
                             onScroll={isServerSide ? handleGridScroll : undefined}
+                            style={{ overflowX: 'hidden' }}
+                            className="scrollbar-thin"
                         >
                             {Cell}
                         </FixedSizeGrid>
