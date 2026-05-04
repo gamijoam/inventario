@@ -40,15 +40,15 @@ const ChangesPanel = ({ changesStr }) => {
             {entries.map(([key, val]) => {
                 const isOldNew = val && typeof val === 'object' && ('old' in val || 'new' in val);
                 return (
-                    <div key={key} className="flex items-start gap-2 text-xs">
-                        <span className="font-black text-slate-500 shrink-0 w-28 truncate pt-0.5">{key}</span>
+                    <div key={key} className="flex flex-col gap-1 text-xs pb-2 border-b border-slate-100 last:border-0 last:pb-0">
+                        <span className="font-black text-slate-500 shrink-0 min-w-[80px] pt-0.5">{key}</span>
                         {isOldNew ? (
                             <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded font-mono line-through max-w-[120px] truncate">
+                                <span className="bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded font-mono line-through break-all">
                                     {String(val.old ?? '—')}
                                 </span>
                                 <ArrowRight size={10} className="text-slate-400 shrink-0" />
-                                <span className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-bold max-w-[120px] truncate">
+                                <span className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-mono font-bold break-all">
                                     {String(val.new ?? '—')}
                                 </span>
                             </div>
