@@ -928,7 +928,7 @@ const POS = () => {
                             </div>
                         </div>
                         {/* Derecha: carrito normal (igual que modo completo) */}
-                        <div className="md:w-[320px] lg:w-[360px] flex-none h-full z-10 w-full hidden md:block">
+                        <div className="md:w-[300px] lg:w-[330px] flex-none h-full z-10 w-full hidden md:block">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}

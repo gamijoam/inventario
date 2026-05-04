@@ -48,7 +48,7 @@ export const AutoSyncProvider = ({ children }) => {
             // USAR BACKEND PARA VERIFICAR CONEXIÓN (Evita CORS)
             const response = await apiClient.post('/cloud/test-connection', {
                 url: cloudConfig.cloudUrl
-            });
+            }, { _silentNetworkError: true });
 
             if (response.data.success) {
                 setSyncStatus(prev => ({ ...prev, isOnline: true, error: null }));

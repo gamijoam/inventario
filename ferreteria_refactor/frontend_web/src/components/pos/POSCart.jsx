@@ -156,7 +156,7 @@ const POSCart = ({
             />
 
             {/* Header */}
-            <div className="px-4 py-3 border-b border-slate-200 bg-white flex justify-between items-center flex-shrink-0 z-10 shadow-sm">
+            <div className="px-3 py-2 border-b border-slate-200 bg-white flex justify-between items-center flex-shrink-0 z-10 shadow-sm">
                 <div className="flex items-center gap-2">
                     <h2 className="font-black text-slate-800 tracking-tight flex items-center gap-2">
                         <ShoppingCart className="text-blue-500" size={20} />
@@ -510,8 +510,8 @@ const POSCart = ({
             </div>
 
             {/* Footer Totals */}
-            <div className="bg-white border-t border-slate-100 p-4 space-y-3 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10">
-                <div className="space-y-2">
+            <div className="bg-white border-t border-slate-100 px-3 py-2 space-y-1.5 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10">
+                <div className="space-y-1">
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Subtotal Neto</span>
                         <span className="text-slate-600 tabular-nums">
@@ -539,12 +539,12 @@ const POSCart = ({
                     )}
                 </div>
 
-                <div className="pt-4 border-t border-slate-100">
-                    <div className="flex justify-between items-end mb-3">
+                <div className="pt-2 border-t border-slate-100">
+                    <div className="flex justify-between items-end mb-2">
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total a Recibir</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total a Recibir</span>
                             <div className="flex items-baseline gap-1 animate-in slide-in-from-left-2 duration-500">
-                                <span className="text-2xl font-black text-indigo-600 tracking-tighter tabular-nums">
+                                <span className="text-xl font-black text-indigo-600 tracking-tighter tabular-nums">
                                     {anchorCurrency.symbol}{formatLocalCurrency(totals.totalUSD)}
                                 </span>
                             </div>
