@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import SerializedReportPDF from '../../../components/inventory/SerializedReportPDF';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import InversionReportPDF from '../../../components/inventory/InversionReportPDF';
@@ -59,6 +60,15 @@ const CatalogView = ({ catalog, onSelectProduct, isLoading }) => {
                     <div className="text-xs text-indigo-500 font-semibold mt-0.5">Con stock</div>
                 </div>
             </div>
+
+            {/* Botón Recepción Multi-Producto */}
+            <Link
+                to="/inventory/serialized-reception"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-2xl shadow-md shadow-indigo-200 transition-all hover:-translate-y-0.5"
+            >
+                <Zap size={16} />
+                Recepción con IMEI.info — Identificación automática
+            </Link>
 
             {/* Buscador + filtros */}
             <div className="flex flex-col sm:flex-row gap-2">

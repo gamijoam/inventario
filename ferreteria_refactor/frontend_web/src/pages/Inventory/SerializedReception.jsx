@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 import {
-    Barcode, Loader2, Trash2, Save, X, Search,
+    Barcode, Loader2, Trash2, Save, X, Search, ExternalLink,
     ChevronDown, Smartphone, AlertCircle, CheckCircle2,
     Zap, Package, RefreshCw
 } from 'lucide-react';
@@ -74,13 +75,27 @@ const CartItem = ({ group, catalog, onRemoveImei, onChangeProduct }) => {
                         )}
                     </div>
                     {group.brand && (
-                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">{group.brand} · API identificado</p>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5">{group.brand} · detectado por API</p>
                     )}
                 </div>
                 <span className="shrink-0 text-[11px] font-black text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
                     {group.imeis.length} IMEI{group.imeis.length !== 1 ? 's' : ''}
                 </span>
             </div>
+            {/* Si no hay producto asignado, ofrecer crear uno nuevo */}
+            {isUnmatched && (
+                <div className="px-4 pb-3 flex items-center gap-2">
+                    <span className="text-[10px] text-amber-600 font-bold">¿El producto no existe?</span>
+                    <a
+                        href={`#/products/new?name=${encodeURIComponent(group.productName || '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[10px] font-black text-indigo-600 hover:text-indigo-800 border border-indigo-200 bg-indigo-50 px-2 py-0.5 rounded-lg transition-colors"
+                    >
+                        <ExternalLink size={10} /> Crear producto nuevo
+                    </a>
+                </div>
+            )}
 
             {/* Lista de IMEIs */}
             <div className="px-4 py-2 space-y-1">
@@ -104,6 +119,7 @@ const CartItem = ({ group, catalog, onRemoveImei, onChangeProduct }) => {
 const SerializedReception = () => {
     const { modules } = useConfig();
 
+    const navigate = useNavigate();
     const [catalog, setCatalog] = useState([]);
     const [warehouses, setWarehouses] = useState([]);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
