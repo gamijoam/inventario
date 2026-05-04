@@ -32,16 +32,25 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
         return handleConfirm();
       }
 
+      // Limitar resolución máxima para evitar OOM en tablets
+      const MAX_SIZE = 1600;
+      let drawW = w;
+      let drawH = h;
+      if (Math.max(w, h) > MAX_SIZE) {
+        const ratio = MAX_SIZE / Math.max(w, h);
+        drawW = Math.round(w * ratio);
+        drawH = Math.round(h * ratio);
+      }
+
       const canvas = document.createElement('canvas');
       const rad = (rotation * Math.PI) / 180;
       const sin = Math.abs(Math.sin(rad));
       const cos = Math.abs(Math.cos(rad));
 
-      const canvasW = Math.ceil(w * cos + h * sin);
-      const canvasH = Math.ceil(w * sin + h * cos);
+      const canvasW = Math.ceil(drawW * cos + drawH * sin);
+      const canvasH = Math.ceil(drawW * sin + drawH * cos);
 
-      // Seguridad: canvas debe tener dimensiones válidas
-      if (canvasW <= 0 || canvasH <= 0 || canvasW > 8000 || canvasH > 8000) return;
+      if (canvasW <= 0 || canvasH <= 0 || canvasW > 4000 || canvasH > 4000) return;
 
       canvas.width = canvasW;
       canvas.height = canvasH;
@@ -50,10 +59,12 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
       if (!ctx) return;
 
       ctx.save();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvasW, canvasH);
       ctx.translate(canvasW / 2, canvasH / 2);
       ctx.rotate(rad);
       ctx.scale(scale, scale);
-      ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
 
       canvas.toBlob(blob => {
@@ -63,13 +74,8 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
       }, 'image/jpeg', 0.88);
     } catch (err) {
       console.error('Error procesando imagen:', err);
-      // Si falla el canvas, subir la imagen original sin editar
-      try {
-        const res = await fetch(src);
-        const blob = await res.blob();
-        const file = new File([blob], 'photo.jpg', { type: blob.type || 'image/jpeg' });
-        onConfirm(file);
-      } catch { /* silenciar */ }
+      // Si falla el canvas (ej: CORS), cerrar editor sin cambios
+      onCancel();
     }
   }, [rotation, scale, onConfirm, imgLoaded, src]);
 
@@ -87,6 +93,7 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
             ref={imgRef}
             src={src}
             alt="Preview"
+            crossOrigin="anonymous"
             onLoad={() => setImgLoaded(true)}
             style={{ transform: `rotate(${rotation}deg) scale(${scale})`, maxWidth: '80%', maxHeight: '80%', objectFit: 'contain', transition: 'transform 0.3s ease', flexShrink: 0 }}
           />
