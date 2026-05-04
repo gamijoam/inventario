@@ -139,7 +139,8 @@ class CommissionEngine:
         ).all() if hasattr(models, "SalePayment") else []
 
         paid_in_bs = any(
-            p.currency in ("VES", "Bs", "bolivar")
+            str(p.currency or "").upper() in ("VES", "BS", "BOLIVAR", "BOLIVARES", "B")
+            or str(p.currency or "").lower().startswith("bs")
             for p in sale_payments
         ) if sale_payments else False
 

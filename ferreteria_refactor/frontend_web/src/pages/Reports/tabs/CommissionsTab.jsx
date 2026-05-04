@@ -102,18 +102,16 @@ const UserDetailRow = ({ userId, bsRate }) => {
             <td className="py-2 text-slate-500">{d.source_reference || `#${d.source_id || d.id}`}</td>
             <td className="py-2 text-right">
                 <span className="font-bold text-emerald-700">${parseFloat(d.amount).toFixed(2)}</span>
-                {/* Si la venta fue en Bs: mostrar Bs congelados del día de la venta */}
+                {/* Solo mostrar Bs si la venta fue cobrada en Bs — con tasa congelada */}
                 {d.paid_in_bs && d.amount_bs ? (
-                    <div className="text-[10px] font-bold text-indigo-500 flex items-center justify-end gap-1">
+                    <div className="text-[10px] font-bold text-indigo-500 flex items-center justify-end gap-1 mt-0.5">
                         <span className="bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full">
                             Bs {parseFloat(d.amount_bs).toFixed(2)}
                         </span>
-                        <span className="text-slate-400" title={`Tasa: ${d.exchange_rate_snapshot}`}>
+                        <span className="text-slate-300 text-[9px]" title={`Tasa del día: ${d.exchange_rate_snapshot}`}>
                             @ {parseFloat(d.exchange_rate_snapshot || 0).toFixed(2)}
                         </span>
                     </div>
-                ) : bsRate ? (
-                    <div className="text-[10px] text-slate-400">{formatBs(d.amount, bsRate)}</div>
                 ) : null}
             </td>
             <td className="py-2 pr-4 text-center">
