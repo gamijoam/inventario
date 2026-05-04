@@ -169,7 +169,7 @@ export const ConfigProvider = ({ children }) => {
 
             // 5. Fetch Auto Print Ticket setting
             try {
-                const apRes = await apiClient.get('/config/auto-print-ticket');
+                const apRes = await apiClient.get('/config/pos/auto-print-ticket');
                 setAutoPrintTicket(!!apRes.data.auto_print_ticket);
             } catch (e) { /* silencioso */ }
 

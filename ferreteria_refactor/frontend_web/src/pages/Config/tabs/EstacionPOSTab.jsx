@@ -14,7 +14,7 @@ const EstacionPOSTab = () => {
     const [savingAutoPrint, setSavingAutoPrint] = useState(false);
 
     useEffect(() => {
-        apiClient.get('/config/auto-print-ticket')
+        apiClient.get('/config/pos/auto-print-ticket')
             .then(r => setAutoPrint(r.data.auto_print_ticket))
             .catch(() => {})
             .finally(() => setLoadingAutoPrint(false));
@@ -23,12 +23,14 @@ const EstacionPOSTab = () => {
     const toggleAutoPrint = async () => {
         setSavingAutoPrint(true);
         try {
-            const res = await apiClient.post('/config/auto-print-ticket', { enabled: !autoPrint });
+            const newValue = !autoPrint;
+            const res = await apiClient.post('/config/pos/auto-print-ticket', { enabled: newValue });
             setAutoPrint(res.data.auto_print_ticket);
             toast.success(res.data.auto_print_ticket
                 ? '✅ Impresión automática activada'
                 : 'Impresión automática desactivada');
-        } catch {
+        } catch (err) {
+            console.error('Error guardando auto-print:', err);
             toast.error('Error guardando configuración');
         } finally {
             setSavingAutoPrint(false);
