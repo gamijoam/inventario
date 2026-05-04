@@ -43,7 +43,8 @@ import {
     HelpCircle,
     LifeBuoy,
     Scissors,
-    Pill
+    Pill,
+    Zap
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
@@ -182,6 +183,11 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         ...(isAdminOrWarehouse ? [{
             type: 'single',
             item: { icon: Package, label: 'Centro de Inventario', path: '/inventory-center' }
+        }] : []),
+        // POS EXPRESS — prueba
+        ...(isAdminOrCashier ? [{
+            type: 'single',
+            item: { icon: Zap, label: 'POS Express ⚡', path: '/pos-express' }
         }] : []),
         // FINANZAS — filtrado por rol (no se muestra si no hay items)
         ...(finanzasItems.length > 0 ? [{
