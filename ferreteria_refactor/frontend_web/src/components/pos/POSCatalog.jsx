@@ -190,10 +190,10 @@ const POSCatalog = forwardRef(({
     const showTotalCount = isServerSide && totalCount != null && products.length > 0;
 
     return (
-        <div className="flex flex-col h-full bg-muted/10 overflow-hidden rounded-3xl border border-slate-200">
+        <div className="flex flex-col h-full bg-muted/10 rounded-3xl border border-slate-200" style={{overflow: "hidden"}}>
 
             {/* Sticky Header */}
-            <div className="p-4 bg-background border-b z-10 space-y-4 shadow-sm">
+            <div className="p-4 bg-background border-b z-10 shadow-sm">
                 {/* Row 1: Search */}
                 <SearchWithScanner
                     ref={searchInputRef}
@@ -215,9 +215,17 @@ const POSCatalog = forwardRef(({
                     msOverflowStyle: 'none',
                     scrollbarWidth: 'none',
                     WebkitOverflowScrolling: 'touch',
-                    paddingBottom: '2px',
-                }}>
-                    <style>{`.pos-cat-scroll::-webkit-scrollbar { display: none; }`}</style>
+                    paddingBottom: '4px',
+                    paddingTop: '4px',
+                    marginLeft: '-16px',
+                    marginRight: '-16px',
+                    paddingLeft: '16px',
+                    paddingRight: '16px',
+                }} className="pos-categories-row">
+                    <style>{`
+                        .pos-categories-row::-webkit-scrollbar { display: none !important; }
+                        .pos-categories-row { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+                    `}</style>
                     <button
                         onClick={() => handleCategoryClick(null)}
                         style={{ flexShrink: 0 }}
