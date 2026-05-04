@@ -1,4 +1,5 @@
 import React, { useState, useMemo, lazy, Suspense } from 'react';
+import { useConfig } from '../../context/ConfigContext';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import { useSearchParams } from 'react-router-dom';
@@ -26,14 +27,14 @@ const TAB_DESCRIPTIONS = {
 };
 
 // --- Tab definitions ---
-const TABS = [
+const BASE_TABS = [
     { id: 'productos', label: 'Productos', icon: Package },
     { id: 'categorias', label: 'Categorías', icon: Tags },
     { id: 'kardex', label: 'Kardex', icon: Archive },
     { id: 'traslados', label: 'Traslados', icon: ArrowRightLeft },
     { id: 'almacenes', label: 'Almacenes', icon: Warehouse },
-    { id: 'seriales', label: 'Seriales', icon: Barcode },
 ];
+const SERIALES_TAB = { id: 'seriales', label: 'Seriales', icon: Barcode };
 
 // --- Loading spinner for Suspense ---
 const TabSpinner = () => (
@@ -58,6 +59,10 @@ const TabPlaceholder = ({ label, icon: Icon }) => (
 // MAIN COMPONENT
 // ============================================================
 const InventoryCenter = () => {
+    const { modules } = useConfig();
+    const TABS = modules?.services
+        ? [...BASE_TABS, SERIALES_TAB]
+        : BASE_TABS;
     const [searchParams, setSearchParams] = useSearchParams();
     const activeTab = searchParams.get('tab') || 'productos';
     const help = useHelp();
