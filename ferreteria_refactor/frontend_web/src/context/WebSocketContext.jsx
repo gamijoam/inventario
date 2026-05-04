@@ -10,7 +10,7 @@ export const WebSocketProvider = ({ children }) => {
     const reconnectTimeout = useRef(null);
     const pingInterval = useRef(null);
     const retryCount = useRef(0);
-    const maxRetries = 10;
+    const maxRetries = 5; // Reducido para evitar loops de reconexión agresivos
     const isMounting = useRef(true);
 
     const connect = useCallback(() => {
@@ -94,7 +94,7 @@ export const WebSocketProvider = ({ children }) => {
 
                 // Exponential Backoff Reconnect (with max retries limit)
                 if (isMounting.current && ws.current && retryCount.current < maxRetries) {
-                    const delay = Math.min(1000 * Math.pow(2, retryCount.current), 30000);
+                    const delay = Math.min(2000 * Math.pow(2, retryCount.current), 60000);
                     console.log(`🔄 WS: Reconnecting in ${delay}ms... (${retryCount.current + 1}/${maxRetries})`);
 
                     if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);

@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
 // ---------------------------------------------------------------------------
 // Payout Confirmation Modal
 // ---------------------------------------------------------------------------
-const ConfirmPayModal = ({ summary, onConfirm, onCancel, isProcessing }) => {
+const ConfirmPayModal = ({ summary, onConfirm, onCancel, isProcessing, bsRate, payMode, onPayModeChange }) => {
     if (!summary) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -40,10 +40,43 @@ const ConfirmPayModal = ({ summary, onConfirm, onCancel, isProcessing }) => {
                             <span className="font-medium text-slate-700">{summary.count}</span>
                         </div>
                         <div className="flex justify-between text-base border-t border-slate-200 pt-2 mt-2">
-                            <span className="font-bold text-slate-700">Total a pagar</span>
+                            <span className="font-bold text-slate-700">Total USD</span>
                             <span className="font-black text-emerald-600">${parseFloat(summary.pending_amount).toFixed(2)}</span>
                         </div>
+                        {bsRate && (
+                            <div className="flex justify-between text-sm text-slate-500">
+                                <span>Equivalente Bs</span>
+                                <span className="font-bold">Bs {(parseFloat(summary.pending_amount) * bsRate).toFixed(2)}</span>
+                            </div>
+                        )}
                     </div>
+
+                    {/* Selector moneda de pago */}
+                    {bsRate && (
+                        <div>
+                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Pagar en:</p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => onPayModeChange('USD')}
+                                    className={`flex-1 py-2.5 rounded-xl text-sm font-black border-2 transition-all ${payMode === 'USD' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}
+                                >
+                                    $ USD
+                                </button>
+                                <button
+                                    onClick={() => onPayModeChange('Bs')}
+                                    className={`flex-1 py-2.5 rounded-xl text-sm font-black border-2 transition-all ${payMode === 'Bs' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-500 border-slate-200 hover:border-emerald-300'}`}
+                                >
+                                    Bs {payMode === 'Bs' && <span className="text-[10px] font-bold opacity-80">({bsRate})</span>}
+                                </button>
+                            </div>
+                            {payMode === 'Bs' && (
+                                <p className="text-[10px] text-slate-400 mt-1.5 text-center">
+                                    Las comisiones en Bs usarán la tasa congelada del día de venta.
+                                    Las en USD se convierten a tasa actual ({bsRate} Bs/$).
+                                </p>
+                            )}
+                        </div>
+                    )}
                     <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                         Recuerde retirar fisicamente el dinero de la caja para que coincida con el sistema.
                     </p>
@@ -171,11 +204,12 @@ const CommissionsTab = () => {
 
     useEffect(() => { loadData(); }, []);
 
+    const [payMode, setPayMode] = useState('USD'); // 'USD' o 'Bs'
+
     const handleConfirmPay = async () => {
         if (!pendingPayout) return;
         setIsProcessing(true);
         try {
-            // Load detail IDs first
             const detailsRes = await apiClient.get(`/commissions/details/${pendingPayout.user_id}`);
             const pendingLogs = detailsRes.data.filter(d => d.status === 'PENDING');
             if (!pendingLogs.length) {
@@ -183,18 +217,35 @@ const CommissionsTab = () => {
                 setPendingPayout(null);
                 return;
             }
+
+            // Si paga en Bs: usar amount_bs congelado de cada log (o calcular con bsRate)
+            const payInBs = payMode === 'Bs';
+            const totalBsPago = payInBs
+                ? pendingLogs.reduce((sum, d) => {
+                    // Si tiene amount_bs congelado y fue cobrado en Bs → usar ese
+                    if (d.paid_in_bs && d.amount_bs) return sum + parseFloat(d.amount_bs);
+                    // Si fue en USD → convertir con bsRate actual
+                    return sum + (parseFloat(d.amount) * (bsRate || 1));
+                }, 0)
+                : 0;
+
             await apiClient.post('/commissions/payout', {
                 user_id: pendingPayout.user_id,
                 log_ids: pendingLogs.map(d => d.id),
                 payment_source: 'DRAWER',
-                payment_method: 'CASH_USD',
+                payment_method: payInBs ? 'CASH_VES' : 'CASH_USD',
                 amount_usd_total: parseFloat(pendingPayout.pending_amount),
-                exchange_rate: 1.0,
+                exchange_rate: payInBs ? (bsRate || 1) : 1.0,
                 reference: null,
             });
-            toast.success(`Comisiones de ${pendingPayout.user_name} pagadas correctamente`);
+
+            const msgAmount = payInBs
+                ? `Bs ${totalBsPago.toFixed(2)}`
+                : `$${parseFloat(pendingPayout.pending_amount).toFixed(2)}`;
+            toast.success(`✅ Comisiones pagadas — ${msgAmount}`);
             setPendingPayout(null);
             setExpandedUser(null);
+            setPayMode('USD');
             loadData();
         } catch (error) {
             const detail = error.response?.data?.detail;
@@ -233,8 +284,11 @@ const CommissionsTab = () => {
             <ConfirmPayModal
                 summary={pendingPayout}
                 onConfirm={handleConfirmPay}
-                onCancel={() => !isProcessing && setPendingPayout(null)}
+                onCancel={() => { if (!isProcessing) { setPendingPayout(null); setPayMode('USD'); } }}
                 isProcessing={isProcessing}
+                bsRate={bsRate}
+                payMode={payMode}
+                onPayModeChange={setPayMode}
             />
 
             {/* Summary Cards */}

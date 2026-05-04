@@ -178,7 +178,7 @@ export const ConfigProvider = ({ children }) => {
     // Run on Mount (Public Access) AND when Token Changes
     useEffect(() => {
         fetchConfig();
-    }, [localStorage.getItem('token')]); // This dependency matches previous logic, but now fetchConfig handles no-token gracefully
+    }, []); // Solo al montar — fetchConfig ya maneja el token internamente
 
     const refreshConfig = () => fetchConfig();
 
