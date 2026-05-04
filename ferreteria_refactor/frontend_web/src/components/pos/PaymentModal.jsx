@@ -466,6 +466,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const celularEnCarrito = cart.find(item => item.has_imei);
     const clienteSeleccionado = selectedCustomer;
 
+    const celularEnCarrito = cart.find(item => item.has_imei);
+    const clienteSeleccionado = selectedCustomer;
+
     return (
         <>
         {showCalcCredito && celularEnCarrito && createPortal(
@@ -477,166 +480,147 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 sessionId={session?.id || null}
                 exchangeRate={defaultBsRate}
                 onVentaExitosa={() => {
-                    // La venta fue registrada — cerrar TODO y limpiar el carrito
                     setShowCalcCredito(false);
                     onClose?.();
-                    onConfirm?.();   // limpia el carrito en el POS
+                    onConfirm?.();
                 }}
             />,
             document.body
         )}
-        <div className="fixed inset-0 bg-[#0f172a]/70 flex items-end sm:items-center justify-center z-50 backdrop-blur-md p-0 sm:p-4 transition-all duration-300">
-            <div className="bg-white rounded-t-2xl sm:rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row h-[90vh] sm:h-auto sm:max-h-[85vh] animate-in fade-in zoom-in-95 slide-in-from-bottom-5 duration-300 ring-1 ring-white/20">
 
-                {/* LEFT COLUMN: Premium Summary */}
-                <div className="bg-[#1e293b] text-white p-6 md:w-5/12 flex flex-col relative overflow-hidden group shrink-0 max-h-[35vh] md:max-h-none overflow-y-auto">
-                    {/* Background Accents */}
-                    <div className="absolute top-0 right-0 p-10 opacity-5 pointer-events-none">
-                        <DollarSign size={300} strokeWidth={0.5} />
-                    </div>
-                    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="fixed inset-0 bg-[#0f172a]/70 flex items-end sm:items-center justify-center z-50 backdrop-blur-md p-0 sm:p-4">
+            <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col md:flex-row animate-in fade-in zoom-in-95 slide-in-from-bottom-5 duration-300"
+                style={{ maxHeight: '92vh' }}>
 
-                    <h3 className="text-indigo-400 uppercase text-xs font-black tracking-[0.2em] mb-4 z-10 flex items-center gap-2">
-                        <Receipt size={14} /> Resumen
-                    </h3>
+                {/* ── PANEL IZQUIERDO: Resumen ─────────────────────────────── */}
+                <div className="bg-slate-900 text-white md:w-5/12 flex flex-col shrink-0 relative overflow-hidden"
+                    style={{ maxHeight: '30vh', minHeight: 'unset' }}
+                    className="bg-slate-900 text-white md:w-5/12 flex flex-col shrink-0 relative overflow-hidden md:max-h-none">
 
-                    <div className="mb-4 z-10 relative">
-                        <div className="text-xs text-slate-400 font-medium mb-1">Total a Pagar (Divisa)</div>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-xl text-blue-400 font-light">$</span>
-                            <span className="text-5xl font-black text-white tracking-tighter shadow-indigo-300/10 drop-shadow-lg">
-                                {formatLocalCurrency(totalUSD)}
-                            </span>
-                        </div>
-                        {discountUSD > 0 && (
-                            <div className="flex items-center gap-1.5 mt-2 bg-rose-500/20 border border-rose-500/30 rounded-lg px-3 py-1.5 text-rose-300">
-                                <Tag size={11} />
-                                <span className="text-[10px] font-black uppercase tracking-wider">
-                                    Descuento {cartDiscount?.type === 'percent' ? `(${cartDiscount.value}%)` : '(Fijo)'}
+                    {/* Acento decorativo */}
+                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+                    <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                    <div className="p-5 flex flex-col h-full z-10 overflow-y-auto">
+                        {/* Label */}
+                        <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.25em] mb-3 flex items-center gap-1.5">
+                            <Receipt size={10} /> Resumen
+                        </p>
+
+                        {/* Total principal */}
+                        <div className="mb-4">
+                            <p className="text-[10px] text-slate-500 mb-0.5">Total a Pagar</p>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-lg text-indigo-400 font-light">$</span>
+                                <span className="text-4xl font-black text-white tracking-tighter">
+                                    {formatLocalCurrency(totalUSD)}
                                 </span>
-                                <span className="ml-auto text-[11px] font-black font-mono">−${formatLocalCurrency(discountUSD)}</span>
                             </div>
-                        )}
-                    </div>
-
-                    {/* Totales por moneda activa — dinámico */}
-                    <div className="z-10 space-y-2 mb-auto">
-                        {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).map(([code, amt]) => {
-                            const activeCurrs = getActiveCurrencies();
-                            const curr = activeCurrs.find(c => c.currency_code === code);
-                            const sym = curr?.currency_symbol || code;
-                            const rate = getExchangeRate(code) || 1;
-                            return (
-                                <div key={code} className="relative bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50 hover:bg-slate-800/80 transition-colors group/card">
-                                    <div className="flex justify-between items-start mb-1">
-                                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total en {curr?.name || code}</div>
-                                        <span className="text-[9px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/20 font-mono">
-                                            Tasa: {formatLocalCurrency(rate)}
-                                        </span>
-                                    </div>
-                                    <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
-                                        {formatLocalCurrency(amt)} <span className="text-xs">{sym}</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {/* Fallback: si no hay monedas no-USD activas */}
-                        {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).length === 0 && (
-                            <div className="relative bg-slate-800/50 backdrop-blur-sm rounded-xl p-3 border border-slate-700/50 hover:bg-slate-800/80 transition-colors group/card">
-                                <div className="flex justify-between items-start mb-1">
-                                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total en Bolívares</div>
-                                    <span className="text-[9px] bg-blue-500/10 text-blue-300 px-1.5 py-0.5 rounded-full border border-blue-500/20 font-mono">
-                                        Tasa: {formatLocalCurrency(defaultBsRate)}
+                            {discountUSD > 0 && (
+                                <div className="flex items-center gap-1.5 mt-1.5 bg-rose-500/15 border border-rose-500/20 rounded-lg px-2.5 py-1">
+                                    <Tag size={9} className="text-rose-400" />
+                                    <span className="text-[9px] font-black text-rose-300">
+                                        Desc {cartDiscount?.type === 'percent' ? `${cartDiscount.value}%` : 'Fijo'}: −${formatLocalCurrency(discountUSD)}
                                     </span>
                                 </div>
-                                <div className="text-2xl font-bold text-emerald-400 font-mono tracking-tight group-hover/card:text-emerald-300 transition-colors">
-                                    {formatLocalCurrency(displayTotalBs)} <span className="text-xs">Bs</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                            )}
+                        </div>
 
-                    {/* Pending / Change Status */}
-                    <div className="z-10 mt-4">
-                        {!isCreditSale && (
-                            <div className={`
-                                relative overflow-hidden rounded-xl p-4 transition-all duration-500 border
-                                ${isComplete
-                                    ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/50 shadow-lg shadow-emerald-900/20'
-                                    : 'bg-slate-800/80 border-slate-700'
-                                }
-                            `}>
-                                {isComplete ? (
-                                    <div className="text-center relative z-10">
-                                        <div className="flex items-center justify-center mb-1">
-                                            <div className="bg-white/20 p-1.5 rounded-full backdrop-blur-md">
-                                                <CheckCircle className="text-white" size={20} strokeWidth={3} />
-                                            </div>
+                        {/* Equivalentes en otras monedas */}
+                        <div className="space-y-2 mb-auto">
+                            {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).map(([code, amt]) => {
+                                const curr = getActiveCurrencies().find(c => c.currency_code === code);
+                                const sym = curr?.currency_symbol || code;
+                                const rate = getExchangeRate(code) || 1;
+                                return (
+                                    <div key={code} className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50">
+                                        <div className="flex justify-between items-center mb-1">
+                                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{curr?.name || code}</span>
+                                            <span className="text-[9px] bg-indigo-500/10 text-indigo-300 px-1.5 py-0.5 rounded-full font-mono border border-indigo-500/20">
+                                                Tasa: {formatLocalCurrency(rate)}
+                                            </span>
                                         </div>
-                                        <div className="text-[10px] font-bold text-white/80 uppercase tracking-widest mb-1">Pago Completado</div>
+                                        <span className="text-xl font-black text-emerald-400 font-mono">
+                                            {formatLocalCurrency(amt)} <span className="text-xs font-bold">{sym}</span>
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                            {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).length === 0 && (
+                                <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Bolívares</span>
+                                        <span className="text-[9px] bg-indigo-500/10 text-indigo-300 px-1.5 py-0.5 rounded-full font-mono border border-indigo-500/20">
+                                            Tasa: {formatLocalCurrency(defaultBsRate)}
+                                        </span>
+                                    </div>
+                                    <span className="text-xl font-black text-emerald-400 font-mono">
+                                        {formatLocalCurrency(displayTotalBs)} <span className="text-xs font-bold">Bs</span>
+                                    </span>
+                                </div>
+                            )}
+                        </div>
 
+                        {/* Estado del pago */}
+                        {!isCreditSale && (
+                            <div className={`mt-4 rounded-xl p-3 border transition-all duration-500 ${
+                                isComplete
+                                    ? 'bg-emerald-500/20 border-emerald-500/30'
+                                    : 'bg-slate-800/60 border-slate-700/50'
+                            }`}>
+                                {isComplete ? (
+                                    <div className="text-center">
+                                        <div className="flex items-center justify-center gap-1.5 mb-1">
+                                            <CheckCircle size={14} className="text-emerald-400" strokeWidth={3} />
+                                            <span className="text-[10px] font-black text-emerald-300 uppercase tracking-wider">Pago Completo</span>
+                                        </div>
                                         {changeUSD > 0.005 ? (() => {
                                             const allUSD = payments.every(p => p.currency === '$' || p.currency === 'USD');
-                                            const firstLocalPayment = payments.find(p => p.currency !== '$' && p.currency !== 'USD');
-                                            const localCurrency = firstLocalPayment?.currency;
-                                            let changeLocalAmount = 0;
-                                            let changeLocalSymbol = '';
-                                            if (!allUSD && localCurrency) {
-                                                if (localCurrency === 'Bs' || localCurrency === 'VES') {
+                                            const firstLocal = payments.find(p => p.currency !== '$' && p.currency !== 'USD');
+                                            const localCurr = firstLocal?.currency;
+                                            let changeLocal = 0, localSym = '';
+                                            if (!allUSD && localCurr) {
+                                                if (localCurr === 'Bs' || localCurr === 'VES') {
                                                     const vesTotal = totalsByCurrency?.VES || totalsByCurrency?.Bs;
-                                                    const effectiveRate = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : defaultBsRate;
-                                                    changeLocalAmount = changeUSD * effectiveRate;
-                                                    changeLocalSymbol = 'Bs';
+                                                    const eff = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : defaultBsRate;
+                                                    changeLocal = changeUSD * eff; localSym = 'Bs';
                                                 } else {
-                                                    changeLocalAmount = changeUSD * (getExchangeRate(localCurrency) || 1);
-                                                    changeLocalSymbol = localCurrency;
+                                                    changeLocal = changeUSD * (getExchangeRate(localCurr) || 1); localSym = localCurr;
                                                 }
                                             }
                                             return (
-                                                <div className="flex flex-col items-center">
-                                                    <div className="text-lg font-bold text-emerald-200">
-                                                        Su Vuelto: <span className="text-white text-xl">${formatLocalCurrency(changeUSD)}</span>
-                                                    </div>
-                                                    {!allUSD && changeLocalSymbol && (
-                                                        <div className="text-xs font-bold text-emerald-400 font-mono mt-0.5 bg-emerald-900/40 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                                            {changeLocalSymbol} {formatLocalCurrency(changeLocalAmount)}
-                                                        </div>
+                                                <div>
+                                                    <p className="text-[10px] text-emerald-400 mb-0.5">Vuelto</p>
+                                                    <p className="text-2xl font-black text-white">${formatLocalCurrency(changeUSD)}</p>
+                                                    {!allUSD && localSym && (
+                                                        <p className="text-sm font-bold text-emerald-400 font-mono mt-0.5">
+                                                            {localSym} {formatLocalCurrency(changeLocal)}
+                                                        </p>
                                                     )}
                                                 </div>
                                             );
                                         })() : (
-                                            <div className="text-lg font-bold text-white">Cuenta Saldada</div>
+                                            <p className="text-base font-black text-white">Cuenta Saldada</p>
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="flex justify-between items-end">
-                                        <div>
-                                            <div className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-0.5">Falta por pagar</div>
-                                            <div className="text-2xl font-bold text-rose-400 font-mono">
-                                                ${formatLocalCurrency(Math.abs(remainingUSD))}
-                                            </div>
-                                        </div>
-                                        <div className="text-right space-y-0.5">
+                                    <div>
+                                        <p className="text-[9px] font-black text-rose-400 uppercase tracking-wider mb-1">Falta por pagar</p>
+                                        <p className="text-2xl font-black text-rose-400 font-mono">${formatLocalCurrency(remainingUSD)}</p>
+                                        <div className="space-y-0.5 mt-1">
                                             {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).map(([code]) => {
                                                 const curr = getActiveCurrencies().find(c => c.currency_code === code);
                                                 const sym = curr?.currency_symbol || code;
-                                                const rate = getExchangeRate(code) || 1;
                                                 return (
-                                                    <div key={code}>
-                                                        <div className="text-[9px] text-slate-500 uppercase font-bold">{curr?.name || code}</div>
-                                                        <div className="text-base font-bold text-slate-400 font-mono">
-                                                            {sym} {formatLocalCurrency(Math.abs(remainingUSD) * rate)}
-                                                        </div>
-                                                    </div>
+                                                    <p key={code} className="text-xs font-bold text-slate-400 font-mono">
+                                                        {sym} {formatLocalCurrency(remainingUSD * (getExchangeRate(code) || 1))}
+                                                    </p>
                                                 );
                                             })}
                                             {Object.entries(totalsByCurrency || {}).filter(([code, amt]) => code !== 'USD' && amt > 0.005).length === 0 && (
-                                                <div>
-                                                    <div className="text-[9px] text-slate-500 uppercase font-bold">En Bolívares</div>
-                                                    <div className="text-base font-bold text-slate-400 font-mono">
-                                                        Bs {formatLocalCurrency(Math.abs(remainingUSD) * defaultBsRate)}
-                                                    </div>
-                                                </div>
+                                                <p className="text-xs font-bold text-slate-400 font-mono">
+                                                    Bs {formatLocalCurrency(remainingUSD * defaultBsRate)}
+                                                </p>
                                             )}
                                         </div>
                                     </div>
@@ -644,443 +628,349 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             </div>
                         )}
 
-                        {/* Credit Sale Indicator */}
                         {isCreditSale && (
-                            <div className="mt-3 bg-indigo-600/20 border border-indigo-500/30 rounded-xl p-3 flex items-center gap-3">
-                                <CreditCard className="text-indigo-400" size={20} />
+                            <div className="mt-4 bg-indigo-600/20 border border-indigo-500/30 rounded-xl p-3 flex items-center gap-2.5">
+                                <CreditCard className="text-indigo-400 shrink-0" size={16} />
                                 <div>
-                                    <div className="text-indigo-300 font-bold text-xs">Venta a Crédito</div>
-                                    <div className="text-indigo-400/70 text-[10px]">Pago diferido</div>
+                                    <p className="text-indigo-300 font-black text-xs">Venta a Crédito</p>
+                                    <p className="text-indigo-400/70 text-[10px]">Pago diferido al cliente</p>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN: Actions & Inputs */}
-                <div className="p-4 md:p-6 md:w-7/12 bg-slate-50 flex flex-col h-full overflow-hidden relative">
+                {/* ── PANEL DERECHO: Acciones ──────────────────────────────── */}
+                <div className="flex flex-col flex-1 overflow-hidden bg-white">
+
                     {/* Header */}
-                    <div className="flex justify-between items-center mb-4 shrink-0">
-                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2 tracking-tight">
-                            <span className="w-1.5 h-6 bg-indigo-600 rounded-full inline-block"></span>
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+                        <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
+                            <span className="w-1 h-5 bg-indigo-600 rounded-full" />
                             Procesar Pago
                         </h2>
-                        <Button
-                            variant="ghost"
-                            size="icon"
+                        <button
                             onClick={onClose}
-                            className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl h-9 w-9"
+                            className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all"
                         >
-                            <X size={20} />
-                        </Button>
+                            <X size={18} />
+                        </button>
                     </div>
 
-                    {/* Scrollable Content Area */}
-                    <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4 pb-20"> {/* pb-20 prevents content from being hidden behind absolute footer if we used one, but here we use flex, so it's a buffer */}
+                    {/* Contenido scrollable */}
+                    <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
 
-                        {/* Customer Section - Compact */}
-                        <div className={`group transition-all duration-300 border rounded-xl p-0.5 ${isCreditSale && !selectedCustomer ? 'bg-rose-50 border-rose-200 shadow-sm' : 'bg-white border-slate-200 shadow-sm hover:border-indigo-200'}`}>
-                            <div className="p-3">
-                                <div className="flex justify-between items-center mb-2">
-                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                        <User size={12} /> Cliente
-                                        {isCreditSale && <span className="bg-rose-100 text-rose-600 text-[9px] px-2 py-0.5 rounded-full">Requerido</span>}
-                                    </label>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setIsQuickCustomerOpen(true)}
-                                        className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 h-6 text-[10px] font-bold px-2"
-                                    >
-                                        <UserPlus size={12} className="mr-1" /> Nuevo
-                                    </Button>
-                                </div>
-
-                                <CustomerSearch
-                                    customers={customers}
-                                    selectedCustomer={selectedCustomer}
-                                    onSelect={setSelectedCustomer}
-                                    className="scale-100"
-                                />
-
-                                {isCreditSale && selectedCustomer && (
-                                    <div className="mt-2 space-y-2">
-                                        {loadingCredit ? (
-                                            <div className="flex items-center justify-center p-3 bg-slate-50 rounded-lg border border-slate-200">
-                                                <div className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin mr-2"></div>
-                                                <span className="text-[10px] text-slate-500 font-medium">Consultando crédito...</span>
-                                            </div>
-                                        ) : creditInfo ? (
-                                            <>
-                                                <div className="flex gap-2 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
-                                                    <div className="flex-1 text-center">
-                                                        <span className="text-[9px] text-indigo-400 font-bold uppercase block">Límite</span>
-                                                        <div className="text-xs font-black text-indigo-900 font-mono">
-                                                            ${formatLocalCurrency(creditInfo.credit_limit)}
-                                                        </div>
-                                                    </div>
-                                                    <div className="w-px bg-indigo-200"></div>
-                                                    <div className="flex-1 text-center">
-                                                        <span className="text-[9px] text-rose-400 font-bold uppercase block">Deuda</span>
-                                                        <div className="text-xs font-black text-rose-600 font-mono">
-                                                            ${formatLocalCurrency(creditInfo.total_debt)}
-                                                        </div>
-                                                    </div>
-                                                    <div className="w-px bg-indigo-200"></div>
-                                                    <div className="flex-1 text-center">
-                                                        <span className="text-[9px] font-bold uppercase block" style={{ color: creditInfo.available_credit >= totalUSD ? '#16a34a' : '#dc2626' }}>
-                                                            Disponible
-                                                        </span>
-                                                        <div className={`text-sm font-black font-mono ${creditInfo.available_credit >= totalUSD ? 'text-green-600' : 'text-red-600'}`}>
-                                                            ${formatLocalCurrency(creditInfo.available_credit)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Warning if insufficient credit */}
-                                                {creditInfo.available_credit < totalUSD && (
-                                                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                                                        <X size={14} className="text-red-500 shrink-0" />
-                                                        <span className="text-[10px] text-red-700 font-bold">
-                                                            Crédito insuficiente. Falta ${formatLocalCurrency(totalUSD - creditInfo.available_credit)} para cubrir esta venta.
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {/* Warning if customer is blocked */}
-                                                {creditInfo.is_blocked && (
-                                                    <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                                                        <X size={14} className="text-red-500 shrink-0" />
-                                                        <span className="text-[10px] text-red-700 font-bold">
-                                                            Cliente bloqueado para crédito.
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {/* Overdue invoices warning */}
-                                                {creditInfo.overdue_invoices > 0 && (
-                                                    <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                                                        <Calculator size={14} className="text-amber-500 shrink-0" />
-                                                        <span className="text-[10px] text-amber-700 font-bold">
-                                                            {creditInfo.overdue_invoices} factura(s) vencida(s) por ${formatLocalCurrency(creditInfo.overdue_amount)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <div className="flex gap-3 p-2 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
-                                                <div className="flex-1">
-                                                    <span className="text-[9px] text-indigo-400 font-bold uppercase">Límite Crédito</span>
-                                                    <div className="text-xs font-black text-indigo-900 font-mono">
-                                                        ${formatCurrency(Number(selectedCustomer.credit_limit || 0), 'USD')}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                        {/* ── Cliente ─────────────────────────────────────── */}
+                        <div className={`rounded-2xl border p-3 transition-all ${isCreditSale && !selectedCustomer ? 'border-rose-200 bg-rose-50/30' : 'border-slate-200 bg-white'}`}>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                    <User size={11} /> Cliente
+                                    {isCreditSale && <span className="bg-rose-100 text-rose-600 text-[9px] px-1.5 py-0.5 rounded-full font-black">Requerido</span>}
+                                </label>
+                                <button
+                                    onClick={() => setIsQuickCustomerOpen(true)}
+                                    className="flex items-center gap-1 text-[10px] font-black text-indigo-600 hover:text-indigo-800 transition-colors"
+                                >
+                                    <UserPlus size={11} /> Nuevo
+                                </button>
                             </div>
+                            <CustomerSearch
+                                customers={customers}
+                                selectedCustomer={selectedCustomer}
+                                onSelect={setSelectedCustomer}
+                                className="scale-100"
+                            />
+                            {/* Info crédito del cliente */}
+                            {isCreditSale && selectedCustomer && (
+                                <div className="mt-2">
+                                    {loadingCredit ? (
+                                        <div className="flex items-center gap-2 py-2 text-[10px] text-slate-400">
+                                            <div className="w-3 h-3 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
+                                            Consultando crédito...
+                                        </div>
+                                    ) : creditInfo ? (
+                                        <div className="space-y-1.5">
+                                            <div className="grid grid-cols-3 gap-1.5 mt-1">
+                                                <div className="bg-slate-50 rounded-xl p-2 text-center border border-slate-100">
+                                                    <p className="text-[8px] text-slate-400 font-bold uppercase mb-0.5">Límite</p>
+                                                    <p className="text-xs font-black text-slate-700 font-mono">${formatLocalCurrency(creditInfo.credit_limit)}</p>
+                                                </div>
+                                                <div className="bg-rose-50 rounded-xl p-2 text-center border border-rose-100">
+                                                    <p className="text-[8px] text-rose-400 font-bold uppercase mb-0.5">Deuda</p>
+                                                    <p className="text-xs font-black text-rose-600 font-mono">${formatLocalCurrency(creditInfo.total_debt)}</p>
+                                                </div>
+                                                <div className={`rounded-xl p-2 text-center border ${creditInfo.available_credit >= totalUSD ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-200'}`}>
+                                                    <p className="text-[8px] font-bold uppercase mb-0.5" style={{ color: creditInfo.available_credit >= totalUSD ? '#16a34a' : '#dc2626' }}>Disp.</p>
+                                                    <p className={`text-xs font-black font-mono ${creditInfo.available_credit >= totalUSD ? 'text-emerald-700' : 'text-rose-700'}`}>${formatLocalCurrency(creditInfo.available_credit)}</p>
+                                                </div>
+                                            </div>
+                                            {creditInfo.available_credit < totalUSD && (
+                                                <div className="flex items-center gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-xl">
+                                                    <X size={11} className="text-rose-500 shrink-0" />
+                                                    <span className="text-[10px] text-rose-700 font-bold">Crédito insuficiente. Falta ${formatLocalCurrency(totalUSD - creditInfo.available_credit)}</span>
+                                                </div>
+                                            )}
+                                            {creditInfo.is_blocked && (
+                                                <div className="flex items-center gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-xl">
+                                                    <X size={11} className="text-rose-500 shrink-0" />
+                                                    <span className="text-[10px] text-rose-700 font-bold">Cliente bloqueado para crédito</span>
+                                                </div>
+                                            )}
+                                            {creditInfo.overdue_invoices > 0 && (
+                                                <div className="flex items-center gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-xl">
+                                                    <Calculator size={11} className="text-amber-500 shrink-0" />
+                                                    <span className="text-[10px] text-amber-700 font-bold">{creditInfo.overdue_invoices} factura(s) vencida(s) — ${formatLocalCurrency(creditInfo.overdue_amount)}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 bg-indigo-50 rounded-xl p-2 border border-indigo-100">
+                                            <p className="text-[9px] text-indigo-400 font-bold uppercase">Límite Crédito</p>
+                                            <p className="text-xs font-black text-indigo-700 font-mono">${formatLocalCurrency(Number(selectedCustomer.credit_limit || 0))}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
-                        {/* Credit Toggle - Compact */}
-                        <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${isCreditSale ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-slate-100'}`}>
+                        {/* ── Toggle crédito ───────────────────────────────── */}
+                        <label className={`flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all select-none ${isCreditSale ? 'border-indigo-300 bg-indigo-50/40' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
                                 {isCreditSale && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
                             </div>
                             <input type="checkbox" checked={isCreditSale} onChange={e => setIsCreditSale(e.target.checked)} className="hidden" />
-                            <div className="flex-1">
-                                <div className={`font-bold text-xs ${isCreditSale ? 'text-indigo-700' : 'text-slate-600'}`}>Venta a Crédito</div>
-                                <div className="text-[10px] text-slate-400">La cuenta por cobrar se asignará al cliente</div>
+                            <div>
+                                <p className={`font-black text-xs ${isCreditSale ? 'text-indigo-700' : 'text-slate-600'}`}>Venta a Crédito</p>
+                                <p className="text-[10px] text-slate-400">La cuenta se asignará al cliente</p>
                             </div>
                         </label>
 
-                        {/* Calculadora de Crédito — solo si hay celulares y venta a crédito */}
+                        {/* ── Calculadora crédito celular ───────────────────── */}
                         {isCreditSale && cart.some(item => item.has_imei) && (
-                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
+                            <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-3 flex items-center justify-between">
                                 <div>
-                                    <p className="text-xs font-bold text-indigo-700">📱 Celular detectado en el carrito</p>
-                                    <p className="text-[10px] text-indigo-500">Calcula las cuotas exactas antes de confirmar</p>
+                                    <p className="text-xs font-black text-indigo-700">📱 Celular en carrito</p>
+                                    <p className="text-[10px] text-indigo-500">Calcula las cuotas antes de confirmar</p>
                                 </div>
                                 <button
                                     onClick={() => setShowCalcCredito(true)}
-                                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors whitespace-nowrap"
+                                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 transition-colors"
                                 >
                                     🧮 Calculadora
                                 </button>
                             </div>
                         )}
 
-                        {/* Payments Section - Compact */}
+                        {/* ── BloqueoCelular alert ──────────────────────────── */}
+                        {showBloqueCelularAlert && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3">
+                                <p className="text-xs font-black text-amber-700">⚠️ Venta con celular a crédito</p>
+                                <p className="text-[10px] text-amber-600 mt-0.5">El equipo quedará vinculado al cliente vía BloqueoCelular</p>
+                            </div>
+                        )}
+
+                        {/* ── Métodos de pago ──────────────────────────────── */}
                         {!isCreditSale && (
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-end">
-                                    <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                                        <Layers size={14} className="text-slate-400" />
-                                        Métodos de Pago
-                                    </h3>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                        <Layers size={11} /> Métodos de Pago
+                                    </p>
+                                    <button
                                         onClick={addPaymentRow}
-                                        className="text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100 h-8 text-[10px] font-black px-3 rounded-lg shadow-sm"
+                                        className="text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition-all"
                                     >
-                                        + Agregar otro método de pago
-                                    </Button>
+                                        + Agregar método
+                                    </button>
                                 </div>
 
-                                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
+                                <div className="space-y-2">
                                     {payments.map((payment, index) => {
                                         const selectedMethod = paymentMethods.find(m => m.name === payment.method);
                                         const needsReference = selectedMethod?.requires_reference;
-
                                         return (
-                                            <div key={index} className="flex flex-col gap-2 p-2 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500">
-
-                                                {/* Mobile: stack vertically / Desktop: side by side */}
-                                                <div className="flex flex-col sm:flex-row gap-2">
-                                                    {/* Method & Currency */}
-                                                    <div className="flex flex-col gap-1.5 w-full sm:w-5/12">
-                                                        <select
-                                                            className="w-full bg-slate-50 border-none text-[11px] font-bold text-slate-700 rounded-lg py-1.5 pl-2 pr-6 focus:ring-0 leading-tight"
-                                                            value={payment.method}
-                                                            onChange={(e) => updatePayment(index, 'method', e.target.value)}
-                                                        >
-                                                            {paymentMethods.filter(m => m.is_active).map(m => (
-                                                                <option key={m.id} value={m.name}>{m.name}</option>
-                                                            ))}
-                                                        </select>
-                                                        <div className="flex gap-1">
-                                                            {currencies.map(c => (
-                                                                <Button
-                                                                    key={c.symbol}
-                                                                    size="sm"
-                                                                    variant={payment.currency === c.symbol ? "default" : "outline"}
-                                                                    onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                                    className={`flex-1 h-7 text-[11px] font-bold px-2 rounded-lg min-w-0 ${payment.currency === c.symbol ? 'bg-indigo-600 hover:bg-indigo-700' : 'text-slate-500 border-slate-200'}`}
-                                                                >
-                                                                    {c.symbol}
-                                                                </Button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Amount Input + Remove */}
-                                                    <div className="flex gap-2 flex-1">
-                                                        <div className="flex-1 relative rounded-xl border-2 border-slate-200 bg-slate-50 transition-all p-1 focus-within:border-indigo-500 focus-within:bg-white focus-within:shadow-md focus-within:shadow-indigo-500/10">
-                                                            <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none">
-                                                                <span className="font-bold text-sm text-slate-400">
-                                                                    {payment.currency === 'USD' ? '$' : payment.currency}
-                                                                </span>
-                                                            </div>
-                                                            <CurrencyInput
-                                                                autoFocus={index === 0}
-                                                                className="w-full h-full bg-transparent text-right font-mono text-xl font-black text-slate-900 placeholder:text-slate-300 border-none focus:ring-0 p-0 pr-2"
-                                                                placeholder="0.00"
-                                                                value={payment.amount}
-                                                                onChange={(val) => updatePayment(index, 'amount', val)}
-                                                            />
-                                                        </div>
-                                                        {/* Rate hint for non-USD currencies */}
-                                                        {payment.currency !== 'USD' && payment.currency !== '$' && (() => {
-                                                            const currTotal = totalsByCurrency?.[payment.currency];
-                                                            const displayRate = (currTotal && totalUSD)
-                                                                ? (currTotal / totalUSD)
-                                                                : (getExchangeRate(payment.currency) || 1);
-                                                            return (
-                                                                <div className="text-[10px] text-slate-400 font-mono mt-0.5 text-right pr-1">
-                                                                    Tasa: {displayRate.toFixed(2)} {payment.currency} / $
-                                                                </div>
-                                                            );
-                                                        })()}
-
-                                                        {/* Remove Button */}
-                                                        {payments.length > 1 && (
+                                            <div key={index} className="bg-white border-2 border-slate-200 rounded-2xl p-3 focus-within:border-indigo-400 transition-all">
+                                                <div className="flex gap-2 mb-2">
+                                                    {/* Selector método */}
+                                                    <select
+                                                        className="flex-1 bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 rounded-xl px-2.5 py-2 focus:outline-none focus:border-indigo-400"
+                                                        value={payment.method}
+                                                        onChange={e => updatePayment(index, 'method', e.target.value)}
+                                                    >
+                                                        {paymentMethods.filter(m => m.is_active).map(m => (
+                                                            <option key={m.id} value={m.name}>{m.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    {/* Pills moneda */}
+                                                    <div className="flex gap-1 shrink-0">
+                                                        {currencies.map(c => (
                                                             <button
-                                                                onClick={() => removePaymentRow(index)}
-                                                                className="flex items-center justify-center w-8 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+                                                                key={c.symbol}
+                                                                onClick={() => updatePayment(index, 'currency', c.symbol)}
+                                                                className={`px-2.5 py-1.5 rounded-xl text-xs font-black transition-all border ${
+                                                                    payment.currency === c.symbol
+                                                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                                                        : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'
+                                                                }`}
                                                             >
-                                                                <Trash2 size={14} />
+                                                                {c.symbol}
                                                             </button>
-                                                        )}
+                                                        ))}
                                                     </div>
+                                                    {/* Botón eliminar */}
+                                                    {payments.length > 1 && (
+                                                        <button
+                                                            onClick={() => removePaymentRow(index)}
+                                                            className="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all shrink-0"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    )}
                                                 </div>
 
-                                                {/* Reference + Date Inputs */}
+                                                {/* Input monto */}
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base font-black text-slate-400">
+                                                        {payment.currency === 'USD' || payment.currency === '$' ? '$' : payment.currency}
+                                                    </span>
+                                                    <CurrencyInput
+                                                        autoFocus={index === 0}
+                                                        className="w-full pl-8 pr-4 py-3 text-2xl font-black text-right text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all font-mono"
+                                                        placeholder="0,00"
+                                                        value={payment.amount}
+                                                        onChange={val => updatePayment(index, 'amount', val)}
+                                                    />
+                                                </div>
+
+                                                {/* Tasa hint */}
+                                                {payment.currency !== 'USD' && payment.currency !== '$' && (() => {
+                                                    const currTotal = totalsByCurrency?.[payment.currency];
+                                                    const rate = (currTotal && totalUSD) ? (currTotal / totalUSD) : (getExchangeRate(payment.currency) || 1);
+                                                    return (
+                                                        <p className="text-[9px] text-slate-400 font-mono mt-1 text-right">
+                                                            Tasa: {rate.toFixed(2)} {payment.currency} / $
+                                                        </p>
+                                                    );
+                                                })()}
+
+                                                {/* Referencia si requiere */}
                                                 {needsReference && (
-                                                    <div className="animate-in fade-in slide-in-from-top-1 flex gap-2">
+                                                    <div className="flex gap-2 mt-2 animate-in fade-in slide-in-from-top-1">
                                                         <Input
                                                             type="text"
                                                             placeholder="Referencia / # Transferencia"
-                                                            className="flex-1 bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 placeholder:text-indigo-300 h-7 rounded-lg"
+                                                            className="flex-1 text-xs h-8 rounded-xl border-indigo-100 bg-indigo-50/50"
                                                             value={payment.reference || ''}
-                                                            onChange={(e) => updatePayment(index, 'reference', e.target.value)}
+                                                            onChange={e => updatePayment(index, 'reference', e.target.value)}
                                                         />
-                                                        <div className="relative w-[140px] shrink-0">
+                                                        <div className="relative w-36 shrink-0">
                                                             <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
                                                             <Input
                                                                 type="date"
-                                                                className="bg-indigo-50/50 border-indigo-100 text-[10px] text-indigo-800 h-7 rounded-lg pl-6 w-full"
+                                                                className="text-xs h-8 rounded-xl border-indigo-100 bg-indigo-50/50 pl-6 w-full"
                                                                 value={payment.payment_date || new Date().toISOString().split('T')[0]}
-                                                                onChange={(e) => updatePayment(index, 'payment_date', e.target.value)}
+                                                                onChange={e => updatePayment(index, 'payment_date', e.target.value)}
                                                             />
                                                         </div>
                                                     </div>
                                                 )}
                                             </div>
-                                        )
+                                        );
                                     })}
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Footer Actions - Pinned */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 bg-white/90 backdrop-blur-sm border-t border-slate-100 flex gap-3 shrink-0 z-20">
-                        <Button
-                            variant="outline"
+                    {/* ── Footer fijo: botones ─────────────────────────────── */}
+                    <div className="px-5 py-4 bg-white border-t border-slate-100 flex gap-2.5 shrink-0">
+                        <button
                             onClick={onClose}
-                            className="font-bold text-slate-600 border-slate-200 hover:bg-slate-50 h-12 px-6 rounded-xl text-sm"
+                            className="px-5 py-3 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all"
                         >
                             Cancelar
-                        </Button>
-                        <Button
+                        </button>
+                        <button
                             onClick={handleConfirm}
                             disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
-                            title={
-                                (!isCreditSale && !isComplete) ? "El total pagado debe coincidir con el total de la venta"
-                                : (isCreditSale && creditInfo?.is_blocked) ? "Cliente bloqueado para crédito"
-                                : (isCreditSale && creditInfo && creditInfo.available_credit < totalUSD) ? "Crédito insuficiente para esta venta"
-                                : ""
-                            }
-                            className={`
-                                flex-1 rounded-xl font-black text-base tracking-wide shadow-xl transition-all h-12
-                                ${processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
-                                    ? 'bg-slate-100 text-slate-400'
-                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:-translate-y-1 shadow-indigo-500/30'
-                                }
-                            `}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-black text-sm transition-all ${
+                                processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
+                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200 hover:-translate-y-0.5 active:scale-[0.98]'
+                            }`}
                         >
                             {processing ? (
-                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>
-                                    {isCreditSale ? 'REGISTRAR CRÉDITO' : 'CONFIRMAR PAGO'}
-                                    <CheckCircle size={18} strokeWidth={3} className="ml-2" />
+                                    <CheckCircle size={16} strokeWidth={3} />
+                                    {isCreditSale ? 'Registrar Crédito' : 'Confirmar Pago'}
                                 </>
                             )}
-                        </Button>
+                        </button>
                     </div>
-
                 </div>
             </div>
+        </div>
 
-            <QuickCustomerModal
-                isOpen={isQuickCustomerOpen}
-                onClose={() => setIsQuickCustomerOpen(false)}
-                onSuccess={handleQuickCustomerSuccess}
-            />
+        {/* ── Modales auxiliares ───────────────────────────────────────────── */}
+        <QuickCustomerModal
+            isOpen={isQuickCustomerOpen}
+            onClose={() => setIsQuickCustomerOpen(false)}
+            onSuccess={handleQuickCustomerSuccess}
+        />
 
-            {/* Prescription Modal */}
-            {isPrescriptionModalOpen && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
-                        {/* Header */}
-                        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 bg-teal-100 rounded-xl flex items-center justify-center">
-                                    <FileText size={18} className="text-teal-600" />
-                                </div>
-                                <div>
-                                    <h3 className="font-black text-slate-800 text-base">Datos de Receta Médica</h3>
-                                    <p className="text-xs text-slate-500 font-medium">Este producto requiere receta médica</p>
-                                </div>
+        {isPrescriptionModalOpen && (
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 bg-teal-100 rounded-xl flex items-center justify-center">
+                                <FileText size={18} className="text-teal-600" />
                             </div>
-                            <button
-                                onClick={() => setIsPrescriptionModalOpen(false)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-                            >
-                                <X size={16} />
-                            </button>
-                        </div>
-
-                        {/* Form */}
-                        <div className="px-6 py-5 space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="col-span-2">
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Nombre del Paciente *</label>
-                                    <input
-                                        type="text"
-                                        value={prescriptionForm.patient_name}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, patient_name: e.target.value }))}
-                                        placeholder="Nombre completo"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                        autoFocus
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Cédula del Paciente</label>
-                                    <input
-                                        type="text"
-                                        value={prescriptionForm.patient_cedula}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, patient_cedula: e.target.value }))}
-                                        placeholder="V-12345678"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Fecha de Receta *</label>
-                                    <input
-                                        type="date"
-                                        value={prescriptionForm.prescription_date}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, prescription_date: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                    />
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">Nombre del Médico *</label>
-                                    <input
-                                        type="text"
-                                        value={prescriptionForm.doctor_name}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, doctor_name: e.target.value }))}
-                                        placeholder="Dr. Nombre Apellido"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                    />
-                                </div>
-                                <div className="col-span-2">
-                                    <label className="block text-xs font-bold text-slate-600 mb-1.5">MPPS / Nro. Registro Médico</label>
-                                    <input
-                                        type="text"
-                                        value={prescriptionForm.doctor_mpps}
-                                        onChange={e => setPrescriptionForm(prev => ({ ...prev, doctor_mpps: e.target.value }))}
-                                        placeholder="MPPS-12345"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400"
-                                    />
-                                </div>
+                            <div>
+                                <h3 className="font-black text-slate-800 text-sm">Datos de Receta Médica</h3>
+                                <p className="text-[10px] text-slate-500">Este producto requiere receta médica</p>
                             </div>
                         </div>
-
-                        {/* Footer */}
-                        <div className="px-6 pb-5 flex gap-3">
-                            <button
-                                onClick={handlePrescriptionSkip}
-                                disabled={savingPrescription}
-                                className="flex-shrink-0 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors disabled:opacity-60"
-                            >
-                                Omitir
-                            </button>
-                            <button
-                                onClick={handlePrescriptionSave}
-                                disabled={savingPrescription}
-                                className="flex-1 px-5 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                            >
-                                {savingPrescription && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                Guardar Receta y Confirmar
-                            </button>
+                        <button onClick={() => setIsPrescriptionModalOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+                            <X size={16} />
+                        </button>
+                    </div>
+                    <div className="px-5 py-4 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2">
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Nombre del Paciente *</label>
+                                <input type="text" value={prescriptionForm.patient_name} onChange={e => setPrescriptionForm(p => ({ ...p, patient_name: e.target.value }))} placeholder="Nombre completo" className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" autoFocus />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Cédula del Paciente</label>
+                                <input type="text" value={prescriptionForm.patient_cedula} onChange={e => setPrescriptionForm(p => ({ ...p, patient_cedula: e.target.value }))} placeholder="V-12345678" className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Fecha Receta *</label>
+                                <input type="date" value={prescriptionForm.prescription_date} onChange={e => setPrescriptionForm(p => ({ ...p, prescription_date: e.target.value }))} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" />
+                            </div>
+                            <div className="col-span-2">
+                                <label className="block text-xs font-bold text-slate-600 mb-1">Nombre del Médico *</label>
+                                <input type="text" value={prescriptionForm.doctor_name} onChange={e => setPrescriptionForm(p => ({ ...p, doctor_name: e.target.value }))} placeholder="Dr. Nombre Apellido" className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" />
+                            </div>
+                            <div className="col-span-2">
+                                <label className="block text-xs font-bold text-slate-600 mb-1">MPPS / Nro. Registro</label>
+                                <input type="text" value={prescriptionForm.doctor_mpps} onChange={e => setPrescriptionForm(p => ({ ...p, doctor_mpps: e.target.value }))} placeholder="MPPS-12345" className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400" />
+                            </div>
                         </div>
                     </div>
+                    <div className="px-5 pb-5 flex gap-3">
+                        <button onClick={handlePrescriptionSkip} disabled={savingPrescription} className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors disabled:opacity-60">Omitir</button>
+                        <button onClick={handlePrescriptionSave} disabled={savingPrescription} className="flex-1 py-2.5 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                            {savingPrescription && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                            Guardar Receta y Confirmar
+                        </button>
+                    </div>
                 </div>
-            )}
-        </div>
+            </div>
+        )}
         </>
     );
 };
