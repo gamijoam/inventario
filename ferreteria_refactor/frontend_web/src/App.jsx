@@ -348,7 +348,11 @@ function App() {
                               <Route path="/transfers" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
                               <Route path="/transfers/external/out" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
                               <Route path="/transfers/external/in" element={<Navigate to="/inventory-center?tab=traslados" replace />} />
-                              <Route path="/inventory/serialized-reception" element={<Navigate to="/inventory-center?tab=seriales" replace />} />
+                              <Route path="/inventory/serialized-reception" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <SerializedReception />
+                                </ProtectedRoute>
+                              } />
 
                               {/* Old Inventory Routes (kept for reference)
                               <Route path="/products" element={
