@@ -231,8 +231,8 @@ const POS = () => {
         }
     });
 
-    // Ctrl+K: Product Lookup Modal (estándar de buscadores)
-    useHotkeys('ctrl+k', (e) => {
+    // Alt+B: Product Lookup Modal (estándar de buscadores)
+    useHotkeys('alt+b', (e) => {
         e.preventDefault();
         setIsLookupOpen(prev => !prev);
     }, { enableOnFormTags: true, preventDefault: true });
@@ -793,11 +793,11 @@ const POS = () => {
                     <button
                         onClick={() => setIsLookupOpen(true)}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs transition-all border border-indigo-200"
-                        title="Buscador de productos (Ctrl+K)"
+                        title="Buscador de productos (Alt+B)"
                     >
                         <Search size={15} />
                         <span className="hidden sm:block">Buscar</span>
-                        <kbd className="text-[9px] font-mono text-indigo-300 bg-indigo-100 px-1 rounded hidden lg:block">Ctrl+K</kbd>
+                        <kbd className="text-[9px] font-mono text-indigo-300 bg-indigo-100 px-1 rounded hidden lg:block">Alt+B</kbd>
                     </button>
 
                     {!(isCashier && showCajeroRestringido) && (

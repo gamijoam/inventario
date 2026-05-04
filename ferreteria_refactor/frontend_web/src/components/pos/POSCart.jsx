@@ -345,11 +345,11 @@ const POSCart = ({
                                     <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
                                         <div className="flex justify-between items-start">
                                             <div className="min-w-0">
-                                                <h4 className="text-[11px] font-black text-slate-800 truncate pr-1 leading-tight" title={item.name}>
+                                                <h4 className="text-sm font-black text-slate-800 truncate pr-1 leading-tight" title={item.name}>
                                                     {item.name}
                                                 </h4>
                                                 <div className="flex items-center gap-1.5 mt-1">
-                                                    <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100/50">
+                                                    <span className="text-[11px] font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100/50">
                                                         {item.unit_name}
                                                     </span>
                                                     {item.discount_percentage > 0 && (
@@ -420,10 +420,10 @@ const POSCart = ({
                                                                 <span className="text-[8px] font-black text-orange-500 bg-orange-50 border border-orange-200 px-1 rounded">MOD</span>
                                                             )}
                                                             <div className={cn(
-                                                                "text-sm font-black text-blue-600 tabular-nums",
+                                                                "text-base font-black text-blue-600 tabular-nums",
                                                                 precioLibre && "group-hover/price:text-blue-400 transition-colors"
                                                             )}>
-                                                                <span className="text-[10px] mr-0.5">$</span>
+                                                                <span className="text-xs mr-0.5">$</span>
                                                                 {formatLocalCurrency(item.subtotal_usd)}
                                                             </div>
                                                             {precioLibre && (
@@ -431,7 +431,7 @@ const POSCart = ({
                                                             )}
                                                         </div>
                                                         {item.qty > 1 && (
-                                                            <span className="text-[9px] text-slate-400 tabular-nums">
+                                                            <span className="text-[11px] text-slate-400 tabular-nums">
                                                                 ${formatLocalCurrency(item.unit_price_usd)} c/u
                                                             </span>
                                                         )}
@@ -441,7 +441,7 @@ const POSCart = ({
                                                     const rateObj = currencies.find(r => r.id === item.exchange_rate_id);
                                                     const localSym = rateObj?.currency_symbol || rateObj?.currency_code || secondaryCurrency.symbol;
                                                     return (
-                                                        <div className="text-[10px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 rounded-lg border border-emerald-200/50">
+                                                        <div className="text-xs font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 py-0.5 rounded-lg border border-emerald-200/50">
                                                             <span className="text-[8px] mr-1 italic opacity-60">{localSym}</span>
                                                             {formatLocalCurrency(item.subtotal_bs)}
                                                         </div>
