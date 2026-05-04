@@ -9,16 +9,16 @@ import SearchWithScanner from '../common/SearchWithScanner';
 
 const getColumnCount = (width, simpleMode = false) => {
     if (simpleMode) {
-        if (width >= 1536) return 9;
-        if (width >= 1280) return 7;
-        if (width >= 1024) return 6;
+        if (width >= 1536) return 10;
+        if (width >= 1280) return 8;
+        if (width >= 1024) return 7;
         if (width >= 768) return 5;
         return 3;
     }
-    if (width >= 1536) return 6;
-    if (width >= 1280) return 5;
-    if (width >= 1024) return 4;
-    if (width >= 768) return 3;
+    if (width >= 1536) return 7;
+    if (width >= 1280) return 6;
+    if (width >= 1024) return 5;
+    if (width >= 768) return 4;
     return 2;
 };
 
@@ -139,12 +139,12 @@ const POSCatalog = forwardRef(({
 
     const columnCount = getColumnCount(containerSize.width, simpleMode);
     const rowCount = Math.ceil(products.length / columnCount);
-    const GAP = 12; // gap-3 = 12px
+    const GAP = 10; // gap entre cards
     const PADDING = 16; // p-4 = 16px
     const columnWidth = containerSize.width > 0
         ? (containerSize.width - PADDING * 2 - GAP * (columnCount - 1)) / columnCount
         : 0;
-    const ROW_HEIGHT = simpleMode ? 110 : 230;
+    const ROW_HEIGHT = simpleMode ? 100 : 185;
 
     const totalHeight = rowCount * ROW_HEIGHT;
     const gridHeight = containerSize.height;
