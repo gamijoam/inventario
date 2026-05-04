@@ -92,6 +92,7 @@ const ProductsTab = () => {
     const [selectedProductForInstances, setSelectedProductForInstances] = useState(null);
     const [searchTerm, setSearchTerm]     = useState('');
     const [products, setProducts]         = useState([]);
+    const [totalProductsReal, setTotalProductsReal] = useState(0);
     const [isLoading, setIsLoading]       = useState(true);
     const [currentPage, setCurrentPage]   = useState(1);
     const ITEMS_PER_PAGE = 50;
@@ -111,7 +112,14 @@ const ProductsTab = () => {
             const res = await apiClient.get('/products/', {
                 params: { skip: (page - 1) * ITEMS_PER_PAGE, limit: ITEMS_PER_PAGE, search: searchTerm || undefined, warehouse_id: filterWarehouse || undefined }
             });
-            setProducts(res.data);
+            // El backend devuelve { items, total, has_more } o un array directo
+            if (res.data && Array.isArray(res.data.items)) {
+                setProducts(res.data.items);
+                setTotalProductsReal(res.data.total || res.data.items.length);
+            } else {
+                setProducts(Array.isArray(res.data) ? res.data : []);
+                setTotalProductsReal(Array.isArray(res.data) ? res.data.length : 0);
+            }
         } catch {}
         finally { setIsLoading(false); }
     };
@@ -175,7 +183,7 @@ const ProductsTab = () => {
 
     // KPI stats
     const kpis = useMemo(() => {
-        const total   = filteredProducts.length;
+        const total   = totalProductsReal || filteredProducts.length;
         const inStock = filteredProducts.filter(p => Number(p.stock) >= Number(p.min_stock ?? 5)).length;
         const low     = filteredProducts.filter(p => { const s = Number(p.stock||0), m = Number(p.min_stock??5); return s > 0 && s < m; }).length;
         const out     = filteredProducts.filter(p => Number(p.stock||0) === 0).length;
