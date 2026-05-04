@@ -644,6 +644,10 @@ class CommissionLog(Base):
     amount = Column(Numeric(12, 2), nullable=False) # Commission amount in USD
     currency = Column(String, default="USD")
     percentage_applied = Column(Numeric(5, 2), nullable=True) # Snapshot of % used
+    # Tasa y monto en Bs congelados al momento de la venta
+    exchange_rate_snapshot = Column(Numeric(14, 6), nullable=True)  # Tasa USD→Bs del día
+    amount_bs = Column(Numeric(14, 2), nullable=True)               # Equivalente en Bs (congelado)
+    paid_in_bs = Column(Boolean, default=False)                     # Si la venta fue cobrada en Bs
 
     # Status
     status = Column(Enum(CommissionStatus), default=CommissionStatus.PENDING)

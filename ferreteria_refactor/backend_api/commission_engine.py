@@ -107,10 +107,14 @@ class CommissionEngine:
         sale_id: int,
         detail: models.SaleDetail,
         salesperson: models.User,
+        exchange_rate: Optional[Decimal] = None,
     ) -> Optional[models.CommissionLog]:
         """
         Registra comisión de vendedor para un ítem de venta (POS).
-        Usa commission_vendor_pct del usuario.
+        - amount: siempre en USD
+        - exchange_rate_snapshot: tasa del día congelada
+        - amount_bs: equivalente en Bs congelado al momento de la venta
+        - paid_in_bs: True si la venta fue cobrada en Bs
         """
         if not self.is_active_for_module("POS"):
             return None
@@ -128,6 +132,32 @@ class CommissionEngine:
         if amount <= 0:
             return None
 
+        # Determinar si la venta fue cobrada en Bs
+        # Buscar los pagos de esta venta para saber la moneda usada
+        sale_payments = self.db.query(models.SalePayment).filter(
+            models.SalePayment.sale_id == sale_id
+        ).all() if hasattr(models, "SalePayment") else []
+
+        paid_in_bs = any(
+            p.currency in ("VES", "Bs", "bolivar")
+            for p in sale_payments
+        ) if sale_payments else False
+
+        # Tasa del día — usar la pasada por parámetro o buscar en la venta
+        rate_snapshot = exchange_rate
+        if not rate_snapshot and hasattr(detail, "sale") and detail.sale:
+            rate_snapshot = detail.sale.exchange_rate_used
+        if not rate_snapshot:
+            # Fallback: tasa activa en BD
+            active_rate = self.db.query(models.ExchangeRate).filter(
+                models.ExchangeRate.is_active == True,
+                models.ExchangeRate.is_default == True,
+            ).first()
+            rate_snapshot = Decimal(str(active_rate.rate)) if active_rate else Decimal("1")
+
+        # Calcular equivalente en Bs congelado al momento de la venta
+        amount_bs = amount * rate_snapshot if rate_snapshot and rate_snapshot > 1 else None
+
         log = models.CommissionLog(
             user_id=salesperson.id,
             sale_detail_id=detail.id,
@@ -138,6 +168,9 @@ class CommissionEngine:
             currency="USD",
             percentage_applied=pct,
             commission_role="VENDOR",
+            exchange_rate_snapshot=rate_snapshot,
+            amount_bs=amount_bs,
+            paid_in_bs=paid_in_bs,
         )
         self.db.add(log)
         return log

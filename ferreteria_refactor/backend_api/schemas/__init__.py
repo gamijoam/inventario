@@ -1406,8 +1406,14 @@ class CommissionLogRead(BaseModel):
     created_at: datetime
     paid_at: Optional[datetime] = None
     notes: Optional[str] = None
-    
-    user: Optional[UserRead] = None # Assuming UserRead is available in scope
+    # Nuevos campos para tasa congelada y monto en Bs
+    exchange_rate_snapshot: Optional[Decimal] = None  # Tasa del día de la venta
+    amount_bs: Optional[Decimal] = None               # Equivalente Bs congelado
+    paid_in_bs: Optional[bool] = False                # Si fue cobrado en Bs
+    percentage_applied: Optional[Decimal] = None
+    commission_role: Optional[str] = None
+
+    user: Optional[UserRead] = None
 
     model_config = ConfigDict(from_attributes=True)
 

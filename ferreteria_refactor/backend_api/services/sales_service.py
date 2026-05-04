@@ -693,6 +693,7 @@ class SalesService:
                             sale_id=new_sale.id,
                             detail=detail,
                             salesperson=_salesperson,
+                            exchange_rate=new_sale.exchange_rate_used,
                         )
                 # ────────────────────────────────────────────────────────────
         
