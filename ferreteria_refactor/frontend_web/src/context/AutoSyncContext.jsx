@@ -86,6 +86,8 @@ export const AutoSyncProvider = ({ children }) => {
     }, [cloudConfig.isConfigured, cloudConfig.cloudUrl, user?.role]);
 
     // Función de sincronización
+    const isSyncingRef = React.useRef(false);
+
     const performSync = useCallback(async (manual = false) => {
         // Feature flag: Skip if sync is disabled
         if (!isSyncEnabled) {
@@ -93,7 +95,7 @@ export const AutoSyncProvider = ({ children }) => {
             return { success: false, reason: 'disabled' };
         }
 
-        if (syncStatus.isSyncing) {
+        if (isSyncingRef.current) {
             console.log('⏳ Sincronización ya en progreso...');
             return;
         }
@@ -105,6 +107,7 @@ export const AutoSyncProvider = ({ children }) => {
             return { success: false, reason: 'not_configured' };
         }
 
+        isSyncingRef.current = true;
         setSyncStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
         try {
@@ -132,6 +135,7 @@ export const AutoSyncProvider = ({ children }) => {
                 pendingSales: 0,
                 error: null
             }));
+            isSyncingRef.current = false;
 
             // 4. Notificar éxito
             if (manual) {
@@ -147,6 +151,7 @@ export const AutoSyncProvider = ({ children }) => {
 
             const errorMsg = error.response?.data?.detail || error.message || 'Error desconocido';
 
+            isSyncingRef.current = false;
             setSyncStatus(prev => ({
                 ...prev,
                 isSyncing: false,
@@ -159,7 +164,7 @@ export const AutoSyncProvider = ({ children }) => {
 
             return { success: false, reason: 'error', error: errorMsg };
         }
-    }, [syncStatus.isSyncing, checkOnlineStatus, cloudConfig.isConfigured]);
+    }, [checkOnlineStatus, cloudConfig.isConfigured]); // syncStatus.isSyncing reemplazado por ref
 
     // Sincronización manual (desde botón)
     const syncNow = useCallback(() => {
@@ -192,7 +197,7 @@ export const AutoSyncProvider = ({ children }) => {
             clearTimeout(initialSync);
             clearInterval(interval);
         };
-    }, [cloudConfig.syncEnabled, cloudConfig.syncIntervalMinutes, cloudConfig.isConfigured, performSync]);
+    }, [cloudConfig.syncEnabled, cloudConfig.syncIntervalMinutes, cloudConfig.isConfigured]); // performSync excluido intencionalmente - usa ref para evitar re-renders
 
     // Verificar estado online cada 2 minutos
     useEffect(() => {
@@ -201,7 +206,7 @@ export const AutoSyncProvider = ({ children }) => {
         const interval = setInterval(checkOnlineStatus, 120000);
         checkOnlineStatus(); // Check inicial
         return () => clearInterval(interval);
-    }, [checkOnlineStatus, cloudConfig.isConfigured]);
+    }, [cloudConfig.isConfigured]); // checkOnlineStatus excluido para evitar re-renders
 
     const value = {
         syncStatus,
