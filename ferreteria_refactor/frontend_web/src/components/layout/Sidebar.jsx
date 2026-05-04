@@ -184,11 +184,11 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             type: 'single',
             item: { icon: Package, label: 'Centro de Inventario', path: '/inventory-center' }
         }] : []),
-        // POS EXPRESS — prueba
-        ...(isAdminOrCashier ? [{
-            type: 'single',
-            item: { icon: Zap, label: 'POS Express ⚡', path: '/pos-express' }
-        }] : []),
+        // POS EXPRESS — oculto temporalmente
+        // ...(isAdminOrCashier ? [{
+        //     type: 'single',
+        //     item: { icon: Zap, label: 'POS Express ⚡', path: '/pos-express' }
+        // }] : []),
         // FINANZAS — filtrado por rol (no se muestra si no hay items)
         ...(finanzasItems.length > 0 ? [{
             type: 'group',
