@@ -41,12 +41,12 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
             <X size={16} />
           </button>
         </div>
-        <div className="bg-slate-100 flex items-center justify-center p-4" style={{ minHeight: 240 }}>
+        <div className="bg-slate-100 flex items-center justify-center overflow-hidden" style={{ height: 260 }}>
           <img
             ref={imgRef}
             src={src}
             alt="Preview"
-            style={{ transform: `rotate(${rotation}deg) scale(${scale})`, maxWidth: '100%', maxHeight: 220, objectFit: 'contain', transition: 'transform 0.3s ease' }}
+            style={{ transform: `rotate(${rotation}deg) scale(${scale})`, maxWidth: '80%', maxHeight: '80%', objectFit: 'contain', transition: 'transform 0.3s ease', flexShrink: 0 }}
           />
         </div>
         <div className="px-5 py-4 space-y-3">
