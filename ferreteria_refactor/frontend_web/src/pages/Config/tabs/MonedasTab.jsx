@@ -122,7 +122,7 @@ const MonedasTab = () => {
             await apiClient.put(`/config/exchange-rates/${targetRate.id}`, { rate: bcvValue });
             await fetchExchangeRates();
             refreshConfig();
-            toast.success(`"${targetRate.name}" actualizada a ${bcvValue.toLocaleString('es-VE', { minimumFractionDigits: 4 })} ${selectedCurrency}`);
+            toast.success(`"${targetRate.name}" actualizada a ${bcvValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${selectedCurrency}`);
         } catch {
             toast.error('Error al aplicar la tasa');
         } finally {
@@ -191,7 +191,7 @@ const MonedasTab = () => {
                             <p className="text-slate-400 text-xs font-black uppercase tracking-widest mb-2">Valor activo</p>
                             <div className="flex items-center justify-center gap-3">
                                 <span className="text-3xl font-black text-slate-900">
-                                    {defaultRate ? parseFloat(defaultRate.rate).toLocaleString('es-VE') : '---'}
+                                    {defaultRate ? parseFloat(Number(defaultRate.rate).toFixed(4)).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '---'}
                                 </span>
                                 <span className="text-sm font-bold text-slate-500">{selectedCurrency}</span>
                             </div>
@@ -235,7 +235,7 @@ const MonedasTab = () => {
                                             <div>
                                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Dólar USD</span>
                                                 <span className="text-base font-black text-slate-900">
-                                                    {bcvRates.usd_ves.toLocaleString('es-VE', { minimumFractionDigits: 4 })}
+                                                    {bcvRates.usd_ves.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                                                 </span>
                                                 <span className="text-xs text-slate-500 ml-1">Bs</span>
                                             </div>
@@ -254,7 +254,7 @@ const MonedasTab = () => {
                                             <div>
                                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Euro EUR</span>
                                                 <span className="text-base font-black text-slate-900">
-                                                    {bcvRates.eur_ves.toLocaleString('es-VE', { minimumFractionDigits: 4 })}
+                                                    {bcvRates.eur_ves.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                                                 </span>
                                                 <span className="text-xs text-slate-500 ml-1">Bs</span>
                                             </div>
@@ -348,8 +348,8 @@ const MonedasTab = () => {
                                                 <ArrowRight className="mx-4 text-slate-300 group-hover:text-indigo-400 transition-colors" size={18} />
                                                 <input
                                                     type="number"
-                                                    step="0.00000001"
-                                                    defaultValue={rate.rate}
+                                                    step="0.0001"
+                                                    defaultValue={parseFloat(Number(rate.rate).toFixed(4))}
                                                     onBlur={(e) => {
                                                         const val = parseFloat(e.target.value);
                                                         if (!isNaN(val) && val !== rate.rate) handleUpdateRate(rate.id, 'rate', val);
