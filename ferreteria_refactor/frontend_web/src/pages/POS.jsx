@@ -3,7 +3,7 @@ import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -29,6 +29,7 @@ import CashOpeningModal from '../components/cash/CashOpeningModal';
 import CashMovementModal from '../components/cash/CashMovementModal';
 import CashAdvanceModal from '../components/cash/CashAdvanceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
+import ProductLookupModal from '../components/pos/ProductLookupModal';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
 import SplitCartModal from "../components/pos/SplitCartModal";
 import usePOSCatalog from '../hooks/usePOSCatalog';
@@ -136,6 +137,7 @@ const POS = () => {
     const [isAdvanceOpen, setIsAdvanceOpen] = useState(false);
     const [isClosingOpen, setIsClosingOpen] = useState(false);
     const [lastSaleData, setLastSaleData] = useState(null);
+    const [isLookupOpen, setIsLookupOpen] = useState(false);
     const [selectedProductIndex, setSelectedProductIndex] = useState(-1);
     const [quoteCustomer, setQuoteCustomer] = useState(null);
     const [activeQuoteId, setActiveQuoteId] = useState(null);
@@ -228,6 +230,12 @@ const POS = () => {
             if (cart.length === 0 || confirm('¿Reemplazar el carrito actual con la venta pausada?')) resumeHeldCart();
         }
     });
+
+    // F1: Product Lookup Modal
+    useHotkeys('f1', (e) => {
+        e.preventDefault();
+        setIsLookupOpen(prev => !prev);
+    }, { enableOnFormTags: false });
 
     // F2: New sale (clear cart with confirmation)
     useHotkeys('f2', (e) => {
@@ -770,6 +778,17 @@ const POS = () => {
                     >
                         <ArrowRightLeft size={16} /> Movimientos
                     </Button>
+
+                    {/* Buscador rápido F1 */}
+                    <button
+                        onClick={() => setIsLookupOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs transition-all border border-indigo-200"
+                        title="Buscador de productos (F1)"
+                    >
+                        <Search size={15} />
+                        <span className="hidden sm:block">Buscar</span>
+                        <kbd className="text-[9px] font-mono text-indigo-300 bg-indigo-100 px-1 rounded hidden lg:block">F1</kbd>
+                    </button>
                     )}
 
                     {!(isCashier && showCajeroRestringido) && (
@@ -1087,6 +1106,7 @@ const POS = () => {
                 <CashMovementModal isOpen={isMovementOpen} onClose={() => { setIsMovementOpen(false); focusSearch(); }} />
                 <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
                 <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
+                <ProductLookupModal isOpen={isLookupOpen} onClose={() => setIsLookupOpen(false)} />
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
                 <SplitCartModal 
                     isOpen={isSplitCartModalOpen} 
