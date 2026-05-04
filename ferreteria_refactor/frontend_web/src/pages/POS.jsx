@@ -1019,7 +1019,7 @@ const POS = () => {
                         <SheetHeader className="px-4 pt-4 pb-2 border-b border-slate-100">
                             <SheetTitle className="text-lg font-black text-slate-800">Carrito ({cart.length})</SheetTitle>
                         </SheetHeader>
-                        <div className="flex-1 overflow-y-auto h-[calc(85vh-60px)]">
+                        <div className="flex-1 overflow-y-auto scrollbar-thin h-[calc(85vh-60px)]">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}

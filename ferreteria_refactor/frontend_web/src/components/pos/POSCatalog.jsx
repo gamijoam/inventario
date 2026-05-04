@@ -206,7 +206,7 @@ const POSCatalog = forwardRef(({
                 />
 
                 {/* Row 2: Categories + Count */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mask-gradient-right">
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 relative">
                     <Button
                         variant={selectedCategoryId === null ? "default" : "outline"}
                         size="md"
