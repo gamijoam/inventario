@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, X, Image as ImageIcon, Trash2, RefreshCw, Camera, RotateCw, Check } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Trash2, RefreshCw, Camera, RotateCw, Check, ZoomIn } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { API_ROOT_URL } from '../../config/constants';
 import noImgPlaceholder from '../../assets/no-img.svg';
@@ -129,6 +129,7 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [editSrc, setEditSrc] = useState(null);
+  const [lightbox, setLightbox] = useState(false);
 
   const getImageUrl = (url) => {
     if (!url) return null;
@@ -191,11 +192,40 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
 
   return (
     <div className="w-full">
+      {/* Lightbox */}
+      {lightbox && currentImageUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setLightbox(false)}
+        >
+          <button onClick={() => setLightbox(false)} className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-2xl flex items-center justify-center text-white transition-all">
+            <X size={20} />
+          </button>
+          <img
+            src={getImageUrl(currentImageUrl)}
+            alt="Vista ampliada"
+            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+            style={{ maxHeight: '90vh', maxWidth: '90vw' }}
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {editSrc && <ImageEditor src={editSrc} onConfirm={handleUpload} onCancel={() => setEditSrc(null)} />}
 
       {currentImageUrl ? (
         <div className="relative group rounded-2xl border-2 border-slate-100 bg-white overflow-hidden aspect-square flex items-center justify-center transition-all hover:border-indigo-200 hover:shadow-lg">
-          <img src={getImageUrl(currentImageUrl)} alt="Product" className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" onError={(e) => { e.target.src = noImgPlaceholder; }} />
+          <img
+            src={getImageUrl(currentImageUrl)}
+            alt="Product"
+            className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105 cursor-zoom-in"
+            onClick={() => setLightbox(true)}
+            onError={(e) => { e.target.src = noImgPlaceholder; }}
+          />
+          {/* Indicador zoom */}
+          <div className="absolute top-2 left-2 bg-black/30 text-white rounded-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <ZoomIn size={14} />
+          </div>
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-3">
             {/* Galería */}
             <label className="cursor-pointer bg-white text-slate-800 p-3 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-xl" title="Galería">
