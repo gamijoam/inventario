@@ -190,10 +190,10 @@ const POSCatalog = forwardRef(({
     const showTotalCount = isServerSide && totalCount != null && products.length > 0;
 
     return (
-        <div className="flex flex-col h-full bg-muted/10 rounded-3xl border border-slate-200" style={{overflow: "hidden"}}>
+        <div className="flex flex-col h-full bg-muted/10 rounded-3xl border border-slate-200 overflow-hidden">
 
             {/* Sticky Header */}
-            <div className="p-4 bg-background border-b z-10 shadow-sm">
+            <div className="pt-4 px-4 pb-0 bg-background z-10 shadow-sm">
                 {/* Row 1: Search */}
                 <SearchWithScanner
                     ref={searchInputRef}
@@ -204,8 +204,10 @@ const POSCatalog = forwardRef(({
                     autoFocus
                     inputClassName="h-10 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-xl"
                 />
+            </div>
 
-                {/* Row 2: Categories + Count */}
+            {/* Row 2: Categories — contenedor independiente con overflow propio */}
+            <div className="bg-background border-b z-10" style={{ borderBottom: '1px solid #e2e8f0' }}>
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -215,16 +217,10 @@ const POSCatalog = forwardRef(({
                     msOverflowStyle: 'none',
                     scrollbarWidth: 'none',
                     WebkitOverflowScrolling: 'touch',
-                    paddingBottom: '4px',
-                    paddingTop: '4px',
-                    marginLeft: '-16px',
-                    marginRight: '-16px',
-                    paddingLeft: '16px',
-                    paddingRight: '16px',
-                }} className="pos-categories-row">
+                    padding: '8px 16px 10px 16px',
+                }}>
                     <style>{`
                         .pos-categories-row::-webkit-scrollbar { display: none !important; }
-                        .pos-categories-row { -ms-overflow-style: none !important; scrollbar-width: none !important; }
                     `}</style>
                     <button
                         onClick={() => handleCategoryClick(null)}
@@ -256,7 +252,7 @@ const POSCatalog = forwardRef(({
 
                     {/* Total count indicator */}
                     {showTotalCount && (
-                        <span className="ml-auto text-xs text-slate-400 font-medium whitespace-nowrap shrink-0 pl-4">
+                        <span style={{ marginLeft: 'auto', flexShrink: 0, paddingLeft: '16px' }} className="text-xs text-slate-400 font-medium whitespace-nowrap">
                             Mostrando {products.length} de {totalCount} productos
                         </span>
                     )}
