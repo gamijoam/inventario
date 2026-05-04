@@ -65,7 +65,7 @@ const ConfirmPayModal = ({ summary, onConfirm, onCancel, isProcessing }) => {
 // ---------------------------------------------------------------------------
 // Detail row (lazy loaded per user)
 // ---------------------------------------------------------------------------
-const UserDetailRow = ({ userId }) => {
+const UserDetailRow = ({ userId, bsRate }) => {
     const [details, setDetails] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -356,7 +356,7 @@ const CommissionsTab = () => {
                                                     <th className="py-1.5 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Monto</th>
                                                     <th className="py-1.5 pr-4 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Estado</th>
                                                 </tr>
-                                                <UserDetailRow userId={s.user_id} />
+                                                <UserDetailRow userId={s.user_id} bsRate={bsRate} />
                                             </>
                                         )}
                                     </>
