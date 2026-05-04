@@ -778,8 +778,9 @@ const POS = () => {
                     >
                         <ArrowRightLeft size={16} /> Movimientos
                     </Button>
+                    )}
 
-                    {/* Buscador rápido F1 */}
+                    {/* Buscador rápido F1 — siempre visible */}
                     <button
                         onClick={() => setIsLookupOpen(true)}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs transition-all border border-indigo-200"
@@ -789,7 +790,6 @@ const POS = () => {
                         <span className="hidden sm:block">Buscar</span>
                         <kbd className="text-[9px] font-mono text-indigo-300 bg-indigo-100 px-1 rounded hidden lg:block">F1</kbd>
                     </button>
-                    )}
 
                     {!(isCashier && showCajeroRestringido) && (
                     <Button
