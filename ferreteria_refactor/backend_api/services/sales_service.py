@@ -689,11 +689,18 @@ class SalesService:
                 if _sp_id:
                     _salesperson = db.query(models.User).filter(models.User.id == _sp_id).first()
                     if _salesperson:
+                        # Detectar si algún pago fue en Bs — desde sale_data antes de persistir
+                        _paid_in_bs = any(
+                            str(getattr(p, "currency", "") or "").upper() in ("VES", "BS", "BOLIVAR", "BOLIVARES")
+                            or str(getattr(p, "currency", "") or "").lower().startswith("bs")
+                            for p in (sale_data.payments or [])
+                        )
                         commission_engine.record_vendor_commission(
                             sale_id=new_sale.id,
                             detail=detail,
                             salesperson=_salesperson,
                             exchange_rate=new_sale.exchange_rate_used,
+                            paid_in_bs=_paid_in_bs,
                         )
                 # ────────────────────────────────────────────────────────────
         

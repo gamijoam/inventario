@@ -108,6 +108,7 @@ class CommissionEngine:
         detail: models.SaleDetail,
         salesperson: models.User,
         exchange_rate: Optional[Decimal] = None,
+        paid_in_bs: bool = False,
     ) -> Optional[models.CommissionLog]:
         """
         Registra comisión de vendedor para un ítem de venta (POS).
@@ -132,17 +133,7 @@ class CommissionEngine:
         if amount <= 0:
             return None
 
-        # Determinar si la venta fue cobrada en Bs
-        # Buscar los pagos de esta venta para saber la moneda usada
-        sale_payments = self.db.query(models.SalePayment).filter(
-            models.SalePayment.sale_id == sale_id
-        ).all() if hasattr(models, "SalePayment") else []
-
-        paid_in_bs = any(
-            str(p.currency or "").upper() in ("VES", "BS", "BOLIVAR", "BOLIVARES", "B")
-            or str(p.currency or "").lower().startswith("bs")
-            for p in sale_payments
-        ) if sale_payments else False
+        # paid_in_bs viene del servicio de ventas donde ya se conocen los pagos
 
         # Tasa del día — usar la pasada por parámetro o buscar en la venta
         rate_snapshot = exchange_rate
