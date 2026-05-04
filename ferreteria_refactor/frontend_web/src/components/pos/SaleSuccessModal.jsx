@@ -15,7 +15,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     
     const facturaA4Active = useFeatureFlag('impresion_factura_a4');
     const warrantyPdfActive = useFeatureFlag('impresion_garantia_pdf');
-    const { business } = useConfig();
+    const { business, autoPrintTicket } = useConfig();
 
     useEffect(() => {
         if (isOpen) {
@@ -23,17 +23,17 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                 const url = res.data.warranty_format_url;
                 setWarrantyUrl(url || "");
             }).catch(err => console.error("Error cargando config:", err));
-
-            // Auto-print ticket si el toggle está activo
-            apiClient.get("/config/auto-print-ticket").then(res => {
-                if (res.data.auto_print_ticket && saleData?.saleId) {
-                    printerService.printTicket(saleData.saleId)
-                        .then(() => setPrintStatus('success'))
-                        .catch(() => {}); // silencioso - no interrumpir flujo
-                }
-            }).catch(() => {});
         }
     }, [isOpen]);
+
+    // Auto-print: se dispara cuando el modal abre Y el saleId está disponible
+    useEffect(() => {
+        if (isOpen && autoPrintTicket && saleData?.saleId) {
+            printerService.printTicket(saleData.saleId)
+                .then(() => setPrintStatus('success'))
+                .catch(() => {});
+        }
+    }, [isOpen, autoPrintTicket, saleData?.saleId]);
 
     const hasImeiItems = useMemo(() => {
         if (!saleData || !saleData.cart) return saleData?.items?.some(item => item.has_imei || (item.serial_numbers && item.serial_numbers.length > 0));

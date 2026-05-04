@@ -19,6 +19,7 @@ export const ConfigProvider = ({ children }) => {
 
     // Feature flags a la carta (activados por tenant desde panel admin)
     const [featureFlags, setFeatureFlags] = useState({});
+    const [autoPrintTicket, setAutoPrintTicket] = useState(false);
 
     // Module Feature Flags
     const [modules, setModules] = useState({
@@ -166,6 +167,12 @@ export const ConfigProvider = ({ children }) => {
                 console.warn("Could not load exchange rates:", e);
             }
 
+            // 5. Fetch Auto Print Ticket setting
+            try {
+                const apRes = await apiClient.get('/config/auto-print-ticket');
+                setAutoPrintTicket(!!apRes.data.auto_print_ticket);
+            } catch (e) { /* silencioso */ }
+
         } catch (err) {
             console.error("Critical Config Error", err);
             // Emergency Fallback
@@ -287,6 +294,7 @@ export const ConfigProvider = ({ children }) => {
         <ConfigContext.Provider value={{
             business,
             currencies,
+            autoPrintTicket,
             loading,
             refreshConfig,
             getExchangeRate,
