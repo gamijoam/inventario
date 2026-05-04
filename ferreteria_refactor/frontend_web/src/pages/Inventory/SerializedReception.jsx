@@ -15,6 +15,35 @@ const IMEI_SERVICE_ID = 0; // Basic IMEI Check $0.02
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const normalizar = (s = '') => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+// Búsqueda difusa — tolera 1-2 errores tipográficos (Levenshtein simplificado)
+const fuzzyMatch = (text, query) => {
+    const t = normalizar(text);
+    const q = normalizar(query);
+    if (!q) return true;
+    // Coincidencia exacta por substring
+    if (t.includes(q)) return true;
+    // Si la query es corta, solo substring
+    if (q.length <= 2) return false;
+    // Buscar cada palabra del query por separado
+    const words = q.split(/\s+/).filter(Boolean);
+    if (words.every(w => t.includes(w))) return true;
+    // Levenshtein para queries cortas (<=8 chars) por palabra
+    for (const word of words) {
+        if (word.length < 3) continue;
+        // Buscar en ventanas del texto del mismo tamaño ±2
+        for (let i = 0; i <= t.length - word.length + 2; i++) {
+            const slice = t.slice(i, i + word.length);
+            let diff = 0;
+            const minLen = Math.min(slice.length, word.length);
+            for (let j = 0; j < minLen; j++) { if (slice[j] !== word[j]) diff++; }
+            diff += Math.abs(slice.length - word.length);
+            const maxErrors = word.length <= 4 ? 1 : 2;
+            if (diff <= maxErrors) return true;
+        }
+    }
+    return false;
+};
+
 // ─── Item de carrito ───────────────────────────────────────────────────────────
 const CartItem = ({ group, catalog, onRemoveImei, onChangeProduct }) => {
     const [open, setOpen] = useState(false);
@@ -22,8 +51,8 @@ const CartItem = ({ group, catalog, onRemoveImei, onChangeProduct }) => {
     const dropRef = useRef(null);
 
     const matches = catalog.filter(p =>
-        normalizar(p.name).includes(normalizar(search)) ||
-        (p.sku && normalizar(p.sku).includes(normalizar(search)))
+        fuzzyMatch(p.name, search) ||
+        (p.sku && fuzzyMatch(p.sku, search))
     ).slice(0, 8);
 
     useEffect(() => {
