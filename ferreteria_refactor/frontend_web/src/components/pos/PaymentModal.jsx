@@ -534,21 +534,57 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
                     {/* Estado pago */}
                     {!isCreditSale && totalPaidUSD > 0 && (
-                        <div className={`mt-3 rounded-2xl px-4 py-2.5 flex items-center justify-between relative z-10 transition-all ${
+                        <div className={`mt-3 rounded-2xl px-4 py-3 relative z-10 transition-all ${
                             isComplete ? 'bg-emerald-500/25 border border-emerald-400/30' : 'bg-rose-500/20 border border-rose-400/20'
                         }`}>
-                            <div className="flex items-center gap-2">
-                                {isComplete
-                                    ? <CheckCircle size={16} className="text-emerald-300" strokeWidth={3} />
-                                    : <Calculator size={16} className="text-rose-300" />
-                                }
-                                <span className={`text-xs font-black ${isComplete ? 'text-emerald-200' : 'text-rose-200'}`}>
-                                    {isComplete ? (changeUSD > 0.005 ? 'Vuelto' : 'Pago completo') : 'Falta por pagar'}
-                                </span>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    {isComplete
+                                        ? <CheckCircle size={15} className="text-emerald-300" strokeWidth={3} />
+                                        : <Calculator size={15} className="text-rose-300" />
+                                    }
+                                    <span className={`text-xs font-black ${isComplete ? 'text-emerald-200' : 'text-rose-200'}`}>
+                                        {isComplete ? (changeUSD > 0.005 ? 'Vuelto' : 'Pago completo ✓') : 'Falta por pagar'}
+                                    </span>
+                                </div>
+                                {/* Montos: USD + equivalente en moneda local */}
+                                <div className="text-right">
+                                    {isComplete && changeUSD > 0.005 ? (() => {
+                                        // Calcular vuelto en la moneda del pago
+                                        const allUSD = payments.every(p => p.currency === "$" || p.currency === "USD");
+                                        const firstLocal = payments.find(p => p.currency !== "$" && p.currency !== "USD");
+                                        const localCurr = firstLocal?.currency;
+                                        let changeLocal = 0, localSym = "";
+                                        if (!allUSD && localCurr) {
+                                            if (localCurr === "Bs" || localCurr === "VES") {
+                                                const vesTotal = totalsByCurrency?.VES || totalsByCurrency?.Bs;
+                                                const eff = (vesTotal && totalUSD) ? (vesTotal / totalUSD) : defaultBsRate;
+                                                changeLocal = changeUSD * eff; localSym = "Bs";
+                                            } else {
+                                                changeLocal = changeUSD * (getExchangeRate(localCurr) || 1); localSym = localCurr;
+                                            }
+                                        }
+                                        return (
+                                            <>
+                                                <p className="text-white font-black text-base font-mono">${formatLocalCurrency(changeUSD)}</p>
+                                                {!allUSD && localSym && (
+                                                    <p className="text-emerald-300 font-bold text-sm font-mono">{localSym} {formatLocalCurrency(changeLocal)}</p>
+                                                )}
+                                                {allUSD && defaultBsRate > 1 && (
+                                                    <p className="text-emerald-300 font-bold text-sm font-mono">Bs {formatLocalCurrency(changeUSD * defaultBsRate)}</p>
+                                                )}
+                                            </>
+                                        );
+                                    })() : !isComplete ? (
+                                        <>
+                                            <p className={`font-black text-base font-mono ${isComplete ? "text-white" : "text-rose-200"}`}>${formatLocalCurrency(remainingUSD)}</p>
+                                            {defaultBsRate > 1 && (
+                                                <p className="text-rose-300 font-bold text-sm font-mono">Bs {formatLocalCurrency(remainingUSD * defaultBsRate)}</p>
+                                            )}
+                                        </>
+                                    ) : null}
+                                </div>
                             </div>
-                            <span className={`text-lg font-black font-mono ${isComplete ? 'text-white' : 'text-rose-200'}`}>
-                                {isComplete && changeUSD > 0.005 ? `$${formatLocalCurrency(changeUSD)}` : !isComplete ? `$${formatLocalCurrency(remainingUSD)}` : '✓'}
-                            </span>
                         </div>
                     )}
                     {isCreditSale && (
