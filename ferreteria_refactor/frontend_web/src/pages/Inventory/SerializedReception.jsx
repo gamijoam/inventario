@@ -44,9 +44,16 @@ const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
     useEffect(() => { setTimeout(() => searchRef.current?.focus(), 100); }, []);
 
     // Candidatos: primero los que hacen match con el modelo detectado, luego todos
-    const query = search || (detected?.model || '');
-    const matches = catalog.filter(p => fuzzyMatch(p.name, query) || (p.sku && fuzzyMatch(p.sku, query)));
-    const all = search ? matches : catalog;
+    // Si hay búsqueda manual → filtrar por ella
+    // Si no → mostrar los que hacen match con el modelo detectado
+    // Si no hay modelo detectado → mostrar todos
+    const detectedQuery = [detected?.brand, detected?.model].filter(Boolean).join(' ');
+    const activeQuery = search || detectedQuery;
+    const filtered = activeQuery
+        ? catalog.filter(p => fuzzyMatch(p.name, activeQuery) || (p.sku && fuzzyMatch(p.sku, activeQuery)))
+        : catalog;
+    // Si el filtro no encuentra nada (nombre del producto muy diferente), mostrar todos con buscador vacío
+    const all = filtered.length > 0 ? filtered : catalog;
 
     return (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
