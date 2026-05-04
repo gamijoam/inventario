@@ -318,9 +318,18 @@ const POS = () => {
     const handleGlobalScan = async (code) => {
         const foundProduct = await lookupProduct(code);
         if (foundProduct) {
+            // Si viene de búsqueda por IMEI, validar que no esté vendido
+            if (foundProduct._imei_status === 'SOLD') {
+                toast.error(`❌ IMEI ${foundProduct._imei} ya fue vendido`, { duration: 3000 });
+                return;
+            }
             handleProductClick(foundProduct);
+            // Si tiene IMEI, pre-llenar el serial en el carrito
+            if (foundProduct._imei) {
+                toast.success(`📱 ${foundProduct.name} — IMEI: ${foundProduct._imei}`, { duration: 2000 });
+            }
         } else {
-            toast.error(`Producto no encontrado: ${code}`);
+            toast.error(`Producto no encontrado: ${code}`, { duration: 2000 });
         }
     };
 

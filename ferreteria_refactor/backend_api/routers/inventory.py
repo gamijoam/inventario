@@ -344,7 +344,7 @@ def lookup_imei(imei: str, db: Session = Depends(get_db)):
     Devuelve el producto, almacén y estado del IMEI.
     """
     instance = db.query(models.ProductInstance).filter(
-        models.ProductInstance.serial_number == imei.strip().upper()
+        models.ProductInstance.serial_number.ilike(imei.strip())
     ).options(
         joinedload(models.ProductInstance.product),
         joinedload(models.ProductInstance.warehouse),
@@ -363,7 +363,7 @@ def lookup_imei(imei: str, db: Session = Depends(get_db)):
             "name": product.name,
             "sku": product.sku,
             "price": float(product.price),
-            "cost": float(product.cost or 0),
+            "cost": float(product.cost_price or 0),
             "stock": float(product.stock),
             "category_name": product.category.name if product.category else None,
             "image_url": product.image_url,

@@ -109,19 +109,32 @@ const usePOSCatalog = () => {
         const byId = productCache.current.get(Number(skuOrId)) || productCache.current.get(skuOrId);
         if (byId) return byId;
 
+        // Detectar si es un IMEI (14-16 dígitos numéricos)
+        const isImei = typeof skuOrId === 'string' && /^\d{14,16}$/.test(skuOrId.trim());
+
         // Cache miss — call server
         try {
-            // Si es un número JS (llamada interna por product_id) usar product_id.
-            // Si es string —incluso numérico— tratarlo como SKU/barcode.
-            const params = typeof skuOrId === 'number'
-                ? { product_id: skuOrId }
-                : { sku: skuOrId };
-            const { data } = await apiClient.get('/products/lookup', { params });
+            if (isImei) {
+                // Buscar por IMEI en inventario serializado
+                const { data } = await apiClient.get('/inventory/lookup-imei', { params: { imei: skuOrId.trim() } });
+                if (data?.product) {
+                    const product = { ...data.product, _imei_status: data.status, _imei: data.imei };
+                    productCache.current.set(product.id, product);
+                    return product;
+                }
+            } else {
+                // Si es un número JS (llamada interna por product_id) usar product_id.
+                // Si es string —incluso numérico— tratarlo como SKU/barcode.
+                const params = typeof skuOrId === 'number'
+                    ? { product_id: skuOrId }
+                    : { sku: skuOrId };
+                const { data } = await apiClient.get('/products/lookup', { params });
 
-            if (data) {
-                productCache.current.set(data.id, data);
-                if (data.sku) productCache.current.set(`sku:${data.sku}`, data);
-                return data;
+                if (data) {
+                    productCache.current.set(data.id, data);
+                    if (data.sku) productCache.current.set(`sku:${data.sku}`, data);
+                    return data;
+                }
             }
         } catch (err) {
             if (err.response?.status !== 404) {
