@@ -314,11 +314,11 @@ const POSCart = ({
             <div className="flex-1 overflow-hidden relative bg-slate-50/20">
                 {cartItems.length === 0 ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 p-8 text-center animate-in fade-in zoom-in-95 duration-500">
-                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-md">
-                            <ShoppingCart size={28} className="text-slate-200" strokeWidth={1.5} />
+                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mb-2">
+                            <ShoppingCart size={20} className="text-slate-300" strokeWidth={1.5} />
                         </div>
                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Carrito Vacío</p>
-                        <p className="text-[10px] mt-1.5 text-slate-400 max-w-[160px] leading-relaxed text-center">Escanea un producto o selecciónalo del catálogo.</p>
+                        <p className="text-[10px] mt-1 text-slate-400 text-center">Selecciona productos del catálogo.</p>
                     </div>
                 ) : (
                     <ScrollArea className="h-full w-full">
@@ -510,7 +510,7 @@ const POSCart = ({
             </div>
 
             {/* Footer Totals */}
-            <div className="bg-white border-t border-slate-100 px-3 py-2 space-y-1.5 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10">
+            <div className="bg-white border-t border-slate-100 px-3 pt-2 pb-safe space-y-1.5 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10 pb-4" style={{paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))"}}>
                 <div className="space-y-1">
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Subtotal Neto</span>
@@ -605,7 +605,7 @@ const POSCart = ({
                     <Button
                         id="tour-pos-pay-btn"
                         size="lg"
-                        className="w-full h-12 text-base font-black bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200/50 rounded-xl transition-all hover:-translate-y-0.5 active:scale-[0.98] group"
+                        className="w-full h-11 text-sm font-black bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200/50 rounded-xl transition-all active:scale-[0.98] group"
                         onClick={onCheckout}
                         disabled={cartItems.length === 0}
                     >

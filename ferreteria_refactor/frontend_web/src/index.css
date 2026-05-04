@@ -193,3 +193,10 @@
     font-weight: 700;
 }
 
+
+/* Safe area para dispositivos móviles con barras de navegación */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
