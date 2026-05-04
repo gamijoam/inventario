@@ -37,26 +37,34 @@ const fuzzyMatch = (text, query) => {
     return false;
 };
 
-// strictModelMatch para match automático API→catálogo (estricto)
-// El nombre del producto debe contener las palabras clave del modelo detectado
-// como "núcleo" del nombre, no solo menciones sueltas
+// strictModelMatch para match automático API→catálogo
+// Reglas:
+// 1. Todas las palabras del modelo deben estar en el nombre del producto
+// 2. El nombre NO debe empezar con palabras de accesorios (Forro, Cargador, Cable, etc.)
+// 3. La cobertura modelo/nombre debe ser alta (≥60%) O la marca debe estar presente Y ser la primera palabra significativa
+const ACCESSORY_WORDS = ['forro', 'cargador', 'cable', 'auricular', 'audifonos', 'case', 'protector',
+    'mica', 'vidrio', 'templado', 'holder', 'soporte', 'bateria', 'tapa', 'cover',
+    'estuche', 'bolso', 'correa', 'adaptador', 'pila', 'repuesto', 'pantalla'];
+
 const strictModelMatch = (productName, brand, model) => {
     const name = normalizar(productName);
     const m = normalizar(model || '');
     const b = normalizar(brand || '');
     if (!m) return false;
-    // Todas las palabras del modelo deben estar en el nombre del producto
+    // Rechazar si el nombre empieza con palabra de accesorio
+    const firstWord = name.split(/\s+/)[0] || '';
+    if (ACCESSORY_WORDS.includes(firstWord)) return false;
+    // Rechazar si contiene palabras de accesorio prominentes
+    if (ACCESSORY_WORDS.some(a => name.startsWith(a + ' '))) return false;
+    // Todas las palabras del modelo presentes
     const modelWords = m.split(/\s+/).filter(w => w.length >= 2);
     if (modelWords.length === 0) return false;
-    const allModelWordsPresent = modelWords.every(w => name.includes(w));
-    if (!allModelWordsPresent) return false;
-    // Validación adicional: el modelo debe representar una parte significativa del nombre
-    // Evitar que "Forro Samsung Galaxy A06" haga match solo por tener las palabras
-    // Si la marca también está en el nombre O el modelo ocupa >40% de las palabras → válido
+    if (!modelWords.every(w => name.includes(w))) return false;
+    // Cobertura alta: modelo debe ser ≥60% de las palabras del nombre
     const nameWords = name.split(/\s+/).filter(w => w.length >= 2);
-    const coverageRatio = modelWords.length / nameWords.length;
-    if (coverageRatio >= 0.4) return true;
-    // Si la marca está presente también → match válido
+    const coverage = modelWords.length / nameWords.length;
+    if (coverage >= 0.6) return true;
+    // O: marca presente Y no es accesorio
     if (b && name.includes(b)) return true;
     return false;
 };
