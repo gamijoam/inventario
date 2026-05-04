@@ -1,13 +1,39 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, Zap } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { API_ROOT_URL } from '../../../config/constants';
 import { toast } from 'react-hot-toast';
+import apiClient from '../../../config/axios';
 
 const EstacionPOSTab = () => {
     const { user } = useAuth();
+    const [autoPrint, setAutoPrint] = useState(false);
+    const [loadingAutoPrint, setLoadingAutoPrint] = useState(true);
+    const [savingAutoPrint, setSavingAutoPrint] = useState(false);
+
+    useEffect(() => {
+        apiClient.get('/config/auto-print-ticket')
+            .then(r => setAutoPrint(r.data.auto_print_ticket))
+            .catch(() => {})
+            .finally(() => setLoadingAutoPrint(false));
+    }, []);
+
+    const toggleAutoPrint = async () => {
+        setSavingAutoPrint(true);
+        try {
+            const res = await apiClient.post('/config/auto-print-ticket', { enabled: !autoPrint });
+            setAutoPrint(res.data.auto_print_ticket);
+            toast.success(res.data.auto_print_ticket
+                ? '✅ Impresión automática activada'
+                : 'Impresión automática desactivada');
+        } catch {
+            toast.error('Error guardando configuración');
+        } finally {
+            setSavingAutoPrint(false);
+        }
+    };
 
     const getMagicLink = () => {
         let token = localStorage.getItem('token') || '';
@@ -39,6 +65,47 @@ const EstacionPOSTab = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
+
+            {/* ── Auto Print Ticket — Solo ADMIN ──────────────────────────────── */}
+            {user?.role === 'ADMIN' && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Zap className="h-5 w-5 text-indigo-600" />
+                            Impresión Automática de Ticket
+                        </CardTitle>
+                        <CardDescription>
+                            Cuando está activo, el ticket se imprime automáticamente al confirmar el pago, sin necesidad de presionar "Imprimir Ticket".
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <div>
+                                <p className="font-bold text-slate-800 text-sm">Imprimir ticket al confirmar pago</p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {autoPrint
+                                        ? '🟢 Activo — el ticket se imprime automáticamente'
+                                        : '⚪ Inactivo — flujo normal (requiere confirmar impresión)'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={toggleAutoPrint}
+                                disabled={loadingAutoPrint || savingAutoPrint}
+                                className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none disabled:opacity-50 ${
+                                    autoPrint ? 'bg-indigo-600' : 'bg-slate-300'
+                                }`}
+                            >
+                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${
+                                    autoPrint ? 'translate-x-6' : 'translate-x-0'
+                                }`} />
+                            </button>
+                        </div>
+                        <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3 flex items-center gap-1.5">
+                            ⚠️ Requiere que la impresora esté configurada y el Hardware Bridge esté activo.
+                        </p>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* HARDWARE BRIDGE - MANUAL CONFIGURATION GUIDE */}
             <Card>

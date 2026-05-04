@@ -23,6 +23,15 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                 const url = res.data.warranty_format_url;
                 setWarrantyUrl(url || "");
             }).catch(err => console.error("Error cargando config:", err));
+
+            // Auto-print ticket si el toggle está activo
+            apiClient.get("/config/auto-print-ticket").then(res => {
+                if (res.data.auto_print_ticket && saleData?.saleId) {
+                    printerService.printTicket(saleData.saleId)
+                        .then(() => setPrintStatus('success'))
+                        .catch(() => {}); // silencioso - no interrumpir flujo
+                }
+            }).catch(() => {});
         }
     }, [isOpen]);
 

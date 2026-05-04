@@ -1121,3 +1121,28 @@ def get_subscription_status(
         "grace_period_active": grace_period_active,
         "license_blocked_reason": tenant.license_blocked_reason,
     }
+
+
+# ─── Auto Print Ticket Toggle ─────────────────────────────────────────────────
+@router.get("/auto-print-ticket")
+def get_auto_print_ticket(db: Session = Depends(get_db)):
+    """Obtener el estado del auto-print de ticket al confirmar venta."""
+    config = db.query(models.BusinessConfig).get("auto_print_ticket")
+    return {"auto_print_ticket": config.value == "true" if config else False}
+
+
+@router.post("/auto-print-ticket")
+def set_auto_print_ticket(
+    payload: dict,
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only),
+):
+    """Activar/desactivar impresión automática de ticket al confirmar venta. Solo ADMIN."""
+    enabled = bool(payload.get("enabled", False))
+    config = db.query(models.BusinessConfig).get("auto_print_ticket")
+    if config:
+        config.value = "true" if enabled else "false"
+    else:
+        db.add(models.BusinessConfig(key="auto_print_ticket", value="true" if enabled else "false"))
+    db.commit()
+    return {"auto_print_ticket": enabled}
