@@ -314,24 +314,24 @@ const POSCart = ({
             <div className="flex-1 overflow-hidden relative bg-slate-50/20">
                 {cartItems.length === 0 ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 p-8 text-center animate-in fade-in zoom-in-95 duration-500">
-                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shadow-slate-200/50">
-                            <ShoppingCart size={40} className="text-slate-200" strokeWidth={1.5} />
+                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-md">
+                            <ShoppingCart size={28} className="text-slate-200" strokeWidth={1.5} />
                         </div>
-                        <p className="text-sm font-black text-slate-400 uppercase tracking-widest">Carrito Vacío</p>
-                        <p className="text-[10px] mt-2 text-slate-400 max-w-[180px] leading-relaxed">Escanea un producto o selecciónalo del catálogo para comenzar la venta.</p>
+                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Carrito Vacío</p>
+                        <p className="text-[10px] mt-1.5 text-slate-400 max-w-[160px] leading-relaxed text-center">Escanea un producto o selecciónalo del catálogo.</p>
                     </div>
                 ) : (
                     <ScrollArea className="h-full w-full">
-                        <div className="p-3 space-y-3">
+                        <div className="p-2 space-y-1.5">
                             {/* NEW: Reverse sort to show latest at top */}
                             {[...cartItems].reverse().map((item, idx) => (
                                 <div
                                     key={`${item.id}-${item.unit_id}-${idx}`}
                                     onClick={() => onItemClick && onItemClick(item)}
-                                    className="group flex items-center gap-4 p-3 bg-white border border-slate-100 rounded-2xl hover:border-blue-200 hover:shadow-xl transition-all cursor-pointer relative"
+                                    className="group flex items-center gap-2.5 px-2.5 py-2 bg-white border border-slate-100 rounded-xl hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer relative"
                                 >
                                     {/* Thumbnail */}
-                                    <div className="w-14 h-14 flex-shrink-0 bg-slate-50 rounded-xl overflow-hidden border border-slate-100 relative group-hover:bg-white transition-colors">
+                                    <div className="w-10 h-10 flex-shrink-0 bg-slate-50 rounded-lg overflow-hidden border border-slate-100 relative group-hover:bg-white transition-colors">
                                         <ProductThumbnail
                                             imageUrl={item.image_url}
                                             productName={item.name}
@@ -345,7 +345,7 @@ const POSCart = ({
                                     <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
                                         <div className="flex justify-between items-start">
                                             <div className="min-w-0">
-                                                <h4 className="text-[11px] font-black text-slate-800 truncate pr-2 leading-tight uppercase tracking-tight" title={item.name}>
+                                                <h4 className="text-[11px] font-black text-slate-800 truncate pr-1 leading-tight" title={item.name}>
                                                     {item.name}
                                                 </h4>
                                                 <div className="flex items-center gap-1.5 mt-1">
@@ -450,16 +450,16 @@ const POSCart = ({
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between mt-2.5">
+                                        <div className="flex items-center justify-between mt-1.5">
                                             {/* Quantity Control (Elegant) */}
-                                            <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 h-8 shadow-inner overflow-hidden">
+                                            <div className="flex items-center bg-slate-50 rounded-lg border border-slate-200 h-7 shadow-inner overflow-hidden">
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         onUpdateQuantity(item.id, Math.max(0, item.quantity - 1));
                                                     }}
                                                     disabled={item.has_imei}
-                                                    className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white transition-all border-r border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="w-7 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white transition-all border-r border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     title={item.has_imei ? "Elimine el item para modificar seriales" : "Disminuir cantidad"}
                                                 >
                                                     <Minus size={12} strokeWidth={3} />
@@ -474,7 +474,7 @@ const POSCart = ({
                                                         if (!isNaN(val)) onUpdateQuantity(item.id, val);
                                                     }}
                                                     disabled={item.has_imei}
-                                                    className="w-12 text-center text-sm font-black text-slate-900 bg-transparent border-none focus:ring-0 tabular-nums disabled:text-slate-500"
+                                                    className="w-9 text-center text-xs font-black text-slate-900 bg-transparent border-none focus:ring-0 tabular-nums disabled:text-slate-500"
                                                 />
                                                 <button
                                                     onClick={(e) => {
@@ -482,7 +482,7 @@ const POSCart = ({
                                                         onUpdateQuantity(item.id, item.quantity + 1);
                                                     }}
                                                     disabled={item.has_imei}
-                                                    className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-white transition-all border-l border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="w-7 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white transition-all border-l border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     title={item.has_imei ? "Escanee otro serial para agregar" : "Aumentar cantidad"}
                                                 >
                                                     <Plus size={12} strokeWidth={3} />
@@ -510,7 +510,7 @@ const POSCart = ({
             </div>
 
             {/* Footer Totals */}
-            <div className="bg-white border-t border-slate-100 p-6 space-y-4 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10">
+            <div className="bg-white border-t border-slate-100 p-4 space-y-3 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10">
                 <div className="space-y-2">
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Subtotal Neto</span>
@@ -540,11 +540,11 @@ const POSCart = ({
                 </div>
 
                 <div className="pt-4 border-t border-slate-100">
-                    <div className="flex justify-between items-end mb-5">
+                    <div className="flex justify-between items-end mb-3">
                         <div className="flex flex-col">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Total a Recibir</span>
                             <div className="flex items-baseline gap-1 animate-in slide-in-from-left-2 duration-500">
-                                <span className="text-3xl font-black text-blue-600 tracking-tighter tabular-nums drop-shadow-sm">
+                                <span className="text-2xl font-black text-indigo-600 tracking-tighter tabular-nums">
                                     {anchorCurrency.symbol}{formatLocalCurrency(totals.totalUSD)}
                                 </span>
                             </div>
@@ -605,7 +605,7 @@ const POSCart = ({
                     <Button
                         id="tour-pos-pay-btn"
                         size="lg"
-                        className="w-full h-14 text-lg font-black bg-indigo-600 hover:bg-indigo-700 shadow-2xl shadow-indigo-300/30 rounded-2xl transition-all hover:-translate-y-1 active:scale-[0.98] group"
+                        className="w-full h-12 text-base font-black bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200/50 rounded-xl transition-all hover:-translate-y-0.5 active:scale-[0.98] group"
                         onClick={onCheckout}
                         disabled={cartItems.length === 0}
                     >
