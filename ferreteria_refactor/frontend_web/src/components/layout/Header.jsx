@@ -189,23 +189,25 @@ export default function Header() {
                     {primaryRate && (
                         <button
                             onClick={() => setIsRateSheetOpen(true)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white border border-slate-200 rounded-full shadow-sm hover:border-indigo-300 hover:shadow-md active:scale-95 transition-all"
+                            className="flex items-center gap-2 px-3.5 py-2 bg-white border-2 border-slate-200 rounded-2xl shadow-sm hover:border-indigo-400 hover:shadow-md active:scale-95 transition-all"
                         >
-                            <div className={cn('w-2 h-2 rounded-full flex-shrink-0', FRESHNESS_DOT[freshness])} />
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide hidden sm:block">
-                                {primaryRate.currency_symbol || primaryRate.symbol}
-                            </span>
-                            <span className="text-xs font-black text-slate-800">
-                                {rate >= 1000
-                                    ? rate.toLocaleString('es-VE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-                                    : rate.toFixed(2)}
-                            </span>
+                            <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0', FRESHNESS_DOT[freshness])} />
+                            <div className="flex flex-col items-start leading-none">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                    {primaryRate.currency_symbol || primaryRate.symbol}
+                                </span>
+                                <span className="text-sm font-black text-slate-800 tabular-nums">
+                                    {rate >= 1000
+                                        ? rate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        : rate.toFixed(2)}
+                                </span>
+                            </div>
                             {secondaryCurrencies.length > 1 && (
-                                <span className="text-[9px] bg-slate-100 text-slate-500 font-bold px-1 rounded-full hidden sm:block">
+                                <span className="text-[10px] bg-indigo-100 text-indigo-600 font-black px-1.5 py-0.5 rounded-lg hidden sm:block">
                                     +{secondaryCurrencies.length - 1}
                                 </span>
                             )}
-                            <ChevronDown size={11} className="text-slate-400" />
+                            <ChevronDown size={13} className="text-slate-400" />
                         </button>
                     )}
 
