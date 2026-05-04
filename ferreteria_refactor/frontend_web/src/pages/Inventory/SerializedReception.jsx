@@ -14,6 +14,7 @@ const IMEI_SERVICE_ID = 0;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const normalizar = (s = '') => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
+// fuzzyMatch para búsqueda manual (tolerante, para el buscador del modal)
 const fuzzyMatch = (text, query) => {
     const t = normalizar(text);
     const q = normalizar(query);
@@ -36,6 +37,30 @@ const fuzzyMatch = (text, query) => {
     return false;
 };
 
+// strictModelMatch para match automático API→catálogo (estricto)
+// El nombre del producto debe contener las palabras clave del modelo detectado
+// como "núcleo" del nombre, no solo menciones sueltas
+const strictModelMatch = (productName, brand, model) => {
+    const name = normalizar(productName);
+    const m = normalizar(model || '');
+    const b = normalizar(brand || '');
+    if (!m) return false;
+    // Todas las palabras del modelo deben estar en el nombre del producto
+    const modelWords = m.split(/\s+/).filter(w => w.length >= 2);
+    if (modelWords.length === 0) return false;
+    const allModelWordsPresent = modelWords.every(w => name.includes(w));
+    if (!allModelWordsPresent) return false;
+    // Validación adicional: el modelo debe representar una parte significativa del nombre
+    // Evitar que "Forro Samsung Galaxy A06" haga match solo por tener las palabras
+    // Si la marca también está en el nombre O el modelo ocupa >40% de las palabras → válido
+    const nameWords = name.split(/\s+/).filter(w => w.length >= 2);
+    const coverageRatio = modelWords.length / nameWords.length;
+    if (coverageRatio >= 0.4) return true;
+    // Si la marca está presente también → match válido
+    if (b && name.includes(b)) return true;
+    return false;
+};
+
 // ─── Modal de selección de producto ──────────────────────────────────────────
 const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
     const [search, setSearch] = useState('');
@@ -47,13 +72,15 @@ const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
     // Si hay búsqueda manual → filtrar por ella
     // Si no → mostrar los que hacen match con el modelo detectado
     // Si no hay modelo detectado → mostrar todos
-    const detectedQuery = [detected?.brand, detected?.model].filter(Boolean).join(' ');
-    const activeQuery = search || detectedQuery;
-    const filtered = activeQuery
-        ? catalog.filter(p => fuzzyMatch(p.name, activeQuery) || (p.sku && fuzzyMatch(p.sku, activeQuery)))
+    // Pre-filtrar con match estricto por modelo detectado
+    const autoFiltered = (detected?.model)
+        ? catalog.filter(p => strictModelMatch(p.name, detected.brand || '', detected.model))
         : catalog;
-    // Si el filtro no encuentra nada (nombre del producto muy diferente), mostrar todos con buscador vacío
-    const all = filtered.length > 0 ? filtered : catalog;
+    // Si el usuario escribe en el buscador → fuzzy search sobre todos
+    // Si no → mostrar solo los que hacen match estricto con el modelo
+    const all = search
+        ? catalog.filter(p => fuzzyMatch(p.name, search) || (p.sku && fuzzyMatch(p.sku, search)))
+        : (autoFiltered.length > 0 ? autoFiltered : catalog);
 
     return (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -239,14 +266,10 @@ const SerializedReception = () => {
 
     const allImeis = groups.flatMap(g => g.imeis.map(i => i.imei));
 
-    // Buscar coincidencias en catálogo
+    // Buscar coincidencias en catálogo - usa match estricto para evitar falsos positivos
     const findMatches = useCallback((brand = '', model = '') => {
         if (!model && !brand) return [];
-        const modelWords = normalizar(model).split(/\s+/).filter(Boolean);
-        return catalog.filter(p => {
-            const pName = normalizar(p.name);
-            return modelWords.length > 0 && modelWords.every(w => pName.includes(w));
-        });
+        return catalog.filter(p => strictModelMatch(p.name, brand, model));
     }, [catalog]);
 
     const addImei = useCallback(async () => {
