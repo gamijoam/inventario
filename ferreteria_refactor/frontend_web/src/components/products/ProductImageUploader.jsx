@@ -9,28 +9,43 @@ import { cn } from '../../lib/utils';
 const ImageEditor = ({ src, onConfirm, onCancel }) => {
   const [rotation, setRotation] = useState(0);
   const [scale, setScale] = useState(1);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const imgRef = useRef(null);
 
   const rotate = () => setRotation(r => (r + 90) % 360);
 
   const handleConfirm = useCallback(async () => {
     const img = imgRef.current;
+    if (!img || !imgLoaded) return;
+
+    // Asegurarse de que la imagen tiene dimensiones válidas
+    const w = img.naturalWidth || img.width || 800;
+    const h = img.naturalHeight || img.height || 600;
+    if (w === 0 || h === 0) return;
+
     const canvas = document.createElement('canvas');
     const rad = (rotation * Math.PI) / 180;
     const sin = Math.abs(Math.sin(rad));
     const cos = Math.abs(Math.cos(rad));
-    canvas.width = (img.naturalWidth * cos + img.naturalHeight * sin) * scale;
-    canvas.height = (img.naturalWidth * sin + img.naturalHeight * cos) * scale;
+
+    // Dimensiones del canvas rotado
+    const canvasW = Math.round(w * cos + h * sin);
+    const canvasH = Math.round(w * sin + h * cos);
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+
     const ctx = canvas.getContext('2d');
-    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.translate(canvasW / 2, canvasH / 2);
     ctx.rotate(rad);
     ctx.scale(scale, scale);
-    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+
     canvas.toBlob(blob => {
+      if (!blob) return;
       const file = new File([blob], 'edited.jpg', { type: 'image/jpeg' });
       onConfirm(file);
     }, 'image/jpeg', 0.92);
-  }, [rotation, scale, onConfirm]);
+  }, [rotation, scale, onConfirm, imgLoaded]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -46,6 +61,7 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
             ref={imgRef}
             src={src}
             alt="Preview"
+            onLoad={() => setImgLoaded(true)}
             style={{ transform: `rotate(${rotation}deg) scale(${scale})`, maxWidth: '80%', maxHeight: '80%', objectFit: 'contain', transition: 'transform 0.3s ease', flexShrink: 0 }}
           />
         </div>
@@ -65,7 +81,7 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
         </div>
         <div className="px-5 pb-5 flex gap-3">
           <button onClick={onCancel} className="flex-1 py-2.5 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">Cancelar</button>
-          <button onClick={handleConfirm} className="flex-1 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm flex items-center justify-center gap-2 transition-all">
+          <button onClick={handleConfirm} disabled={!imgLoaded} className="flex-1 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black text-sm flex items-center justify-center gap-2 transition-all">
             <Check size={16} /> Usar foto
           </button>
         </div>
