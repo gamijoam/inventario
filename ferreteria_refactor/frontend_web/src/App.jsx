@@ -34,6 +34,7 @@ const Categories = React.lazy(() => import('./pages/Categories'));
 const Inventory = React.lazy(() => import('./pages/Inventory'));
 const POS = React.lazy(() => import('./pages/POS'));
 const CashClose = React.lazy(() => import('./pages/CashClose'));
+const POSExpress = React.lazy(() => import('./pages/POSExpress'));
 const ExternalFinancing = React.lazy(() => import('./pages/ExternalFinancing'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const Purchases = React.lazy(() => import('./pages/Purchases'));
@@ -314,6 +315,7 @@ function App() {
                           {/* Standalone POS Routes (No Dashboard Layout) */}
                           <Route element={<ProtectedRoute roles={['ADMIN', 'CASHIER']} />}>
                             <Route path="/pos" element={<POS />} />
+                            <Route path="/pos-express" element={<POSExpress />} />
                             <Route path="/cash-close" element={<CashClose />} />
                             <Route path="/external-financing" element={<ExternalFinancing />} />
                           </Route>
