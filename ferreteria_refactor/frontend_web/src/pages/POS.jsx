@@ -231,11 +231,11 @@ const POS = () => {
         }
     });
 
-    // Ctrl+B: Product Lookup Modal
-    useHotkeys('ctrl+b', (e) => {
+    // Ctrl+K: Product Lookup Modal (estándar de buscadores)
+    useHotkeys('ctrl+k', (e) => {
         e.preventDefault();
         setIsLookupOpen(prev => !prev);
-    }, { enableOnFormTags: false });
+    }, { enableOnFormTags: true, preventDefault: true });
 
     // F2: New sale (clear cart with confirmation)
     useHotkeys('f2', (e) => {
@@ -336,7 +336,7 @@ const POS = () => {
     useBarcodeScanner(handleGlobalScan, {
         minLength: 3,
         maxTimeBetweenKeys: 50,
-        enabled: !pinModalOpen && !selectedProductForSerialized && !isPaymentOpen && !isSettingsOpen
+        enabled: !pinModalOpen && !selectedProductForSerialized && !isPaymentOpen && !isSettingsOpen && !isLookupOpen
     });
 
 
@@ -793,11 +793,11 @@ const POS = () => {
                     <button
                         onClick={() => setIsLookupOpen(true)}
                         className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs transition-all border border-indigo-200"
-                        title="Buscador de productos (Ctrl+B)"
+                        title="Buscador de productos (Ctrl+K)"
                     >
                         <Search size={15} />
                         <span className="hidden sm:block">Buscar</span>
-                        <kbd className="text-[9px] font-mono text-indigo-300 bg-indigo-100 px-1 rounded hidden lg:block">Ctrl+B</kbd>
+                        <kbd className="text-[9px] font-mono text-indigo-300 bg-indigo-100 px-1 rounded hidden lg:block">Ctrl+K</kbd>
                     </button>
 
                     {!(isCashier && showCajeroRestringido) && (

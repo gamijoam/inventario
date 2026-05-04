@@ -240,7 +240,7 @@ const ProductLookupModal = ({ isOpen, onClose }) => {
                         <Search size={36} strokeWidth={1} />
                         <p className="text-sm font-bold text-slate-400">Escanea o escribe para buscar</p>
                         <p className="text-xs text-slate-300">Código de barras, SKU o nombre del producto</p>
-                        <p className="text-[10px] text-slate-200 mt-2 bg-slate-50 px-3 py-1 rounded-full font-mono">Ctrl+B para abrir · Esc para cerrar</p>
+                        <p className="text-[10px] text-slate-200 mt-2 bg-slate-50 px-3 py-1 rounded-full font-mono">Ctrl+K para abrir · Esc para cerrar</p>
                     </div>
                 )}
             </div>
