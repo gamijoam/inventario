@@ -139,7 +139,7 @@ const SalesCenter = () => {
                     </div>
 
                     {/* Tab Navigation */}
-                    <div className="flex overflow-x-auto gap-0 -mb-px scrollbar-hide">
+                    <div className="flex overflow-x-auto gap-1.5 pb-1 scrollbar-hide">
                         {TABS.map(tab => {
                             const TabIcon = tab.icon;
                             const isActive = activeTab === tab.id;
@@ -147,13 +147,13 @@ const SalesCenter = () => {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`flex items-center gap-2 px-4 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-all ${
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all shrink-0 ${
                                         isActive
-                                            ? 'text-emerald-600 border-emerald-600'
-                                            : 'text-slate-500 border-transparent hover:text-slate-700 hover:border-slate-300'
+                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                                     }`}
                                 >
-                                    <TabIcon size={16} />
+                                    <TabIcon size={15} className={isActive ? 'text-white' : 'text-slate-400'} />
                                     {tab.label}
                                 </button>
                             );
