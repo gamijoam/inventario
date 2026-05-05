@@ -27,7 +27,7 @@ def get_hot_products(
         JOIN sales s ON s.id = sd.sale_id
         WHERE p.is_active = true
           AND s.date >= :since
-          AND s.status != 'CANCELLED'
+          
         GROUP BY p.id, p.name, p.sku, p.stock, p.price, p.image_url
         ORDER BY units_sold DESC
         LIMIT :limit
@@ -64,7 +64,7 @@ def get_dormant_products(
                (p.stock * p.price)::float AS stock_value
         FROM products p
         LEFT JOIN sale_details sd ON sd.product_id = p.id
-        LEFT JOIN sales s ON s.id = sd.sale_id AND s.status != 'CANCELLED'
+        LEFT JOIN sales s ON s.id = sd.sale_id 
         WHERE p.is_active = true AND p.stock > 0
         GROUP BY p.id, p.name, p.sku, p.stock, p.price, p.image_url
         HAVING COALESCE(SUM(CASE WHEN s.date >= :since THEN sd.quantity ELSE 0 END), 0) = 0
@@ -96,7 +96,7 @@ def get_transfer_suggestions(
                (p.stock * p.price)::float AS stock_value
         FROM products p
         LEFT JOIN sale_details sd ON sd.product_id = p.id
-        LEFT JOIN sales s ON s.id = sd.sale_id AND s.status != 'CANCELLED'
+        LEFT JOIN sales s ON s.id = sd.sale_id 
         WHERE p.is_active = true AND p.stock > 0 AND (p.stock * p.price) >= 20
         GROUP BY p.id, p.name, p.sku, p.stock, p.price, p.image_url
         HAVING COALESCE(SUM(CASE WHEN s.date >= :since THEN sd.quantity ELSE 0 END), 0) = 0
