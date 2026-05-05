@@ -14,7 +14,6 @@ const IMEI_SERVICE_ID = 0;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const normalizar = (s = '') => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-// fuzzyMatch para búsqueda manual (tolerante, para el buscador del modal)
 const fuzzyMatch = (text, query) => {
     const t = normalizar(text);
     const q = normalizar(query);
@@ -37,48 +36,6 @@ const fuzzyMatch = (text, query) => {
     return false;
 };
 
-// strictModelMatch para match automático API→catálogo
-// Reglas:
-// 1. Todas las palabras del modelo deben estar en el nombre del producto
-// 2. El nombre NO debe empezar con palabras de accesorios (Forro, Cargador, Cable, etc.)
-// 3. La cobertura modelo/nombre debe ser alta (≥60%) O la marca debe estar presente Y ser la primera palabra significativa
-const ACCESSORY_WORDS = ['forro', 'cargador', 'cable', 'auricular', 'audifonos', 'case', 'protector',
-    'mica', 'vidrio', 'templado', 'holder', 'soporte', 'bateria', 'tapa', 'cover',
-    'estuche', 'bolso', 'correa', 'adaptador', 'pila', 'repuesto', 'pantalla'];
-
-const strictModelMatch = (productName, brand, model) => {
-    // Limpiar caracteres especiales (+ / - etc) antes de comparar
-    const name = normalizar(cleanSpecial(productName));
-    const m = normalizar(cleanSpecial(model || ''));
-    const b = normalizar(cleanSpecial(brand || ''));
-    if (!m) return false;
-
-    // Rechazar si el nombre empieza con palabra de accesorio
-    const firstWord = name.split(/\s+/)[0] || '';
-    if (ACCESSORY_WORDS.includes(firstWord)) return false;
-    if (ACCESSORY_WORDS.some(a => name.startsWith(a + ' '))) return false;
-
-    // Todas las palabras del modelo deben estar en el nombre
-    const modelWords = m.split(/\s+/).filter(w => w.length >= 2);
-    if (modelWords.length === 0) return false;
-    if (!modelWords.every(w => name.includes(w))) return false;
-
-    // Si la marca también está en el nombre → match válido (cubre A100C + ITEL)
-    if (b && name.includes(b)) return true;
-
-    // Si el modelo tiene ≥2 palabras y todas coinciden → match válido
-    if (modelWords.length >= 2) return true;
-
-    // Modelo de 1 sola palabra → exigir que la marca esté (ya cubierto arriba)
-    // o que el modelo sea muy específico (alfanumérico como A100C, Note60)
-    const isAlphaNumericModel = /^[a-z]\d|\d[a-z]/i.test(model || '');
-    if (isAlphaNumericModel) return true;
-
-    // Fallback: cobertura ≥50%
-    const nameWords = name.split(/\s+/).filter(w => w.length >= 2);
-    return modelWords.length / nameWords.length >= 0.5;
-};
-
 // ─── Modal de selección de producto ──────────────────────────────────────────
 const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
     const [search, setSearch] = useState('');
@@ -87,18 +44,9 @@ const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
     useEffect(() => { setTimeout(() => searchRef.current?.focus(), 100); }, []);
 
     // Candidatos: primero los que hacen match con el modelo detectado, luego todos
-    // Si hay búsqueda manual → filtrar por ella
-    // Si no → mostrar los que hacen match con el modelo detectado
-    // Si no hay modelo detectado → mostrar todos
-    // Pre-filtrar con match estricto por modelo detectado
-    const autoFiltered = (detected?.model)
-        ? catalog.filter(p => strictModelMatch(p.name, detected.brand || '', detected.model))
-        : catalog;
-    // Si el usuario escribe en el buscador → fuzzy search sobre todos
-    // Si no → mostrar solo los que hacen match estricto con el modelo
-    const all = search
-        ? catalog.filter(p => fuzzyMatch(p.name, search) || (p.sku && fuzzyMatch(p.sku, search)))
-        : (autoFiltered.length > 0 ? autoFiltered : catalog);
+    const query = search || (detected?.model || '');
+    const matches = catalog.filter(p => fuzzyMatch(p.name, query) || (p.sku && fuzzyMatch(p.sku, query)));
+    const all = search ? matches : catalog;
 
     return (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -284,20 +232,18 @@ const SerializedReception = () => {
 
     const allImeis = groups.flatMap(g => g.imeis.map(i => i.imei));
 
-    // Buscar coincidencias en catálogo - usa match estricto para evitar falsos positivos
+    // Buscar coincidencias en catálogo
     const findMatches = useCallback((brand = '', model = '') => {
         if (!model && !brand) return [];
-        return catalog.filter(p => strictModelMatch(p.name, brand, model));
+        const modelWords = normalizar(model).split(/\s+/).filter(Boolean);
+        return catalog.filter(p => {
+            const pName = normalizar(p.name);
+            return modelWords.length > 0 && modelWords.every(w => pName.includes(w));
+        });
     }, [catalog]);
 
     const addImei = useCallback(async () => {
-        // Usar la ref que siempre tiene el valor más reciente del input
-        const rawValue = latestImei.current || inputRef.current?.value || imeiInput;
-        const imei = rawValue.trim().toUpperCase();
-        // Limpiar inmediatamente para que se sienta responsivo
-        setImeiInput('');
-        latestImei.current = '';
-        if (inputRef.current) inputRef.current.value = '';
+        const imei = imeiInput.trim().toUpperCase();
         if (!imei) return;
         if (allImeis.includes(imei)) {
             toast.error('Este IMEI ya está en la lista', { id: 'imei-dup' });
@@ -315,6 +261,7 @@ const SerializedReception = () => {
             }
         } catch { /* fail open */ }
 
+        setImeiInput('');
         setScanning(true);
         toast.loading('Consultando IMEI.info...', { id: 'imei-api' });
 
@@ -503,7 +450,7 @@ const SerializedReception = () => {
                     <input
                         ref={inputRef}
                         value={imeiInput}
-                        onChange={e => { setImeiInput(e.target.value); latestImei.current = e.target.value; }}
+                        onChange={e => setImeiInput(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={scanning ? 'Consultando IMEI.info...' : 'Escanear IMEI (Enter para agregar)'}
                         disabled={scanning}
