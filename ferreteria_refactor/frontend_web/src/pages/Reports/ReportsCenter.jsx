@@ -22,6 +22,7 @@ const SuppliersTab = lazy(() => import('./tabs/SuppliersTab'));
 const InventoryTab = lazy(() => import('./tabs/InventoryTab'));
 const PharmacyTab = lazy(() => import('./tabs/PharmacyTab'));
 const CommissionsTab = lazy(() => import('./tabs/CommissionsTab'));
+const IntelligenceTab = lazy(() => import('./tabs/IntelligenceTab'));
 
 // --- Tab definitions ---
 const TABS = [
@@ -33,6 +34,7 @@ const TABS = [
     { id: 'inventario', label: 'Inventario', icon: Package },
     { id: 'farmacia', label: 'Farmacia', icon: Pill, moduleRequired: 'pharmacy' },
     { id: 'comisiones', label: 'Comisiones', icon: DollarSign },
+    { id: 'intelligence', label: '🧠 Inteligencia', icon: TrendingUp },
 ];
 
 // --- Date helpers ---
@@ -749,6 +751,12 @@ const ReportsCenter = () => {
                 return (
                     <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 animate-pulse">Cargando...</div>}>
                         <PharmacyTab dateRange={dateRange} />
+                    </Suspense>
+                );
+            case 'intelligence':
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full" /></div>}>
+                        <IntelligenceTab />
                     </Suspense>
                 );
             case 'comisiones':
