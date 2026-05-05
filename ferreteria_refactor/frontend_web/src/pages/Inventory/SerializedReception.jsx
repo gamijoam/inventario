@@ -43,25 +43,37 @@ const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
 
     useEffect(() => { setTimeout(() => searchRef.current?.focus(), 100); }, []);
 
-    // Pre-filtrar por brand+model detectado cuando no hay búsqueda manual
+    // Filtrar en 3 niveles: marca+modelo → solo marca → todos
     const getAutoFiltered = () => {
-        if (!detected?.model) return catalog;
-        const b = normalizar(detected.brand || '');
-        const modelWords = normalizar(detected.model).split(/\s+/).filter(w => w.length >= 2);
-        const ACCESORIOS = ['forro','cargador','cable','auricular','audifonos','case',
-            'protector','mica','vidrio','templado','soporte','bateria','tapa','cover',
-            'estuche','correa','adaptador','repuesto','pantalla'];
-        const filtered = catalog.filter(p => {
-            const n = normalizar(p.name);
-            if (ACCESORIOS.includes(n.split(' ')[0] || '')) return false;
-            if (!modelWords.every(w => n.includes(w))) return false;
-            if (b && n.includes(b)) return true;
-            if (modelWords.length >= 2) return true;
-            if (/[a-z]\d|\d[a-z]/i.test(detected.model)) return true;
-            return false;
-        });
-        // Si no hay matches estrictos, caer a todos para no quedar vacío
-        return filtered.length > 0 ? filtered : catalog;
+        const b = normalizar(detected?.brand || '');
+        const modelWords = normalizar(detected?.model || '').split(/\s+/).filter(w => w.length >= 2);
+
+        // Nivel 1: marca + modelo exacto
+        if (b && modelWords.length > 0) {
+            const exact = catalog.filter(p => {
+                const n = normalizar(p.name);
+                return n.includes(b) && modelWords.every(w => n.includes(w));
+            });
+            if (exact.length > 0) return exact;
+        }
+
+        // Nivel 2: solo marca (ITEL, INFINIX, SAMSUNG, etc.)
+        if (b) {
+            const byBrand = catalog.filter(p => normalizar(p.name).includes(b));
+            if (byBrand.length > 0) return byBrand;
+        }
+
+        // Nivel 3: solo modelo
+        if (modelWords.length > 0) {
+            const byModel = catalog.filter(p => {
+                const n = normalizar(p.name);
+                return modelWords.every(w => n.includes(w));
+            });
+            if (byModel.length > 0) return byModel;
+        }
+
+        // Nivel 4: todo el catálogo
+        return catalog;
     };
 
     const all = search
