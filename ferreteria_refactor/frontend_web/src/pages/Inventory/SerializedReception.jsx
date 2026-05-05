@@ -290,8 +290,8 @@ const SerializedReception = () => {
         return catalog.filter(p => strictModelMatch(p.name, brand, model));
     }, [catalog]);
 
-    const addImei = useCallback(async () => {
-        const imei = imeiInput.trim().toUpperCase();
+    const addImei = useCallback(async (imeiOverride = null) => {
+        const imei = (imeiOverride || imeiInput || '').trim().toUpperCase();
         if (!imei) return;
         if (allImeis.includes(imei)) {
             toast.error('Este IMEI ya está en la lista', { id: 'imei-dup' });
@@ -309,7 +309,6 @@ const SerializedReception = () => {
             }
         } catch { /* fail open */ }
 
-        setImeiInput('');
         setScanning(true);
         toast.loading('Consultando IMEI.info...', { id: 'imei-api' });
 
@@ -365,15 +364,11 @@ const SerializedReception = () => {
     const handleKeyDown = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            // Leer el valor actual del input DOM directamente (no del state que puede estar desactualizado)
+            // Leer el DOM directamente — siempre tiene el valor más reciente
             const currentValue = inputRef.current?.value || imeiInput;
-            if (currentValue !== imeiInput) {
-                setImeiInput(currentValue);
-                // Pequeño delay para que el state se actualice antes de addImei
-                setTimeout(() => addImei(), 30);
-            } else {
-                addImei();
-            }
+            setImeiInput('');
+            if (inputRef.current) inputRef.current.value = '';
+            addImei(currentValue);
         }
     };
 
@@ -516,7 +511,7 @@ const SerializedReception = () => {
                         className="flex-1 bg-transparent outline-none text-sm font-mono text-slate-800 placeholder:text-slate-400"
                         autoFocus
                     />
-                    <button onClick={addImei} disabled={scanning || !imeiInput.trim()}
+                    <button onClick={() => { const v = imeiInput; setImeiInput(''); addImei(v); }} disabled={scanning || !imeiInput.trim()}
                         className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl disabled:opacity-40 transition-all">
                         Agregar
                     </button>
