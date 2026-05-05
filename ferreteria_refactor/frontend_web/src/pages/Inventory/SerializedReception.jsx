@@ -45,34 +45,55 @@ const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
 
     // Filtrar en 3 niveles: marca+modelo → solo marca → todos
     const getAutoFiltered = () => {
-        const b = normalizar(detected?.brand || '');
-        const modelWords = normalizar(detected?.model || '').split(/\s+/).filter(w => w.length >= 2);
+        // Alias de marcas: algunas marcas tienen otro nombre en el catálogo
+        const BRAND_ALIASES = { apple: ['iphone', 'apple'], xiaomi: ['xiaomi', 'redmi', 'poco'], samsung: ['samsung', 'galaxy'] };
+        const rawBrand = normalizar(detected?.brand || '');
+        const brandAliases = BRAND_ALIASES[rawBrand] || [rawBrand];
+        const b = rawBrand;
+        // Limpiar modelo: quitar caracteres especiales, separar palabras
+        const rawModel = normalizar((detected?.model || '').replace(/[+/\-]/g, ' '));
+        const modelWords = rawModel.split(/\s+/).filter(w => w.length >= 2);
 
-        // Nivel 1: marca + modelo exacto
+        const GENERIC = ['galaxy','note','smart','pro','plus','max','mini','lite','ultra','prime','se'];
+        const keyWords = modelWords.filter(w => !GENERIC.includes(w) && w.length >= 2);
+
+        // Helper: ¿el nombre contiene la marca o algún alias?
+        const hasBrand = (n) => brandAliases.some(alias => n.includes(alias));
+
+        // Nivel 1: marca + TODAS las palabras del modelo
         if (b && modelWords.length > 0) {
             const exact = catalog.filter(p => {
                 const n = normalizar(p.name);
-                return n.includes(b) && modelWords.every(w => n.includes(w));
+                return hasBrand(n) && modelWords.every(w => n.includes(w));
             });
             if (exact.length > 0) return exact;
         }
 
-        // Nivel 2: solo marca (ITEL, INFINIX, SAMSUNG, etc.)
+        // Nivel 2: marca + palabra clave del modelo
+        if (b && keyWords.length > 0) {
+            const partial = catalog.filter(p => {
+                const n = normalizar(p.name);
+                return hasBrand(n) && keyWords.some(w => n.includes(w));
+            });
+            if (partial.length > 0) return partial;
+        }
+
+        // Nivel 3: solo marca (con aliases)
         if (b) {
-            const byBrand = catalog.filter(p => normalizar(p.name).includes(b));
+            const byBrand = catalog.filter(p => hasBrand(normalizar(p.name)));
             if (byBrand.length > 0) return byBrand;
         }
 
-        // Nivel 3: solo modelo
-        if (modelWords.length > 0) {
-            const byModel = catalog.filter(p => {
+        // Nivel 4: palabras clave del modelo sin marca
+        if (keyWords.length > 0) {
+            const byKey = catalog.filter(p => {
                 const n = normalizar(p.name);
-                return modelWords.every(w => n.includes(w));
+                return keyWords.some(w => n.includes(w));
             });
-            if (byModel.length > 0) return byModel;
+            if (byKey.length > 0) return byKey;
         }
 
-        // Nivel 4: todo el catálogo
+        // Nivel 5: todo el catálogo
         return catalog;
     };
 
