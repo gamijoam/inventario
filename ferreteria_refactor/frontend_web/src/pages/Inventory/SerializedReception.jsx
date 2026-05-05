@@ -12,7 +12,7 @@ const IMEI_API_KEY = '7c1c33d3-0604-43b8-b09e-41226ee7eacd';
 const IMEI_SERVICE_ID = 0;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const normalizar = (s = '') => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const normalizar = (s = '') => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[+/\-_,;:.!?@#$%&*()]/g, ' ').replace(/\s+/g, ' ').trim();
 
 const fuzzyMatch = (text, query) => {
     const t = normalizar(text);
@@ -43,10 +43,30 @@ const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
 
     useEffect(() => { setTimeout(() => searchRef.current?.focus(), 100); }, []);
 
-    // Candidatos: primero los que hacen match con el modelo detectado, luego todos
-    const query = search || (detected?.model || '');
-    const matches = catalog.filter(p => fuzzyMatch(p.name, query) || (p.sku && fuzzyMatch(p.sku, query)));
-    const all = search ? matches : catalog;
+    // Pre-filtrar por brand+model detectado cuando no hay búsqueda manual
+    const getAutoFiltered = () => {
+        if (!detected?.model) return catalog;
+        const b = normalizar(detected.brand || '');
+        const modelWords = normalizar(detected.model).split(/\s+/).filter(w => w.length >= 2);
+        const ACCESORIOS = ['forro','cargador','cable','auricular','audifonos','case',
+            'protector','mica','vidrio','templado','soporte','bateria','tapa','cover',
+            'estuche','correa','adaptador','repuesto','pantalla'];
+        const filtered = catalog.filter(p => {
+            const n = normalizar(p.name);
+            if (ACCESORIOS.includes(n.split(' ')[0] || '')) return false;
+            if (!modelWords.every(w => n.includes(w))) return false;
+            if (b && n.includes(b)) return true;
+            if (modelWords.length >= 2) return true;
+            if (/[a-z]\d|\d[a-z]/i.test(detected.model)) return true;
+            return false;
+        });
+        // Si no hay matches estrictos, caer a todos para no quedar vacío
+        return filtered.length > 0 ? filtered : catalog;
+    };
+
+    const all = search
+        ? catalog.filter(p => fuzzyMatch(p.name, search) || (p.sku && fuzzyMatch(p.sku, search)))
+        : getAutoFiltered();
 
     return (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -232,13 +252,35 @@ const SerializedReception = () => {
 
     const allImeis = groups.flatMap(g => g.imeis.map(i => i.imei));
 
-    // Buscar coincidencias en catálogo
+    // Buscar coincidencias en catálogo — filtra por marca Y modelo
     const findMatches = useCallback((brand = '', model = '') => {
         if (!model && !brand) return [];
-        const modelWords = normalizar(model).split(/\s+/).filter(Boolean);
+        const b = normalizar(brand);
+        const modelWords = normalizar(model).split(/\s+/).filter(w => w.length >= 2);
+        if (modelWords.length === 0) return [];
+
         return catalog.filter(p => {
             const pName = normalizar(p.name);
-            return modelWords.length > 0 && modelWords.every(w => pName.includes(w));
+            // Rechazar accesorios
+            const ACCESORIOS = ['forro','cargador','cable','auricular','audifonos','case',
+                'protector','mica','vidrio','templado','soporte','bateria','tapa','cover',
+                'estuche','correa','adaptador','repuesto','pantalla'];
+            const firstWord = pName.split(' ')[0] || '';
+            if (ACCESORIOS.includes(firstWord)) return false;
+
+            // Todas las palabras del modelo deben estar en el nombre
+            if (!modelWords.every(w => pName.includes(w))) return false;
+
+            // Si la marca también está → match válido (más estricto)
+            if (b && pName.includes(b)) return true;
+
+            // Modelo con ≥2 palabras y todas coinciden → válido
+            if (modelWords.length >= 2) return true;
+
+            // Modelo alfanumérico (A100C, Hot60i) → válido
+            if (/[a-z]\d|\d[a-z]/i.test(model)) return true;
+
+            return false;
         });
     }, [catalog]);
 
