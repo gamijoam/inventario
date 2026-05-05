@@ -38,7 +38,7 @@ def run_broadcast(event: str, data: dict):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(manager.broadcast(event, data))
+        loop.run_until_complete(manager.broadcast_all({"type": event, "data": data}))
     finally:
         loop.close()
 
@@ -489,7 +489,7 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
             "units": response_data["units"],
             "combo_items": response_data["combo_items"]
         }
-        background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
+        background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
 
         return response_data
 
