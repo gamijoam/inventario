@@ -773,7 +773,15 @@ const POS = () => {
                         <ArrowLeft size={20} />
                     </Link>
                     <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
-                    <h1 className="text-lg font-black text-slate-800 tracking-tight hidden md:block">Punto de Venta</h1>
+                    <div className="hidden md:flex flex-col">
+                        <h1 className="text-sm font-black text-slate-800 tracking-tight leading-none">Punto de Venta</h1>
+                        {user && (
+                            <span className="text-[11px] font-bold text-slate-400 mt-0.5 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                                {user.full_name || user.username || user.email}
+                            </span>
+                        )}
+                    </div>
                         <HelpButton contextKey={helpKey} onClick={help.open} />
                 </div>
 
