@@ -524,7 +524,7 @@ class CustomerBase(BaseModel):
     phone: Optional[str] = Field(None, description="Teléfono de contacto principal", json_schema_extra={'example': "+58 412 5555555"})
     email: Optional[str] = Field(None, description="Correo electrónico para facturación", json_schema_extra={'example': "compras@global.com"})
     address: Optional[str] = Field(None, description="Dirección fiscal o de entrega", json_schema_extra={'example': "Av. Principal, Edif. Azul"})
-    credit_limit: Decimal = Field(Decimal("100.00"), description="Límite máximo de crédito permitido en USD", ge=0)
+    credit_limit: Decimal = Field(Decimal("500.00"), description="Límite máximo de crédito permitido en USD", ge=0)
     payment_term_days: Optional[int] = Field(15, description="Días de crédito otorgados", ge=0)
     unique_uuid: Optional[str] = Field(None, description="UUID único para sync")
     is_blocked: Optional[bool] = Field(False, description="Bloqueo administrativo para impedir nuevas ventas")
