@@ -51,22 +51,28 @@ const strictModelMatch = (productName, brand, model) => {
     const m = normalizar(model || '');
     const b = normalizar(brand || '');
     if (!m) return false;
+
     // Rechazar si el nombre empieza con palabra de accesorio
     const firstWord = name.split(/\s+/)[0] || '';
     if (ACCESSORY_WORDS.includes(firstWord)) return false;
-    // Rechazar si contiene palabras de accesorio prominentes
     if (ACCESSORY_WORDS.some(a => name.startsWith(a + ' '))) return false;
-    // Todas las palabras del modelo presentes
+
+    // Todas las palabras del modelo deben estar en el nombre
     const modelWords = m.split(/\s+/).filter(w => w.length >= 2);
     if (modelWords.length === 0) return false;
     if (!modelWords.every(w => name.includes(w))) return false;
-    // Cobertura alta: modelo debe ser ≥60% de las palabras del nombre
+
+    // Si la marca también está en el nombre → match válido
+    if (b && name.includes(b)) return true;
+
+    // Si el modelo es específico (≥2 palabras) y todas están → match válido
+    // Ej: "Hot 40i" (2 palabras) en "Hot 40i Pro Max" → válido
+    if (modelWords.length >= 2) return true;
+
+    // Modelo de 1 palabra → exigir cobertura alta
     const nameWords = name.split(/\s+/).filter(w => w.length >= 2);
     const coverage = modelWords.length / nameWords.length;
-    if (coverage >= 0.6) return true;
-    // O: marca presente Y no es accesorio
-    if (b && name.includes(b)) return true;
-    return false;
+    return coverage >= 0.5;
 };
 
 // ─── Modal de selección de producto ──────────────────────────────────────────
