@@ -13,3 +13,5 @@ router.include_router(sales_router)
 router.include_router(inventory_router)
 router.include_router(cash_router)
 router.include_router(commissions_router)
+from .intelligence_report import router as intelligence_router
+router.include_router(intelligence_router)
