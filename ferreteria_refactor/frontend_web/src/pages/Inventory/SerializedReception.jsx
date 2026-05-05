@@ -47,9 +47,10 @@ const ACCESSORY_WORDS = ['forro', 'cargador', 'cable', 'auricular', 'audifonos',
     'estuche', 'bolso', 'correa', 'adaptador', 'pila', 'repuesto', 'pantalla'];
 
 const strictModelMatch = (productName, brand, model) => {
-    const name = normalizar(productName);
-    const m = normalizar(model || '');
-    const b = normalizar(brand || '');
+    // Limpiar caracteres especiales (+ / - etc) antes de comparar
+    const name = normalizar(cleanSpecial(productName));
+    const m = normalizar(cleanSpecial(model || ''));
+    const b = normalizar(cleanSpecial(brand || ''));
     if (!m) return false;
 
     // Rechazar si el nombre empieza con palabra de accesorio
@@ -62,17 +63,20 @@ const strictModelMatch = (productName, brand, model) => {
     if (modelWords.length === 0) return false;
     if (!modelWords.every(w => name.includes(w))) return false;
 
-    // Si la marca también está en el nombre → match válido
+    // Si la marca también está en el nombre → match válido (cubre A100C + ITEL)
     if (b && name.includes(b)) return true;
 
-    // Si el modelo es específico (≥2 palabras) y todas están → match válido
-    // Ej: "Hot 40i" (2 palabras) en "Hot 40i Pro Max" → válido
+    // Si el modelo tiene ≥2 palabras y todas coinciden → match válido
     if (modelWords.length >= 2) return true;
 
-    // Modelo de 1 palabra → exigir cobertura alta
+    // Modelo de 1 sola palabra → exigir que la marca esté (ya cubierto arriba)
+    // o que el modelo sea muy específico (alfanumérico como A100C, Note60)
+    const isAlphaNumericModel = /^[a-z]\d|\d[a-z]/i.test(model || '');
+    if (isAlphaNumericModel) return true;
+
+    // Fallback: cobertura ≥50%
     const nameWords = name.split(/\s+/).filter(w => w.length >= 2);
-    const coverage = modelWords.length / nameWords.length;
-    return coverage >= 0.5;
+    return modelWords.length / nameWords.length >= 0.5;
 };
 
 // ─── Modal de selección de producto ──────────────────────────────────────────
