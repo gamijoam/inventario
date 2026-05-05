@@ -291,7 +291,9 @@ const SerializedReception = () => {
     }, [catalog]);
 
     const addImei = useCallback(async () => {
-        const imei = imeiInput.trim().toUpperCase();
+        // Usar ref como fuente de verdad — el state puede no actualizarse a tiempo
+        const rawImei = imeiInputRef.current || imeiInput;
+        const imei = rawImei.trim().toUpperCase();
         if (!imei) return;
         if (allImeis.includes(imei)) {
             toast.error('Este IMEI ya está en la lista', { id: 'imei-dup' });
@@ -310,6 +312,7 @@ const SerializedReception = () => {
         } catch { /* fail open */ }
 
         setImeiInput('');
+        imeiInputRef.current = '';
         setScanning(true);
         toast.loading('Consultando IMEI.info...', { id: 'imei-api' });
 
@@ -498,7 +501,7 @@ const SerializedReception = () => {
                     <input
                         ref={inputRef}
                         value={imeiInput}
-                        onChange={e => setImeiInput(e.target.value)}
+                        onChange={e => { setImeiInput(e.target.value); imeiInputRef.current = e.target.value; }}
                         onKeyDown={handleKeyDown}
                         placeholder={scanning ? 'Consultando IMEI.info...' : 'Escanear IMEI (Enter para agregar)'}
                         disabled={scanning}
