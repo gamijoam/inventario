@@ -45,23 +45,33 @@ const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
 
     // Filtrar en 3 niveles: marca+modelo → solo marca → todos
     const getAutoFiltered = () => {
-        // Alias de marcas: algunas marcas tienen otro nombre en el catálogo
-        const BRAND_ALIASES = { apple: ['iphone', 'apple'], xiaomi: ['xiaomi', 'redmi', 'poco'], samsung: ['samsung', 'galaxy'] };
+        // La API Basic puede devolver código interno (2510DRA23L, SM-A065M) en vez de nombre legible
+        // Detectar si el modelo es código técnico → ignorarlo, usar solo marca
+        const rawModel = detected?.model || '';
+        const looksLikeCode = /^[a-zA-Z]{0,4}\d{3,}[a-zA-Z0-9]*$/.test(rawModel.replace(/[\s\-]/g, ''));
+        const modelToUse = looksLikeCode ? '' : rawModel;
+
+        // Aliases: la marca de la API puede diferir del nombre en el catálogo
+        const BRAND_ALIASES = {
+            apple:   ['iphone', 'apple', 'ipad'],
+            xiaomi:  ['xiaomi', 'redmi', 'poco'],
+            samsung: ['samsung', 'galaxy'],
+            huawei:  ['huawei', 'honor'],
+            tecno:   ['tecno'],
+            itel:    ['itel'],
+            infinix: ['infinix'],
+        };
         const rawBrand = normalizar(detected?.brand || '');
         const brandAliases = BRAND_ALIASES[rawBrand] || [rawBrand];
-        const b = rawBrand;
-        // Limpiar modelo: quitar caracteres especiales, separar palabras
-        const rawModel = normalizar((detected?.model || '').replace(/[+/\-]/g, ' '));
-        const modelWords = rawModel.split(/\s+/).filter(w => w.length >= 2);
+        const hasBrand = (n) => brandAliases.some(a => a && n.includes(a));
 
+        // Palabras útiles del modelo (sin genéricas ni números solos)
         const GENERIC = ['galaxy','note','smart','pro','plus','max','mini','lite','ultra','prime','se'];
-        const keyWords = modelWords.filter(w => !GENERIC.includes(w) && w.length >= 2);
+        const modelWords = normalizar(modelToUse).replace(/[+/\-_]/g,' ').split(/\s+/)
+            .filter(w => w.length >= 2 && !GENERIC.includes(w) && !/^\d+$/.test(w));
 
-        // Helper: ¿el nombre contiene la marca o algún alias?
-        const hasBrand = (n) => brandAliases.some(alias => n.includes(alias));
-
-        // Nivel 1: marca + TODAS las palabras del modelo
-        if (b && modelWords.length > 0) {
+        // Nivel 1: marca + todas las palabras del modelo legible
+        if (rawBrand && modelWords.length > 0) {
             const exact = catalog.filter(p => {
                 const n = normalizar(p.name);
                 return hasBrand(n) && modelWords.every(w => n.includes(w));
@@ -69,31 +79,22 @@ const ProductPickerModal = ({ detected, catalog, imei, onSelect, onClose }) => {
             if (exact.length > 0) return exact;
         }
 
-        // Nivel 2: marca + palabra clave del modelo
-        if (b && keyWords.length > 0) {
+        // Nivel 2: marca + alguna palabra clave del modelo
+        if (rawBrand && modelWords.length > 0) {
             const partial = catalog.filter(p => {
                 const n = normalizar(p.name);
-                return hasBrand(n) && keyWords.some(w => n.includes(w));
+                return hasBrand(n) && modelWords.some(w => n.includes(w));
             });
             if (partial.length > 0) return partial;
         }
 
-        // Nivel 3: solo marca (con aliases)
-        if (b) {
+        // Nivel 3: SOLO MARCA — funciona aunque el modelo sea código interno
+        if (rawBrand) {
             const byBrand = catalog.filter(p => hasBrand(normalizar(p.name)));
             if (byBrand.length > 0) return byBrand;
         }
 
-        // Nivel 4: palabras clave del modelo sin marca
-        if (keyWords.length > 0) {
-            const byKey = catalog.filter(p => {
-                const n = normalizar(p.name);
-                return keyWords.some(w => n.includes(w));
-            });
-            if (byKey.length > 0) return byKey;
-        }
-
-        // Nivel 5: todo el catálogo
+        // Nivel 4: fallback — todo el catálogo
         return catalog;
     };
 
