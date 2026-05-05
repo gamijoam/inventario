@@ -290,8 +290,14 @@ const SerializedReception = () => {
         return catalog.filter(p => strictModelMatch(p.name, brand, model));
     }, [catalog]);
 
-    const addImei = useCallback(async (imeiOverride = null) => {
-        const imei = (imeiOverride || imeiInput || '').trim().toUpperCase();
+    const addImei = useCallback(async () => {
+        // Usar la ref que siempre tiene el valor más reciente del input
+        const rawValue = latestImei.current || inputRef.current?.value || imeiInput;
+        const imei = rawValue.trim().toUpperCase();
+        // Limpiar inmediatamente para que se sienta responsivo
+        setImeiInput('');
+        latestImei.current = '';
+        if (inputRef.current) inputRef.current.value = '';
         if (!imei) return;
         if (allImeis.includes(imei)) {
             toast.error('Este IMEI ya está en la lista', { id: 'imei-dup' });
@@ -362,14 +368,7 @@ const SerializedReception = () => {
     }, [imeiInput, allImeis, findMatches]);
 
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            // Leer el DOM directamente — siempre tiene el valor más reciente
-            const currentValue = inputRef.current?.value || imeiInput;
-            setImeiInput('');
-            if (inputRef.current) inputRef.current.value = '';
-            addImei(currentValue);
-        }
+        if (e.key === 'Enter') { e.preventDefault(); addImei(); }
     };
 
     // Al seleccionar producto en el modal
@@ -504,14 +503,14 @@ const SerializedReception = () => {
                     <input
                         ref={inputRef}
                         value={imeiInput}
-                        onChange={e => setImeiInput(e.target.value)}
+                        onChange={e => { setImeiInput(e.target.value); latestImei.current = e.target.value; }}
                         onKeyDown={handleKeyDown}
                         placeholder={scanning ? 'Consultando IMEI.info...' : 'Escanear IMEI (Enter para agregar)'}
                         disabled={scanning}
                         className="flex-1 bg-transparent outline-none text-sm font-mono text-slate-800 placeholder:text-slate-400"
                         autoFocus
                     />
-                    <button onClick={() => { const v = imeiInput; setImeiInput(''); addImei(v); }} disabled={scanning || !imeiInput.trim()}
+                    <button onClick={addImei} disabled={scanning || !imeiInput.trim()}
                         className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl disabled:opacity-40 transition-all">
                         Agregar
                     </button>
