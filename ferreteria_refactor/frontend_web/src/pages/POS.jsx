@@ -774,10 +774,10 @@ const POS = () => {
                     </Link>
                     <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
                     <div className="hidden md:flex flex-col">
-                        <h1 className="text-sm font-black text-slate-800 tracking-tight leading-none">Punto de Venta</h1>
+                        <h1 className="text-base font-black text-slate-800 tracking-tight leading-none">Punto de Venta</h1>
                         {user && (
-                            <span className="text-[11px] font-bold text-slate-400 mt-0.5 flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                            <span className="text-sm font-bold text-slate-500 mt-1 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
                                 {user.full_name || user.username || user.email}
                             </span>
                         )}
