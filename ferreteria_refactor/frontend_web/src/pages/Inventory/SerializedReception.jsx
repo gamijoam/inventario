@@ -291,9 +291,7 @@ const SerializedReception = () => {
     }, [catalog]);
 
     const addImei = useCallback(async () => {
-        // Usar ref como fuente de verdad — el state puede no actualizarse a tiempo
-        const rawImei = imeiInputRef.current || imeiInput;
-        const imei = rawImei.trim().toUpperCase();
+        const imei = imeiInput.trim().toUpperCase();
         if (!imei) return;
         if (allImeis.includes(imei)) {
             toast.error('Este IMEI ya está en la lista', { id: 'imei-dup' });
@@ -312,7 +310,6 @@ const SerializedReception = () => {
         } catch { /* fail open */ }
 
         setImeiInput('');
-        imeiInputRef.current = '';
         setScanning(true);
         toast.loading('Consultando IMEI.info...', { id: 'imei-api' });
 
@@ -366,7 +363,18 @@ const SerializedReception = () => {
     }, [imeiInput, allImeis, findMatches]);
 
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); addImei(); }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            // Leer el valor actual del input DOM directamente (no del state que puede estar desactualizado)
+            const currentValue = inputRef.current?.value || imeiInput;
+            if (currentValue !== imeiInput) {
+                setImeiInput(currentValue);
+                // Pequeño delay para que el state se actualice antes de addImei
+                setTimeout(() => addImei(), 30);
+            } else {
+                addImei();
+            }
+        }
     };
 
     // Al seleccionar producto en el modal
@@ -501,7 +509,7 @@ const SerializedReception = () => {
                     <input
                         ref={inputRef}
                         value={imeiInput}
-                        onChange={e => { setImeiInput(e.target.value); imeiInputRef.current = e.target.value; }}
+                        onChange={e => setImeiInput(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={scanning ? 'Consultando IMEI.info...' : 'Escanear IMEI (Enter para agregar)'}
                         disabled={scanning}
