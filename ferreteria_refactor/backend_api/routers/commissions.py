@@ -79,13 +79,42 @@ def get_user_commissions(
 
     result = []
     for c in commissions:
-        # Obtener métodos de pago de la venta asociada
         payment_methods = []
+        sale_currency = None
+        sale_total_usd = None
+        sale_total_bs = None
+        sale_exchange_rate = None
+        is_credit = False
+        financing_method = None
+        financing_level = None
+        financed_amount = None
+
         if c.source_id:
+            # Pagos de la venta
             payments = db.query(models.SalePayment).filter(
                 models.SalePayment.sale_id == c.source_id
             ).all()
             payment_methods = [p.payment_method for p in payments if p.payment_method]
+
+            # Datos de la venta
+            sale = db.query(models.Sale).filter(models.Sale.id == c.source_id).first()
+            if sale:
+                sale_currency = sale.currency
+                sale_total_usd = float(sale.total_amount or 0)
+                sale_total_bs = float(sale.total_amount_bs or 0)
+                sale_exchange_rate = float(sale.exchange_rate_used or 1)
+                is_credit = bool(sale.is_credit)
+
+                # Financiamiento externo
+                if hasattr(sale, 'financer_name') and sale.financer_name:
+                    financing_method = sale.financer_name
+                    financing_level = getattr(sale, 'financer_payment_status', None)
+                    financed_amount = float(getattr(sale, 'financed_amount', 0) or 0)
+                # Crédito interno
+                elif is_credit:
+                    financing_method = "Crédito interno"
+                    financing_level = f"{sale.credit_installments or 0} cuotas" if sale.credit_installments else None
+                    financed_amount = float(sale.credit_installment_amount or 0) * int(sale.credit_installments or 0)
 
         item = {
             "id": c.id,
@@ -103,7 +132,17 @@ def get_user_commissions(
             "paid_in_bs": c.paid_in_bs or False,
             "percentage_applied": float(c.percentage_applied) if c.percentage_applied else None,
             "commission_role": c.commission_role,
+            # Datos de la venta
             "payment_methods": payment_methods,
+            "sale_currency": sale_currency,
+            "sale_total_usd": sale_total_usd,
+            "sale_total_bs": sale_total_bs,
+            "sale_exchange_rate": sale_exchange_rate,
+            # Financiamiento
+            "is_credit": is_credit,
+            "financing_method": financing_method,
+            "financing_level": financing_level,
+            "financed_amount": financed_amount,
         }
         result.append(item)
     return result

@@ -106,16 +106,21 @@ const VendorDetailTable = ({ userId, bsRate }) => {
         <div className="overflow-x-auto">
             <table className="w-full text-xs">
                 <thead>
-                    <tr className="bg-indigo-600 text-white">
-                        <th className="px-3 py-2 text-left font-black">FECHA</th>
-                        <th className="px-3 py-2 text-left font-black">PRODUCTO / REFERENCIA</th>
-                        <th className="px-3 py-2 text-left font-black">MÉTODO DE PAGO</th>
-                        <th className="px-3 py-2 text-right font-black">P.V $</th>
-                        <th className="px-3 py-2 text-right font-black">E.Q Bs</th>
-                        <th className="px-3 py-2 text-right font-black">COMIS. %</th>
-                        <th className="px-3 py-2 text-right font-black">COMIS. $</th>
-                        <th className="px-3 py-2 text-right font-black">COMIS. Bs</th>
-                        <th className="px-3 py-2 text-center font-black">ESTADO</th>
+                    <tr className="bg-indigo-700 text-white text-[10px]">
+                        <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">FECHA</th>
+                        <th className="px-3 py-2.5 text-left font-black">REFERENCIA</th>
+                        <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">MÉTODO DE PAGO</th>
+                        <th className="px-3 py-2.5 text-center font-black">$ / Bs</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">P.V $</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">E.Q Bs</th>
+                        <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">FINANCIAMIENTO</th>
+                        <th className="px-3 py-2.5 text-left font-black">NIVEL</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">M. FINANCIADO</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">COMIS. %</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">COMIS. $</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">COMIS. Bs</th>
+                        <th className="px-3 py-2.5 text-right font-black">TOTAL</th>
+                        <th className="px-3 py-2.5 text-center font-black">ESTADO</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -124,57 +129,65 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                             ? parseFloat(d.amount_bs)
                             : bsRate ? parseFloat(d.amount || 0) * bsRate : null;
                         const rate = d.exchange_rate_snapshot || bsRate;
-                        // Precio de venta estimado desde la comisión
-                        const pvEstimado = d.percentage_applied
-                            ? (parseFloat(d.amount || 0) / (parseFloat(d.percentage_applied) / 100))
+                        const vendidoEnBs = d.sale_currency === 'Bs' || d.paid_in_bs;
+                        const totalLabel = vendidoEnBs
+                            ? `Bs ${(d.sale_total_bs || 0).toLocaleString('es-VE', { maximumFractionDigits: 2 })}`
+                            : d.sale_total_usd ? `$${parseFloat(d.sale_total_usd).toFixed(2)}` : '—';
+                        const totalSubLabel = vendidoEnBs && d.sale_exchange_rate && d.sale_total_bs
+                            ? `$${(parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)).toFixed(2)}`
                             : null;
 
                         return (
-                            <tr key={d.id} className={`border-b border-slate-100 ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} hover:bg-indigo-50/30 transition-colors`}>
-                                <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{fmtDate(d.created_at)}</td>
-                                <td className="px-3 py-2.5">
+                            <tr key={d.id} className={`border-b border-slate-100 text-xs ${i % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'} hover:bg-indigo-50/20 transition-colors`}>
+                                <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{fmtDate(d.created_at)}</td>
+                                <td className="px-3 py-2">
                                     <span className="font-bold text-slate-700">{d.source_reference || `#${d.source_id}`}</span>
-                                    <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-full font-bold ${d.commission_role === 'TECHNICIAN' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
-                                        {d.commission_role === 'TECHNICIAN' ? '🔧' : '🛒'} {d.source_type === 'SERVICE' ? 'Taller' : 'POS'}
+                                    <span className={`ml-1 text-[9px] px-1 py-0.5 rounded-full font-bold ${d.commission_role === 'TECHNICIAN' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                                        {d.source_type === 'SERVICE' ? '🔧' : '🛒'}
                                     </span>
                                 </td>
-                                <td className="px-3 py-2.5">
-                                    {d.payment_methods && d.payment_methods.length > 0 ? (
-                                        <div className="flex flex-wrap gap-1">
-                                            {d.payment_methods.map((m, i) => (
-                                                <span key={i} className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">
-                                                    {m}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <span className="text-slate-300 italic text-[10px]">—</span>
-                                    )}
+                                <td className="px-3 py-2">
+                                    <div className="flex flex-wrap gap-1">
+                                        {d.payment_methods?.length > 0
+                                            ? d.payment_methods.map((m, mi) => <span key={mi} className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">{m}</span>)
+                                            : <span className="text-slate-300">—</span>}
+                                    </div>
                                 </td>
-                                <td className="px-3 py-2.5 text-right font-bold text-slate-700">
-                                    {pvEstimado ? fmtUSD(pvEstimado) : '—'}
+                                <td className="px-3 py-2 text-center">
+                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${vendidoEnBs ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                                        {vendidoEnBs ? 'Bs' : '$'}
+                                    </span>
                                 </td>
-                                <td className="px-3 py-2.5 text-right text-slate-500">
-                                    {pvEstimado && rate ? `Bs ${(pvEstimado * rate).toLocaleString('es-VE', { maximumFractionDigits: 2 })}` : '—'}
+                                <td className="px-3 py-2 text-right font-bold text-slate-700 whitespace-nowrap">
+                                    {d.sale_total_usd ? `$${parseFloat(d.sale_total_usd).toFixed(2)}` : '—'}
                                 </td>
-                                <td className="px-3 py-2.5 text-right text-slate-500">
-                                    {d.percentage_applied ? `${parseFloat(d.percentage_applied).toFixed(1)}%` : '—'}
+                                <td className="px-3 py-2 text-right text-slate-500 whitespace-nowrap">
+                                    {d.sale_total_bs
+                                        ? `Bs ${parseFloat(d.sale_total_bs).toLocaleString('es-VE', { maximumFractionDigits: 2 })}`
+                                        : d.sale_total_usd && rate ? `Bs ${(d.sale_total_usd * rate).toLocaleString('es-VE', { maximumFractionDigits: 2 })}` : '—'}
                                 </td>
-                                <td className="px-3 py-2.5 text-right font-black text-emerald-700">
-                                    {fmtUSD(d.amount)}
+                                <td className="px-3 py-2">
+                                    {d.financing_method
+                                        ? <span className="text-[9px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">{d.financing_method}</span>
+                                        : <span className="text-slate-300 text-[9px]">Contado</span>}
                                 </td>
-                                <td className="px-3 py-2.5 text-right">
-                                    {d.paid_in_bs && d.amount_bs ? (
-                                        <div>
-                                            <span className="font-bold text-indigo-600">Bs {parseFloat(d.amount_bs).toFixed(2)}</span>
-                                            <div className="text-[9px] text-slate-300">@ {parseFloat(d.exchange_rate_snapshot || 0).toFixed(2)}</div>
-                                        </div>
-                                    ) : bsEquiv ? (
-                                        <span className="text-slate-500">Bs {bsEquiv.toLocaleString('es-VE', { maximumFractionDigits: 2 })}</span>
-                                    ) : '—'}
+                                <td className="px-3 py-2 text-slate-400 text-[10px] whitespace-nowrap">{d.financing_level || '—'}</td>
+                                <td className="px-3 py-2 text-right text-slate-500 whitespace-nowrap">
+                                    {d.financed_amount ? `$${parseFloat(d.financed_amount).toFixed(2)}` : '—'}
                                 </td>
-                                <td className="px-3 py-2.5 text-center">
-                                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${d.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                <td className="px-3 py-2 text-right text-slate-400">{d.percentage_applied ? `${parseFloat(d.percentage_applied).toFixed(1)}%` : '—'}</td>
+                                <td className="px-3 py-2 text-right font-black text-emerald-700 whitespace-nowrap">{fmtUSD(d.amount)}</td>
+                                <td className="px-3 py-2 text-right whitespace-nowrap">
+                                    {d.paid_in_bs && d.amount_bs
+                                        ? <div><span className="font-bold text-indigo-600">Bs {parseFloat(d.amount_bs).toFixed(2)}</span><div className="text-[8px] text-slate-300">@ {parseFloat(d.exchange_rate_snapshot || 0).toFixed(2)}</div></div>
+                                        : bsEquiv ? <span className="text-slate-400">Bs {bsEquiv.toLocaleString('es-VE', { maximumFractionDigits: 2 })}</span> : '—'}
+                                </td>
+                                <td className="px-3 py-2 text-right whitespace-nowrap">
+                                    <div className="font-black text-slate-800">{totalLabel}</div>
+                                    {totalSubLabel && <div className="text-[9px] text-slate-400">{totalSubLabel}</div>}
+                                </td>
+                                <td className="px-3 py-2 text-center">
+                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${d.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                         {d.status === 'PENDING' ? 'PENDIENTE' : 'PAGADO'}
                                     </span>
                                 </td>
@@ -185,10 +198,10 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                 {/* Totales */}
                 <tfoot>
                     <tr className="bg-indigo-50 border-t-2 border-indigo-200 font-black text-sm">
-                        <td colSpan={6} className="px-3 py-3 text-right text-slate-700 uppercase tracking-wide text-xs">TOTAL COMISIONES</td>
-                        <td className="px-3 py-3 text-right text-emerald-700">{fmtUSD(totalUSD)}</td>
-                        <td className="px-3 py-3 text-right text-indigo-700">{bsRate ? `Bs ${totalBs.toLocaleString('es-VE', { maximumFractionDigits: 2 })}` : '—'}</td>
-                        <td></td>
+                        <td colSpan={10} className="px-3 py-3 text-right text-slate-700 uppercase tracking-wide text-[10px] font-black">TOTAL COMISIONES</td>
+                        <td className="px-3 py-3 text-right font-black text-emerald-700 whitespace-nowrap">{fmtUSD(totalUSD)}</td>
+                        <td className="px-3 py-3 text-right font-black text-indigo-700 whitespace-nowrap">{bsRate ? `Bs ${totalBs.toLocaleString('es-VE', { maximumFractionDigits: 2 })}` : '—'}</td>
+                        <td></td><td></td>
                     </tr>
                 </tfoot>
             </table>
