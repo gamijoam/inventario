@@ -648,6 +648,21 @@ async def send_commissions_pdf(schema: str, session_id: int):
         if not rows:
             return  # Sin comisiones pendientes
 
+        # Totales por método de pago
+        payment_totals = db.execute(text(f"""
+            SELECT
+                sp.payment_method,
+                sp.currency,
+                COALESCE(SUM(sp.amount), 0)::float AS total
+            FROM "{schema}".commission_logs cl
+            JOIN "{schema}".sale_details sd ON sd.id = cl.source_id
+            JOIN "{schema}".sales s ON s.id = sd.sale_id
+            JOIN "{schema}".sale_payments sp ON sp.sale_id = s.id
+            WHERE cl.status = 'PENDING'
+            GROUP BY sp.payment_method, sp.currency
+            ORDER BY total DESC
+        """)).fetchall()
+
         # Agrupar por vendedor
         from collections import defaultdict
         by_user = defaultdict(list)
@@ -877,6 +892,43 @@ async def send_commissions_pdf(schema: str, session_id: int):
             can.drawString(145*mm, y - 7*mm, f"${eq_total:,.2f}")
         can.setFillColorRGB(1, 0.9, 0.3)
         can.drawString(210*mm, y - 7*mm, f"TOTAL COMISIONES: ${total_comision:,.2f}")
+
+        # ── TOTALES POR MÉTODO DE PAGO ──────────────────────────────────────────
+        if payment_totals and y > 20*mm:
+            y -= 4*mm
+            can.setFillColorRGB(*AZUL)
+            can.rect(10*mm, y - 7*mm, pw - 20*mm, 7*mm, fill=1, stroke=0)
+            can.setFillColorRGB(*BLANCO)
+            can.setFont("Helvetica-Bold", 9)
+            can.drawString(12*mm, y - 5*mm, "TOTALES POR MÉTODO DE PAGO")
+            y -= 10*mm
+
+            # Dibujar en columnas de 3
+            col_w = (pw - 20*mm) / 3
+            col_idx = 0
+            row_y = y
+
+            for pt in payment_totals:
+                sym = "$" if pt.currency == "USD" else "Bs"
+                total_fmt = f"${float(pt.total):,.2f}" if pt.currency == "USD" else f"Bs {float(pt.total):,.2f}"
+
+                x_pos = 12*mm + (col_idx % 3) * col_w
+                if col_idx > 0 and col_idx % 3 == 0:
+                    row_y -= 10*mm
+
+                # Badge por método
+                can.setFillColorRGB(0.88, 0.92, 0.97) if pt.currency == "USD" else can.setFillColorRGB(0.88, 0.97, 0.90)
+                can.roundRect(x_pos, row_y - 7*mm, col_w - 4*mm, 7.5*mm, 2, fill=1, stroke=0)
+
+                can.setFillColorRGB(0.05, 0.25, 0.60) if pt.currency == "USD" else can.setFillColorRGB(0.05, 0.40, 0.20)
+                can.setFont("Helvetica-Bold", 8)
+                can.drawString(x_pos + 2*mm, row_y - 3*mm, str(pt.payment_method)[:20])
+                can.setFont("Helvetica", 8)
+                can.drawString(x_pos + 2*mm, row_y - 6.5*mm, total_fmt)
+
+                col_idx += 1
+
+            y = row_y - 14*mm
 
         # Footer
         can.setFillColorRGB(*AZUL)

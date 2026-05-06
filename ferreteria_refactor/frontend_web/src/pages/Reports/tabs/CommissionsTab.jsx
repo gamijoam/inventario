@@ -118,6 +118,26 @@ const VendorDetailTable = ({ userId, bsRate }) => {
     const totalEQ = totalVentaBs > 0 && bsRate ? totalVentaBs / bsRate : 0;
     const comisionEQ = totalEQ * (pct / 100);
 
+    // Totales agrupados por método de pago
+    // Cada método recibe el monto completo de la venta (no dividido)
+    // porque en el modelo cada sale_payment ya tiene su monto individual
+    const paymentTotals = details.reduce((acc, d) => {
+        if (!d.payment_methods || !d.payment_methods.length) return acc;
+        const vendidoEnBs = d.sale_currency === 'Bs' || d.paid_in_bs;
+        const moneda = vendidoEnBs ? 'Bs' : '$';
+        // payment_methods es array de strings con los métodos de la venta
+        // el monto total se distribuye equitativamente entre los métodos
+        const montoPorMetodo = parseFloat(vendidoEnBs
+            ? (d.sale_total_bs || 0)
+            : (d.sale_total_usd || 0)) / d.payment_methods.length;
+        d.payment_methods.forEach(method => {
+            const key = `${method}__${moneda}`;
+            if (!acc[key]) acc[key] = { method, moneda, total: 0 };
+            acc[key].total += montoPorMetodo;
+        });
+        return acc;
+    }, {});
+
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -222,7 +242,35 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                         </td>
                         <td colSpan={4}></td>
                     </tr>
-                    {/* Fila 2: COMISIÓN = totales × % */}
+                    {/* Fila 2: Totales por método de pago */}
+                    {Object.values(paymentTotals).length > 0 && (
+                        <tr className="bg-slate-50 border-t border-slate-200 text-[10px]">
+                            <td colSpan={3} className="px-3 py-2 text-right text-slate-600 font-black uppercase tracking-wide">
+                                POR MÉTODO DE PAGO
+                            </td>
+                            <td colSpan={6} className="px-3 py-2">
+                                <div className="flex flex-wrap gap-2">
+                                    {Object.values(paymentTotals).map(({ method, moneda, total }) => (
+                                        <span key={`${method}-${moneda}`}
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black border ${
+                                                moneda === '$'
+                                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                            }`}>
+                                            {method}:
+                                            <span className="font-black">
+                                                {moneda === '$'
+                                                    ? `$${parseFloat(total).toFixed(2)}`
+                                                    : parseFloat(total).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                        </span>
+                                    ))}
+                                </div>
+                            </td>
+                        </tr>
+                    )}
+
+                    {/* Fila 3: COMISIÓN = totales × % */}
                     {pctLabel && (
                         <tr className="bg-emerald-50 border-t border-emerald-200 text-[10px] font-black">
                             <td colSpan={3} className="px-3 py-2 text-right text-emerald-700 uppercase tracking-wide">
