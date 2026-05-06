@@ -825,21 +825,29 @@ async def send_commissions_pdf(schema: str, session_id: int):
         add_style(('BOTTOMPADDING', (0,r), (-1,r), 3))
         ROW[0] += 1
 
-        # ── Fila POR MÉTODO DE PAGO ────────────────────────────────────────
+        # ── Fila POR MÉTODO DE PAGO — SPAN completo de izq a der ──────────
         r = ROW[0]
-        mets_usd = " ".join([f"[{pt.payment_method}: ${float(pt.total):,.2f}]" for pt in pay_totals if str(pt.currency)=="USD"])
-        mets_bs  = " ".join([f"[{pt.payment_method}: Bs {float(pt.total):,.2f}]" for pt in pay_totals if str(pt.currency)!="USD"])
+        # Todos los metodos en una sola linea con separador
+        all_mets_parts = []
+        for pt in pay_totals:
+            is_usd = str(pt.currency) == "USD"
+            fmt = f"${float(pt.total):,.2f}" if is_usd else f"Bs {float(pt.total):,.2f}"
+            color = "#0d3fa6" if is_usd else "#0d7040"
+            all_mets_parts.append(f'<font color="{color}"><b>{pt.payment_method}:</b> {fmt}</font>')
+        mets_inline = '     <font color="#aaaaaa">|</font>     '.join(all_mets_parts)
+
         data.append([
-            Paragraph('', ps()), Paragraph('', ps()),
             Paragraph('POR MÉTODO DE PAGO', ps(TA_RIGHT, colors.HexColor("#35354a"), bold=True, size=7)),
-            Paragraph(mets_usd, ps(TA_LEFT, C_USD, size=6.5)),
-            Paragraph(mets_bs,  ps(TA_LEFT, C_GRN, size=6.5)),
-            Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()),
+            Paragraph(mets_inline, ps(TA_LEFT, colors.black, size=7.5)),
+            '', '', '', '', '', '',
         ])
+        # SPAN desde col 1 hasta el final — toda la anchura para los badges
+        add_style(('SPAN', (1,r), (7,r)))
         add_style(('BACKGROUND', (0,r), (-1,r), C_FOOT2))
         add_style(('LINEABOVE', (0,r), (-1,r), 0.5, colors.HexColor("#dddddd")))
-        add_style(('TOPPADDING', (0,r), (-1,r), 3))
-        add_style(('BOTTOMPADDING', (0,r), (-1,r), 3))
+        add_style(('TOPPADDING', (0,r), (-1,r), 4))
+        add_style(('BOTTOMPADDING', (0,r), (-1,r), 4))
+        add_style(('LEFTPADDING', (1,r), (1,r), 8))
         ROW[0] += 1
 
         # ── Fila COMISIÓN X% ───────────────────────────────────────────────
