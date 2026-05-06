@@ -193,7 +193,9 @@ export const CartProvider = ({ children }) => {
                     updated_at: product.updated_at || null,
                     // NEW: Serialized Inventory Support
                     serial_numbers: unit.serial_numbers || [],
-                    has_imei: unit.has_imei || false,
+                    has_imei: unit.has_imei || product.has_imei || false,
+                    // Garantía — copiar del producto para detectarla en SaleSuccessModal
+                    warranty_policy_id: product.warranty_policy_id || null,
                     // NEW: Product Location
                     location: product.location || null,
                     // Feature 2: Store discount rules on cart item for auto-apply
