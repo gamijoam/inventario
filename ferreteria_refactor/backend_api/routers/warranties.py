@@ -353,7 +353,7 @@ async def send_warranty_whatsapp(
 
     await _wa("post", f"/instance/{inst}/send-document", json={
         "phone": phone,
-        "document": pdf_b64,
+        "base64": pdf_b64,
         "filename": f"garantia_venta_{sale_id}.pdf",
         "caption": f"Certificado de Garantía — {biz_name}"
     })

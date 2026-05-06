@@ -150,7 +150,7 @@ def generate_warranty_pdf(
     customer_phone = sale.customer.phone if sale.customer else ""
     customer_email = sale.customer.email if sale.customer else ""
 
-    sale_date = sale.created_at.strftime("%d/%m/%Y %H:%M") if sale.created_at else "N/A"
+    sale_date = sale.date.strftime("%d/%m/%Y %H:%M") if sale.date else "N/A"
     sale_total = f"${sale.total_amount:,.2f}" if sale.currency == "USD" else f"Bs {sale.total_amount_bs:,.2f}"
 
     # ── Check if any item has a PDF template ──
