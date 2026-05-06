@@ -267,10 +267,10 @@ async def send_cash_session_summary(schema: str, session_id: int):
         session_row = db.execute(text(
             f'''SELECT
                 cs.start_time, cs.end_time,
-                cs.opening_cash_usd, cs.opening_cash_bs,
+                cs.initial_cash, cs.initial_cash_bs,
                 cs.final_cash_reported, cs.final_cash_reported_bs,
+                cs.final_cash_expected, cs.final_cash_expected_bs,
                 cs.difference, cs.difference_bs,
-                cs.expected_cash_usd, cs.expected_cash_bs,
                 u.username as cajero
             FROM "{schema}".cash_sessions cs
             LEFT JOIN public.users u ON u.id = cs.user_id
@@ -285,8 +285,7 @@ async def send_cash_session_summary(schema: str, session_id: int):
             f'''SELECT
                 COUNT(DISTINCT s.id) AS total_ventas,
                 COALESCE(SUM(CASE WHEN s.currency='USD' THEN s.total_amount ELSE 0 END),0) AS ventas_usd,
-                COALESCE(SUM(CASE WHEN s.currency='Bs' THEN s.total_amount_bs ELSE 0 END),0) AS ventas_bs,
-                COALESCE(SUM(s.total_amount_bs),0) AS total_bs_all
+                COALESCE(SUM(CASE WHEN s.currency='Bs' THEN s.total_amount_bs ELSE 0 END),0) AS ventas_bs
             FROM "{schema}".cash_sessions cs
             LEFT JOIN "{schema}".sales s ON s.session_id = cs.id
             WHERE cs.id = :sid'''
@@ -322,8 +321,8 @@ async def send_cash_session_summary(schema: str, session_id: int):
         # Efectivo declarado vs esperado
         efectivo_dec_usd = float(session_row.final_cash_reported or 0)
         efectivo_dec_bs  = float(session_row.final_cash_reported_bs or 0)
-        esperado_usd     = float(session_row.expected_cash_usd or 0)
-        esperado_bs      = float(session_row.expected_cash_bs or 0)
+        esperado_usd     = float(session_row.final_cash_expected or 0)
+        esperado_bs      = float(session_row.final_cash_expected_bs or 0)
         dif_usd          = float(session_row.difference or 0)
         dif_bs           = float(session_row.difference_bs or 0)
 
