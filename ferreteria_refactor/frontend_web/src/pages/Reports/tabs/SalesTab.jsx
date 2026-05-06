@@ -608,11 +608,9 @@ const SalesTab = ({ dateRange }) => {
                                                 <DropdownMenuItem onClick={() => handleReprint(sale)}>
                                                     <Printer className="mr-2 h-4 w-4" /> Reimprimir Ticket
                                                 </DropdownMenuItem>
-                                                {sale.details?.some(d => d.instances?.length > 0 || d.warranty_policy_id) && (
-                                                    <DropdownMenuItem onClick={() => handleReprintWarranty(sale)}>
-                                                        <Printer className="mr-2 h-4 w-4 text-indigo-600" /> Imprimir Garantía
-                                                    </DropdownMenuItem>
-                                                )}
+                                                <DropdownMenuItem onClick={() => handleReprintWarranty(sale)}>
+                                                    <Printer className="mr-2 h-4 w-4 text-indigo-600" /> Imprimir Garantía
+                                                </DropdownMenuItem>
                                                 {sale.customer?.phone && (
                                                     <DropdownMenuItem onClick={() => handleSendWarrantyWhatsApp(sale)}>
                                                         <MessageCircle className="mr-2 h-4 w-4 text-green-600" /> Garantía por WhatsApp
@@ -1113,8 +1111,8 @@ const SalesTab = ({ dateRange }) => {
                                     <Printer className="mr-2 h-4 w-4" /> Reimprimir
                                 </Button>
                             </div>
-                            {warrantyPdfActive && selectedSale.details?.some(d => d.instances?.length > 0) && (
-                                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => handleReprintWarranty(selectedSale)}>
+                            {selectedSale && (
+                                <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={() => handleReprintWarranty(selectedSale)}>
                                     <Printer className="mr-2 h-4 w-4" /> Imprimir Garantía
                                 </Button>
                             )}
