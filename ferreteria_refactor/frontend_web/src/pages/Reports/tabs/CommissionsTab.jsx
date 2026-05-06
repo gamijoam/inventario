@@ -98,9 +98,17 @@ const VendorDetailTable = ({ userId, bsRate }) => {
 
     const totalUSD = details.reduce((s, d) => s + parseFloat(d.amount || 0), 0);
     const totalBs  = details.reduce((s, d) => {
-        // Solo sumar Bs congelados de ventas que fueron en Bs — NO convertir ventas en $
         if (d.paid_in_bs && d.amount_bs) return s + parseFloat(d.amount_bs);
-        return s; // ventas en $ no se convierten a Bs en el total
+        return s;
+    }, 0);
+    // Totales de ventas (columnas $ y Bs)
+    const totalVentaUSD = details.reduce((s, d) => {
+        const vendidoEnBs = d.sale_currency === 'Bs' || d.paid_in_bs;
+        return !vendidoEnBs && d.sale_total_usd ? s + parseFloat(d.sale_total_usd) : s;
+    }, 0);
+    const totalVentaBs = details.reduce((s, d) => {
+        const vendidoEnBs = d.sale_currency === 'Bs' || d.paid_in_bs;
+        return vendidoEnBs && d.sale_total_bs ? s + parseFloat(d.sale_total_bs) : s;
     }, 0);
 
     return (
@@ -217,11 +225,35 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                 </tbody>
                 {/* Totales */}
                 <tfoot>
-                    <tr className="bg-indigo-50 border-t-2 border-indigo-200 font-black text-sm">
-                        <td colSpan={11} className="px-3 py-3 text-right text-slate-700 uppercase tracking-wide text-[10px] font-black">TOTAL COMISIONES</td>
+                    <tr className="bg-indigo-50 border-t-2 border-indigo-200 text-[10px]">
+                        <td colSpan={3} className="px-3 py-3 text-right text-slate-600 uppercase tracking-wide font-black">TOTALES</td>
+                        {/* Total ventas en $ */}
+                        <td className="px-3 py-3 text-right font-black text-blue-700 whitespace-nowrap">
+                            {totalVentaUSD > 0 ? `$${totalVentaUSD.toFixed(2)}` : '—'}
+                        </td>
+                        {/* Total ventas en Bs */}
+                        <td className="px-3 py-3 text-right font-black text-emerald-700 whitespace-nowrap">
+                            {totalVentaBs > 0 ? totalVentaBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                        </td>
+                        {/* E.Q $ de ventas en Bs */}
+                        <td className="px-3 py-3 text-right font-black text-slate-600 whitespace-nowrap">
+                            {totalVentaBs > 0 && bsRate ? `$${(totalVentaBs / bsRate).toFixed(2)}` : '—'}
+                        </td>
+                        {/* Financiamiento / Nivel / M.Financiado vacíos */}
+                        <td colSpan={3}></td>
+                        {/* COMIS. % vacío */}
+                        <td></td>
+                        {/* COMIS. $ */}
                         <td className="px-3 py-3 text-right font-black text-emerald-700 whitespace-nowrap">{fmtUSD(totalUSD)}</td>
-                        <td className="px-3 py-3 text-right font-black text-indigo-700 whitespace-nowrap">{bsRate ? `Bs ${totalBs.toLocaleString('es-VE', { maximumFractionDigits: 2 })}` : '—'}</td>
-                        <td></td><td></td>
+                        {/* COMIS. Bs */}
+                        <td className="px-3 py-3 text-right font-black text-indigo-700 whitespace-nowrap">
+                            {totalBs > 0 ? `Bs ${totalBs.toLocaleString('es-VE', { maximumFractionDigits: 2 })}` : '—'}
+                        </td>
+                        {/* TOTAL */}
+                        <td className="px-3 py-3 text-right font-black text-indigo-800 whitespace-nowrap">
+                            {`$${(totalVentaUSD + (totalVentaBs > 0 && bsRate ? totalVentaBs / bsRate : 0)).toFixed(2)}`}
+                        </td>
+                        <td></td>
                     </tr>
                 </tfoot>
             </table>
