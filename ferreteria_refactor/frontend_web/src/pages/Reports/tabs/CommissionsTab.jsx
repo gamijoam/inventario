@@ -111,8 +111,8 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                         <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">FECHA</th>
                         <th className="px-3 py-2.5 text-left font-black">REFERENCIA</th>
                         <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">MÉTODO DE PAGO</th>
-                        <th className="px-3 py-2.5 text-center font-black">$ / Bs</th>
-                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">P.V</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">$</th>
+                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">Bs</th>
                         <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">E.Q $</th>
                         <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">FINANCIAMIENTO</th>
                         <th className="px-3 py-2.5 text-left font-black">NIVEL</th>
@@ -158,26 +158,23 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                                             : <span className="text-slate-300 text-xs italic">Sin datos</span>}
                                     </div>
                                 </td>
-                                <td className="px-3 py-2 text-center">
-                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${vendidoEnBs ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
-                                        {vendidoEnBs ? 'Bs' : '$'}
-                                    </span>
+                                {/* $ — solo si venta en dólares */}
+                                <td className="px-3 py-2 text-right font-bold text-blue-700 whitespace-nowrap">
+                                    {!vendidoEnBs && d.sale_total_usd
+                                        ? `$${parseFloat(d.sale_total_usd).toFixed(2)}`
+                                        : <span className="text-slate-200">—</span>}
                                 </td>
-                                <td className="px-3 py-2 text-right font-bold text-slate-700 whitespace-nowrap">
-                                    {/* P.V = valor recibido en la moneda de la venta */}
-                                    {vendidoEnBs
-                                        ? (d.sale_total_bs ? `Bs ${parseFloat(d.sale_total_bs).toLocaleString('es-VE', { maximumFractionDigits: 2 })}` : '—')
-                                        : (d.sale_total_usd ? `$${parseFloat(d.sale_total_usd).toFixed(2)}` : '—')}
+                                {/* Bs — solo si venta en bolívares (P.V) */}
+                                <td className="px-3 py-2 text-right font-bold text-emerald-700 whitespace-nowrap">
+                                    {vendidoEnBs && d.sale_total_bs
+                                        ? parseFloat(d.sale_total_bs).toLocaleString('es-VE', { maximumFractionDigits: 2 })
+                                        : <span className="text-slate-200">—</span>}
                                 </td>
-                                <td className="px-3 py-2 text-right text-slate-500 whitespace-nowrap">
-                                    {/* E.Q = equivalente en la otra moneda */}
-                                    {vendidoEnBs
-                                        ? (d.sale_total_bs && d.sale_exchange_rate
-                                            ? `$${(parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)).toFixed(2)}`
-                                            : '—')
-                                        : (d.sale_total_usd && rate
-                                            ? `Bs ${(parseFloat(d.sale_total_usd) * rate).toLocaleString('es-VE', { maximumFractionDigits: 2 })}`
-                                            : '—')}
+                                {/* E.Q $ — solo si venta en Bs: equivalente en $ a tasa del día */}
+                                <td className="px-3 py-2 text-right text-slate-600 font-bold whitespace-nowrap">
+                                    {vendidoEnBs && d.sale_total_bs && d.sale_exchange_rate
+                                        ? `$${(parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)).toFixed(2)}`
+                                        : <span className="text-slate-200">—</span>}
                                 </td>
                                 <td className="px-3 py-2">
                                     {d.financing_method
@@ -199,8 +196,15 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                                         : <span className="text-slate-300">—</span>}
                                 </td>
                                 <td className="px-3 py-2 text-right whitespace-nowrap">
-                                    <div className="font-black text-slate-800">{totalLabel}</div>
-                                    {totalSubLabel && <div className="text-[9px] text-slate-400">{totalSubLabel}</div>}
+                                    {/* TOTAL: si venta en Bs → E.Q $; si en $ → valor en $ */}
+                                    {vendidoEnBs
+                                        ? (d.sale_total_bs && d.sale_exchange_rate
+                                            ? <span className="font-black text-slate-800">${(parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)).toFixed(2)}</span>
+                                            : <span className="text-slate-300">—</span>)
+                                        : (d.sale_total_usd
+                                            ? <span className="font-black text-slate-800">${parseFloat(d.sale_total_usd).toFixed(2)}</span>
+                                            : <span className="text-slate-300">—</span>)
+                                    }
                                 </td>
                                 <td className="px-3 py-2 text-center">
                                     <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${d.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
@@ -214,7 +218,7 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                 {/* Totales */}
                 <tfoot>
                     <tr className="bg-indigo-50 border-t-2 border-indigo-200 font-black text-sm">
-                        <td colSpan={10} className="px-3 py-3 text-right text-slate-700 uppercase tracking-wide text-[10px] font-black">TOTAL COMISIONES</td>
+                        <td colSpan={11} className="px-3 py-3 text-right text-slate-700 uppercase tracking-wide text-[10px] font-black">TOTAL COMISIONES</td>
                         <td className="px-3 py-3 text-right font-black text-emerald-700 whitespace-nowrap">{fmtUSD(totalUSD)}</td>
                         <td className="px-3 py-3 text-right font-black text-indigo-700 whitespace-nowrap">{bsRate ? `Bs ${totalBs.toLocaleString('es-VE', { maximumFractionDigits: 2 })}` : '—'}</td>
                         <td></td><td></td>
