@@ -269,17 +269,36 @@ def _fill_template_pdf(
         can.drawString(72, y, f"Producto: {item['product_name']}")
         y -= 14
         can.setFont("Helvetica", 9)
-        can.drawString(72, y, f"Cantidad: {item['quantity']}")
+        qty = int(item['quantity']) if float(item['quantity']) == int(float(item['quantity'])) else item['quantity']
+        can.drawString(72, y, f"Cantidad: {qty} unidad(es)")
         y -= 14
-        can.drawString(72, y, f"Seriales: {', '.join(item['serials'])}")
+        serials_text = ', '.join(item['serials']) if item['serials'] else 'N/A'
+        can.drawString(72, y, f"Seriales: {serials_text}")
         y -= 14
 
         wp = item.get('warranty_policy')
         if wp:
-            unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "De por vida"}
-            dur_text = f"{wp.duration} {unit_map.get(wp.type, '')}" if wp.duration else unit_map.get(wp.type, "")
-            can.drawString(72, y, f"Cobertura: {wp.name} ({dur_text})")
-            y -= 14
+            unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "de por vida"}
+            dur_text = f"{wp.duration} {unit_map.get(wp.type, 'días')}" if wp.duration else unit_map.get(wp.type, "")
+            # Línea 1: Nombre de la política
+            can.setFont("Helvetica-Bold", 9)
+            can.drawString(72, y, f"Garantía: {wp.name}")
+            y -= 13
+            # Línea 2: Duración
+            can.setFont("Helvetica", 9)
+            can.drawString(72, y, f"Duración: {dur_text}")
+            y -= 13
+            # Línea 3: Descripción si existe
+            if hasattr(wp, 'description') and wp.description:
+                can.setFont("Helvetica-Oblique", 8)
+                # Cortar descripción si es muy larga (max 90 chars por línea)
+                desc = wp.description
+                while desc:
+                    line = desc[:90]
+                    desc = desc[90:]
+                    can.drawString(72, y, line)
+                    y -= 12
+                can.setFont("Helvetica", 9)
 
         if item.get('warranty_expiration'):
             exp_date = item['warranty_expiration']
@@ -287,7 +306,9 @@ def _fill_template_pdf(
                 exp_str = exp_date.strftime("%d/%m/%Y")
             else:
                 exp_str = str(exp_date)
-            can.drawString(72, y, f"Vence: {exp_str}")
+            can.setFont("Helvetica-Bold", 9)
+            can.drawString(72, y, f"Fecha de vencimiento: {exp_str}")
+            can.setFont("Helvetica", 9)
             y -= 14
 
         # Separator between items
