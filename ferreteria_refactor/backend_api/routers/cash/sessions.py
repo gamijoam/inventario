@@ -696,8 +696,8 @@ async def close_cash_session(
                 # 1. Resumen de caja
                 loop.run_until_complete(_wa_sched.send_cash_session_summary(_schema_now, _sid_now))
                 logger.info(f"[WA] Resumen caja enviado — schema={_schema_now} sid={_sid_now}")
-                # 2. Resumen de comisiones
-                loop.run_until_complete(_wa_sched.send_commissions_summary(_schema_now, _sid_now))
+                # 2. PDF de comisiones
+                loop.run_until_complete(_wa_sched.send_commissions_pdf(_schema_now, _sid_now))
             except Exception as _ex:
                 logger.error(f"[WA] Error en resumen caja/comisiones: {_ex}\n{traceback.format_exc()}")
             finally:

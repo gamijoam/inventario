@@ -581,3 +581,328 @@ async def send_commissions_summary(schema: str, session_id: int):
     finally:
         if db:
             db.close()
+
+
+async def send_commissions_pdf(schema: str, session_id: int):
+    """
+    Genera un PDF con el cuadro de comisiones de todos los vendedores
+    y lo envía al admin por WhatsApp al cerrar la caja.
+    """
+    import io
+    from datetime import datetime as _dt
+
+    db = None
+    try:
+        set_tenant_schema(schema)
+        db = SessionLocal()
+
+        wa = {r[0]: r[1] for r in db.execute(text(
+            f"SELECT key, value FROM \"{schema}\".business_config "
+            "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+            "'whatsapp_admin_phone','business_name','whatsapp_notify_commissions')"
+        )).fetchall()}
+
+        inst    = wa.get("whatsapp_instance_name", "")
+        status  = wa.get("whatsapp_instance_status", "")
+        notify  = wa.get("whatsapp_notify_commissions") != "false"
+        biz     = wa.get("business_name") or "Mi Inventario"
+
+        admin_phone_raw = wa.get("whatsapp_admin_phone", "") or ""
+        admin_phone = "".join(c for c in admin_phone_raw if c.isdigit())
+        if admin_phone and not admin_phone.startswith("58"):
+            admin_phone = "58" + admin_phone
+
+        if not inst or status != "CONNECTED" or not admin_phone or not notify:
+            return
+
+        # ── Datos de comisiones por vendedor ─────────────────────────────────
+        rows = db.execute(text(f"""
+            SELECT
+                u.username,
+                cl.source_reference,
+                cl.created_at,
+                cl.amount,
+                cl.percentage_applied,
+                cl.exchange_rate_snapshot,
+                cl.amount_bs,
+                cl.paid_in_bs,
+                cl.status,
+                s.currency      AS sale_currency,
+                s.total_amount  AS sale_total_usd,
+                s.total_amount_bs AS sale_total_bs,
+                s.exchange_rate_used AS sale_exchange_rate,
+                sp.payment_methods
+            FROM "{schema}".commission_logs cl
+            JOIN public.users u ON u.id = cl.user_id
+            LEFT JOIN "{schema}".sale_details sd ON sd.id = cl.source_id
+            LEFT JOIN "{schema}".sales s ON s.id = sd.sale_id
+            LEFT JOIN (
+                SELECT sale_id, string_agg(payment_method, ', ') AS payment_methods
+                FROM "{schema}".sale_payments
+                GROUP BY sale_id
+            ) sp ON sp.sale_id = s.id
+            WHERE cl.status = 'PENDING'
+            ORDER BY u.username, cl.created_at DESC
+        """)).fetchall()
+
+        if not rows:
+            return  # Sin comisiones pendientes
+
+        # Agrupar por vendedor
+        from collections import defaultdict
+        by_user = defaultdict(list)
+        for r in rows:
+            by_user[r.username].append(r)
+
+        # ── Generar PDF ───────────────────────────────────────────────────────
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.units import mm
+
+        buffer = io.BytesIO()
+        pw, ph = landscape(A4)
+        can = canvas.Canvas(buffer, pagesize=landscape(A4))
+
+        AZUL     = (0.08, 0.20, 0.45)
+        AZUL_MED = (0.18, 0.38, 0.70)
+        AZUL_CL  = (0.88, 0.92, 0.97)
+        VERDE    = (0.08, 0.50, 0.25)
+        ROJO     = (0.70, 0.10, 0.10)
+        GRIS_OSC = (0.25, 0.25, 0.25)
+        GRIS_CL  = (0.95, 0.95, 0.95)
+        BLANCO   = (1, 1, 1)
+        NEGRO    = (0, 0, 0)
+        AMBER    = (0.80, 0.50, 0.05)
+
+        fecha_hoy = _dt.now().strftime('%d/%m/%Y %H:%M')
+
+        def draw_page_header():
+            # Header azul
+            can.setFillColorRGB(*AZUL)
+            can.rect(0, ph - 22*mm, pw, 22*mm, fill=1, stroke=0)
+            can.setFillColorRGB(*BLANCO)
+            can.setFont("Helvetica-Bold", 16)
+            can.drawString(12*mm, ph - 13*mm, f"💰  REPORTE DE COMISIONES PENDIENTES — {biz.upper()}")
+            can.setFont("Helvetica", 9)
+            can.setFillColorRGB(0.75, 0.85, 0.95)
+            can.drawRightString(pw - 12*mm, ph - 10*mm, f"Generado: {fecha_hoy}")
+            can.drawRightString(pw - 12*mm, ph - 16*mm, "Solo comisiones PENDIENTES de pago")
+
+        def draw_table_header(y):
+            # Cabecera tabla
+            can.setFillColorRGB(*AZUL_MED)
+            can.rect(10*mm, y - 7*mm, pw - 20*mm, 7*mm, fill=1, stroke=0)
+            can.setFillColorRGB(*BLANCO)
+            can.setFont("Helvetica-Bold", 7.5)
+            cols = [
+                (12*mm,   "FECHA"),
+                (42*mm,   "REFERENCIA"),
+                (82*mm,   "MÉT. PAGO"),
+                (122*mm,  "$"),
+                (147*mm,  "Bs"),
+                (177*mm,  "E.Q $"),
+                (207*mm,  "FINANCIAMIENTO"),
+                (247*mm,  "COMIS.%"),
+                (270*mm,  "ESTADO"),
+            ]
+            for x, label in cols:
+                can.drawString(x, y - 5.5*mm, label)
+            return y - 7*mm
+
+        draw_page_header()
+        y = ph - 28*mm
+
+        total_global_usd = 0.0
+        total_global_bs  = 0.0
+        total_comision   = 0.0
+
+        for username, user_rows in by_user.items():
+            # ── Cabecera del vendedor ─────────────────────────────────────
+            if y < 35*mm:
+                can.showPage()
+                draw_page_header()
+                y = ph - 28*mm
+
+            can.setFillColorRGB(*AZUL_CL)
+            can.rect(10*mm, y - 6*mm, pw - 20*mm, 6*mm, fill=1, stroke=0)
+            can.setFillColorRGB(*AZUL)
+            can.setFont("Helvetica-Bold", 9)
+            can.drawString(12*mm, y - 4.5*mm, f"👤  {username.upper()}")
+            y -= 6*mm
+
+            # Encabezado de columnas
+            y = draw_table_header(y)
+
+            subtotal_usd = 0.0
+            subtotal_bs  = 0.0
+            sub_comision = 0.0
+
+            for i, r in enumerate(user_rows):
+                if y < 25*mm:
+                    can.showPage()
+                    draw_page_header()
+                    y = ph - 28*mm
+                    y = draw_table_header(y)
+
+                bg = GRIS_CL if i % 2 == 0 else BLANCO
+                can.setFillColorRGB(*bg)
+                can.rect(10*mm, y - 5.5*mm, pw - 20*mm, 5.5*mm, fill=1, stroke=0)
+
+                vendido_en_bs = (r.sale_currency == 'Bs') if r.sale_currency else (r.paid_in_bs or False)
+                sale_usd = float(r.sale_total_usd or 0)
+                sale_bs  = float(r.sale_total_bs or 0)
+                rate     = float(r.sale_exchange_rate or r.exchange_rate_snapshot or 1)
+                pct      = float(r.percentage_applied or 0)
+
+                # Total en $ para comisión
+                if vendido_en_bs:
+                    total_venta_usd = sale_bs / rate if rate else 0
+                else:
+                    total_venta_usd = sale_usd
+
+                comision = total_venta_usd * (pct / 100) if pct else float(r.amount or 0)
+                subtotal_usd += (0 if vendido_en_bs else sale_usd)
+                subtotal_bs  += (sale_bs if vendido_en_bs else 0)
+                sub_comision += comision
+
+                fecha_str = r.created_at.strftime('%d/%m/%y') if r.created_at else '—'
+
+                can.setFillColorRGB(*GRIS_OSC)
+                can.setFont("Helvetica", 7.5)
+                can.drawString(12*mm,  y - 4*mm, fecha_str)
+                can.drawString(42*mm,  y - 4*mm, str(r.source_reference or '—')[:18])
+                can.drawString(82*mm,  y - 4*mm, str(r.payment_methods or '—')[:20])
+
+                # Columna $
+                if not vendido_en_bs and sale_usd:
+                    can.setFillColorRGB(0.05, 0.30, 0.65)
+                    can.setFont("Helvetica-Bold", 7.5)
+                    can.drawString(122*mm, y - 4*mm, f"${sale_usd:,.2f}")
+                else:
+                    can.setFillColorRGB(*GRIS_OSC)
+                    can.setFont("Helvetica", 7.5)
+                    can.drawString(122*mm, y - 4*mm, "—")
+
+                # Columna Bs
+                if vendido_en_bs and sale_bs:
+                    can.setFillColorRGB(*VERDE)
+                    can.setFont("Helvetica-Bold", 7.5)
+                    can.drawString(147*mm, y - 4*mm, f"{sale_bs:,.2f}")
+                else:
+                    can.setFillColorRGB(*GRIS_OSC)
+                    can.setFont("Helvetica", 7.5)
+                    can.drawString(147*mm, y - 4*mm, "—")
+
+                # E.Q $
+                if vendido_en_bs and sale_bs and rate:
+                    eq = sale_bs / rate
+                    can.setFillColorRGB(*GRIS_OSC)
+                    can.setFont("Helvetica-Bold", 7.5)
+                    can.drawString(177*mm, y - 4*mm, f"${eq:,.2f}")
+                else:
+                    can.setFillColorRGB(*GRIS_OSC)
+                    can.setFont("Helvetica", 7.5)
+                    can.drawString(177*mm, y - 4*mm, "—")
+
+                # Financiamiento
+                can.setFillColorRGB(*GRIS_OSC)
+                can.setFont("Helvetica", 7.5)
+                can.drawString(207*mm, y - 4*mm, "Contado")
+
+                # Comisión %
+                can.drawString(247*mm, y - 4*mm, f"{pct:.1f}%" if pct else "—")
+
+                # Estado
+                can.setFillColorRGB(*AMBER)
+                can.setFont("Helvetica-Bold", 7)
+                can.drawString(270*mm, y - 4*mm, "PENDIENTE")
+
+                y -= 5.5*mm
+
+            # ── Subtotal vendedor ─────────────────────────────────────────
+            can.setFillColorRGB(*AZUL_CL)
+            can.rect(10*mm, y - 6*mm, pw - 20*mm, 6*mm, fill=1, stroke=0)
+            can.setFillColorRGB(*AZUL)
+            can.setFont("Helvetica-Bold", 8)
+            can.drawString(12*mm, y - 4.5*mm, f"Subtotal {username}:")
+            if subtotal_usd:
+                can.drawString(122*mm, y - 4.5*mm, f"${subtotal_usd:,.2f}")
+            if subtotal_bs:
+                eq_sub = subtotal_bs / rate if rate else 0
+                can.drawString(147*mm, y - 4.5*mm, f"Bs {subtotal_bs:,.2f}")
+                can.drawString(177*mm, y - 4.5*mm, f"${eq_sub:,.2f}")
+            can.setFillColorRGB(*VERDE)
+            can.drawString(247*mm, y - 4.5*mm, f"Comisión: ${sub_comision:,.2f}")
+
+            total_global_usd += subtotal_usd
+            total_global_bs  += subtotal_bs
+            total_comision   += sub_comision
+            y -= 9*mm
+
+        # ── TOTAL GLOBAL ──────────────────────────────────────────────────────
+        if y < 20*mm:
+            can.showPage()
+            draw_page_header()
+            y = ph - 28*mm
+
+        can.setFillColorRGB(*AZUL)
+        can.rect(10*mm, y - 10*mm, pw - 20*mm, 10*mm, fill=1, stroke=0)
+        can.setFillColorRGB(*BLANCO)
+        can.setFont("Helvetica-Bold", 10)
+        can.drawString(12*mm, y - 7*mm, "TOTAL GENERAL")
+        if total_global_usd:
+            can.drawString(122*mm, y - 7*mm, f"${total_global_usd:,.2f}")
+        if total_global_bs:
+            eq_total = total_global_bs / rate if rate else 0
+            can.drawString(147*mm, y - 7*mm, f"Bs {total_global_bs:,.2f}")
+            can.drawString(177*mm, y - 7*mm, f"${eq_total:,.2f}")
+        can.setFillColorRGB(1, 0.9, 0.3)
+        can.drawString(247*mm, y - 7*mm, f"TOTAL COMISIONES: ${total_comision:,.2f}")
+
+        # Footer
+        can.setFillColorRGB(*AZUL)
+        can.rect(0, 0, pw, 8*mm, fill=1, stroke=0)
+        can.setFillColorRGB(*BLANCO)
+        can.setFont("Helvetica", 7)
+        can.drawCentredString(pw / 2, 3*mm,
+            f"{biz}  •  Reporte de Comisiones Pendientes  •  {fecha_hoy}")
+
+        can.save()
+        buffer.seek(0)
+        pdf_bytes = buffer.read()
+
+        # ── Enviar mensaje previo + PDF ───────────────────────────────────────
+        n_vendedores = len(by_user)
+        n_registros  = len(rows)
+        msg = (
+            f"💰 *Comisiones Pendientes — {biz}*\n"
+            f"📅 {_dt.now().strftime('%d/%m/%Y %H:%M')}\n\n"
+            f"👥 Vendedores: {n_vendedores}\n"
+            f"📋 Registros: {n_registros}\n"
+            f"💵 Total comisiones: ${total_comision:,.2f}\n\n"
+            f"📎 Adjunto el cuadro completo de comisiones."
+        )
+
+        import base64
+        await _send_wa(inst, admin_phone, msg)
+
+        # Enviar PDF
+        async with __import__('httpx').AsyncClient(timeout=30) as c:
+            r = await c.post(
+                f"{WA_URL}/instance/{inst}/send-document",
+                json={
+                    "phone": admin_phone,
+                    "base64": base64.b64encode(pdf_bytes).decode(),
+                    "filename": f"comisiones_{_dt.now().strftime('%d%m%Y')}.pdf",
+                    "caption": f"Comisiones Pendientes — {biz}"
+                }
+            )
+
+        logger.info(f"[WA] PDF comisiones enviado → {schema}")
+
+    except Exception as e:
+        logger.error(f"[WA] Error PDF comisiones {schema}: {e}")
+        import traceback; logger.error(traceback.format_exc())
+    finally:
+        if db:
+            db.close()
