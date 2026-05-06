@@ -317,7 +317,7 @@ async def send_warranty_whatsapp(
     biz_name = biz_config.get("business_name", "Mi Inventario")
 
     # Nombre del cliente
-    customer_name = sale.customer.full_name or sale.customer.name or "Cliente"
+    customer_name = sale.customer.name or "Cliente"
 
     # Productos con garantía
     warranty_items = []

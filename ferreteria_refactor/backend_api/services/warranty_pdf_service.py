@@ -145,8 +145,8 @@ def generate_warranty_pdf(
     business_logo = business_config.get("business_logo", "")
 
     # Customer info
-    customer_name = sale.customer.full_name if sale.customer else "Cliente Genérico"
-    customer_doc = sale.customer.document_id if sale.customer else "N/A"
+    customer_name = sale.customer.name if sale.customer else "Cliente Genérico"
+    customer_doc = sale.customer.id_number if sale.customer else "N/A"
     customer_phone = sale.customer.phone if sale.customer else ""
     customer_email = sale.customer.email if sale.customer else ""
 
