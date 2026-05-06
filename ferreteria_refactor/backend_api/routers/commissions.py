@@ -62,7 +62,7 @@ def get_commissions_summary(
         for r in all_results
     ]
 
-@router.get("/details/{user_id}", response_model=List[schemas.CommissionLogRead])
+@router.get("/details/{user_id}")
 def get_user_commissions(
     user_id: int,
     db: Session = Depends(get_db),
