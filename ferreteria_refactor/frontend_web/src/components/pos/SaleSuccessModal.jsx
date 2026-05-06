@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { CheckCircle, Printer, FileText, X, ShieldCheck, ArrowRight, Download, Shield, MessageCircle } from "lucide-react";
+import { CheckCircle, Printer, FileText, X, ShieldCheck, ArrowRight, Shield, MessageCircle } from "lucide-react";
 import printerService from "../../services/printerService";
 import apiClient from "../../config/axios";
 import toast from "react-hot-toast";
@@ -82,15 +82,17 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
             const response = await apiClient.get(`/warranties/print/${saleData.saleId}`, {
                 responseType: 'blob',
             });
+            // Abrir en ventana nueva y disparar el diálogo de impresión automáticamente
             const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `garantia_venta_${saleData.saleId}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            const printWindow = window.open(url, '_blank');
+            if (printWindow) {
+                printWindow.addEventListener('load', () => {
+                    printWindow.focus();
+                    printWindow.print();
+                });
+            }
             window.URL.revokeObjectURL(url);
-            toast.success('Garantía descargada. Ábrela e imprímela desde tu visor de PDF.');
+            toast.success('Abriendo garantía para imprimir...');
         } catch (error) {
             const detail = error.response?.data?.detail || 'Error al generar la garantía';
             toast.error(detail);
@@ -130,18 +132,16 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                             <ShieldCheck size={32} className="text-amber-600" />
                             <div>
                                 <p className="font-black text-amber-900 uppercase text-xs">Venta con Serial / IMEI detectada</p>
-                                <p className="text-[10px] text-amber-700 font-bold mt-1">Haga clic abajo para imprimir su formato corporativo</p>
+                                <p className="text-[10px] text-amber-700 font-bold mt-1">Imprime o envía la garantía al cliente</p>
                             </div>
                             <div className="flex gap-2 w-full mt-2">
-                                {warrantyPdfActive && (
-                                    <button 
-                                        onClick={handlePrintWarranty}
-                                        disabled={printingWarranty}
-                                        className="flex-1 py-3 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-amber-200 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
-                                    >
-                                        <Download size={14} /> {printingWarranty ? 'Generando...' : 'Descargar PDF'}
-                                    </button>
-                                )}
+                                <button 
+                                    onClick={handlePrintWarranty}
+                                    disabled={printingWarranty}
+                                    className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
+                                >
+                                    <Printer size={14} /> {printingWarranty ? 'Generando...' : 'Imprimir Garantía'}
+                                </button>
                                 <button 
                                     onClick={handleSendWarrantyWhatsApp}
                                     disabled={sendingWarrantyWa}
