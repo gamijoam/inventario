@@ -185,7 +185,10 @@ async def job_stock_alerts():
 
             inst        = wa.get("whatsapp_instance_name", "")
             status      = wa.get("whatsapp_instance_status", "")
-            admin_phone = wa.get("whatsapp_admin_phone", "")
+            admin_phone_raw = wa.get("whatsapp_admin_phone", "") or ""
+            admin_phone = "".join(c for c in admin_phone_raw if c.isdigit())
+            if admin_phone and not admin_phone.startswith("58"):
+                admin_phone = "58" + admin_phone
             notify      = wa.get("whatsapp_notify_stock") != "false"
             biz         = wa.get("business_name") or "Mi Inventario"
 
@@ -246,9 +249,14 @@ async def send_cash_session_summary(schema: str, session_id: int):
 
         inst        = wa.get("whatsapp_instance_name", "")
         status      = wa.get("whatsapp_instance_status", "")
-        admin_phone = wa.get("whatsapp_admin_phone", "")
+        admin_phone_raw = wa.get("whatsapp_admin_phone", "") or ""
         notify      = wa.get("whatsapp_notify_cash_summary") != "false"
         biz         = wa.get("business_name") or "Mi Inventario"
+
+        # Normalizar teléfono: quitar no-dígitos y agregar prefijo 58 si falta
+        admin_phone = "".join(c for c in admin_phone_raw if c.isdigit())
+        if admin_phone and not admin_phone.startswith("58"):
+            admin_phone = "58" + admin_phone
 
         if not inst or status != "CONNECTED" or not admin_phone or not notify:
             return

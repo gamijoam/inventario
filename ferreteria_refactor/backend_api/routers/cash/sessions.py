@@ -8,7 +8,7 @@ Responsabilidades:
   - Cierre de sesión de caja (POST /sessions/{id}/close)
   - Cierre forzado por admin (POST /registers/{id}/force-close-session)
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload, subqueryload
 from sqlalchemy import text
 from typing import List, Optional
@@ -412,6 +412,7 @@ def get_current_session(
 async def close_cash_session(
     session_id: int,
     close_data: schemas.CashSessionClose,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_active_user)
 ):
@@ -683,10 +684,17 @@ async def close_cash_session(
     try:
         from ...services import whatsapp_scheduler as _wa_sched
         from ...tenant_context import get_tenant_schema as _gs
-        import asyncio as _asyncio
-        _asyncio.create_task(
-            _wa_sched.send_cash_session_summary(_gs(), broadcast_session_id)
-        )
+
+        def _run_summary(schema: str, sid: int):
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(_wa_sched.send_cash_session_summary(schema, sid))
+            finally:
+                loop.close()
+
+        background_tasks.add_task(_run_summary, _gs(), broadcast_session_id)
     except Exception as _e:
         logger.warning(f"[WA] Resumen caja falló: {_e}")
 
