@@ -36,12 +36,19 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
         }
     }, [isOpen, autoPrintTicket, saleData?.saleId]);
 
+    // Tiene garantía si: tiene seriales/IMEI O tiene política de garantía asignada
     const hasImeiItems = useMemo(() => {
-        if (!saleData || !saleData.cart) return saleData?.items?.some(item => item.has_imei || (item.serial_numbers && item.serial_numbers.length > 0));
-        return saleData.cart.some(item => 
-            item.serial_numbers && 
-            Array.isArray(item.serial_numbers) && 
-            item.serial_numbers.length > 0
+        if (!saleData || !saleData.cart) {
+            return saleData?.items?.some(item =>
+                item.has_imei ||
+                (item.serial_numbers && item.serial_numbers.length > 0) ||
+                item.warranty_policy_id
+            );
+        }
+        return saleData.cart.some(item =>
+            (item.serial_numbers && Array.isArray(item.serial_numbers) && item.serial_numbers.length > 0) ||
+            item.has_imei ||
+            item.warranty_policy_id
         );
     }, [saleData]);
 
@@ -118,7 +125,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                 </div>
 
                 <div className="p-10 space-y-6">
-                    {warrantyPdfActive && hasImeiItems && (
+                    {hasImeiItems && (
                         <div className="bg-amber-100 border-2 border-amber-300 p-6 rounded-[2rem] flex flex-col items-center text-center gap-3">
                             <ShieldCheck size={32} className="text-amber-600" />
                             <div>
@@ -126,13 +133,15 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                                 <p className="text-[10px] text-amber-700 font-bold mt-1">Haga clic abajo para imprimir su formato corporativo</p>
                             </div>
                             <div className="flex gap-2 w-full mt-2">
-                                <button 
-                                    onClick={handlePrintWarranty}
-                                    disabled={printingWarranty}
-                                    className="flex-1 py-3 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-amber-200 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
-                                >
-                                    <Download size={14} /> {printingWarranty ? 'Generando...' : 'Descargar PDF'}
-                                </button>
+                                {warrantyPdfActive && (
+                                    <button 
+                                        onClick={handlePrintWarranty}
+                                        disabled={printingWarranty}
+                                        className="flex-1 py-3 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-amber-200 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
+                                    >
+                                        <Download size={14} /> {printingWarranty ? 'Generando...' : 'Descargar PDF'}
+                                    </button>
+                                )}
                                 <button 
                                     onClick={handleSendWarrantyWhatsApp}
                                     disabled={sendingWarrantyWa}
