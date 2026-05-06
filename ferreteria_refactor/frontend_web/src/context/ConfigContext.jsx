@@ -131,11 +131,15 @@ export const ConfigProvider = ({ children }) => {
                         setFeatureFlags(publicConfig.data.feature_flags);
                     }
 
-                    // Update Business Name (Priority set)
+                    // tenant_name es el nombre del tenant en SaaS admin
+                    // NO sobreescribir — el business_name lo carga el paso 3
+                    // Solo guardarlo como fallback si no hay business_name
                     if (publicConfig.data.tenant_name) {
                         setBusiness(prev => ({
                             ...prev,
-                            name: publicConfig.data.tenant_name
+                            tenant_name_fallback: publicConfig.data.tenant_name,
+                            // Solo usar si name está vacío o es el default
+                            name: prev.name && prev.name !== 'Cargando...' ? prev.name : publicConfig.data.tenant_name
                         }));
                     }
                 }

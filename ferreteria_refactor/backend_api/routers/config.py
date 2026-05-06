@@ -425,13 +425,14 @@ def get_business_info(db: Session = Depends(get_db)):
     result = db.execute(text(f"SELECT key, value FROM {schema}.business_config")).all()
     configs = {r[0]: r[1] for r in result}
     return schemas.BusinessInfo(
-        name=configs.get("name", ""),
-        document_id=configs.get("document_id", ""),
-        address=configs.get("address", ""),
-        phone=configs.get("phone", ""),
-        email=configs.get("email", ""),
-        website=configs.get("website"),
-        logo_url=configs.get("logo_url"),
+        # Las keys en BD usan prefijo "business_" — buscar ambas formas por compatibilidad
+        name=configs.get("business_name") or configs.get("name", ""),
+        document_id=configs.get("business_doc") or configs.get("document_id", ""),
+        address=configs.get("business_address") or configs.get("address", ""),
+        phone=configs.get("business_phone") or configs.get("phone", ""),
+        email=configs.get("business_email") or configs.get("email", ""),
+        website=configs.get("business_website") or configs.get("website"),
+        logo_url=configs.get("business_logo") or configs.get("logo_url"),
         warranty_format_url=configs.get("warranty_format_url"),
         ticket_template=configs.get("ticket_template", ""),
         default_tax_rate=Decimal(str(configs.get("default_tax_rate", "0.00")))
