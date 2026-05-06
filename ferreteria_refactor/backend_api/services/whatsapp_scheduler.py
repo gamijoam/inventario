@@ -688,17 +688,18 @@ async def send_commissions_pdf(schema: str, session_id: int):
         # ── Columnas exactas del frontend (en mm desde izq) ─────────────────
         # FECHA | REFERENCIA | MÉT.PAGO | $ | Bs | E.Q$ | FINANCIAMIENTO | NIVEL | M.FIN | ESTADO
         # Ancho total disponible: 10 a 287 mm = 277 mm
+        # Landscape A4: ancho útil 10mm a 287mm = 277mm
+        # FECHA | REFERENCIA | MÉT.PAGO | $ | Bs | E.Q $ | FINANCIAMIENTO | ESTADO
+        # Columnas numéricas más anchas para evitar solapamiento
         COL = {
             "fecha":    (10,  22),   # inicio, ancho mm
-            "ref":      (32,  38),
-            "met":      (70,  38),
-            "usd":      (108, 20),
-            "bs":       (128, 28),
-            "eq":       (156, 20),
-            "fin":      (176, 36),
-            "nivel":    (212, 16),
-            "mfin":     (228, 24),
-            "estado":   (252, 28),
+            "ref":      (32,  40),
+            "met":      (72,  42),
+            "usd":      (114, 28),   # ancho 28 para "$2,503.20"
+            "bs":       (142, 40),   # ancho 40 para "234,986.26"
+            "eq":       (182, 28),   # ancho 28 para "$6,527.40"
+            "fin":      (210, 40),
+            "estado":   (250, 30),
         }
 
         fecha_hoy = _dt.now().strftime("%d/%m/%Y %H:%M")
@@ -721,7 +722,7 @@ async def send_commissions_pdf(schema: str, session_id: int):
             labels = [
                 ("fecha","FECHA"),("ref","REFERENCIA"),("met","MÉT. PAGO"),
                 ("usd","$"),("bs","Bs"),("eq","E.Q $"),
-                ("fin","FINANCIAMIENTO"),("nivel","NIVEL"),("mfin","M. FIN."),("estado","ESTADO"),
+                ("fin","FINANCIAMIENTO"),("estado","ESTADO"),
             ]
             for key, label in labels:
                 x, w = COL[key]
@@ -775,7 +776,8 @@ async def send_commissions_pdf(schema: str, session_id: int):
 
                 # Calcular comisión
                 total_usd_venta = sale_usd if not en_bs else (sale_bs/rate if rate else 0)
-                comision = total_usd_venta * (pct/100) if pct else float(r.amount or 0)
+                # cl.amount ya tiene la comisión calculada correctamente al momento de la venta
+                comision = float(r.amount or 0)
                 sub_usd += (sale_usd if not en_bs else 0)
                 sub_bs  += (sale_bs  if en_bs     else 0)
                 sub_com += comision
@@ -829,13 +831,6 @@ async def send_commissions_pdf(schema: str, session_id: int):
                 # FINANCIAMIENTO
                 rgb(C_GRIS); can.setFont("Helvetica", 6.5)
                 can.drawString(COL["fin"][0]*mm, yy, "Contado")
-
-                # NIVEL
-                can.drawString(COL["nivel"][0]*mm, yy, "—")
-
-                # M. FINANCIADO
-                xr_mf = (COL["mfin"][0] + COL["mfin"][1]) * mm
-                rgb((0.75,0.75,0.75)); can.drawRightString(xr_mf, yy, "—")
 
                 # ESTADO badge
                 bx = COL["estado"][0]*mm
