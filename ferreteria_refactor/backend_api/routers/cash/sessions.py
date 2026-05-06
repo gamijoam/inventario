@@ -685,17 +685,23 @@ async def close_cash_session(
         from ...services import whatsapp_scheduler as _wa_sched
         from ...tenant_context import get_tenant_schema as _gs
 
-        def _run_summary(schema: str, sid: int):
-            import asyncio
+        _schema_now = _gs()
+        _sid_now    = broadcast_session_id
+
+        def _run_summary():
+            import asyncio, traceback
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                loop.run_until_complete(_wa_sched.send_cash_session_summary(schema, sid))
+                loop.run_until_complete(_wa_sched.send_cash_session_summary(_schema_now, _sid_now))
+                logger.info(f"[WA] Resumen caja enviado — schema={_schema_now} sid={_sid_now}")
+            except Exception as _ex:
+                logger.error(f"[WA] Error en resumen caja: {_ex}\n{traceback.format_exc()}")
             finally:
                 loop.close()
 
-        background_tasks.add_task(_run_summary, _gs(), broadcast_session_id)
+        background_tasks.add_task(_run_summary)
     except Exception as _e:
-        logger.warning(f"[WA] Resumen caja falló: {_e}")
+        logger.warning(f"[WA] Resumen caja setup falló: {_e}")
 
     return response_data
