@@ -90,15 +90,25 @@ def get_user_commissions(
         financed_amount = None
 
         if c.source_id:
-            # Pagos de la venta
-            payments = db.query(models.SalePayment).filter(
-                models.SalePayment.sale_id == c.source_id
-            ).all()
-            payment_methods = [p.payment_method for p in payments if p.payment_method]
+            # source_id es el ID del SaleDetail — buscar la venta a través de él
+            sale = None
+            if c.source_type == 'SALE' or c.source_type is None:
+                detail = db.query(models.SaleDetail).filter(
+                    models.SaleDetail.id == c.source_id
+                ).first()
+                if detail:
+                    sale = db.query(models.Sale).filter(models.Sale.id == detail.sale_id).first()
+                # Fallback: si no hay sale_detail, intentar directo
+                if not sale:
+                    sale = db.query(models.Sale).filter(models.Sale.id == c.source_id).first()
 
-            # Datos de la venta
-            sale = db.query(models.Sale).filter(models.Sale.id == c.source_id).first()
             if sale:
+                # Pagos de la venta
+                payments = db.query(models.SalePayment).filter(
+                    models.SalePayment.sale_id == sale.id
+                ).all()
+                payment_methods = [p.payment_method for p in payments if p.payment_method]
+
                 sale_currency = sale.currency
                 sale_total_usd = float(sale.total_amount or 0)
                 sale_total_bs = float(sale.total_amount_bs or 0)
@@ -110,7 +120,6 @@ def get_user_commissions(
                     financing_method = sale.financer_name
                     financing_level = getattr(sale, 'financer_payment_status', None)
                     financed_amount = float(getattr(sale, 'financed_amount', 0) or 0)
-                # Crédito interno
                 elif is_credit:
                     financing_method = "Crédito interno"
                     financing_level = f"{sale.credit_installments or 0} cuotas" if sale.credit_installments else None
