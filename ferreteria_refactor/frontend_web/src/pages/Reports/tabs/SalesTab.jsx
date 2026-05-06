@@ -3,7 +3,7 @@ import {
     Search, Trash2, Eye, Printer, AlertTriangle, X, FileText,
     Filter, FileDown, MoreHorizontal, ScanBarcode, Shield
 } from 'lucide-react';
-import { Wallet, Users, Package } from 'lucide-react';
+import { Wallet, Users, Package, MessageCircle } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../context/AuthContext';
