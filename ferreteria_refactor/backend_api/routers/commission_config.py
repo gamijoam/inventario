@@ -245,8 +245,8 @@ def list_user_rates(
             "username": u.username,
             "full_name": u.full_name,
             "role": u.role.value,
-            "commission_vendor_pct": float(u.commission_vendor_pct or 0),
-            "commission_technician_pct": float(u.commission_technician_pct or 0),
+            "commission_vendor_pct": float(getattr(u, "commission_vendor_pct", None) or 0),
+            "commission_technician_pct": float(getattr(u, "commission_technician_pct", None) or 0),
         }
         for u in users
     ]

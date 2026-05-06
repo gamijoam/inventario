@@ -769,9 +769,9 @@ def archive_service_order(
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     if order.status not in [models.ServiceOrderStatus.DELIVERED, models.ServiceOrderStatus.CANCELLED]:
         raise HTTPException(status_code=400, detail="Solo se pueden archivar órdenes ENTREGADAS o CANCELADAS")
-    order.is_archived = not order.is_archived  # toggle
+    order.is_archived = not getattr(order, "is_archived", False)  # toggle
     db.commit()
-    return {"id": order.id, "ticket_number": order.ticket_number, "is_archived": order.is_archived}
+    return {"id": order.id, "ticket_number": order.ticket_number, "is_archived": getattr(order, "is_archived", False)}
 
 
 @router.get("/orders/{order_id}/print/thermal")

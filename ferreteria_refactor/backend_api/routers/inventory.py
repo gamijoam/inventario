@@ -363,7 +363,7 @@ def lookup_imei(imei: str, db: Session = Depends(get_db)):
             "name": product.name,
             "sku": product.sku,
             "price": float(product.price),
-            "cost": float(product.cost_price or 0),
+            "cost": float(getattr(product, "cost_price", None) or getattr(product, "cost", None) or 0),
             "stock": float(product.stock),
             "category_name": product.category.name if product.category else None,
             "image_url": product.image_url,

@@ -344,6 +344,7 @@ def get_pending_kitchen_orders(db: Session = Depends(get_db)):
             RestaurantOrder.status.notin_(closed_order_statuses)
         ).options(
             joinedload(RestaurantOrder.items).joinedload(RestaurantOrderItem.product),
+            joinedload(RestaurantOrder.items).joinedload(RestaurantOrderItem.modifiers).joinedload(RestaurantOrderItemModifier.option),
             joinedload(RestaurantOrder.table)
         ).order_by(RestaurantOrder.created_at.asc()).all()
         

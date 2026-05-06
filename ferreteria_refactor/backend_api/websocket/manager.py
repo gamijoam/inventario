@@ -59,11 +59,13 @@ class ConnectionManager:
         print(f"[WS] Broadcasting event: {event_type} to {len(self.active_connections)} clients")
         
         disconnected = []
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
                 await connection.send_text(message)
-            except Exception as e:
-                print(f"[WS] Error sending to client: {e}")
+            except (RuntimeError, Exception) as e:
+                # RuntimeError: websocket already closed — limpiar silenciosamente
+                if "websocket" not in str(e).lower():
+                    print(f"[WS] Error sending to client: {e}")
                 disconnected.append(connection)
         
         # Clean up disconnected clients
