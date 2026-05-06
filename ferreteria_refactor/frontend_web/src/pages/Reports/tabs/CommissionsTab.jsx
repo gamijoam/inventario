@@ -125,8 +125,6 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                         <th className="px-3 py-2.5 text-left font-black whitespace-nowrap">FINANCIAMIENTO</th>
                         <th className="px-3 py-2.5 text-left font-black">NIVEL</th>
                         <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">M. FINANCIADO</th>
-                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">COMIS. %</th>
-                        <th className="px-3 py-2.5 text-right font-black whitespace-nowrap">COMISIÓN</th>
                         <th className="px-3 py-2.5 text-center font-black">ESTADO</th>
                     </tr>
                 </thead>
@@ -191,35 +189,7 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                                 <td className="px-3 py-2 text-right text-slate-500 whitespace-nowrap">
                                     {d.financed_amount ? `$${parseFloat(d.financed_amount).toFixed(2)}` : '—'}
                                 </td>
-                                {/* COMIS. % */}
-                                <td className="px-3 py-2 text-right text-slate-400 whitespace-nowrap">
-                                    {d.percentage_applied ? `${parseFloat(d.percentage_applied).toFixed(1)}%` : '—'}
-                                </td>
-                                {/* COMISIÓN = total de la venta × % del vendedor */}
-                                <td className="px-3 py-2 text-right whitespace-nowrap">
-                                    {(() => {
-                                        const pct = parseFloat(d.percentage_applied || 0) / 100;
-                                        if (!pct) return <span className="text-slate-300">—</span>;
-                                        // Total en $ — usa E.Q$ si venta en Bs
-                                        const totalUSD = vendidoEnBs
-                                            ? (d.sale_total_bs && d.sale_exchange_rate
-                                                ? parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)
-                                                : null)
-                                            : parseFloat(d.sale_total_usd || 0);
-                                        if (!totalUSD) return <span className="text-slate-300">—</span>;
-                                        const comision = totalUSD * pct;
-                                        return (
-                                            <div>
-                                                <span className="font-black text-emerald-700">${comision.toFixed(2)}</span>
-                                                {vendidoEnBs && d.sale_exchange_rate && (
-                                                    <div className="text-[8px] text-slate-400 font-medium">
-                                                        Bs {(comision * parseFloat(d.sale_exchange_rate)).toFixed(2)}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-                                </td>
+
                                 <td className="px-3 py-2 text-center">
                                     <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${d.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                                         {d.status === 'PENDING' ? 'PENDIENTE' : 'PAGADO'}
@@ -233,27 +203,20 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                 <tfoot>
                     <tr className="bg-indigo-50 border-t-2 border-indigo-200 text-[10px] font-black">
                         <td colSpan={3} className="px-3 py-3 text-right text-slate-600 uppercase tracking-wide">TOTALES</td>
-                        {/* Total $ */}
+                        {/* Total columna $ */}
                         <td className="px-3 py-3 text-right text-blue-700 whitespace-nowrap">
                             {totalVentaUSD > 0 ? `$${totalVentaUSD.toFixed(2)}` : '—'}
                         </td>
-                        {/* Total Bs */}
+                        {/* Total columna Bs */}
                         <td className="px-3 py-3 text-right text-emerald-700 whitespace-nowrap">
                             {totalVentaBs > 0 ? totalVentaBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
                         </td>
-                        {/* E.Q $ total Bs */}
+                        {/* Total E.Q $ — equivalente en $ del total Bs */}
                         <td className="px-3 py-3 text-right text-slate-700 whitespace-nowrap">
                             {totalVentaBs > 0 && bsRate ? `$${(totalVentaBs / bsRate).toFixed(2)}` : '—'}
                         </td>
-                        {/* Financiamiento / Nivel / M.Financiado / COMIS.% vacíos */}
+                        {/* Financiamiento / Nivel / M.Financiado / Estado vacíos */}
                         <td colSpan={4}></td>
-                        {/* COMISIÓN total */}
-                        <td className="px-3 py-3 text-right text-emerald-700 whitespace-nowrap">
-                            ${(totalVentaUSD * (details[0]?.percentage_applied ? parseFloat(details[0].percentage_applied)/100 : 0)
-                              + (totalVentaBs > 0 && bsRate ? (totalVentaBs / bsRate) * (details.find(d => d.sale_currency==='Bs' || d.paid_in_bs)?.percentage_applied ? parseFloat(details.find(d => d.sale_currency==='Bs' || d.paid_in_bs).percentage_applied)/100 : 0) : 0)
-                            ).toFixed(2)}
-                        </td>
-                        <td></td>
                     </tr>
                 </tfoot>
             </table>
