@@ -412,32 +412,97 @@ def _generate_basic_pdf(
     y -= 20
 
     for item in imei_items:
-        # Box for each item
-        item_height = 70
-        can.setStrokeColorRGB(0.7, 0.7, 0.7)
-        can.setLineWidth(0.5)
-        can.roundRect(70, y - item_height + 10, width - 140, item_height, 4, fill=0)
-
-        can.setFont("Helvetica-Bold", 10)
-        can.drawString(80, y - 8, item['product_name'])
-
-        can.setFont("Helvetica", 9)
-        can.drawString(80, y - 22, f"Cantidad: {item['quantity']}")
-        can.drawString(80, y - 36, f"Seriales: {', '.join(item['serials'])}")
-
         wp = item.get('warranty_policy')
-        if wp:
-            unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "De por vida"}
-            dur_text = f"{wp.duration} {unit_map.get(wp.type, '')}" if wp.duration else unit_map.get(wp.type, "")
-            can.drawString(80, y - 50, f"Cobertura: {wp.name} ({dur_text})")
+        unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "de por vida"}
 
+        # Calcular altura dinámica según el contenido
+        lines = 4  # nombre + cantidad + seriales + garantia nombre
+        if wp and wp.duration: lines += 1   # duracion
+        if wp and getattr(wp, 'description', None): lines += len(wp.description) // 80 + 1
+        if item.get('warranty_expiration'): lines += 1
+        item_height = max(80, lines * 16 + 20)
+
+        # Caja del item
+        can.setStrokeColorRGB(0.2, 0.3, 0.7)
+        can.setLineWidth(0.8)
+        can.roundRect(70, y - item_height + 10, width - 140, item_height, 6, fill=0)
+
+        # Nombre del producto
+        yy = y - 14
+        can.setFont("Helvetica-Bold", 11)
+        can.setFillColorRGB(0.1, 0.1, 0.5)
+        can.drawString(82, yy, item['product_name'])
+        can.setFillColorRGB(0, 0, 0)
+        yy -= 16
+
+        # Cantidad sin decimales
+        qty_val = item['quantity']
+        try:
+            qty_int = int(float(qty_val))
+            qty_str = str(qty_int)
+        except Exception:
+            qty_str = str(qty_val)
+        can.setFont("Helvetica", 9)
+        can.drawString(82, yy, f"Cantidad: {qty_str} unidad(es)")
+        yy -= 14
+
+        # Seriales
+        serials_text = ', '.join(item['serials']) if item['serials'] else '—'
+        can.drawString(82, yy, f"Seriales / IMEI: {serials_text}")
+        yy -= 16
+
+        # Separador fino
+        can.setStrokeColorRGB(0.8, 0.8, 0.9)
+        can.setLineWidth(0.4)
+        can.line(82, yy + 4, width - 72, yy + 4)
+        yy -= 6
+
+        if wp:
+            # Nombre garantía
+            can.setFont("Helvetica-Bold", 9)
+            can.setFillColorRGB(0.1, 0.4, 0.1)
+            can.drawString(82, yy, f"Garantía: {wp.name}")
+            can.setFillColorRGB(0, 0, 0)
+            yy -= 13
+
+            # Duración
+            if wp.duration:
+                dur_text = f"{wp.duration} {unit_map.get(wp.type, 'días')}"
+                can.setFont("Helvetica", 9)
+                can.drawString(82, yy, f"Duración: {dur_text}")
+                yy -= 13
+
+            # Descripción (itálica, puede ser multilínea)
+            desc = getattr(wp, 'description', None)
+            if desc:
+                can.setFont("Helvetica-Oblique", 8)
+                can.setFillColorRGB(0.3, 0.3, 0.3)
+                # Partir en líneas de 85 chars máx
+                words = desc.split()
+                line_buf = ""
+                for word in words:
+                    if len(line_buf) + len(word) + 1 <= 85:
+                        line_buf = (line_buf + " " + word).strip()
+                    else:
+                        can.drawString(82, yy, line_buf)
+                        yy -= 12
+                        line_buf = word
+                if line_buf:
+                    can.drawString(82, yy, line_buf)
+                    yy -= 12
+                can.setFillColorRGB(0, 0, 0)
+
+        # Fecha de vencimiento destacada
         if item.get('warranty_expiration'):
             exp = item['warranty_expiration']
             exp_str = exp.strftime("%d/%m/%Y") if isinstance(exp, datetime) else str(exp)
-            exp_x = 400 if wp else 80
-            can.drawString(exp_x, y - 50, f"Vence: {exp_str}")
+            can.setFont("Helvetica-Bold", 10)
+            can.setFillColorRGB(0.6, 0.1, 0.1)
+            can.drawString(82, yy - 4, f"Vence: {exp_str}")
+            can.setFillColorRGB(0, 0, 0)
+            yy -= 16
 
-        y -= item_height + 10
+        y -= item_height + 14
 
     # Terms
     y -= 20
