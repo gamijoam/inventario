@@ -261,35 +261,103 @@ async def send_cash_session_summary(schema: str, session_id: int):
         if not inst or status != "CONNECTED" or not admin_phone or not notify:
             return
 
-        # Obtener resumen de la sesión
-        row = db.execute(text(
+        import datetime as _dt
+
+        # Datos base de la sesión
+        session_row = db.execute(text(
             f'''SELECT
                 cs.start_time, cs.end_time,
-                COUNT(DISTINCT s.id)        AS total_ventas,
-                COALESCE(SUM(s.total_amount),0) AS total_usd,
-                COALESCE(SUM(s.total_amount_bs),0) AS total_bs
+                cs.opening_cash_usd, cs.opening_cash_bs,
+                cs.final_cash_reported, cs.final_cash_reported_bs,
+                cs.difference, cs.difference_bs,
+                cs.expected_cash_usd, cs.expected_cash_bs,
+                u.username as cajero
             FROM "{schema}".cash_sessions cs
-            LEFT JOIN "{schema}".sales s
-                ON s.date BETWEEN cs.start_time AND COALESCE(cs.end_time, NOW())
-            WHERE cs.id = :sid
-            GROUP BY cs.id'''
+            LEFT JOIN public.users u ON u.id = cs.user_id
+            WHERE cs.id = :sid'''
         ), {"sid": session_id}).fetchone()
 
-        if not row:
+        if not session_row:
             return
 
-        start, end, n_ventas, total_usd, total_bs = row
-        fecha = (end or __import__('datetime').datetime.now()).strftime('%d/%m/%Y')
-        hora_inicio = start.strftime('%H:%M') if start else '-'
-        hora_fin    = (end or __import__('datetime').datetime.now()).strftime('%H:%M')
+        # Ventas de la sesión por moneda y método de pago
+        sales_row = db.execute(text(
+            f'''SELECT
+                COUNT(DISTINCT s.id) AS total_ventas,
+                COALESCE(SUM(CASE WHEN s.currency='USD' THEN s.total_amount ELSE 0 END),0) AS ventas_usd,
+                COALESCE(SUM(CASE WHEN s.currency='Bs' THEN s.total_amount_bs ELSE 0 END),0) AS ventas_bs,
+                COALESCE(SUM(s.total_amount_bs),0) AS total_bs_all
+            FROM "{schema}".cash_sessions cs
+            LEFT JOIN "{schema}".sales s ON s.session_id = cs.id
+            WHERE cs.id = :sid'''
+        ), {"sid": session_id}).fetchone()
+
+        # Pagos por método
+        payments_rows = db.execute(text(
+            f'''SELECT
+                sp.payment_method,
+                sp.currency,
+                COALESCE(SUM(sp.amount),0) AS total
+            FROM "{schema}".cash_sessions cs
+            JOIN "{schema}".sales s ON s.session_id = cs.id
+            JOIN "{schema}".sale_payments sp ON sp.sale_id = s.id
+            WHERE cs.id = :sid
+            GROUP BY sp.payment_method, sp.currency
+            ORDER BY total DESC'''
+        ), {"sid": session_id}).fetchall()
+
+        now = _dt.datetime.now()
+        start    = session_row.start_time
+        end      = session_row.end_time or now
+        cajero   = session_row.cajero or "—"
+        fecha    = end.strftime('%d/%m/%Y')
+        h_ini    = start.strftime('%H:%M') if start else "—"
+        h_fin    = end.strftime('%H:%M')
+        duracion = int((end - start).total_seconds() // 60) if start else 0
+
+        n_ventas  = int(sales_row.total_ventas or 0)
+        v_usd     = float(sales_row.ventas_usd or 0)
+        v_bs      = float(sales_row.ventas_bs or 0)
+
+        # Efectivo declarado vs esperado
+        efectivo_dec_usd = float(session_row.final_cash_reported or 0)
+        efectivo_dec_bs  = float(session_row.final_cash_reported_bs or 0)
+        esperado_usd     = float(session_row.expected_cash_usd or 0)
+        esperado_bs      = float(session_row.expected_cash_bs or 0)
+        dif_usd          = float(session_row.difference or 0)
+        dif_bs           = float(session_row.difference_bs or 0)
+
+        # Líneas de métodos de pago
+        metodos_lines = ""
+        for pm in payments_rows:
+            sym = "$" if pm.currency == "USD" else "Bs"
+            metodos_lines += f"   • {pm.payment_method}: {sym} {float(pm.total):,.2f}\n"
+        if not metodos_lines:
+            metodos_lines = "   Sin pagos registrados\n"
+
+        # Estado del cuadre
+        if abs(dif_usd) < 0.01 and abs(dif_bs) < 1:
+            cuadre = "✅ Caja cuadrada perfectamente"
+        elif dif_usd > 0 or dif_bs > 0:
+            cuadre = f"⚠️ Sobrante: ${dif_usd:,.2f} | Bs {dif_bs:,.2f}"
+        else:
+            cuadre = f"🔴 Faltante: ${abs(dif_usd):,.2f} | Bs {abs(dif_bs):,.2f}"
 
         msg = (
             f"📊 *Resumen de Caja — {biz}*\n"
-            f"📅 {fecha} | {hora_inicio}–{hora_fin}\n\n"
-            f"🛒 Ventas realizadas: {n_ventas}\n"
-            f"💵 Total USD: ${float(total_usd):,.2f}\n"
-            f"💳 Total Bs: Bs {float(total_bs):,.2f}\n\n"
-            f"✅ Caja cerrada correctamente."
+            f"📅 {fecha}  |  🕐 {h_ini} – {h_fin}  ({duracion} min)\n"
+            f"👤 Cajero: {cajero}\n"
+            f"{'─'*30}\n\n"
+            f"🛒 *Ventas del turno: {n_ventas}*\n"
+            f"   💵 En dólares: ${v_usd:,.2f}\n"
+            f"   💳 En bolívares: Bs {v_bs:,.2f}\n\n"
+            f"💰 *Pagos recibidos:*\n"
+            f"{metodos_lines}\n"
+            f"📦 *Cuadre de caja:*\n"
+            f"   Efectivo declarado: ${efectivo_dec_usd:,.2f} | Bs {efectivo_dec_bs:,.2f}\n"
+            f"   Efectivo esperado: ${esperado_usd:,.2f} | Bs {esperado_bs:,.2f}\n"
+            f"   {cuadre}\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
 
         await _send_wa(inst, admin_phone, msg)
