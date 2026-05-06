@@ -785,71 +785,78 @@ async def send_commissions_pdf(schema: str, session_id: int):
                 fecha_str = r.created_at.strftime('%d/%m/%y') if r.created_at else '—'
 
                 yy = y - 4*mm
-                can.setFont("Helvetica", 7.5)
 
                 # REFERENCIA
                 can.setFillColorRGB(*GRIS_OSC)
-                ref = str(r.source_reference or '—')
-                source_type = getattr(r, 'source_type', 'SALE')
-                icon = '🔧' if source_type == 'SERVICE' else '🛒'
-                can.drawString(12*mm, yy, f"{icon} {ref}"[:22])
+                can.setFont("Helvetica-Bold", 7.5)
+                ref = str(r.source_reference or f"#{getattr(r,'source_id','?')}")
+                source_type = str(getattr(r, 'source_type', 'SALE') or 'SALE')
+                tipo_icon = '[S]' if source_type == 'SERVICE' else '[V]'
+                can.drawString(12*mm, yy, f"{tipo_icon} {ref}"[:22])
 
                 # MÉTODO DE PAGO
                 can.setFillColorRGB(*GRIS_OSC)
-                can.drawString(57*mm, yy, str(r.payment_methods or '—')[:20])
+                can.setFont("Helvetica", 7.5)
+                metodo_str = str(r.payment_methods or 'Sin datos')[:24]
+                can.drawString(57*mm, yy, metodo_str)
 
-                # $ — solo si venta en dólares
-                if not vendido_en_bs and sale_usd:
-                    can.setFillColorRGB(0.05, 0.30, 0.65)
+                # $ — EXACTO igual al frontend:
+                # Solo mostrar si venta en dólares (sale_currency == 'USD')
+                if not vendido_en_bs and sale_usd > 0:
+                    can.setFillColorRGB(0.05, 0.25, 0.65)
                     can.setFont("Helvetica-Bold", 7.5)
-                    can.drawString(95*mm, yy, f"${sale_usd:,.2f}")
+                    can.drawRightString(113*mm, yy, f"${sale_usd:,.2f}")
                 else:
-                    can.setFillColorRGB(*GRIS_OSC)
+                    can.setFillColorRGB(0.80, 0.80, 0.80)
                     can.setFont("Helvetica", 7.5)
-                    can.drawString(95*mm, yy, "—")
+                    can.drawRightString(113*mm, yy, "—")
 
-                # Bs — solo si venta en bolívares
-                if vendido_en_bs and sale_bs:
-                    can.setFillColorRGB(*VERDE)
+                # Bs — Solo mostrar si venta en bolívares
+                if vendido_en_bs and sale_bs > 0:
+                    can.setFillColorRGB(0.05, 0.45, 0.20)
                     can.setFont("Helvetica-Bold", 7.5)
-                    can.drawString(117*mm, yy, f"{sale_bs:,.2f}")
+                    can.drawRightString(143*mm, yy, f"{sale_bs:,.2f}")
                 else:
-                    can.setFillColorRGB(*GRIS_OSC)
+                    can.setFillColorRGB(0.80, 0.80, 0.80)
                     can.setFont("Helvetica", 7.5)
-                    can.drawString(117*mm, yy, "—")
+                    can.drawRightString(143*mm, yy, "—")
 
-                # E.Q $ — Bs ÷ tasa del día
-                if vendido_en_bs and sale_bs and rate:
+                # E.Q $ — valor Bs ÷ tasa = equivalente en $
+                # Solo si venta en Bs Y tiene tasa
+                if vendido_en_bs and sale_bs > 0 and rate > 0:
                     eq = sale_bs / rate
-                    can.setFillColorRGB(GRIS_OSC[0], GRIS_OSC[1], GRIS_OSC[2])
+                    can.setFillColorRGB(0.20, 0.20, 0.45)
                     can.setFont("Helvetica-Bold", 7.5)
-                    can.drawString(145*mm, yy, f"${eq:,.2f}")
+                    can.drawRightString(163*mm, yy, f"${eq:,.2f}")
                 else:
-                    can.setFillColorRGB(*GRIS_OSC)
+                    can.setFillColorRGB(0.80, 0.80, 0.80)
                     can.setFont("Helvetica", 7.5)
-                    can.drawString(145*mm, yy, "—")
+                    can.drawRightString(163*mm, yy, "—")
 
                 # FINANCIAMIENTO
-                financing = getattr(r, 'financing_method', None)
                 can.setFillColorRGB(*GRIS_OSC)
                 can.setFont("Helvetica", 7.5)
-                can.drawString(167*mm, yy, str(financing or 'Contado')[:16])
+                financing = str(getattr(r, 'financing_method', None) or 'Contado')
+                can.drawString(165*mm, yy, financing[:18])
 
                 # NIVEL
-                nivel = getattr(r, 'financing_level', None)
-                can.drawString(205*mm, yy, str(nivel or '—')[:10])
+                nivel = str(getattr(r, 'financing_level', None) or '—')
+                can.drawString(203*mm, yy, nivel[:10])
 
                 # M. FINANCIADO
-                fin_amount = getattr(r, 'financed_amount', None)
-                if fin_amount:
-                    can.drawString(227*mm, yy, f"${float(fin_amount):,.2f}")
+                fin_amt = getattr(r, 'financed_amount', None)
+                if fin_amt and float(fin_amt) > 0:
+                    can.drawRightString(237*mm, yy, f"${float(fin_amt):,.2f}")
                 else:
-                    can.drawString(227*mm, yy, "—")
+                    can.setFillColorRGB(0.80, 0.80, 0.80)
+                    can.drawRightString(237*mm, yy, "—")
 
-                # ESTADO
-                can.setFillColorRGB(*AMBER)
-                can.setFont("Helvetica-Bold", 7)
-                can.drawString(255*mm, yy, "PENDIENTE")
+                # ESTADO — badge PENDIENTE en naranja
+                can.setFillColorRGB(0.95, 0.90, 0.80)
+                can.roundRect(238*mm, yy - 1.5*mm, 22*mm, 4.5*mm, 1, fill=1, stroke=0)
+                can.setFillColorRGB(0.70, 0.40, 0.02)
+                can.setFont("Helvetica-Bold", 6.5)
+                can.drawCentredString(249*mm, yy + 0.5*mm, "PENDIENTE")
 
                 y -= 5.5*mm
 
@@ -858,15 +865,26 @@ async def send_commissions_pdf(schema: str, session_id: int):
             can.rect(10*mm, y - 6*mm, pw - 20*mm, 6*mm, fill=1, stroke=0)
             can.setFillColorRGB(*AZUL)
             can.setFont("Helvetica-Bold", 8)
+            can.setFont("Helvetica-Bold", 8)
             can.drawString(12*mm, y - 4.5*mm, f"Subtotal {username}:")
-            if subtotal_usd:
-                can.drawString(95*mm, y - 4.5*mm, f"${subtotal_usd:,.2f}")
-            if subtotal_bs:
+            # Columna $ — suma ventas en USD
+            if subtotal_usd > 0:
+                can.setFillColorRGB(0.05, 0.25, 0.65)
+                can.drawRightString(113*mm, y - 4.5*mm, f"${subtotal_usd:,.2f}")
+            else:
+                can.setFillColorRGB(0.80, 0.80, 0.80)
+                can.drawRightString(113*mm, y - 4.5*mm, "—")
+            # Columna Bs — suma ventas en Bs
+            if subtotal_bs > 0:
+                can.setFillColorRGB(0.05, 0.45, 0.20)
+                can.drawRightString(143*mm, y - 4.5*mm, f"{subtotal_bs:,.2f}")
+                # E.Q $ del subtotal Bs
+                can.setFillColorRGB(0.20, 0.20, 0.45)
                 eq_sub = subtotal_bs / rate if rate else 0
-                can.drawString(117*mm, y - 4.5*mm, f"Bs {subtotal_bs:,.2f}")
-                can.drawString(145*mm, y - 4.5*mm, f"${eq_sub:,.2f}")
-            can.setFillColorRGB(*VERDE)
-            can.drawString(220*mm, y - 4.5*mm, f"Total comisión: ${sub_comision:,.2f}")
+                can.drawRightString(163*mm, y - 4.5*mm, f"${eq_sub:,.2f}")
+            else:
+                can.setFillColorRGB(0.80, 0.80, 0.80)
+                can.drawRightString(143*mm, y - 4.5*mm, "—")
 
             total_global_usd += subtotal_usd
             total_global_bs  += subtotal_bs
@@ -883,15 +901,32 @@ async def send_commissions_pdf(schema: str, session_id: int):
         can.rect(10*mm, y - 10*mm, pw - 20*mm, 10*mm, fill=1, stroke=0)
         can.setFillColorRGB(*BLANCO)
         can.setFont("Helvetica-Bold", 10)
+        can.setFont("Helvetica-Bold", 9)
         can.drawString(12*mm, y - 7*mm, "TOTAL GENERAL")
-        if total_global_usd:
-            can.drawString(95*mm, y - 7*mm, f"${total_global_usd:,.2f}")
-        if total_global_bs:
+        # Columna $
+        if total_global_usd > 0:
+            can.setFillColorRGB(0.88, 0.92, 1.0)
+            can.rect(90*mm, y - 9*mm, 25*mm, 5.5*mm, fill=1, stroke=0)
+            can.setFillColorRGB(0.05, 0.25, 0.65)
+            can.drawRightString(113*mm, y - 6*mm, f"${total_global_usd:,.2f}")
+        # Columna Bs
+        if total_global_bs > 0:
+            can.setFillColorRGB(0.88, 1.0, 0.90)
+            can.rect(118*mm, y - 9*mm, 27*mm, 5.5*mm, fill=1, stroke=0)
+            can.setFillColorRGB(0.05, 0.45, 0.20)
+            can.drawRightString(143*mm, y - 6*mm, f"{total_global_bs:,.2f}")
+            # E.Q $
             eq_total = total_global_bs / rate if rate else 0
-            can.drawString(117*mm, y - 7*mm, f"Bs {total_global_bs:,.2f}")
-            can.drawString(145*mm, y - 7*mm, f"${eq_total:,.2f}")
-        can.setFillColorRGB(1, 0.9, 0.3)
-        can.drawString(210*mm, y - 7*mm, f"TOTAL COMISIONES: ${total_comision:,.2f}")
+            can.setFillColorRGB(0.90, 0.90, 0.97)
+            can.rect(146*mm, y - 9*mm, 19*mm, 5.5*mm, fill=1, stroke=0)
+            can.setFillColorRGB(0.20, 0.20, 0.45)
+            can.drawRightString(163*mm, y - 6*mm, f"${eq_total:,.2f}")
+        # TOTAL COMISIONES destacado
+        can.setFillColorRGB(1, 0.85, 0.1)
+        can.roundRect(175*mm, y - 9.5*mm, 80*mm, 7*mm, 2, fill=1, stroke=0)
+        can.setFillColorRGB(0.40, 0.20, 0)
+        can.setFont("Helvetica-Bold", 9)
+        can.drawString(177*mm, y - 6.5*mm, f"TOTAL COMISIONES:  ${total_comision:,.2f}")
 
         # ── TOTALES POR MÉTODO DE PAGO ──────────────────────────────────────────
         FOOTER_H = 12*mm  # altura reservada para el footer
