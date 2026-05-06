@@ -110,6 +110,13 @@ const VendorDetailTable = ({ userId, bsRate }) => {
         const vendidoEnBs = d.sale_currency === 'Bs' || d.paid_in_bs;
         return vendidoEnBs && d.sale_total_bs ? s + parseFloat(d.sale_total_bs) : s;
     }, 0);
+    // % de comisión del vendedor (tomar del primer registro)
+    const pct = details.length > 0 ? parseFloat(details[0].percentage_applied || 0) : 0;
+    const pctLabel = pct > 0 ? `${pct.toFixed(1)}%` : null;
+    // Comisión total sobre $ y sobre E.Q $
+    const comisionUSD = totalVentaUSD * (pct / 100);
+    const totalEQ = totalVentaBs > 0 && bsRate ? totalVentaBs / bsRate : 0;
+    const comisionEQ = totalEQ * (pct / 100);
 
     return (
         <div className="overflow-x-auto">
@@ -201,23 +208,39 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                 </tbody>
                 {/* Totales */}
                 <tfoot>
+                    {/* Fila 1: TOTALES */}
                     <tr className="bg-indigo-50 border-t-2 border-indigo-200 text-[10px] font-black">
-                        <td colSpan={3} className="px-3 py-3 text-right text-slate-600 uppercase tracking-wide">TOTALES</td>
-                        {/* Total columna $ */}
-                        <td className="px-3 py-3 text-right text-blue-700 whitespace-nowrap">
+                        <td colSpan={3} className="px-3 py-2 text-right text-slate-600 uppercase tracking-wide">TOTALES</td>
+                        <td className="px-3 py-2 text-right text-blue-700 whitespace-nowrap">
                             {totalVentaUSD > 0 ? `$${totalVentaUSD.toFixed(2)}` : '—'}
                         </td>
-                        {/* Total columna Bs */}
-                        <td className="px-3 py-3 text-right text-emerald-700 whitespace-nowrap">
+                        <td className="px-3 py-2 text-right text-emerald-700 whitespace-nowrap">
                             {totalVentaBs > 0 ? totalVentaBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
                         </td>
-                        {/* Total E.Q $ — equivalente en $ del total Bs */}
-                        <td className="px-3 py-3 text-right text-slate-700 whitespace-nowrap">
-                            {totalVentaBs > 0 && bsRate ? `$${(totalVentaBs / bsRate).toFixed(2)}` : '—'}
+                        <td className="px-3 py-2 text-right text-slate-700 whitespace-nowrap">
+                            {totalEQ > 0 ? `$${totalEQ.toFixed(2)}` : '—'}
                         </td>
-                        {/* Financiamiento / Nivel / M.Financiado / Estado vacíos */}
                         <td colSpan={4}></td>
                     </tr>
+                    {/* Fila 2: COMISIÓN = totales × % */}
+                    {pctLabel && (
+                        <tr className="bg-emerald-50 border-t border-emerald-200 text-[10px] font-black">
+                            <td colSpan={3} className="px-3 py-2 text-right text-emerald-700 uppercase tracking-wide">
+                                COMISIÓN {pctLabel}
+                            </td>
+                            {/* Comisión sobre ventas en $ */}
+                            <td className="px-3 py-2 text-right text-emerald-700 whitespace-nowrap">
+                                {comisionUSD > 0 ? `$${comisionUSD.toFixed(2)}` : '—'}
+                            </td>
+                            {/* Columna Bs vacía (comisión se calcula en $) */}
+                            <td className="px-3 py-2 text-right text-slate-300">—</td>
+                            {/* Comisión sobre E.Q $ de ventas en Bs */}
+                            <td className="px-3 py-2 text-right text-emerald-700 whitespace-nowrap">
+                                {comisionEQ > 0 ? `$${comisionEQ.toFixed(2)}` : '—'}
+                            </td>
+                            <td colSpan={4}></td>
+                        </tr>
+                    )}
                 </tfoot>
             </table>
         </div>
