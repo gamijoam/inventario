@@ -705,7 +705,9 @@ async def send_commissions_pdf(schema: str, session_id: int):
         # ── Definición de columnas ─────────────────────────────────────────
         # Landscape A4 = 277mm útil
         # FECHA | REFERENCIA | MÉT.PAGO | $ | Bs | E.Q$ | FINANCIAMIENTO | NIVEL | ESTADO
-        COL_W = [22, 45, 50, 28, 38, 28, 38, 16, 12]  # mm
+        # Landscape A4 útil=277mm — 8 columnas (sin NIVEL)
+        # FECHA+REF+MET+$+Bs+EQ+FIN+ESTADO = 20+42+50+30+44+30+36+25 = 277mm
+        COL_W = [20, 42, 50, 30, 44, 30, 36, 25]  # mm
         COL_W_PT = [w*mm for w in COL_W]
 
         def row_data(fecha, ref, met, usd_val, bs_val, eq_val, fin, nivel, estado,
@@ -718,8 +720,7 @@ async def send_commissions_pdf(schema: str, session_id: int):
                 Paragraph(bs_val,  ps(TA_RIGHT, bs_color,  bold=bool(bs_val!="—"),  size=FS)),
                 Paragraph(eq_val,  ps(TA_RIGHT, eq_color,  bold=bool(eq_val!="—"),  size=FS)),
                 Paragraph(fin,   ps(TA_LEFT,  colors.HexColor("#666666"), size=FS)),
-                Paragraph(nivel, ps(TA_CENTER, C_MUTED, size=FS)),
-                Paragraph(estado, ps(TA_CENTER, C_PEND_FG, bold=True, size=6)),
+                Paragraph(estado, ps(TA_CENTER, C_PEND_FG, bold=True, size=6.5)),
             ]
 
         # ── Construir tabla ────────────────────────────────────────────────
@@ -737,7 +738,7 @@ async def send_commissions_pdf(schema: str, session_id: int):
             Paragraph(f"Generado: {_dt.now().strftime('%d/%m/%Y %H:%M')}", ps(TA_RIGHT, colors.HexColor("#b0c4de"), size=6)),
         ])
         add_style(('BACKGROUND', (0,0), (-1,0), C_HEADER))
-        add_style(('SPAN', (0,0), (7,0)))
+        add_style(('SPAN', (0,0), (6,0)))
         add_style(('ROWBACKGROUND', (0,0), (-1,0), C_HEADER))
         add_style(('TOPPADDING', (0,0), (-1,0), 5))
         add_style(('BOTTOMPADDING', (0,0), (-1,0), 5))
@@ -766,7 +767,6 @@ async def send_commissions_pdf(schema: str, session_id: int):
                 Paragraph('Bs',             ps(TA_RIGHT,  C_WHITE, bold=True, size=6.5)),
                 Paragraph('E.Q $',          ps(TA_RIGHT,  C_WHITE, bold=True, size=6.5)),
                 Paragraph('FINANCIAMIENTO', ps(TA_LEFT,   C_WHITE, bold=True, size=6.5)),
-                Paragraph('NIVEL',          ps(TA_CENTER, C_WHITE, bold=True, size=6.5)),
                 Paragraph('ESTADO',         ps(TA_CENTER, C_WHITE, bold=True, size=6.5)),
             ])
             add_style(('BACKGROUND', (0,r), (-1,r), C_COL_HDR))
@@ -804,7 +804,7 @@ async def send_commissions_pdf(schema: str, session_id: int):
                 add_style(('BOTTOMPADDING', (0,r_idx), (-1,r_idx), 2))
                 add_style(('LINEBELOW', (0,r_idx), (-1,r_idx), 0.3, colors.HexColor("#eeeeee")))
                 # PENDIENTE badge bg
-                add_style(('BACKGROUND', (8,r_idx), (8,r_idx), C_PEND_BG))
+                add_style(('BACKGROUND', (7,r_idx), (7,r_idx), C_PEND_BG))
                 ROW[0] += 1
 
         # ── Fila TOTALES ───────────────────────────────────────────────────
@@ -817,7 +817,7 @@ async def send_commissions_pdf(schema: str, session_id: int):
             Paragraph(tot_usd, ps(TA_RIGHT, C_USD if g_total_usd else C_MUTED, bold=True, size=7.5)),
             Paragraph(tot_bs,  ps(TA_RIGHT, C_GRN if g_total_bs  else C_MUTED, bold=True, size=7.5)),
             Paragraph(tot_eq,  ps(TA_RIGHT, C_IND if total_eq    else C_MUTED, bold=True, size=7.5)),
-            Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()),
+            Paragraph('', ps()), Paragraph('', ps()),
         ])
         add_style(('BACKGROUND', (0,r), (-1,r), C_FOOT1))
         add_style(('LINEABOVE', (0,r), (-1,r), 1.5, C_COL_HDR))
@@ -834,7 +834,7 @@ async def send_commissions_pdf(schema: str, session_id: int):
             Paragraph('POR MÉTODO DE PAGO', ps(TA_RIGHT, colors.HexColor("#35354a"), bold=True, size=7)),
             Paragraph(mets_usd, ps(TA_LEFT, C_USD, size=6.5)),
             Paragraph(mets_bs,  ps(TA_LEFT, C_GRN, size=6.5)),
-            Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()),
+            Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()),
         ])
         add_style(('BACKGROUND', (0,r), (-1,r), C_FOOT2))
         add_style(('LINEABOVE', (0,r), (-1,r), 0.5, colors.HexColor("#dddddd")))
@@ -853,7 +853,7 @@ async def send_commissions_pdf(schema: str, session_id: int):
                 Paragraph(com_usd, ps(TA_RIGHT, C_ESM if comision_usd else C_MUTED, bold=True, size=7.5)),
                 Paragraph('—',     ps(TA_RIGHT, C_MUTED, size=7.5)),
                 Paragraph(com_eq,  ps(TA_RIGHT, C_ESM if comision_eq  else C_MUTED, bold=True, size=7.5)),
-                Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()),
+                Paragraph('', ps()), Paragraph('', ps()),
             ])
             add_style(('BACKGROUND', (0,r), (-1,r), C_FOOT3))
             add_style(('LINEABOVE', (0,r), (-1,r), 0.5, colors.HexColor("#6ee7b7")))
