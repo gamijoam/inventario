@@ -302,7 +302,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             min_stock: parseFloat(formData.min_stock) || 0,
             exchange_rate_id: formData.exchange_rate_id ? parseInt(formData.exchange_rate_id) : null,
             warranty_policy_id: formData.warranty_policy_id ? parseInt(formData.warranty_policy_id) : null,
-            profit_margin: formData.profit_margin ? parseFloat(formData.profit_margin) : null,
+            profit_margin: formData.profit_margin ? Math.min(parseFloat(formData.profit_margin) || 0, 999.99) : null,
             discount_percentage: parseFloat(formData.discount_percentage) || 0,
             tax_rate: parseFloat(formData.tax_rate) || 0,
             is_service: formData.is_service || false,

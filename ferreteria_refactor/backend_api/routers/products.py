@@ -566,8 +566,18 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
     # Capture Current State (Old) for Audit
     old_state = {c.name: getattr(db_product, c.name) for c in db_product.__table__.columns}
 
-    # Apply Scalar Updates
+    # Apply Scalar Updates — sanitizar campos con límites numéricos estrictos
     for key, value in update_data.items():
+        if key == "profit_margin" and value is not None:
+            try:
+                value = min(float(value), 999.99)
+            except (TypeError, ValueError):
+                value = None
+        if key == "discount_percentage" and value is not None:
+            try:
+                value = min(float(value), 999.99)
+            except (TypeError, ValueError):
+                value = 0
         setattr(db_product, key, value)
     
     # --- HANDLING RELATIONSHIP UPDATES ---
