@@ -584,9 +584,19 @@ async def send_commissions_summary(schema: str, session_id: int):
 
 
 async def send_commissions_pdf(schema: str, session_id: int):
+    """
+    PDF de comisiones usando reportlab Table — layout automático sin solapamientos.
+    Replica el frontend CommissionsTab con todos sus cálculos.
+    """
     import io, base64
     from datetime import datetime as _dt
     from collections import defaultdict
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
 
     db = None
     try:
@@ -645,278 +655,232 @@ async def send_commissions_pdf(schema: str, session_id: int):
         for r in rows:
             by_user[r.username].append(r)
 
-        from reportlab.pdfgen import canvas as pdfcanvas
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.lib.units import mm
-
-        pw, ph = landscape(A4)
-        buf = io.BytesIO()
-        can = pdfcanvas.Canvas(buf, pagesize=landscape(A4))
-
-        AZUL      = (0.08, 0.20, 0.45)
-        AZUL_MED  = (0.18, 0.38, 0.70)
-        AZUL_CL   = (0.88, 0.92, 0.97)
-        VERDE     = (0.05, 0.45, 0.20)
-        VERDE_CL  = (0.88, 0.97, 0.90)
-        INDIGO    = (0.20, 0.20, 0.50)
-        GRIS      = (0.28, 0.28, 0.28)
-        GRIS_CL   = (0.95, 0.95, 0.95)
-        BLANCO    = (1, 1, 1)
-        AMBER     = (0.80, 0.50, 0.05)
-        AMBER_CL  = (0.99, 0.93, 0.80)
-        ESMER     = (0.06, 0.55, 0.35)
-        ESMER_CL  = (0.90, 0.98, 0.93)
-        FOOTER_H  = 12*mm
-
-        # Columnas: (key, x_ini_mm, ancho_mm, label, align L/R/C)
-        COLS = [
-            ("fecha", 10,  22, "FECHA",          "L"),
-            ("ref",   32,  44, "REFERENCIA",      "L"),
-            ("met",   76,  44, "MET. PAGO",       "L"),
-            ("usd",  120,  32, "$",               "R"),
-            ("bs",   152,  40, "Bs",              "R"),
-            ("eq",   192,  32, "E.Q $",           "R"),
-            ("fin",  224,  38, "FINANCIAMIENTO",  "L"),
-            ("est",  262,  25, "ESTADO",          "C"),
-        ]
-
-        def gx(key):
-            for c in COLS:
-                if c[0]==key: return c[1]*mm
-            return 0
-
-        def gxr(key):
-            for c in COLS:
-                if c[0]==key: return (c[1]+c[2])*mm
-            return 0
-
-        def gxc(key):
-            for c in COLS:
-                if c[0]==key: return (c[1]+c[2]/2)*mm
-            return 0
-
-        fecha_hoy = _dt.now().strftime("%d/%m/%Y %H:%M")
-
-        def page_header():
-            can.setFillColorRGB(*AZUL)
-            can.rect(0, ph-22*mm, pw, 22*mm, fill=1, stroke=0)
-            can.setFillColorRGB(*BLANCO)
-            can.setFont("Helvetica-Bold", 13)
-            can.drawString(10*mm, ph-13*mm, f"COMISIONES PENDIENTES - {biz.upper()}")
-            can.setFont("Helvetica", 8)
-            can.setFillColorRGB(0.75, 0.85, 0.95)
-            can.drawRightString(pw-10*mm, ph-10*mm, f"Generado: {fecha_hoy}")
-            can.drawRightString(pw-10*mm, ph-16*mm, "Solo registros PENDIENTES de pago")
-
-        def table_header(y):
-            can.setFillColorRGB(*AZUL_MED)
-            can.rect(10*mm, y-7*mm, pw-20*mm, 7*mm, fill=1, stroke=0)
-            can.setFillColorRGB(*BLANCO)
-            can.setFont("Helvetica-Bold", 7)
-            for key, xi, wi, label, align in COLS:
-                if align == "R":
-                    can.drawRightString((xi+wi)*mm, y-5*mm, label)
-                elif align == "C":
-                    can.drawCentredString((xi+wi/2)*mm, y-5*mm, label)
-                else:
-                    can.drawString(xi*mm, y-5*mm, label)
-            return y - 7*mm
-
-        page_header()
-        y = ph - 28*mm
+        # ── Calcular totales (igual al frontend) ───────────────────────────
+        pct       = float(rows[0].percentage_applied or 0) if rows else 0
+        pct_label = f"{pct:.1f}%" if pct else None
+        last_rate = 489.55
 
         g_total_usd = 0.0
         g_total_bs  = 0.0
-        last_rate   = 489.55
+        for r in rows:
+            rate = float(r.sale_exchange_rate or r.exchange_rate_snapshot or last_rate)
+            if rate > 0: last_rate = rate
+            en_bs = (str(r.sale_currency or "") == "Bs") or bool(r.paid_in_bs)
+            g_total_usd += float(r.sale_total_usd or 0) if not en_bs else 0
+            g_total_bs  += float(r.sale_total_bs  or 0) if en_bs     else 0
 
-        for username, user_rows in by_user.items():
-            if y < 38*mm:
-                can.showPage(); page_header(); y = ph-28*mm
-
-            can.setFillColorRGB(*AZUL_CL)
-            can.rect(10*mm, y-7*mm, pw-20*mm, 7*mm, fill=1, stroke=0)
-            can.setFillColorRGB(*AZUL)
-            can.setFont("Helvetica-Bold", 9)
-            can.drawString(12*mm, y-5*mm, f"| {username.upper()}")
-            y -= 7*mm
-            y = table_header(y)
-
-            for i, r in enumerate(user_rows):
-                if y < 22*mm:
-                    can.showPage(); page_header(); y = ph-28*mm
-                    y = table_header(y)
-
-                bg = GRIS_CL if i % 2 == 0 else BLANCO
-                can.setFillColorRGB(*bg)
-                can.rect(10*mm, y-5.5*mm, pw-20*mm, 5.5*mm, fill=1, stroke=0)
-
-                sale_usd = float(r.sale_total_usd or 0)
-                sale_bs  = float(r.sale_total_bs or 0)
-                rate     = float(r.sale_exchange_rate or r.exchange_rate_snapshot or last_rate)
-                if rate > 0: last_rate = rate
-                en_bs = (str(r.sale_currency or "") == "Bs") or bool(r.paid_in_bs)
-
-                g_total_usd += (sale_usd if not en_bs else 0)
-                g_total_bs  += (sale_bs  if en_bs     else 0)
-
-                yy = y - 3.8*mm
-
-                # FECHA
-                can.setFillColorRGB(*GRIS); can.setFont("Helvetica", 6.5)
-                fecha_str = r.created_at.strftime("%d/%m/%y") if r.created_at else "--"
-                can.drawString(gx("fecha"), yy, fecha_str)
-
-                # REFERENCIA
-                can.setFont("Helvetica-Bold", 6.5)
-                can.drawString(gx("ref"), yy, f"[V] {str(r.source_reference or '--')}"[:20])
-
-                # METODO PAGO
-                can.setFont("Helvetica", 6.5)
-                can.drawString(gx("met"), yy, str(r.payment_methods or "Sin datos")[:24])
-
-                # $ — solo USD
-                if not en_bs and sale_usd > 0:
-                    can.setFillColorRGB(0.05, 0.25, 0.65); can.setFont("Helvetica-Bold", 7)
-                    can.drawRightString(gxr("usd"), yy, f"${sale_usd:,.2f}")
-                else:
-                    can.setFillColorRGB(0.75,0.75,0.75); can.setFont("Helvetica", 6.5)
-                    can.drawRightString(gxr("usd"), yy, "--")
-
-                # Bs — solo Bs
-                if en_bs and sale_bs > 0:
-                    can.setFillColorRGB(*VERDE); can.setFont("Helvetica-Bold", 7)
-                    can.drawRightString(gxr("bs"), yy, f"{sale_bs:,.2f}")
-                else:
-                    can.setFillColorRGB(0.75,0.75,0.75); can.setFont("Helvetica", 6.5)
-                    can.drawRightString(gxr("bs"), yy, "--")
-
-                # E.Q $ — solo si en Bs
-                if en_bs and sale_bs > 0 and rate > 0:
-                    can.setFillColorRGB(*INDIGO); can.setFont("Helvetica-Bold", 7)
-                    can.drawRightString(gxr("eq"), yy, f"${sale_bs/rate:,.2f}")
-                else:
-                    can.setFillColorRGB(0.75,0.75,0.75); can.setFont("Helvetica", 6.5)
-                    can.drawRightString(gxr("eq"), yy, "--")
-
-                # FINANCIAMIENTO
-                can.setFillColorRGB(*GRIS); can.setFont("Helvetica", 6.5)
-                can.drawString(gx("fin"), yy, "Contado")
-
-                # ESTADO badge
-                bx = gx("est")
-                can.setFillColorRGB(*AMBER_CL)
-                can.roundRect(bx, y-5*mm, 24*mm, 4.5*mm, 1, fill=1, stroke=0)
-                can.setFillColorRGB(*AMBER); can.setFont("Helvetica-Bold", 6)
-                can.drawCentredString(bx+12*mm, y-3*mm, "PENDIENTE")
-
-                y -= 5.5*mm
-
-        # ── PIE DE TABLA (3 filas igual al frontend) ──────────────────────────
-        pct = float(rows[0].percentage_applied or 0) if rows else 0
-        pct_label = f"{pct:.1f}%" if pct else None
         total_eq     = g_total_bs / last_rate if last_rate else 0
         comision_usd = g_total_usd * (pct / 100)
         comision_eq  = total_eq    * (pct / 100)
 
-        if y < FOOTER_H + 32*mm:
-            can.showPage(); page_header(); y = ph-28*mm
+        def fusd(v): return f"${v:,.2f}" if v else "—"
+        def fbs(v):  return f"{v:,.2f}"  if v else "—"
 
-        # Fila 1: TOTALES (fondo azul claro)
-        can.setFillColorRGB(*AZUL_CL)
-        can.rect(10*mm, y-7*mm, pw-20*mm, 7*mm, fill=1, stroke=0)
-        can.setFillColorRGB(*AZUL); can.setFont("Helvetica-Bold", 7.5)
-        can.drawRightString(gxr("met"), y-5*mm, "TOTALES")
-        can.setFont("Helvetica-Bold", 8)
-        if g_total_usd > 0:
-            can.setFillColorRGB(0.05,0.25,0.65)
-            can.drawRightString(gxr("usd"), y-5*mm, f"${g_total_usd:,.2f}")
-        if g_total_bs > 0:
-            can.setFillColorRGB(*VERDE)
-            can.drawRightString(gxr("bs"), y-5*mm, f"{g_total_bs:,.2f}")
-        if total_eq > 0:
-            can.setFillColorRGB(*INDIGO)
-            can.drawRightString(gxr("eq"), y-5*mm, f"${total_eq:,.2f}")
-        y -= 7*mm
+        # ── Colores ────────────────────────────────────────────────────────
+        C_HEADER  = colors.HexColor("#132e74")
+        C_COL_HDR = colors.HexColor("#2d5fb5")
+        C_VND_HDR = colors.HexColor("#dde8f5")
+        C_ALT     = colors.HexColor("#f8f8fa")
+        C_WHITE   = colors.white
+        C_USD     = colors.HexColor("#0d3fa6")
+        C_GRN     = colors.HexColor("#0d7040")
+        C_IND     = colors.HexColor("#2e2e7a")
+        C_ESM     = colors.HexColor("#065f46")
+        C_MUTED   = colors.HexColor("#bbbbbb")
+        C_PEND_BG = colors.HexColor("#fef3c7")
+        C_PEND_FG = colors.HexColor("#b45309")
+        C_FOOT1   = colors.HexColor("#dde8f5")
+        C_FOOT2   = colors.HexColor("#f6f6fa")
+        C_FOOT3   = colors.HexColor("#ecfdf5")
+        C_AZUL_VND= colors.HexColor("#132e74")
 
-        # Fila 2: POR METODO DE PAGO — badges alineados bajo sus columnas
-        if pay_totals:
-            # Separar USD y Bs
-            mets_usd = [(str(pt.payment_method), float(pt.total)) for pt in pay_totals if str(pt.currency)=="USD"]
-            mets_bs  = [(str(pt.payment_method), float(pt.total)) for pt in pay_totals if str(pt.currency)!="USD"]
+        # ── Estilos de párrafo ─────────────────────────────────────────────
+        FS = 7  # font size
+        def ps(align=TA_LEFT, color=colors.black, bold=False, size=FS):
+            return ParagraphStyle('x', fontSize=size,
+                leading=size+2, alignment=align,
+                textColor=color,
+                fontName='Helvetica-Bold' if bold else 'Helvetica')
 
-            can.setFillColorRGB(0.96, 0.96, 0.98)
-            can.rect(10*mm, y-8*mm, pw-20*mm, 8*mm, fill=1, stroke=0)
-            can.setFillColorRGB(0.35,0.35,0.48); can.setFont("Helvetica-Bold", 7)
-            can.drawRightString(gxr("met"), y-5*mm, "POR METODO DE PAGO")
+        # ── Definición de columnas ─────────────────────────────────────────
+        # Landscape A4 = 277mm útil
+        # FECHA | REFERENCIA | MÉT.PAGO | $ | Bs | E.Q$ | FINANCIAMIENTO | NIVEL | ESTADO
+        COL_W = [22, 45, 50, 28, 38, 28, 38, 16, 12]  # mm
+        COL_W_PT = [w*mm for w in COL_W]
 
-            badge_y = y - 6.5*mm
+        def row_data(fecha, ref, met, usd_val, bs_val, eq_val, fin, nivel, estado,
+                     usd_color=C_USD, bs_color=C_GRN, eq_color=C_IND):
+            return [
+                Paragraph(fecha, ps(TA_LEFT,  colors.HexColor("#666666"), size=FS)),
+                Paragraph(ref,   ps(TA_LEFT,  colors.black, bold=True, size=FS)),
+                Paragraph(met,   ps(TA_LEFT,  colors.HexColor("#444444"), size=FS)),
+                Paragraph(usd_val, ps(TA_RIGHT, usd_color, bold=bool(usd_val!="—"), size=FS)),
+                Paragraph(bs_val,  ps(TA_RIGHT, bs_color,  bold=bool(bs_val!="—"),  size=FS)),
+                Paragraph(eq_val,  ps(TA_RIGHT, eq_color,  bold=bool(eq_val!="—"),  size=FS)),
+                Paragraph(fin,   ps(TA_LEFT,  colors.HexColor("#666666"), size=FS)),
+                Paragraph(nivel, ps(TA_CENTER, C_MUTED, size=FS)),
+                Paragraph(estado, ps(TA_CENTER, C_PEND_FG, bold=True, size=6)),
+            ]
 
-            # Badges USD — apilados en columna $, máximo hasta inicio de col Bs
-            bx = gx("usd")
-            for met, tot in mets_usd:
-                txt = f"{met}: ${tot:,.2f}"
-                bw = max(len(txt)*2.1*mm + 3*mm, 24*mm)
-                # No pasar de la columna Bs
-                if bx + bw > gxr("usd") + 2*mm:
-                    bx = gx("usd")
-                can.setFillColorRGB(*AZUL_CL)
-                can.roundRect(bx, badge_y, bw, 5*mm, 1, fill=1, stroke=0)
-                can.setFillColorRGB(0.05,0.25,0.60); can.setFont("Helvetica-Bold", 6)
-                can.drawString(bx+1.5*mm, badge_y+1.5*mm, txt[:22])
-                bx += bw + 1.5*mm
+        # ── Construir tabla ────────────────────────────────────────────────
+        data = []
+        style_cmds = []
+        ROW = [0]  # contador de filas
 
-            # Badges Bs — apilados en columna Bs
-            bx = gx("bs")
-            for met, tot in mets_bs:
-                txt = f"{met}: Bs {tot:,.2f}"
-                bw = max(len(txt)*2.1*mm + 3*mm, 28*mm)
-                if bx + bw > gxr("bs") + 2*mm:
-                    bx = gx("bs")
-                can.setFillColorRGB(*VERDE_CL)
-                can.roundRect(bx, badge_y, bw, 5*mm, 1, fill=1, stroke=0)
-                can.setFillColorRGB(*VERDE); can.setFont("Helvetica-Bold", 6)
-                can.drawString(bx+1.5*mm, badge_y+1.5*mm, txt[:26])
-                bx += bw + 1.5*mm
+        def add_style(cmd):
+            style_cmds.append(cmd)
 
-            y -= 8*mm
+        # Header principal
+        data.append([
+            Paragraph(f"COMISIONES PENDIENTES — {biz.upper()}", ps(TA_LEFT, C_WHITE, bold=True, size=10)),
+            '', '', '', '', '', '', '',
+            Paragraph(f"Generado: {_dt.now().strftime('%d/%m/%Y %H:%M')}", ps(TA_RIGHT, colors.HexColor("#b0c4de"), size=6)),
+        ])
+        add_style(('BACKGROUND', (0,0), (-1,0), C_HEADER))
+        add_style(('SPAN', (0,0), (7,0)))
+        add_style(('ROWBACKGROUND', (0,0), (-1,0), C_HEADER))
+        add_style(('TOPPADDING', (0,0), (-1,0), 5))
+        add_style(('BOTTOMPADDING', (0,0), (-1,0), 5))
+        ROW[0] += 1
 
-        # Fila 3: COMISION X% (fondo esmeralda claro)
+        fecha_hoy = _dt.now().strftime("%d/%m/%Y %H:%M")
+
+        for username, user_rows in by_user.items():
+            # Cabecera vendedor
+            r = ROW[0]
+            data.append([Paragraph(f"▌ {username.upper()}", ps(TA_LEFT, C_AZUL_VND, bold=True, size=8)),
+                          '','','','','','','',''])
+            add_style(('BACKGROUND', (0,r), (-1,r), C_VND_HDR))
+            add_style(('SPAN', (0,r), (-1,r)))
+            add_style(('TOPPADDING', (0,r), (-1,r), 3))
+            add_style(('BOTTOMPADDING', (0,r), (-1,r), 3))
+            ROW[0] += 1
+
+            # Cabecera columnas
+            r = ROW[0]
+            data.append([
+                Paragraph('FECHA',          ps(TA_LEFT,   C_WHITE, bold=True, size=6.5)),
+                Paragraph('REFERENCIA',     ps(TA_LEFT,   C_WHITE, bold=True, size=6.5)),
+                Paragraph('MÉT. PAGO',      ps(TA_LEFT,   C_WHITE, bold=True, size=6.5)),
+                Paragraph('$',              ps(TA_RIGHT,  C_WHITE, bold=True, size=6.5)),
+                Paragraph('Bs',             ps(TA_RIGHT,  C_WHITE, bold=True, size=6.5)),
+                Paragraph('E.Q $',          ps(TA_RIGHT,  C_WHITE, bold=True, size=6.5)),
+                Paragraph('FINANCIAMIENTO', ps(TA_LEFT,   C_WHITE, bold=True, size=6.5)),
+                Paragraph('NIVEL',          ps(TA_CENTER, C_WHITE, bold=True, size=6.5)),
+                Paragraph('ESTADO',         ps(TA_CENTER, C_WHITE, bold=True, size=6.5)),
+            ])
+            add_style(('BACKGROUND', (0,r), (-1,r), C_COL_HDR))
+            add_style(('TOPPADDING', (0,r), (-1,r), 2))
+            add_style(('BOTTOMPADDING', (0,r), (-1,r), 2))
+            ROW[0] += 1
+
+            for i, row in enumerate(user_rows):
+                rate  = float(row.sale_exchange_rate or row.exchange_rate_snapshot or last_rate)
+                if rate > 0: last_rate = rate
+                en_bs = (str(row.sale_currency or "") == "Bs") or bool(row.paid_in_bs)
+                sale_usd = float(row.sale_total_usd or 0)
+                sale_bs  = float(row.sale_total_bs  or 0)
+
+                usd_v = fusd(sale_usd) if not en_bs and sale_usd else "—"
+                bs_v  = fbs(sale_bs)   if en_bs     and sale_bs  else "—"
+                eq_v  = fusd(sale_bs/rate) if en_bs and sale_bs and rate else "—"
+
+                usd_c = C_USD   if usd_v != "—" else C_MUTED
+                bs_c  = C_GRN   if bs_v  != "—" else C_MUTED
+                eq_c  = C_IND   if eq_v  != "—" else C_MUTED
+
+                fecha_str = row.created_at.strftime("%d/%m/%y") if row.created_at else "—"
+                metodo = str(row.payment_methods or "Sin datos")[:28]
+
+                r_idx = ROW[0]
+                data.append(row_data(
+                    fecha_str, f"[V] {str(row.source_reference or '—')}", metodo,
+                    usd_v, bs_v, eq_v, "Contado", "—", "PENDIENTE",
+                    usd_color=usd_c, bs_color=bs_c, eq_color=eq_c
+                ))
+                if i % 2 == 0:
+                    add_style(('BACKGROUND', (0,r_idx), (-1,r_idx), C_ALT))
+                add_style(('TOPPADDING', (0,r_idx), (-1,r_idx), 2))
+                add_style(('BOTTOMPADDING', (0,r_idx), (-1,r_idx), 2))
+                add_style(('LINEBELOW', (0,r_idx), (-1,r_idx), 0.3, colors.HexColor("#eeeeee")))
+                # PENDIENTE badge bg
+                add_style(('BACKGROUND', (8,r_idx), (8,r_idx), C_PEND_BG))
+                ROW[0] += 1
+
+        # ── Fila TOTALES ───────────────────────────────────────────────────
+        r = ROW[0]
+        tot_usd = fusd(g_total_usd) if g_total_usd else "—"
+        tot_bs  = fbs(g_total_bs)   if g_total_bs  else "—"
+        tot_eq  = fusd(total_eq)    if total_eq    else "—"
+        data.append([
+            Paragraph('', ps()), Paragraph('', ps()), Paragraph('TOTALES', ps(TA_RIGHT, C_AZUL_VND, bold=True, size=7.5)),
+            Paragraph(tot_usd, ps(TA_RIGHT, C_USD if g_total_usd else C_MUTED, bold=True, size=7.5)),
+            Paragraph(tot_bs,  ps(TA_RIGHT, C_GRN if g_total_bs  else C_MUTED, bold=True, size=7.5)),
+            Paragraph(tot_eq,  ps(TA_RIGHT, C_IND if total_eq    else C_MUTED, bold=True, size=7.5)),
+            Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()),
+        ])
+        add_style(('BACKGROUND', (0,r), (-1,r), C_FOOT1))
+        add_style(('LINEABOVE', (0,r), (-1,r), 1.5, C_COL_HDR))
+        add_style(('TOPPADDING', (0,r), (-1,r), 3))
+        add_style(('BOTTOMPADDING', (0,r), (-1,r), 3))
+        ROW[0] += 1
+
+        # ── Fila POR MÉTODO DE PAGO ────────────────────────────────────────
+        r = ROW[0]
+        mets_usd = " ".join([f"[{pt.payment_method}: ${float(pt.total):,.2f}]" for pt in pay_totals if str(pt.currency)=="USD"])
+        mets_bs  = " ".join([f"[{pt.payment_method}: Bs {float(pt.total):,.2f}]" for pt in pay_totals if str(pt.currency)!="USD"])
+        data.append([
+            Paragraph('', ps()), Paragraph('', ps()),
+            Paragraph('POR MÉTODO DE PAGO', ps(TA_RIGHT, colors.HexColor("#35354a"), bold=True, size=7)),
+            Paragraph(mets_usd, ps(TA_LEFT, C_USD, size=6.5)),
+            Paragraph(mets_bs,  ps(TA_LEFT, C_GRN, size=6.5)),
+            Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()),
+        ])
+        add_style(('BACKGROUND', (0,r), (-1,r), C_FOOT2))
+        add_style(('LINEABOVE', (0,r), (-1,r), 0.5, colors.HexColor("#dddddd")))
+        add_style(('TOPPADDING', (0,r), (-1,r), 3))
+        add_style(('BOTTOMPADDING', (0,r), (-1,r), 3))
+        ROW[0] += 1
+
+        # ── Fila COMISIÓN X% ───────────────────────────────────────────────
         if pct_label:
-            can.setFillColorRGB(*ESMER_CL)
-            can.rect(10*mm, y-7*mm, pw-20*mm, 7*mm, fill=1, stroke=0)
-            can.setFillColorRGB(*ESMER); can.setFont("Helvetica-Bold", 7.5)
-            can.drawRightString(gxr("met"), y-5*mm, f"COMISION {pct_label}")
-            can.setFont("Helvetica-Bold", 8)
-            # Col $ — comision sobre ventas USD
-            if comision_usd > 0:
-                can.setFillColorRGB(*ESMER)
-                can.drawRightString(gxr("usd"), y-5*mm, f"${comision_usd:,.2f}")
-            else:
-                can.setFillColorRGB(0.75,0.75,0.75); can.setFont("Helvetica",7)
-                can.drawRightString(gxr("usd"), y-5*mm, "--")
-            # Col Bs — vacia (comision en $)
-            can.setFillColorRGB(0.75,0.75,0.75); can.setFont("Helvetica",7)
-            can.drawRightString(gxr("bs"), y-5*mm, "--")
-            # Col E.Q $ — comision sobre EQ
-            if comision_eq > 0:
-                can.setFillColorRGB(*ESMER); can.setFont("Helvetica-Bold",8)
-                can.drawRightString(gxr("eq"), y-5*mm, f"${comision_eq:,.2f}")
-            else:
-                can.setFillColorRGB(0.75,0.75,0.75); can.setFont("Helvetica",7)
-                can.drawRightString(gxr("eq"), y-5*mm, "--")
-            y -= 7*mm
+            r = ROW[0]
+            com_usd = fusd(comision_usd) if comision_usd else "—"
+            com_eq  = fusd(comision_eq)  if comision_eq  else "—"
+            data.append([
+                Paragraph('', ps()), Paragraph('', ps()),
+                Paragraph(f'COMISIÓN {pct_label}', ps(TA_RIGHT, C_ESM, bold=True, size=7.5)),
+                Paragraph(com_usd, ps(TA_RIGHT, C_ESM if comision_usd else C_MUTED, bold=True, size=7.5)),
+                Paragraph('—',     ps(TA_RIGHT, C_MUTED, size=7.5)),
+                Paragraph(com_eq,  ps(TA_RIGHT, C_ESM if comision_eq  else C_MUTED, bold=True, size=7.5)),
+                Paragraph('', ps()), Paragraph('', ps()), Paragraph('', ps()),
+            ])
+            add_style(('BACKGROUND', (0,r), (-1,r), C_FOOT3))
+            add_style(('LINEABOVE', (0,r), (-1,r), 0.5, colors.HexColor("#6ee7b7")))
+            add_style(('TOPPADDING', (0,r), (-1,r), 3))
+            add_style(('BOTTOMPADDING', (0,r), (-1,r), 3))
+            ROW[0] += 1
 
-        # Footer
-        can.setFillColorRGB(*AZUL)
-        can.rect(0, 0, pw, FOOTER_H, fill=1, stroke=0)
-        can.setFillColorRGB(*BLANCO); can.setFont("Helvetica", 7.5)
-        can.drawCentredString(pw/2, 4.5*mm,
-            f"{biz}  |  Comisiones Pendientes  |  {fecha_hoy}")
+        # ── Ensamblar PDF ──────────────────────────────────────────────────
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=landscape(A4),
+            leftMargin=8*mm, rightMargin=8*mm,
+            topMargin=8*mm, bottomMargin=8*mm)
 
-        can.save()
-        buf.seek(0)
-        pdf_bytes = buf.read()
+        # Estilo global de la tabla
+        base_style = TableStyle([
+            ('FONT', (0,0), (-1,-1), 'Helvetica', FS),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,1), (-1,-1), 0.2, colors.HexColor("#eeeeee")),
+        ] + style_cmds)
 
+        t = Table(data, colWidths=COL_W_PT, repeatRows=1)
+        t.setStyle(base_style)
+
+        doc.build([t])
+        pdf_bytes = buf.getvalue()
+
+        # ── Enviar por WhatsApp ────────────────────────────────────────────
         total_com = comision_usd + comision_eq
         msg = (
             f"💰 *Comisiones Pendientes — {biz}*\n"
@@ -934,7 +898,7 @@ async def send_commissions_pdf(schema: str, session_id: int):
                 "filename": f"comisiones_{_dt.now().strftime('%d%m%Y')}.pdf",
                 "caption": f"Comisiones Pendientes — {biz}"
             })
-        logger.info(f"[WA] PDF comisiones enviado: {schema}")
+        logger.info(f"[WA] PDF comisiones (Table) enviado: {schema}")
 
     except Exception as e:
         logger.error(f"[WA] Error PDF comisiones {schema}: {e}")
