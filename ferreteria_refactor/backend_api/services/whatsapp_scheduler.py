@@ -838,27 +838,47 @@ async def send_commissions_pdf(schema: str, session_id: int):
             can.drawRightString(gxr("eq"), y-5*mm, f"${total_eq:,.2f}")
         y -= 7*mm
 
-        # Fila 2: POR METODO DE PAGO (fondo gris claro con badges)
+        # Fila 2: POR METODO DE PAGO — badges alineados bajo sus columnas
         if pay_totals:
+            # Separar USD y Bs
+            mets_usd = [(str(pt.payment_method), float(pt.total)) for pt in pay_totals if str(pt.currency)=="USD"]
+            mets_bs  = [(str(pt.payment_method), float(pt.total)) for pt in pay_totals if str(pt.currency)!="USD"]
+
             can.setFillColorRGB(0.96, 0.96, 0.98)
-            can.rect(10*mm, y-9*mm, pw-20*mm, 9*mm, fill=1, stroke=0)
-            can.setFillColorRGB(0.35,0.35,0.45); can.setFont("Helvetica-Bold", 7)
-            can.drawRightString(gxr("met"), y-5.5*mm, "POR METODO DE PAGO")
-            bx = gx("usd"); badge_y = y-7.5*mm
-            for pt in pay_totals:
-                is_usd = str(pt.currency) == "USD"
-                total_fmt = f"${float(pt.total):,.2f}" if is_usd else f"Bs {float(pt.total):,.2f}"
-                label_txt = f"{pt.payment_method}: {total_fmt}"
-                bw = max(len(label_txt)*2.3*mm + 4*mm, 28*mm)
-                if bx + bw > pw-12*mm:
-                    bx = gx("usd"); badge_y -= 6*mm
-                can.setFillColorRGB(*(AZUL_CL if is_usd else VERDE_CL))
-                can.roundRect(bx, badge_y, bw, 5.5*mm, 1, fill=1, stroke=0)
-                can.setFillColorRGB(*((0.05,0.25,0.60) if is_usd else VERDE))
-                can.setFont("Helvetica-Bold", 6.5)
-                can.drawString(bx+2*mm, badge_y+1.5*mm, label_txt[:28])
-                bx += bw + 2*mm
-            y -= 9*mm
+            can.rect(10*mm, y-8*mm, pw-20*mm, 8*mm, fill=1, stroke=0)
+            can.setFillColorRGB(0.35,0.35,0.48); can.setFont("Helvetica-Bold", 7)
+            can.drawRightString(gxr("met"), y-5*mm, "POR METODO DE PAGO")
+
+            badge_y = y - 6.5*mm
+
+            # Badges USD — apilados en columna $, máximo hasta inicio de col Bs
+            bx = gx("usd")
+            for met, tot in mets_usd:
+                txt = f"{met}: ${tot:,.2f}"
+                bw = max(len(txt)*2.1*mm + 3*mm, 24*mm)
+                # No pasar de la columna Bs
+                if bx + bw > gxr("usd") + 2*mm:
+                    bx = gx("usd")
+                can.setFillColorRGB(*AZUL_CL)
+                can.roundRect(bx, badge_y, bw, 5*mm, 1, fill=1, stroke=0)
+                can.setFillColorRGB(0.05,0.25,0.60); can.setFont("Helvetica-Bold", 6)
+                can.drawString(bx+1.5*mm, badge_y+1.5*mm, txt[:22])
+                bx += bw + 1.5*mm
+
+            # Badges Bs — apilados en columna Bs
+            bx = gx("bs")
+            for met, tot in mets_bs:
+                txt = f"{met}: Bs {tot:,.2f}"
+                bw = max(len(txt)*2.1*mm + 3*mm, 28*mm)
+                if bx + bw > gxr("bs") + 2*mm:
+                    bx = gx("bs")
+                can.setFillColorRGB(*VERDE_CL)
+                can.roundRect(bx, badge_y, bw, 5*mm, 1, fill=1, stroke=0)
+                can.setFillColorRGB(*VERDE); can.setFont("Helvetica-Bold", 6)
+                can.drawString(bx+1.5*mm, badge_y+1.5*mm, txt[:26])
+                bx += bw + 1.5*mm
+
+            y -= 8*mm
 
         # Fila 3: COMISION X% (fondo esmeralda claro)
         if pct_label:
