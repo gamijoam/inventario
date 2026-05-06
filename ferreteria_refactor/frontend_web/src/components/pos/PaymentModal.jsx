@@ -211,6 +211,42 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const updatePayment = (index, field, value) => {
         const newPayments = [...payments];
         newPayments[index][field] = value;
+
+        // Si cambia la moneda → buscar automáticamente el método más apropiado
+        if (field === 'currency') {
+            const isUSD = value === 'USD' || value === '$';
+            const activeMethods = paymentMethods.filter(m => m.is_active);
+
+            // Buscar método que coincida con la moneda seleccionada
+            let bestMethod = null;
+            if (isUSD) {
+                // Para USD: buscar "Efectivo (USD)" o similar
+                bestMethod = activeMethods.find(m =>
+                    m.name.toLowerCase().includes('usd') ||
+                    m.name.toLowerCase().includes('dólar') ||
+                    m.name.toLowerCase().includes('dollar')
+                );
+            } else {
+                // Para Bs u otra moneda local: buscar "Efectivo (VES)" o similar
+                bestMethod = activeMethods.find(m =>
+                    m.name.toLowerCase().includes('ves') ||
+                    m.name.toLowerCase().includes('bs') ||
+                    m.name.toLowerCase().includes('bolívar') ||
+                    m.name.toLowerCase().includes('bolivar') ||
+                    m.name.toLowerCase().includes('efectivo') && !m.name.toLowerCase().includes('usd')
+                );
+            }
+
+            // Si no encontró método específico, usar el primer método activo
+            if (!bestMethod && activeMethods.length > 0) {
+                bestMethod = activeMethods[0];
+            }
+
+            if (bestMethod) {
+                newPayments[index]['method'] = bestMethod.name;
+            }
+        }
+
         setPayments(newPayments);
     };
 
