@@ -585,10 +585,10 @@ async def send_commissions_summary(schema: str, session_id: int):
 
 async def send_commissions_pdf(schema: str, session_id: int):
     """
-    Genera un PDF con el cuadro de comisiones de todos los vendedores
-    y lo envía al admin por WhatsApp al cerrar la caja.
+    Genera PDF de comisiones igual al frontend CommissionsTab y lo envía por WhatsApp.
+    Columnas: FECHA | REFERENCIA | MÉTODO DE PAGO | $ | Bs | E.Q $ | FINANCIAMIENTO | NIVEL | M. FINANCIADO | ESTADO
     """
-    import io
+    import io, base64
     from datetime import datetime as _dt
 
     db = None
@@ -615,7 +615,7 @@ async def send_commissions_pdf(schema: str, session_id: int):
         if not inst or status != "CONNECTED" or not admin_phone or not notify:
             return
 
-        # ── Datos de comisiones por vendedor ─────────────────────────────────
+        # ── Datos comisiones con join correcto ──────────────────────────────
         rows = db.execute(text(f"""
             SELECT
                 u.username,
@@ -624,40 +624,34 @@ async def send_commissions_pdf(schema: str, session_id: int):
                 cl.amount,
                 cl.percentage_applied,
                 cl.exchange_rate_snapshot,
-                cl.amount_bs,
                 cl.paid_in_bs,
                 cl.status,
                 s.currency      AS sale_currency,
                 s.total_amount  AS sale_total_usd,
                 s.total_amount_bs AS sale_total_bs,
                 s.exchange_rate_used AS sale_exchange_rate,
-                sp.payment_methods
-            FROM "{schema}".commission_logs cl
+                (SELECT string_agg(sp2.payment_method, ', ')
+                 FROM \"{schema}\".sale_payments sp2
+                 WHERE sp2.sale_id = s.id) AS payment_methods
+            FROM \"{schema}\".commission_logs cl
             JOIN public.users u ON u.id = cl.user_id
-            LEFT JOIN "{schema}".sale_details sd ON sd.id = cl.source_id
-            LEFT JOIN "{schema}".sales s ON s.id = sd.sale_id
-            LEFT JOIN (
-                SELECT sale_id, string_agg(payment_method, ', ') AS payment_methods
-                FROM "{schema}".sale_payments
-                GROUP BY sale_id
-            ) sp ON sp.sale_id = s.id
+            LEFT JOIN \"{schema}\".sale_details sd ON sd.id = cl.source_id
+            LEFT JOIN \"{schema}\".sales s ON s.id = sd.sale_id
             WHERE cl.status = 'PENDING'
             ORDER BY u.username, cl.created_at DESC
         """)).fetchall()
 
         if not rows:
-            return  # Sin comisiones pendientes
+            return
 
         # Totales por método de pago
         payment_totals = db.execute(text(f"""
-            SELECT
-                sp.payment_method,
-                sp.currency,
-                COALESCE(SUM(sp.amount), 0)::float AS total
-            FROM "{schema}".commission_logs cl
-            JOIN "{schema}".sale_details sd ON sd.id = cl.source_id
-            JOIN "{schema}".sales s ON s.id = sd.sale_id
-            JOIN "{schema}".sale_payments sp ON sp.sale_id = s.id
+            SELECT sp.payment_method, sp.currency,
+                   COALESCE(SUM(sp.amount),0)::float AS total
+            FROM \"{schema}\".commission_logs cl
+            JOIN \"{schema}\".sale_details sd ON sd.id = cl.source_id
+            JOIN \"{schema}\".sales s ON s.id = sd.sale_id
+            JOIN \"{schema}\".sale_payments sp ON sp.sale_id = s.id
             WHERE cl.status = 'PENDING'
             GROUP BY sp.payment_method, sp.currency
             ORDER BY total DESC
@@ -669,353 +663,292 @@ async def send_commissions_pdf(schema: str, session_id: int):
         for r in rows:
             by_user[r.username].append(r)
 
-        # ── Generar PDF ───────────────────────────────────────────────────────
+        # ── PDF en landscape A4 ─────────────────────────────────────────────
         from reportlab.pdfgen import canvas
         from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib.units import mm
 
-        buffer = io.BytesIO()
-        pw, ph = landscape(A4)
-        can = canvas.Canvas(buffer, pagesize=landscape(A4))
+        pw, ph = landscape(A4)   # 297 x 210 mm
+        buf = io.BytesIO()
+        can = canvas.Canvas(buf, pagesize=landscape(A4))
 
-        AZUL     = (0.08, 0.20, 0.45)
-        AZUL_MED = (0.18, 0.38, 0.70)
-        AZUL_CL  = (0.88, 0.92, 0.97)
-        VERDE    = (0.08, 0.50, 0.25)
-        ROJO     = (0.70, 0.10, 0.10)
-        GRIS_OSC = (0.25, 0.25, 0.25)
-        GRIS_CL  = (0.95, 0.95, 0.95)
-        BLANCO   = (1, 1, 1)
-        NEGRO    = (0, 0, 0)
-        AMBER    = (0.80, 0.50, 0.05)
+        # Colores
+        C_AZUL      = (0.08, 0.20, 0.45)
+        C_AZUL_MED  = (0.18, 0.38, 0.70)
+        C_AZUL_CL   = (0.88, 0.92, 0.97)
+        C_VERDE     = (0.05, 0.45, 0.20)
+        C_VERDE_CL  = (0.88, 0.97, 0.90)
+        C_GRIS      = (0.25, 0.25, 0.25)
+        C_GRIS_CL   = (0.95, 0.95, 0.95)
+        C_BLANCO    = (1, 1, 1)
+        C_AMBER     = (0.80, 0.50, 0.05)
+        C_AMBER_CL  = (0.98, 0.93, 0.80)
+        C_INDIGO    = (0.20, 0.20, 0.50)
 
-        fecha_hoy = _dt.now().strftime('%d/%m/%Y %H:%M')
+        # ── Columnas exactas del frontend (en mm desde izq) ─────────────────
+        # FECHA | REFERENCIA | MÉT.PAGO | $ | Bs | E.Q$ | FINANCIAMIENTO | NIVEL | M.FIN | ESTADO
+        # Ancho total disponible: 10 a 287 mm = 277 mm
+        COL = {
+            "fecha":    (10,  22),   # inicio, ancho mm
+            "ref":      (32,  38),
+            "met":      (70,  38),
+            "usd":      (108, 20),
+            "bs":       (128, 28),
+            "eq":       (156, 20),
+            "fin":      (176, 36),
+            "nivel":    (212, 16),
+            "mfin":     (228, 24),
+            "estado":   (252, 28),
+        }
 
-        def draw_page_header():
-            # Header azul
-            can.setFillColorRGB(*AZUL)
-            can.rect(0, ph - 22*mm, pw, 22*mm, fill=1, stroke=0)
-            can.setFillColorRGB(*BLANCO)
-            can.setFont("Helvetica-Bold", 16)
-            can.drawString(12*mm, ph - 13*mm, f"💰  REPORTE DE COMISIONES PENDIENTES — {biz.upper()}")
-            can.setFont("Helvetica", 9)
-            can.setFillColorRGB(0.75, 0.85, 0.95)
-            can.drawRightString(pw - 12*mm, ph - 10*mm, f"Generado: {fecha_hoy}")
-            can.drawRightString(pw - 12*mm, ph - 16*mm, "Solo comisiones PENDIENTES de pago")
+        fecha_hoy = _dt.now().strftime("%d/%m/%Y %H:%M")
 
-        # Columnas exactas igual al frontend CommissionsTab
-        # REFERENCIA | MÉT. PAGO | $ | Bs | E.Q $ | FINANCIAMIENTO | NIVEL | M. FINANCIADO | ESTADO
-        # Posiciones en landscape A4 (297mm de ancho útil: 10mm a 287mm)
-        # Columna:      inicio    ancho   label
-        COLS = [
-            (10*mm,   40*mm,  "REFERENCIA"),
-            (50*mm,   35*mm,  "MÉT. PAGO"),
-            (85*mm,   24*mm,  "$"),
-            (109*mm,  30*mm,  "Bs"),
-            (139*mm,  24*mm,  "E.Q $"),
-            (163*mm,  36*mm,  "FINANCIAMIENTO"),
-            (199*mm,  18*mm,  "NIVEL"),
-            (217*mm,  26*mm,  "M. FINANCIADO"),
-            (243*mm,  30*mm,  "ESTADO"),
-        ]
-        # Posiciones de datos (drawRightString usa el borde DERECHO de cada col)
-        X_REF   = 10*mm   # drawString desde aquí
-        X_MET   = 50*mm
-        X_USD_R = 108*mm  # drawRightString — col $ termina aquí
-        X_BS_R  = 138*mm  # drawRightString — col Bs termina aquí
-        X_EQ_R  = 162*mm  # drawRightString — col E.Q$ termina aquí
-        X_FIN   = 163*mm  # drawString
-        X_NIV   = 199*mm
-        X_MFIN_R= 242*mm  # drawRightString
-        X_EST   = 244*mm  # drawString
+        def rgb(c): can.setFillColorRGB(*c)
+        def srgb(c): can.setStrokeColorRGB(*c)
 
-        def draw_table_header(y):
-            can.setFillColorRGB(*AZUL_MED)
-            can.rect(10*mm, y - 7*mm, pw - 20*mm, 7*mm, fill=1, stroke=0)
-            can.setFillColorRGB(*BLANCO)
-            can.setFont("Helvetica-Bold", 7.5)
-            for x, w, label in COLS:
-                # Alinear header igual que datos: $ Bs E.Q$ alineados a la derecha
-                if label in ('$', 'Bs', 'E.Q $', 'M. FINANCIADO'):
-                    can.drawRightString(x + w, y - 5.5*mm, label)
+        def page_header():
+            rgb(C_AZUL); can.rect(0, ph-22*mm, pw, 22*mm, fill=1, stroke=0)
+            rgb(C_BLANCO); can.setFont("Helvetica-Bold", 14)
+            can.drawString(10*mm, ph-13*mm, f"COMISIONES PENDIENTES — {biz.upper()}")
+            can.setFont("Helvetica", 8)
+            rgb((0.75,0.85,0.95))
+            can.drawRightString(pw-10*mm, ph-10*mm, f"Generado: {fecha_hoy}")
+            can.drawRightString(pw-10*mm, ph-16*mm, "Solo registros con estado PENDIENTE")
+
+        def table_header(y):
+            rgb(C_AZUL_MED); can.rect(10*mm, y-7*mm, pw-20*mm, 7*mm, fill=1, stroke=0)
+            rgb(C_BLANCO); can.setFont("Helvetica-Bold", 6.5)
+            labels = [
+                ("fecha","FECHA"),("ref","REFERENCIA"),("met","MÉT. PAGO"),
+                ("usd","$"),("bs","Bs"),("eq","E.Q $"),
+                ("fin","FINANCIAMIENTO"),("nivel","NIVEL"),("mfin","M. FIN."),("estado","ESTADO"),
+            ]
+            for key, label in labels:
+                x, w = COL[key]
+                # Numéricas alineadas a la derecha
+                if key in ("usd","bs","eq","mfin"):
+                    can.drawRightString((x+w)*mm, y-5*mm, label)
                 else:
-                    can.drawString(x, y - 5.5*mm, label)
+                    can.drawString(x*mm, y-5*mm, label)
             return y - 7*mm
 
-        draw_page_header()
+        page_header()
         y = ph - 28*mm
 
-        total_global_usd = 0.0
-        total_global_bs  = 0.0
-        total_comision   = 0.0
+        total_g_usd = 0.0
+        total_g_bs  = 0.0
+        total_g_com = 0.0
+        last_rate   = 1.0
 
         for username, user_rows in by_user.items():
-            # ── Cabecera del vendedor ─────────────────────────────────────
+            # ─ Cabecera vendedor ─
             if y < 35*mm:
-                can.showPage()
-                draw_page_header()
-                y = ph - 28*mm
+                can.showPage(); page_header(); y = ph - 28*mm
 
-            can.setFillColorRGB(*AZUL_CL)
-            can.rect(10*mm, y - 6*mm, pw - 20*mm, 6*mm, fill=1, stroke=0)
-            can.setFillColorRGB(*AZUL)
-            can.setFont("Helvetica-Bold", 9)
-            can.drawString(12*mm, y - 4.5*mm, f"👤  {username.upper()}")
+            rgb(C_AZUL_CL); can.rect(10*mm, y-6*mm, pw-20*mm, 6*mm, fill=1, stroke=0)
+            rgb(C_AZUL); can.setFont("Helvetica-Bold", 8.5)
+            can.drawString(12*mm, y-4.5*mm, f"▌ {username.upper()}")
             y -= 6*mm
 
-            # Encabezado de columnas
-            y = draw_table_header(y)
+            y = table_header(y)
 
-            subtotal_usd = 0.0
-            subtotal_bs  = 0.0
-            sub_comision = 0.0
+            sub_usd = 0.0
+            sub_bs  = 0.0
+            sub_com = 0.0
+            rate    = 1.0
 
             for i, r in enumerate(user_rows):
-                if y < 25*mm:
-                    can.showPage()
-                    draw_page_header()
-                    y = ph - 28*mm
-                    y = draw_table_header(y)
+                if y < 22*mm:
+                    can.showPage(); page_header(); y = ph - 28*mm
+                    y = table_header(y)
 
-                bg = GRIS_CL if i % 2 == 0 else BLANCO
-                can.setFillColorRGB(*bg)
-                can.rect(10*mm, y - 5.5*mm, pw - 20*mm, 5.5*mm, fill=1, stroke=0)
+                # Fondo alternado
+                bg = C_GRIS_CL if i % 2 == 0 else C_BLANCO
+                rgb(bg); can.rect(10*mm, y-5*mm, pw-20*mm, 5*mm, fill=1, stroke=0)
 
-                vendido_en_bs = (r.sale_currency == 'Bs') if r.sale_currency else (r.paid_in_bs or False)
                 sale_usd = float(r.sale_total_usd or 0)
                 sale_bs  = float(r.sale_total_bs or 0)
                 rate     = float(r.sale_exchange_rate or r.exchange_rate_snapshot or 1)
+                if rate > 0: last_rate = rate
+                en_bs    = (str(r.sale_currency or "") == "Bs") or bool(r.paid_in_bs)
                 pct      = float(r.percentage_applied or 0)
 
-                # Total en $ para comisión
-                if vendido_en_bs:
-                    total_venta_usd = sale_bs / rate if rate else 0
-                else:
-                    total_venta_usd = sale_usd
+                # Calcular comisión
+                total_usd_venta = sale_usd if not en_bs else (sale_bs/rate if rate else 0)
+                comision = total_usd_venta * (pct/100) if pct else float(r.amount or 0)
+                sub_usd += (sale_usd if not en_bs else 0)
+                sub_bs  += (sale_bs  if en_bs     else 0)
+                sub_com += comision
 
-                comision = total_venta_usd * (pct / 100) if pct else float(r.amount or 0)
-                subtotal_usd += (0 if vendido_en_bs else sale_usd)
-                subtotal_bs  += (sale_bs if vendido_en_bs else 0)
-                sub_comision += comision
+                yy = y - 3.5*mm
+                can.setFont("Helvetica", 6.5)
 
-                fecha_str = r.created_at.strftime('%d/%m/%y') if r.created_at else '—'
-
-                yy = y - 4*mm
+                # FECHA
+                fecha_str = r.created_at.strftime("%d/%m/%y") if r.created_at else "—"
+                rgb(C_GRIS); can.drawString(COL["fecha"][0]*mm, yy, fecha_str)
 
                 # REFERENCIA
-                can.setFillColorRGB(*GRIS_OSC)
-                can.setFont("Helvetica-Bold", 7.5)
-                ref = str(r.source_reference or f"#{getattr(r,'source_id','?')}")
-                source_type = str(getattr(r, 'source_type', 'SALE') or 'SALE')
-                tipo_icon = '[S]' if source_type == 'SERVICE' else '[V]'
-                can.drawString(X_REF, yy, f"{tipo_icon} {ref}"[:20])
+                ref = str(r.source_reference or "—")
+                rgb(C_GRIS); can.setFont("Helvetica-Bold", 6.5)
+                can.drawString(COL["ref"][0]*mm, yy, f"[V] {ref}"[:20])
 
                 # MÉTODO DE PAGO
-                can.setFillColorRGB(*GRIS_OSC)
-                can.setFont("Helvetica", 7.5)
-                metodo_str = str(r.payment_methods or 'Sin datos')[:22]
-                can.drawString(X_MET, yy, metodo_str)
+                can.setFont("Helvetica", 6.5)
+                rgb(C_GRIS)
+                met = str(r.payment_methods or "Sin datos")[:22]
+                can.drawString(COL["met"][0]*mm, yy, met)
 
-                # $ — solo si venta en USD (azul)
-                if not vendido_en_bs and sale_usd > 0:
-                    can.setFillColorRGB(0.05, 0.25, 0.65)
-                    can.setFont("Helvetica-Bold", 7.5)
-                    can.drawRightString(X_USD_R, yy, f"${sale_usd:,.2f}")
+                # $ — solo ventas en USD
+                xr_usd = (COL["usd"][0] + COL["usd"][1]) * mm
+                if not en_bs and sale_usd > 0:
+                    rgb((0.05,0.25,0.65)); can.setFont("Helvetica-Bold", 6.5)
+                    can.drawRightString(xr_usd, yy, f"${sale_usd:,.2f}")
                 else:
-                    can.setFillColorRGB(0.80, 0.80, 0.80)
-                    can.setFont("Helvetica", 7)
-                    can.drawRightString(X_USD_R, yy, "—")
+                    rgb((0.75,0.75,0.75)); can.setFont("Helvetica", 6.5)
+                    can.drawRightString(xr_usd, yy, "—")
 
-                # Bs — solo si venta en Bs (verde)
-                if vendido_en_bs and sale_bs > 0:
-                    can.setFillColorRGB(0.05, 0.45, 0.20)
-                    can.setFont("Helvetica-Bold", 7.5)
-                    can.drawRightString(X_BS_R, yy, f"{sale_bs:,.2f}")
+                # Bs — solo ventas en Bs
+                xr_bs = (COL["bs"][0] + COL["bs"][1]) * mm
+                if en_bs and sale_bs > 0:
+                    rgb(C_VERDE); can.setFont("Helvetica-Bold", 6.5)
+                    can.drawRightString(xr_bs, yy, f"{sale_bs:,.2f}")
                 else:
-                    can.setFillColorRGB(0.80, 0.80, 0.80)
-                    can.setFont("Helvetica", 7)
-                    can.drawRightString(X_BS_R, yy, "—")
+                    rgb((0.75,0.75,0.75)); can.setFont("Helvetica", 6.5)
+                    can.drawRightString(xr_bs, yy, "—")
 
-                # E.Q $ — Bs ÷ tasa (azul oscuro) — columna separada de Bs
-                if vendido_en_bs and sale_bs > 0 and rate > 0:
+                # E.Q $ — Bs ÷ tasa (solo si venta en Bs)
+                xr_eq = (COL["eq"][0] + COL["eq"][1]) * mm
+                if en_bs and sale_bs > 0 and rate > 0:
                     eq = sale_bs / rate
-                    can.setFillColorRGB(0.20, 0.20, 0.50)
-                    can.setFont("Helvetica-Bold", 7.5)
-                    can.drawRightString(X_EQ_R, yy, f"${eq:,.2f}")
+                    rgb(C_INDIGO); can.setFont("Helvetica-Bold", 6.5)
+                    can.drawRightString(xr_eq, yy, f"${eq:,.2f}")
                 else:
-                    can.setFillColorRGB(0.80, 0.80, 0.80)
-                    can.setFont("Helvetica", 7)
-                    can.drawRightString(X_EQ_R, yy, "—")
+                    rgb((0.75,0.75,0.75)); can.setFont("Helvetica", 6.5)
+                    can.drawRightString(xr_eq, yy, "—")
 
                 # FINANCIAMIENTO
-                can.setFillColorRGB(*GRIS_OSC)
-                can.setFont("Helvetica", 7.5)
-                financing = str(getattr(r, 'financing_method', None) or 'Contado')
-                can.drawString(X_FIN, yy, financing[:16])
+                rgb(C_GRIS); can.setFont("Helvetica", 6.5)
+                can.drawString(COL["fin"][0]*mm, yy, "Contado")
 
                 # NIVEL
-                nivel = str(getattr(r, 'financing_level', None) or '—')
-                can.drawString(X_NIV, yy, nivel[:8])
+                can.drawString(COL["nivel"][0]*mm, yy, "—")
 
                 # M. FINANCIADO
-                fin_amt = getattr(r, 'financed_amount', None)
-                if fin_amt and float(fin_amt) > 0:
-                    can.setFillColorRGB(*GRIS_OSC)
-                    can.setFont("Helvetica", 7.5)
-                    can.drawRightString(X_MFIN_R, yy, f"${float(fin_amt):,.2f}")
-                else:
-                    can.setFillColorRGB(0.80, 0.80, 0.80)
-                    can.setFont("Helvetica", 7)
-                    can.drawRightString(X_MFIN_R, yy, "—")
+                xr_mf = (COL["mfin"][0] + COL["mfin"][1]) * mm
+                rgb((0.75,0.75,0.75)); can.drawRightString(xr_mf, yy, "—")
 
-                # ESTADO — badge PENDIENTE centrado en su columna
-                can.setFillColorRGB(0.95, 0.90, 0.80)
-                can.roundRect(X_EST, yy - 1.5*mm, 25*mm, 4.5*mm, 1, fill=1, stroke=0)
-                can.setFillColorRGB(0.70, 0.40, 0.02)
-                can.setFont("Helvetica-Bold", 6.5)
-                can.drawCentredString(X_EST + 12.5*mm, yy + 0.5*mm, "PENDIENTE")
+                # ESTADO badge
+                bx = COL["estado"][0]*mm
+                rgb(C_AMBER_CL); can.roundRect(bx, y-4.5*mm, 26*mm, 4.5*mm, 1, fill=1, stroke=0)
+                rgb(C_AMBER); can.setFont("Helvetica-Bold", 6)
+                can.drawCentredString(bx + 13*mm, y-2.5*mm, "PENDIENTE")
 
-                y -= 5.5*mm
+                y -= 5*mm
 
-            # ── Subtotal vendedor ─────────────────────────────────────────
-            can.setFillColorRGB(*AZUL_CL)
-            can.rect(10*mm, y - 6*mm, pw - 20*mm, 6*mm, fill=1, stroke=0)
-            can.setFillColorRGB(*AZUL)
-            can.setFont("Helvetica-Bold", 8)
-            can.drawString(X_REF, y - 4.5*mm, f"Subtotal {username}:")
-            # Columna $ — suma ventas en USD
-            if subtotal_usd > 0:
-                can.setFillColorRGB(0.05, 0.25, 0.65)
-                can.drawRightString(X_USD_R, y - 4.5*mm, f"${subtotal_usd:,.2f}")
-            else:
-                can.setFillColorRGB(0.80, 0.80, 0.80)
-                can.drawRightString(X_USD_R, y - 4.5*mm, "—")
-            # Columna Bs — suma ventas en Bs
-            if subtotal_bs > 0:
-                can.setFillColorRGB(0.05, 0.45, 0.20)
-                can.drawRightString(X_BS_R, y - 4.5*mm, f"{subtotal_bs:,.2f}")
-                # E.Q $ — columna SEPARADA de Bs
-                can.setFillColorRGB(0.20, 0.20, 0.50)
-                eq_sub = subtotal_bs / rate if rate else 0
-                can.drawRightString(X_EQ_R, y - 4.5*mm, f"${eq_sub:,.2f}")
-            else:
-                can.setFillColorRGB(0.80, 0.80, 0.80)
-                can.drawRightString(X_BS_R, y - 4.5*mm, "—")
+            # ─ Subtotal vendedor ─
+            rgb(C_AZUL_CL); can.rect(10*mm, y-6*mm, pw-20*mm, 6*mm, fill=1, stroke=0)
+            rgb(C_AZUL); can.setFont("Helvetica-Bold", 7.5)
+            can.drawString(12*mm, y-4.5*mm, f"Subtotal {username}:")
 
-            total_global_usd += subtotal_usd
-            total_global_bs  += subtotal_bs
-            total_comision   += sub_comision
+            xr_usd = (COL["usd"][0]+COL["usd"][1])*mm
+            xr_bs  = (COL["bs"][0]+COL["bs"][1])*mm
+            xr_eq  = (COL["eq"][0]+COL["eq"][1])*mm
+
+            if sub_usd > 0:
+                rgb((0.05,0.25,0.65)); can.drawRightString(xr_usd, y-4.5*mm, f"${sub_usd:,.2f}")
+            if sub_bs > 0:
+                rgb(C_VERDE); can.drawRightString(xr_bs, y-4.5*mm, f"{sub_bs:,.2f}")
+                eq_sub = sub_bs/last_rate if last_rate else 0
+                rgb(C_INDIGO); can.drawRightString(xr_eq, y-4.5*mm, f"${eq_sub:,.2f}")
+
+            rgb(C_VERDE); can.setFont("Helvetica-Bold", 7.5)
+            can.drawString(COL["fin"][0]*mm, y-4.5*mm, f"Comisión: ${sub_com:,.2f}")
+
+            total_g_usd += sub_usd
+            total_g_bs  += sub_bs
+            total_g_com += sub_com
             y -= 9*mm
 
-        # ── TOTAL GLOBAL ──────────────────────────────────────────────────────
+        # ── TOTAL GENERAL ────────────────────────────────────────────────────
         if y < 20*mm:
-            can.showPage()
-            draw_page_header()
-            y = ph - 28*mm
+            can.showPage(); page_header(); y = ph - 28*mm
 
-        can.setFillColorRGB(*AZUL)
-        can.rect(10*mm, y - 10*mm, pw - 20*mm, 10*mm, fill=1, stroke=0)
-        can.setFillColorRGB(*BLANCO)
-        can.setFont("Helvetica-Bold", 10)
-        can.setFont("Helvetica-Bold", 9)
-        can.drawString(X_REF, y - 7*mm, "TOTAL GENERAL")
-        # Columna $ — fondo azul claro
-        if total_global_usd > 0:
-            can.setFillColorRGB(0.88, 0.92, 1.0)
-            can.rect(X_USD_R - 23*mm, y - 9*mm, 23*mm, 5.5*mm, fill=1, stroke=0)
-            can.setFillColorRGB(0.05, 0.25, 0.65)
-            can.drawRightString(X_USD_R, y - 6*mm, f"${total_global_usd:,.2f}")
-        # Columna Bs — fondo verde claro
-        if total_global_bs > 0:
-            can.setFillColorRGB(0.88, 1.0, 0.90)
-            can.rect(X_BS_R - 29*mm, y - 9*mm, 29*mm, 5.5*mm, fill=1, stroke=0)
-            can.setFillColorRGB(0.05, 0.45, 0.20)
-            can.drawRightString(X_BS_R, y - 6*mm, f"{total_global_bs:,.2f}")
-            # E.Q $ — fondo lila claro, columna SEPARADA
-            eq_total = total_global_bs / rate if rate else 0
-            can.setFillColorRGB(0.90, 0.90, 0.97)
-            can.rect(X_EQ_R - 22*mm, y - 9*mm, 22*mm, 5.5*mm, fill=1, stroke=0)
-            can.setFillColorRGB(0.20, 0.20, 0.50)
-            can.drawRightString(X_EQ_R, y - 6*mm, f"${eq_total:,.2f}")
-        # TOTAL COMISIONES — badge dorado
+        rgb(C_AZUL); can.rect(10*mm, y-10*mm, pw-20*mm, 10*mm, fill=1, stroke=0)
+        rgb(C_BLANCO); can.setFont("Helvetica-Bold", 9)
+        can.drawString(12*mm, y-7*mm, "TOTAL GENERAL")
+
+        xr_usd = (COL["usd"][0]+COL["usd"][1])*mm
+        xr_bs  = (COL["bs"][0]+COL["bs"][1])*mm
+        xr_eq  = (COL["eq"][0]+COL["eq"][1])*mm
+
+        if total_g_usd > 0:
+            rgb(C_AZUL_CL); can.rect((COL["usd"][0]-1)*mm, y-9*mm, (COL["usd"][1]+1)*mm, 7*mm, fill=1, stroke=0)
+            rgb((0.05,0.25,0.65)); can.setFont("Helvetica-Bold", 8)
+            can.drawRightString(xr_usd, y-6.5*mm, f"${total_g_usd:,.2f}")
+        if total_g_bs > 0:
+            rgb(C_VERDE_CL); can.rect((COL["bs"][0]-1)*mm, y-9*mm, (COL["bs"][1]+1)*mm, 7*mm, fill=1, stroke=0)
+            rgb(C_VERDE); can.setFont("Helvetica-Bold", 8)
+            can.drawRightString(xr_bs, y-6.5*mm, f"{total_g_bs:,.2f}")
+            eq_t = total_g_bs/last_rate if last_rate else 0
+            rgb(C_AZUL_CL); can.rect((COL["eq"][0]-1)*mm, y-9*mm, (COL["eq"][1]+1)*mm, 7*mm, fill=1, stroke=0)
+            rgb(C_INDIGO); can.drawRightString(xr_eq, y-6.5*mm, f"${eq_t:,.2f}")
+
+        # Badge total comisiones
+        bx = (COL["fin"][0])*mm
+        bw = pw - bx - 12*mm
         can.setFillColorRGB(1, 0.85, 0.1)
-        can.roundRect(X_FIN + 2*mm, y - 9.5*mm, pw - X_FIN - 14*mm, 7*mm, 2, fill=1, stroke=0)
-        can.setFillColorRGB(0.40, 0.20, 0)
-        can.setFont("Helvetica-Bold", 9)
-        can.drawCentredString(X_FIN + 2*mm + (pw - X_FIN - 14*mm)/2, y - 6.5*mm,
-            f"TOTAL COMISIONES:  ${total_comision:,.2f}")
+        can.roundRect(bx, y-9*mm, bw, 7*mm, 2, fill=1, stroke=0)
+        rgb((0.35,0.15,0)); can.setFont("Helvetica-Bold", 9)
+        can.drawCentredString(bx + bw/2, y-6*mm, f"TOTAL COMISIONES:  ${total_g_com:,.2f}")
+        y -= 14*mm
 
-        # ── TOTALES POR MÉTODO DE PAGO ──────────────────────────────────────────
-        FOOTER_H = 12*mm  # altura reservada para el footer
-        MIN_Y    = FOOTER_H + 4*mm  # límite inferior del contenido
-
+        # ── TOTALES POR MÉTODO DE PAGO ────────────────────────────────────────
+        FOOTER_H = 12*mm
         if payment_totals:
-            # Calcular espacio necesario
-            n_methods = len(payment_totals)
-            rows_needed = (n_methods + 2) // 3  # 3 badges por fila
-            block_h = 7*mm + 10*mm + (rows_needed * 11*mm) + 6*mm
+            n = len(payment_totals)
+            rows_needed = (n + 2) // 3
+            block_h = 9*mm + rows_needed*11*mm + 4*mm
+            if y - block_h < FOOTER_H + 2*mm:
+                can.showPage(); page_header(); y = ph - 28*mm
 
-            # Si no hay espacio, nueva página
-            if y - block_h < MIN_Y:
-                can.showPage()
-                draw_page_header()
-                y = ph - 28*mm
-
-            y -= 4*mm
-            # Cabecera sección
-            can.setFillColorRGB(*AZUL)
-            can.rect(10*mm, y - 7*mm, pw - 20*mm, 7*mm, fill=1, stroke=0)
-            can.setFillColorRGB(*BLANCO)
-            can.setFont("Helvetica-Bold", 9)
-            can.drawString(12*mm, y - 5*mm, "TOTALES POR MÉTODO DE PAGO")
+            y -= 3*mm
+            rgb(C_AZUL); can.rect(10*mm, y-7*mm, pw-20*mm, 7*mm, fill=1, stroke=0)
+            rgb(C_BLANCO); can.setFont("Helvetica-Bold", 8.5)
+            can.drawString(12*mm, y-5*mm, "TOTALES POR MÉTODO DE PAGO")
             y -= 10*mm
 
             col_w = (pw - 20*mm) / 3
-            col_idx = 0
+            col_i = 0
             row_y = y
 
             for pt in payment_totals:
-                total_fmt = f"${float(pt.total):,.2f}" if pt.currency == "USD" else f"Bs {float(pt.total):,.2f}"
-                is_usd = pt.currency == "USD"
-
-                x_pos = 12*mm + (col_idx % 3) * col_w
-                if col_idx > 0 and col_idx % 3 == 0:
+                is_usd = str(pt.currency) == "USD"
+                total_fmt = f"${float(pt.total):,.2f}" if is_usd else f"Bs {float(pt.total):,.2f}"
+                xp = 10*mm + (col_i % 3) * col_w
+                if col_i > 0 and col_i % 3 == 0:
                     row_y -= 11*mm
 
-                # Badge
-                if is_usd:
-                    can.setFillColorRGB(0.88, 0.92, 0.97)
-                else:
-                    can.setFillColorRGB(0.88, 0.97, 0.90)
-                can.roundRect(x_pos, row_y - 8*mm, col_w - 4*mm, 8.5*mm, 2, fill=1, stroke=0)
+                bg_b = C_AZUL_CL if is_usd else C_VERDE_CL
+                rgb(bg_b); can.roundRect(xp, row_y-8*mm, col_w-3*mm, 8.5*mm, 2, fill=1, stroke=0)
+                fg = (0.05,0.25,0.60) if is_usd else C_VERDE
+                rgb(fg); can.setFont("Helvetica-Bold", 7.5)
+                can.drawString(xp+2*mm, row_y-3.5*mm, str(pt.payment_method)[:24])
+                can.setFont("Helvetica-Bold", 8.5)
+                can.drawString(xp+2*mm, row_y-7*mm, total_fmt)
+                col_i += 1
 
-                if is_usd:
-                    can.setFillColorRGB(0.05, 0.25, 0.60)
-                else:
-                    can.setFillColorRGB(0.05, 0.40, 0.20)
-                can.setFont("Helvetica-Bold", 8)
-                can.drawString(x_pos + 2*mm, row_y - 3.5*mm, str(pt.payment_method)[:22])
-                can.setFont("Helvetica-Bold", 9)
-                can.drawString(x_pos + 2*mm, row_y - 7*mm, total_fmt)
-
-                col_idx += 1
-
-            y = row_y - 14*mm
+            y = row_y - 13*mm
 
         # ── FOOTER ────────────────────────────────────────────────────────────
-        # Siempre al fondo de la página, no encima del contenido
-        can.setFillColorRGB(*AZUL)
-        can.rect(0, 0, pw, FOOTER_H, fill=1, stroke=0)
-        can.setFillColorRGB(*BLANCO)
-        can.setFont("Helvetica", 7.5)
-        can.drawCentredString(pw / 2, 4.5*mm,
-            f"{biz}  •  Reporte de Comisiones Pendientes  •  {fecha_hoy}")
+        rgb(C_AZUL); can.rect(0, 0, pw, FOOTER_H, fill=1, stroke=0)
+        rgb(C_BLANCO); can.setFont("Helvetica", 7.5)
+        can.drawCentredString(pw/2, 4.5*mm, f"{biz}  •  Reporte de Comisiones Pendientes  •  {fecha_hoy}")
 
         can.save()
-        buffer.seek(0)
-        pdf_bytes = buffer.read()
+        buf.seek(0)
+        pdf_bytes = buf.read()
 
-        # ── Enviar mensaje previo + PDF ───────────────────────────────────────
+        # ── Enviar mensaje + PDF ──────────────────────────────────────────────
         n_vendedores = len(by_user)
         n_registros  = len(rows)
         msg = (
@@ -1023,24 +956,18 @@ async def send_commissions_pdf(schema: str, session_id: int):
             f"📅 {_dt.now().strftime('%d/%m/%Y %H:%M')}\n\n"
             f"👥 Vendedores: {n_vendedores}\n"
             f"📋 Registros: {n_registros}\n"
-            f"💵 Total comisiones: ${total_comision:,.2f}\n\n"
-            f"📎 Adjunto el cuadro completo de comisiones."
+            f"💵 Total comisiones: ${total_g_com:,.2f}\n\n"
+            f"📎 Adjunto el cuadro completo en PDF."
         )
-
-        import base64
         await _send_wa(inst, admin_phone, msg)
 
-        # Enviar PDF
-        async with __import__('httpx').AsyncClient(timeout=30) as c:
-            r = await c.post(
-                f"{WA_URL}/instance/{inst}/send-document",
-                json={
-                    "phone": admin_phone,
-                    "base64": base64.b64encode(pdf_bytes).decode(),
-                    "filename": f"comisiones_{_dt.now().strftime('%d%m%Y')}.pdf",
-                    "caption": f"Comisiones Pendientes — {biz}"
-                }
-            )
+        async with __import__("httpx").AsyncClient(timeout=30) as c:
+            await c.post(f"{WA_URL}/instance/{inst}/send-document", json={
+                "phone": admin_phone,
+                "base64": base64.b64encode(pdf_bytes).decode(),
+                "filename": f"comisiones_{_dt.now().strftime('%d%m%Y')}.pdf",
+                "caption": f"Comisiones Pendientes — {biz}"
+            })
 
         logger.info(f"[WA] PDF comisiones enviado → {schema}")
 
