@@ -158,20 +158,20 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                                             : <span className="text-slate-300 text-xs italic">Sin datos</span>}
                                     </div>
                                 </td>
-                                {/* $ — solo si venta en dólares */}
+                                {/* $ — monto en dólares de la venta (solo ventas en $) */}
                                 <td className="px-3 py-2 text-right font-bold text-blue-700 whitespace-nowrap">
                                     {!vendidoEnBs && d.sale_total_usd
                                         ? `$${parseFloat(d.sale_total_usd).toFixed(2)}`
                                         : <span className="text-slate-200">—</span>}
                                 </td>
-                                {/* Bs — solo si venta en bolívares (P.V) */}
+                                {/* Bs — monto en bolívares de la venta (solo ventas en Bs) */}
                                 <td className="px-3 py-2 text-right font-bold text-emerald-700 whitespace-nowrap">
                                     {vendidoEnBs && d.sale_total_bs
-                                        ? parseFloat(d.sale_total_bs).toLocaleString('es-VE', { maximumFractionDigits: 2 })
+                                        ? parseFloat(d.sale_total_bs).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                                         : <span className="text-slate-200">—</span>}
                                 </td>
-                                {/* E.Q $ — solo si venta en Bs: equivalente en $ a tasa del día */}
-                                <td className="px-3 py-2 text-right text-slate-600 font-bold whitespace-nowrap">
+                                {/* E.Q $ — valor Bs de esta fila ÷ tasa del día = equivalente en $ */}
+                                <td className="px-3 py-2 text-right text-slate-700 font-bold whitespace-nowrap">
                                     {vendidoEnBs && d.sale_total_bs && d.sale_exchange_rate
                                         ? `$${(parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)).toFixed(2)}`
                                         : <span className="text-slate-200">—</span>}
@@ -196,13 +196,13 @@ const VendorDetailTable = ({ userId, bsRate }) => {
                                         : <span className="text-slate-300">—</span>}
                                 </td>
                                 <td className="px-3 py-2 text-right whitespace-nowrap">
-                                    {/* TOTAL: si venta en Bs → E.Q $; si en $ → valor en $ */}
+                                    {/* TOTAL en $: si venta en Bs → E.Q $ (Bs÷tasa); si en $ → valor $ directo */}
                                     {vendidoEnBs
                                         ? (d.sale_total_bs && d.sale_exchange_rate
-                                            ? <span className="font-black text-slate-800">${(parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)).toFixed(2)}</span>
+                                            ? <span className="font-black text-indigo-700">${(parseFloat(d.sale_total_bs) / parseFloat(d.sale_exchange_rate)).toFixed(2)}</span>
                                             : <span className="text-slate-300">—</span>)
                                         : (d.sale_total_usd
-                                            ? <span className="font-black text-slate-800">${parseFloat(d.sale_total_usd).toFixed(2)}</span>
+                                            ? <span className="font-black text-indigo-700">${parseFloat(d.sale_total_usd).toFixed(2)}</span>
                                             : <span className="text-slate-300">—</span>)
                                     }
                                 </td>
