@@ -40,8 +40,8 @@ def get_effective_tenant_id(user: models.User, db: Session) -> int:
     if user.tenant_id:
         return user.tenant_id
     
-    from .tenant_context import get_tenant_schema
-    from .models.tenant import Tenant
+    from ..tenant_context import get_tenant_schema
+    from ..models.tenant import Tenant
     
     current_schema = get_tenant_schema()
     if current_schema != "public":
@@ -198,7 +198,7 @@ async def upload_warranty_template(
     # Ensure tenant context is set from current user
     from ..tenant_context import set_tenant_schema
     if current_user.tenant_id:
-        from .models.tenant import Tenant
+        from ..models.tenant import Tenant
         tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
         if tenant:
             set_tenant_schema(tenant.schema_name)
@@ -225,22 +225,14 @@ def print_warranty_pdf(
     # Check feature flag
     tenant = None
     if current_user.tenant_id:
-        from .models.tenant import Tenant
+        from ..models.tenant import Tenant
         tenant = db.query(Tenant).filter(Tenant.id == current_user.tenant_id).first()
     elif current_user.is_superuser:
-        from .tenant_context import get_tenant_schema
-        from .models.tenant import Tenant
+        from ..tenant_context import get_tenant_schema
+        from ..models.tenant import Tenant
         current_schema = get_tenant_schema()
         if current_schema and current_schema != "public":
             tenant = db.query(Tenant).filter(Tenant.schema_name == current_schema).first()
-
-    if tenant:
-        flags = tenant.feature_flags or {}
-        if not flags.get("impresion_garantia_pdf"):
-            raise HTTPException(
-                status_code=403,
-                detail="El feature 'Imprimir garantía PDF' no está activado para este tenant. Actívalo desde el panel SaaS Admin."
-            )
 
     pdf_bytes = warranty_pdf_service.generate_warranty_pdf(
         sale_id=sale_id,
