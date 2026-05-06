@@ -329,7 +329,7 @@ def add_items_to_order(order_id: int, items: List[OrderItemCreateWithModifiers],
 
 # --- KITCHEN ENDPOINTS ---
 
-@router.get("/kitchen/pending", response_model=List[OrderRead])
+@router.get("/kitchen/pending")  # response_model removido — modifiers.name es @property no compatible con Pydantic strict
 def get_pending_kitchen_orders(db: Session = Depends(get_db)):
     """
     Obtener todas las órdenes que tienen items PENDIENTES, ENVIADOS o EN PREPARACION.
