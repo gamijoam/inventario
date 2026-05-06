@@ -282,15 +282,17 @@ const SalesTab = ({ dateRange }) => {
             const response = await apiClient.get(`/warranties/print/${sale.id}`, {
                 responseType: 'blob',
             });
+            // Abrir en ventana nueva y disparar impresión automáticamente
             const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `garantia_venta_${sale.id}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
+            const printWindow = window.open(url, '_blank');
+            if (printWindow) {
+                printWindow.addEventListener('load', () => {
+                    printWindow.focus();
+                    printWindow.print();
+                });
+            }
             window.URL.revokeObjectURL(url);
-            toast.success('Garantía descargada. Ábrela e imprímela desde tu visor de PDF.');
+            toast.success('Abriendo garantía para imprimir...');
         } catch (error) {
             const detail = error.response?.data?.detail || 'Error al generar la garantía';
             toast.error(detail);
@@ -606,9 +608,9 @@ const SalesTab = ({ dateRange }) => {
                                                 <DropdownMenuItem onClick={() => handleReprint(sale)}>
                                                     <Printer className="mr-2 h-4 w-4" /> Reimprimir Ticket
                                                 </DropdownMenuItem>
-                                                {warrantyPdfActive && sale.details?.some(d => d.instances?.length > 0) && (
+                                                {sale.details?.some(d => d.instances?.length > 0 || d.warranty_policy_id) && (
                                                     <DropdownMenuItem onClick={() => handleReprintWarranty(sale)}>
-                                                        <Shield className="mr-2 h-4 w-4 text-emerald-600" /> Reimprimir Garantía
+                                                        <Printer className="mr-2 h-4 w-4 text-indigo-600" /> Imprimir Garantía
                                                     </DropdownMenuItem>
                                                 )}
                                                 {sale.customer?.phone && (
@@ -1113,7 +1115,7 @@ const SalesTab = ({ dateRange }) => {
                             </div>
                             {warrantyPdfActive && selectedSale.details?.some(d => d.instances?.length > 0) && (
                                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => handleReprintWarranty(selectedSale)}>
-                                    <Shield className="mr-2 h-4 w-4" /> Reimprimir Garantía
+                                    <Printer className="mr-2 h-4 w-4" /> Imprimir Garantía
                                 </Button>
                             )}
                         </div>
