@@ -167,13 +167,14 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
 
         if (editingUnitId) {
             const updatedUnits = units.map(u =>
-                u.id === editingUnitId ? { ...unitData, id: editingUnitId } : u
+                (u._tempId || u.id) === editingUnitId ? { ...unitData, ...(typeof editingUnitId === 'string' && editingUnitId.startsWith('temp_') ? { _tempId: editingUnitId } : { id: editingUnitId }) } : u
             );
             onUnitsChange(updatedUnits);
         } else {
             const unitToAdd = {
                 ...unitData,
-                id: Date.now()
+                _tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2,5)}`
+                // NO poner id — el backend asignará el id real al guardar
             };
             onUnitsChange([...units, unitToAdd]);
         }
@@ -494,7 +495,7 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
                                         <Edit2 size={16} />
                                     </button>
                                     <button
-                                        onClick={() => onUnitsChange(units.filter(u => u.id !== unit.id))}
+                                        onClick={() => onUnitsChange(units.filter(u => (u._tempId || u.id) !== (unit._tempId || unit.id)))}
                                         className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                                         title="Eliminar"
                                     >

@@ -313,11 +313,15 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
             commission_percentage: formData.commission_percentage ? parseFloat(formData.commission_percentage) : null,
             is_commissionable: formData.is_commissionable || false, // NEW: Commission flag
             units: formData.units.map(u => ({
+                // Incluir id solo si es un ID real del backend (no temporal)
+                ...(u.id && typeof u.id === 'number' && u.id <= 10_000_000 ? { id: u.id } : {}),
                 unit_name: u.unit_name,
                 conversion_factor: u.type === 'fraction' ? (u.user_input !== 0 ? 1 / parseFloat(u.user_input) : 0) : parseFloat(u.user_input),
                 barcode: u.barcode,
                 price_usd: parseFloat(u.price_usd) || null,
-                is_default: false,
+                cost_price: parseFloat(u.cost_price) || null,
+                profit_margin: u.profit_margin ? parseFloat(u.profit_margin) : null,
+                is_default: u.is_default || false,
                 exchange_rate_id: u.exchange_rate_id ? parseInt(u.exchange_rate_id) : null
             })),
             combo_items: formData.is_combo ? formData.combo_items.map(ci => ({ child_product_id: ci.child_product_id, quantity: parseFloat(ci.quantity), unit_id: ci.unit_id || null })) : [],

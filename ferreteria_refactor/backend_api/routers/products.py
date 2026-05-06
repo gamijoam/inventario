@@ -602,18 +602,28 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
                 db.delete(eu)
         db.flush()
         # Upsert: update existing, insert new
+        # IDs reales del backend son pequeños (<= 10_000_000)
+        # IDs temporales del frontend son timestamps (> 10_000_000) o strings "_tempId"
         new_units = []
         for unit in units_data:
             uid = unit.get("id")
-            if uid:
-                db_unit = db.query(models.ProductUnit).filter(models.ProductUnit.id == uid, models.ProductUnit.product_id == product_id).first()
+            # Ignorar _tempId del frontend — siempre crear nuevo
+            temp_id = unit.get("_tempId")
+            is_real_id = uid and isinstance(uid, int) and uid <= 10_000_000
+            if is_real_id:
+                db_unit = db.query(models.ProductUnit).filter(
+                    models.ProductUnit.id == uid,
+                    models.ProductUnit.product_id == product_id
+                ).first()
                 if db_unit:
                     for k, v in unit.items():
-                        if k != "id":
+                        if k not in ("id", "_tempId"):
                             setattr(db_unit, k, v)
                     new_units.append(db_unit)
                     continue
-            db_unit = models.ProductUnit(**{k: v for k, v in unit.items() if k != "id"}, product_id=product_id)
+            # ID temporal o sin ID — crear nuevo
+            clean = {k: v for k, v in unit.items() if k not in ("id", "_tempId")}
+            db_unit = models.ProductUnit(**clean, product_id=product_id)
             db.add(db_unit)
             new_units.append(db_unit)
         final_units = new_units # Use the new list for response
