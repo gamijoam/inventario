@@ -894,8 +894,23 @@ async def send_commissions_pdf(schema: str, session_id: int):
         can.drawString(210*mm, y - 7*mm, f"TOTAL COMISIONES: ${total_comision:,.2f}")
 
         # ── TOTALES POR MÉTODO DE PAGO ──────────────────────────────────────────
-        if payment_totals and y > 20*mm:
+        FOOTER_H = 12*mm  # altura reservada para el footer
+        MIN_Y    = FOOTER_H + 4*mm  # límite inferior del contenido
+
+        if payment_totals:
+            # Calcular espacio necesario
+            n_methods = len(payment_totals)
+            rows_needed = (n_methods + 2) // 3  # 3 badges por fila
+            block_h = 7*mm + 10*mm + (rows_needed * 11*mm) + 6*mm
+
+            # Si no hay espacio, nueva página
+            if y - block_h < MIN_Y:
+                can.showPage()
+                draw_page_header()
+                y = ph - 28*mm
+
             y -= 4*mm
+            # Cabecera sección
             can.setFillColorRGB(*AZUL)
             can.rect(10*mm, y - 7*mm, pw - 20*mm, 7*mm, fill=1, stroke=0)
             can.setFillColorRGB(*BLANCO)
@@ -903,39 +918,45 @@ async def send_commissions_pdf(schema: str, session_id: int):
             can.drawString(12*mm, y - 5*mm, "TOTALES POR MÉTODO DE PAGO")
             y -= 10*mm
 
-            # Dibujar en columnas de 3
             col_w = (pw - 20*mm) / 3
             col_idx = 0
             row_y = y
 
             for pt in payment_totals:
-                sym = "$" if pt.currency == "USD" else "Bs"
                 total_fmt = f"${float(pt.total):,.2f}" if pt.currency == "USD" else f"Bs {float(pt.total):,.2f}"
+                is_usd = pt.currency == "USD"
 
                 x_pos = 12*mm + (col_idx % 3) * col_w
                 if col_idx > 0 and col_idx % 3 == 0:
-                    row_y -= 10*mm
+                    row_y -= 11*mm
 
-                # Badge por método
-                can.setFillColorRGB(0.88, 0.92, 0.97) if pt.currency == "USD" else can.setFillColorRGB(0.88, 0.97, 0.90)
-                can.roundRect(x_pos, row_y - 7*mm, col_w - 4*mm, 7.5*mm, 2, fill=1, stroke=0)
+                # Badge
+                if is_usd:
+                    can.setFillColorRGB(0.88, 0.92, 0.97)
+                else:
+                    can.setFillColorRGB(0.88, 0.97, 0.90)
+                can.roundRect(x_pos, row_y - 8*mm, col_w - 4*mm, 8.5*mm, 2, fill=1, stroke=0)
 
-                can.setFillColorRGB(0.05, 0.25, 0.60) if pt.currency == "USD" else can.setFillColorRGB(0.05, 0.40, 0.20)
+                if is_usd:
+                    can.setFillColorRGB(0.05, 0.25, 0.60)
+                else:
+                    can.setFillColorRGB(0.05, 0.40, 0.20)
                 can.setFont("Helvetica-Bold", 8)
-                can.drawString(x_pos + 2*mm, row_y - 3*mm, str(pt.payment_method)[:20])
-                can.setFont("Helvetica", 8)
-                can.drawString(x_pos + 2*mm, row_y - 6.5*mm, total_fmt)
+                can.drawString(x_pos + 2*mm, row_y - 3.5*mm, str(pt.payment_method)[:22])
+                can.setFont("Helvetica-Bold", 9)
+                can.drawString(x_pos + 2*mm, row_y - 7*mm, total_fmt)
 
                 col_idx += 1
 
             y = row_y - 14*mm
 
-        # Footer
+        # ── FOOTER ────────────────────────────────────────────────────────────
+        # Siempre al fondo de la página, no encima del contenido
         can.setFillColorRGB(*AZUL)
-        can.rect(0, 0, pw, 8*mm, fill=1, stroke=0)
+        can.rect(0, 0, pw, FOOTER_H, fill=1, stroke=0)
         can.setFillColorRGB(*BLANCO)
-        can.setFont("Helvetica", 7)
-        can.drawCentredString(pw / 2, 3*mm,
+        can.setFont("Helvetica", 7.5)
+        can.drawCentredString(pw / 2, 4.5*mm,
             f"{biz}  •  Reporte de Comisiones Pendientes  •  {fecha_hoy}")
 
         can.save()

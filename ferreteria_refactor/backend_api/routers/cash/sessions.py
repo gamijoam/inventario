@@ -680,31 +680,27 @@ async def close_cash_session(
     except Exception as e:
         logger.error(f"⚠️ Websocket broadcast failed: {e}")
 
-    # WhatsApp — resumen de cierre al admin (en background)
+    # WhatsApp — resumen de cierre al admin (async directo, sin thread)
     try:
         from ...services import whatsapp_scheduler as _wa_sched
         from ...tenant_context import get_tenant_schema as _gs
+        import asyncio as _asyncio
 
         _schema_now = _gs()
         _sid_now    = broadcast_session_id
 
-        def _run_summary():
-            import asyncio, traceback
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        async def _run_wa_tasks():
             try:
-                # 1. Resumen de caja
-                loop.run_until_complete(_wa_sched.send_cash_session_summary(_schema_now, _sid_now))
-                logger.info(f"[WA] Resumen caja enviado — schema={_schema_now} sid={_sid_now}")
-                # 2. PDF de comisiones
-                loop.run_until_complete(_wa_sched.send_commissions_pdf(_schema_now, _sid_now))
+                await _wa_sched.send_cash_session_summary(_schema_now, _sid_now)
+                logger.info(f"[WA] Resumen caja enviado — schema={_schema_now}")
+                await _wa_sched.send_commissions_pdf(_schema_now, _sid_now)
+                logger.info(f"[WA] PDF comisiones enviado — schema={_schema_now}")
             except Exception as _ex:
-                logger.error(f"[WA] Error en resumen caja/comisiones: {_ex}\n{traceback.format_exc()}")
-            finally:
-                loop.close()
+                import traceback
+                logger.error(f"[WA] Error WA cierre caja: {_ex}\n{traceback.format_exc()}")
 
-        background_tasks.add_task(_run_summary)
+        _asyncio.ensure_future(_run_wa_tasks())
     except Exception as _e:
-        logger.warning(f"[WA] Resumen caja setup falló: {_e}")
+        logger.warning(f"[WA] Setup WA falló: {_e}")
 
     return response_data
