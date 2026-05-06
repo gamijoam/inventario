@@ -509,3 +509,75 @@ def stop_scheduler():
     """Detener el scheduler. Llamar desde main.py al shutdown."""
     if scheduler.running:
         scheduler.shutdown(wait=False)
+
+
+async def send_commissions_summary(schema: str, session_id: int):
+    """
+    Envía resumen de comisiones de todos los vendedores al admin al cerrar caja.
+    Solo se envía si whatsapp_notify_commissions = true.
+    """
+    db = None
+    try:
+        set_tenant_schema(schema)
+        db = SessionLocal()
+
+        wa = {r[0]: r[1] for r in db.execute(text(
+            f"SELECT key, value FROM \"{schema}\".business_config "
+            "WHERE key IN ('whatsapp_instance_name','whatsapp_instance_status',"
+            "'whatsapp_admin_phone','business_name','whatsapp_notify_commissions')"
+        )).fetchall()}
+
+        inst        = wa.get("whatsapp_instance_name", "")
+        status      = wa.get("whatsapp_instance_status", "")
+        notify      = wa.get("whatsapp_notify_commissions") != "false"
+        biz         = wa.get("business_name") or "Mi Inventario"
+
+        admin_phone_raw = wa.get("whatsapp_admin_phone", "") or ""
+        admin_phone = "".join(c for c in admin_phone_raw if c.isdigit())
+        if admin_phone and not admin_phone.startswith("58"):
+            admin_phone = "58" + admin_phone
+
+        if not inst or status != "CONNECTED" or not admin_phone or not notify:
+            return
+
+        # Comisiones pendientes por vendedor
+        rows = db.execute(text(
+            f"""SELECT
+                u.username,
+                COUNT(cl.id) AS registros,
+                COALESCE(SUM(cl.amount), 0)::float AS total_usd
+            FROM "{schema}".commission_logs cl
+            JOIN public.users u ON u.id = cl.user_id
+            WHERE cl.status = 'PENDING'
+            GROUP BY u.id, u.username
+            ORDER BY total_usd DESC"""
+        )).fetchall()
+
+        if not rows:
+            return  # Sin comisiones pendientes, no enviar
+
+        import datetime as _dt
+        fecha = _dt.datetime.now().strftime('%d/%m/%Y')
+        total_global = sum(float(r.total_usd) for r in rows)
+
+        lineas = ""
+        for r in rows:
+            lineas += f"   👤 {r.username}: ${float(r.total_usd):,.2f} ({int(r.registros)} ventas)\n"
+
+        msg = (
+            f"💰 *Comisiones Pendientes — {biz}*\n"
+            f"📅 {fecha}\n"
+            f"{'─'*30}\n\n"
+            f"{lineas}\n"
+            f"💵 *Total a pagar: ${total_global:,.2f}*\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        )
+
+        await _send_wa(inst, admin_phone, msg)
+        logger.info(f"[WA] Comisiones enviadas → {schema}")
+
+    except Exception as e:
+        logger.error(f"[WA] Error comisiones {schema}: {e}")
+    finally:
+        if db:
+            db.close()

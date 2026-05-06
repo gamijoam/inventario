@@ -41,6 +41,7 @@ KEY_NOTIFY_QUOTE_EXP = "whatsapp_notify_quote_expiry"
 KEY_NOTIFY_WARRANTY  = "whatsapp_notify_warranty"
 KEY_NOTIFY_STOCK     = "whatsapp_notify_stock"
 KEY_NOTIFY_CASH_SUM  = "whatsapp_notify_cash_summary"
+KEY_NOTIFY_COMMISSIONS = "whatsapp_notify_commissions"
 KEY_TPL_WELCOME     = "whatsapp_template_welcome"
 KEY_TPL_SALE        = "whatsapp_template_sale"
 KEY_TPL_ORDER     = "whatsapp_template_order"
@@ -188,6 +189,7 @@ def get_config(
         "notify_warranty":       _get(db, KEY_NOTIFY_WARRANTY) != "false",
         "notify_stock":          _get(db, KEY_NOTIFY_STOCK)    != "false",
         "notify_cash_summary":   _get(db, KEY_NOTIFY_CASH_SUM) != "false",
+        "notify_commissions":    _get(db, KEY_NOTIFY_COMMISSIONS) != "false",
         "template_welcome":      _get(db, KEY_TPL_WELCOME),
     }
 
@@ -205,6 +207,7 @@ def update_config(
         ("notify_warranty",     KEY_NOTIFY_WARRANTY),
         ("notify_stock",        KEY_NOTIFY_STOCK),
         ("notify_cash_summary", KEY_NOTIFY_CASH_SUM),
+        ("notify_commissions",  KEY_NOTIFY_COMMISSIONS),
         ("notify_sale",   KEY_NOTIFY_SALE),
         ("notify_order",  KEY_NOTIFY_ORDER),
         ("notify_credit", KEY_NOTIFY_CREDIT),

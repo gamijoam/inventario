@@ -7,7 +7,7 @@ import {
     Send, ShoppingCart, Wrench, CreditCard, FileText,
     CheckCircle, XCircle, Loader, Smartphone, Zap, Info,
     Edit3, ChevronDown, ChevronUp, User, AlertTriangle,
-    Package, BookOpen, Clock
+    Package, BookOpen, Clock, DollarSign
 } from 'lucide-react';
 
 /* ── Toggle ─────────────────────────────────────────────── */
@@ -445,6 +445,8 @@ export default function WhatsAppTab() {
                         value={config?.notify_stock ?? true} onChange={v => handleToggle('notify_stock', v)} disabled={!isConnected} />
                     <NotifToggle icon={Clock} label="Resumen de cierre de caja" desc="Al cerrar la sesión de caja del día"
                         value={config?.notify_cash_summary ?? true} onChange={v => handleToggle('notify_cash_summary', v)} disabled={!isConnected} />
+                    <NotifToggle icon={DollarSign} label="Comisiones pendientes al cierre" desc="Resumen de comisiones de todos los vendedores al cerrar caja"
+                        value={config?.notify_commissions ?? true} onChange={v => handleToggle('notify_commissions', v)} disabled={!isConnected} />
                 </div>
             )}
 
