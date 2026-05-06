@@ -97,10 +97,16 @@ def generate_warranty_pdf(
     if not sale:
         raise HTTPException(status_code=404, detail="Venta no encontrada")
 
-    # Find IMEI products with warranty policies
+    # Buscar productos con política de garantía asignada (no solo IMEI)
     imei_items = []
     for detail in sale.details:
-        if not detail.product or not getattr(detail.product, 'has_imei', False):
+        if not detail.product:
+            continue
+
+        warranty_policy = getattr(detail.product, 'warranty_policy', None)
+        # Incluir si tiene política de garantía O si tiene IMEI
+        has_imei = getattr(detail.product, 'has_imei', False)
+        if not warranty_policy and not has_imei:
             continue
 
         serials = []
@@ -113,12 +119,8 @@ def generate_warranty_pdf(
         except Exception:
             pass
 
-        if not serials:
-            continue
-
-        warranty_policy = getattr(detail.product, 'warranty_policy', None)
         imei_items.append({
-            "product_name": detail.description or (detail.product.name if detail.product else "Producto"),
+            "product_name": detail.description or detail.product.name,
             "serials": serials,
             "quantity": detail.quantity,
             "warranty_policy": warranty_policy,
@@ -126,7 +128,10 @@ def generate_warranty_pdf(
         })
 
     if not imei_items:
-        raise HTTPException(status_code=400, detail="La venta no contiene productos con IMEI/serial")
+        raise HTTPException(
+            status_code=400,
+            detail="La venta no contiene productos con garantía asignada. Asigna una política de garantía al producto."
+        )
 
     # Business info
     business_config = {}

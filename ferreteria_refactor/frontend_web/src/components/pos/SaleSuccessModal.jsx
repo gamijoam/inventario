@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { CheckCircle, Printer, FileText, X, ShieldCheck, ArrowRight, Download, Shield } from "lucide-react";
+import { CheckCircle, Printer, FileText, X, ShieldCheck, ArrowRight, Download, Shield, MessageCircle } from "lucide-react";
 import printerService from "../../services/printerService";
 import apiClient from "../../config/axios";
 import toast from "react-hot-toast";
@@ -11,6 +11,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     const [printing, setPrinting] = useState(false);
     const [printStatus, setPrintStatus] = useState(null); // 'success' | 'error'
     const [printingWarranty, setPrintingWarranty] = useState(false);
+    const [sendingWarrantyWa, setSendingWarrantyWa] = useState(false);
     const [warrantyUrl, setWarrantyUrl] = useState("");
     
     const facturaA4Active = useFeatureFlag('impresion_factura_a4');
@@ -91,6 +92,20 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
         }
     };
 
+    const handleSendWarrantyWhatsApp = async () => {
+        if (!saleData.saleId) { toast.error("No se encontró ID de venta"); return; }
+        setSendingWarrantyWa(true);
+        try {
+            const res = await apiClient.post(`/warranties/send-whatsapp/${saleData.saleId}`);
+            toast.success(`✅ Garantía enviada a ${res.data.customer} por WhatsApp`);
+        } catch (err) {
+            const detail = err.response?.data?.detail || 'Error al enviar por WhatsApp';
+            toast.error(detail);
+        } finally {
+            setSendingWarrantyWa(false);
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md">
             <div className="bg-white w-full max-w-xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
@@ -110,13 +125,22 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
                                 <p className="font-black text-amber-900 uppercase text-xs">Venta con Serial / IMEI detectada</p>
                                 <p className="text-[10px] text-amber-700 font-bold mt-1">Haga clic abajo para imprimir su formato corporativo</p>
                             </div>
-                            <button 
-                                onClick={handlePrintWarranty}
-                                disabled={printingWarranty}
-                                className="mt-2 w-full py-3 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-amber-200 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
-                            >
-                                <Download size={14} /> {printingWarranty ? 'Generando...' : 'Imprimir Garantía Corporativa'}
-                            </button>
+                            <div className="flex gap-2 w-full mt-2">
+                                <button 
+                                    onClick={handlePrintWarranty}
+                                    disabled={printingWarranty}
+                                    className="flex-1 py-3 bg-amber-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-amber-200 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
+                                >
+                                    <Download size={14} /> {printingWarranty ? 'Generando...' : 'Descargar PDF'}
+                                </button>
+                                <button 
+                                    onClick={handleSendWarrantyWhatsApp}
+                                    disabled={sendingWarrantyWa}
+                                    className="flex-1 py-3 bg-green-600 text-white rounded-xl font-black uppercase text-[10px] shadow-lg shadow-green-200 flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform disabled:opacity-50"
+                                >
+                                    <MessageCircle size={14} /> {sendingWarrantyWa ? 'Enviando...' : 'WhatsApp'}
+                                </button>
+                            </div>
                         </div>
                     )}
                     

@@ -297,6 +297,17 @@ const SalesTab = ({ dateRange }) => {
         }
     };
 
+    const handleSendWarrantyWhatsApp = async (sale) => {
+        const toastId = toast.loading('Enviando garantía por WhatsApp...');
+        try {
+            const res = await apiClient.post(`/warranties/send-whatsapp/${sale.id}`);
+            toast.success(`✅ Garantía enviada a ${res.data.customer} por WhatsApp`, { id: toastId });
+        } catch (err) {
+            const detail = err.response?.data?.detail || 'Error al enviar por WhatsApp';
+            toast.error(detail, { id: toastId });
+        }
+    };
+
     // -----------------------------------------------------------------------
     // HISTORIAL: Export Excel
     // -----------------------------------------------------------------------
@@ -598,6 +609,11 @@ const SalesTab = ({ dateRange }) => {
                                                 {warrantyPdfActive && sale.details?.some(d => d.instances?.length > 0) && (
                                                     <DropdownMenuItem onClick={() => handleReprintWarranty(sale)}>
                                                         <Shield className="mr-2 h-4 w-4 text-emerald-600" /> Reimprimir Garantía
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {sale.customer?.phone && (
+                                                    <DropdownMenuItem onClick={() => handleSendWarrantyWhatsApp(sale)}>
+                                                        <MessageCircle className="mr-2 h-4 w-4 text-green-600" /> Garantía por WhatsApp
                                                     </DropdownMenuItem>
                                                 )}
                                                 {sale.status !== 'VOIDED' && user?.role === 'ADMIN' && (

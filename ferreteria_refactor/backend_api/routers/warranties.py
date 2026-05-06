@@ -253,3 +253,114 @@ def print_warranty_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=garantia_venta_{sale_id}.pdf"}
     )
+
+
+# ========================
+# SEND WARRANTY VIA WHATSAPP
+# ========================
+
+@router.post("/send-whatsapp/{sale_id}")
+async def send_warranty_whatsapp(
+    sale_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Genera el PDF de garantía y lo envía por WhatsApp al cliente.
+    Funciona para cualquier producto con política de garantía asignada (no solo IMEI).
+    """
+    import httpx
+    from ..routers.whatsapp import _wa, _get, KEY_ENABLED, KEY_STATUS, KEY_INSTANCE
+
+    # Verificar WhatsApp conectado
+    enabled = _get(db, KEY_ENABLED) == "true"
+    status  = _get(db, KEY_STATUS)
+    inst    = _get(db, KEY_INSTANCE)
+
+    if not enabled or status != "CONNECTED" or not inst:
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp no está conectado. Conéctalo en Configuración → WhatsApp."
+        )
+
+    # Obtener la venta y el cliente
+    from sqlalchemy.orm import joinedload
+    sale = db.query(models.Sale).options(
+        joinedload(models.Sale.customer),
+        joinedload(models.Sale.details).joinedload(models.SaleDetail.product)
+            .joinedload(models.Product.warranty_policy),
+    ).filter(models.Sale.id == sale_id).first()
+
+    if not sale:
+        raise HTTPException(status_code=404, detail="Venta no encontrada")
+
+    if not sale.customer or not sale.customer.phone:
+        raise HTTPException(
+            status_code=400,
+            detail="El cliente no tiene número de teléfono registrado."
+        )
+
+    # Limpiar teléfono
+    phone = "".join(c for c in sale.customer.phone if c.isdigit())
+    if len(phone) < 7:
+        raise HTTPException(status_code=400, detail="Número de teléfono inválido.")
+
+    # Generar el PDF de garantía
+    pdf_bytes = warranty_pdf_service.generate_warranty_pdf(
+        sale_id=sale_id,
+        db=db,
+        current_user=current_user,
+    )
+
+    # Nombre del negocio
+    biz_config = {c.key: c.value for c in db.query(models.BusinessConfig).all()}
+    biz_name = biz_config.get("business_name", "Mi Inventario")
+
+    # Nombre del cliente
+    customer_name = sale.customer.full_name or sale.customer.name or "Cliente"
+
+    # Productos con garantía
+    warranty_items = []
+    for d in sale.details:
+        if d.product and d.product.warranty_policy:
+            wp = d.product.warranty_policy
+            exp = d.warranty_expiration_date
+            exp_str = exp.strftime("%d/%m/%Y") if exp else "—"
+            warranty_items.append(
+                f"• {d.product.name}: {wp.name} (vence {exp_str})"
+            )
+
+    items_text = "\n".join(warranty_items) if warranty_items else "• Garantía incluida"
+
+    # Mensaje de texto previo al PDF
+    message = (
+        f"🛡️ *Garantía de compra — {biz_name}*\n\n"
+        f"Hola *{customer_name}*, gracias por tu compra.\n\n"
+        f"📦 *Productos con garantía:*\n{items_text}\n\n"
+        f"Adjunto encontrarás tu certificado de garantía en PDF.\n\n"
+        f"_Guarda este documento para cualquier reclamación._ 📄"
+    )
+
+    # 1. Enviar mensaje de texto primero
+    await _wa("post", f"/instance/{inst}/send", json={
+        "phone": phone,
+        "message": message
+    })
+
+    # 2. Enviar PDF como documento
+    import base64
+    pdf_b64 = base64.b64encode(pdf_bytes).decode()
+
+    await _wa("post", f"/instance/{inst}/send-document", json={
+        "phone": phone,
+        "document": pdf_b64,
+        "filename": f"garantia_venta_{sale_id}.pdf",
+        "caption": f"Certificado de Garantía — {biz_name}"
+    })
+
+    return {
+        "success": True,
+        "phone": phone,
+        "customer": customer_name,
+        "message": f"Garantía enviada a {customer_name} ({phone})"
+    }
