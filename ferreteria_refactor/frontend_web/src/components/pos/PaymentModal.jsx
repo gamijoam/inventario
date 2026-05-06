@@ -92,9 +92,30 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             const activeCurrencies = getActiveCurrencies();
             const primaryLocal = activeCurrencies.find(c => c.symbol !== 'USD' && !c.is_anchor);
             const defaultCurrency = primaryLocal ? primaryLocal.symbol : 'USD';
-            const defaultMethod = primaryLocal
-                ? (paymentMethods.find(m => m.is_active && m.name.toLowerCase().includes(defaultCurrency.toLowerCase()))?.name || paymentMethods.find(m => m.is_active)?.name || `Efectivo ${defaultCurrency}`)
-                : 'Efectivo USD';
+            const activeMethods = paymentMethods.filter(m => m.is_active);
+            const isDefaultUSD = !primaryLocal;
+
+            // Buscar el método por defecto que coincida con la moneda inicial
+            let defaultMethod;
+            if (isDefaultUSD) {
+                defaultMethod = activeMethods.find(m =>
+                    m.name.toLowerCase().includes('usd') ||
+                    m.name.toLowerCase().includes('dólar') ||
+                    m.name.toLowerCase().includes('dollar')
+                )?.name || activeMethods[0]?.name || 'Efectivo USD';
+            } else {
+                // Moneda local (Bs, VES, etc.) — buscar método que NO sea USD
+                defaultMethod = activeMethods.find(m =>
+                    m.name.toLowerCase().includes('ves') ||
+                    m.name.toLowerCase().includes('bs') ||
+                    m.name.toLowerCase().includes('bolívar') ||
+                    m.name.toLowerCase().includes('bolivar') ||
+                    (m.name.toLowerCase().includes('efectivo') && !m.name.toLowerCase().includes('usd'))
+                )?.name || activeMethods.find(m =>
+                    !m.name.toLowerCase().includes('usd')
+                )?.name || activeMethods[0]?.name || `Efectivo ${defaultCurrency}`;
+            }
+
             setPayments([{ amount: '', currency: defaultCurrency, method: defaultMethod, payment_date: new Date().toISOString().split('T')[0] }]);
             setIsCreditSale(false);
 
