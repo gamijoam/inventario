@@ -474,6 +474,21 @@ def get_all_presets() -> List[Dict[str, str]]:
             "description": "Impresión sin márgenes en 80mm",
             "template": get_minimal_80_template()
         },
+        # ── Nota de Despacho (Estilo OSCARCELL) ──────────────────────
+        {
+            "id": "nota_despacho_58",
+            "name": "Nota de Despacho",
+            "paper_width": 58,
+            "description": "Formato NOTA DE DESPACHO con datos del cliente, xBs, IMEI (58mm)",
+            "template": get_services_sale_58_template()
+        },
+        {
+            "id": "nota_despacho_80",
+            "name": "Nota de Despacho Ancho",
+            "paper_width": 80,
+            "description": "Formato NOTA DE DESPACHO con datos del cliente, xBs, IMEI (80mm)",
+            "template": get_services_sale_80_template()
+        },
         # ── Servicios / Equipos Tecnológicos ──────────────────────────
         {
             "id": "services_sale_58",
