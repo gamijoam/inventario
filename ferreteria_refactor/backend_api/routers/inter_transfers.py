@@ -202,9 +202,9 @@ def accept_transfer(
             # ── Origen: descontar stock en products Y en product_stocks ─────
             # Primero actualizar product_stocks (descontar del almacén con más stock)
             stocks_rows = raw_conn.execute(
-                text(f'SELECT id, quantity FROM "{from_schema}".product_stocks ps '
+                text(f'SELECT ps.id, ps.quantity FROM "{from_schema}".product_stocks ps '
                      f'JOIN "{from_schema}".products p ON p.id = ps.product_id '
-                     f'WHERE p.sku = :sku ORDER BY quantity DESC'),
+                     f'WHERE p.sku = :sku ORDER BY ps.quantity DESC'),
                 {"sku": item.product_sku}
             ).fetchall()
 
