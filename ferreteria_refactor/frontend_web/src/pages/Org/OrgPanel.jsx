@@ -51,18 +51,26 @@ export default function OrgPanel() {
   }, []);
 
   const handleEnterCompany = async (company) => {
-    setSwitching(company.id);
+    const schema = company.schema_name;
+    if (!schema) return toast.error('Empresa sin schema configurado');
+    setSwitching(company.id || company.tenant_id);
     try {
       const r = await apiClient.post('/auth/switch-company', {
-        target_schema: company.schema_name
+        target_schema: schema
       });
-      if (r.data?.switch_url) {
-        window.location.href = r.data.switch_url;
-      } else {
-        toast.error('No se pudo acceder a esa empresa');
+      // Guardar nuevo token si viene
+      if (r.data?.access_token) {
+        localStorage.setItem('access_token', r.data.access_token);
       }
-    } catch {
-      toast.error('Error al cambiar de empresa');
+      // Actualizar org_companies en localStorage
+      if (r.data?.org_companies) {
+        localStorage.setItem('org_companies', JSON.stringify(r.data.org_companies));
+      }
+      const switchUrl = r.data?.switch_url || `https://${schema}.qa.miinventariofacil.com/#/`;
+      window.location.href = switchUrl;
+    } catch (e) {
+      const msg = e.response?.data?.detail || 'Error al cambiar de empresa';
+      toast.error(msg);
     } finally {
       setSwitching(null);
     }

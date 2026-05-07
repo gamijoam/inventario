@@ -56,12 +56,18 @@ export default function ConsolidatedDashboard() {
   useEffect(() => { load(); }, [load]);
 
   const handleEnter = async (company) => {
-    setSwitching(company.id);
+    const schema = company.schema_name;
+    if (!schema) return toast.error('Empresa sin schema');
+    setSwitching(company.id || company.tenant_id);
     try {
-      const r = await apiClient.post('/auth/switch-company', { target_schema: company.schema_name });
-      if (r.data?.switch_url) window.location.href = r.data.switch_url;
-    } catch { toast.error('Error al acceder'); }
-    finally { setSwitching(null); }
+      const r = await apiClient.post('/auth/switch-company', { target_schema: schema });
+      if (r.data?.access_token) localStorage.setItem('access_token', r.data.access_token);
+      if (r.data?.org_companies) localStorage.setItem('org_companies', JSON.stringify(r.data.org_companies));
+      const url = r.data?.switch_url || `https://${schema}.qa.miinventariofacil.com/#/`;
+      window.location.href = url;
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Error al acceder');
+    } finally { setSwitching(null); }
   };
 
   if (loading) return (
