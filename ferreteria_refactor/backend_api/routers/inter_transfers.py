@@ -223,11 +223,14 @@ def accept_transfer(
                 "desc" : f"Transferencia desde {from_schema} — Transfer #{transfer_id}"
             })
         else:
-            # El producto no existe en la empresa destino — crear automáticamente
+            # El producto no existe en la empresa destino — crear automáticamente con TODOS los booleanos
             db.execute(text(
                 f'INSERT INTO "{schema}".products '
-                f'(name, sku, stock, price, cost_price, is_active, is_box, is_combo, is_service, is_discount_active) '
-                f'VALUES (:name, :sku, :qty, :price, :cost, true, false, false, false, false)'
+                f'(name, sku, stock, price, cost_price, is_active, is_box, is_combo, is_service, '
+                f'is_discount_active, is_barbershop_service, is_commissionable, requires_prescription, '
+                f'is_menu_item, needs_kitchen, has_imei, updated_at) '
+                f'VALUES (:name, :sku, :qty, :price, :cost, '
+                f'true, false, false, false, false, false, false, false, false, false, false, NOW())'
             ), {
                 "name" : item.product_name,
                 "sku"  : item.product_sku,
