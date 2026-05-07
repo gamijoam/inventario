@@ -58,9 +58,40 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const navigate = useNavigate();
     const { logout, user } = useAuth();
     const { modules } = useConfig();
+    const [hasOrg, setHasOrg] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('org_companies') || '[]').length > 1 || localStorage.getItem('has_multiple_companies') === 'true'; } catch { return false; }
+    });
     const { startTour: _startTour } = useAppTour();
     const [isTourModalOpen, setIsTourModalOpen] = useState(false);
     const [supportUnread, setSupportUnread] = useState(0);
+
+    // Consultar si el usuario tiene org con múltiples empresas
+    useEffect(() => {
+        if (!user?.role || user.role !== 'ADMIN') return;
+        // Primero revisar localStorage para respuesta inmediata
+        try {
+            const cached = JSON.parse(localStorage.getItem('org_companies') || '[]');
+            if (cached.length > 1) { setHasOrg(true); return; }
+        } catch {}
+        // Luego consultar el backend
+        import('../../config/axios').then(({ default: apiClient }) => {
+            apiClient.get('/organizations/my-org')
+                .then(r => {
+                    if (r.data && r.data.length > 0) {
+                        setHasOrg(true);
+                        localStorage.setItem('has_multiple_companies', 'true');
+                        // Cargar los tenants de la org
+                        return apiClient.get('/organizations/' + r.data[0].id + '/tenants');
+                    }
+                })
+                .then(r => {
+                    if (r?.data && r.data.length > 0) {
+                        localStorage.setItem('org_companies', JSON.stringify(r.data));
+                    }
+                })
+                .catch(() => {});
+        });
+    }, [user?.email]);
 
     // Poll unread support ticket count every 60 seconds
     const fetchUnreadCount = useCallback(async () => {
@@ -201,18 +232,11 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             type: 'single',
             item: { icon: Settings, label: 'Configuración', path: '/config-center' }
         }] : []),
-        // PANEL MULTI-EMPRESA — visible si user tiene org_companies en localStorage
-        ...((() => {
-            try {
-                const orgs = JSON.parse(localStorage.getItem('org_companies') || '[]');
-                // Mostrar si hay empresas en localStorage O si el usuario tiene el flag
-                const hasOrg = orgs.length > 0 || localStorage.getItem('has_multiple_companies') === 'true';
-                return (isAdmin && hasOrg) ? [{
-                    type: 'single',
-                    item: { icon: Building2, label: 'Panel Empresarial', path: '/org/dashboard' }
-                }] : [];
-            } catch { return []; }
-        })())
+        // PANEL MULTI-EMPRESA — usa estado hasOrg que se consulta al backend
+        ...(isAdmin && hasOrg ? [{
+            type: 'single',
+            item: { icon: Building2, label: 'Panel Empresarial', path: '/org/dashboard' }
+        }] : [])
     ];
 
     const [expandedGroup, setExpandedGroup] = useState(null);
