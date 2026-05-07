@@ -62,8 +62,14 @@ export default function ConsolidatedDashboard() {
     try {
       const r = await apiClient.post('/auth/switch-company', { target_schema: schema });
       if (r.data?.access_token) localStorage.setItem('access_token', r.data.access_token);
-      if (r.data?.org_companies) localStorage.setItem('org_companies', JSON.stringify(r.data.org_companies));
-      const url = r.data?.switch_url || `https://${schema}.qa.miinventariofacil.com/#/`;
+      if (r.data?.org_companies) {
+        localStorage.setItem('org_companies', JSON.stringify(r.data.org_companies));
+        localStorage.setItem('has_multiple_companies', r.data.org_companies.length > 1 ? 'true' : 'false');
+      }
+      const isQA = window.location.hostname.includes('.qa.');
+      const url = isQA
+        ? (r.data?.switch_url_qa || 'https://' + schema + '.qa.miinventariofacil.com/#/')
+        : (r.data?.switch_url_prod || r.data?.switch_url || 'https://' + schema + '.miinventariofacil.com/#/');
       window.location.href = url;
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Error al acceder');

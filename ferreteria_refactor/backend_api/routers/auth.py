@@ -432,6 +432,8 @@ async def switch_company(
             "can_switch" : True,
         })
 
+    # Detectar si estamos en QA o prod basado en el dominio del tenant actual
+    # El frontend usa la URL relativa al dominio actual, así que enviamos ambas
     return {
         "access_token"          : new_token,
         "token_type"            : "bearer",
@@ -439,6 +441,9 @@ async def switch_company(
         "target_company_name"   : target_tenant.name,
         "has_multiple_companies": len(org_companies) > 1,
         "org_companies"         : org_companies,
+        "switch_url_prod"       : f"https://{target_schema}.miinventariofacil.com/#/",
+        "switch_url_qa"         : f"https://{target_schema}.qa.miinventariofacil.com/#/",
+        # El frontend detecta si es QA y usa la URL correcta
     }
 
 

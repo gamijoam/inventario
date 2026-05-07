@@ -201,16 +201,18 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             type: 'single',
             item: { icon: Settings, label: 'Configuración', path: '/config-center' }
         }] : []),
-        // PANEL MULTI-EMPRESA — visible si user tiene org_companies O si es admin
-        ...(() => {
+        // PANEL MULTI-EMPRESA — visible si user tiene org_companies en localStorage
+        ...((() => {
             try {
                 const orgs = JSON.parse(localStorage.getItem('org_companies') || '[]');
-                return (isAdmin && orgs.length > 0) ? [{
+                // Mostrar si hay empresas en localStorage O si el usuario tiene el flag
+                const hasOrg = orgs.length > 0 || localStorage.getItem('has_multiple_companies') === 'true';
+                return (isAdmin && hasOrg) ? [{
                     type: 'single',
                     item: { icon: Building2, label: 'Panel Empresarial', path: '/org/dashboard' }
                 }] : [];
             } catch { return []; }
-        })()
+        })())
     ];
 
     const [expandedGroup, setExpandedGroup] = useState(null);

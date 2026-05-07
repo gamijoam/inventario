@@ -62,11 +62,15 @@ export default function OrgPanel() {
       if (r.data?.access_token) {
         localStorage.setItem('access_token', r.data.access_token);
       }
-      // Actualizar org_companies en localStorage
       if (r.data?.org_companies) {
         localStorage.setItem('org_companies', JSON.stringify(r.data.org_companies));
+        localStorage.setItem('has_multiple_companies', r.data.org_companies.length > 1 ? 'true' : 'false');
       }
-      const switchUrl = r.data?.switch_url || `https://${schema}.qa.miinventariofacil.com/#/`;
+      // Construir URL de QA correctamente
+      const isQA = window.location.hostname.includes('.qa.');
+      const switchUrl = isQA
+        ? (r.data?.switch_url_qa || 'https://' + schema + '.qa.miinventariofacil.com/#/')
+        : (r.data?.switch_url_prod || r.data?.switch_url || 'https://' + schema + '.miinventariofacil.com/#/');
       window.location.href = switchUrl;
     } catch (e) {
       const msg = e.response?.data?.detail || 'Error al cambiar de empresa';
