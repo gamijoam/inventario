@@ -916,16 +916,16 @@ FECHA: {{ sale.date }}
 Nro. Item: {{ sale.products | array.size }}
 ================================================
 {{ if sale.customer && sale.customer.name }}Nombre:    {{ sale.customer.name | string.slice 0 38 }}
-{{ if sale.customer.id_number }}Raz/Soc.: {{ sale.customer.id_number }}{{ end }}
+{{ if sale.customer.id_number }}Raz/Soc.:  {{ sale.customer.id_number }}{{ end }}
 {{ if sale.customer.address }}Direccion: {{ sale.customer.address | string.slice 0 36 }}{{ end }}
-{{ if sale.customer.phone }}Telefono: {{ sale.customer.phone }}{{ end }}
+{{ if sale.customer.phone }}Telefono:  {{ sale.customer.phone }}{{ end }}
 {{ else }}Consumidor Final{{ end }}
 {{ if sale.cashier }}Usuario:   {{ sale.cashier | string.slice 0 30 }}{{ end }}
 ================================================
 CANT DESCRIPCION                        TOTAL
 ------------------------------------------------
 {{ for item in sale.products }}
-{{ item.quantity | math.format "0.##" | string.pad_right 4 }}{{ item.product.name | string.slice 0 32 | string.pad_right 32 }} {{ if sale.is_usd }}${{ item.subtotal | math.format "F2" | string.pad_left 9 }}{{ else }}{{ item.total_bs | math.format "F2" | string.pad_left 11 }}{{ end }}
+{{ item.quantity | math.format "0.##" | string.pad_right 4 }}{{ item.product.name | string.slice 0 34 | string.pad_right 34 }} {{ if sale.is_usd }}${{ item.subtotal | math.format "F2" | string.pad_left 9 }}{{ else }}{{ item.total_bs | math.format "F2" | string.pad_left 11 }}{{ end }}
 {{ if item.serial_numbers && item.serial_numbers.size > 0 }}{{ for sn in item.serial_numbers }}    IMEI: {{ sn }}
 {{ end }}{{ end }}{{ end }}
 ================================================
