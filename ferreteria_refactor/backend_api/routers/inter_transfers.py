@@ -199,13 +199,35 @@ def accept_transfer(
         for item in transfer.items:
             qty = float(item.quantity)
 
-            # ── Origen: descontar stock ───────────────────────────────────────
+            # ── Origen: descontar stock en products Y en product_stocks ─────
+            # Primero actualizar product_stocks (descontar del almacén con más stock)
+            stocks_rows = raw_conn.execute(
+                text(f'SELECT id, quantity FROM "{from_schema}".product_stocks ps '
+                     f'JOIN "{from_schema}".products p ON p.id = ps.product_id '
+                     f'WHERE p.sku = :sku ORDER BY quantity DESC'),
+                {"sku": item.product_sku}
+            ).fetchall()
+
+            remaining = qty
+            for row in stocks_rows:
+                if remaining <= 0:
+                    break
+                deduct = min(float(row.quantity), remaining)
+                raw_conn.execute(
+                    text(f'UPDATE "{from_schema}".product_stocks SET quantity = quantity - :d WHERE id = :id'),
+                    {"d": deduct, "id": row.id}
+                )
+                remaining -= deduct
+
+            # Luego actualizar el stock total del producto
             raw_conn.execute(
                 text(f'UPDATE "{from_schema}".products SET stock = stock - :qty WHERE sku = :sku'),
                 {"qty": qty, "sku": item.product_sku}
             )
             new_stock_origin = raw_conn.execute(
-                text(f'SELECT stock FROM "{from_schema}".products WHERE sku = :sku'),
+                text(f'SELECT COALESCE(SUM(ps.quantity), p.stock) FROM "{from_schema}".products p '
+                     f'LEFT JOIN "{from_schema}".product_stocks ps ON ps.product_id = p.id '
+                     f'WHERE p.sku = :sku'),
                 {"sku": item.product_sku}
             ).scalar() or 0
 
@@ -227,12 +249,38 @@ def accept_transfer(
             ).scalar()
 
             if prod_id_dest:
+                # Actualizar products.stock
                 raw_conn.execute(
                     text(f'UPDATE "{schema}".products SET stock = stock + :qty WHERE sku = :sku'),
                     {"qty": qty, "sku": item.product_sku}
                 )
+                # Sumar al almacén principal (id=1) en product_stocks si existe
+                main_stock = raw_conn.execute(
+                    text(f'SELECT ps.id FROM "{schema}".product_stocks ps '
+                         f'JOIN "{schema}".products p ON p.id = ps.product_id '
+                         f'WHERE p.sku = :sku ORDER BY ps.warehouse_id ASC LIMIT 1'),
+                    {"sku": item.product_sku}
+                ).scalar()
+                if main_stock:
+                    raw_conn.execute(
+                        text(f'UPDATE "{schema}".product_stocks SET quantity = quantity + :qty WHERE id = :id'),
+                        {"qty": qty, "id": main_stock}
+                    )
+                else:
+                    # Crear registro en product_stocks para el almacén principal
+                    main_warehouse = raw_conn.execute(
+                        text(f'SELECT id FROM "{schema}".warehouses ORDER BY id ASC LIMIT 1')
+                    ).scalar()
+                    if main_warehouse:
+                        raw_conn.execute(
+                            text(f'INSERT INTO "{schema}".product_stocks (product_id, warehouse_id, quantity) '
+                                 f'VALUES (:pid, :wid, :qty) ON CONFLICT DO NOTHING'),
+                            {"pid": prod_id_dest, "wid": main_warehouse, "qty": qty}
+                        )
                 new_stock_dest = raw_conn.execute(
-                    text(f'SELECT stock FROM "{schema}".products WHERE sku = :sku'),
+                    text(f'SELECT COALESCE(SUM(ps.quantity), p.stock) FROM "{schema}".products p '
+                         f'LEFT JOIN "{schema}".product_stocks ps ON ps.product_id = p.id '
+                         f'WHERE p.sku = :sku'),
                     {"sku": item.product_sku}
                 ).scalar() or 0
                 raw_conn.execute(
