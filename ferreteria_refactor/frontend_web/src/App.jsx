@@ -97,6 +97,8 @@ const SupportTickets = React.lazy(() => import('./pages/SupportTickets'));
 const MiSuscripcion = React.lazy(() => import('./pages/MiSuscripcion'));
 const FuncionesPage = React.lazy(() => import('./pages/Settings/FuncionesPage'));
 // Multi-empresa — Sprint 3
+const OrgPanel = React.lazy(() => import('./pages/Org/OrgPanel'));
+const OrgMembers = React.lazy(() => import('./pages/Org/OrgMembers'));
 const ConsolidatedDashboard = React.lazy(() => import('./pages/Org/ConsolidatedDashboard'));
 // Multi-empresa — Sprint 4
 const SharedCatalog = React.lazy(() => import('./pages/Org/SharedCatalog'));
@@ -324,14 +326,15 @@ function App() {
                           <Route element={<ProtectedRoute />}>
                             <Route element={<DashboardLayout />}>
                               <Route path="/" element={<OnboardingGate><Dashboard /></OnboardingGate>} />
-                              {/* Multi-empresa: dashboard consolidado del grupo */}
-                              <Route path="/org/dashboard" element={<ConsolidatedDashboard />} />
-                              {/* Multi-empresa: catálogo compartido del grupo */}
-                              <Route path="/org/catalog" element={<SharedCatalog />} />
-                              {/* Multi-empresa: transferencias de stock entre empresas */}
-                              <Route path="/org/transfers" element={<InterCompanyTransfers />} />
-                              {/* Multi-empresa: configuración del grupo */}
-                              <Route path="/org/config" element={<OrgConfig />} />
+                              {/* Panel Multi-Empresa con layout propio */}
+                              <Route path="/org" element={<OrgPanel />}>
+                                <Route index element={<ConsolidatedDashboard />} />
+                                <Route path="dashboard" element={<ConsolidatedDashboard />} />
+                                <Route path="transfers" element={<InterCompanyTransfers />} />
+                                <Route path="catalog" element={<SharedCatalog />} />
+                                <Route path="members" element={<OrgMembers />} />
+                                <Route path="config" element={<OrgConfig />} />
+                              </Route>
 
                               {/* Unified Inventory Center */}
                               <Route path="/inventory-center" element={

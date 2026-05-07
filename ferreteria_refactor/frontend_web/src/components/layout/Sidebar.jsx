@@ -200,6 +200,11 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         ...(isAdmin ? [{
             type: 'single',
             item: { icon: Settings, label: 'Configuración', path: '/config-center' }
+        }] : []),
+        // PANEL MULTI-EMPRESA — solo si tiene org con múltiples empresas
+        ...(localStorage.getItem('org_companies') && JSON.parse(localStorage.getItem('org_companies') || '[]').length > 1 ? [{
+            type: 'single',
+            item: { icon: Building2, label: 'Panel Empresarial', path: '/org/dashboard' }
         }] : [])
     ];
 
