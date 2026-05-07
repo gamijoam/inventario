@@ -18,6 +18,7 @@ import asyncio
 import uuid
 from ..template_presets import (
     get_classic_58_template,
+    get_classic_80_template,
     get_services_sale_58_template,
     get_services_sale_80_template,
 )
@@ -1251,30 +1252,32 @@ class SalesService:
         }
         
         # ── Template selection ─────────────────────────────────────
-        # 1. Load the general ticket_template from config
+        # 1. Determinar el ancho de papel configurado
+        paper_width = business_config.get("paper_width", "58")
+
+        # 2. Cargar template personalizado si existe en BD
         template_config = db.query(models.BusinessConfig).get("ticket_template")
         template = ""
 
         if template_config and template_config.value:
             template = template_config.value
-            # HOTFIX: legacy Jinja2 templates break the C# Bridge (Scriban)
-            if "{%" in template:
-                print(f"[WARNING] Legacy Jinja2 template detected for Sale {sale_id}. Falling back to Scriban.")
-                template = get_classic_58_template()
-            # HOTFIX: rename old context key
-            if "sale.items" in template:
+            # HOTFIX: legacy templates con HTML como <center> o Jinja2 no son válidos
+            if "{%" in template or "</center>" in template or "</right>" in template:
+                print(f"[WARNING] Template legacy detectado para venta {sale_id}. Usando preset.")
+                template = ""
+            elif "sale.items" in template:
                 template = template.replace("sale.items", "sale.products")
-        else:
-            template = get_classic_58_template()
 
-        # 2. If any item has IMEI/serial numbers → use services-specific template
-        #    (priority: saved services config → built-in services preset)
+        # 3. Si no hay template personalizado válido → usar preset según ancho
+        if not template:
+            template = get_classic_80_template() if paper_width == "80" else get_classic_58_template()
+
+        # 4. Si la venta tiene IMEI/seriales → usar template de servicios (prioridad máxima)
         has_serialized = any(item.get("serial_numbers") for item in formatted_items)
         if has_serialized:
-            paper_width = business_config.get("paper_width", "58")
             svc_key = f"ticket_template_services_{paper_width}"
             svc_config = db.query(models.BusinessConfig).get(svc_key)
-            if svc_config and svc_config.value:
+            if svc_config and svc_config.value and "</center>" not in svc_config.value:
                 template = svc_config.value
             else:
                 template = (
