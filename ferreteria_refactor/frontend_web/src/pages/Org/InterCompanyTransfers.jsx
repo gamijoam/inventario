@@ -1,9 +1,6 @@
-/**
- * InterCompanyTransfers.jsx — Traslados de inventario entre empresas
- */
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  ArrowLeftRight, Plus, RefreshCw, Store, Package,
+  ArrowLeftRight, Plus, RefreshCw, Store,
   CheckCircle, XCircle, Clock, Search, Trash2
 } from 'lucide-react';
 import apiClient from '../../config/axios';
@@ -24,35 +21,31 @@ const COLORS = {
 };
 
 export default function InterCompanyTransfers() {
-  const [transfers, setTransfers]   = useState([]);
-  const [companies, setCompanies]   = useState([]);
-  const [products, setProducts]     = useState([]);
-  const [orgId, setOrgId]           = useState(null);
-  const [loading, setLoading]       = useState(true);
-  const [showForm, setShowForm]     = useState(false);
+  const [transfers, setTransfers]       = useState([]);
+  const [companies, setCompanies]       = useState([]);
+  const [products, setProducts]         = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [showForm, setShowForm]         = useState(false);
   const [productSearch, setProductSearch] = useState('');
-  const [form, setForm] = useState({ from_id: '', to_id: '', notes: '' });
-  const [items, setItems] = useState([{ product_id: '', product_name: '', quantity: 1, stock: 0 }]);
-  const [saving, setSaving]         = useState(false);
-  const [search, setSearch]         = useState('');
+  const [form, setForm]                 = useState({ from_id: '', to_id: '', notes: '' });
+  const [items, setItems]               = useState([{ product_id: '', product_name: '', quantity: 1, stock: 0 }]);
+  const [saving, setSaving]             = useState(false);
+  const [search, setSearch]             = useState('');
 
-  // Cargar org y tenants
   useEffect(() => {
     const init = async () => {
       try {
         const orgRes = await apiClient.get('/organizations/my-org');
-        if (orgRes.data?.[0]) {
+        if (orgRes.data && orgRes.data.length > 0) {
           const id = orgRes.data[0].id;
-          setOrgId(id);
           const [tenantsRes, transfersRes] = await Promise.all([
-            apiClient.get(\`/organizations/${id}/tenants\`),
+            apiClient.get('/organizations/' + id + '/tenants'),
             apiClient.get('/inter-transfers'),
           ]);
           setCompanies(tenantsRes.data || []);
           setTransfers(transfersRes.data || []);
         }
-      } catch (e) {
-        // Fallback: usar localStorage
+      } catch {
         try {
           const cached = JSON.parse(localStorage.getItem('org_companies') || '[]');
           if (cached.length > 0) setCompanies(cached);
@@ -63,78 +56,65 @@ export default function InterCompanyTransfers() {
     init();
   }, []);
 
-  // Cargar productos del tenant origen cuando se selecciona
-  const loadProducts = async (schemaName) => {
-    if (!schemaName) { setProducts([]); return; }
+  const loadProducts = async (schema) => {
+    if (!schema) { setProducts([]); return; }
     try {
-      // Llamar a un endpoint que devuelva productos del schema especificado
-      const r = await apiClient.get('/products/', {
-        params: { limit: 500, skip: 0 },
-        headers: { 'X-Tenant-Schema': schemaName }
-      });
+      const r = await apiClient.get('/products/', { params: { limit: 500, skip: 0 } });
       const list = Array.isArray(r.data) ? r.data : (r.data?.items || []);
       setProducts(list);
-    } catch {
-      // Si falla, intentar sin header
-      try {
-        const r = await apiClient.get('/products/', { params: { limit: 500 } });
-        const list = Array.isArray(r.data) ? r.data : (r.data?.items || []);
-        setProducts(list);
-      } catch { setProducts([]); }
-    }
+    } catch { setProducts([]); }
   };
 
   const handleFromChange = (val) => {
     setForm(p => ({ ...p, from_id: val }));
-    const company = companies.find(c => c.id?.toString() === val || c.tenant_id?.toString() === val);
-    if (company) loadProducts(company.schema_name);
+    const c = companies.find(c => getId(c) === val);
+    if (c) loadProducts(c.schema_name);
+    else setProducts([]);
   };
 
-  // Productos filtrados por búsqueda
+  const getId   = (c) => (c.id || c.tenant_id)?.toString() || '';
+  const getName = (c) => c.name || c.schema_name || '';
+
   const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return products.slice(0, 50);
+    if (!productSearch.trim()) return products.slice(0, 80);
+    const q = productSearch.toLowerCase();
     return products.filter(p =>
-      p.name?.toLowerCase().includes(productSearch.toLowerCase()) ||
-      p.sku?.toLowerCase().includes(productSearch.toLowerCase())
-    ).slice(0, 50);
+      p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q)
+    ).slice(0, 80);
   }, [products, productSearch]);
 
-  const addItem = () => setItems(p => [...p, { product_id: '', product_name: '', quantity: 1, stock: 0 }]);
+  const addItem    = () => setItems(p => [...p, { product_id: '', product_name: '', quantity: 1, stock: 0 }]);
   const removeItem = (i) => setItems(p => p.filter((_, idx) => idx !== i));
-  const updateItem = (i, field, val) => setItems(p => p.map((it, idx) => idx === i ? { ...it, [field]: val } : it));
-
   const selectProduct = (idx, product) => {
     setItems(p => p.map((it, i) => i === idx ? {
       ...it,
-      product_id: product.id,
+      product_id:   product.id,
       product_name: product.name,
-      stock: parseFloat(product.stock || 0),
+      stock:        parseFloat(product.stock || 0),
     } : it));
   };
 
   const handleCreate = async () => {
-    if (!form.from_id) return toast.error('Selecciona empresa origen');
-    if (!form.to_id)   return toast.error('Selecciona empresa destino');
+    if (!form.from_id)             return toast.error('Selecciona empresa origen');
+    if (!form.to_id)               return toast.error('Selecciona empresa destino');
     if (form.from_id === form.to_id) return toast.error('Origen y destino no pueden ser iguales');
-    const validItems = items.filter(i => i.product_id && i.quantity > 0);
-    if (validItems.length === 0) return toast.error('Agrega al menos un producto');
+    const valid = items.filter(i => i.product_id && i.quantity > 0);
+    if (!valid.length)             return toast.error('Agrega al menos un producto');
 
     setSaving(true);
     try {
-      const fromCompany = companies.find(c => c.id?.toString() === form.from_id || c.tenant_id?.toString() === form.from_id);
-      const toCompany   = companies.find(c => c.id?.toString() === form.to_id   || c.tenant_id?.toString() === form.to_id);
-
       const r = await apiClient.post('/inter-transfers', {
         from_tenant_id: parseInt(form.from_id),
         to_tenant_id:   parseInt(form.to_id),
         notes:          form.notes,
-        items:          validItems.map(i => ({ product_id: parseInt(i.product_id), quantity: parseFloat(i.quantity) })),
+        items:          valid.map(i => ({ product_id: parseInt(i.product_id), quantity: parseFloat(i.quantity) })),
       });
       setTransfers(p => [r.data, ...p]);
       setShowForm(false);
       setForm({ from_id: '', to_id: '', notes: '' });
       setItems([{ product_id: '', product_name: '', quantity: 1, stock: 0 }]);
       setProducts([]);
+      setProductSearch('');
       toast.success('Traslado creado exitosamente');
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Error al crear traslado');
@@ -143,7 +123,7 @@ export default function InterCompanyTransfers() {
 
   const handleAction = async (id, action) => {
     try {
-      const r = await apiClient.patch(`/inter-transfers/${id}/${action}`);
+      const r = await apiClient.patch('/inter-transfers/' + id + '/' + action);
       setTransfers(p => p.map(t => t.id === id ? r.data : t));
       toast.success(action === 'accept' ? 'Traslado aceptado' : 'Traslado rechazado');
     } catch (e) {
@@ -157,9 +137,6 @@ export default function InterCompanyTransfers() {
     t.to_tenant_name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const getCompanyId = (c) => (c.id || c.tenant_id)?.toString();
-  const getCompanyName = (c) => c.name;
-
   return (
     <div className="space-y-6 max-w-5xl">
 
@@ -168,23 +145,25 @@ export default function InterCompanyTransfers() {
         <div>
           <h1 className="text-2xl font-black text-slate-900">Traslados Entre Empresas</h1>
           <p className="text-slate-500 text-sm mt-1">
-            Mueve inventario entre tus locales · {companies.length} empresa{companies.length !== 1 ? 's' : ''} disponible{companies.length !== 1 ? 's' : ''}
+            {companies.length} empresa{companies.length !== 1 ? 's' : ''} disponible{companies.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+        <button
+          onClick={() => setShowForm(v => !v)}
+          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+        >
           <Plus size={16} /> Nuevo Traslado
         </button>
       </div>
 
-      {/* Formulario nuevo traslado */}
+      {/* Formulario */}
       {showForm && (
         <div className="bg-white rounded-2xl border border-indigo-200 p-6 shadow-md space-y-5">
           <h3 className="font-bold text-slate-900 flex items-center gap-2 text-lg">
             <ArrowLeftRight size={18} className="text-indigo-500" /> Nuevo traslado de inventario
           </h3>
 
-          {/* Empresas */}
+          {/* Empresas origen / destino */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">
@@ -197,9 +176,7 @@ export default function InterCompanyTransfers() {
               >
                 <option value="">-- Seleccionar empresa --</option>
                 {companies.map(c => (
-                  <option key={getCompanyId(c)} value={getCompanyId(c)}>
-                    {getCompanyName(c)}
-                  </option>
+                  <option key={getId(c)} value={getId(c)}>{getName(c)}</option>
                 ))}
               </select>
             </div>
@@ -214,11 +191,9 @@ export default function InterCompanyTransfers() {
               >
                 <option value="">-- Seleccionar empresa --</option>
                 {companies
-                  .filter(c => getCompanyId(c) !== form.from_id)
+                  .filter(c => getId(c) !== form.from_id)
                   .map(c => (
-                    <option key={getCompanyId(c)} value={getCompanyId(c)}>
-                      {getCompanyName(c)}
-                    </option>
+                    <option key={getId(c)} value={getId(c)}>{getName(c)}</option>
                   ))}
               </select>
             </div>
@@ -230,8 +205,10 @@ export default function InterCompanyTransfers() {
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
                 Productos a Trasladar
               </label>
-              <button onClick={addItem}
-                className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1">
+              <button
+                onClick={addItem}
+                className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
+              >
                 <Plus size={12} /> Agregar línea
               </button>
             </div>
@@ -260,7 +237,7 @@ export default function InterCompanyTransfers() {
                       <select
                         value={item.product_id}
                         onChange={e => {
-                          const p = products.find(p => p.id.toString() === e.target.value);
+                          const p = products.find(p => p.id?.toString() === e.target.value);
                           if (p) selectProduct(idx, p);
                         }}
                         className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
@@ -268,7 +245,7 @@ export default function InterCompanyTransfers() {
                         <option value="">-- Seleccionar producto --</option>
                         {filteredProducts.map(p => (
                           <option key={p.id} value={p.id}>
-                            {p.name} {p.sku ? `(${p.sku})` : ''} · Stock: {parseFloat(p.stock || 0).toFixed(0)}
+                            {p.name}{p.sku ? ' (' + p.sku + ')' : ''} · Stock: {parseFloat(p.stock || 0).toFixed(0)}
                           </option>
                         ))}
                       </select>
@@ -276,22 +253,24 @@ export default function InterCompanyTransfers() {
                   </div>
                   <div className="w-24 flex-shrink-0">
                     <input
-                      type="number" min="1"
-                      max={item.stock || 9999}
+                      type="number"
+                      min="1"
                       value={item.quantity}
-                      onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 1)}
+                      onChange={e => setItems(p => p.map((it, i) => i === idx ? { ...it, quantity: parseFloat(e.target.value) || 1 } : it))}
                       placeholder="Cant."
                       className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-center"
                     />
                   </div>
                   {item.stock > 0 && (
-                    <span className="text-[10px] text-emerald-600 font-bold flex-shrink-0">
-                      Disp: {item.stock.toFixed(0)}
+                    <span className="text-[10px] text-emerald-600 font-bold flex-shrink-0 w-16 text-center">
+                      Disp:{item.stock.toFixed(0)}
                     </span>
                   )}
                   {items.length > 1 && (
-                    <button onClick={() => removeItem(idx)}
-                      className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0">
+                    <button
+                      onClick={() => removeItem(idx)}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0"
+                    >
                       <Trash2 size={14} />
                     </button>
                   )}
@@ -310,12 +289,17 @@ export default function InterCompanyTransfers() {
           />
 
           <div className="flex gap-3 pt-2">
-            <button onClick={handleCreate} disabled={saving}
-              className="flex-1 bg-indigo-600 text-white rounded-xl py-3 font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm">
+            <button
+              onClick={handleCreate}
+              disabled={saving}
+              className="flex-1 bg-indigo-600 text-white rounded-xl py-3 font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm"
+            >
               {saving ? 'Creando traslado...' : '✓ Crear Traslado'}
             </button>
-            <button onClick={() => { setShowForm(false); setProducts([]); setProductSearch(''); }}
-              className="flex-1 bg-slate-100 text-slate-600 rounded-xl py-3 font-bold hover:bg-slate-200 transition-colors text-sm">
+            <button
+              onClick={() => { setShowForm(false); setProducts([]); setProductSearch(''); }}
+              className="flex-1 bg-slate-100 text-slate-600 rounded-xl py-3 font-bold hover:bg-slate-200 transition-colors text-sm"
+            >
               Cancelar
             </button>
           </div>
@@ -325,12 +309,16 @@ export default function InterCompanyTransfers() {
       {/* Buscador historial */}
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input type="text" placeholder="Buscar traslados por empresa..."
-          value={search} onChange={e => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+        <input
+          type="text"
+          placeholder="Buscar traslados por empresa..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
+        />
       </div>
 
-      {/* Lista de traslados */}
+      {/* Lista */}
       {loading ? (
         <div className="flex justify-center py-12">
           <RefreshCw size={24} className="text-indigo-500 animate-spin" />
@@ -355,30 +343,34 @@ export default function InterCompanyTransfers() {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 text-sm font-bold text-slate-800 flex-wrap">
-                        <span className="truncate">{t.from_tenant_name || `#${t.from_tenant_id}`}</span>
+                        <span>{t.from_tenant_name || ('Empresa #' + t.from_tenant_id)}</span>
                         <ArrowLeftRight size={14} className="text-indigo-400 flex-shrink-0" />
-                        <span className="truncate">{t.to_tenant_name || `#${t.to_tenant_id}`}</span>
+                        <span>{t.to_tenant_name || ('Empresa #' + t.to_tenant_id)}</span>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5">
                         {t.created_at ? new Date(t.created_at).toLocaleDateString('es-VE') : '—'}
-                        {t.notes && ` · ${t.notes}`}
+                        {t.notes ? ' · ' + t.notes : ''}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${COLORS[s.color]}`}>
+                    <span className={'flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ' + COLORS[s.color]}>
                       <SIcon size={11} /> {s.label}
                     </span>
                     {t.status === 'pending' && (
                       <>
-                        <button onClick={() => handleAction(t.id, 'accept')}
+                        <button
+                          onClick={() => handleAction(t.id, 'accept')}
                           title="Aceptar"
-                          className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all">
+                          className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all"
+                        >
                           <CheckCircle size={14} />
                         </button>
-                        <button onClick={() => handleAction(t.id, 'reject')}
+                        <button
+                          onClick={() => handleAction(t.id, 'reject')}
                           title="Rechazar"
-                          className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all">
+                          className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all"
+                        >
                           <XCircle size={14} />
                         </button>
                       </>
