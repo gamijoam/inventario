@@ -165,7 +165,30 @@ def accept_transfer(
     if transfer.status != "PENDING":
         raise HTTPException(status_code=400, detail=f"La transferencia está en estado {transfer.status}")
 
-    from_schema = db.query(Tenant).filter(Tenant.id == transfer.from_tenant_id).first().schema_name
+    from_tenant_obj = db.query(Tenant).filter(Tenant.id == transfer.from_tenant_id).first()
+    from_schema = from_tenant_obj.schema_name
+
+    # Forzar search_path para queries de contexto cruzado
+    db.execute(text(f'SET search_path TO "{schema}", public'))
+
+    # ── Verificar stock suficiente en origen ANTES de hacer cambios ────────
+    for item in transfer.items:
+        qty = float(item.quantity)
+        stock_disp = db.execute(text(
+            f'SELECT stock FROM "{from_schema}".products WHERE sku = :sku'
+        ), {"sku": item.product_sku}).scalar()
+
+        if stock_disp is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Producto '{item.product_sku}' no encontrado en empresa origen"
+            )
+        if float(stock_disp) < qty:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Stock insuficiente para '{item.product_name}': "
+                       f"disponible {float(stock_disp):.0f}, solicitado {qty:.0f}"
+            )
 
     for item in transfer.items:
         qty = float(item.quantity)
@@ -223,21 +246,26 @@ def accept_transfer(
                 "desc" : f"Transferencia desde {from_schema} — Transfer #{transfer_id}"
             })
         else:
-            # El producto no existe en la empresa destino — crear automáticamente con TODOS los booleanos
+            # Producto no existe en destino — copiar datos completos desde origen con INSERT...SELECT
             db.execute(text(
-                f'INSERT INTO "{schema}".products '
-                f'(name, sku, stock, price, cost_price, is_active, is_box, is_combo, is_service, '
-                f'is_discount_active, is_barbershop_service, is_commissionable, requires_prescription, '
-                f'is_menu_item, needs_kitchen, has_imei, updated_at) '
-                f'VALUES (:name, :sku, :qty, :price, :cost, '
-                f'true, false, false, false, false, false, false, false, false, false, false, NOW())'
-            ), {
-                "name" : item.product_name,
-                "sku"  : item.product_sku,
-                "qty"  : qty,
-                "price": float(item.unit_cost or 0),
-                "cost" : float(item.unit_cost or 0)
-            })
+                f'''INSERT INTO "{schema}".products
+                    (name, sku, stock, price, cost_price, min_stock, is_active,
+                     is_box, is_combo, is_service, is_discount_active,
+                     is_barbershop_service, is_commissionable, requires_prescription,
+                     is_menu_item, needs_kitchen, has_imei, updated_at)
+                    SELECT
+                        name, sku, :qty, price, cost_price,
+                        COALESCE(min_stock, 0),
+                        true, false,
+                        COALESCE(is_combo, false),
+                        COALESCE(is_service, false),
+                        false, false, false, false, false, false,
+                        COALESCE(has_imei, false),
+                        NOW()
+                    FROM "{from_schema}".products
+                    WHERE sku = :sku
+                    ON CONFLICT (sku) DO UPDATE SET stock = "{schema}".products.stock + :qty'''
+            ), {"qty": qty, "sku": item.product_sku})
 
             # Obtener el id del producto recién creado para el Kardex
             new_prod_id = db.execute(text(
