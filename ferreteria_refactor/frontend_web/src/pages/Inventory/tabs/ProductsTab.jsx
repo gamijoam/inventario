@@ -93,6 +93,7 @@ const ProductsTab = () => {
     const [searchTerm, setSearchTerm]     = useState('');
     const [products, setProducts]         = useState([]);
     const [totalProductsReal, setTotalProductsReal] = useState(0);
+    const [globalKpis, setGlobalKpis] = useState({ inStock: 0, lowStock: 0, outOfStock: 0 });
     const [isLoading, setIsLoading]       = useState(true);
     const [currentPage, setCurrentPage]   = useState(1);
     const ITEMS_PER_PAGE = 50;
@@ -116,9 +117,15 @@ const ProductsTab = () => {
             if (res.data && Array.isArray(res.data.items)) {
                 setProducts(res.data.items);
                 setTotalProductsReal(res.data.total || res.data.items.length);
+                setGlobalKpis({
+                    inStock:     res.data.total_in_stock     ?? 0,
+                    lowStock:    res.data.total_low_stock    ?? 0,
+                    outOfStock:  res.data.total_out_of_stock ?? 0,
+                });
             } else {
                 setProducts(Array.isArray(res.data) ? res.data : []);
                 setTotalProductsReal(Array.isArray(res.data) ? res.data.length : 0);
+                setGlobalKpis({ inStock: 0, lowStock: 0, outOfStock: 0 });
             }
         } catch {}
         finally { setIsLoading(false); }
@@ -181,14 +188,22 @@ const ProductsTab = () => {
         return r;
     }, [products, filterCategory, filterStock, sortBy]);
 
-    // KPI stats
+    // KPI stats — usa totales reales del backend (todos los productos, no solo la página)
     const kpis = useMemo(() => {
         const total   = totalProductsReal || filteredProducts.length;
-        const inStock = filteredProducts.filter(p => Number(p.stock) >= Number(p.min_stock ?? 5)).length;
-        const low     = filteredProducts.filter(p => { const s = Number(p.stock||0), m = Number(p.min_stock??5); return s > 0 && s < m; }).length;
-        const out     = filteredProducts.filter(p => Number(p.stock||0) === 0).length;
+        // Si hay filtros activos, calcular sobre los filtrados; si no, usar globales del backend
+        const hasActiveFilters = filterCategory || filterStock;
+        const inStock = hasActiveFilters
+            ? filteredProducts.filter(p => Number(p.stock) >= Number(p.min_stock ?? 5)).length
+            : globalKpis.inStock || 0;
+        const low = hasActiveFilters
+            ? filteredProducts.filter(p => { const s = Number(p.stock||0), m = Number(p.min_stock??5); return s > 0 && s < m; }).length
+            : globalKpis.lowStock || 0;
+        const out = hasActiveFilters
+            ? filteredProducts.filter(p => Number(p.stock||0) === 0).length
+            : globalKpis.outOfStock || 0;
         return { total, inStock, low, out };
-    }, [filteredProducts]);
+    }, [filteredProducts, totalProductsReal, globalKpis, filterCategory, filterStock]);
 
     const isAdmin = ['ADMIN', 'WAREHOUSE'].includes(user?.role);
     const hasFilters = filterCategory || filterWarehouse || filterStock || sortBy;

@@ -188,10 +188,26 @@ def read_catalog_products(
             if warehouse_id:
                 p.stocks = [s for s in p.stocks if s.warehouse_id == warehouse_id]
 
+    # Conteos globales (sobre base_query sin paginación) para KPIs reales
+    min_stock_default = 5
+    total_in_stock = base_query.filter(
+        models.Product.stock >= func.coalesce(models.Product.min_stock, min_stock_default)
+    ).with_entities(func.count(models.Product.id)).scalar() or 0
+    total_low_stock = base_query.filter(
+        models.Product.stock > 0,
+        models.Product.stock < func.coalesce(models.Product.min_stock, min_stock_default)
+    ).with_entities(func.count(models.Product.id)).scalar() or 0
+    total_out_of_stock = base_query.filter(
+        models.Product.stock == 0
+    ).with_entities(func.count(models.Product.id)).scalar() or 0
+
     return {
         "items": products,
         "total": total,
-        "has_more": (skip + limit) < total
+        "has_more": (skip + limit) < total,
+        "total_in_stock": total_in_stock,
+        "total_low_stock": total_low_stock,
+        "total_out_of_stock": total_out_of_stock,
     }
 
 @router.get("/lookup", response_model=schemas.ProductRead)
