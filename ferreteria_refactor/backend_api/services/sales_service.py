@@ -1261,9 +1261,9 @@ class SalesService:
 
         if template_config and template_config.value:
             template = template_config.value
-            # HOTFIX: legacy templates con HTML como <center> o Jinja2 no son válidos
-            if "{%" in template or "</center>" in template or "</right>" in template:
-                print(f"[WARNING] Template legacy detectado para venta {sale_id}. Usando preset.")
+            # HOTFIX: solo descartar templates Jinja2 legacy ({% %})
+            if "{%" in template:
+                print(f"[WARNING] Template Jinja2 legacy detectado para venta {sale_id}. Usando preset.")
                 template = ""
             elif "sale.items" in template:
                 template = template.replace("sale.items", "sale.products")
@@ -1272,12 +1272,12 @@ class SalesService:
         if not template:
             template = get_classic_80_template() if paper_width == "80" else get_classic_58_template()
 
-        # 4. Si la venta tiene IMEI/seriales → usar template de servicios (prioridad máxima)
+        # 4. Si la venta tiene IMEI/seriales → usar template de servicios (solo si está guardado)
         has_serialized = any(item.get("serial_numbers") for item in formatted_items)
         if has_serialized:
             svc_key = f"ticket_template_services_{paper_width}"
             svc_config = db.query(models.BusinessConfig).get(svc_key)
-            if svc_config and svc_config.value and "</center>" not in svc_config.value:
+            if svc_config and svc_config.value and "{%" not in svc_config.value:
                 template = svc_config.value
             else:
                 template = (
