@@ -833,130 +833,113 @@ Gracias por elegirnos!
 
 def get_services_sale_58_template() -> str:
     return """================================
-<center>
-<bold>{{ business.name }}</bold>
-{{ business.address }}
-RIF: {{ business.document_id }}
-Tel: {{ business.phone }}
-</center>
+<center><bold>{{ business.name }}</bold></center>
+<center>{{ business.address }}</center>
+<center>RIF: {{ business.document_id }}</center>
+{{ if business.phone }}<center>Tel: {{ business.phone }}</center>{{ end }}
 ================================
-<center>
-<bold>VENTA - EQUIPO TECNOLOGICO</bold>
-<bold>Factura N\u00b0 {{ sale.id }}</bold>
-</center>
-Fecha: {{ sale.date }}
+<center><bold>NOTA DE DESPACHO</bold></center>
+<center><bold>#{{ sale.id | math.format "000000000" }}</bold></center>
+FACTURA:          HORA: {{ sale.time }}
+FECHA: {{ sale.date }}
+Nro. Item: {{ sale.products | array.size }}
 ================================
-CLIENTE
---------------------------------
 {{ if sale.customer && sale.customer.name }}Nombre: {{ sale.customer.name | string.slice 0 26 }}
-{{ if sale.customer.id_number }}Doc:    {{ sale.customer.id_number }}{{ end }}
+{{ if sale.customer.id_number }}Raz/Soc.: {{ sale.customer.id_number }}{{ end }}
+{{ if sale.customer.address }}Direccion: {{ sale.customer.address | string.slice 0 24 }}{{ end }}
+{{ if sale.customer.phone }}Telefono: {{ sale.customer.phone }}{{ end }}
 {{ else }}Consumidor Final{{ end }}
+{{ if sale.cashier }}Usuario: {{ sale.cashier | string.slice 0 20 }}{{ end }}
 ================================
-ARTICULOS
+CANT  PRODUCTO              TOTAL
 --------------------------------
-{{ for item in sale.products }}{{ item.product.name | string.slice 0 30 }}
-  Cant: {{ item.quantity }}   Total: {{ item.formatted_total }}
-{{ if item.serial_numbers && item.serial_numbers.size > 0 }}  IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 26 }}
-{{ end }}{{ end }}================================
-<bold>TOTAL: {{ sale.formatted_total }}</bold>
-{{ if sale.is_usd }}Ref Bs: {{ sale.formatted_total_ref }}
-Tasa:   {{ sale.exchange_rate }} Bs/${{ end }}
-================================
-PAGO
+{{ for item in sale.products }}
+{{ item.quantity | math.format "0.##" | string.pad_right 4 }} xBs{{ item.total_bs | math.format "F2" | string.pad_left 9 }}   {{ item.subtotal | math.format "F2" | string.pad_left 7 }}
+{{ item.product.name | string.slice 0 30 }}    {{ item.total_bs | math.format "F2" }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}{{ for sn in item.serial_numbers }}COLOR ___ IMEI {{ sn }}
+{{ end }}{{ end }}{{ end }}
 --------------------------------
-{{ for p in sale.payments }}{{ p.method }}: {{ p.formatted_amount }}
-{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}Cambio: {{ sale.formatted_change }}{{ end }}
+EXENTO        {{ sale.total_bs | math.format "F2" | string.pad_left 12 }}
+SUBTTL        {{ sale.total_bs | math.format "F2" | string.pad_left 12 }}
 ================================
-<center>
-Gracias por su compra!
-</center>
+<bold>TOTAL         {{ sale.total_bs | math.format "F2" | string.pad_left 12 }}</bold>
+{{ if sale.is_usd }}<bold>USD           {{ sale.formatted_total }}</bold>{{ end }}
+================================
+{{ for p in sale.payments }}{{ p.method | string.pad_right 14 }} {{ p.formatted_amount }}
+{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}VUELTO: {{ sale.formatted_change }}{{ end }}
+================================
 {{ has_warranty = false }}
 {{ for item in sale.products }}{{ if item.warranty }}{{ has_warranty = true }}{{ end }}{{ end }}
-{{ if has_warranty }}================================
-<center>
-<bold>** GARANTIA DE SU EQUIPO **</bold>
-</center>
-{{ for item in sale.products }}{{ if item.warranty }}--------------------------------
+{{ if has_warranty }}
+<center><bold>GARANTIA</bold></center>
+--------------------------------
+{{ for item in sale.products }}{{ if item.warranty }}
 <bold>{{ item.product.name | string.slice 0 30 }}</bold>
-{{ if item.serial_numbers && item.serial_numbers.size > 0 }}IMEI:    {{ item.serial_numbers | array.join ", " | string.slice 0 23 }}
-{{ end }}Tipo:    {{ item.warranty.name | string.slice 0 23 }}
-Tiempo:  {{ item.warranty.duration_text }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 24 }}
+{{ end }}Tipo: {{ item.warranty.name | string.slice 0 24 }}
+Tiempo: {{ item.warranty.duration_text }}
 {{ if item.warranty.description }}{{ item.warranty.description }}
-{{ end }}{{ end }}{{ end }}--------------------------------
-<center>
-Presente este ticket y su
-cedula para reclamar.
-</center>
-================================
+{{ end }}{{ end }}{{ end }}
+{{ else }}
+{{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
 {{ end }}
-
-
 <cut>
 """
 
 
 def get_services_sale_80_template() -> str:
     return """================================================
-<center>
-<bold>{{ business.name }}</bold>
-{{ business.address }}
-RIF: {{ business.document_id }}
-Tel: {{ business.phone }}
-</center>
+<center><bold>{{ business.name }}</bold></center>
+<center>{{ business.address }}</center>
+<center>RIF: {{ business.document_id }}</center>
+{{ if business.phone }}<center>Tel: {{ business.phone }}</center>{{ end }}
 ================================================
-<center>
-<bold>VENTA - EQUIPO TECNOLOGICO</bold>
-<bold>Factura N\u00b0 {{ sale.id }}</bold>
-</center>
-Fecha: {{ sale.date }}
+<center><bold>NOTA DE DESPACHO</bold></center>
+<center><bold>#{{ sale.id | math.format "000000000" }}</bold></center>
+FACTURA:                     HORA: {{ sale.time }}
+FECHA: {{ sale.date }}
+Nro. Item: {{ sale.products | array.size }}
 ================================================
-DATOS DEL CLIENTE
-------------------------------------------------
 {{ if sale.customer && sale.customer.name }}Nombre:    {{ sale.customer.name | string.slice 0 38 }}
-{{ if sale.customer.id_number }}Documento: {{ sale.customer.id_number }}{{ end }}
+{{ if sale.customer.id_number }}Raz/Soc.: {{ sale.customer.id_number }}{{ end }}
+{{ if sale.customer.address }}Direccion: {{ sale.customer.address | string.slice 0 36 }}{{ end }}
+{{ if sale.customer.phone }}Telefono: {{ sale.customer.phone }}{{ end }}
 {{ else }}Consumidor Final{{ end }}
+{{ if sale.cashier }}Usuario:   {{ sale.cashier | string.slice 0 30 }}{{ end }}
 ================================================
-ARTICULOS VENDIDOS
+CANT DESCRIPCION                        TOTAL
 ------------------------------------------------
-{{ for item in sale.products }}{{ item.product.name | string.slice 0 44 }}
-  Cantidad: {{ item.quantity }}          Total: {{ item.formatted_total }}
-{{ if item.serial_numbers && item.serial_numbers.size > 0 }}  IMEI/Serial: {{ item.serial_numbers | array.join ", " | string.slice 0 34 }}
-{{ end }}{{ end }}================================================
-<bold>TOTAL: {{ sale.formatted_total }}</bold>
-{{ if sale.is_usd }}Referencia Bs: {{ sale.formatted_total_ref }}
-Tasa BCV:      {{ sale.exchange_rate }} Bs/${{ end }}
-================================================
-FORMA DE PAGO
+{{ for item in sale.products }}
+{{ item.quantity | math.format "0.##" | string.pad_right 4 }} xBs{{ item.total_bs | math.format "F2" | string.pad_left 12 }}         {{ item.subtotal | math.format "F2" | string.pad_left 9 }}
+{{ item.product.name | string.slice 0 44 }}     {{ item.total_bs | math.format "F2" }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}{{ for sn in item.serial_numbers }}COLOR ____________ IMEI {{ sn }}
+{{ end }}{{ end }}{{ end }}
 ------------------------------------------------
-{{ for p in sale.payments }}{{ p.method | string.pad_right 20 }} {{ p.formatted_amount }}
-{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}Cambio entregado: {{ sale.formatted_change }}{{ end }}
+EXENTO                   {{ sale.total_bs | math.format "F2" | string.pad_left 16 }}
+SUBTTL                   {{ sale.total_bs | math.format "F2" | string.pad_left 16 }}
+{{ if sale.is_usd }}G  (  )                                       0.00{{ end }}
 ================================================
-<center>
-Gracias por su compra!
-</center>
+<bold>TOTAL                    {{ sale.total_bs | math.format "F2" | string.pad_left 16 }}</bold>
+{{ if sale.is_usd }}<bold>USD                      {{ sale.formatted_total | string.pad_left 16 }}</bold>{{ end }}
+================================================
+{{ for p in sale.payments }}{{ p.method | string.pad_right 22 }} {{ p.formatted_amount }}
+{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}VUELTO:                  {{ sale.formatted_change }}{{ end }}
+================================================
 {{ has_warranty = false }}
 {{ for item in sale.products }}{{ if item.warranty }}{{ has_warranty = true }}{{ end }}{{ end }}
-{{ if has_warranty }}================================================
-<center>
-<bold>*** GARANTIA DE SU EQUIPO ***</bold>
-</center>
+{{ if has_warranty }}
 ================================================
-{{ for item in sale.products }}{{ if item.warranty }}------------------------------------------------
+<center><bold>GARANTIA</bold></center>
+------------------------------------------------
+{{ for item in sale.products }}{{ if item.warranty }}
 <bold>{{ item.product.name | string.slice 0 44 }}</bold>
-{{ if item.serial_numbers && item.serial_numbers.size > 0 }}IMEI/Serial: {{ item.serial_numbers | array.join ", " | string.slice 0 35 }}
-{{ end }}Tipo de garantia: {{ item.warranty.name | string.slice 0 30 }}
-Vigencia:         {{ item.warranty.duration_text }}
-{{ if item.warranty.description }}Condiciones:
-{{ item.warranty.description }}
-{{ end }}{{ end }}{{ end }}------------------------------------------------
-<center>
-Para reclamar su garantia presente
-este ticket y su cedula de identidad
-en nuestro establecimiento.
-</center>
-================================================
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 38 }}
+{{ end }}Tipo:    {{ item.warranty.name | string.slice 0 36 }}
+Tiempo:  {{ item.warranty.duration_text }}
+{{ if item.warranty.description }}{{ item.warranty.description }}
+{{ end }}{{ end }}{{ end }}
+{{ else }}
+{{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
 {{ end }}
-
-
 <cut>
 """

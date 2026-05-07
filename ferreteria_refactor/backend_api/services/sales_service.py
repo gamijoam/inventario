@@ -1215,7 +1215,8 @@ class SalesService:
             },
             "sale": {
                 "id": sale.id,
-                "date": sale.date.strftime("%d/%m/%Y %H:%M") if sale.date else "",
+                "date": sale.date.strftime("%d/%m/%Y") if sale.date else "",
+                "time": sale.date.strftime("%H:%M") if sale.date else "",
                 
                 # Raw Totals (Backward Compatibility)
                 "total": total_main,
@@ -1232,9 +1233,13 @@ class SalesService:
                 "discount": 0.0, # Added missing field for legacy templates
                 "is_credit": sale.is_credit,
                 "due_date": due_date_str,
+                # Cajero que procesó la venta
+                "cashier": sale.user.username if (sale.user if hasattr(sale, "user") else None) else "",
                 "customer": {
-                    "name": sale.customer.name[:25] if sale.customer else "CLIENTE CONTADO",
-                    "id_number": sale.customer.id_number if sale.customer else ""
+                    "name": sale.customer.name if sale.customer else "CONSUMIDOR FINAL",
+                    "id_number": sale.customer.id_number if sale.customer else "",
+                    "address": sale.customer.address if (sale.customer and hasattr(sale.customer, "address")) else "",
+                    "phone": sale.customer.phone if (sale.customer and hasattr(sale.customer, "phone")) else "",
                 },
                 "products": formatted_items,
                 "payments": formatted_payments,
