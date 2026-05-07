@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ArrowLeftRight, Plus, RefreshCw, Store,
   CheckCircle, XCircle, Clock, Search, Trash2, AlertCircle
@@ -14,7 +14,6 @@ const STATUS = {
   pending:   { label: 'Pendiente',  color: 'amber',   icon: Clock },
   accepted:  { label: 'Aceptado',   color: 'emerald', icon: CheckCircle },
   rejected:  { label: 'Rechazado',  color: 'rose',    icon: XCircle },
-  completed: { label: 'Completado', color: 'indigo',  icon: CheckCircle },
 };
 
 const COLORS = {
@@ -24,84 +23,103 @@ const COLORS = {
   indigo:  'bg-indigo-50 text-indigo-700 border-indigo-200',
 };
 
-const EMPTY_ITEM = { product_sku: '', product_name: '', product_display: '', quantity: 1, stock: 0, unit_cost: 0 };
+const EMPTY_ITEM = { product_sku: '', product_name: '', quantity: 1, stock: 0, unit_cost: 0 };
 
 export default function InterCompanyTransfers() {
-  const [transfers, setTransfers]         = useState([]);
-  const [companies, setCompanies]         = useState([]);
-  const [products, setProducts]           = useState([]);
-  const [loading, setLoading]             = useState(true);
+  const [transfers, setTransfers]           = useState([]);
+  const [companies, setCompanies]           = useState([]);
+  const [products, setProducts]             = useState([]);
+  const [loading, setLoading]               = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [showForm, setShowForm]           = useState(false);
-  const [productSearch, setProductSearch] = useState('');
-  const [form, setForm]                   = useState({ to_id: '', notes: '' });
-  const [items, setItems]                 = useState([{ ...EMPTY_ITEM }]);
-  const [saving, setSaving]               = useState(false);
-  const [search, setSearch]               = useState('');
+  const [showForm, setShowForm]             = useState(false);
+  const [productSearch, setProductSearch]   = useState('');
+  const [showDropdown, setShowDropdown]     = useState(false);
+  const [activeItemIdx, setActiveItemIdx]   = useState(null);
+  const [form, setForm]                     = useState({ to_id: '', notes: '' });
+  const [items, setItems]                   = useState([{ ...EMPTY_ITEM }]);
+  const [saving, setSaving]                 = useState(false);
+  const [search, setSearch]                 = useState('');
 
-  useEffect(() => {
-    const init = async () => {
+  // Cargar org, tenants y traslados
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const orgRes = await apiClient.get('/organizations/my-org');
+      if (orgRes.data && orgRes.data.length > 0) {
+        const id = orgRes.data[0].id;
+        const [tenantsRes, transfersRes] = await Promise.all([
+          apiClient.get('/organizations/' + id + '/tenants'),
+          apiClient.get('/inter-transfers'),
+        ]);
+        setCompanies(tenantsRes.data || []);
+        setTransfers(transfersRes.data || []);
+      }
+    } catch {
       try {
-        const orgRes = await apiClient.get('/organizations/my-org');
-        if (orgRes.data && orgRes.data.length > 0) {
-          const id = orgRes.data[0].id;
-          const [tenantsRes, transfersRes] = await Promise.all([
-            apiClient.get('/organizations/' + id + '/tenants'),
-            apiClient.get('/inter-transfers'),
-          ]);
-          setCompanies(tenantsRes.data || []);
-          setTransfers(transfersRes.data || []);
-        }
-      } catch {
-        try {
-          const cached = JSON.parse(localStorage.getItem('org_companies') || '[]');
-          if (cached.length > 0) setCompanies(cached);
-        } catch {}
-      } finally { setLoading(false); }
-    };
-    init();
+        const cached = JSON.parse(localStorage.getItem('org_companies') || '[]');
+        if (cached.length > 0) setCompanies(cached);
+      } catch {}
+    } finally { setLoading(false); }
   }, []);
 
-  // Cargar productos del tenant actual (el usuario está en el tenant origen)
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Cargar productos frescos del tenant actual
   const loadProducts = async () => {
     setLoadingProducts(true);
+    setProducts([]);
     try {
       const r = await apiClient.get('/products/', { params: { limit: 500, skip: 0 } });
       const list = Array.isArray(r.data) ? r.data : (r.data?.items || []);
-      setProducts(list.filter(p => p.sku)); // Solo productos con SKU
+      setProducts(list.filter(p => p.sku));
     } catch { setProducts([]); }
     finally { setLoadingProducts(false); }
   };
 
   const handleOpenForm = () => {
     setShowForm(true);
-    loadProducts();
+    setForm({ to_id: '', notes: '' });
+    setItems([{ ...EMPTY_ITEM }]);
+    setProductSearch('');
+    setShowDropdown(false);
+    loadProducts(); // Cargar productos frescos cada vez que se abre el form
   };
 
   const getId   = (c) => (c.id || c.tenant_id)?.toString() || '';
   const getName = (c) => c.name || c.schema_name || '';
 
-  // Filtrar productos por búsqueda
+  // Filtrar productos en tiempo real
   const filteredProducts = useMemo(() => {
-    if (!productSearch.trim()) return products.slice(0, 100);
+    if (!productSearch.trim()) return products.slice(0, 50);
     const q = productSearch.toLowerCase();
     return products.filter(p =>
-      p.name?.toLowerCase().includes(q) ||
-      p.sku?.toLowerCase().includes(q)
-    );
+      p.name?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q)
+    ).slice(0, 50);
   }, [products, productSearch]);
+
+  const handleSearchChange = (e) => {
+    setProductSearch(e.target.value);
+    setShowDropdown(true);
+  };
 
   const selectProduct = (idx, product) => {
     setItems(prev => prev.map((it, i) => i === idx ? {
       ...it,
-      product_sku:     product.sku || '',
-      product_name:    product.name || '',
-      product_display: product.name + (product.sku ? ' [' + product.sku + ']' : ''),
-      stock:           parseFloat(product.stock || 0),
-      unit_cost:       parseFloat(product.cost_price || product.cost || 0),
-      quantity:        1,
+      product_sku:  product.sku || '',
+      product_name: product.name || '',
+      stock:        parseFloat(product.stock || 0),
+      unit_cost:    parseFloat(product.cost_price || 0),
+      quantity:     1,
     } : it));
     setProductSearch('');
+    setShowDropdown(false);
+    setActiveItemIdx(null);
+  };
+
+  const openDropdownFor = (idx) => {
+    setActiveItemIdx(idx);
+    setProductSearch('');
+    setShowDropdown(true);
   };
 
   const addItem    = () => setItems(p => [...p, { ...EMPTY_ITEM }]);
@@ -110,7 +128,7 @@ export default function InterCompanyTransfers() {
   const handleCreate = async () => {
     if (!form.to_id) return toast.error('Selecciona empresa destino');
     const valid = items.filter(i => i.product_sku && i.quantity > 0);
-    if (!valid.length) return toast.error('Agrega al menos un producto con SKU');
+    if (!valid.length) return toast.error('Selecciona al menos un producto');
 
     setSaving(true);
     try {
@@ -129,27 +147,28 @@ export default function InterCompanyTransfers() {
       setForm({ to_id: '', notes: '' });
       setItems([{ ...EMPTY_ITEM }]);
       setProducts([]);
-      setProductSearch('');
-      toast.success('Traslado creado exitosamente');
+      toast.success('Traslado creado — esperando aceptación de la empresa destino');
     } catch (e) {
-      // Manejar error de validación (array de objetos) y string
       const detail = e.response?.data?.detail;
-      if (Array.isArray(detail)) {
-        toast.error(detail.map(d => d.msg || JSON.stringify(d)).join(', '));
-      } else {
-        toast.error(typeof detail === 'string' ? detail : 'Error al crear traslado');
-      }
+      toast.error(Array.isArray(detail)
+        ? detail.map(d => d.msg || '').join(', ')
+        : (typeof detail === 'string' ? detail : 'Error al crear traslado'));
     } finally { setSaving(false); }
   };
 
   const handleAction = async (id, action) => {
     try {
       const r = await apiClient.patch('/inter-transfers/' + id + '/' + action);
+      // Actualizar el traslado en la lista
       setTransfers(p => p.map(t => t.id === id ? r.data : t));
-      toast.success(action === 'accept' ? 'Traslado aceptado' : 'Traslado rechazado');
+      if (action === 'accept') {
+        toast.success('Traslado aceptado — el stock fue actualizado en ambas empresas');
+      } else {
+        toast.success('Traslado rechazado');
+      }
     } catch (e) {
       const detail = e.response?.data?.detail;
-      toast.error(typeof detail === 'string' ? detail : 'Error');
+      toast.error(typeof detail === 'string' ? detail : 'Error al procesar el traslado');
     }
   };
 
@@ -160,36 +179,40 @@ export default function InterCompanyTransfers() {
   );
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-5xl" onClick={() => setShowDropdown(false)}>
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Traslados Entre Empresas</h1>
           <p className="text-slate-500 text-sm mt-1">
-            {companies.length} empresa{companies.length !== 1 ? 's' : ''} disponible{companies.length !== 1 ? 's' : ''}
+            {companies.length} empresa{companies.length !== 1 ? 's' : ''} en el grupo
             {' · '}Los productos se trasladan desde tu empresa actual
           </p>
         </div>
-        <button
-          onClick={handleOpenForm}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
-        >
-          <Plus size={16} /> Nuevo Traslado
-        </button>
+        <div className="flex gap-2">
+          <button onClick={loadAll}
+            className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-colors">
+            <RefreshCw size={16} />
+          </button>
+          <button onClick={handleOpenForm}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
+            <Plus size={16} /> Nuevo Traslado
+          </button>
+        </div>
       </div>
 
       {/* Formulario */}
       {showForm && (
-        <div className="bg-white rounded-2xl border border-indigo-200 p-6 shadow-md space-y-5">
+        <div className="bg-white rounded-2xl border border-indigo-200 p-6 shadow-md space-y-5"
+          onClick={e => e.stopPropagation()}>
           <h3 className="font-bold text-slate-900 flex items-center gap-2 text-lg">
             <ArrowLeftRight size={18} className="text-indigo-500" /> Nuevo traslado de inventario
           </h3>
 
-          {/* Info */}
           <div className="flex items-start gap-2 bg-blue-50 rounded-xl px-4 py-3 text-sm text-blue-700">
             <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
-            <p>Los productos se envían desde <strong>tu empresa actual</strong>. Selecciona la empresa destino y los productos a trasladar.</p>
+            <p>Los productos se envían desde <strong>tu empresa actual</strong>. Selecciona la empresa destino y los productos.</p>
           </div>
 
           {/* Empresa destino */}
@@ -197,11 +220,9 @@ export default function InterCompanyTransfers() {
             <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">
               Empresa Destino
             </label>
-            <select
-              value={form.to_id}
+            <select value={form.to_id}
               onChange={e => setForm(p => ({ ...p, to_id: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
-            >
+              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white">
               <option value="">-- Seleccionar empresa destino --</option>
               {companies.map(c => (
                 <option key={getId(c)} value={getId(c)}>{getName(c)}</option>
@@ -211,106 +232,101 @@ export default function InterCompanyTransfers() {
 
           {/* Productos */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-3">
               <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
                 Productos a Trasladar
               </label>
               <button onClick={addItem}
                 className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1">
-                <Plus size={12} /> Agregar producto
+                <Plus size={12} /> Agregar línea
               </button>
             </div>
 
-            {/* Buscador */}
-            <div className="relative mb-3">
+            {/* Buscador global */}
+            <div className="relative mb-3" onClick={e => e.stopPropagation()}>
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder={loadingProducts ? 'Cargando productos...' : 'Buscar por nombre o SKU...'}
+                placeholder={loadingProducts ? 'Cargando productos...' : 'Buscar producto por nombre o SKU para agregar...'}
                 value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
+                onChange={handleSearchChange}
+                onFocus={() => setShowDropdown(true)}
                 disabled={loadingProducts}
-                className="w-full pl-8 pr-4 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-slate-50 disabled:opacity-50"
+                className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-slate-50 disabled:opacity-50"
               />
               {loadingProducts && (
                 <RefreshCw size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 animate-spin" />
               )}
+
+              {/* Dropdown de resultados */}
+              {showDropdown && filteredProducts.length > 0 && (
+                <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                  {filteredProducts.map(p => (
+                    <button key={p.id}
+                      onMouseDown={e => { e.preventDefault(); }}
+                      onClick={() => {
+                        // Agregar al primer item vacío o crear nuevo
+                        const emptyIdx = items.findIndex(i => !i.product_sku);
+                        if (emptyIdx >= 0) {
+                          selectProduct(emptyIdx, p);
+                        } else {
+                          const newIdx = items.length;
+                          setItems(prev => [...prev, { ...EMPTY_ITEM }]);
+                          setTimeout(() => selectProduct(newIdx, p), 0);
+                        }
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-indigo-50 transition-colors text-left border-b border-slate-50 last:border-0">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{p.name}</p>
+                        <p className="text-xs text-slate-400">
+                          SKU: {p.sku} · Stock disponible: <strong>{parseFloat(p.stock || 0).toFixed(0)}</strong>
+                        </p>
+                      </div>
+                      <Plus size={14} className="text-indigo-400 flex-shrink-0 ml-2" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {showDropdown && productSearch.trim() && filteredProducts.length === 0 && !loadingProducts && (
+                <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl px-4 py-3 text-sm text-slate-400 text-center">
+                  No se encontraron productos con ese nombre o SKU
+                </div>
+              )}
             </div>
-
-            {/* Resultados de búsqueda como lista clicable */}
-            {productSearch.trim() && filteredProducts.length > 0 && (
-              <div className="border border-slate-200 rounded-xl overflow-hidden mb-3 shadow-sm max-h-48 overflow-y-auto">
-                {filteredProducts.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      // Agregar a la lista de items o actualizar el último vacío
-                      const lastEmpty = items.findIndex(i => !i.product_sku);
-                      if (lastEmpty >= 0) {
-                        selectProduct(lastEmpty, p);
-                      } else {
-                        setItems(prev => {
-                          const newItems = [...prev, { ...EMPTY_ITEM }];
-                          return newItems.map((it, i) => i === newItems.length - 1 ? {
-                            ...it,
-                            product_sku:     p.sku || '',
-                            product_name:    p.name || '',
-                            product_display: p.name + (p.sku ? ' [' + p.sku + ']' : ''),
-                            stock:           parseFloat(p.stock || 0),
-                            unit_cost:       parseFloat(p.cost_price || 0),
-                            quantity:        1,
-                          } : it);
-                        });
-                        setProductSearch('');
-                      }
-                    }}
-                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-indigo-50 transition-colors text-left border-b border-slate-100 last:border-0"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{p.name}</p>
-                      <p className="text-xs text-slate-400">SKU: {p.sku} · Stock: {parseFloat(p.stock || 0).toFixed(0)}</p>
-                    </div>
-                    <Plus size={14} className="text-indigo-400 flex-shrink-0" />
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {productSearch.trim() && filteredProducts.length === 0 && !loadingProducts && (
-              <p className="text-xs text-slate-400 text-center py-3 bg-slate-50 rounded-xl mb-3">
-                No se encontraron productos con ese nombre o SKU
-              </p>
-            )}
 
             {/* Lista de items seleccionados */}
             <div className="space-y-2">
               {items.map((item, idx) => (
                 <div key={idx} className={
-                  'flex gap-2 items-center rounded-xl p-2 ' +
-                  (item.product_sku ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50 border border-dashed border-slate-200')
+                  'flex gap-2 items-center rounded-xl p-3 ' +
+                  (item.product_sku
+                    ? 'bg-indigo-50 border border-indigo-100'
+                    : 'bg-slate-50 border border-dashed border-slate-200')
                 }>
                   <div className="flex-1 min-w-0">
                     {item.product_sku ? (
                       <div>
-                        <p className="text-sm font-semibold text-slate-800 truncate">{item.product_name}</p>
-                        <p className="text-xs text-slate-400">SKU: {item.product_sku} · Stock disp: {item.stock.toFixed(0)}</p>
+                        <p className="text-sm font-bold text-slate-800">{item.product_name}</p>
+                        <p className="text-xs text-slate-400">
+                          SKU: {item.product_sku} · Stock: {item.stock.toFixed(0)} · ${item.unit_cost.toFixed(2)}
+                        </p>
                       </div>
                     ) : (
-                      <p className="text-xs text-slate-400 px-1">Usa el buscador para seleccionar un producto</p>
+                      <p className="text-xs text-slate-400">Usa el buscador para seleccionar un producto</p>
                     )}
                   </div>
-                  <div className="w-20 flex-shrink-0">
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      max={item.stock || 9999}
-                      value={item.quantity}
-                      onChange={e => setItems(p => p.map((it, i) => i === idx ? { ...it, quantity: parseFloat(e.target.value) || 1 } : it))}
-                      placeholder="Cant."
-                      className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-center bg-white"
-                    />
-                  </div>
+                  {item.product_sku && (
+                    <div className="w-24 flex-shrink-0">
+                      <input
+                        type="number" min="1" max={item.stock || 9999}
+                        value={item.quantity}
+                        onChange={e => setItems(p => p.map((it, i) =>
+                          i === idx ? { ...it, quantity: parseFloat(e.target.value) || 1 } : it
+                        ))}
+                        className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-center bg-white"
+                      />
+                    </div>
+                  )}
                   {items.length > 1 && (
                     <button onClick={() => removeItem(idx)}
                       className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex-shrink-0">
@@ -323,21 +339,17 @@ export default function InterCompanyTransfers() {
           </div>
 
           {/* Notas */}
-          <textarea
-            placeholder="Notas del traslado (opcional)..."
-            value={form.notes}
-            onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+          <textarea placeholder="Notas del traslado (opcional)..."
+            value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
             rows={2}
-            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
-          />
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none" />
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-3">
             <button onClick={handleCreate} disabled={saving}
               className="flex-1 bg-indigo-600 text-white rounded-xl py-3 font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 text-sm">
-              {saving ? 'Creando traslado...' : 'Crear Traslado'}
+              {saving ? 'Creando...' : 'Crear Traslado'}
             </button>
-            <button
-              onClick={() => { setShowForm(false); setProducts([]); setProductSearch(''); setItems([{ ...EMPTY_ITEM }]); }}
+            <button onClick={() => { setShowForm(false); setProducts([]); setProductSearch(''); }}
               className="flex-1 bg-slate-100 text-slate-600 rounded-xl py-3 font-bold hover:bg-slate-200 transition-colors text-sm">
               Cancelar
             </button>
@@ -348,12 +360,12 @@ export default function InterCompanyTransfers() {
       {/* Buscador historial */}
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input type="text" placeholder="Buscar traslados por empresa..."
+        <input type="text" placeholder="Buscar traslados..."
           value={search} onChange={e => setSearch(e.target.value)}
           className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
       </div>
 
-      {/* Lista traslados */}
+      {/* Lista de traslados */}
       {loading ? (
         <div className="flex justify-center py-12">
           <RefreshCw size={24} className="text-indigo-500 animate-spin" />
@@ -383,9 +395,11 @@ export default function InterCompanyTransfers() {
                         <span>{t.to_tenant_name || ('Empresa #' + t.to_tenant_id)}</span>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        {t.created_at ? new Date(t.created_at).toLocaleDateString('es-VE') : '—'}
+                        #{t.id} · {t.created_at ? new Date(t.created_at).toLocaleDateString('es-VE') : '—'}
                         {t.notes ? ' · ' + t.notes : ''}
-                        {t.items && t.items.length > 0 ? ' · ' + t.items.length + ' producto(s)' : ''}
+                        {t.items && t.items.length > 0
+                          ? ' · ' + t.items.map(i => i.quantity + ' ' + i.product_name).join(', ')
+                          : ''}
                       </p>
                     </div>
                   </div>
