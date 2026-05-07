@@ -31,7 +31,7 @@ export default function InterCompanyTransfers() {
   useEffect(() => {
     const init = async () => {
       try {
-        const r = await apiClient.get('/organizations/mine');
+        const r = await apiClient.get('/organizations/my-org');
         if (r.data?.[0]) {
           const id = r.data[0].id;
           setOrgId(id);

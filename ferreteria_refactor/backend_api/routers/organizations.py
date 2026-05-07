@@ -163,6 +163,56 @@ def list_organizations(
     return result
 
 
+@router.get("/my-org")
+def get_my_organization(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Devuelve la organización del usuario actual con sus tenants."""
+    memberships = db.query(OrganizationUser).filter(
+        OrganizationUser.user_email == current_user.email,
+        OrganizationUser.can_switch == True
+    ).all()
+
+    if not memberships:
+        return []
+
+    result = []
+    seen_orgs = set()
+    for m in memberships:
+        if m.organization_id in seen_orgs:
+            continue
+        seen_orgs.add(m.organization_id)
+
+        org = db.query(Organization).filter(
+            Organization.id == m.organization_id,
+            Organization.is_active == True
+        ).first()
+        if not org:
+            continue
+
+        tenants = db.query(Tenant).filter(
+            Tenant.organization_id == org.id,
+            Tenant.is_active == True
+        ).all()
+
+        tenant_count = len(tenants)
+        result.append({
+            "id": org.id,
+            "name": org.name,
+            "slug": org.slug,
+            "owner_email": org.owner_email,
+            "plan": org.plan,
+            "max_tenants": org.max_tenants,
+            "primary_color": org.primary_color,
+            "logo_url": org.logo_url,
+            "member_count": len(org.members) if hasattr(org, "members") else 0,
+            "tenant_count": tenant_count,
+            "my_role": m.role,
+        })
+    return result
+
+
 @router.get("/mine", response_model=List[OrgCompanyOut])
 def my_companies(
     db: Session = Depends(get_db),

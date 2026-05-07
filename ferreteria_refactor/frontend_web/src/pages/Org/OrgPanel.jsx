@@ -30,8 +30,8 @@ export default function OrgPanel() {
   const [switching, setSwitching] = useState(null);
 
   useEffect(() => {
-    // Cargar datos de org desde el backend
-    apiClient.get('/organizations/mine')
+    // Cargar org del usuario actual (endpoint propio sin necesitar superadmin)
+    apiClient.get('/organizations/my-org')
       .then(r => {
         if (r.data && r.data.length > 0) {
           const o = r.data[0];
@@ -41,7 +41,13 @@ export default function OrgPanel() {
         }
       })
       .then(r => { if (r?.data) setCompanies(r.data); })
-      .catch(() => {});
+      .catch(() => {
+        // Fallback: usar org_companies del localStorage
+        try {
+          const cached = JSON.parse(localStorage.getItem('org_companies') || '[]');
+          if (cached.length > 0) setCompanies(cached);
+        } catch {}
+      });
   }, []);
 
   const handleEnterCompany = async (company) => {

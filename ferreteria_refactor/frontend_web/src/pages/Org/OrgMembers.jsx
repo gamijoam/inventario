@@ -18,7 +18,7 @@ export default function OrgMembers() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    apiClient.get('/organizations/mine').then(r => {
+    apiClient.get('/organizations/my-org').then(r => {
       if (r.data?.[0]) {
         const id = r.data[0].id;
         setOrgId(id);

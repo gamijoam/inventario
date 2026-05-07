@@ -41,7 +41,7 @@ export default function ConsolidatedDashboard() {
     setLoading(true);
     try {
       const [orgRes, summaryRes] = await Promise.all([
-        apiClient.get('/organizations/mine'),
+        apiClient.get('/organizations/my-org'),
         apiClient.get('/organizations/consolidated-mine'),
       ]);
       setData(summaryRes.data);
