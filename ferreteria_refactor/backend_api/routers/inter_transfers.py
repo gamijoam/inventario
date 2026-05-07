@@ -225,9 +225,9 @@ def accept_transfer(
                 {"qty": qty, "sku": item.product_sku}
             )
             new_stock_origin = raw_conn.execute(
-                text(f'SELECT COALESCE(SUM(ps.quantity), p.stock) FROM "{from_schema}".products p '
-                     f'LEFT JOIN "{from_schema}".product_stocks ps ON ps.product_id = p.id '
-                     f'WHERE p.sku = :sku'),
+                text(f'SELECT COALESCE((SELECT SUM(quantity) FROM "{from_schema}".product_stocks ps2 '
+                     f'JOIN "{from_schema}".products p2 ON p2.id = ps2.product_id WHERE p2.sku = :sku), '
+                     f'(SELECT stock FROM "{from_schema}".products WHERE sku = :sku))'),
                 {"sku": item.product_sku}
             ).scalar() or 0
 
@@ -278,9 +278,9 @@ def accept_transfer(
                             {"pid": prod_id_dest, "wid": main_warehouse, "qty": qty}
                         )
                 new_stock_dest = raw_conn.execute(
-                    text(f'SELECT COALESCE(SUM(ps.quantity), p.stock) FROM "{schema}".products p '
-                         f'LEFT JOIN "{schema}".product_stocks ps ON ps.product_id = p.id '
-                         f'WHERE p.sku = :sku'),
+                    text(f'SELECT COALESCE((SELECT SUM(quantity) FROM "{schema}".product_stocks ps2 '
+                         f'JOIN "{schema}".products p2 ON p2.id = ps2.product_id WHERE p2.sku = :sku), '
+                         f'(SELECT stock FROM "{schema}".products WHERE sku = :sku))'),
                     {"sku": item.product_sku}
                 ).scalar() or 0
                 raw_conn.execute(
