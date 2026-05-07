@@ -159,10 +159,11 @@ export default function InterCompanyTransfers() {
   const handleAction = async (id, action) => {
     try {
       const r = await apiClient.patch('/inter-transfers/' + id + '/' + action);
-      // Actualizar el traslado en la lista
       setTransfers(p => p.map(t => t.id === id ? r.data : t));
       if (action === 'accept') {
-        toast.success('Traslado aceptado — el stock fue actualizado en ambas empresas');
+        toast.success('Traslado aceptado — stock actualizado en ambas empresas');
+        // Recargar productos frescos si el form está abierto
+        if (showForm) loadProducts();
       } else {
         toast.success('Traslado rechazado');
       }

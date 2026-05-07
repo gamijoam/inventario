@@ -111,7 +111,13 @@ const ProductsTab = () => {
         setIsLoading(true);
         try {
             const res = await apiClient.get('/products/', {
-                params: { skip: (page - 1) * ITEMS_PER_PAGE, limit: ITEMS_PER_PAGE, search: searchTerm || undefined, warehouse_id: filterWarehouse || undefined }
+                params: {
+                    skip: (page - 1) * ITEMS_PER_PAGE,
+                    limit: ITEMS_PER_PAGE,
+                    search: searchTerm || undefined,
+                    warehouse_id: filterWarehouse || undefined,
+                    _t: Date.now()   // cache-bust: fuerza datos frescos siempre
+                }
             });
             // El backend devuelve { items, total, has_more } o un array directo
             if (res.data && Array.isArray(res.data.items)) {
@@ -164,6 +170,8 @@ const ProductsTab = () => {
         return () => { u1(); u2(); u3(); };
     }, [subscribe]);
 
+    // Recargar siempre al montar el componente para obtener datos frescos
+    useEffect(() => { fetchProducts(1); }, []);
     useEffect(() => { fetchProducts(currentPage); }, [currentPage]);
     useEffect(() => {
         const t = setTimeout(() => { setCurrentPage(1); fetchProducts(1); }, 400);
