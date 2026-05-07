@@ -866,38 +866,38 @@ Nro. Item: {{ sale.products | array.size }}
 {{ else }}Consumidor Final{{ end }}
 {{ if sale.cashier }}Usuario: {{ sale.cashier | string.slice 0 20 }}{{ end }}
 ================================
-CANT  PRODUCTO              TOTAL
+CANT PRODUCTO              TOTAL
 --------------------------------
 {{ for item in sale.products }}
-{{ item.quantity | math.format "0.##" | string.pad_right 4 }} xBs{{ item.total_bs | math.format "F2" | string.pad_left 9 }}   {{ item.subtotal | math.format "F2" | string.pad_left 7 }}
-{{ item.product.name | string.slice 0 30 }}    {{ item.total_bs | math.format "F2" }}
-{{ if item.serial_numbers && item.serial_numbers.size > 0 }}{{ for sn in item.serial_numbers }}COLOR ___ IMEI {{ sn }}
+{{ item.quantity | math.format "0.##" | string.pad_right 4 }}{{ item.product.name | string.slice 0 22 | string.pad_right 22 }} {{ if sale.is_usd }}${{ item.subtotal | math.format "F2" | string.pad_left 7 }}{{ else }}{{ item.total_bs | math.format "F2" | string.pad_left 9 }}{{ end }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}{{ for sn in item.serial_numbers }}    IMEI: {{ sn }}
 {{ end }}{{ end }}{{ end }}
---------------------------------
-EXENTO        {{ sale.total_bs | math.format "F2" | string.pad_left 12 }}
-SUBTTL        {{ sale.total_bs | math.format "F2" | string.pad_left 12 }}
 ================================
-<bold>TOTAL         {{ sale.total_bs | math.format "F2" | string.pad_left 12 }}</bold>
-{{ if sale.is_usd }}<bold>USD           {{ sale.formatted_total }}</bold>{{ end }}
+<right><bold>TOTAL: {{ if sale.is_usd }}{{ sale.formatted_total }}{{ else }}{{ sale.formatted_total_ref }}{{ end }}</bold></right>
 ================================
-{{ for p in sale.payments }}{{ p.method | string.pad_right 14 }} {{ p.formatted_amount }}
-{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}VUELTO: {{ sale.formatted_change }}{{ end }}
+{{ for p in sale.payments }}{{ p.method | string.slice 0 18 | string.pad_right 18 }} {{ p.formatted_amount }}
+{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}Vuelto: {{ sale.formatted_change }}{{ end }}
 ================================
 {{ has_warranty = false }}
 {{ for item in sale.products }}{{ if item.warranty }}{{ has_warranty = true }}{{ end }}{{ end }}
 {{ if has_warranty }}
-<center><bold>GARANTIA</bold></center>
+<center><bold>** GARANTIA **</bold></center>
 --------------------------------
 {{ for item in sale.products }}{{ if item.warranty }}
 <bold>{{ item.product.name | string.slice 0 30 }}</bold>
 {{ if item.serial_numbers && item.serial_numbers.size > 0 }}IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 24 }}
 {{ end }}Tipo: {{ item.warranty.name | string.slice 0 24 }}
-Tiempo: {{ item.warranty.duration_text }}
+Vigencia: {{ item.warranty.duration_text }}
 {{ if item.warranty.description }}{{ item.warranty.description }}
 {{ end }}{{ end }}{{ end }}
-{{ else }}
-{{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
+--------------------------------
+<center>Presente este ticket y cedula</center>
+<center>para reclamar la garantia.</center>
 {{ end }}
+
+
+
+
 <cut>
 """
 
@@ -925,36 +925,36 @@ Nro. Item: {{ sale.products | array.size }}
 CANT DESCRIPCION                        TOTAL
 ------------------------------------------------
 {{ for item in sale.products }}
-{{ item.quantity | math.format "0.##" | string.pad_right 4 }} xBs{{ item.total_bs | math.format "F2" | string.pad_left 12 }}         {{ item.subtotal | math.format "F2" | string.pad_left 9 }}
-{{ item.product.name | string.slice 0 44 }}     {{ item.total_bs | math.format "F2" }}
-{{ if item.serial_numbers && item.serial_numbers.size > 0 }}{{ for sn in item.serial_numbers }}COLOR ____________ IMEI {{ sn }}
+{{ item.quantity | math.format "0.##" | string.pad_right 4 }}{{ item.product.name | string.slice 0 32 | string.pad_right 32 }} {{ if sale.is_usd }}${{ item.subtotal | math.format "F2" | string.pad_left 9 }}{{ else }}{{ item.total_bs | math.format "F2" | string.pad_left 11 }}{{ end }}
+{{ if item.serial_numbers && item.serial_numbers.size > 0 }}{{ for sn in item.serial_numbers }}    IMEI: {{ sn }}
 {{ end }}{{ end }}{{ end }}
-------------------------------------------------
-EXENTO                   {{ sale.total_bs | math.format "F2" | string.pad_left 16 }}
-SUBTTL                   {{ sale.total_bs | math.format "F2" | string.pad_left 16 }}
-{{ if sale.is_usd }}G  (  )                                       0.00{{ end }}
 ================================================
-<bold>TOTAL                    {{ sale.total_bs | math.format "F2" | string.pad_left 16 }}</bold>
-{{ if sale.is_usd }}<bold>USD                      {{ sale.formatted_total | string.pad_left 16 }}</bold>{{ end }}
+<right><bold>TOTAL: {{ if sale.is_usd }}{{ sale.formatted_total }}{{ else }}{{ sale.formatted_total_ref }}{{ end }}</bold></right>
 ================================================
-{{ for p in sale.payments }}{{ p.method | string.pad_right 22 }} {{ p.formatted_amount }}
-{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}VUELTO:                  {{ sale.formatted_change }}{{ end }}
+{{ for p in sale.payments }}{{ p.method | string.slice 0 28 | string.pad_right 28 }} {{ p.formatted_amount }}
+{{ end }}{{ if sale.change_amount && sale.change_amount > 0 }}Vuelto: {{ sale.formatted_change }}{{ end }}
 ================================================
 {{ has_warranty = false }}
 {{ for item in sale.products }}{{ if item.warranty }}{{ has_warranty = true }}{{ end }}{{ end }}
 {{ if has_warranty }}
 ================================================
-<center><bold>GARANTIA</bold></center>
+<center><bold>** GARANTIA DE SU EQUIPO **</bold></center>
 ------------------------------------------------
 {{ for item in sale.products }}{{ if item.warranty }}
 <bold>{{ item.product.name | string.slice 0 44 }}</bold>
 {{ if item.serial_numbers && item.serial_numbers.size > 0 }}IMEI: {{ item.serial_numbers | array.join ", " | string.slice 0 38 }}
 {{ end }}Tipo:    {{ item.warranty.name | string.slice 0 36 }}
-Tiempo:  {{ item.warranty.duration_text }}
+Vigencia: {{ item.warranty.duration_text }}
 {{ if item.warranty.description }}{{ item.warranty.description }}
 {{ end }}{{ end }}{{ end }}
-{{ else }}
-{{ if business.warranty_text }}{{ business.warranty_text }}{{ end }}
+------------------------------------------------
+<center>Presente este ticket y su cedula</center>
+<center>para reclamar la garantia.</center>
+================================================
 {{ end }}
+
+
+
+
 <cut>
 """
