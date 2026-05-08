@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import FinancingStep from './FinancingStep';
 import { createPortal } from 'react-dom';
 import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag, Calendar, FileText } from 'lucide-react';
 import { createPrescription } from '../../services/pharmacyService';
@@ -46,6 +47,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
     // Credit sale states
     const [isCreditSale, setIsCreditSale]         = useState(false);
+    const [isFinancingMode, setIsFinancingMode]   = useState(false);
+    const [financingData, setFinancingData]       = useState(null);
     const [showCalcCredito, setShowCalcCredito]   = useState(false);
     const [customers, setCustomers] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -284,6 +287,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     // Execute the actual sale after prescription check
     // onSaleComplete is an optional async callback (saleId) => void to run BEFORE onConfirm/onClose
     const executeSale = async (onSaleComplete) => {
+        // Si es modo financiamiento, procesar con los datos de financing
+        if (isFinancingMode && financingData) {
+            await processFinancingSale(financingData);
+            return;
+        }
+
         setProcessing(true);
 
         try {
@@ -428,6 +437,75 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             }
 
             toast.error(errorMessage);
+            setProcessing(false);
+        }
+    };
+
+    // Procesar venta con financiamiento externo
+    const processFinancingSale = async (fData) => {
+        setProcessing(true);
+        try {
+            const saleData = {
+                total_amount: totalUSD,
+                total_amount_bs: totalBs || (totalUSD * defaultBsRate),
+                change_amount: 0,
+                change_currency: "USD",
+                currency: "USD",
+                exchange_rate: defaultBsRate,
+                payment_method: fData.financer_name,
+                payments: fData.initial_payment > 0 ? [{
+                    amount: fData.initial_payment,
+                    currency: "USD",
+                    payment_method: fData.financer_name + " (Inicial)",
+                    exchange_rate: 1
+                }] : [],
+                items: cart.map(item => ({
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    unit_price: item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_usd),
+                    subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_usd)) * item.quantity,
+                    discount: item.is_discount_active ? item.discount_percentage : 0,
+                    discount_type: item.is_discount_active ? "PERCENT" : "NONE",
+                    serial_numbers: item.serial_numbers || []
+                })),
+                is_credit: false,
+                customer_id: selectedCustomer ? selectedCustomer.id : null,
+                warehouse_id: (!warehouseId || warehouseId === 'all') ? null : warehouseId,
+                notes: "Financiamiento: " + fData.financer_name,
+                total_discount_usd: discountUSD || 0,
+            };
+
+            const response = await apiClient.post('/sales/', saleData);
+            const saleId = response.data?.sale_id || response.sale_id;
+
+            // Registrar el financiamiento externo
+            await apiClient.post('/external-financing/', {
+                sale_id: saleId,
+                customer_id: selectedCustomer ? selectedCustomer.id : null,
+                financer_name: fData.financer_name,
+                total_price: fData.total_price,
+                initial_payment: fData.initial_payment,
+                initial_currency: "USD",
+                financed_amount: fData.financed_amount,
+            });
+
+            onConfirm({
+                payments: saleData.payments,
+                totalPaidUSD: fData.initial_payment,
+                changeUSD: 0,
+                isCreditSale: false,
+                isFinancing: true,
+                financingData: fData,
+                customer: selectedCustomer || null,
+                saleId: saleId
+            });
+
+            setProcessing(false);
+            onClose();
+        } catch (error) {
+            let msg = error.response?.data?.detail || error.message || "Error al procesar la venta";
+            if (typeof msg !== 'string') msg = JSON.stringify(msg);
+            toast.error(msg);
             setProcessing(false);
         }
     };
@@ -650,10 +728,31 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             <span className="text-xs font-black text-indigo-100">Venta a Crédito — pago diferido</span>
                         </div>
                     )}
+                    {isFinancingMode && (
+                        <div className="mt-3 bg-white/10 border border-emerald-300/30 rounded-2xl px-4 py-2.5 flex items-center gap-2.5 relative z-10">
+                            <span className="text-emerald-200 shrink-0">🏦</span>
+                            <span className="text-xs font-black text-emerald-100">Financiamiento Externo — Cashea / Krece</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── BODY scrollable ──────────────────────────────────────── */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+                    {/* Modo Financiamiento Externo — reemplaza toda la sección de pagos */}
+                    {isFinancingMode ? (
+                        <FinancingStep
+                            totalUSD={totalUSD}
+                            onConfirm={(fData) => {
+                                setFinancingData(fData);
+                                processFinancingSale(fData);
+                            }}
+                            onCancel={() => setIsFinancingMode(false)}
+                        />
+                    ) : null}
+
+                    {/* Resto del modal solo cuando NO es financiamiento */}
+                    {!isFinancingMode && <>
 
                     {/* Cliente */}
                     <div>
@@ -708,10 +807,22 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
                             {isCreditSale && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
                         </div>
-                        <input type="checkbox" checked={isCreditSale} onChange={e => setIsCreditSale(e.target.checked)} className="hidden" />
+                        <input type="checkbox" checked={isCreditSale} onChange={e => { setIsCreditSale(e.target.checked); setIsFinancingMode(false); }} className="hidden" />
                         <div>
                             <p className={`font-black text-sm ${isCreditSale ? 'text-indigo-700' : 'text-slate-600'}`}>Venta a Crédito</p>
                             <p className="text-[10px] text-slate-400">La cuenta se asignará al cliente</p>
+                        </div>
+                    </label>
+
+                    {/* Botón Financiamiento Externo (Cashea, Krece, etc.) */}
+                    <label className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all select-none ${isFinancingMode ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
+                        <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${isFinancingMode ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'}`}>
+                            {isFinancingMode && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
+                        </div>
+                        <input type="checkbox" checked={isFinancingMode} onChange={e => { setIsFinancingMode(e.target.checked); setIsCreditSale(false); }} className="hidden" />
+                        <div>
+                            <p className={`font-black text-sm ${isFinancingMode ? 'text-emerald-700' : 'text-slate-600'}`}>Financiamiento Externo</p>
+                            <p className="text-[10px] text-slate-400">Cashea, Krece u otras financiadoras</p>
                         </div>
                     </label>
 
@@ -824,7 +935,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 </div>
 
                 {/* ── FOOTER: botones ───────────────────────────────────────── */}
+                </> }
+
                 <div className="px-5 pb-5 pt-3 border-t border-slate-100 flex gap-3 shrink-0 bg-white">
+                    {isFinancingMode ? null : <>
                     <button onClick={onClose} className="px-5 py-3.5 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">
                         Cancelar
                     </button>

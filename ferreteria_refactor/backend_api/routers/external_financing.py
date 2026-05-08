@@ -311,6 +311,86 @@ def search_sales_for_financing(
 
     return result
 
+@router.get("/by-financer", dependencies=[any_authenticated])
+def get_by_financer(db: Session = Depends(get_db)):
+    """Resumen agrupado por financiadora con detalle de cada venta."""
+    records = db.query(models.ExternalFinancing).order_by(
+        models.ExternalFinancing.financer_name,
+        models.ExternalFinancing.created_at.desc()
+    ).all()
+
+    from collections import defaultdict
+    grouped = defaultdict(lambda: {
+        "financer_name": "",
+        "total_sales": 0,
+        "total_financed": 0.0,
+        "total_initial": 0.0,
+        "total_received": 0.0,
+        "total_pending": 0.0,
+        "records": []
+    })
+
+    for r in records:
+        g = grouped[r.financer_name]
+        g["financer_name"] = r.financer_name
+        g["total_sales"] += 1
+        g["total_financed"] += float(r.financed_amount or 0)
+        g["total_initial"]  += float(r.initial_payment or 0)
+        g["total_received"] += float(r.financer_paid_amount or 0)
+        g["total_pending"]  += float(r.financed_amount or 0) - float(r.financer_paid_amount or 0)
+
+        # Info de la venta
+        sale = r.sale
+        customer_name = r.customer.name if r.customer else "Sin cliente"
+        g["records"].append({
+            "id":                    r.id,
+            "sale_id":               r.sale_id,
+            "customer_name":         customer_name,
+            "total_price":           float(r.total_price or 0),
+            "initial_payment":       float(r.initial_payment or 0),
+            "initial_currency":      r.initial_currency or "USD",
+            "financed_amount":       float(r.financed_amount or 0),
+            "financer_paid_amount":  float(r.financer_paid_amount or 0),
+            "financer_payment_status": r.financer_payment_status or "PENDING",
+            "notes":                 r.notes,
+            "created_at":            r.created_at.isoformat() if r.created_at else None,
+            "sale_date":             sale.date.isoformat() if (sale and sale.date) else None,
+        })
+
+    return list(grouped.values())
+
+
+@router.post("/{record_id}/mark-paid", dependencies=[Depends(warehouse_or_admin)])
+def mark_financer_paid(
+    record_id: int,
+    data: dict,
+    db: Session = Depends(get_db)
+):
+    """Marcar que la financiadora ya pagó a la tienda (parcial o total)."""
+    record = db.query(models.ExternalFinancing).filter(
+        models.ExternalFinancing.id == record_id
+    ).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Registro no encontrado")
+
+    amount = float(data.get("amount", record.financed_amount))
+    record.financer_paid_amount = amount
+    record.financer_payment_status = (
+        "COMPLETED" if amount >= float(record.financed_amount)
+        else "PARTIAL"
+    )
+    record.updated_at = get_venezuela_now()
+    db.commit()
+    db.refresh(record)
+
+    return {
+        "id": record.id,
+        "financer_payment_status": record.financer_payment_status,
+        "financer_paid_amount": float(record.financer_paid_amount),
+        "financed_amount": float(record.financed_amount),
+    }
+
+
 @router.get("/commissions/{sale_id}", dependencies=[any_authenticated])
 def get_sale_commissions(sale_id: int, db: Session = Depends(get_db)):
     """
