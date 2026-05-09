@@ -978,6 +978,7 @@ const POS = () => {
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
+                                priceLists={priceLists}
                             />
                         </div>
                     </>
@@ -1029,6 +1030,7 @@ const POS = () => {
                                 onItemClick={(item) => setSelectedItemForEdit(item)}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
+                                priceLists={priceLists}
                             />
                         </div>
                     </>

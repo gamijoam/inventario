@@ -46,7 +46,8 @@ const POSCart = ({
     onItemClick,
     secondaryCurrency,
     convertPrice,
-    totalsByCurrency = {}
+    totalsByCurrency = {},
+    priceLists = []
 }) => {
 
     const { business, currencies } = useConfig();
@@ -490,19 +491,27 @@ const POSCart = ({
                                             </div>
                                         </div>
                                             {/* Botón lista de precios */}
-                                            <button
-                                                onClick={e => { e.stopPropagation(); onItemClick && onItemClick(item); }}
-                                                className={cn(
-                                                    "flex items-center gap-1 h-7 px-2.5 rounded-lg border transition-all text-[10px] font-bold shrink-0 shadow-sm",
-                                                    item.price_list_name
-                                                        ? "bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100"
-                                                        : "bg-white border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50"
-                                                )}
-                                                title={item.price_list_name ? `Lista activa: ${item.price_list_name}` : "Cambiar lista de precios"}
-                                            >
-                                                <Tag size={10} />
-                                                {item.price_list_name || 'Lista de precio'}
-                                            </button>
+                                            {(() => {
+                                                // Resolver nombre de lista: del item o buscando en priceLists por id
+                                                const activeName = item.price_list_name
+                                                    || (item.price_list_id && priceLists.find(pl => pl.id === item.price_list_id)?.name)
+                                                    || null;
+                                                return (
+                                                    <button
+                                                        onClick={e => { e.stopPropagation(); onItemClick && onItemClick(item); }}
+                                                        className={cn(
+                                                            "flex items-center gap-1 h-7 px-2.5 rounded-lg border transition-all text-[10px] font-bold shrink-0 shadow-sm",
+                                                            activeName
+                                                                ? "bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                                                                : "bg-white border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50"
+                                                        )}
+                                                        title={activeName ? `Lista activa: ${activeName}` : "Cambiar lista de precios"}
+                                                    >
+                                                        <Tag size={10} />
+                                                        {activeName || 'Lista de precio'}
+                                                    </button>
+                                                );
+                                            })()}
                                     </div>
 
                                     {/* Remove Action (Accessible) */}
