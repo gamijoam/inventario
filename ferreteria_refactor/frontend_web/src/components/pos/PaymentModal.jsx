@@ -468,7 +468,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 total_discount_usd: discountUSD || 0,
             };
             const response = await apiClient.post('/products/sales/', saleData);
-            const saleId = response?.data?.sale_id || response?.data?.id || response?.sale_id;
+            // El backend devuelve { status: "success", sale_id: N }
+            const responseData = response?.data || response;
+            const saleId = responseData?.sale_id || responseData?.id;
 
             // Registrar el financiamiento (no bloquear la venta si falla)
             if (saleId) {
@@ -489,7 +491,21 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 }
             }
 
-            onConfirm?.();
+            // Enviar estructura completa que espera el POS
+            onConfirm?.({
+                payments: fData.initial_payment > 0 ? [{
+                    amount: fData.initial_payment,
+                    currency: 'USD',
+                    payment_method: fData.financer_name + ' (Inicial)',
+                }] : [],
+                totalPaidUSD: fData.initial_payment,
+                changeUSD: 0,
+                isCreditSale: false,
+                isFinancing: true,
+                financingData: fData,
+                customer: selectedCustomer || null,
+                saleId: saleId,
+            });
             setProcessing(false);
             onClose();
         } catch (error) {
