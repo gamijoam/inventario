@@ -287,12 +287,6 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     // Execute the actual sale after prescription check
     // onSaleComplete is an optional async callback (saleId) => void to run BEFORE onConfirm/onClose
     const executeSale = async (onSaleComplete) => {
-        // Si es modo financiamiento, procesar con los datos de financing
-        if (isFinancingMode && financingData) {
-            await processFinancingSale(financingData);
-            return;
-        }
-
         setProcessing(true);
 
         try {
@@ -441,7 +435,6 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         }
     };
 
-    // Procesar venta con financiamiento externo
     const processFinancingSale = async (fData) => {
         setProcessing(true);
         try {
@@ -474,11 +467,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 notes: "Financiamiento: " + fData.financer_name,
                 total_discount_usd: discountUSD || 0,
             };
-
             const response = await apiClient.post('/sales/', saleData);
             const saleId = response.data?.sale_id || response.sale_id;
-
-            // Registrar el financiamiento externo
             await apiClient.post('/external-financing/', {
                 sale_id: saleId,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,
@@ -488,22 +478,11 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 initial_currency: "USD",
                 financed_amount: fData.financed_amount,
             });
-
-            onConfirm({
-                payments: saleData.payments,
-                totalPaidUSD: fData.initial_payment,
-                changeUSD: 0,
-                isCreditSale: false,
-                isFinancing: true,
-                financingData: fData,
-                customer: selectedCustomer || null,
-                saleId: saleId
-            });
-
+            onConfirm?.();
             setProcessing(false);
             onClose();
         } catch (error) {
-            let msg = error.response?.data?.detail || error.message || "Error al procesar la venta";
+            let msg = error.response?.data?.detail || error.message || "Error al procesar";
             if (typeof msg !== 'string') msg = JSON.stringify(msg);
             toast.error(msg);
             setProcessing(false);
@@ -511,6 +490,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     };
 
     const handleConfirm = async () => {
+        if (isFinancingMode && financingData) { await processFinancingSale(financingData); return; }
         if (isCreditSale && !selectedCustomer) {
             toast.error('Debe seleccionar un cliente para venta a crédito');
             return;
@@ -731,7 +711,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     {isFinancingMode && (
                         <div className="mt-3 bg-white/10 border border-emerald-300/30 rounded-2xl px-4 py-2.5 flex items-center gap-2.5 relative z-10">
                             <span className="text-emerald-200 shrink-0">🏦</span>
-                            <span className="text-xs font-black text-emerald-100">Financiamiento Externo — Cashea / Krece</span>
+                            <span className="text-xs font-black text-emerald-100">Financiamiento — Cashea / Krece</span>
                         </div>
                     )}
                 </div>
@@ -739,20 +719,13 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 {/* ── BODY scrollable ──────────────────────────────────────── */}
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
-                    {/* Modo Financiamiento Externo — reemplaza toda la sección de pagos */}
                     {isFinancingMode ? (
                         <FinancingStep
                             totalUSD={totalUSD}
-                            onConfirm={(fData) => {
-                                setFinancingData(fData);
-                                processFinancingSale(fData);
-                            }}
+                            onConfirm={(fData) => { setFinancingData(fData); processFinancingSale(fData); }}
                             onCancel={() => setIsFinancingMode(false)}
                         />
-                    ) : null}
-
-                    {/* Resto del modal solo cuando NO es financiamiento */}
-                    {!isFinancingMode && <>
+                    ) : <>
 
                     {/* Cliente */}
                     <div>
@@ -813,8 +786,6 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             <p className="text-[10px] text-slate-400">La cuenta se asignará al cliente</p>
                         </div>
                     </label>
-
-                    {/* Botón Financiamiento Externo (Cashea, Krece, etc.) */}
                     <label className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all select-none ${isFinancingMode ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
                         <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${isFinancingMode ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'}`}>
                             {isFinancingMode && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
@@ -932,13 +903,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             </div>
                         </div>
                     )}
+                {/* ── FOOTER: botones ───────────────────────────────────────── */}
+                    </>}
                 </div>
 
-                {/* ── FOOTER: botones ───────────────────────────────────────── */}
-                </> }
-
+                {!isFinancingMode && (
                 <div className="px-5 pb-5 pt-3 border-t border-slate-100 flex gap-3 shrink-0 bg-white">
-                    {isFinancingMode ? null : <>
                     <button onClick={onClose} className="px-5 py-3.5 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">
                         Cancelar
                     </button>
@@ -958,6 +928,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         }
                     </button>
                 </div>
+                )}
             </div>
         </div>
 
