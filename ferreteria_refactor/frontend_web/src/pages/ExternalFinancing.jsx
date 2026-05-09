@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
 import {
-    Building2, Plus, Search, Filter, CheckCircle2, Clock, Calendar,
+    ArrowLeft, Building2, Plus, Search, Filter, CheckCircle2, Clock, Calendar,
     DollarSign, ChevronDown, ChevronUp, AlertCircle, X, Loader2, RefreshCw,
     TrendingUp, Wallet, CreditCard, User, FileText, Hash, ChevronRight, Edit3, Trash2
 } from 'lucide-react';
@@ -647,6 +648,7 @@ const FinancingCard = ({ record, onUpdate, onDelete }) => {
 
 // ─── Página principal ─────────────────────────────────────────────────────────
 const ExternalFinancing = () => {
+    const navigate = useNavigate();
     const [records, setRecords] = useState([]);
     const [summary, setSummary] = useState(null);
     const [financers, setFinancers] = useState([]);
@@ -710,6 +712,13 @@ const ExternalFinancing = () => {
                     <p className="text-sm text-slate-400 mt-0.5">Ventas financiadas por Cashea, Krece y otras</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => navigate('/pos')}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50 transition-all text-sm font-bold shadow-sm"
+                    >
+                        <ArrowLeft size={15} />
+                        Ir al POS
+                    </button>
                     <button onClick={load} className="p-2 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-indigo-600 hover:border-indigo-300 transition-all">
                         <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
                     </button>
