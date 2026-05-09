@@ -22,7 +22,8 @@ const EstacionPOSTab    = React.lazy(() => import('./tabs/EstacionPOSTab'));
 const ComisionesTab     = React.lazy(() => import('./tabs/ComisionesTab'));
 const WhatsAppTab       = React.lazy(() => import('./tabs/WhatsAppTab'));
 const CatalogTab        = React.lazy(() => import('./tabs/CatalogTab'));
-const IntegracionesTab  = React.lazy(() => import('./tabs/IntegracionesTab'));
+const IntegracionesTab      = React.lazy(() => import('./tabs/IntegracionesTab'));
+const FinanciadoresConfigTab = React.lazy(() => import('./tabs/FinanciadoresConfigTab'));
 
 // ── Grupos del menú lateral ──────────────────────────────────────────────────
 const GROUPS = [
@@ -40,6 +41,7 @@ const GROUPS = [
             { id: 'monedas',    label: 'Monedas',           icon: DollarSign,   desc: 'Tasas de cambio y monedas' },
             { id: 'impuestos',  label: 'Impuestos',         icon: Percent,      desc: 'IVA, IGTF y tasas especiales' },
             { id: 'pagos',      label: 'Métodos de Pago',   icon: CreditCard,   desc: 'Formas de cobro disponibles' },
+            { id: 'financiadoras', label: 'Financiadoras',      icon: Building2,    desc: 'Cashea, Krece y empresas de crédito externo' },
         ],
     },
     {
@@ -82,6 +84,7 @@ const renderTabContent = (activeTab) => {
         case 'integraciones': return wrap(IntegracionesTab);
         case 'pos':        return wrap(EstacionPOSTab);
         case 'comisiones': return wrap(ComisionesTab);
+        case 'financiadoras': return wrap(FinanciadoresConfigTab);
         default:           return null;
     }
 };
@@ -108,6 +111,7 @@ const ConfigCenter = () => {
             if (item.id === 'whatsapp') return featureFlags?.whatsapp_business;
             if (item.id === 'catalogo') return featureFlags?.catalogo_publico;
             if (item.id === 'comisiones') return featureFlags?.modulo_comisiones;
+            if (item.id === 'financiadoras') return true; // siempre visible para admins
             return true;
         })
     })).filter(group => group.items.length > 0);

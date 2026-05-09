@@ -57,7 +57,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
     const location = useLocation();
     const navigate = useNavigate();
     const { logout, user } = useAuth();
-    const { modules } = useConfig();
+    const { modules, business } = useConfig();
     const [hasOrg, setHasOrg] = useState(() => {
         try { return JSON.parse(localStorage.getItem('org_companies') || '[]').length > 1 || localStorage.getItem('has_multiple_companies') === 'true'; } catch { return false; }
     });
@@ -140,7 +140,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         ] : []),
         ...(isAdmin ? [
             { icon: BarChart2, label: 'Centro de Reportes', path: '/reports' },
-            { icon: Building2, label: 'Financiadoras', path: '/financer-report' },
+            ...(business?.external_financing_enabled === true || business?.external_financing_enabled === 'true'
+                ? [{ icon: Building2, label: 'Financiadoras', path: '/financer-report' }]
+                : []),
             { icon: LayoutGrid, label: 'Gestión de Cajas', path: '/cash-registers' },
         ] : []),
     ];

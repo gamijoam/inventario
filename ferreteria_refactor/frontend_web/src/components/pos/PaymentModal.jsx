@@ -31,7 +31,7 @@ const formatLocalCurrency = (amount) => {
 };
 
 const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, cart, onConfirm, warehouseId, initialCustomer, quoteId, customSubmit = null, discountUSD = 0, cartDiscount = null }) => {
-    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency, featureFlags } = useConfig();
+    const { getActiveCurrencies, convertPrice, getExchangeRate, paymentMethods, formatCurrency, featureFlags, business} = useConfig();
     const { subscribe } = useWebSocket();
     const { session } = useCash();
     const allCurrencies = [{ id: 'base', symbol: 'USD', name: 'Dólar', rate: 1, is_anchor: true }, ...getActiveCurrencies()];
@@ -815,6 +815,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             <p className="text-[10px] text-slate-400">La cuenta se asignará al cliente</p>
                         </div>
                     </label>
+                    {(business?.external_financing_enabled === true || business?.external_financing_enabled === 'true') && (
                     <label className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all select-none ${isFinancingMode ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
                         <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${isFinancingMode ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'}`}>
                             {isFinancingMode && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
@@ -825,6 +826,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             <p className="text-[10px] text-slate-400">Cashea, Krece u otras financiadoras</p>
                         </div>
                     </label>
+                    )}
 
                     {/* Calculadora crédito celular */}
                     {isCreditSale && cart.some(i => i.has_imei) && (

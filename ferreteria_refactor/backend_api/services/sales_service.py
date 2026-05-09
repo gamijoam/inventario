@@ -1260,6 +1260,27 @@ class SalesService:
                 "formatted_change": fmt_money(change_val, change_curr)
             }
         }
+
+        # ── Datos de financiamiento externo (Cashea, Krece, etc.) ──
+        try:
+            from ..models.models import ExternalFinancing
+            ef = db.query(ExternalFinancing).filter(
+                ExternalFinancing.sale_id == sale_id
+            ).first()
+            if ef:
+                context["financing"] = {
+                    "is_financed":     True,
+                    "financer_name":   ef.financer_name,
+                    "total_price":     float(ef.total_price),
+                    "initial_payment": float(ef.initial_payment),
+                    "financed_amount": float(ef.financed_amount),
+                    "formatted_initial":  fmt_money(float(ef.initial_payment), "USD"),
+                    "formatted_financed": fmt_money(float(ef.financed_amount), "USD"),
+                }
+            else:
+                context["financing"] = {"is_financed": False}
+        except Exception:
+            context["financing"] = {"is_financed": False}
         
         # ── Template selection ─────────────────────────────────────
         # 1. Determinar el ancho de papel configurado

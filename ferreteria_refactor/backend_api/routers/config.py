@@ -435,7 +435,8 @@ def get_business_info(db: Session = Depends(get_db)):
         logo_url=configs.get("business_logo") or configs.get("logo_url"),
         warranty_format_url=configs.get("warranty_format_url"),
         ticket_template=configs.get("ticket_template", ""),
-        default_tax_rate=Decimal(str(configs.get("default_tax_rate", "0.00")))
+        default_tax_rate=Decimal(str(configs.get("default_tax_rate", "0.00"))),
+        external_financing_enabled=configs.get("external_financing_enabled", "false").lower() == "true"
     )
 
 @router.put("/business", response_model=schemas.BusinessInfo)
@@ -468,6 +469,32 @@ def update_business_info(
     result = get_business_info(db)
     db.commit()
     return result
+
+@router.patch("/business")
+def patch_business_config(
+    data: dict,
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only)
+):
+    """Actualizar campos individuales de la configuración del negocio"""
+    allowed_keys = [
+        'external_financing_enabled',
+        'bloqueocelular_enabled',
+        'warranty_format_url',
+        'auto_print_ticket',
+    ]
+    for key, value in data.items():
+        if key not in allowed_keys:
+            continue
+        config = db.query(models.BusinessConfig).get(key)
+        if not config:
+            config = models.BusinessConfig(key=key, value=str(value))
+            db.add(config)
+        else:
+            config.value = str(value).lower() if isinstance(value, bool) else str(value)
+    db.commit()
+    return {"status": "ok", "updated": list(data.keys())}
+
 
 @router.post("/test-print")
 async def test_print_ticket(db: Session = Depends(get_db)):
