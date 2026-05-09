@@ -47,7 +47,8 @@ const POSCart = ({
     secondaryCurrency,
     convertPrice,
     totalsByCurrency = {},
-    priceLists = []
+    priceLists = [],
+    getFromCache = null
 }) => {
 
     const { business, currencies } = useConfig();
@@ -492,10 +493,17 @@ const POSCart = ({
                                         </div>
                                             {/* Botón lista de precios */}
                                             {(() => {
-                                                // Resolver nombre de lista: del item o buscando en priceLists por id
+                                                // Resolver nombre de lista activa
                                                 const activeName = item.price_list_name
                                                     || (item.price_list_id && priceLists.find(pl => pl.id === item.price_list_id)?.name)
                                                     || null;
+                                                // Verificar si el producto tiene precios en alguna lista
+                                                const cachedProduct = getFromCache ? getFromCache(item.product_id) : null;
+                                                const hasPriceLists = priceLists.length > 0 && (
+                                                    activeName ||
+                                                    (cachedProduct?.prices && cachedProduct.prices.length > 0)
+                                                );
+                                                if (!hasPriceLists) return null;
                                                 return (
                                                     <button
                                                         onClick={e => { e.stopPropagation(); onItemClick && onItemClick(item); }}

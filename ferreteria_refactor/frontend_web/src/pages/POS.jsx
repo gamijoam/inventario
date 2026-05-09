@@ -979,6 +979,7 @@ const POS = () => {
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
                                 priceLists={priceLists}
+                                getFromCache={getFromCache}
                             />
                         </div>
                     </>
@@ -1031,6 +1032,7 @@ const POS = () => {
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
                                 priceLists={priceLists}
+                                getFromCache={getFromCache}
                             />
                         </div>
                     </>
