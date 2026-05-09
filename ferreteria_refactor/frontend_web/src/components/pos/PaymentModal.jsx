@@ -468,22 +468,35 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 total_discount_usd: discountUSD || 0,
             };
             const response = await apiClient.post('/products/sales/', saleData);
-            const saleId = response.data?.sale_id || response.sale_id;
-            await apiClient.post('/external-financing/', {
-                sale_id: saleId,
-                customer_id: selectedCustomer ? selectedCustomer.id : null,
-                financer_name: fData.financer_name,
-                total_price: fData.total_price,
-                initial_payment: fData.initial_payment,
-                initial_currency: "USD",
-                financed_amount: fData.financed_amount,
-            });
+            const saleId = response?.data?.sale_id || response?.data?.id || response?.sale_id;
+
+            // Registrar el financiamiento (no bloquear la venta si falla)
+            if (saleId) {
+                try {
+                    await apiClient.post('/external-financing/', {
+                        sale_id: saleId,
+                        customer_id: selectedCustomer ? selectedCustomer.id : null,
+                        financer_name: fData.financer_name,
+                        total_price: fData.total_price,
+                        initial_payment: fData.initial_payment,
+                        initial_currency: "USD",
+                        financed_amount: fData.financed_amount,
+                    });
+                } catch (finErr) {
+                    // El financiamiento falló pero la venta ya se creó
+                    console.warn('Financiamiento no registrado:', finErr?.response?.data?.detail || finErr?.message);
+                    toast('Venta creada. El registro de financiamiento falló, verifica en Reportes.', { icon: '⚠️' });
+                }
+            }
+
             onConfirm?.();
             setProcessing(false);
             onClose();
         } catch (error) {
-            let msg = error.response?.data?.detail || error.message || "Error al procesar";
-            if (typeof msg !== 'string') msg = JSON.stringify(msg);
+            const detail = error?.response?.data?.detail;
+            let msg = typeof detail === 'string' ? detail
+                    : Array.isArray(detail) ? detail.map(d => d?.msg || '').join(', ')
+                    : error?.message || 'Error al procesar la venta';
             toast.error(msg);
             setProcessing(false);
         }
