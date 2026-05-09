@@ -654,14 +654,14 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                     const sym = curr?.currency_symbol || code;
                                     const rate = getExchangeRate(code) || 1;
                                     return (
-                                        <span key={code} className="bg-white/10 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                                            {sym} {formatLocalCurrency(amt)} <span className="text-white/50 text-[9px]">· {formatLocalCurrency(rate)}</span>
+                                        <span key={code} className="bg-white/10 text-white text-sm font-bold px-3 py-1.5 rounded-full">
+                                            {sym} {formatLocalCurrency(amt)} <span className="text-white/60 text-xs">· {formatLocalCurrency(rate)}</span>
                                         </span>
                                     );
                                 })}
                                 {Object.entries(totalsByCurrency || {}).filter(([c, a]) => c !== 'USD' && a > 0.005).length === 0 && (
-                                    <span className="bg-white/10 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                                        Bs {formatLocalCurrency(displayTotalBs)} <span className="text-white/50 text-[9px]">· {formatLocalCurrency(defaultBsRate)}</span>
+                                    <span className="bg-white/10 text-white text-sm font-bold px-3 py-1.5 rounded-full">
+                                        Bs {formatLocalCurrency(displayTotalBs)} <span className="text-white/60 text-xs">· {formatLocalCurrency(defaultBsRate)}</span>
                                     </span>
                                 )}
                                 {discountUSD > 0 && (
@@ -687,7 +687,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         ? <CheckCircle size={15} className="text-emerald-300" strokeWidth={3} />
                                         : <Calculator size={15} className="text-rose-300" />
                                     }
-                                    <span className={`text-xs font-black ${isComplete ? 'text-emerald-200' : 'text-rose-200'}`}>
+                                    <span className={`text-sm font-black ${isComplete ? 'text-emerald-200' : 'text-rose-200'}`}>
                                         {isComplete ? (changeUSD > 0.005 ? 'Vuelto' : 'Pago completo ✓') : 'Falta por pagar'}
                                     </span>
                                 </div>
@@ -710,20 +710,20 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         }
                                         return (
                                             <>
-                                                <p className="text-white font-black text-base font-mono">${formatLocalCurrency(changeUSD)}</p>
+                                                <p className="text-white font-black text-xl font-mono">${formatLocalCurrency(changeUSD)}</p>
                                                 {!allUSD && localSym && (
-                                                    <p className="text-emerald-300 font-bold text-sm font-mono">{localSym} {formatLocalCurrency(changeLocal)}</p>
+                                                    <p className="text-emerald-300 font-bold text-base font-mono">{localSym} {formatLocalCurrency(changeLocal)}</p>
                                                 )}
                                                 {allUSD && defaultBsRate > 1 && (
-                                                    <p className="text-emerald-300 font-bold text-sm font-mono">Bs {formatLocalCurrency(changeUSD * defaultBsRate)}</p>
+                                                    <p className="text-emerald-300 font-bold text-base font-mono">Bs {formatLocalCurrency(changeUSD * defaultBsRate)}</p>
                                                 )}
                                             </>
                                         );
                                     })() : !isComplete ? (
                                         <>
-                                            <p className={`font-black text-base font-mono ${isComplete ? "text-white" : "text-rose-200"}`}>${formatLocalCurrency(remainingUSD)}</p>
+                                            <p className={`font-black text-xl font-mono ${isComplete ? "text-white" : "text-rose-200"}`}>${formatLocalCurrency(remainingUSD)}</p>
                                             {defaultBsRate > 1 && (
-                                                <p className="text-rose-300 font-bold text-sm font-mono">Bs {formatLocalCurrency(remainingUSD * defaultBsRate)}</p>
+                                                <p className="text-rose-300 font-bold text-base font-mono">Bs {formatLocalCurrency(remainingUSD * defaultBsRate)}</p>
                                             )}
                                         </>
                                     ) : null}
@@ -759,8 +759,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     {/* Cliente */}
                     <div>
                         <div className="flex items-center justify-between mb-1.5">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                <User size={10} /> Cliente {isCreditSale && <span className="text-rose-500">*</span>}
+                            <p className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                <User size={12} /> Cliente {isCreditSale && <span className="text-rose-500">*</span>}
                             </p>
                             <button onClick={() => setIsQuickCustomerOpen(true)} className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors">
                                 <UserPlus size={10} /> Nuevo
@@ -848,7 +848,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                                     <Layers size={10} /> Métodos de Pago
                                 </p>
-                                <button onClick={addPaymentRow} className="text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition-all">
+                                <button onClick={addPaymentRow} className="text-xs font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-lg transition-all">
                                     + Agregar
                                 </button>
                             </div>
@@ -867,7 +867,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                             {/* Fila superior: método + moneda */}
                                             <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 bg-slate-50/50">
                                                 <select
-                                                    className="flex-1 bg-transparent text-xs font-bold text-slate-700 focus:outline-none"
+                                                    className="flex-1 bg-transparent text-sm font-bold text-slate-700 focus:outline-none"
                                                     value={payment.method}
                                                     onChange={e => updatePayment(index, 'method', e.target.value)}
                                                 >
@@ -880,7 +880,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                         <button
                                                             key={c.symbol}
                                                             onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                            className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all ${
+                                                            className={`px-3 py-1.5 rounded-lg text-sm font-black transition-all ${
                                                                 payment.currency === c.symbol
                                                                     ? 'bg-indigo-600 text-white shadow-sm'
                                                                     : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300'
@@ -896,7 +896,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                             </div>
                                             {/* Input monto grande */}
                                             <div className="flex items-center px-4 py-3">
-                                                <span className="text-2xl font-black text-slate-300 mr-2">
+                                                <span className="text-4xl font-black text-slate-300 mr-3">
                                                     {payment.currency === 'USD' || payment.currency === '$' ? '$' : payment.currency}
                                                 </span>
                                                 <CurrencyInput
@@ -910,7 +910,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                             {/* Tasa hint */}
                                             {rate && (
                                                 <div className="px-4 pb-2 flex justify-end">
-                                                    <span className="text-[9px] text-slate-400 font-mono bg-slate-50 px-2 py-0.5 rounded-full">
+                                                    <span className="text-xs text-slate-500 font-mono bg-slate-100 px-3 py-1 rounded-full font-bold">
                                                         Tasa: {formatLocalCurrency(rate)} {payment.currency}/$
                                                     </span>
                                                 </div>
