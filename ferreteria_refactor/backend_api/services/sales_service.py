@@ -777,7 +777,17 @@ class SalesService:
                     db.add(new_payment)
 
                 # Validate total coverage (tolerance $0.05 for rounding)
-                if total_paid_usd < (sale_data.total_amount - Decimal("0.05")):
+                # Excepción: ventas con financiamiento externo (Cashea, Krece, etc.)
+                # El inicial no cubre el total — la financiadora paga el resto después
+                _is_external_financing = (
+                    sale_data.notes and "Financiamiento:" in sale_data.notes
+                ) or (
+                    sale_data.payment_method and any(
+                        pm in str(sale_data.payment_method)
+                        for pm in ["Cashea", "Knece", "Krece", "cashea", "krece"]
+                    )
+                )
+                if not _is_external_financing and total_paid_usd < (sale_data.total_amount - Decimal("0.05")):
                     faltante = float(sale_data.total_amount - total_paid_usd)
                     raise HTTPException(
                         status_code=400,
