@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Building2, ToggleLeft, ToggleRight, Save, Plus, Trash2, RefreshCw } from 'lucide-react';
 import apiClient from '../../../config/axios';
+import { useConfig } from '../../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
 
 export default function FinanciadoresConfigTab() {
@@ -8,6 +9,7 @@ export default function FinanciadoresConfigTab() {
     const [financers, setFinancers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const { refreshConfig } = useConfig();
 
     useEffect(() => {
         load();
@@ -40,6 +42,8 @@ export default function FinanciadoresConfigTab() {
                 external_financing_enabled: newVal
             });
             setEnabled(newVal);
+            // Recargar config global para que el POS y Sidebar reflejen el cambio
+            if (typeof refreshConfig === 'function') refreshConfig();
             toast.success(newVal ? 'Módulo de financiadoras activado' : 'Módulo de financiadoras desactivado');
         } catch {
             toast.error('Error al guardar');

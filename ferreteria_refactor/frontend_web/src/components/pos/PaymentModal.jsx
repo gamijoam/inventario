@@ -815,7 +815,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                             <p className="text-[10px] text-slate-400">La cuenta se asignará al cliente</p>
                         </div>
                     </label>
-                    {(business?.external_financing_enabled === true || business?.external_financing_enabled === 'true') && (
+                    {business?.external_financing_enabled !== false && (
                     <label className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 cursor-pointer transition-all select-none ${isFinancingMode ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
                         <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${isFinancingMode ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'}`}>
                             {isFinancingMode && <CheckCircle size={12} className="text-white" strokeWidth={4} />}

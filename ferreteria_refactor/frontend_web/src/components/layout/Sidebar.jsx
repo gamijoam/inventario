@@ -140,7 +140,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         ] : []),
         ...(isAdmin ? [
             { icon: BarChart2, label: 'Centro de Reportes', path: '/reports' },
-            ...(business?.external_financing_enabled === true || business?.external_financing_enabled === 'true'
+            ...(!!(business?.external_financing_enabled)
                 ? [{ icon: Building2, label: 'Financiadoras', path: '/financer-report' }]
                 : []),
             { icon: LayoutGrid, label: 'Gestión de Cajas', path: '/cash-registers' },
