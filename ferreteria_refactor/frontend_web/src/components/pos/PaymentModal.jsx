@@ -467,7 +467,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 notes: "Financiamiento: " + fData.financer_name,
                 total_discount_usd: discountUSD || 0,
             };
-            const response = await apiClient.post('/sales/', saleData);
+            const response = await apiClient.post('/products/sales/', saleData);
             const saleId = response.data?.sale_id || response.sale_id;
             await apiClient.post('/external-financing/', {
                 sale_id: saleId,
