@@ -1303,6 +1303,29 @@ class SalesService:
         if not template:
             template = get_classic_80_template() if paper_width == "80" else get_classic_58_template()
 
+        # 3.5. Inyectar sección de financiamiento si no está ya en el template
+        if context.get("financing", {}).get("is_financed") and "financing.is_financed" not in template:
+            financing_section = """
+================================
+{{ if financing.is_financed }}
+<center>** FINANCIAMIENTO EXTERNO **</center>
+<center>{{ financing.financer_name }}</center>
+--------------------------------
+<right>INICIAL COBRADO:  ${{ financing.initial_payment | math.format "F2" }}</right>
+<right>MONTO FINANCIADO: ${{ financing.financed_amount | math.format "F2" }}</right>
+<center>Saldo lo paga {{ financing.financer_name }}</center>
+{{ end }}"""
+            # Insertar antes del primer bloque de vuelto o al final del template
+            if "VUELTO" in template:
+                # Insertar antes del primer VUELTO
+                idx = template.find("{{ if sale.change_amount > 0 }}")
+                if idx > 0:
+                    template = template[:idx] + financing_section + "\n" + template[idx:]
+                else:
+                    template = template + financing_section
+            else:
+                template = template + financing_section
+
         # 4. Si la venta tiene IMEI/seriales → usar template de servicios (solo si está guardado)
         has_serialized = any(item.get("serial_numbers") for item in formatted_items)
         if has_serialized:

@@ -68,6 +68,15 @@ PAGOS:
 {{ for p in sale.payments }}
 {{ p.method | string.slice 0 15 | string.pad_right 15 }} {{ p.currency }}{{ p.amount | math.format "F2" | string.pad_left 7 }}
 {{ end }}
+{{ if financing.is_financed }}
+================================
+<center>** FINANCIAMIENTO EXTERNO **</center>
+<center>{{ financing.financer_name }}</center>
+--------------------------------
+<right>INICIAL COBRADO:  ${{ financing.initial_payment | math.format "F2" }}</right>
+<right>MONTO FINANCIADO: ${{ financing.financed_amount | math.format "F2" }}</right>
+<center>El saldo lo paga {{ financing.financer_name }}</center>
+{{ end }}
 {{ if sale.change_amount > 0 }}
 --------------------------------
 <right>VUELTO: {{ sale.change_currency }}{{ sale.change_amount | math.format "F2" }}</right>
@@ -198,6 +207,15 @@ DESCUENTO: -{{ currency_symbol }}{{ sale.discount | math.format "F2" }}
 PAGOS:
 {{ for p in sale.payments }}
 {{ p.method | string.slice 0 25 | string.pad_right 25 }} {{ p.currency }}{{ p.amount | math.format "F2" | string.pad_left 9 }}
+{{ end }}
+{{ if financing.is_financed }}
+================================================
+<center>**  FINANCIAMIENTO EXTERNO  **</center>
+<center>{{ financing.financer_name }}</center>
+------------------------------------------------
+<right>INICIAL COBRADO:  ${{ financing.initial_payment | math.format "F2" }}</right>
+<right>MONTO FINANCIADO: ${{ financing.financed_amount | math.format "F2" }}</right>
+<center>El saldo lo paga {{ financing.financer_name }}</center>
 {{ end }}
 {{ if sale.change_amount > 0 }}
 ------------------------------------------------
