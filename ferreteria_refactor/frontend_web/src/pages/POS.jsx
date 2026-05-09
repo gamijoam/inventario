@@ -719,7 +719,7 @@ const POS = () => {
         if (!list) {
             const itemProduct = getFromCache(item.product_id);
             const basePrice = itemProduct ? parseFloat(itemProduct.price) : item.unit_price_usd;
-            updateCartItem(item.id, { unit_price_usd: basePrice, price_list_id: null, auth_user_id: null });
+            updateCartItem(item.id, { unit_price_usd: basePrice, price_list_id: null, price_list_name: null, auth_user_id: null });
             toast.success('Precio revertido al precio base');
             return;
         }
@@ -737,10 +737,10 @@ const POS = () => {
         }
 
         if (list.requires_auth) {
-            setPendingPriceUpdate({ itemId: item.id, price: newPrice, listId: list.id });
+            setPendingPriceUpdate({ itemId: item.id, price: newPrice, listId: list.id, listName: list.name });
             setPinModalOpen(true);
         } else {
-            updateCartItem(item.id, { unit_price_usd: newPrice, price_list_id: list.id, auth_user_id: null });
+            updateCartItem(item.id, { unit_price_usd: newPrice, price_list_id: list.id, price_list_name: list.name, auth_user_id: null });
             setActivePricePopover(null);
             toast.success(`Precio actualizado a lista: ${list.name}`);
         }
@@ -751,6 +751,7 @@ const POS = () => {
             updateCartItem(pendingPriceUpdate.itemId, {
                 unit_price_usd: pendingPriceUpdate.price,
                 price_list_id: pendingPriceUpdate.listId,
+                price_list_name: pendingPriceUpdate.listName,
                 auth_user_id: userId
             });
             setPendingPriceUpdate(null);
