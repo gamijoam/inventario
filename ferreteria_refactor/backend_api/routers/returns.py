@@ -239,7 +239,27 @@ def process_return(
         
         # Get product
         product = db.query(models.Product).get(item.product_id)
-        
+
+        # ── Restaurar ProductInstance (IMEI/Serial) si aplica ───────────────
+        # Buscar los instances vendidos de este producto en esta venta
+        instances_to_restore = db.query(models.ProductInstance).join(
+            models.SaleDetailInstance,
+            models.SaleDetailInstance.product_instance_id == models.ProductInstance.id
+        ).join(
+            models.SaleDetail,
+            models.SaleDetail.id == models.SaleDetailInstance.sale_detail_id
+        ).filter(
+            models.SaleDetail.sale_id == sale.id,
+            models.SaleDetail.product_id == item.product_id,
+            models.ProductInstance.status == models.ProductInstanceStatus.SOLD
+        ).limit(int(item.quantity)).all()
+
+        for pi in instances_to_restore:
+            if item.condition == "GOOD":
+                pi.status = models.ProductInstanceStatus.AVAILABLE
+            # Si DAMAGED: el IMEI queda en SOLD (ya no está disponible para venta)
+            # El stock físico igual se mueve para el kardex pero el IMEI queda dañado
+
         # Handle stock based on condition
         if item.condition == "GOOD":
             # GOOD condition: Simply restore to stock
@@ -475,6 +495,21 @@ def void_sale(
                 description=f"Anulación Venta #{sale.id}",
                 date=datetime.now()
             ))
+
+        # Restaurar ProductInstance (IMEI) en void_sale
+        void_instances = db.query(models.ProductInstance).join(
+            models.SaleDetailInstance,
+            models.SaleDetailInstance.product_instance_id == models.ProductInstance.id
+        ).join(
+            models.SaleDetail,
+            models.SaleDetail.id == models.SaleDetailInstance.sale_detail_id
+        ).filter(
+            models.SaleDetail.sale_id == sale.id,
+            models.SaleDetail.product_id == item.product_id,
+            models.ProductInstance.status == models.ProductInstanceStatus.SOLD
+        ).all()
+        for pi in void_instances:
+            pi.status = models.ProductInstanceStatus.AVAILABLE
 
     new_return.total_refunded = total_refund
 
