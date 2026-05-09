@@ -497,7 +497,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         }
 
         // Use the strict checking here too
-        if (!isCreditSale && !isComplete) {
+        if (!isCreditSale && !isComplete && !isFinancingMode) {
             toast.error('El pago no está completo');
             return;
         }
@@ -914,10 +914,10 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     </button>
                     <button
                         onClick={handleConfirm}
-                        disabled={processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
+                        disabled={processing || (!isCreditSale && !isComplete && !isFinancingMode) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
                         className={cn(
                             'flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl font-black text-sm transition-all',
-                            processing || (!isCreditSale && !isComplete) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
+                            processing || (!isCreditSale && !isComplete && !isFinancingMode) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
                                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                 : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200/60 hover:-translate-y-0.5 active:scale-[0.98]'
                         )}
