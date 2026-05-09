@@ -6,7 +6,7 @@ import InversionReportPDF from '../../../components/inventory/InversionReportPDF
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import {
-    Search, Loader2, Smartphone, Save, X, Trash2, Layers,
+    Search, Loader2, Smartphone, Save, X, Trash2, Edit2, Check, Layers,
     ChevronDown, ChevronRight, Package, CheckCircle2, Clock,
     AlertTriangle, Warehouse, Hash, Plus, RefreshCw, Filter,
     ScanLine, ArrowLeft, Zap, Info
