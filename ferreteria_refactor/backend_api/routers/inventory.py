@@ -337,6 +337,109 @@ def get_product_instances(product_id: int, db: Session = Depends(get_db)):
     return instances
 
 
+@router.delete("/instance/{instance_id}", dependencies=[Depends(warehouse_or_admin)])
+def delete_imei_instance(
+    instance_id: int,
+    reason: str = "Corrección de error",
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(warehouse_or_admin)
+):
+    """
+    Eliminar un IMEI/serial ingresado por error.
+    - Si está AVAILABLE: descuenta el stock y elimina el registro
+    - Si está SOLD: solo elimina el registro (el stock ya salió con la venta)
+    """
+    instance = db.query(models.ProductInstance).filter(
+        models.ProductInstance.id == instance_id
+    ).options(
+        joinedload(models.ProductInstance.product),
+        joinedload(models.ProductInstance.warehouse)
+    ).first()
+
+    if not instance:
+        raise HTTPException(status_code=404, detail="IMEI no encontrado")
+
+    product = instance.product
+    if not product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+
+    result = {
+        "imei": instance.serial_number,
+        "product_name": product.name,
+        "status_was": instance.status.value if hasattr(instance.status, 'value') else str(instance.status),
+        "stock_adjusted": False
+    }
+
+    if str(instance.status) in ("AVAILABLE", "ProductInstanceStatus.AVAILABLE"):
+        # Descontar del stock ya que el IMEI estaba disponible
+        product.stock = max(0, float(product.stock) - 1)
+
+        # Descontar también del product_stocks del almacén
+        if instance.warehouse_id:
+            ps = db.query(models.ProductStock).filter(
+                models.ProductStock.product_id == product.id,
+                models.ProductStock.warehouse_id == instance.warehouse_id
+            ).first()
+            if ps:
+                ps.quantity = max(0, float(ps.quantity) - 1)
+
+        # Kardex de ajuste
+        kardex = models.Kardex(
+            product_id=product.id,
+            warehouse_id=instance.warehouse_id,
+            movement_type="ADJUSTMENT_OUT",
+            quantity=-1,
+            balance_after=product.stock,
+            description=f"Eliminación IMEI {instance.serial_number} — {reason}",
+            date=datetime.now()
+        )
+        db.add(kardex)
+        result["stock_adjusted"] = True
+
+    # Eliminar el instance
+    db.delete(instance)
+    db.commit()
+
+    return {"status": "deleted", **result}
+
+
+@router.patch("/instance/{instance_id}/fix-serial", dependencies=[Depends(warehouse_or_admin)])
+def fix_imei_serial(
+    instance_id: int,
+    body: dict,
+    db: Session = Depends(get_db)
+):
+    """Corregir el número de serial/IMEI de un registro existente"""
+    instance = db.query(models.ProductInstance).filter(
+        models.ProductInstance.id == instance_id
+    ).first()
+    if not instance:
+        raise HTTPException(status_code=404, detail="IMEI no encontrado")
+
+    new_serial = body.get("serial_number", "").strip()
+    if not new_serial:
+        raise HTTPException(status_code=400, detail="Serial no puede estar vacío")
+
+    # Verificar que no exista otro con ese serial
+    existing = db.query(models.ProductInstance).filter(
+        models.ProductInstance.serial_number == new_serial,
+        models.ProductInstance.id != instance_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"El serial {new_serial} ya existe en el sistema")
+
+    old_serial = instance.serial_number
+    instance.serial_number = new_serial
+    db.commit()
+
+    return {
+        "status": "updated",
+        "old_serial": old_serial,
+        "new_serial": new_serial,
+        "product_id": instance.product_id
+    }
+
+
 @router.get("/lookup-imei", dependencies=[any_authenticated])
 def lookup_imei(imei: str, db: Session = Depends(get_db)):
     """

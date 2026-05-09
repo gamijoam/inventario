@@ -156,6 +156,44 @@ const ProductCard = ({ product, onSelect }) => {
 
     const available = instances?.filter(i => i.status === 'AVAILABLE') || [];
     const sold      = instances?.filter(i => i.status === 'SOLD') || [];
+    const [deletingId, setDeletingId]   = useState(null);
+    const [editingId, setEditingId]     = useState(null);
+    const [editSerial, setEditSerial]   = useState('');
+    const [confirmDelete, setConfirmDelete] = useState(null);
+
+    const handleDelete = async (inst) => {
+        if (confirmDelete?.id !== inst.id) {
+            setConfirmDelete(inst);
+            return;
+        }
+        setDeletingId(inst.id);
+        try {
+            const r = await apiClient.delete(`/inventory/instance/${inst.id}`, {
+                params: { reason: 'Corrección de error' }
+            });
+            toast.success(`IMEI ${inst.serial_number} eliminado${r.data.stock_adjusted ? ' — stock ajustado' : ''}`);
+            setInstances(prev => prev.filter(i => i.id !== inst.id));
+            setConfirmDelete(null);
+        } catch (e) {
+            toast.error(e.response?.data?.detail || 'Error al eliminar');
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
+    const handleEditSave = async (inst) => {
+        if (!editSerial.trim()) return;
+        try {
+            await apiClient.patch(`/inventory/instance/${inst.id}/fix-serial`, {
+                serial_number: editSerial.trim()
+            });
+            toast.success('Serial corregido correctamente');
+            setInstances(prev => prev.map(i => i.id === inst.id ? { ...i, serial_number: editSerial.trim() } : i));
+            setEditingId(null);
+        } catch (e) {
+            toast.error(e.response?.data?.detail || 'Error al corregir');
+        }
+    };
 
     return (
         <div className={clsx(
@@ -224,17 +262,75 @@ const ProductCard = ({ product, onSelect }) => {
                     {instances.length === 0 ? (
                         <div className="py-6 text-center text-slate-400 text-xs">Sin IMEIs registrados</div>
                     ) : (
-                        <div className="divide-y divide-slate-50">
+                        <div className="divide-y divide-slate-50 group">
                             {instances.map(inst => {
                                 const st = getStatus(inst.status);
-                                const Icon = st.icon;
                                 return (
-                                    <div key={inst.id} className="flex items-center gap-2 px-3 py-2">
+                                    <div key={inst.id} className={clsx(
+                                        'flex items-center gap-2 px-3 py-2 transition-colors',
+                                        confirmDelete?.id === inst.id ? 'bg-rose-50' : 'hover:bg-slate-50'
+                                    )}>
                                         <div className={clsx('w-1.5 h-1.5 rounded-full shrink-0', st.dot)} />
-                                        <span className="font-mono text-xs text-slate-700 flex-1 truncate">{inst.serial_number}</span>
-                                        <span className={clsx('text-[9px] font-bold px-1.5 py-0.5 rounded border', st.bg, st.color, st.border)}>
+
+                                        {/* Serial — editable */}
+                                        {editingId === inst.id ? (
+                                            <input
+                                                autoFocus
+                                                value={editSerial}
+                                                onChange={e => setEditSerial(e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter') handleEditSave(inst); if (e.key === 'Escape') setEditingId(null); }}
+                                                className="font-mono text-xs flex-1 border border-indigo-300 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                                            />
+                                        ) : (
+                                            <span className="font-mono text-xs text-slate-700 flex-1 truncate">{inst.serial_number}</span>
+                                        )}
+
+                                        <span className={clsx('text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0', st.bg, st.color, st.border)}>
                                             {st.label}
                                         </span>
+
+                                        {/* Acciones */}
+                                        {editingId === inst.id ? (
+                                            <div className="flex gap-1 shrink-0">
+                                                <button onClick={() => handleEditSave(inst)}
+                                                    className="p-1 bg-emerald-100 text-emerald-600 rounded hover:bg-emerald-600 hover:text-white transition-colors">
+                                                    <Check size={11} />
+                                                </button>
+                                                <button onClick={() => setEditingId(null)}
+                                                    className="p-1 bg-slate-100 text-slate-500 rounded hover:bg-slate-200 transition-colors">
+                                                    <X size={11} />
+                                                </button>
+                                            </div>
+                                        ) : confirmDelete?.id === inst.id ? (
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <span className="text-[9px] text-rose-600 font-bold">¿Eliminar?</span>
+                                                <button onClick={() => handleDelete(inst)} disabled={deletingId === inst.id}
+                                                    className="px-1.5 py-0.5 bg-rose-600 text-white text-[9px] font-bold rounded hover:bg-rose-700 transition-colors disabled:opacity-50">
+                                                    {deletingId === inst.id ? '...' : 'Sí'}
+                                                </button>
+                                                <button onClick={() => setConfirmDelete(null)}
+                                                    className="px-1.5 py-0.5 bg-slate-200 text-slate-600 text-[9px] font-bold rounded hover:bg-slate-300 transition-colors">
+                                                    No
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                {inst.status === 'AVAILABLE' && (
+                                                    <button
+                                                        onClick={() => { setEditingId(inst.id); setEditSerial(inst.serial_number); }}
+                                                        title="Corregir serial"
+                                                        className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors">
+                                                        <Edit2 size={11} />
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={() => handleDelete(inst)}
+                                                    title="Eliminar IMEI"
+                                                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors">
+                                                    <Trash2 size={11} />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
