@@ -489,6 +489,15 @@ const POSCart = ({
                                                 </button>
                                             </div>
                                         </div>
+                                            {/* Botón cambiar precio / lista de precios */}
+                                            <button
+                                                onClick={e => { e.stopPropagation(); onItemClick && onItemClick(item); }}
+                                                className="flex items-center gap-1 h-7 px-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all text-[10px] font-bold shrink-0"
+                                                title="Cambiar precio o lista de precios"
+                                            >
+                                                <Tag size={10} />
+                                                <span>Precio</span>
+                                            </button>
                                     </div>
 
                                     {/* Remove Action (Accessible) */}
