@@ -290,55 +290,82 @@ const ReportsCenter = () => {
     const loadResumenData = useCallback(async () => {
         setLoading(true);
         try {
-            const params = { start_date: dateRange.start, end_date: dateRange.end };
-            const prevParams = { start_date: prevPeriod.start, end_date: prevPeriod.end };
-
-            const results = await Promise.allSettled([
-                // Current period
-                unifiedReportService.getSalesSummary(params),
-                unifiedReportService.getProfitability(params),
-                unifiedReportService.getCreditsSummary(),
-                unifiedReportService.getTopProducts({ ...params, limit: 10, by: 'revenue' }),
-                unifiedReportService.getSalesByCustomer({ ...params, limit: 10 }),
-                unifiedReportService.getSalesByPaymentMethod(params),
-                unifiedReportService.getSalesDetailed(params),
-                // Previous period (for comparison)
-                unifiedReportService.getSalesSummary(prevParams),
-                unifiedReportService.getProfitability(prevParams),
+            // PERF: Usar dashboard-init (1 request) en lugar de 6-8 requests separados
+            // Luego en paralelo cargar lo que falta (clientes, ventas detalladas)
+            const [dashInit, customersRes] = await Promise.allSettled([
+                apiClient.get('/reports/dashboard-init', {
+                    params: { date_from: dateRange.start, date_to: dateRange.end },
+                    _silentNetworkError: true,
+                }),
+                unifiedReportService.getSalesByCustomer({
+                    start_date: dateRange.start, end_date: dateRange.end, limit: 10
+                }),
             ]);
 
-            const getValue = (result) => result.status === 'fulfilled' ? result.value : null;
+            if (dashInit.status === 'fulfilled' && dashInit.value?.data) {
+                const d = dashInit.value.data;
 
-            setSalesSummary(getValue(results[0]));
-            setProfitData(getValue(results[1]));
-            setCreditsSummary(getValue(results[2]));
-            setTopProducts(Array.isArray(getValue(results[3])) ? getValue(results[3]) : []);
-            setTopCustomers(Array.isArray(getValue(results[4])) ? getValue(results[4]) : []);
-
-            // Payment methods
-            const pmData = getValue(results[5]);
-            setPaymentMethods(Array.isArray(pmData) ? pmData : []);
-
-            // Daily sales aggregation
-            const detailedData = getValue(results[6]);
-            if (detailedData && Array.isArray(detailedData)) {
-                const byDay = {};
-                detailedData.forEach(sale => {
-                    const day = (sale.date || sale.created_at || '').split('T')[0];
-                    if (!day) return;
-                    if (!byDay[day]) byDay[day] = { date: day, revenue: 0, count: 0 };
-                    byDay[day].revenue += Number(sale.total_amount || sale.total || 0);
-                    byDay[day].count += 1;
+                // Sales summary
+                setSalesSummary({
+                    total_sales: d.sales.count,
+                    total_revenue: d.sales.revenue,
+                    total_discounts: d.sales.discounts,
                 });
-                const sorted = Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date));
-                setDailySales(sorted);
-            } else {
+
+                // Profitability
+                setProfitData({
+                    revenue: d.profit.revenue,
+                    cost: d.profit.cost,
+                    gross_profit: d.profit.gross_profit,
+                    margin_pct: d.profit.margin_pct,
+                });
+
+                // Credits
+                setCreditsSummary({
+                    count: d.sales.credit_count,
+                    amount: d.sales.credit_amount,
+                });
+
+                // Top products
+                setTopProducts(d.top_products.map(p => ({
+                    name: p.name, total_quantity: p.qty, total_revenue: p.revenue
+                })));
+
+                // Payment methods
+                setPaymentMethods(d.payment_methods.map(m => ({
+                    method: m.method, payment_method: m.method,
+                    count: m.count, total_amount: m.total
+                })));
+
+                // Período anterior
+                setPrevSalesSummary({
+                    total_sales: d.vs_previous.sales_count,
+                    total_revenue: d.vs_previous.sales_revenue,
+                });
+                setPrevProfitData(null);
                 setDailySales([]);
+            } else {
+                // Fallback a requests individuales si dashboard-init falla
+                const params = { start_date: dateRange.start, end_date: dateRange.end };
+                const [s, p, c, tp, pm] = await Promise.allSettled([
+                    unifiedReportService.getSalesSummary(params),
+                    unifiedReportService.getProfitability(params),
+                    unifiedReportService.getCreditsSummary(),
+                    unifiedReportService.getTopProducts({ ...params, limit: 10, by: 'revenue' }),
+                    unifiedReportService.getSalesByPaymentMethod(params),
+                ]);
+                const gv = r => r.status === 'fulfilled' ? r.value : null;
+                setSalesSummary(gv(s));
+                setProfitData(gv(p));
+                setCreditsSummary(gv(c));
+                setTopProducts(Array.isArray(gv(tp)) ? gv(tp) : []);
+                setPaymentMethods(Array.isArray(gv(pm)) ? gv(pm) : []);
             }
 
-            // Previous period
-            setPrevSalesSummary(getValue(results[7]));
-            setPrevProfitData(getValue(results[8]));
+            // Clientes top (request separado — no está en dashboard-init)
+            if (customersRes.status === 'fulfilled') {
+                setTopCustomers(Array.isArray(customersRes.value) ? customersRes.value : []);
+            }
 
         } catch (error) {
             console.error('Error loading resumen data:', error);

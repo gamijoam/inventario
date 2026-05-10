@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Response
+from ..cache import get_cached, set_cached, invalidate
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload, subqueryload
 from decimal import Decimal
@@ -64,7 +65,16 @@ def read_catalog_products(
     if not search:
         response.headers["Cache-Control"] = "private, max-age=60"
     else:
-        response.headers["Cache-Control"] = "no-store" 
+        response.headers["Cache-Control"] = "no-store"
+
+    # Redis cache para el catálogo sin filtros (el caso más común en el POS)
+    if not any([search, category_id, warehouse_id, min_price, max_price, is_menu_item, skip]):
+        from ..tenant_context import get_tenant_schema as _gts
+        _schema = _gts()
+        _cache_key = f"catalog:{limit}"
+        _cached = get_cached(_schema, _cache_key)
+        if _cached is not None:
+            return _cached
     """
     Lightweight product listing for POS/catalog views.
     Only loads essential relationships (category, units, stocks, prices).
@@ -207,7 +217,7 @@ def read_catalog_products(
         models.Product.stock == 0
     ).with_entities(func.count(models.Product.id)).scalar() or 0
 
-    return {
+    catalog_result = {
         "items": products,
         "total": total,
         "has_more": (skip + limit) < total,
@@ -215,6 +225,16 @@ def read_catalog_products(
         "total_low_stock": total_low_stock,
         "total_out_of_stock": total_out_of_stock,
     }
+
+    # Guardar en Redis si es la primera página sin filtros (60s TTL)
+    if not any([search, category_id, warehouse_id, min_price, max_price, is_menu_item]) and skip == 0:
+        try:
+            from ..tenant_context import get_tenant_schema as _gts
+            set_cached(_gts(), f"catalog:{limit}", catalog_result, ttl=60)
+        except Exception:
+            pass
+
+    return catalog_result
 
 @router.get("/lookup", response_model=schemas.ProductRead)
 @router.get("/lookup/", response_model=schemas.ProductRead, include_in_schema=False)
