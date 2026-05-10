@@ -202,7 +202,7 @@ const renderPieLabel = ({ name, percent }) => {
 // MAIN COMPONENT
 // ============================================================
 const ReportsCenter = () => {
-    const { modules } = useConfig();
+    const { modules, business } = useConfig();
 
     // --- State ---
     const [searchParams] = useSearchParams();
