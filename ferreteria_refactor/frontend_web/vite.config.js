@@ -33,16 +33,16 @@ export default defineConfig({
 
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000', // Backend local (dev)
+        target: 'http://backend_qa_server:8000', // Backend directo sin Traefik
         changeOrigin: true,
         secure: false,
       },
       '/assets': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://backend_qa_server:8000',
         changeOrigin: true,
       },
       '/images': {
-        target: 'http://127.0.0.1:8000',
+        target: 'http://backend_qa_server:8000',
         changeOrigin: true,
       },
     },

@@ -92,7 +92,7 @@ export const ConfigProvider = ({ children }) => {
 
     const fetchPaymentMethods = async () => {
         try {
-            const response = await apiClient.get('/payment-methods');
+            const response = await apiClient.get('/payment-methods', { _silentNetworkError: true });
             setPaymentMethods(response.data);
         } catch (error) {
             console.error('Error fetching payment methods:', error);
@@ -109,7 +109,7 @@ export const ConfigProvider = ({ children }) => {
             // 1. Fetch Feature Flags (Public) & Tenant Info
             // This runs FIRST to set the correct branding on Login
             try {
-                const publicConfig = await apiClient.get('/config/public');
+                const publicConfig = await apiClient.get('/config/public', { _silentNetworkError: true });
                 if (publicConfig.data) {
                     // Update Modules
                     if (publicConfig.data.modules) {
@@ -164,7 +164,7 @@ export const ConfigProvider = ({ children }) => {
 
             // 4. Fetch Exchange Rates
             try {
-                const ratesResponse = await apiClient.get('/config/exchange-rates?is_active=true');
+                const ratesResponse = await apiClient.get('/config/exchange-rates?is_active=true', { _silentNetworkError: true });
                 console.log('💱 Exchange Rates Loaded:', ratesResponse.data);
                 setCurrencies(ratesResponse.data);
             } catch (e) {
@@ -173,7 +173,7 @@ export const ConfigProvider = ({ children }) => {
 
             // 5. Fetch Auto Print Ticket setting
             try {
-                const apRes = await apiClient.get('/config/pos/auto-print-ticket');
+                const apRes = await apiClient.get('/config/pos/auto-print-ticket', { _silentNetworkError: true });
                 setAutoPrintTicket(!!apRes.data.auto_print_ticket);
             } catch (e) { /* silencioso */ }
 
