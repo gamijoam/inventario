@@ -99,7 +99,6 @@ const FuncionesPage = React.lazy(() => import('./pages/Settings/FuncionesPage'))
 // Multi-empresa — Sprint 3
 const OrgPanel = React.lazy(() => import('./pages/Org/OrgPanel'));
 const OrgMembers = React.lazy(() => import('./pages/Org/OrgMembers'));
-const FinancerReport = React.lazy(() => import('./pages/FinancerReport'));
 const ConsolidatedDashboard = React.lazy(() => import('./pages/Org/ConsolidatedDashboard'));
 // Multi-empresa — Sprint 4
 const SharedCatalog = React.lazy(() => import('./pages/Org/SharedCatalog'));
@@ -320,7 +319,6 @@ function App() {
                             <Route path="/pos" element={<POS />} />
                             <Route path="/pos-express" element={<POSExpress />} />
                             <Route path="/cash-close" element={<CashClose />} />
-                            <Route path="/external-financing" element={<ExternalFinancing />} />
                           </Route>
 
                           {/* Dashboard Layout Routes */}
@@ -490,8 +488,7 @@ function App() {
                               <Route path="/hr/commissions" element={<Navigate to="/reports" replace />} />
 
                               {/* Unified Reports Center */}
-                              <Route path="/financer-report" element={<FinancerReport />} />
-                              <Route path="/reports" element={
+                                <Route path="/reports" element={
                                 <ProtectedRoute roles={['ADMIN']}>
                                   <ReportsCenter />
                                 </ProtectedRoute>

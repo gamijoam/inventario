@@ -1,6 +1,7 @@
+import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
-import { useHelp } from '../../help/useHelp';
+import { Building2, useHelp } from '../../help/useHelp';
 import {
     BarChart3, ShoppingCart, Landmark, CreditCard, Truck,
     Package, DollarSign, Calendar, Download, RefreshCw,
@@ -23,6 +24,7 @@ const InventoryTab = lazy(() => import('./tabs/InventoryTab'));
 const PharmacyTab = lazy(() => import('./tabs/PharmacyTab'));
 const CommissionsTab = lazy(() => import('./tabs/CommissionsTab'));
 const IntelligenceTab = lazy(() => import('./tabs/IntelligenceTab'));
+const FinanciadoresTab = lazy(() => import('./tabs/FinanciadoresTab'));
 
 // --- Tab definitions ---
 const TABS = [
@@ -35,6 +37,7 @@ const TABS = [
     { id: 'farmacia', label: 'Farmacia', icon: Pill, moduleRequired: 'pharmacy' },
     { id: 'comisiones', label: 'Comisiones', icon: DollarSign },
     { id: 'intelligence', label: '🧠 Inteligencia', icon: TrendingUp },
+    { id: 'financiadoras', label: 'Financiadoras', icon: Building2, moduleRequired: 'external_financing' },
 ];
 
 // --- Date helpers ---
@@ -201,7 +204,8 @@ const ReportsCenter = () => {
     const { modules } = useConfig();
 
     // --- State ---
-    const [activeTab, setActiveTab] = useState('resumen');
+    const [searchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'resumen');
     const help = useHelp();
     const [activePreset, setActivePreset] = useState('month');
     const [loading, setLoading] = useState(false);
@@ -373,6 +377,9 @@ const ReportsCenter = () => {
     const visibleTabs = useMemo(() => {
         return TABS.filter(tab => {
             if (!tab.moduleRequired) return true;
+            if (tab.moduleRequired === 'external_financing') {
+                return business?.external_financing_enabled === true || business?.external_financing_enabled === 'true';
+            }
             return modules?.[tab.moduleRequired];
         });
     }, [modules]);
@@ -757,6 +764,12 @@ const ReportsCenter = () => {
                 return (
                     <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full" /></div>}>
                         <IntelligenceTab />
+                    </Suspense>
+                );
+            case 'financiadoras':
+                return (
+                    <Suspense fallback={<div className="flex items-center justify-center h-64 text-slate-400 animate-pulse">Cargando...</div>}>
+                        <FinanciadoresTab />
                     </Suspense>
                 );
             case 'comisiones':
