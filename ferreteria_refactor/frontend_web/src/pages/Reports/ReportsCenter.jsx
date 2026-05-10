@@ -1,8 +1,9 @@
 import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
-import { Building2, useHelp } from '../../help/useHelp';
+import { useHelp } from '../../help/useHelp';
 import {
+    Building2,
     BarChart3, ShoppingCart, Landmark, CreditCard, Truck,
     Package, DollarSign, Calendar, Download, RefreshCw,
     TrendingUp, ArrowUpRight, ArrowDownRight, Pill
