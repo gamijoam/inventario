@@ -45,6 +45,7 @@ const usePOSCatalog = () => {
             const { data } = await apiClient.get('/products/catalog', {
                 params,
                 signal: controller.signal,
+                _silentNetworkError: true,
             });
 
             const items = data.items || [];

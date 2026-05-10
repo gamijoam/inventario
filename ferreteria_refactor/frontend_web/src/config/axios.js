@@ -135,18 +135,26 @@ apiClient.interceptors.response.use(
                 }
             }
         } else if (!status) {
+            // Ignorar errores de cancelación (AbortController / axios cancelToken)
+            const isCanceled = error.code === 'ERR_CANCELED'
+                || error.name === 'CanceledError'
+                || error.name === 'AbortError'
+                || error.message === 'canceled';
+            if (isCanceled) {
+                return Promise.reject(error);
+            }
+
             // Network Error — always log which URL is failing so we can diagnose
             console.error(
                 `🌐 [Network Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
                 `| code: ${error.code || 'N/A'}`,
-                `| silent: ${!!error.config?._silentNetworkError}`,
-                `| baseURL: ${error.config?.baseURL}`
+                `| silent: ${!!error.config?._silentNetworkError}`
             );
-            // Skip toast if the caller opted out (e.g. CashContext has its own retry/error logic)
+            // Skip toast if the caller opted out
             if (!error.config?._silentNetworkError) {
                 const now = Date.now();
                 if (now - lastNetworkErrorTime > DEBOUNCE_NETWORK_MS) {
-                    toast.error(`⚠️ Error de conexión: ${error.config?.url || 'desconocido'}`);
+                    toast.error('Error de conexión con el servidor.');
                     lastNetworkErrorTime = now;
                 }
             }
