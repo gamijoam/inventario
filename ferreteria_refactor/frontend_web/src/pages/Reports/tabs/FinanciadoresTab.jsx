@@ -113,13 +113,13 @@ const FinancingCard = ({ record, onUpdate, onDelete }) => {
                     <div className={`w-2 h-2 rounded-full ${st.dot}`} />
                     <span className={`text-xs font-black uppercase tracking-wide ${st.color}`}>{st.label}</span>
                 </div>
-                <span className="text-xs text-slate-400">{fmtDate(record.created_at || record.sale_date)}</span>
+                <span className="text-xs text-slate-400">{fmtDate(record.created_at)}</span>
             </div>
             <div className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                     <div>
                         <p className="font-black text-slate-900">{record.financer_name}</p>
-                        <p className="text-xs text-slate-400">Venta #{record.sale_id} {record.customer_name ? `· ${record.customer_name}` : ''}</p>
+                        <p className="text-xs text-slate-400">Venta #{record.sale_id} {record.customer?.name ? `· ${record.customer.name}` : ''}</p>
                     </div>
                     <div className="text-right">
                         <p className="font-black text-slate-900">{fmt(record.financed_amount)}</p>
@@ -265,7 +265,8 @@ export default function FinanciadoresTab() {
     };
 
     // Agrupar por financiadora
-    const byFinancer = financers.reduce((acc, name) => {
+    const byFinancer = financers.reduce((acc, item) => {
+        const name = item?.name || item;
         const recs = records.filter(r => r.financer_name === name);
         if (!recs.length) return acc;
         acc[name] = {
@@ -366,7 +367,7 @@ export default function FinanciadoresTab() {
                         <select value={filterFinancer} onChange={e => setFilterFinancer(e.target.value)}
                             className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
                             <option value="">Todas las financiadoras</option>
-                            {financers.map(f => <option key={f} value={f}>{f}</option>)}
+                            {financers.map(f => <option key={f?.id || f} value={f?.name || f}>{f?.name || f}</option>)}
                         </select>
                         <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
                             className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
