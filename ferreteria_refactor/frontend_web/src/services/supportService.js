@@ -20,7 +20,7 @@ const supportService = {
     getUnreadCount: async () => {
         const since = localStorage.getItem(LAST_VISIT_KEY);
         const params = since ? { since } : {};
-        const response = await apiClient.get('/support/tickets/unread-count', { params });
+        const response = await apiClient.get('/support/tickets/unread-count', { params, _silentNetworkError: true });
         return response.data.count;
     },
 

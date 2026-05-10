@@ -79,7 +79,8 @@ export const AutoSyncProvider = ({ children }) => {
             key: 'cloud_url',
             value: cloudConfig.cloudUrl
         }, {
-            _silent403: true  // Tell the axios interceptor NOT to show a toast for 403
+            _silent403: true,
+            _silentNetworkError: true  // No mostrar toast si falla la red
         }).catch(e => {
             console.warn('[AutoSync] Falló sync de cloud_url:', e.message);
         });
