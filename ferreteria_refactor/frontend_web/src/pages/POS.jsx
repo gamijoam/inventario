@@ -837,15 +837,7 @@ const POS = () => {
                         </Button>
                     )}
 
-                    {showCreditosExternos && (
-                    <Link
-                        to="/reports?tab=financiadoras"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
-                        title="Ver Financiadoras"
-                    >
-                        <Building2 size={15} /> Financiadoras
-                    </Link>
-                    )}
+
                     {!(isCashier && showCajeroRestringido) && (
                     <Button
                         variant="ghost"
