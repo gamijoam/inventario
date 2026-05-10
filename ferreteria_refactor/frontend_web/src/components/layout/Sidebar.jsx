@@ -209,7 +209,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         }] : []),
         {
             type: 'single',
-            item: { icon: ShoppingCart, label: 'Centro de Ventas', path: '/sales-center' }
+            item: { icon: ShoppingCart, label: 'Centro de Ventas', path: '/sales-center', prefetch: ['/api/v1/products/catalog', '/api/v1/categories', '/api/v1/warehouses'] }
         },
         // INVENTARIO — ADMIN, WAREHOUSE
         ...(isAdminOrWarehouse ? [{

@@ -2,9 +2,9 @@ import { useAuth } from '../context/AuthContext';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
-import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search } from 'lucide-react';
-const CashClosingModal = React.lazy(() => import('../components/cash/CashClosingModal'));
+import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Button } from '../components/ui/button';
@@ -29,12 +29,12 @@ import CashOpeningModal from '../components/cash/CashOpeningModal';
 import CashMovementModal from '../components/cash/CashMovementModal';
 import CashAdvanceModal from '../components/cash/CashAdvanceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
-const ProductLookupModal = React.lazy(() => import('../components/pos/ProductLookupModal'));
+import ProductLookupModal from '../components/pos/ProductLookupModal';
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
-const SplitCartModal = React.lazy(() => import('../components/pos/SplitCartModal'));
+import SplitCartModal from '../components/pos/SplitCartModal';
 import usePOSCatalog from '../hooks/usePOSCatalog';
-const ServiceImportModal = React.lazy(() => import('./POS/ServiceImportModal'));
-const SerializedItemModal = React.lazy(() => import('../components/pos/SerializedItemModal'));
+import ServiceImportModal from './POS/ServiceImportModal';
+import SerializedItemModal from '../components/pos/SerializedItemModal';
 import POSSettingsModal from '../components/pos/POSSettingsModal';
 import PinAuthModal from '../components/common/PinAuthModal';
 import EmployeeSelectionModal from '../components/pos/EmployeeSelectionModal';
@@ -1108,12 +1108,12 @@ const POS = () => {
                 />
 
                 <PinAuthModal isOpen={pinModalOpen} onClose={() => { setPinModalOpen(false); setPendingPriceUpdate(null); setActivePricePopover(null); }} onSuccess={handlePinSuccess} title="Autorización Requerida" message="Ingrese PIN de supervisor." />
-                <Suspense fallback={null}><SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={0} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} /></Suspense>
+                <SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={0} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} />
                 <ServiceImportModal isOpen={isServiceImportOpen} onClose={() => setIsServiceImportOpen(false)} onSelect={handleServiceOrderSelect} />
                 <CashMovementModal isOpen={isMovementOpen} onClose={() => { setIsMovementOpen(false); focusSearch(); }} />
                 <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
                 <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
-                <Suspense fallback={null}><ProductLookupModal isOpen={isLookupOpen} onClose={() => setIsLookupOpen(false)} />
+                <ProductLookupModal isOpen={isLookupOpen} onClose={() => setIsLookupOpen(false)} />
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
                 <SplitCartModal 
                     isOpen={isSplitCartModalOpen} 
