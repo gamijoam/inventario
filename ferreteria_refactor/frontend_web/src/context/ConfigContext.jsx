@@ -106,6 +106,19 @@ export const ConfigProvider = ({ children }) => {
 
     const fetchConfig = async () => {
         try {
+            // 0. OPTIMIZACIÓN: Cargar todo lo necesario del POS en 1 request
+            // Reemplaza 4 requests individuales (business, exchange-rates, payment-methods, settings)
+            try {
+                const posInit = await apiClient.get('/config/pos-init', { _silentNetworkError: true });
+                if (posInit.data) {
+                    const { business, exchange_rates, payment_methods, settings } = posInit.data;
+                    if (business?.name) setBusiness(prev => ({ ...prev, ...business }));
+                    if (exchange_rates?.length) setCurrencies(exchange_rates);
+                    if (payment_methods?.length) setPaymentMethods(payment_methods);
+                    if (settings) setAutoPrintTicket(!!settings.auto_print_ticket);
+                }
+            } catch { /* silencioso — los requests individuales como fallback */ }
+
             // 1. Fetch Feature Flags (Public) & Tenant Info
             // This runs FIRST to set the correct branding on Login
             try {

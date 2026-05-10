@@ -2,9 +2,9 @@ import { useAuth } from '../context/AuthContext';
 import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search } from 'lucide-react';
-import CashClosingModal from '../components/cash/CashClosingModal';
+const CashClosingModal = React.lazy(() => import('../components/cash/CashClosingModal'));
 
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Button } from '../components/ui/button';
@@ -29,12 +29,12 @@ import CashOpeningModal from '../components/cash/CashOpeningModal';
 import CashMovementModal from '../components/cash/CashMovementModal';
 import CashAdvanceModal from '../components/cash/CashAdvanceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
-import ProductLookupModal from '../components/pos/ProductLookupModal';
+const ProductLookupModal = React.lazy(() => import('../components/pos/ProductLookupModal'));
 import useBarcodeScanner from '../hooks/useBarcodeScanner';
-import SplitCartModal from "../components/pos/SplitCartModal";
+const SplitCartModal = React.lazy(() => import('../components/pos/SplitCartModal'));
 import usePOSCatalog from '../hooks/usePOSCatalog';
-import ServiceImportModal from './POS/ServiceImportModal';
-import SerializedItemModal from '../components/pos/SerializedItemModal';
+const ServiceImportModal = React.lazy(() => import('./POS/ServiceImportModal'));
+const SerializedItemModal = React.lazy(() => import('../components/pos/SerializedItemModal'));
 import POSSettingsModal from '../components/pos/POSSettingsModal';
 import PinAuthModal from '../components/common/PinAuthModal';
 import EmployeeSelectionModal from '../components/pos/EmployeeSelectionModal';
@@ -361,24 +361,17 @@ const POS = () => {
                 }
                 setSelectedWarehouseId('all');
 
-                try {
-                    // _silent403 + _silentNetworkError: these are optional background calls
-                    // (salesperson dropdown / barbershop employees). POS works without them.
-                    // The catch block already handles errors silently, so no toast needed.
-                    const [usersRes, employeesRes] = await Promise.all([
+                // PERF: users/employees se cargan en background DESPUÉS del render inicial
+                // No bloquean la carga del catálogo ni los pagos
+                setTimeout(() => {
+                    Promise.all([
                         apiClient.get('/users', { _silent403: true, _silentNetworkError: true }),
                         apiClient.get('/employees', { _silent403: true, _silentNetworkError: true })
-                    ]);
-
-                    if (Array.isArray(usersRes.data)) {
-                        setSalespeople(usersRes.data.filter(u => u.is_active));
-                    }
-                    if (Array.isArray(employeesRes.data)) {
-                        setEmployees(employeesRes.data.filter(e => e.status === 'ACTIVE'));
-                    }
-                } catch (err) {
-                    console.error("Failed to load staff/employees:", err);
-                }
+                    ]).then(([usersRes, employeesRes]) => {
+                        if (Array.isArray(usersRes.data)) setSalespeople(usersRes.data.filter(u => u.is_active));
+                        if (Array.isArray(employeesRes.data)) setEmployees(employeesRes.data.filter(e => e.status === 'ACTIVE'));
+                    }).catch(() => {});
+                }, 1500); // Diferir 1.5s — el POS ya está visible y funcional
 
                 if (modules?.services) {
                     // Other service-specific logic if any
@@ -1115,12 +1108,12 @@ const POS = () => {
                 />
 
                 <PinAuthModal isOpen={pinModalOpen} onClose={() => { setPinModalOpen(false); setPendingPriceUpdate(null); setActivePricePopover(null); }} onSuccess={handlePinSuccess} title="Autorización Requerida" message="Ingrese PIN de supervisor." />
-                <SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={0} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} />
+                <Suspense fallback={null}><SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={0} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} /></Suspense>
                 <ServiceImportModal isOpen={isServiceImportOpen} onClose={() => setIsServiceImportOpen(false)} onSelect={handleServiceOrderSelect} />
                 <CashMovementModal isOpen={isMovementOpen} onClose={() => { setIsMovementOpen(false); focusSearch(); }} />
                 <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />
                 <SaleSuccessModal isOpen={!!lastSaleData} saleData={lastSaleData} onClose={handleSuccessClose} />
-                <ProductLookupModal isOpen={isLookupOpen} onClose={() => setIsLookupOpen(false)} />
+                <Suspense fallback={null}><ProductLookupModal isOpen={isLookupOpen} onClose={() => setIsLookupOpen(false)} />
                 {!isLoading && !isCashLoading && !isSessionOpen && (<CashOpeningModal onOpen={openSession} />)}
                 <SplitCartModal 
                     isOpen={isSplitCartModalOpen} 

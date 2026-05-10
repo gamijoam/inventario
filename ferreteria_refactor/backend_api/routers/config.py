@@ -1,4 +1,6 @@
+from ..cache import get_cached, set_cached, invalidate, TTL
 from fastapi import File, UploadFile
+from ..cache import get_cached, set_cached, invalidate, TTL
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
@@ -168,14 +170,27 @@ def get_exchange_rates(
             )
         ]
 
+    # Caché Redis 15 min (las tasas cambian poco)
+    cache_extra = f"{currency_code or ''}:{is_active or ''}"
+    cached = get_cached(current_schema, "exchange_rates", cache_extra)
+    if cached is not None:
+        return [schemas.ExchangeRateRead(**r) for r in cached]
+
     query = db.query(models.ExchangeRate)
-    
     if currency_code:
         query = query.filter(models.ExchangeRate.currency_code == currency_code)
     if is_active is not None:
         query = query.filter(models.ExchangeRate.is_active == is_active)
-    
-    return query.order_by(models.ExchangeRate.currency_code, models.ExchangeRate.is_default.desc()).all()
+
+    rates = query.order_by(models.ExchangeRate.currency_code, models.ExchangeRate.is_default.desc()).all()
+    set_cached(current_schema, "exchange_rates",
+               [{"id": r.id, "name": r.name, "currency_code": r.currency_code,
+                 "currency_symbol": r.currency_symbol, "rate": float(r.rate),
+                 "is_default": r.is_default, "is_active": r.is_active,
+                 "created_at": str(r.created_at), "updated_at": str(r.updated_at)}
+                for r in rates],
+               extra=cache_extra, ttl=TTL["exchange_rates"])
+    return rates
 
 
 @router.post("/exchange-rates", response_model=schemas.ExchangeRateRead)
@@ -416,15 +431,80 @@ async def delete_exchange_rate(
 # BUSINESS CONFIGURATION (GENERIC)
 # ========================================
 
+@router.get("/pos-init")
+def get_pos_init(db: Session = Depends(get_db)):
+    """
+    Endpoint optimizado para carga inicial del POS.
+    Consolida en 1 request lo que antes eran 4:
+    - business_config
+    - exchange_rates activos
+    - payment_methods
+    - pos settings (auto_print_ticket)
+    """
+    from ..tenant_context import get_tenant_schema
+    from ..cache import get_cached, set_cached, TTL
+    from sqlalchemy import text
+
+    schema = get_tenant_schema()
+    if schema == 'public':
+        return {"business": {}, "exchange_rates": [], "payment_methods": [], "settings": {}}
+
+    cache_key = "pos_init"
+    cached = get_cached(schema, cache_key)
+    if cached:
+        return cached
+
+    # Ejecutar las 4 queries en paralelo usando la misma sesión
+    configs = {r[0]: r[1] for r in db.execute(text(f"SELECT key, value FROM {schema}.business_config")).all()}
+    exchange_rates = db.query(models.ExchangeRate).filter(models.ExchangeRate.is_active == True).all()
+    payment_methods = db.query(models.PaymentMethod).filter(models.PaymentMethod.is_active == True).all()
+
+    result = {
+        "business": {
+            "name": configs.get("business_name", ""),
+            "logo_url": configs.get("business_logo", ""),
+            "address": configs.get("business_address", ""),
+            "phone": configs.get("business_phone", ""),
+            "default_tax_rate": configs.get("default_tax_rate", "0"),
+            "external_financing_enabled": configs.get("external_financing_enabled", "false").lower() == "true",
+            "warranty_format_url": configs.get("warranty_format_url", ""),
+        },
+        "exchange_rates": [
+            {"id": r.id, "name": r.name, "currency_code": r.currency_code,
+             "currency_symbol": r.currency_symbol, "rate": float(r.rate),
+             "is_default": r.is_default, "is_active": r.is_active}
+            for r in exchange_rates
+        ],
+        "payment_methods": [
+            {"id": m.id, "name": m.name, "is_active": m.is_active,
+             "is_system": m.is_system, "is_external_financer": getattr(m, 'is_external_financer', False),
+             "requires_reference": getattr(m, 'requires_reference', False)}
+            for m in payment_methods
+        ],
+        "settings": {
+            "auto_print_ticket": configs.get("auto_print_ticket", "false").lower() == "true",
+            "paper_width": configs.get("paper_width", "58"),
+        }
+    }
+
+    set_cached(schema, cache_key, result, ttl=TTL["business_config"])
+    return result
+
+
 @router.get("/business", response_model=schemas.BusinessInfo)
 def get_business_info(db: Session = Depends(get_db)):
     from ..tenant_context import get_tenant_schema
     from sqlalchemy import text
     schema = get_tenant_schema()
     # Consulta directa al esquema para evitar errores de UndefinedTable
+    # Caché Redis: business_config por tenant (5 min)
+    _cached = get_cached(schema, "business_config")
+    if _cached:
+        return schemas.BusinessInfo(**_cached)
+
     result = db.execute(text(f"SELECT key, value FROM {schema}.business_config")).all()
     configs = {r[0]: r[1] for r in result}
-    return schemas.BusinessInfo(
+    _biz = schemas.BusinessInfo(
         # Las keys en BD usan prefijo "business_" — buscar ambas formas por compatibilidad
         name=configs.get("business_name") or configs.get("name", ""),
         document_id=configs.get("business_doc") or configs.get("document_id", ""),
@@ -438,6 +518,8 @@ def get_business_info(db: Session = Depends(get_db)):
         default_tax_rate=Decimal(str(configs.get("default_tax_rate", "0.00"))),
         external_financing_enabled=configs.get("external_financing_enabled", "false").lower() == "true"
     )
+    set_cached(schema, "business_config", _biz.model_dump(), ttl=TTL["business_config"])
+    return _biz
 
 @router.put("/business", response_model=schemas.BusinessInfo)
 def update_business_info(
