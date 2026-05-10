@@ -321,6 +321,7 @@ def list_routes():
 # HEALTH CHECK - Para detección de conexión
 @app.get("/api/v1/health")
 def health_check():
+
     """Simple health check endpoint for connectivity testing"""
     return {"status": "ok", "service": "ferreteria-api"}
 

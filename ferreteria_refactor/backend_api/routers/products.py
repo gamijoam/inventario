@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload, subqueryload
 from decimal import Decimal
@@ -49,6 +49,7 @@ from pydantic import BaseModel
 @router.get("/catalog", response_model=schemas.PaginatedCatalog)
 @router.get("/catalog/", response_model=schemas.PaginatedCatalog, include_in_schema=False)
 def read_catalog_products(
+    response: Response,
     skip: int = 0,
     limit: int = Query(default=200, le=1000),
     search: Optional[str] = None,
@@ -56,9 +57,14 @@ def read_catalog_products(
     warehouse_id: Optional[int] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
-    is_menu_item: Optional[bool] = None, # NEW
+    is_menu_item: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
+    # Cache 60s en cliente si no hay búsqueda — reduce llamadas repetidas al servidor
+    if not search:
+        response.headers["Cache-Control"] = "private, max-age=60"
+    else:
+        response.headers["Cache-Control"] = "no-store" 
     """
     Lightweight product listing for POS/catalog views.
     Only loads essential relationships (category, units, stocks, prices).

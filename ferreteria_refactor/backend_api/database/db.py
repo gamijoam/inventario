@@ -32,9 +32,11 @@ DATABASE_URL = settings.DATABASE_URL
 # PostgreSQL connection arguments
 connect_args = {"client_encoding": "utf8"}
 pool_config = {
-    "pool_size": 80,
-    "max_overflow": 50,
+    "pool_size": 20,        # Reducido: 20 conexiones base (era 80)
+    "max_overflow": 10,     # Reducido: max 30 total (era 130)
     "pool_timeout": 30,
+    "pool_recycle": 1800,   # Reciclar conexiones cada 30min evita conexiones zombie
+    "pool_pre_ping": True,  # Verificar conexión antes de usar (evita errores de BD caída)
     "pool_recycle": 1800,
     "pool_pre_ping": True
 }

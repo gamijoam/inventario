@@ -185,7 +185,7 @@ export const AutoSyncProvider = ({ children }) => {
         const initialSync = setTimeout(() => {
             console.log('🔄 Sincronización inicial automática...');
             performSync(false);
-        }, 30000);
+        }, 120000); // cada 2 min
 
         // Sincronización periódica
         const interval = setInterval(() => {
@@ -203,7 +203,7 @@ export const AutoSyncProvider = ({ children }) => {
     useEffect(() => {
         if (!cloudConfig.isConfigured) return;
 
-        const interval = setInterval(checkOnlineStatus, 120000);
+        const interval = setInterval(checkOnlineStatus, 300000); // cada 5 min
         checkOnlineStatus(); // Check inicial
         return () => clearInterval(interval);
     }, [cloudConfig.isConfigured]); // checkOnlineStatus excluido para evitar re-renders

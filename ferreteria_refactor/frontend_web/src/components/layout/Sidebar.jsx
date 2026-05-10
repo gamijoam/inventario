@@ -108,7 +108,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
           await fetchUnreadCount();
         };
         initSupportUnread();
-        const interval = setInterval(fetchUnreadCount, 60000);
+        const interval = setInterval(fetchUnreadCount, 180000); // cada 3 min
         return () => clearInterval(interval);
     }, [fetchUnreadCount]);
 
