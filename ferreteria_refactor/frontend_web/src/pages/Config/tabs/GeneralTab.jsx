@@ -10,7 +10,7 @@ import { Label } from '../../../components/ui/label';
 import { Button } from '../../../components/ui/button';
 
 const GeneralTab = () => {
-    const { business, refreshConfig } = useConfig();
+    const { business, refreshConfig, modules } = useConfig();
 
     const [bizForm, setBizForm] = useState({ name: '', document_id: '', address: '', phone: '', email: '', credit_default_down_payment_pct: 20, credit_default_interest_rate: 10 });
 
@@ -114,8 +114,8 @@ const GeneralTab = () => {
                 </CardContent>
             </Card>
 
-            {/* Credit Configuration Card */}
-            <Card>
+            {/* Credit Configuration Card — solo si módulo de servicios activo */}
+            {modules?.services && <Card>
                 <CardHeader>
                     <CardTitle>Configuración de Créditos (Celulares)</CardTitle>
                     <CardDescription>Valores predeterminados para la calculadora de crédito</CardDescription>
@@ -148,7 +148,7 @@ const GeneralTab = () => {
                         </div>
                     </div>
                 </CardContent>
-            </Card>
+            </Card>}
 
             <div className="flex justify-end pt-4">
                 <Button onClick={handleBizSave} size="lg" className="bg-indigo-600 hover:bg-indigo-700">
