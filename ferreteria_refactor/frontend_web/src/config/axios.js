@@ -139,13 +139,14 @@ apiClient.interceptors.response.use(
             console.error(
                 `🌐 [Network Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
                 `| code: ${error.code || 'N/A'}`,
-                `| silent: ${!!error.config?._silentNetworkError}`
+                `| silent: ${!!error.config?._silentNetworkError}`,
+                `| baseURL: ${error.config?.baseURL}`
             );
             // Skip toast if the caller opted out (e.g. CashContext has its own retry/error logic)
             if (!error.config?._silentNetworkError) {
                 const now = Date.now();
                 if (now - lastNetworkErrorTime > DEBOUNCE_NETWORK_MS) {
-                    toast.error('Error de conexión con el servidor.');
+                    toast.error(`⚠️ Error de conexión: ${error.config?.url || 'desconocido'}`);
                     lastNetworkErrorTime = now;
                 }
             }

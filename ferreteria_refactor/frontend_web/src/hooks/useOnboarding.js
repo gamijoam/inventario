@@ -7,7 +7,7 @@ export function useOnboarding() {
 
   const refresh = async () => {
     try {
-      const r = await apiClient.get('/onboarding/status');
+      const r = await apiClient.get('/onboarding/status', { _silentNetworkError: true });
       setData(r.data);
     } catch {
       setData({ step: 0, completed: true }); // fallar silenciosamente

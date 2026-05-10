@@ -12,7 +12,7 @@ export const NotificationProvider = ({ children }) => {
 
     const fetchNotifications = useCallback(async () => {
         try {
-            const response = await apiClient.get('/system/messages/active');
+            const response = await apiClient.get('/system/messages/active', { _silentNetworkError: true });
             if (!response.data) return;
 
             const all = response.data;
