@@ -500,6 +500,20 @@ async def webhook_mensaje(
     from ..tenant_context import set_tenant_schema
     set_tenant_schema(tenant_id)
 
+    # ── Verificar si el chatbot está habilitado para este tenant ─────────────
+    try:
+        chatbot_on = db.execute(text(f"""
+            SELECT value FROM {tenant_id}.business_config
+            WHERE key = 'whatsapp_chatbot_enabled' LIMIT 1
+        """)).scalar()
+        if chatbot_on != "true":
+            # Chatbot desactivado -- silencio total, el WhatsApp normal sigue funcionando
+            log.info(f"[chatbot] Chatbot desactivado en {tenant_id} -- mensaje ignorado")
+            return {"ok": True, "estado": "CHATBOT_DISABLED", "respuesta_enviada": False}
+    except Exception:
+        # Si no existe la config, chatbot desactivado por defecto
+        return {"ok": True, "estado": "CHATBOT_DISABLED", "respuesta_enviada": False}
+
     sesion  = get_session(tenant_id, phone)
     estado  = sesion.get("estado", Estado.MENU_PRINCIPAL)
     info    = get_business_info(tenant_id, db)

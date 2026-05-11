@@ -7,7 +7,7 @@ import {
     Send, ShoppingCart, Wrench, CreditCard, FileText,
     CheckCircle, XCircle, Loader, Smartphone, Zap, Info,
     Edit3, ChevronDown, ChevronUp, User, AlertTriangle,
-    Package, BookOpen, Clock, DollarSign
+    Package, BookOpen, Clock, DollarSign, Bot
 } from 'lucide-react';
 
 /* ── Toggle ─────────────────────────────────────────────── */
@@ -417,6 +417,42 @@ export default function WhatsAppTab() {
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-600 border border-rose-200 bg-white rounded-lg hover:bg-rose-50 transition-all">
                         <XCircle size={13} /> Desconectar
                     </button>
+                </div>
+            )}
+
+            {/* ── CHATBOT ROBOT ── */}
+            {isConnected && (
+                <div className={`rounded-2xl border-2 p-4 transition-all ${config?.chatbot_enabled ? 'bg-violet-50 border-violet-300' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${config?.chatbot_enabled ? 'bg-violet-100 text-violet-600' : 'bg-slate-200 text-slate-500'}`}>
+                                <Bot size={20} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-black text-slate-700">Robot de respuesta automática</p>
+                                <p className="text-xs text-slate-400">
+                                    {config?.chatbot_enabled
+                                        ? '🟢 Activo — responde mensajes de clientes automáticamente'
+                                        : '⚫ Inactivo — solo se envían notificaciones normales'}
+                                </p>
+                            </div>
+                        </div>
+                        <button onClick={() => handleToggle('chatbot_enabled', !config?.chatbot_enabled)}
+                            className={`relative w-14 h-7 rounded-full transition-colors focus:outline-none shrink-0
+                                ${config?.chatbot_enabled ? 'bg-violet-600' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-1.5 w-4 h-4 bg-white rounded-full shadow transition-transform
+                                ${config?.chatbot_enabled ? 'translate-x-8' : 'translate-x-1.5'}`} />
+                        </button>
+                    </div>
+                    {config?.chatbot_enabled && (
+                        <div className="mt-3 p-3 bg-violet-100 rounded-xl text-xs text-violet-700 space-y-1">
+                            <p className="font-bold">¿Qué hace el robot?</p>
+                            <p>• Responde automáticamente con categorías y productos disponibles</p>
+                            <p>• Muestra precios y fotos al buscar</p>
+                            <p>• Registra pedidos como cotizaciones en el sistema</p>
+                            <p className="text-violet-500 mt-1">Al desactivarlo, el WhatsApp solo envía notificaciones (tickets, garantías, etc.) pero no responde mensajes entrantes.</p>
+                        </div>
+                    )}
                 </div>
             )}
 
