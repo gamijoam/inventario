@@ -128,8 +128,59 @@ def get_categorias(schema: str, db: Session) -> list:
         log.error(f"[chatbot] Error obteniendo categorías: {e}")
         return []
 
+def get_producto_precios(schema: str, product_id: int, db: Session) -> dict:
+    """Obtiene todos los precios de un producto: detal USD, mayor USD, y listas Bs."""
+    try:
+        listas = db.execute(text(f"""
+            SELECT pl.name, pp.price
+            FROM {schema}.product_prices pp
+            JOIN {schema}.price_lists pl ON pl.id = pp.price_list_id
+            WHERE pp.product_id = :pid AND pl.is_active = true
+        """), {"pid": product_id}).all()
+        return {r.name: float(r.price) for r in listas}
+    except:
+        return {}
+
+def _enriquecer_productos(schema: str, productos_raw: list, db: Session) -> list:
+    """Agrega info de listas de precios a cada producto."""
+    if not productos_raw:
+        return []
+    ids = [r.id for r in productos_raw]
+    # Traer todos los precios de lista en una sola query
+    try:
+        precios = db.execute(text(f"""
+            SELECT pp.product_id, pl.name as lista_nombre, pp.price
+            FROM {schema}.product_prices pp
+            JOIN {schema}.price_lists pl ON pl.id = pp.price_list_id
+            WHERE pp.product_id = ANY(:ids) AND pl.is_active = true
+        """), {"ids": ids}).all()
+        # Agrupar por product_id
+        mapa = {}
+        for p in precios:
+            if p.product_id not in mapa:
+                mapa[p.product_id] = {}
+            mapa[p.product_id][p.lista_nombre] = float(p.price)
+    except:
+        mapa = {}
+
+    result = []
+    for r in productos_raw:
+        listas = mapa.get(r.id, {})
+        result.append({
+            "id": r.id,
+            "name": r.name,
+            "price": float(r.price or 0),           # Precio detal USD
+            "price_mayor": float(getattr(r, 'price_mayor_1', 0) or 0),  # Mayor USD
+            "precio_bs": listas,                     # Dict {nombre_lista: precio}
+            "stock": float(r.stock or 0),
+            "image_url": get_imagen_url(r.image_url),
+            "sku": getattr(r, 'sku', '') or '',
+            "categoria": getattr(r, 'categoria', '') or ''
+        })
+    return result
+
 def get_productos_categoria(schema: str, category_id: int, db: Session, offset: int = 0) -> dict:
-    """Productos de una categoría con paginación."""
+    """Productos de una categoría con paginación y precios completos."""
     try:
         total = db.execute(text(f"""
             SELECT COUNT(*) FROM {schema}.products
@@ -137,20 +188,14 @@ def get_productos_categoria(schema: str, category_id: int, db: Session, offset: 
         """), {"cid": category_id}).scalar() or 0
 
         results = db.execute(text(f"""
-            SELECT id, name, price, stock, image_url, sku
+            SELECT id, name, price, price_mayor_1, stock, image_url, sku
             FROM {schema}.products
             WHERE is_active=true AND category_id=:cid AND stock > 0
             ORDER BY name
             LIMIT :lim OFFSET :off
         """), {"cid": category_id, "lim": ITEMS_POR_PAGINA, "off": offset}).all()
 
-        productos = [{
-            "id": r.id, "name": r.name,
-            "price": float(r.price or 0),
-            "stock": float(r.stock or 0),
-            "image_url": get_imagen_url(r.image_url),
-            "sku": r.sku
-        } for r in results]
+        productos = _enriquecer_productos(schema, results, db)
 
         return {
             "productos": productos,
@@ -193,14 +238,7 @@ def buscar_productos(schema: str, query: str, db: Session, offset: int = 0) -> d
             LIMIT :lim OFFSET :off
         """), params).all()
 
-        productos = [{
-            "id": r.id, "name": r.name,
-            "price": float(r.price or 0),
-            "stock": float(r.stock or 0),
-            "image_url": get_imagen_url(r.image_url),
-            "sku": r.sku,
-            "categoria": r.categoria or ""
-        } for r in results]
+        productos = _enriquecer_productos(schema, results, db)
 
         return {
             "productos": productos,
@@ -332,10 +370,36 @@ def texto_categorias(categorias: list) -> str:
     lineas.append("_o *menu* para volver al inicio_")
     return "\n".join(lineas)
 
+def formato_precios(p: dict) -> str:
+    """
+    Yaracall usa DOS precios, ambos en USD:
+    - p["price"]         → Precio pago en DIVISAS (efectivo USD, Zelle, etc.)
+    - PRECIO DETAL lista → Precio pago en BOLÍVARES (al cambio del día)
+    Ambos se expresan en USD. No hay equivalente en Bs que mostrar.
+    """
+    lineas = []
+    precio_divisas = p.get("price", 0)
+    listas = p.get("precio_bs", {})
+    precio_bs_usd = listas.get("PRECIO DETAL", 0)
+
+    if precio_divisas > 0:
+        lineas.append(f"💵 Divisas: *${precio_divisas:.2f} USD*")
+
+    if precio_bs_usd > 0:
+        lineas.append(f"🏦 Bolívares: *${precio_bs_usd:.2f} USD*")
+
+    # Otras listas adicionales
+    for nombre, precio in listas.items():
+        if nombre == "PRECIO DETAL":
+            continue
+        if precio > 0:
+            lineas.append(f"🏷️ {nombre}: *${precio:.2f} USD*")
+
+    return "\n".join(lineas) if lineas else (f"💵 *${precio_divisas:.2f} USD*" if precio_divisas else "")
+
 def texto_producto_item(p: dict, tasa: float, num: int) -> str:
-    bs = p["price"] * tasa
-    precio = f"💵 ${p['price']:.2f} USD (Bs {bs:,.0f})"
-    return f"{num}️⃣ *{p['name']}*\n{precio}"
+    precios = formato_precios(p)
+    return f"{num}️⃣ *{p['name']}*\n{precios}"
 
 def texto_lista_productos(resultado: dict, tasa: float, titulo: str = "Productos") -> str:
     productos = resultado["productos"]
@@ -399,7 +463,7 @@ async def enviar_productos_con_fotos(
         await _time.sleep(0.5) if False else None  # no bloquear
         for p in productos_con_foto[:3]:  # máx 3 fotos para no saturar
             bs = p["price"] * tasa
-            caption = f"*{p['name']}*\n💵 ${p['price']:.2f} USD (Bs {bs:,.0f})\n✅ En stock"
+            caption = f"*{p['name']}*\n{formato_precios(p)}\n✅ En stock"
             await enviar_imagen(tenant_id, phone, p["image_url"], caption)
 
 # ── Endpoint principal del webhook ───────────────────────────────────────────
@@ -579,10 +643,10 @@ async def webhook_mensaje(
         # Número → seleccionar producto
         elif mensaje.isdigit() and 1 <= int(mensaje) <= len(productos):
             prod = productos[int(mensaje) - 1]
-            bs   = prod["price"] * tasa
+            precios_det = formato_precios(prod)
             texto_det = (
                 f"📦 *{prod['name']}*\n\n"
-                f"💵 Precio: *${prod['price']:.2f} USD* (Bs {bs:,.0f})\n"
+                f"{precios_det}\n"
                 f"✅ Stock disponible\n"
             )
             if prod.get("categoria"):
@@ -606,7 +670,7 @@ async def webhook_mensaje(
             # Enviar foto si tiene
             if prod.get("image_url"):
                 await enviar_imagen(tenant_id, phone, prod["image_url"],
-                    f"{prod['name']} — ${prod['price']:.2f} USD")
+                    f"{prod['name']}\n{formato_precios(prod)}")
 
             await enviar_mensaje(tenant_id, phone, texto_det)
             return {"ok": True, "estado": estado, "respuesta_enviada": True}
@@ -688,12 +752,12 @@ async def webhook_mensaje(
         cedula = mensaje.strip().upper()
         prod   = sesion.get("producto", {})
         nombre_cliente = sesion.get("nombre_cliente", "")
-        bs = prod.get("price", 0) * tasa
+        precios_resumen = formato_precios(prod)
 
         respuesta = (
             f"📦 *Resumen de tu pedido:*\n\n"
             f"🛒 Producto: *{prod.get('name','')}*\n"
-            f"💵 Precio:   *${prod.get('price',0):.2f} USD* (Bs {bs:,.0f})\n"
+            f"{precios_resumen}\n"
             f"👤 Cliente:  *{nombre_cliente}*\n"
             f"🪪 C.I./RIF: *{cedula}*\n\n"
             f"¿Confirmas el pedido?\n\n"
