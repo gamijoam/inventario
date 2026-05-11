@@ -53,6 +53,10 @@ def get_dashboard_init(
     if cached:
         return cached
 
+    import logging
+    log = logging.getLogger(__name__)
+    log.info(f"[dashboard-init] schema={schema} from={d_from} to={d_to}")
+
     # ── 1. Resumen de ventas ─────────────────────────────────────────────────
     sales_summary = db.execute(text(f"""
         SELECT
@@ -66,14 +70,18 @@ def get_dashboard_init(
     """), {"d_from": d_from, "d_to": d_to}).first()
 
     # ── 2. Rentabilidad (costo vs ingreso) ───────────────────────────────────
-    profit = db.execute(text(f"""
-        SELECT
-            COALESCE(SUM(sd.subtotal), 0)                        AS revenue,
-            COALESCE(SUM(sd.cost_at_sale * sd.quantity), 0)      AS cost
-        FROM {schema}.sale_details sd
-        JOIN {schema}.sales s ON s.id = sd.sale_id
-        WHERE s.date::date BETWEEN :d_from AND :d_to
-    """), {"d_from": d_from, "d_to": d_to}).first()
+    try:
+        profit = db.execute(text(f"""
+            SELECT
+                COALESCE(SUM(sd.subtotal), 0)                        AS revenue,
+                COALESCE(SUM(sd.cost_at_sale * sd.quantity), 0)      AS cost
+            FROM {schema}.sale_details sd
+            JOIN {schema}.sales s ON s.id = sd.sale_id
+            WHERE s.date::date BETWEEN :d_from AND :d_to
+        """), {"d_from": d_from, "d_to": d_to}).first()
+    except Exception as e:
+        log.error(f"[dashboard-init] ERROR en profit query: {e}")
+        profit = type('obj', (object,), {'revenue': 0, 'cost': 0})()
 
     revenue = _float(profit.revenue)
     cost    = _float(profit.cost)

@@ -304,6 +304,9 @@ const ReportsCenter = () => {
 
             if (dashInit.status === 'fulfilled' && dashInit.value?.data) {
                 const d = dashInit.value.data;
+                if (!d || typeof d !== 'object') {
+                    throw new Error('Respuesta de dashboard-init inválida');
+                }
 
                 // Sales summary
                 setSalesSummary({
@@ -327,12 +330,12 @@ const ReportsCenter = () => {
                 });
 
                 // Top products
-                setTopProducts(d.top_products.map(p => ({
+                setTopProducts((d.top_products || []).map(p => ({
                     name: p.name, total_quantity: p.qty, total_revenue: p.revenue
                 })));
 
                 // Payment methods
-                setPaymentMethods(d.payment_methods.map(m => ({
+                setPaymentMethods((d.payment_methods || []).map(m => ({
                     method: m.method, payment_method: m.method,
                     count: m.count, total_amount: m.total
                 })));
