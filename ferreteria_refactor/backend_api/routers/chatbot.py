@@ -19,8 +19,10 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
 # ── Constantes ───────────────────────────────────────────────────────────────
-TTL_CONVERSACION = 1800  # 30 minutos de inactividad → reset
-MAX_RESULTADOS   = 5     # Máximo productos en búsqueda
+TTL_CONVERSACION  = 1800  # 30 minutos de inactividad → reset
+MAX_RESULTADOS    = 5     # Máximo productos en búsqueda
+RATE_LIMIT_MSGS   = 8     # Máximo mensajes por minuto por cliente
+RATE_LIMIT_WINDOW = 60    # Ventana de rate limit en segundos
 
 WHATSAPP_SERVICE_URL = "http://172.18.0.18:3000"  # IP del whatsapp_service en web_publica
 
@@ -35,10 +37,20 @@ class Estado:
     ESPERANDO_ASESOR    = "ESPERANDO_ASESOR"
 
 # ── Helpers Redis con fallback en memoria ─────────────────────────────────────
-_memory_sessions: dict = {}  # Fallback cuando Redis no está disponible
+import time as _time
+
+# Memory fallback con TTL manual: {key: {data, expires_at}}
+_memory_sessions: dict = {}
+_rate_limits:     dict = {}
 
 def _key(tenant: str, phone: str) -> str:
     return f"chatbot:{tenant}:{phone}"
+
+def _cleanup_memory():
+    now = _time.time()
+    for k in list(_memory_sessions):
+        if _memory_sessions[k].get("expires_at", 0) < now:
+            del _memory_sessions[k]
 
 def get_session(tenant: str, phone: str) -> dict:
     r = get_redis()
@@ -48,8 +60,12 @@ def get_session(tenant: str, phone: str) -> dict:
             return json.loads(raw) if raw else {}
         except Exception:
             pass
-    # Fallback: memoria
-    return _memory_sessions.get(_key(tenant, phone), {})
+    # Fallback memoria con TTL
+    entry = _memory_sessions.get(_key(tenant, phone))
+    if not entry or entry.get("expires_at", 0) < _time.time():
+        _memory_sessions.pop(_key(tenant, phone), None)
+        return {}
+    return entry.get("data", {})
 
 def save_session(tenant: str, phone: str, data: dict):
     r = get_redis()
@@ -59,8 +75,12 @@ def save_session(tenant: str, phone: str, data: dict):
             return
         except Exception:
             pass
-    # Fallback: memoria
-    _memory_sessions[_key(tenant, phone)] = data
+    _memory_sessions[_key(tenant, phone)] = {
+        "data": data,
+        "expires_at": _time.time() + TTL_CONVERSACION
+    }
+    if len(_memory_sessions) % 100 == 0:
+        _cleanup_memory()
 
 def clear_session(tenant: str, phone: str):
     r = get_redis()
@@ -70,6 +90,17 @@ def clear_session(tenant: str, phone: str):
         except Exception:
             pass
     _memory_sessions.pop(_key(tenant, phone), None)
+
+def check_rate_limit(tenant: str, phone: str) -> bool:
+    now = _time.time()
+    key = f"rl:{tenant}:{phone}"
+    times = [t for t in _rate_limits.get(key, []) if now - t < RATE_LIMIT_WINDOW]
+    if len(times) >= RATE_LIMIT_MSGS:
+        _rate_limits[key] = times
+        return False
+    times.append(now)
+    _rate_limits[key] = times
+    return True
 
 # ── Envío de mensajes ─────────────────────────────────────────────────────────
 async def enviar_mensaje(tenant_id: str, phone: str, mensaje: str):
@@ -257,6 +288,13 @@ async def webhook_mensaje(
     if not phone or not mensaje:
         return {"ok": False, "error": "phone y message requeridos"}
 
+    # ── Rate limiting: máx 8 mensajes por minuto ──────────────────────────────
+    if not check_rate_limit(tenant_id, phone):
+        log.warning(f"[chatbot] Rate limit excedido: {tenant_id}/{phone}")
+        await enviar_mensaje(tenant_id, phone,
+            "⚠️ Estás enviando muchos mensajes muy rápido.\nPor favor espera un momento antes de continuar.")
+        return {"ok": False, "error": "rate_limit"}
+
     # Identificar el schema del tenant
     from ..models.tenant import Tenant
     tenant = db.query(Tenant).filter(Tenant.schema_name == tenant_id).first()
@@ -276,6 +314,39 @@ async def webhook_mensaje(
 
     respuesta = None
 
+    # ── Si está hablando con un asesor humano, el bot NO responde ────────────
+    # Solo acepta "menu" o "bot" para volver al chatbot
+    if estado == Estado.ESPERANDO_ASESOR:
+        if mensaje in ["menu", "menú", "bot", "chatbot", "inicio", "start"]:
+            clear_session(tenant_id, phone)
+            respuesta = (
+                "🤖 *ChatBot activado nuevamente*\n\n" +
+                texto_menu_principal(nombre_negocio)
+            )
+            save_session(tenant_id, phone, {"estado": Estado.MENU_PRINCIPAL})
+        else:
+            # Silencio total — el asesor humano maneja la conversación
+            log.info(f"[chatbot] {phone} en modo ASESOR — bot silenciado")
+            return {"ok": True, "estado": estado, "modo": "asesor_humano", "respuesta_enviada": False}
+        await enviar_mensaje(tenant_id, phone, respuesta)
+        return {"ok": True, "estado": estado, "respuesta_enviada": True}
+
+    # ── Manejar mensajes de media (foto, audio, sticker, video, etc.) ─────────
+    if mensaje.startswith("__media__:"):
+        tipo = mensaje.replace("__media__:", "")
+        respuestas_media = {
+            "imagen":    "📸 Recibí tu imagen, pero por ahora solo proceso texto.\nEscribe *menu* para ver las opciones.",
+            "audio":     "🎤 Recibí tu nota de voz, pero por ahora solo proceso texto.\nEscribe *menu* para ver las opciones.",
+            "video":     "🎥 Recibí tu video, pero por ahora solo proceso texto.\nEscribe *menu* para ver las opciones.",
+            "sticker":   "😄 ¡Gracias por el sticker!\nEscribe *menu* para ver las opciones.",
+            "documento": "📄 Recibí tu documento, pero no puedo procesarlo.\nEscribe *menu* para ver las opciones.",
+            "ubicacion": "📍 Recibí tu ubicación.\nEscribe *menu* para ver las opciones.",
+            "contacto":  "👤 Recibí un contacto.\nEscribe *menu* para ver las opciones.",
+        }
+        respuesta = respuestas_media.get(tipo, f"Recibí un archivo ({tipo}).\nEscribe *menu* para ver las opciones.")
+        await enviar_mensaje(tenant_id, phone, respuesta)
+        return {"ok": True, "estado": estado, "respuesta_enviada": True}
+
     # ── Comandos globales (desde cualquier estado) ────────────────────────────
     if mensaje in ["hola", "hi", "hello", "buenas", "buenos dias", "buenos días",
                    "buenas tardes", "buenas noches", "menu", "menú", "inicio", "start"]:
@@ -285,12 +356,16 @@ async def webhook_mensaje(
 
     elif mensaje == "0":
         respuesta = (
-            "👨‍💼 *Asesor en camino...*\n\n"
-            "Un miembro de nuestro equipo te atenderá en breve.\n"
-            "⏰ Tiempo de respuesta: máx. 2 horas\n\n"
-            "Escribe *menu* para volver al inicio."
+            "\U0001f468\u200d\U0001f4bc *Asesor en camino...*\n\n"
+            "Un miembro de nuestro equipo te atender\u00e1 en breve.\n"
+            "\u23f0 Tiempo de respuesta: m\u00e1x. 2 horas\n\n"
+            "_Escribe *bot* o *menu* si quieres volver al chatbot_"
         )
-        save_session(tenant_id, phone, {"estado": Estado.ESPERANDO_ASESOR})
+        save_session(tenant_id, phone, {
+            "estado": Estado.ESPERANDO_ASESOR,
+            "nombre_cliente": nombre
+        })
+        log.info(f"[chatbot] \U0001f468\u200d\U0001f4bc ASESOR SOLICITADO: tenant={tenant_id} phone={phone}")
 
     # ── Máquina de estados ────────────────────────────────────────────────────
     elif estado == Estado.MENU_PRINCIPAL:
@@ -497,6 +572,60 @@ async def webhook_mensaje(
     await enviar_mensaje(tenant_id, phone, respuesta)
 
     return {"ok": True, "estado": estado, "respuesta_enviada": True}
+
+
+# ── ENDPOINT: listar clientes esperando asesor ───────────────────────────────
+@router.get("/waiting/{tenant_id}")
+async def get_waiting_customers(tenant_id: str):
+    """Lista clientes en estado ESPERANDO_ASESOR para que el admin los atienda."""
+    waiting = []
+    prefix = f"chatbot:{tenant_id}:"
+    now = _time.time()
+
+    # Buscar en Redis
+    r = get_redis()
+    if r:
+        try:
+            keys = r.keys(f"mif:{tenant_id}:chatbot:*")
+            for k in keys:
+                raw = r.get(k)
+                if raw:
+                    data = json.loads(raw)
+                    if data.get("estado") == Estado.ESPERANDO_ASESOR:
+                        phone = str(k).split(":")[-1].replace("'", "")
+                        waiting.append({
+                            "phone": phone,
+                            "nombre": data.get("nombre_cliente", "Sin nombre"),
+                            "estado": data.get("estado")
+                        })
+        except Exception:
+            pass
+
+    # Buscar en memoria
+    for k, v in list(_memory_sessions.items()):
+        if k.startswith(prefix) and v.get("expires_at", 0) > now:
+            data = v.get("data", {})
+            if data.get("estado") == Estado.ESPERANDO_ASESOR:
+                phone = k.replace(prefix, "")
+                waiting.append({
+                    "phone": phone,
+                    "nombre": data.get("nombre_cliente", "Sin nombre"),
+                    "estado": "ESPERANDO_ASESOR"
+                })
+
+    return {"tenant": tenant_id, "waiting": waiting, "count": len(waiting)}
+
+
+# ── ENDPOINT: el asesor libera al cliente (vuelve al bot) ────────────────────
+@router.post("/release/{tenant_id}/{phone}")
+async def release_to_bot(tenant_id: str, phone: str):
+    """El asesor termina la atención y devuelve al cliente al chatbot."""
+    clear_session(tenant_id, phone)
+    await enviar_mensaje(tenant_id, phone,
+        "✅ El asesor terminó la atención.\n\n"
+        "Escribe *menu* cuando necesites algo más. ¡Hasta pronto! 👋"
+    )
+    return {"ok": True, "message": f"Cliente {phone} liberado al chatbot"}
 
 
 # ── ENDPOINT: estado de conversación (para debugging) ────────────────────────
