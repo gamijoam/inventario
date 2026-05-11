@@ -52,12 +52,27 @@ export const WebSocketProvider = ({ children }) => {
         }
 
         try {
-            console.log("🔌 Conectando WS a:", wsUrl);
-            console.log(`🔌 WS: Connecting to ${wsUrl} (Attempt ${retryCount.current + 1})`);
+            // Agregar tenant_id como query param para que el backend sepa el tenant
+            const hostname = window.location.hostname;
+            const parts = hostname.split('.');
+            let tenantId = 'public';
+            if (parts.length >= 3 && !hostname.includes('localhost') && !hostname.includes('app-qa') && !hostname.includes('app.')) {
+                const sub = parts[0];
+                if (!['www', 'api', 'app', 'dashboard', 'admin'].includes(sub)) {
+                    tenantId = sub;
+                }
+            }
+            // Limpiar el .qa de tenants QA (restaurante3.qa -> restaurante3)
+            tenantId = tenantId.replace('.qa', '');
+            
+            const wsUrlWithTenant = wsUrl + (wsUrl.includes('?') ? '&' : '?') + `tenant_id=${tenantId}`;
+
+            console.log("🔌 Conectando WS a:", wsUrlWithTenant, "tenant:", tenantId);
+            console.log(`🔌 WS: Connecting to ${wsUrlWithTenant} (Attempt ${retryCount.current + 1})`);
 
             setStatus(retryCount.current > 0 ? 'RECONNECTING' : 'DISCONNECTED');
 
-            ws.current = new WebSocket(wsUrl);
+            ws.current = new WebSocket(wsUrlWithTenant);
 
             ws.current.onopen = () => {
                 console.log('✅ WS: Connected');

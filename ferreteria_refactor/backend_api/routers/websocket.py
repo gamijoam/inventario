@@ -166,21 +166,30 @@ async def hardware_connect(
 @router.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     """
-    Legacy/Frontend WebSocket endpoint
-    Kept for compatibility, assigns to 'public' tenant
+    Frontend WebSocket endpoint.
+    Lee el tenant del header X-Tenant-ID o del query param tenant_id.
+    Si no se especifica, usa 'public'.
     """
-    # 0. Accept connection first
+    import uuid
+
+    # Resolver tenant desde headers o query params
+    tenant_id = (
+        websocket.headers.get("x-tenant-id")
+        or websocket.headers.get("X-Tenant-ID")
+        or websocket.query_params.get("tenant_id")
+        or "public"
+    ).strip().lower() or "public"
+
+    # Aceptar la conexión
     await websocket.accept()
-    
+
     try:
-        # Assign temporary ID for frontend clients
-        import uuid
         temp_id = f"web_{str(uuid.uuid4())[:8]}"
-        
-        await manager.connect(websocket, client_id=temp_id, tenant_id="public")
-        await websocket.send_text(json.dumps({"type": "conn_ack", "msg": "Connected"}))
+        await manager.connect(websocket, client_id=temp_id, tenant_id=tenant_id)
+        await websocket.send_text(json.dumps({"type": "conn_ack", "msg": "Connected", "tenant": tenant_id}))
+        print(f"✅ [WS] Frontend conectado: tenant={tenant_id} id={temp_id}")
     except Exception as e:
-        print(f"[WS] Error connecting WebSocket: {e}")
+        print(f"[WS] Error conectando WebSocket: {e}")
         return
     
     try:
