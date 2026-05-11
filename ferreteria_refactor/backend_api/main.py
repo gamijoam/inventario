@@ -45,6 +45,7 @@ from .routers.payment_methods import router as payment_methods_router
 from .routers.external_financing import router as external_financing_router
 from .routers.sync import router as sync_router
 from .routers.cloud import router as cloud_router
+from .routers.chatbot import router as chatbot_router
 from .routers.credits import router as credits_router
 from .routers.services import router as services_router
 from .routers.service_templates import router as service_templates_router
@@ -264,6 +265,7 @@ v1_router.include_router(rma_router, tags=["Garantías RMA"])
 v1_router.include_router(price_lists_router, tags=["Listas de Precios"])
 v1_router.include_router(employees_router, tags=["Barbería y Empleados"])
 v1_router.include_router(cloud_router, tags=["Cloud Configuration"])
+v1_router.include_router(chatbot_router, tags=["ChatBot WhatsApp"])
 v1_router.include_router(warranties_router, tags=["Garantías"])
 v1_router.include_router(pharmacy_router, tags=["Farmacia"])
 from .routers.admin_tasks import router as admin_tasks_router # NEW: Admin Tasks
@@ -319,6 +321,22 @@ def list_routes():
     return {"total": len(routes), "routes": routes}
 
 # HEALTH CHECK - Para detección de conexión
+@app.get("/api/v1/cache/stats")
+def cache_stats_endpoint():
+    """Estadísticas del caché Redis — solo superadmin"""
+    from .cache import cache_stats
+    return cache_stats()
+
+@app.get("/api/v1/cache/flush")
+def cache_flush_endpoint(tenant: str = None):
+    """Vaciar caché de un tenant o todo"""
+    from .cache import invalidate_tenant, invalidate_all
+    if tenant:
+        count = invalidate_tenant(tenant)
+        return {"flushed": count, "tenant": tenant}
+    count = invalidate_all()
+    return {"flushed": count, "scope": "all"}
+
 @app.get("/api/v1/health")
 def health_check():
 
