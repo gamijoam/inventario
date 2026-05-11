@@ -346,20 +346,24 @@ const ReportsCenter = () => {
                 setDailySales([]);
             } else {
                 // Fallback a requests individuales si dashboard-init falla
-                const params = { start_date: dateRange.start, end_date: dateRange.end };
-                const [s, p, c, tp, pm] = await Promise.allSettled([
-                    unifiedReportService.getSalesSummary(params),
-                    unifiedReportService.getProfitability(params),
-                    unifiedReportService.getCreditsSummary(),
-                    unifiedReportService.getTopProducts({ ...params, limit: 10, by: 'revenue' }),
-                    unifiedReportService.getSalesByPaymentMethod(params),
-                ]);
-                const gv = r => r.status === 'fulfilled' ? r.value : null;
-                setSalesSummary(gv(s));
-                setProfitData(gv(p));
-                setCreditsSummary(gv(c));
-                setTopProducts(Array.isArray(gv(tp)) ? gv(tp) : []);
-                setPaymentMethods(Array.isArray(gv(pm)) ? gv(pm) : []);
+                try {
+                    const params = { start_date: dateRange.start, end_date: dateRange.end };
+                    const [s, p, c, tp, pm] = await Promise.allSettled([
+                        unifiedReportService.getSalesSummary(params),
+                        unifiedReportService.getProfitability(params),
+                        unifiedReportService.getCreditsSummary(),
+                        unifiedReportService.getTopProducts({ ...params, limit: 10, by: 'revenue' }),
+                        unifiedReportService.getSalesByPaymentMethod(params),
+                    ]);
+                    const gv = r => r.status === 'fulfilled' ? r.value : null;
+                    setSalesSummary(gv(s));
+                    setProfitData(gv(p));
+                    setCreditsSummary(gv(c));
+                    setTopProducts(Array.isArray(gv(tp)) ? gv(tp) : []);
+                    setPaymentMethods(Array.isArray(gv(pm)) ? gv(pm) : []);
+                } catch (fallbackErr) {
+                    console.warn('Fallback reports también falló:', fallbackErr);
+                }
             }
 
             // Clientes top (request separado — no está en dashboard-init)
