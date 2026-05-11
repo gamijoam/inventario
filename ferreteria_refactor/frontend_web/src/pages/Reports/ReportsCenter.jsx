@@ -314,12 +314,61 @@ const ReportsCenter = () => {
             // Intentar usar dashboard-init primero (más rápido, 1 request)
             if (dashInit.status === 'fulfilled' && dashInit.value?.data) {
                 const d = dashInit.value.data;
-                setSalesSummary({ total_sales: d.sales?.count ?? 0, total_revenue: d.sales?.revenue ?? 0, total_discounts: d.sales?.discounts ?? 0 });
-                setProfitData({ revenue: d.profit?.revenue ?? 0, cost: d.profit?.cost ?? 0, gross_profit: d.profit?.gross_profit ?? 0, margin_pct: d.profit?.margin_pct ?? 0 });
-                setCreditsSummary({ count: d.sales?.credit_count ?? 0, amount: d.sales?.credit_amount ?? 0 });
-                setTopProducts((d.top_products || []).map(p => ({ name: p.name, total_quantity: p.qty, total_revenue: p.revenue })));
-                setPaymentMethods((d.payment_methods || []).map(m => ({ method: m.method, payment_method: m.method, count: m.count, total_amount: m.total })));
-                setPrevSalesSummary({ total_sales: d.vs_previous?.sales_count ?? 0, total_revenue: d.vs_previous?.sales_revenue ?? 0 });
+                const count = d.sales?.count ?? 0;
+                const revenue = d.sales?.revenue ?? 0;
+
+                // Mapear al mismo formato que devuelve getSalesSummary del backend
+                setSalesSummary({
+                    total_revenue:      revenue,
+                    total_revenue_bs:   0,
+                    gross_revenue:      revenue,
+                    total_ves:          0,
+                    total_transactions: count,
+                    net_transactions:   count,
+                    average_ticket:     count > 0 ? revenue / count : 0,
+                    cash_sales:         0,
+                    credit_sales:       d.sales?.credit_amount ?? 0,
+                    pending_credit:     0,
+                    total_items_sold:   0,
+                    total_refunded:     0,
+                });
+
+                // Mapear al mismo formato que devuelve getProfitability
+                setProfitData({
+                    realized_profit: d.profit?.gross_profit ?? 0,
+                    total_profit:    d.profit?.gross_profit ?? 0,
+                    margin_pct:      d.profit?.margin_pct ?? 0,
+                    revenue:         d.profit?.revenue ?? 0,
+                    cost:            d.profit?.cost ?? 0,
+                });
+
+                setCreditsSummary({
+                    total_pending_usd: d.sales?.credit_amount ?? 0,
+                    count: d.sales?.credit_count ?? 0,
+                });
+
+                setTopProducts((d.top_products || []).map(p => ({
+                    name: p.name,
+                    total_quantity: p.qty,
+                    total_revenue: p.revenue,
+                    revenue: p.revenue,
+                })));
+
+                setPaymentMethods((d.payment_methods || []).map(m => ({
+                    method: m.method,
+                    payment_method: m.method,
+                    count: m.count,
+                    total_amount: m.total,
+                    total: m.total,
+                })));
+
+                setPrevSalesSummary({
+                    total_revenue:      d.vs_previous?.sales_revenue ?? 0,
+                    total_transactions: d.vs_previous?.sales_count ?? 0,
+                    net_transactions:   d.vs_previous?.sales_count ?? 0,
+                    average_ticket:     0,
+                });
+                setPrevProfitData(null);
             } else {
                 // Fallback a requests individuales
                 setSalesSummary(gv(results[1]));
