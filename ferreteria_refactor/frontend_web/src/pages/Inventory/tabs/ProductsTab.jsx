@@ -110,28 +110,44 @@ const ProductsTab = () => {
     const fetchProducts = async (page = currentPage) => {
         setIsLoading(true);
         try {
-            const res = await apiClient.get('/products/', {
-                params: {
-                    skip: (page - 1) * ITEMS_PER_PAGE,
-                    limit: ITEMS_PER_PAGE,
-                    search: searchTerm || undefined,
-                    warehouse_id: filterWarehouse || undefined,
-                    _t: Date.now()   // cache-bust: fuerza datos frescos siempre
+            // Cargar productos paginados y KPIs reales en paralelo
+            const [res, kpisRes] = await Promise.allSettled([
+                apiClient.get('/products/', {
+                    params: {
+                        skip: (page - 1) * ITEMS_PER_PAGE,
+                        limit: ITEMS_PER_PAGE,
+                        search: searchTerm || undefined,
+                        warehouse_id: filterWarehouse || undefined,
+                        _t: Date.now()
+                    }
+                }),
+                apiClient.get('/products/kpis', {
+                    params: { warehouse_id: filterWarehouse || undefined },
+                    _silentNetworkError: true,
+                }),
+            ]);
+
+            // Productos paginados
+            if (res.status === 'fulfilled') {
+                const data = res.value.data;
+                if (data && Array.isArray(data.items)) {
+                    setProducts(data.items);
+                    setTotalProductsReal(data.total || data.items.length);
+                } else {
+                    setProducts(Array.isArray(data) ? data : []);
+                    setTotalProductsReal(Array.isArray(data) ? data.length : 0);
                 }
-            });
-            // El backend devuelve { items, total, has_more } o un array directo
-            if (res.data && Array.isArray(res.data.items)) {
-                setProducts(res.data.items);
-                setTotalProductsReal(res.data.total || res.data.items.length);
+            }
+
+            // KPIs reales — siempre sobre TODOS los productos, no solo la página
+            if (kpisRes.status === 'fulfilled') {
+                const k = kpisRes.value.data;
+                setTotalProductsReal(k.total ?? 0);
                 setGlobalKpis({
-                    inStock:     res.data.total_in_stock     ?? 0,
-                    lowStock:    res.data.total_low_stock    ?? 0,
-                    outOfStock:  res.data.total_out_of_stock ?? 0,
+                    inStock:    k.in_stock    ?? 0,
+                    lowStock:   k.low_stock   ?? 0,
+                    outOfStock: k.out_of_stock ?? 0,
                 });
-            } else {
-                setProducts(Array.isArray(res.data) ? res.data : []);
-                setTotalProductsReal(Array.isArray(res.data) ? res.data.length : 0);
-                setGlobalKpis({ inStock: 0, lowStock: 0, outOfStock: 0 });
             }
         } catch {}
         finally { setIsLoading(false); }
@@ -196,22 +212,14 @@ const ProductsTab = () => {
         return r;
     }, [products, filterCategory, filterStock, sortBy]);
 
-    // KPI stats — usa totales reales del backend (todos los productos, no solo la página)
-    const kpis = useMemo(() => {
-        const total   = totalProductsReal || filteredProducts.length;
-        // Si hay filtros activos, calcular sobre los filtrados; si no, usar globales del backend
-        const hasActiveFilters = filterCategory || filterStock;
-        const inStock = hasActiveFilters
-            ? filteredProducts.filter(p => Number(p.stock) >= Number(p.min_stock ?? 5)).length
-            : globalKpis.inStock || 0;
-        const low = hasActiveFilters
-            ? filteredProducts.filter(p => { const s = Number(p.stock||0), m = Number(p.min_stock??5); return s > 0 && s < m; }).length
-            : globalKpis.lowStock || 0;
-        const out = hasActiveFilters
-            ? filteredProducts.filter(p => Number(p.stock||0) === 0).length
-            : globalKpis.outOfStock || 0;
-        return { total, inStock, low, out };
-    }, [filteredProducts, totalProductsReal, globalKpis, filterCategory, filterStock]);
+    // KPI stats — siempre usa los totales reales del backend (/products/kpis)
+    // Los filtros locales (categoría, stock) NO afectan los totales globales del inventario
+    const kpis = useMemo(() => ({
+        total:   totalProductsReal,
+        inStock: globalKpis.inStock,
+        low:     globalKpis.lowStock,
+        out:     globalKpis.outOfStock,
+    }), [totalProductsReal, globalKpis]);
 
     const isAdmin = ['ADMIN', 'WAREHOUSE'].includes(user?.role);
     const hasFilters = filterCategory || filterWarehouse || filterStock || sortBy;

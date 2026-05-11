@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Response
 from ..cache import get_cached, set_cached, invalidate
+from ..tenant_context import get_tenant_schema
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload, subqueryload
 from decimal import Decimal
@@ -276,6 +277,75 @@ def lookup_product(
         raise HTTPException(status_code=404, detail="Product not found")
 
     return product
+
+@router.get("/kpis")
+def get_product_kpis(
+    warehouse_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    KPIs reales de inventario sobre TODOS los productos activos.
+    Usa product_stocks para el stock real por almacén.
+    """
+    from sqlalchemy import text as _t
+    schema = get_tenant_schema()
+
+    if warehouse_id:
+        sql = _t("""
+            SELECT
+                COUNT(DISTINCT p.id) as total,
+                COUNT(DISTINCT p.id) FILTER(
+                    WHERE COALESCE(ps_sum.qty, 0) > 0
+                    AND COALESCE(ps_sum.qty, 0) >= COALESCE(p.min_stock, 5)
+                ) as in_stock,
+                COUNT(DISTINCT p.id) FILTER(
+                    WHERE COALESCE(ps_sum.qty, 0) > 0
+                    AND COALESCE(ps_sum.qty, 0) < COALESCE(p.min_stock, 5)
+                ) as low_stock,
+                COUNT(DISTINCT p.id) FILTER(
+                    WHERE COALESCE(ps_sum.qty, 0) <= 0
+                ) as out_of_stock
+            FROM {schema}.products p
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) as qty
+                FROM {schema}.product_stocks
+                WHERE warehouse_id = :wid
+                GROUP BY product_id
+            ) ps_sum ON ps_sum.product_id = p.id
+            WHERE p.is_active = true
+        """.replace("{schema}", schema))
+        result = db.execute(sql, {"wid": warehouse_id}).first()
+    else:
+        sql = _t("""
+            SELECT
+                COUNT(DISTINCT p.id) as total,
+                COUNT(DISTINCT p.id) FILTER(
+                    WHERE COALESCE(ps_sum.qty, 0) > 0
+                    AND COALESCE(ps_sum.qty, 0) >= COALESCE(p.min_stock, 5)
+                ) as in_stock,
+                COUNT(DISTINCT p.id) FILTER(
+                    WHERE COALESCE(ps_sum.qty, 0) > 0
+                    AND COALESCE(ps_sum.qty, 0) < COALESCE(p.min_stock, 5)
+                ) as low_stock,
+                COUNT(DISTINCT p.id) FILTER(
+                    WHERE COALESCE(ps_sum.qty, 0) <= 0
+                ) as out_of_stock
+            FROM {schema}.products p
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) as qty
+                FROM {schema}.product_stocks
+                GROUP BY product_id
+            ) ps_sum ON ps_sum.product_id = p.id
+            WHERE p.is_active = true
+        """.replace("{schema}", schema))
+        result = db.execute(sql).first()
+
+    return {
+        "total":        int(result.total or 0),
+        "in_stock":     int(result.in_stock or 0),
+        "low_stock":    int(result.low_stock or 0),
+        "out_of_stock": int(result.out_of_stock or 0),
+    }
 
 @router.get("/", response_model=List[schemas.ProductRead])
 @router.get("", response_model=List[schemas.ProductRead], include_in_schema=False)
@@ -913,6 +983,7 @@ async def import_products(
             status_code=500,
             detail=f"Error creando productos: {str(e)}"
         )
+
 
 @router.get("/export/excel")
 def export_excel(db: Session = Depends(get_db)):
