@@ -995,7 +995,7 @@ def export_excel(db: Session = Depends(get_db)):
     ).options(
         joinedload(models.Product.category),
         joinedload(models.Product.supplier)
-    ).all()
+    ).order_by(models.Product.name).all()
     
     buffer = ProductExportService.export_to_excel(products)
     
@@ -1020,7 +1020,7 @@ def export_pdf(db: Session = Depends(get_db)):
     ).options(
         joinedload(models.Product.category),
         joinedload(models.Product.supplier)
-    ).all()
+    ).order_by(models.Product.name).all()
     
     buffer = ProductExportService.export_to_pdf(products, business_name)
     
