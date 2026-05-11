@@ -294,95 +294,44 @@ const ReportsCenter = () => {
             const prevParams = { start_date: prevPeriod.start, end_date: prevPeriod.end };
 
             const results = await Promise.allSettled([
-                apiClient.get('/reports/dashboard-init', {
-                    params: { date_from: dateRange.start, date_to: dateRange.end },
-                    _silentNetworkError: true,
-                }),
                 unifiedReportService.getSalesSummary(params),
                 unifiedReportService.getProfitability(params),
                 unifiedReportService.getCreditsSummary(),
                 unifiedReportService.getTopProducts({ ...params, limit: 10, by: 'revenue' }),
                 unifiedReportService.getSalesByCustomer({ ...params, limit: 10 }),
                 unifiedReportService.getSalesByPaymentMethod(params),
+                unifiedReportService.getSalesDetailed(params),
                 unifiedReportService.getSalesSummary(prevParams),
                 unifiedReportService.getProfitability(prevParams),
             ]);
 
             const gv = (r) => r.status === 'fulfilled' ? r.value : null;
-            const dashInit = results[0];
 
-            // Intentar usar dashboard-init primero (más rápido, 1 request)
-            if (dashInit.status === 'fulfilled' && dashInit.value?.data) {
-                const d = dashInit.value.data;
-                const count = d.sales?.count ?? 0;
-                const revenue = d.sales?.revenue ?? 0;
+            setSalesSummary(gv(results[0]));
+            setProfitData(gv(results[1]));
+            setCreditsSummary(gv(results[2]));
+            setTopProducts(Array.isArray(gv(results[3])) ? gv(results[3]) : []);
+            setTopCustomers(Array.isArray(gv(results[4])) ? gv(results[4]) : []);
+            setPaymentMethods(Array.isArray(gv(results[5])) ? gv(results[5]) : []);
 
-                // Mapear al mismo formato que devuelve getSalesSummary del backend
-                setSalesSummary({
-                    total_revenue:      revenue,
-                    total_revenue_bs:   0,
-                    gross_revenue:      revenue,
-                    total_ves:          0,
-                    total_transactions: count,
-                    net_transactions:   count,
-                    average_ticket:     count > 0 ? revenue / count : 0,
-                    cash_sales:         0,
-                    credit_sales:       d.sales?.credit_amount ?? 0,
-                    pending_credit:     0,
-                    total_items_sold:   0,
-                    total_refunded:     0,
+            // Ventas diarias
+            const detailedData = gv(results[6]);
+            if (detailedData && Array.isArray(detailedData)) {
+                const byDay = {};
+                detailedData.forEach(sale => {
+                    const day = (sale.date || sale.created_at || '').split('T')[0];
+                    if (!day) return;
+                    if (!byDay[day]) byDay[day] = { date: day, revenue: 0, count: 0 };
+                    byDay[day].revenue += Number(sale.total_amount || sale.total || 0);
+                    byDay[day].count += 1;
                 });
-
-                // Mapear al mismo formato que devuelve getProfitability
-                setProfitData({
-                    realized_profit: d.profit?.gross_profit ?? 0,
-                    total_profit:    d.profit?.gross_profit ?? 0,
-                    margin_pct:      d.profit?.margin_pct ?? 0,
-                    revenue:         d.profit?.revenue ?? 0,
-                    cost:            d.profit?.cost ?? 0,
-                });
-
-                setCreditsSummary({
-                    total_pending_usd: d.sales?.credit_amount ?? 0,
-                    count: d.sales?.credit_count ?? 0,
-                });
-
-                setTopProducts((d.top_products || []).map(p => ({
-                    name: p.name,
-                    total_quantity: p.qty,
-                    total_revenue: p.revenue,
-                    revenue: p.revenue,
-                })));
-
-                setPaymentMethods((d.payment_methods || []).map(m => ({
-                    method: m.method,
-                    payment_method: m.method,
-                    count: m.count,
-                    total_amount: m.total,
-                    total: m.total,
-                })));
-
-                setPrevSalesSummary({
-                    total_revenue:      d.vs_previous?.sales_revenue ?? 0,
-                    total_transactions: d.vs_previous?.sales_count ?? 0,
-                    net_transactions:   d.vs_previous?.sales_count ?? 0,
-                    average_ticket:     0,
-                });
-                setPrevProfitData(null);
+                setDailySales(Object.values(byDay).sort((a, b) => a.date.localeCompare(b.date)));
             } else {
-                // Fallback a requests individuales
-                setSalesSummary(gv(results[1]));
-                setProfitData(gv(results[2]));
-                setCreditsSummary(gv(results[3]));
-                setTopProducts(Array.isArray(gv(results[4])) ? gv(results[4]) : []);
-                setPaymentMethods(Array.isArray(gv(results[6])) ? gv(results[6]) : []);
-                setPrevSalesSummary(gv(results[7]));
-                setPrevProfitData(gv(results[8]));
+                setDailySales([]);
             }
 
-            // Clientes (siempre del request individual)
-            setTopCustomers(Array.isArray(gv(results[5])) ? gv(results[5]) : []);
-            setDailySales([]);
+            setPrevSalesSummary(gv(results[7]));
+            setPrevProfitData(gv(results[8]));
 
         } catch (error) {
             console.error('Error loading resumen data:', error);
