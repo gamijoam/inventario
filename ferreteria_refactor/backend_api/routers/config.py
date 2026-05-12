@@ -1,4 +1,4 @@
-from ..cache import get_cached, set_cached, invalidate, TTL
+from ..cache import get_cached, set_cached, invalidate, invalidate_resource, TTL
 from fastapi import File, UploadFile
 from ..cache import get_cached, set_cached, invalidate, TTL
 from fastapi import APIRouter, Depends, HTTPException
@@ -225,8 +225,14 @@ async def create_exchange_rate(
     }
     
     db.commit()
-    # db.refresh(new_rate)
-    
+
+    # Invalidar TODAS las variantes de caché de exchange_rates y pos_init
+    from ..tenant_context import get_tenant_schema as _gts
+    _schema = _gts()
+    invalidate_resource(_schema, "exchange_rates")
+    invalidate_resource(_schema, "pos_init")
+    invalidate_resource(_schema, "pos-init")
+
     # Broadcast event
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_CREATED, {
         "id": response_data["id"],
@@ -367,16 +373,20 @@ async def update_exchange_rate(
     }
 
     db.commit()
-    # db.refresh(rate)
-    
+
+    # Invalidar TODAS las variantes de caché de exchange_rates y pos_init
+    from ..tenant_context import get_tenant_schema as _gts
+    _schema = _gts()
+    invalidate_resource(_schema, "exchange_rates")
+    invalidate_resource(_schema, "pos_init")
+    invalidate_resource(_schema, "pos-init")
+
     # AUDIT LOG
     from ..audit_utils import log_action
     import json
-    # Since we didn't capture 'old_state' easily, we'll log the new state.
-    # Ideally we'd do the diff, but this is a quick action.
-    log_action(db, user_id=user.id, action="UPDATE", table_name="exchange_rates", record_id=response_data["id"], changes=json.dumps({"rate": response_data["rate"], "is_active": response_data["is_active"]}, default=str))
+    log_action(db, user_id=user.id, action="UPDATE", table_name="exchange_rates", record_id=response_data["id"], changes=json.dumps({"rate": str(response_data["rate"]), "is_active": response_data["is_active"]}, default=str))
 
-    # Broadcast event
+    # Broadcast al tenant correcto (no a "public")
     await manager.broadcast(WebSocketEvents.EXCHANGE_RATE_UPDATED, {
         "id": response_data["id"],
         "name": response_data["name"],

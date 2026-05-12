@@ -111,6 +111,27 @@ def invalidate(tenant: str, resource: str, extra: str = "") -> bool:
         return False
 
 
+def invalidate_resource(tenant: str, resource: str) -> int:
+    """Invalida TODAS las claves de caché de un recurso para un tenant.
+    Útil cuando hay múltiples variantes (con diferentes extras).
+    Ej: invalidate_resource('yaracall', 'exchange_rates') borra:
+        mif:yaracall:exchange_rates::
+        mif:yaracall:exchange_rates::True
+        mif:yaracall:exchange_rates::False
+    """
+    r = get_redis()
+    if not r:
+        return 0
+    try:
+        pattern = f"mif:{tenant}:{resource}:*"
+        keys = r.keys(pattern)
+        if keys:
+            r.delete(*keys)
+        return len(keys)
+    except Exception:
+        return 0
+
+
 def invalidate_tenant(tenant: str) -> int:
     """Invalida TODA la caché de un tenant (al hacer logout, cambios masivos, etc.)."""
     r = get_redis()
