@@ -346,289 +346,287 @@ def _generate_basic_pdf(
     customer_name, customer_doc, customer_phone, customer_email,
     sale_date, sale_total, sale_id,
 ) -> bytes:
-    """Genera PDF de garantia profesional con diseno moderno."""
+    """Genera PDF de garantia minimalista — blanco, sin tintas de fondo, profesional."""
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
-    from reportlab.lib import colors
 
     buffer = io.BytesIO()
-    w, h = A4  # 210 x 297 mm
+    w, h = A4
     can = canvas.Canvas(buffer, pagesize=A4)
 
-    # ── Paleta de colores ────────────────────────────────────────────────────
-    AZUL      = (0.08, 0.20, 0.45)   # azul marino oscuro
-    AZUL_MED  = (0.18, 0.38, 0.70)
-    AZUL_CLAR = (0.88, 0.92, 0.97)
-    VERDE     = (0.08, 0.50, 0.25)
-    ROJO      = (0.70, 0.10, 0.10)
-    GRIS_OSC  = (0.25, 0.25, 0.25)
-    GRIS_MED  = (0.55, 0.55, 0.55)
-    GRIS_CLAR = (0.94, 0.94, 0.94)
-    BLANCO    = (1, 1, 1)
-    NEGRO     = (0, 0, 0)
+    NEGRO     = (0.10, 0.10, 0.10)
+    GRIS_OSC  = (0.35, 0.35, 0.35)
+    GRIS_MED  = (0.60, 0.60, 0.60)
+    GRIS_CLAR = (0.96, 0.96, 0.96)
+    GRIS_LINE = (0.88, 0.88, 0.88)
+    BLANCO    = (1.0, 1.0, 1.0)
 
-    def set_color(rgb):
-        can.setFillColorRGB(*rgb)
+    def fc(*rgb): can.setFillColorRGB(*rgb)
+    def sc(*rgb): can.setStrokeColorRGB(*rgb)
 
-    def set_stroke(rgb):
-        can.setStrokeColorRGB(*rgb)
+    # ── HEADER — solo tipografía y línea ─────────────────────────────────────
+    y = h - 18*mm
 
-    # ── HEADER AZUL ───────────────────────────────────────────────────────────
-    set_stroke(AZUL)
-    set_color(AZUL)
-    can.rect(0, h - 70*mm, w, 70*mm, fill=1, stroke=0)
+    # Etiqueta pequeña
+    fc(*GRIS_MED)
+    can.setFont("Helvetica", 7)
+    can.setCharSpace(2.5)
+    can.drawString(15*mm, y, "CERTIFICADO DE GARANTIA")
+    can.setCharSpace(0)
+    y -= 7*mm
 
-    # Escudo / ícono shield (simulado con texto)
-    set_color(BLANCO)
-    can.setFont("Helvetica-Bold", 28)
-    can.drawCentredString(w / 2, h - 22*mm, "CERTIFICADO DE GARANTÍA")
+    # Nombre del negocio — protagonista
+    fc(*NEGRO)
+    can.setFont("Helvetica-Bold", 26)
+    can.drawString(15*mm, y, (business_name or "Mi Negocio").upper())
 
-    can.setFont("Helvetica", 11)
-    set_color((0.75, 0.85, 0.95))
-    can.drawCentredString(w / 2, h - 30*mm, "Documento oficial de cobertura post-venta")
+    # N° de garantía alineado a la derecha
+    fc(*GRIS_MED)
+    can.setFont("Helvetica", 7)
+    can.setCharSpace(1.5)
+    can.drawRightString(w - 15*mm, y + 14*mm, "N° GARANTIA")
+    can.setCharSpace(0)
+    fc(*NEGRO)
+    can.setFont("Helvetica-Bold", 16)
+    can.drawRightString(w - 15*mm, y + 5*mm, f"#{str(sale_id).zfill(6)}")
 
-    # Nombre del negocio en header
-    set_color(BLANCO)
-    can.setFont("Helvetica-Bold", 14)
-    can.drawString(15*mm, h - 50*mm, business_name or "Mi Negocio")
+    y -= 5*mm
 
-    can.setFont("Helvetica", 9)
-    set_color((0.75, 0.85, 0.95))
+    # Info del negocio
     info_parts = []
-    if business_rif: info_parts.append(f"RIF: {business_rif}")
-    if business_phone: info_parts.append(f"Tel: {business_phone}")
+    if business_rif:     info_parts.append(f"RIF: {business_rif}")
+    if business_phone:   info_parts.append(f"Tel: {business_phone}")
     if business_address: info_parts.append(business_address)
-    if info_parts:
-        can.drawString(15*mm, h - 57*mm, "  |  ".join(info_parts))
+    fc(*GRIS_MED)
+    can.setFont("Helvetica", 8)
+    can.drawString(15*mm, y, "  |  ".join(info_parts))
 
-    # Numero de garantia alineado a la derecha en header
-    set_color((0.75, 0.85, 0.95))
-    can.setFont("Helvetica", 9)
-    can.drawRightString(w - 15*mm, h - 50*mm, f"Garantía N° {str(sale_id).zfill(6)}")
-    can.setFont("Helvetica-Bold", 11)
-    set_color(BLANCO)
-    can.drawRightString(w - 15*mm, h - 57*mm, f"Venta #{sale_id}")
+    y -= 5*mm
 
-    # ── BARRA DECORATIVA BAJO HEADER ─────────────────────────────────────────
-    set_color(AZUL_MED)
-    can.rect(0, h - 73*mm, w, 3*mm, fill=1, stroke=0)
+    # Línea separadora 2pt
+    sc(*NEGRO)
+    can.setLineWidth(2)
+    can.line(15*mm, y, w - 15*mm, y)
+    y -= 10*mm
 
-    y = h - 80*mm
+    # ── DATOS VENTA + CLIENTE en 2 columnas ──────────────────────────────────
+    col_mid = w / 2
 
-    # ── SECCIÓN: DATOS DE LA VENTA ────────────────────────────────────────────
-    # Título sección
-    set_color(AZUL)
-    can.rect(15*mm, y - 1*mm, 4*mm, 6*mm, fill=1, stroke=0)
-    set_color(NEGRO)
-    can.setFont("Helvetica-Bold", 11)
-    can.drawString(22*mm, y, "DATOS DE LA VENTA")
-    y -= 8*mm
+    # Etiquetas
+    fc(*GRIS_MED)
+    can.setFont("Helvetica", 7)
+    can.setCharSpace(2)
+    can.drawString(15*mm, y, "VENTA")
+    can.drawString(col_mid + 2*mm, y, "CLIENTE")
+    can.setCharSpace(0)
+    y -= 5*mm
 
-    # Caja info venta
-    set_color(GRIS_CLAR)
-    can.rect(15*mm, y - 12*mm, w - 30*mm, 14*mm, fill=1, stroke=0)
-    set_stroke(AZUL_MED)
+    # Línea divisora delgada entre secciones
+    sc(*GRIS_LINE)
     can.setLineWidth(0.5)
-    can.rect(15*mm, y - 12*mm, w - 30*mm, 14*mm, fill=0, stroke=1)
+    can.line(15*mm, y + 1*mm, w - 15*mm, y + 1*mm)
+    y -= 2*mm
 
-    set_color(GRIS_OSC)
+    # Venta
+    fc(*NEGRO)
+    can.setFont("Helvetica-Bold", 9)
+    can.drawString(15*mm, y, f"Factura #{sale_id}")
     can.setFont("Helvetica", 9)
-    tercio = (w - 30*mm) / 3
-    can.drawString(18*mm, y - 5*mm, f"📋  Factura:  #{sale_id}")
-    can.drawString(18*mm + tercio, y - 5*mm, f"📅  Fecha:  {sale_date}")
-    can.drawString(18*mm + tercio * 2, y - 5*mm, f"💰  Total:  {sale_total}")
+    fc(*GRIS_OSC)
+    can.drawString(15*mm, y - 5*mm, f"Fecha: {sale_date}")
+    can.drawString(15*mm, y - 10*mm, f"Total: {sale_total}")
+
+    # Cliente
+    fc(*NEGRO)
+    can.setFont("Helvetica-Bold", 9)
+    can.drawString(col_mid + 2*mm, y, customer_name or "Cliente General")
+    can.setFont("Helvetica", 9)
+    fc(*GRIS_OSC)
+    cli_parts = []
+    if customer_doc:   cli_parts.append(customer_doc)
+    if customer_phone: cli_parts.append(customer_phone)
+    if customer_email: cli_parts.append(customer_email)
+    for i, part in enumerate(cli_parts[:3]):
+        can.drawString(col_mid + 2*mm, y - (5*(i+1))*mm, part)
+
     y -= 18*mm
 
-    # ── SECCIÓN: DATOS DEL CLIENTE ────────────────────────────────────────────
-    set_color(AZUL)
-    can.rect(15*mm, y - 1*mm, 4*mm, 6*mm, fill=1, stroke=0)
-    set_color(NEGRO)
-    can.setFont("Helvetica-Bold", 11)
-    can.drawString(22*mm, y, "DATOS DEL CLIENTE")
+    # Línea separadora
+    sc(*GRIS_LINE)
+    can.setLineWidth(0.5)
+    can.line(15*mm, y, w - 15*mm, y)
     y -= 8*mm
 
-    # Caja info cliente
-    set_color(GRIS_CLAR)
-    can.rect(15*mm, y - 20*mm, w - 30*mm, 22*mm, fill=1, stroke=0)
-    set_stroke(AZUL_MED)
-    can.setLineWidth(0.5)
-    can.rect(15*mm, y - 20*mm, w - 30*mm, 22*mm, fill=0, stroke=1)
+    # ── EQUIPOS CUBIERTOS ────────────────────────────────────────────────────
+    fc(*GRIS_MED)
+    can.setFont("Helvetica", 7)
+    can.setCharSpace(2)
+    can.drawString(15*mm, y, "EQUIPOS CUBIERTOS")
+    can.setCharSpace(0)
+    y -= 6*mm
 
-    set_color(NEGRO)
-    can.setFont("Helvetica-Bold", 10)
-    can.drawString(18*mm, y - 6*mm, customer_name or "Cliente")
-
-    can.setFont("Helvetica", 9)
-    set_color(GRIS_OSC)
-    doc_text = f"Documento: {customer_doc}" if customer_doc else ""
-    tel_text = f"Tel: {customer_phone}" if customer_phone else ""
-    email_text = f"Email: {customer_email}" if customer_email else ""
-    contact = "  |  ".join(filter(None, [doc_text, tel_text, email_text]))
-    if contact:
-        can.drawString(18*mm, y - 13*mm, contact)
-    y -= 26*mm
-
-    # ── SECCIÓN: PRODUCTOS CON GARANTÍA ───────────────────────────────────────
-    set_color(AZUL)
-    can.rect(15*mm, y - 1*mm, 4*mm, 6*mm, fill=1, stroke=0)
-    set_color(NEGRO)
-    can.setFont("Helvetica-Bold", 11)
-    can.drawString(22*mm, y, "COBERTURA DE GARANTÍA")
-    y -= 9*mm
-
-    unit_map = {"DAYS": "días", "MONTHS": "meses", "YEARS": "años", "LIFETIME": "de por vida"}
+    unit_map = {"DAYS": "dias", "MONTHS": "meses", "YEARS": "anos", "LIFETIME": "de por vida"}
 
     for item in imei_items:
         wp = item.get("warranty_policy")
+        serials = item.get("serials", [])
+        desc = getattr(wp, "description", None) if wp else None
 
         # Calcular altura del bloque
-        desc = getattr(wp, "description", None) if wp else None
         desc_lines = 0
         if desc:
             words = desc.split()
-            line_buf = ""
+            lb = ""
             for word in words:
-                if len(line_buf) + len(word) + 1 <= 70:
-                    line_buf = (line_buf + " " + word).strip()
+                if len(lb) + len(word) + 1 <= 80:
+                    lb = (lb + " " + word).strip()
                 else:
                     desc_lines += 1
-                    line_buf = word
-            if line_buf:
+                    lb = word
+            if lb:
                 desc_lines += 1
 
-        block_h = 14*mm
-        if wp: block_h += 5*mm
-        if wp and wp.duration: block_h += 5*mm
-        if desc_lines: block_h += desc_lines * 4.5*mm + 2*mm
-        if item.get("warranty_expiration"): block_h += 7*mm
-        serials = item.get("serials", [])
-        if serials: block_h += 5*mm
-        block_h = max(block_h, 28*mm)
+        block_h = 22*mm
+        if serials:                        block_h += 5*mm
+        if wp:                             block_h += 5*mm
+        if desc_lines:                     block_h += desc_lines * 4*mm + 2*mm
+        if item.get("warranty_expiration"): block_h += 5*mm
+        block_h = max(block_h, 24*mm)
 
-        # Fondo bloque
-        set_color(BLANCO)
-        can.rect(15*mm, y - block_h, w - 30*mm, block_h, fill=1, stroke=0)
+        # Borde izquierdo negro 3pt (único acento de color)
+        sc(*NEGRO)
+        can.setLineWidth(3)
+        can.line(15*mm, y - block_h, 15*mm, y)
+        can.setLineWidth(0)
 
-        # Borde izquierdo de color
-        set_color(AZUL_MED)
-        can.rect(15*mm, y - block_h, 3*mm, block_h, fill=1, stroke=0)
-
-        # Borde general
-        set_stroke(AZUL_MED)
-        can.setLineWidth(0.6)
+        # Borde exterior delgado
+        sc(*GRIS_LINE)
+        can.setLineWidth(0.5)
         can.rect(15*mm, y - block_h, w - 30*mm, block_h, fill=0, stroke=1)
 
         yy = y - 7*mm
 
         # Nombre del producto
-        set_color(AZUL)
+        fc(*NEGRO)
         can.setFont("Helvetica-Bold", 11)
-        can.drawString(21*mm, yy, item["product_name"])
-        yy -= 6*mm
-
-        # Cantidad y seriales
-        can.setFont("Helvetica", 9)
-        set_color(GRIS_OSC)
-        qty_val = item.get("quantity", 1)
-        try:
-            qty_str = str(int(float(qty_val)))
-        except Exception:
-            qty_str = str(qty_val)
-        can.drawString(21*mm, yy, f"Cantidad: {qty_str} unidad(es)")
-        if serials:
-            can.drawString(80*mm, yy, f"Serial / IMEI: {', '.join(serials)}")
+        can.drawString(20*mm, yy, item["product_name"])
         yy -= 5*mm
 
-        # Separador interno
-        set_stroke((0.80, 0.85, 0.92))
+        # Cantidad e IMEI
+        fc(*GRIS_OSC)
+        can.setFont("Helvetica", 8.5)
+        try:
+            qty_str = str(int(float(item.get("quantity", 1))))
+        except Exception:
+            qty_str = str(item.get("quantity", 1))
+        serial_text = f"  ·  IMEI: {', '.join(serials)}" if serials else ""
+        can.drawString(20*mm, yy, f"Cant: {qty_str}{serial_text}")
+        yy -= 5*mm
+
+        # Separador interno delgado
+        sc(*GRIS_LINE)
         can.setLineWidth(0.4)
-        can.line(21*mm, yy, w - 18*mm, yy)
+        can.line(20*mm, yy + 1*mm, w - 18*mm, yy + 1*mm)
         yy -= 4*mm
 
         if wp:
-            # Badge de garantía
             dur_text = ""
             if wp.duration:
-                dur_text = f"{wp.duration} {unit_map.get(wp.type, 'días')}"
+                dur_text = f"{wp.duration} {unit_map.get(wp.type, 'dias')}"
             elif wp.type == "LIFETIME":
                 dur_text = "De por vida"
 
-            # Nombre con badge
-            set_color(VERDE)
-            can.setFont("Helvetica-Bold", 9)
-            can.drawString(21*mm, yy, f"✓  {wp.name}  —  {dur_text}")
+            # Nombre garantía + badge duración
+            fc(*NEGRO)
+            can.setFont("Helvetica-Bold", 8.5)
+            can.drawString(20*mm, yy, f"Garantia: {wp.name}")
+
+            # Badge duración — fondo gris claro
+            if dur_text:
+                badge_w = len(dur_text) * 4.5 + 8
+                badge_x = w - 15*mm - badge_w - 3*mm
+                fc(*GRIS_CLAR)
+                sc(*GRIS_LINE)
+                can.setLineWidth(0.5)
+                can.rect(badge_x, yy - 1.5*mm, badge_w, 6*mm, fill=1, stroke=1)
+                fc(*GRIS_OSC)
+                can.setFont("Helvetica-Bold", 7.5)
+                can.drawCentredString(badge_x + badge_w / 2, yy + 0.5*mm, dur_text.upper())
+
             yy -= 5*mm
 
-            # Descripción
             if desc:
-                set_color(GRIS_MED)
+                fc(*GRIS_MED)
                 can.setFont("Helvetica-Oblique", 8)
-                words = desc.split()
-                line_buf = ""
-                for word in words:
-                    if len(line_buf) + len(word) + 1 <= 70:
-                        line_buf = (line_buf + " " + word).strip()
+                lb = ""
+                for word in desc.split():
+                    if len(lb) + len(word) + 1 <= 80:
+                        lb = (lb + " " + word).strip()
                     else:
-                        can.drawString(21*mm, yy, line_buf)
-                        yy -= 4.5*mm
-                        line_buf = word
-                if line_buf:
-                    can.drawString(21*mm, yy, line_buf)
-                    yy -= 4.5*mm
+                        can.drawString(20*mm, yy, lb)
+                        yy -= 4*mm
+                        lb = word
+                if lb:
+                    can.drawString(20*mm, yy, lb)
+                    yy -= 4*mm
 
-        # Fecha de vencimiento destacada
         if item.get("warranty_expiration"):
             exp = item["warranty_expiration"]
             exp_str = exp.strftime("%d/%m/%Y") if isinstance(exp, datetime) else str(exp)
-            yy -= 2*mm
-            set_color(ROJO)
-            can.setFont("Helvetica-Bold", 9)
-            can.drawString(21*mm, yy, f"⚠  Fecha de vencimiento:  {exp_str}")
+            fc(*GRIS_OSC)
+            can.setFont("Helvetica", 8.5)
+            can.drawString(20*mm, yy, f"Vence: {exp_str}")
 
-        y -= block_h + 4*mm
+        y -= block_h + 5*mm
 
-    # ── TÉRMINOS Y CONDICIONES ─────────────────────────────────────────────────
-    y -= 4*mm
-    set_color(GRIS_CLAR)
-    can.rect(15*mm, y - 16*mm, w - 30*mm, 18*mm, fill=1, stroke=0)
-    set_color(GRIS_OSC)
-    can.setFont("Helvetica-Bold", 8)
-    can.drawString(18*mm, y - 4*mm, "TÉRMINOS Y CONDICIONES")
+    # ── TÉRMINOS ──────────────────────────────────────────────────────────────
+    y -= 2*mm
+    fc(*GRIS_CLAR)
+    sc(*GRIS_LINE)
+    can.setLineWidth(0.5)
+    can.rect(15*mm, y - 18*mm, w - 30*mm, 20*mm, fill=1, stroke=1)
+
+    fc(*GRIS_OSC)
+    can.setFont("Helvetica-Bold", 7.5)
+    can.setCharSpace(1.5)
+    can.drawString(18*mm, y - 4*mm, "TERMINOS Y CONDICIONES")
+    can.setCharSpace(0)
+
+    fc(*GRIS_MED)
     can.setFont("Helvetica", 7.5)
-    set_color(GRIS_MED)
-    terms = ("Esta garantía cubre exclusivamente defectos de fabricación. Quedan excluidos daños por mal uso, "
-             "accidentes, caídas, líquidos, modificaciones no autorizadas o desgaste natural. "
-             "Presente este certificado junto al comprobante de pago para hacer válida su garantía.")
-    # Partir en 2 líneas
+    terms = ("Esta garantia cubre exclusivamente defectos de fabricacion. Quedan excluidos danos por mal uso, "
+             "accidentes, caidas, liquidos o modificaciones no autorizadas. "
+             "Presente este certificado junto al comprobante de pago para hacer valida su garantia.")
     mid = len(terms) // 2
     for i in range(mid, len(terms)):
         if terms[i] == " ":
             mid = i
             break
-    can.drawString(18*mm, y - 9*mm,  terms[:mid])
-    can.drawString(18*mm, y - 13*mm, terms[mid+1:])
-    y -= 22*mm
+    can.drawString(18*mm, y - 9.5*mm, terms[:mid])
+    can.drawString(18*mm, y - 14*mm, terms[mid+1:])
+    y -= 24*mm
 
-    # ── FIRMAS ─────────────────────────────────────────────────────────────────
-    if y > 25*mm:
-        set_stroke(GRIS_MED)
-        can.setLineWidth(0.5)
-        firma_y = max(y - 5*mm, 22*mm)
-        can.line(20*mm, firma_y, 80*mm, firma_y)
-        can.line(w - 80*mm, firma_y, w - 20*mm, firma_y)
-        set_color(GRIS_MED)
-        can.setFont("Helvetica", 8)
-        can.drawCentredString(50*mm, firma_y - 4*mm, "Firma del Cliente")
-        can.drawCentredString(w - 50*mm, firma_y - 4*mm, "Firma Autorizada")
+    # ── FIRMAS ────────────────────────────────────────────────────────────────
+    if y > 28*mm:
+        firma_y = max(y - 8*mm, 28*mm)
+        sc(*NEGRO)
+        can.setLineWidth(1)
+        can.line(20*mm, firma_y, 85*mm, firma_y)
+        can.line(w - 85*mm, firma_y, w - 20*mm, firma_y)
+        fc(*GRIS_MED)
+        can.setFont("Helvetica", 7.5)
+        can.drawCentredString(52*mm, firma_y - 4*mm, "Firma del cliente")
+        can.drawCentredString(w - 52*mm, firma_y - 4*mm, "Firma autorizada")
 
-    # ── FOOTER ────────────────────────────────────────────────────────────────
-    set_color(AZUL)
-    can.rect(0, 0, w, 10*mm, fill=1, stroke=0)
-    set_color(BLANCO)
-    can.setFont("Helvetica", 7.5)
-    can.drawCentredString(w / 2, 3.5*mm,
-        f"{business_name or 'Mi Negocio'}  •  Documento generado automáticamente  •  Venta #{sale_id}")
+    # ── FOOTER minimal ────────────────────────────────────────────────────────
+    sc(*GRIS_LINE)
+    can.setLineWidth(0.5)
+    can.line(15*mm, 14*mm, w - 15*mm, 14*mm)
+    fc(*GRIS_MED)
+    can.setFont("Helvetica", 7)
+    can.drawString(15*mm, 9*mm, f"{business_name or 'Mi Negocio'}  ·  Documento generado automaticamente")
+    can.drawRightString(w - 15*mm, 9*mm, f"Venta #{sale_id}  ·  {sale_date}")
 
     can.save()
     buffer.seek(0)
