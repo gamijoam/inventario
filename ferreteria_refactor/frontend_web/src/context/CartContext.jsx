@@ -194,6 +194,7 @@ export const CartProvider = ({ children }) => {
                     // NEW: Serialized Inventory Support
                     serial_numbers: unit.serial_numbers || [],
                     has_imei: unit.has_imei || product.has_imei || false,
+                    combo_serials: unit.combo_serials || null,
                     // Garantía — copiar del producto para detectarla en SaleSuccessModal
                     warranty_policy_id: product.warranty_policy_id || null,
                     // NEW: Product Location

@@ -355,7 +355,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     discount_type: item.is_discount_active ? "PERCENT" : "NONE",
                     salesperson_id: item.salesperson_id || null,
                     employee_id: item.employee_id || null,
-                    serial_numbers: item.serial_numbers || []
+                    serial_numbers: item.serial_numbers || [],
+                    combo_serials: item.combo_serials || null
                 })),
                 is_credit: isCreditSale,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,
@@ -459,7 +460,8 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     subtotal: (item.is_discount_active ? item.original_price_usd : (item.unit_price_usd || item.price_usd)) * item.quantity,
                     discount: item.is_discount_active ? item.discount_percentage : 0,
                     discount_type: item.is_discount_active ? "PERCENT" : "NONE",
-                    serial_numbers: item.serial_numbers || []
+                    serial_numbers: item.serial_numbers || [],
+                    combo_serials: item.combo_serials || null
                 })),
                 is_credit: false,
                 customer_id: selectedCustomer ? selectedCustomer.id : null,

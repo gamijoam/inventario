@@ -304,6 +304,7 @@ class SaleDetailCreate(BaseModel):
     salesperson_id: Optional[int] = None # NEW: Granular commission support
     employee_id: Optional[int] = None # NEW: Barbershop Service Commission Target
     serial_numbers: Optional[List[str]] = Field(None, description="Lista de seriales para productos serializados") # NEW
+    combo_serials: Optional[dict] = Field(None, description="Dict {child_product_id: [serials]} para componentes serializados de un combo") # NEW
     price_list_id: Optional[int] = None # NEW: Price List Validation
     auth_user_id: Optional[int] = None # NEW: Supervisor Auth for Price List
     recipe_factor: Decimal = Decimal("1.0")

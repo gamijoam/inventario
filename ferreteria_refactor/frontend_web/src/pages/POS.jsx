@@ -153,6 +153,10 @@ const POS = () => {
     const [activeServiceOrderId, setActiveServiceOrderId] = useState(null);
     const [serviceOrderTicket, setServiceOrderTicket] = useState(null);
     const [selectedProductForSerialized, setSelectedProductForSerialized] = useState(null);
+    // Combo con componentes serializados
+    const [comboImeiQueue, setComboImeiQueue] = useState([]); // [{product, qty, index}]
+    const [comboImeiCollected, setComboImeiCollected] = useState({}); // {product_id: [serials]}
+    const [pendingComboProduct, setPendingComboProduct] = useState(null); // combo padre
     const [selectedProductForEmployee, setSelectedProductForEmployee] = useState(null);
     const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
 
@@ -489,6 +493,21 @@ const POS = () => {
             return;
         }
 
+        // Combo con componentes serializados
+        if (product.is_combo && product.combo_items?.some(ci => ci.child_product?.has_imei)) {
+            const serializedComponents = product.combo_items
+                .filter(ci => ci.child_product?.has_imei)
+                .map(ci => ({
+                    product: ci.child_product,
+                    qty: Math.ceil(ci.quantity),
+                    combo_item_id: ci.id
+                }));
+            setPendingComboProduct(product);
+            setComboImeiCollected({});
+            setComboImeiQueue(serializedComponents);
+            return;
+        }
+
         if (product.units?.length > 0) {
             setSelectedProductForUnits(product);
         } else {
@@ -532,6 +551,45 @@ const POS = () => {
         setSelectedProductForUnits(null);
         focusSearch();
     }
+
+    // ── Combo IMEI: confirmar serial de un componente y avanzar al siguiente ──
+    const handleComboComponentSerialConfirm = (serials) => {
+        if (comboImeiQueue.length === 0) return;
+        const current = comboImeiQueue[0];
+        const newCollected = {
+            ...comboImeiCollected,
+            [String(current.product.id)]: serials
+        };
+        const remaining = comboImeiQueue.slice(1);
+
+        if (remaining.length > 0) {
+            // Hay más componentes serializados -- pedir el siguiente
+            setComboImeiCollected(newCollected);
+            setComboImeiQueue(remaining);
+        } else {
+            // Todos los seriales recolectados -- agregar el combo al carrito
+            setComboImeiQueue([]);
+            setComboImeiCollected({});
+            if (pendingComboProduct) {
+                addToCart(pendingComboProduct, {
+                    name: 'Unidad',
+                    price_usd: parseFloat(pendingComboProduct.price),
+                    factor: 1,
+                    is_base: true,
+                    combo_serials: newCollected,
+                    salesperson_id: selectedSalespersonId || null
+                });
+                setPendingComboProduct(null);
+                focusSearch();
+            }
+        }
+    };
+
+    const handleCancelComboImei = () => {
+        setComboImeiQueue([]);
+        setComboImeiCollected({});
+        setPendingComboProduct(null);
+    };
 
     const handleSerializedConfirm = (serials) => {
         if (!selectedProductForSerialized) return;
@@ -1109,6 +1167,17 @@ const POS = () => {
 
                 <PinAuthModal isOpen={pinModalOpen} onClose={() => { setPinModalOpen(false); setPendingPriceUpdate(null); setActivePricePopover(null); }} onSuccess={handlePinSuccess} title="Autorización Requerida" message="Ingrese PIN de supervisor." />
                 <SerializedItemModal isOpen={!!selectedProductForSerialized} product={selectedProductForSerialized} quantity={0} onClose={() => setSelectedProductForSerialized(null)} onConfirm={handleSerializedConfirm} />
+
+                {/* Modal seriales para componentes de combo */}
+                <SerializedItemModal
+                    isOpen={comboImeiQueue.length > 0}
+                    product={comboImeiQueue[0]?.product || null}
+                    quantity={comboImeiQueue[0]?.qty || 1}
+                    onClose={handleCancelComboImei}
+                    onConfirm={handleComboComponentSerialConfirm}
+                    title={`Componente del combo: ${pendingComboProduct?.name || ''}`}
+                    subtitle={`Paso ${Object.keys(comboImeiCollected).length + 1} de ${(Object.keys(comboImeiCollected).length) + comboImeiQueue.length}`}
+                />
                 <ServiceImportModal isOpen={isServiceImportOpen} onClose={() => setIsServiceImportOpen(false)} onSelect={handleServiceOrderSelect} />
                 <CashMovementModal isOpen={isMovementOpen} onClose={() => { setIsMovementOpen(false); focusSearch(); }} />
                 <CashAdvanceModal isOpen={isAdvanceOpen} onClose={() => setIsAdvanceOpen(false)} />

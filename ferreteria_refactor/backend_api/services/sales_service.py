@@ -466,6 +466,11 @@ class SalesService:
                                     detail=f"Stock insuficiente para el componente '{child_product.name}' en '{wh_name}'. Se necesita: {qty_needed}, Disponible: {available_qty}"
                                 )
 
+                        # combo_serials: {str(child_product_id): [serial1, serial2, ...]}
+                        combo_serials_map = {}
+                        if hasattr(item, 'combo_serials') and item.combo_serials:
+                            combo_serials_map = {str(k): v for k, v in item.combo_serials.items()}
+
                         for combo_item in product.combo_items:
                             child_product = combo_item.child_product
 
@@ -496,6 +501,46 @@ class SalesService:
                                 balance_after=child_product.stock,
                                 description=f"Sale via combo: {product.name}{unit_description} (Sale #{new_sale_id})"
                             ))
+
+                            # ── Serializados dentro del combo ──────────────────────────────
+                            if child_product.has_imei:
+                                child_key = str(child_product.id)
+                                provided_serials = combo_serials_map.get(child_key, [])
+                                units_needed = int(qty_to_deduct)
+
+                                if provided_serials:
+                                    # Seriales enviados por el frontend
+                                    instances = db.query(models.ProductInstance).filter(
+                                        models.ProductInstance.product_id == child_product.id,
+                                        models.ProductInstance.warehouse_id == warehouse_id,
+                                        models.ProductInstance.serial_number.in_(provided_serials),
+                                        models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                                    ).with_for_update().all()
+
+                                    found_sns = {i.serial_number for i in instances}
+                                    missing = set(provided_serials) - found_sns
+                                    if missing:
+                                        raise HTTPException(
+                                            status_code=400,
+                                            detail=f"Seriales no disponibles para componente '{child_product.name}': {list(missing)}"
+                                        )
+                                else:
+                                    # Auto-seleccionar los primeros disponibles
+                                    instances = db.query(models.ProductInstance).filter(
+                                        models.ProductInstance.product_id == child_product.id,
+                                        models.ProductInstance.warehouse_id == warehouse_id,
+                                        models.ProductInstance.status == models.ProductInstanceStatus.AVAILABLE
+                                    ).with_for_update().limit(units_needed).all()
+
+                                    if len(instances) < units_needed:
+                                        raise HTTPException(
+                                            status_code=400,
+                                            detail=f"Stock serializado insuficiente para componente '{child_product.name}': "
+                                                   f"necesita {units_needed}, disponibles {len(instances)}"
+                                        )
+
+                                for inst in instances:
+                                    inst.status = models.ProductInstanceStatus.SOLD
 
                             updated_products_info.append({
                                 "id": child_product.id,

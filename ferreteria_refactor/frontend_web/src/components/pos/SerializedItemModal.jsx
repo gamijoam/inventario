@@ -5,7 +5,7 @@ import { useHotkeys } from 'react-hotkeys-hook';
 import { toast } from 'react-hot-toast';
 import apiClient from '../../config/axios';
 
-const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm }) => {
+const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm, title, subtitle }) => {
     const [serialInput, setSerialInput] = useState('');
     const [scannedSerials, setScannedSerials] = useState([]);
     const inputRef = useRef(null);
@@ -102,8 +102,9 @@ const SerializedItemModal = ({ isOpen, onClose, product, quantity = 1, onConfirm
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <div>
-                        <h3 className="text-lg font-bold text-slate-800">Escanear Seriales (IMEI)</h3>
+                        <h3 className="text-lg font-bold text-slate-800">{title || 'Escanear Seriales (IMEI)'}</h3>
                         <p className="text-xs text-slate-500 font-mono mt-0.5">{product.name}</p>
+                        {subtitle && <p className="text-xs text-indigo-500 font-bold mt-0.5">{subtitle}</p>}
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 transition-colors">
                         <X size={20} />
