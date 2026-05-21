@@ -291,6 +291,12 @@ class PaginatedCatalog(BaseModel):
     total: int
     has_more: bool
 
+class PaginatedProductList(BaseModel):
+    """Respuesta paginada para GET /products/ — incluye total para paginación correcta"""
+    items: List[ProductRead]
+    total: int
+    has_more: bool
+
 class SaleDetailCreate(BaseModel):
     product_id: int
     quantity: Decimal

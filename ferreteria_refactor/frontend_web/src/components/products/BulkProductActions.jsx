@@ -3,7 +3,7 @@ import apiClient from '../../config/axios';
 import { Download, Upload, FileSpreadsheet, FileText, AlertCircle, CheckCircle, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const BulkProductActions = ({ onImportComplete }) => {
+const BulkProductActions = ({ onImportComplete, searchTerm, filterCategory, filterStock, filterWarehouse, asMenuItems }) => {
     const [uploading, setUploading] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importResult, setImportResult] = useState(null);
@@ -80,7 +80,13 @@ const BulkProductActions = ({ onImportComplete }) => {
             toast.loading('Generando archivo Excel...');
 
             const response = await apiClient.get('/products/export/excel', {
-                responseType: 'blob'
+                responseType: 'blob',
+                params: {
+                    search: searchTerm || undefined,
+                    category_id: filterCategory || undefined,
+                    stock_filter: filterStock || undefined,
+                    warehouse_id: filterWarehouse || undefined,
+                }
             });
 
             const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -107,7 +113,13 @@ const BulkProductActions = ({ onImportComplete }) => {
             toast.loading('Generando archivo PDF...');
 
             const response = await apiClient.get('/products/export/pdf', {
-                responseType: 'blob'
+                responseType: 'blob',
+                params: {
+                    search: searchTerm || undefined,
+                    category_id: filterCategory || undefined,
+                    stock_filter: filterStock || undefined,
+                    warehouse_id: filterWarehouse || undefined,
+                }
             });
 
             const url = window.URL.createObjectURL(new Blob([response.data]));

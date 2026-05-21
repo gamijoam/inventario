@@ -93,6 +93,7 @@ const ProductsTab = () => {
     const [searchTerm, setSearchTerm]     = useState('');
     const [products, setProducts]         = useState([]);
     const [totalProductsReal, setTotalProductsReal] = useState(0);
+    const [filteredTotal, setFilteredTotal] = useState(0); // Total con filtros activos
     const [globalKpis, setGlobalKpis] = useState({ inStock: 0, lowStock: 0, outOfStock: 0 });
     const [isLoading, setIsLoading]       = useState(true);
     const [currentPage, setCurrentPage]   = useState(1);
@@ -110,7 +111,6 @@ const ProductsTab = () => {
     const fetchProducts = async (page = currentPage) => {
         setIsLoading(true);
         try {
-            // Cargar productos paginados y KPIs reales en paralelo
             const [res, kpisRes] = await Promise.allSettled([
                 apiClient.get('/products/', {
                     params: {
@@ -118,6 +118,8 @@ const ProductsTab = () => {
                         limit: ITEMS_PER_PAGE,
                         search: searchTerm || undefined,
                         warehouse_id: filterWarehouse || undefined,
+                        category_id: filterCategory || undefined,
+                        stock_filter: filterStock || undefined,
                         _t: Date.now()
                     }
                 }),
@@ -127,19 +129,15 @@ const ProductsTab = () => {
                 }),
             ]);
 
-            // Productos paginados
             if (res.status === 'fulfilled') {
                 const data = res.value.data;
-                if (data && Array.isArray(data.items)) {
-                    setProducts(data.items);
-                    setTotalProductsReal(data.total || data.items.length);
-                } else {
-                    setProducts(Array.isArray(data) ? data : []);
-                    setTotalProductsReal(Array.isArray(data) ? data.length : 0);
-                }
+                // El endpoint ahora siempre devuelve {items, total, has_more}
+                const items = data?.items ?? (Array.isArray(data) ? data : []);
+                const total = data?.total ?? items.length;
+                setProducts(items);
+                setFilteredTotal(total);
             }
 
-            // KPIs reales — siempre sobre TODOS los productos, no solo la página
             if (kpisRes.status === 'fulfilled') {
                 const k = kpisRes.value.data;
                 setTotalProductsReal(k.total ?? 0);
@@ -192,25 +190,18 @@ const ProductsTab = () => {
     useEffect(() => {
         const t = setTimeout(() => { setCurrentPage(1); fetchProducts(1); }, 400);
         return () => clearTimeout(t);
-    }, [searchTerm, filterCategory, filterWarehouse]);
+    }, [searchTerm, filterCategory, filterWarehouse, filterStock]);
 
     const filteredProducts = useMemo(() => {
-        let r = products.filter(p => {
-            if (filterCategory && p.category_id !== parseInt(filterCategory)) return false;
-            if (filterStock) {
-                const s = Number(p.stock || 0), m = Number(p.min_stock ?? 5);
-                if (filterStock === 'out_of_stock' && s > 0) return false;
-                if (filterStock === 'low_stock'   && !(s > 0 && s < m)) return false;
-                if (filterStock === 'in_stock'    && !(s >= m)) return false;
-            }
-            return true;
-        });
-        if (sortBy === 'az') r = [...r].sort((a, b) => a.name.localeCompare(b.name));
-        else if (sortBy === 'za') r = [...r].sort((a, b) => b.name.localeCompare(a.name));
-        else if (sortBy === 'price_asc') r = [...r].sort((a, b) => Number(a.price) - Number(b.price));
-        else if (sortBy === 'price_desc') r = [...r].sort((a, b) => Number(b.price) - Number(a.price));
+        // Los filtros category, stock, search ya se aplican en el backend
+        // Solo aplicamos sort local sobre la página actual
+        let r = [...products];
+        if (sortBy === 'az') r = r.sort((a, b) => a.name.localeCompare(b.name));
+        else if (sortBy === 'za') r = r.sort((a, b) => b.name.localeCompare(a.name));
+        else if (sortBy === 'price_asc') r = r.sort((a, b) => Number(a.price) - Number(b.price));
+        else if (sortBy === 'price_desc') r = r.sort((a, b) => Number(b.price) - Number(a.price));
         return r;
-    }, [products, filterCategory, filterStock, sortBy]);
+    }, [products, sortBy]);
 
     // KPI stats — siempre usa los totales reales del backend (/products/kpis)
     // Los filtros locales (categoría, stock) NO afectan los totales globales del inventario
@@ -268,7 +259,7 @@ const ProductsTab = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl shadow-xl border-slate-200 min-w-[180px]">
                             <DropdownMenuLabel className="text-[10px] uppercase text-slate-400 tracking-widest">Importar / Exportar</DropdownMenuLabel>
-                            <BulkProductActions onImportComplete={fetchProducts} asMenuItems />
+                            <BulkProductActions onImportComplete={fetchProducts} asMenuItems searchTerm={searchTerm} filterCategory={filterCategory} filterStock={filterStock} filterWarehouse={filterWarehouse} />
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={fetchProducts} className="cursor-pointer font-medium">
                                 <RefreshCw size={14} className="mr-2 text-slate-400" /> Recargar lista
@@ -497,7 +488,7 @@ const ProductsTab = () => {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="rounded-2xl shadow-xl border-slate-100 min-w-[160px]">
                                                 <DropdownMenuLabel className="text-[10px] uppercase text-slate-400 tracking-widest">Opciones</DropdownMenuLabel>
-                                                {product.has_imei && modules?.services && (
+                                                {product.has_imei && (
                                                     <DropdownMenuItem
                                                         onClick={() => { setSelectedProductForInstances(product); setIsInstancesModalOpen(true); }}
                                                         className="rounded-xl cursor-pointer font-medium text-slate-700"
@@ -533,27 +524,48 @@ const ProductsTab = () => {
             </div>
 
             {/* ── Paginación ───────────────────────────────────────────────── */}
-            <div className="flex items-center justify-between px-1">
-                <p className="text-xs text-slate-400 font-medium">
-                    {filteredProducts.length} productos · página {currentPage}
-                </p>
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="h-8 px-4 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                    >
-                        Anterior
-                    </button>
-                    <button
-                        onClick={() => setCurrentPage(p => p + 1)}
-                        disabled={products.length < ITEMS_PER_PAGE}
-                        className="h-8 px-4 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                    >
-                        Siguiente
-                    </button>
-                </div>
-            </div>
+            {/* ── Paginación con info completa ─────────────────────────── */}
+            {(() => {
+                const totalPages = Math.ceil(filteredTotal / ITEMS_PER_PAGE);
+                const from = filteredTotal === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1;
+                const to   = Math.min(currentPage * ITEMS_PER_PAGE, filteredTotal);
+                return (
+                    <div className="flex items-center justify-between px-1">
+                        <p className="text-xs text-slate-500 font-medium">
+                            {filteredTotal === 0 ? 'Sin resultados' : (
+                                <>
+                                    Mostrando <span className="font-bold text-slate-700">{from}–{to}</span> de{' '}
+                                    <span className="font-bold text-slate-700">{filteredTotal}</span> productos
+                                    {totalPages > 1 && (
+                                        <span className="text-slate-400"> · Página {currentPage} de {totalPages}</span>
+                                    )}
+                                </>
+                            )}
+                        </p>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="h-8 px-4 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            >
+                                ← Anterior
+                            </button>
+                            {totalPages > 1 && (
+                                <span className="text-xs font-bold text-slate-600 px-2">
+                                    {currentPage} / {totalPages}
+                                </span>
+                            )}
+                            <button
+                                onClick={() => setCurrentPage(p => p + 1)}
+                                disabled={currentPage >= totalPages || filteredTotal === 0}
+                                className="h-8 px-4 rounded-xl text-xs font-bold border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            >
+                                Siguiente →
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* ── Modales ──────────────────────────────────────────────────── */}
             <ProductForm

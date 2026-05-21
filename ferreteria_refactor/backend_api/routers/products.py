@@ -347,51 +347,82 @@ def get_product_kpis(
         "out_of_stock": int(result.out_of_stock or 0),
     }
 
-@router.get("/", response_model=List[schemas.ProductRead])
-@router.get("", response_model=List[schemas.ProductRead], include_in_schema=False)
+@router.get("/", response_model=schemas.PaginatedProductList)
+@router.get("", response_model=schemas.PaginatedProductList, include_in_schema=False)
 def read_products(
     skip: int = 0,
-    limit: int = Query(default=100, le=2000),
+    limit: int = Query(default=50, le=2000),
     search: Optional[str] = None,
     warehouse_id: Optional[int] = None,
+    category_id: Optional[int] = None,
+    stock_filter: Optional[str] = None,  # in_stock | low_stock | out_of_stock
     is_menu_item: Optional[bool] = None,
     has_imei: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     try:
-        query = db.query(models.Product).options(
-            joinedload(models.Product.category),  # Load category relationship
-            joinedload(models.Product.units), 
-            joinedload(models.Product.stocks), 
-            joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
-            joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product), 
-            joinedload(models.Product.price_rules),
-            joinedload(models.Product.recipes).subqueryload(rest_models.RestaurantRecipe.ingredient).subqueryload(models.Product.stocks)
-        ).filter(models.Product.is_active == True)
-        
+        base_query = db.query(models.Product).filter(models.Product.is_active == True)
+
         # FILTER: Warehouse
         if warehouse_id:
-            # Only return products that have POSITIVE stock in the selected warehouse
-            query = query.join(models.ProductStock).filter(
-                models.ProductStock.warehouse_id == warehouse_id,
-                models.ProductStock.quantity > 0
+            has_stock_subq = (
+                db.query(models.ProductStock.product_id)
+                .filter(models.ProductStock.warehouse_id == warehouse_id,
+                        models.ProductStock.quantity > 0)
+                .subquery()
             )
+            base_query = base_query.filter(models.Product.id.in_(has_stock_subq))
+
+        if category_id:
+            base_query = base_query.filter(models.Product.category_id == category_id)
 
         if is_menu_item is not None:
-            query = query.filter(models.Product.is_menu_item == is_menu_item)
+            base_query = base_query.filter(models.Product.is_menu_item == is_menu_item)
 
         if has_imei is not None:
-            query = query.filter(models.Product.has_imei == has_imei)
+            base_query = base_query.filter(models.Product.has_imei == has_imei)
 
         if search:
-            search_term = f"%{search}%"
-            query = query.filter(
-                or_(
-                    models.Product.name.ilike(search_term),
-                    models.Product.sku.ilike(search_term)
+            tokens = [t for t in search.strip().split() if t]
+            if len(tokens) == 1:
+                base_query = base_query.filter(
+                    or_(models.Product.name.ilike(f"%{tokens[0]}%"),
+                        models.Product.sku.ilike(f"%{tokens[0]}%"))
                 )
-            )
-            
+            else:
+                for t in tokens:
+                    base_query = base_query.filter(
+                        or_(models.Product.name.ilike(f"%{t}%"),
+                            models.Product.sku.ilike(f"%{t}%"))
+                    )
+
+        if stock_filter:
+            min_stock_default = 5
+            if stock_filter == 'out_of_stock':
+                base_query = base_query.filter(models.Product.stock <= 0)
+            elif stock_filter == 'low_stock':
+                base_query = base_query.filter(
+                    models.Product.stock > 0,
+                    models.Product.stock < func.coalesce(models.Product.min_stock, min_stock_default)
+                )
+            elif stock_filter == 'in_stock':
+                base_query = base_query.filter(
+                    models.Product.stock >= func.coalesce(models.Product.min_stock, min_stock_default)
+                )
+
+        # Contar total con filtros aplicados
+        total = base_query.with_entities(func.count(models.Product.id)).scalar()
+
+        query = base_query.options(
+            joinedload(models.Product.category),
+            joinedload(models.Product.units),
+            joinedload(models.Product.stocks),
+            joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
+            joinedload(models.Product.combo_items).joinedload(models.ComboItem.child_product),
+            joinedload(models.Product.price_rules),
+            joinedload(models.Product.recipes).subqueryload(rest_models.RestaurantRecipe.ingredient).subqueryload(models.Product.stocks)
+        ).order_by(func.lower(models.Product.name))
+
         products = query.offset(skip).limit(limit).all()
 
         # Calculate effective stock for combos/recipes
@@ -431,7 +462,11 @@ def read_products(
                 if warehouse_id:
                     p.stocks = [s for s in p.stocks if s.warehouse_id == warehouse_id]
 
-        return products
+        return {
+            "items": products,
+            "total": total,
+            "has_more": (skip + limit) < total,
+        }
     except Exception as e:
         print(f"[ERROR] ERROR loading products: {type(e).__name__}: {str(e)}")
         import traceback
@@ -986,13 +1021,33 @@ async def import_products(
 
 
 @router.get("/export/excel")
-def export_excel(db: Session = Depends(get_db)):
-    """
-    Export all active products to Excel
-    """
-    products = db.query(models.Product).filter(
-        models.Product.is_active == True
-    ).options(
+def export_excel(
+    search: Optional[str] = None,
+    category_id: Optional[int] = None,
+    stock_filter: Optional[str] = None,
+    warehouse_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Export products to Excel — respeta los filtros activos del inventario"""
+    query = db.query(models.Product).filter(models.Product.is_active == True)
+    if search:
+        tokens = [t for t in search.strip().split() if t]
+        for t in tokens:
+            query = query.filter(or_(
+                models.Product.name.ilike(f"%{t}%"),
+                models.Product.sku.ilike(f"%{t}%")
+            ))
+    if category_id:
+        query = query.filter(models.Product.category_id == category_id)
+    if stock_filter == 'out_of_stock':
+        query = query.filter(models.Product.stock <= 0)
+    elif stock_filter == 'low_stock':
+        query = query.filter(models.Product.stock > 0,
+            models.Product.stock < func.coalesce(models.Product.min_stock, 5))
+    elif stock_filter == 'in_stock':
+        query = query.filter(
+            models.Product.stock >= func.coalesce(models.Product.min_stock, 5))
+    products = query.options(
         joinedload(models.Product.category),
         joinedload(models.Product.supplier)
     ).order_by(func.lower(models.Product.name)).all()
@@ -1008,16 +1063,34 @@ def export_excel(db: Session = Depends(get_db)):
     )
 
 @router.get("/export/pdf")
-def export_pdf(db: Session = Depends(get_db)):
-    """
-    Export all active products to PDF
-    """
-    # Get business name from config if available
+def export_pdf(
+    search: Optional[str] = None,
+    category_id: Optional[int] = None,
+    stock_filter: Optional[str] = None,
+    warehouse_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Export products to PDF — respeta los filtros activos del inventario"""
     business_name = "Inventario"
-    
-    products = db.query(models.Product).filter(
-        models.Product.is_active == True
-    ).options(
+    query = db.query(models.Product).filter(models.Product.is_active == True)
+    if search:
+        tokens = [t for t in search.strip().split() if t]
+        for t in tokens:
+            query = query.filter(or_(
+                models.Product.name.ilike(f"%{t}%"),
+                models.Product.sku.ilike(f"%{t}%")
+            ))
+    if category_id:
+        query = query.filter(models.Product.category_id == category_id)
+    if stock_filter == 'out_of_stock':
+        query = query.filter(models.Product.stock <= 0)
+    elif stock_filter == 'low_stock':
+        query = query.filter(models.Product.stock > 0,
+            models.Product.stock < func.coalesce(models.Product.min_stock, 5))
+    elif stock_filter == 'in_stock':
+        query = query.filter(
+            models.Product.stock >= func.coalesce(models.Product.min_stock, 5))
+    products = query.options(
         joinedload(models.Product.category),
         joinedload(models.Product.supplier)
     ).order_by(func.lower(models.Product.name)).all()
