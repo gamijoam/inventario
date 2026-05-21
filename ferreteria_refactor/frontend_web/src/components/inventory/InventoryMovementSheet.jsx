@@ -109,7 +109,7 @@ const InventoryMovementSheet = ({ isOpen, onClose, onSuccess }) => {
                 params.search = query.trim();
             }
             const { data } = await apiClient.get('/products/', { params });
-            setProducts(data);
+            setProducts(Array.isArray(data) ? data : (data?.items || []));
         } catch (err) {
             console.error(err);
             toast.error('Error al buscar productos');

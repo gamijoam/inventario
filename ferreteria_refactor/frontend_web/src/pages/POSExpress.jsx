@@ -252,7 +252,7 @@ const POSExpress = () => {
                     apiClient.get('/categories'),
                     apiClient.get('/payment-methods/'),
                 ]);
-                setProducts(Array.isArray(pRes.data) ? pRes.data : []);
+                setProducts(Array.isArray(pRes.data) ? pRes.data : (pRes.data?.items || []));
                 setCategories(Array.isArray(cRes.data) ? cRes.data : []);
                 setPaymentMethods(Array.isArray(mRes.data) ? mRes.data : []);
             } catch { toast.error('Error cargando datos'); }

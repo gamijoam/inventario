@@ -91,7 +91,7 @@ const Products = () => {
                     warehouse_id: filterWarehouse || undefined,
                 }
             });
-            setProducts(response.data);
+            setProducts(Array.isArray(response.data) ? response.data : (response.data?.items || []));
         } catch (error) {
             console.error("Error fetching products:", error);
         } finally {

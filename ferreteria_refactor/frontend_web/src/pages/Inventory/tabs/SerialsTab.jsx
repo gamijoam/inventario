@@ -592,7 +592,7 @@ const SerialsTab = () => {
                 apiClient.get('/products/', { params: { limit: 2000, has_imei: true } }),
                 apiClient.get('/warehouses'),
             ]);
-            const all = Array.isArray(prodRes.data) ? prodRes.data : [];
+            const all = Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.items || []);
             setCatalog(all.filter(p => p.has_imei));
             setWarehouses(Array.isArray(whRes.data) ? whRes.data : []);
         } catch {

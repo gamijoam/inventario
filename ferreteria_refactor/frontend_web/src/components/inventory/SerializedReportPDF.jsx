@@ -145,7 +145,7 @@ const SerializedReportPDF = ({ tenantName }) => {
                 apiClient.get('/config/exchange-rates', { params: { is_active: true } }).catch(() => ({ data: [] })),
             ]);
 
-            const products = (Array.isArray(prodRes.data) ? prodRes.data : []).filter(p => p.has_imei);
+            const products = (Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.items || [])).filter(p => p.has_imei);
             const rates    = Array.isArray(rateRes.data) ? rateRes.data : [];
             const rate     = rates.length > 0 ? Number(rates[0].rate) : null;
 

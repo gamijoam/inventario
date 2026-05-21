@@ -273,7 +273,7 @@ const SerializedReception = () => {
                     apiClient.get('/products/', { params: { limit: 2000, has_imei: true } }),
                     apiClient.get('/warehouses'),
                 ]);
-                const products = (Array.isArray(pRes.data) ? pRes.data : []).filter(p => p.has_imei);
+                const products = (Array.isArray(pRes.data) ? pRes.data : (pRes.data?.items || [])).filter(p => p.has_imei);
                 setCatalog(products);
                 const whs = Array.isArray(wRes.data) ? wRes.data : [];
                 setWarehouses(whs);

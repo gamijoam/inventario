@@ -48,7 +48,7 @@ const AdjustmentModal = ({ isOpen, onClose, onSuccess }) => {
                 apiClient.get('/warehouses')
             ])
                 .then(([prodRes, whRes]) => {
-                    setProducts(prodRes.data);
+                    setProducts(Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.items || []));
                     setWarehouses(whRes.data);
                     // Default to first warehouse (Main usually)
                     if (whRes.data?.length > 0) {
