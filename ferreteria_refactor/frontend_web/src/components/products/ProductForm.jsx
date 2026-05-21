@@ -568,6 +568,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                             { key: 'is_service', label: 'Es un servicio', desc: 'No descuenta stock', icon: Package, color: 'bg-indigo-500' },
                                             { key: 'has_imei', label: 'Maneja IMEI/Serial', desc: 'Serial único por unidad', icon: ScanBarcode, color: 'bg-blue-500', show: modules.services },
                                             { key: 'is_menu_item', label: 'Item de Menú', desc: 'Restaurante', icon: UtensilsCrossed, color: 'bg-orange-500', show: modules?.restaurant },
+                                            { key: 'is_combo', label: 'Es un Combo/Kit', desc: 'Agrupa productos', icon: Layers, color: 'bg-violet-500' },
                                             { key: 'is_commissionable', label: 'Aplica Comisión', desc: 'Al cajero al vender', icon: DollarSign, color: 'bg-green-500' },
                                         ].filter(t => t.show !== false).map(toggle => {
                                             const Icon = toggle.icon;
@@ -583,6 +584,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                             setFormData(p => ({ ...p, is_service: !p.is_service }));
                                                         } else if (toggle.key === 'is_menu_item') {
                                                             setFormData(p => ({ ...p, is_menu_item: !p.is_menu_item }));
+                                                        } else if (toggle.key === 'is_combo') {
+                                                            setFormData(p => ({ ...p, is_combo: !p.is_combo, combo_items: !p.is_combo ? p.combo_items : [] }));
                                                         } else if (toggle.key === 'is_commissionable') {
                                                             setFormData(p => ({ ...p, is_commissionable: !p.is_commissionable }));
                                                         }
