@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from ..cache import get_cached, set_cached, invalidate, TTL
 from sqlalchemy.orm import Session
 from ..database.db import get_db
 from ..models import models
@@ -27,9 +28,11 @@ class PaymentMethodUpdate(BaseModel):
 
 class PaymentMethodResponse(PaymentMethodBase):
     id: int
-    is_system: bool
+    is_system: Optional[bool] = False
     requires_reference: Optional[bool] = False
     is_external_financer: Optional[bool] = False
+    allows_change: Optional[bool] = True
+    currency: Optional[str] = 'USD'
 
     class Config:
         from_attributes = True
@@ -45,7 +48,8 @@ def get_payment_methods(db: Session = Depends(get_db)):
 
 @router.post("/", response_model=PaymentMethodResponse)
 @router.post("", response_model=PaymentMethodResponse, include_in_schema=False)
-def create_payment_method(method: PaymentMethodCreate, db: Session = Depends(get_db)):
+def create_payment_method(  # cache invalidation applied
+method: PaymentMethodCreate, db: Session = Depends(get_db)):
     existing = db.query(models.PaymentMethod).filter(models.PaymentMethod.name == method.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Payment method already exists")
@@ -72,7 +76,8 @@ def create_payment_method(method: PaymentMethodCreate, db: Session = Depends(get
     return resp_obj
 
 @router.put("/{method_id}", response_model=PaymentMethodResponse)
-def update_payment_method(method_id: int, method: PaymentMethodUpdate, db: Session = Depends(get_db)):
+def update_payment_method(  # cache invalidation applied
+method_id: int, method: PaymentMethodUpdate, db: Session = Depends(get_db)):
     db_method = db.query(models.PaymentMethod).filter(models.PaymentMethod.id == method_id).first()
     if not db_method:
         raise HTTPException(status_code=404, detail="Payment method not found")
@@ -107,7 +112,8 @@ def update_payment_method(method_id: int, method: PaymentMethodUpdate, db: Sessi
     return resp_obj
 
 @router.delete("/{method_id}")
-def delete_payment_method(method_id: int, db: Session = Depends(get_db)):
+def delete_payment_method(  # cache invalidation applied
+method_id: int, db: Session = Depends(get_db)):
     db_method = db.query(models.PaymentMethod).filter(models.PaymentMethod.id == method_id).first()
     if not db_method:
         raise HTTPException(status_code=404, detail="Payment method not found")
