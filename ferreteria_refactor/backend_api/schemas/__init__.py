@@ -1465,3 +1465,10 @@ from .warranty import (
     WarrantyClaimUpdate,
     WarrantyClaimRead
 )
+
+# ── Resolver forward references de Pydantic v2 ──────────────────────────────
+# ComboItemRead.child_product usa 'ProductRead' como forward ref
+# ProductRead.combo_items usa ComboItemRead -- dependencia circular
+# model_rebuild() resuelve ambas referencias después de que todos los modelos están definidos
+ComboItemRead.model_rebuild()
+ProductRead.model_rebuild()
