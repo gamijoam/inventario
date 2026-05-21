@@ -40,10 +40,10 @@ class ProductBase(BaseModel):
     exchange_rate_id: Optional[int] = Field(None, description="ID de tasa de cambio específica (opcional)", json_schema_extra={'example': 2})
     is_combo: Optional[bool] = Field(False, description="Indica si el producto es un combo/bundle")
     has_imei: bool = Field(False, description="Indica si el producto maneja seriales/IMEIs") # NEW
-    is_service: bool = Field(False, description="Indica si es un servicio (no requiere stock)") # NEW
+    is_service: Optional[bool] = Field(False, description="Indica si es un servicio (no requiere stock)") # NEW
     is_commissionable: bool = Field(False, description="Indica si genera comision al vendedor") # NEW
-    is_barbershop_service: bool = Field(False, description="Indica si es un servicio de barbería") # NEW
-    is_menu_item: bool = Field(False, description="Indica si es un item de menú de restaurante") # NEW
+    is_barbershop_service: Optional[bool] = Field(False, description="Indica si es un servicio de barbería") # NEW
+    is_menu_item: Optional[bool] = Field(False, description="Indica si es un item de menú de restaurante") # NEW
     needs_kitchen: bool = Field(True, description="False = servido directo por mesero sin pasar por KDS") # NEW
     is_active: Optional[bool] = True
     
