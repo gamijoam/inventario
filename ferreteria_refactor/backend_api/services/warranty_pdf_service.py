@@ -371,9 +371,7 @@ def _generate_basic_pdf(
     # Etiqueta pequeña
     fc(*GRIS_MED)
     can.setFont("Helvetica", 7)
-    can.setCharSpace(2.5)
     can.drawString(15*mm, y, "CERTIFICADO DE GARANTIA")
-    can.setCharSpace(0)
     y -= 7*mm
 
     # Nombre del negocio — protagonista
@@ -384,9 +382,7 @@ def _generate_basic_pdf(
     # N° de garantía alineado a la derecha
     fc(*GRIS_MED)
     can.setFont("Helvetica", 7)
-    can.setCharSpace(1.5)
     can.drawRightString(w - 15*mm, y + 14*mm, "N° GARANTIA")
-    can.setCharSpace(0)
     fc(*NEGRO)
     can.setFont("Helvetica-Bold", 16)
     can.drawRightString(w - 15*mm, y + 5*mm, f"#{str(sale_id).zfill(6)}")
@@ -416,10 +412,8 @@ def _generate_basic_pdf(
     # Etiquetas
     fc(*GRIS_MED)
     can.setFont("Helvetica", 7)
-    can.setCharSpace(2)
     can.drawString(15*mm, y, "VENTA")
     can.drawString(col_mid + 2*mm, y, "CLIENTE")
-    can.setCharSpace(0)
     y -= 5*mm
 
     # Línea divisora delgada entre secciones
@@ -461,9 +455,7 @@ def _generate_basic_pdf(
     # ── EQUIPOS CUBIERTOS ────────────────────────────────────────────────────
     fc(*GRIS_MED)
     can.setFont("Helvetica", 7)
-    can.setCharSpace(2)
     can.drawString(15*mm, y, "EQUIPOS CUBIERTOS")
-    can.setCharSpace(0)
     y -= 6*mm
 
     unit_map = {"DAYS": "dias", "MONTHS": "meses", "YEARS": "anos", "LIFETIME": "de por vida"}
@@ -589,9 +581,7 @@ def _generate_basic_pdf(
 
     fc(*GRIS_OSC)
     can.setFont("Helvetica-Bold", 7.5)
-    can.setCharSpace(1.5)
     can.drawString(18*mm, y - 4*mm, "TERMINOS Y CONDICIONES")
-    can.setCharSpace(0)
 
     fc(*GRIS_MED)
     can.setFont("Helvetica", 7.5)
