@@ -38,7 +38,7 @@ const RecipeEditor = () => {
         try {
             const res = await apiClient.get('/products?limit=1000');
             // Ensure we have cost and price as numbers
-            const parsedProducts = res.data.map(p => ({
+            const parsedProducts = (Array.isArray(res.data) ? res.data : (res.data?.items || [])).map(p => ({
                 ...p,
                 cost: parseFloat(p.cost || 0),
                 price: parseFloat(p.price || 0),

@@ -470,7 +470,7 @@ const ProductUnitManager = ({ units, onUnitsChange, baseUnitType, basePrice, bas
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {units.map((unit) => (
-                        <div key={unit.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative group">
+                        <div key={unit._tempId || unit.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative group">
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-3">
                                     <div className={clsx(

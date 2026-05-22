@@ -65,7 +65,7 @@ const CreatePurchase = () => {
     const fetchProducts = async () => {
         try {
             const response = await apiClient.get('/products?limit=2000');
-            setProducts(response.data);
+            setProducts(Array.isArray(response.data) ? response.data : (response.data?.items || []));
         } catch (error) {
             console.error('Error fetching products:', error);
             toast.error('Error al cargar productos');

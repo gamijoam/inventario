@@ -21,7 +21,8 @@ const ServiceDeliveryModal = ({ order, onClose, onDeliver, onPaymentRequest }) =
             try {
                 // Try to find a default laundry service product
                 const res = await apiClient.get('/products/?search=Lavado');
-                if (res.data && res.data.length > 0) {
+                const _items = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+                if (_items.length > 0) {
                     const defaultProd = res.data[0];
                     setSelectedProduct(defaultProd);
                     setPricePerKg(defaultProd.price);

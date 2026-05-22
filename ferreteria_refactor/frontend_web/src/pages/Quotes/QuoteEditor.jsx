@@ -53,7 +53,7 @@ const QuoteEditor = ({ quoteId, onBack }) => {
                 params.search = query.trim();
             }
             const { data } = await apiClient.get('/products', { params });
-            setCatalog(data);
+            setCatalog(Array.isArray(data) ? data : (data?.items || []));
         } catch (error) {
             console.error(error);
             toast.error("Error cargando productos");
