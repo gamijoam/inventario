@@ -397,7 +397,7 @@ export default function SharedCatalog() {
             const res = await apiClient.get(`/organizations/${orgId}/catalog`, {
                 params: { search: search || undefined }
             });
-            setProducts(res.data || []);
+            setProducts(Array.isArray(res.data) ? res.data : (res.data?.items || []));
         } catch (err) {
             toast.error('Error al cargar el catálogo compartido');
         } finally {

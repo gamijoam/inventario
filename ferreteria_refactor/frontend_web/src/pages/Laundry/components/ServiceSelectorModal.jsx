@@ -44,7 +44,7 @@ const ServiceSelectorModal = ({ isOpen, onClose, onSelectService, selectedServic
             const res = await apiClient.get('/products', {
                 params: { is_service: true }
             });
-            setServices(res.data);
+            setServices(Array.isArray(res.data) ? res.data : (res.data?.items || []));
         } catch (error) {
             console.error('Error fetching services:', error);
             toast.error('Error cargando servicios');

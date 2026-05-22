@@ -50,7 +50,7 @@ const ExternalTransferOut = () => {
         try {
             setLoading(true);
             const response = await apiClient.get(`/products?search=${search}&limit=20`);
-            setProducts(response.data);
+            setProducts(Array.isArray(response.data) ? response.data : (response.data?.items || []));
         } catch (error) {
             console.error("Error searching products:", error);
         } finally {

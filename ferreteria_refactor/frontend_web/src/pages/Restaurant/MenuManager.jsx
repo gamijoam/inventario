@@ -37,7 +37,7 @@ const MenuManager = () => {
                 items: s.items || []
             }));
             setSections(safeSections);
-            setProducts(Array.isArray(prodRes.data) ? prodRes.data : []);
+            setProducts(Array.isArray(prodRes.data) ? prodRes.data : (prodRes.data?.items || []));
         } catch (error) {
             console.error(error);
             toast.error('Error cargando menú');

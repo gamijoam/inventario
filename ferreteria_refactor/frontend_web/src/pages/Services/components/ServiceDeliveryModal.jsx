@@ -39,7 +39,7 @@ const ServiceDeliveryModal = ({ order, onClose, onDeliver, onPaymentRequest }) =
         if (searchTerm.length > 2) {
             const timeoutId = setTimeout(async () => {
                 const res = await apiClient.get(`/products/?search=${searchTerm}`);
-                setProducts(res.data);
+                setProducts(Array.isArray(res.data) ? res.data : (res.data?.items || []));
             }, 500);
             return () => clearTimeout(timeoutId);
         }
