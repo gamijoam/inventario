@@ -49,6 +49,7 @@ class ProductBase(BaseModel):
     
     # Image Support
     image_url: Optional[str] = Field(None, description="URL relativa de la imagen del producto", json_schema_extra={'example': "/media/products/uuid-v4.webp"})
+    image_url_original: Optional[str] = Field(None, description="Imagen ORIGINAL (antes de eliminar fondo); permite restaurar")
     
     @field_validator('image_url', mode='before')
     @classmethod
@@ -229,6 +230,8 @@ class ProductCreate(ProductBase):
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
+    image_url: Optional[str] = None
+    image_url_original: Optional[str] = None
     sku: Optional[str] = None
     price: Optional[Decimal] = None
     price_mayor_1: Optional[Decimal] = None

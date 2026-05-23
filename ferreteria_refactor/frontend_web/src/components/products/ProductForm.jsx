@@ -432,8 +432,10 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                 <div className="flex flex-col items-center justify-center">
                                     <ProductImageUploader
                                         currentImageUrl={formData.image_url}
+                                        currentImageOriginalUrl={formData.image_url_original}
                                         productId={initialData?.id}
                                         onImageUpdate={(url) => setFormData(p => ({ ...p, image_url: url }))}
+                                        onOriginalUpdate={(url) => setFormData(p => ({ ...p, image_url_original: url }))}
                                     />
                                 </div>
 

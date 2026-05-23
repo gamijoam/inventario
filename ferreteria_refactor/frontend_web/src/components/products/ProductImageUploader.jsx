@@ -249,7 +249,7 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
 };
 
 // ─── Uploader principal ───────────────────────────────────────────────────────
-export default function ProductImageUploader({ productId, currentImageUrl, onImageUpdate }) {
+export default function ProductImageUploader({ productId, currentImageUrl, currentImageOriginalUrl, onImageUpdate, onOriginalUpdate }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [dragActive, setDragActive] = useState(false);
@@ -309,6 +309,75 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
     e.preventDefault(); e.stopPropagation();
     setDragActive(e.type === 'dragenter' || e.type === 'dragover');
   };
+  // ── Modal "Sin fondo" sobre imagen YA cargada ─────────────────────────
+  const [bgModalOpen, setBgModalOpen]     = useState(false);
+  const [bgModalLoading, setBgModalLoading] = useState(false);
+  const [bgModalError, setBgModalError]   = useState(null);
+  const [bgPreviewNew, setBgPreviewNew]   = useState(null);     // URL nueva (procesada)
+  const [bgPreviewOld, setBgPreviewOld]   = useState(null);     // URL anterior (original)
+
+  const handleOpenBgModal = async () => {
+    if (!productId) {
+      setBgModalError('Guarda primero el producto para procesar la imagen');
+      setBgModalOpen(true);
+      return;
+    }
+    setBgModalOpen(true);
+    setBgModalLoading(true);
+    setBgModalError(null);
+    setBgPreviewNew(null);
+    setBgPreviewOld(currentImageUrl);
+    try {
+      const r = await apiClient.post(`/products/${productId}/remove-background-on-existing`);
+      const data = r.data || {};
+      setBgPreviewNew(data.image_url);
+      setBgPreviewOld(data.image_url_original);
+      // Aplicar al form (preview en vivo)
+      if (onImageUpdate) onImageUpdate(data.image_url);
+      if (onOriginalUpdate) onOriginalUpdate(data.image_url_original);
+    } catch (e) {
+      const msg = e?.response?.data?.detail || 'Error al procesar la imagen';
+      setBgModalError(msg);
+    } finally {
+      setBgModalLoading(false);
+    }
+  };
+
+  const handleAcceptBg = () => {
+    // Ya está aplicado en el form; solo cerramos el modal
+    setBgModalOpen(false);
+  };
+
+  const handleCancelBg = async () => {
+    // Si hubo cambio efectivo (bgPreviewNew y bgPreviewOld), revertimos
+    if (productId && bgPreviewNew && bgPreviewOld) {
+      try {
+        const r = await apiClient.post(`/products/${productId}/restore-background`);
+        if (onImageUpdate) onImageUpdate(r.data.image_url);
+        if (onOriginalUpdate) onOriginalUpdate(null);
+      } catch {}
+    }
+    setBgModalOpen(false);
+    setBgPreviewNew(null);
+    setBgPreviewOld(null);
+    setBgModalError(null);
+  };
+
+  const handleRestoreOriginal = async () => {
+    if (!productId || !currentImageOriginalUrl) return;
+    if (!confirm('¿Restaurar la imagen original (con fondo)?')) return;
+    setUploading(true);
+    try {
+      const r = await apiClient.post(`/products/${productId}/restore-background`);
+      if (onImageUpdate) onImageUpdate(r.data.image_url);
+      if (onOriginalUpdate) onOriginalUpdate(null);
+    } catch (e) {
+      setError(e?.response?.data?.detail || 'Error al restaurar la imagen');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleDrop = (e) => {
     e.preventDefault(); e.stopPropagation();
     setDragActive(false);
@@ -317,6 +386,89 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
 
   return (
     <div className="w-full">
+      {/* Modal "Sin fondo" sobre imagen YA cargada — Antes/Después */}
+      {bgModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+             onClick={handleCancelBg}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden"
+               onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="text-purple-500" size={18} />
+                <h3 className="font-black text-slate-800 text-base">Eliminar fondo con IA</h3>
+              </div>
+              <button onClick={handleCancelBg}
+                      className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-rose-500 rounded-xl hover:bg-rose-50 transition-all">
+                <X size={16} />
+              </button>
+            </div>
+
+            {bgModalError ? (
+              <div className="p-8">
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-start gap-3">
+                  <X size={18} className="text-rose-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm text-rose-700 font-semibold">{bgModalError}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Antes */}
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 text-center">Original</p>
+                    <div className="aspect-square bg-slate-50 rounded-2xl border-2 border-slate-100 overflow-hidden flex items-center justify-center">
+                      {bgPreviewOld ? (
+                        <img src={getImageUrl(bgPreviewOld)} alt="Original"
+                             className="w-full h-full object-contain p-2" />
+                      ) : (
+                        <ImageIcon className="text-slate-300" size={40} />
+                      )}
+                    </div>
+                  </div>
+                  {/* Después */}
+                  <div>
+                    <p className="text-[10px] font-black text-purple-500 uppercase tracking-widest mb-2 text-center">Sin fondo</p>
+                    <div className="aspect-square rounded-2xl border-2 border-purple-200 overflow-hidden flex items-center justify-center bg-[length:20px_20px] bg-[linear-gradient(45deg,#e2e8f0_25%,transparent_25%,transparent_75%,#e2e8f0_75%),linear-gradient(45deg,#e2e8f0_25%,transparent_25%,transparent_75%,#e2e8f0_75%)] bg-[position:0_0,10px_10px] bg-white">
+                      {bgModalLoading ? (
+                        <div className="flex flex-col items-center gap-3">
+                          <RefreshCw className="text-purple-500 animate-spin" size={32} />
+                          <p className="text-xs font-bold text-purple-600">Procesando con IA...</p>
+                          <p className="text-[10px] text-slate-400">Puede tardar unos segundos</p>
+                        </div>
+                      ) : bgPreviewNew ? (
+                        <img src={getImageUrl(bgPreviewNew)} alt="Sin fondo"
+                             className="w-full h-full object-contain p-2" />
+                      ) : (
+                        <ImageIcon className="text-slate-300" size={40} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {bgPreviewNew && !bgModalLoading && (
+                  <p className="text-center text-[11px] text-emerald-600 font-bold mt-3">
+                    ✨ Fondo eliminado. El cuadriculado representa transparencia.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="px-6 pb-6 flex gap-3">
+              <button onClick={handleCancelBg}
+                      disabled={bgModalLoading}
+                      className="flex-1 py-2.5 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 disabled:opacity-50 transition-all">
+                Cancelar
+              </button>
+              <button onClick={handleAcceptBg}
+                      disabled={bgModalLoading || !bgPreviewNew || bgModalError}
+                      className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg">
+                <Check size={16} /> Usar sin fondo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lightbox */}
       {lightbox && currentImageUrl && (
         <div
@@ -370,6 +522,26 @@ export default function ProductImageUploader({ productId, currentImageUrl, onIma
               <Camera size={13} /> Foto
               <input type="file" className="hidden" accept="image/*" capture="environment" onChange={(e) => openEditor(e.target.files[0])} disabled={uploading} />
             </label>
+            {/* Sin fondo / Restaurar */}
+            {!currentImageOriginalUrl ? (
+              <button
+                onClick={handleOpenBgModal}
+                disabled={uploading || !productId}
+                title={!productId ? 'Guarda primero el producto' : 'Eliminar el fondo de esta imagen'}
+                className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Sparkles size={13} /> Sin fondo
+              </button>
+            ) : (
+              <button
+                onClick={handleRestoreOriginal}
+                disabled={uploading}
+                title="Restaurar imagen original (con fondo)"
+                className="bg-amber-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold hover:bg-amber-600 transition-all shadow flex items-center gap-1.5"
+              >
+                <Undo2 size={13} /> Restaurar
+              </button>
+            )}
             {/* Eliminar */}
             <button onClick={handleDelete} disabled={uploading} className="bg-rose-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold hover:bg-rose-600 transition-all shadow flex items-center gap-1.5">
               <Trash2 size={13} /> Borrar

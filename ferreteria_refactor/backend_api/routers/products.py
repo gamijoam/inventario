@@ -1330,10 +1330,102 @@ def delete_product_image(product_id: int, db: Session = Depends(get_db)):
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    
+
     product.image_url = None
+    product.image_url_original = None
     db.commit()
     return {"success": True, "message": "Imagen eliminada correctamente"}
+
+
+@router.post("/{product_id}/remove-background-on-existing",
+             dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+def remove_bg_on_existing(product_id: int, db: Session = Depends(get_db)):
+    """
+    Procesa la imagen ACTUAL de un producto: elimina el fondo con rembg
+    y guarda el resultado como NUEVA imagen. La imagen original se preserva
+    en `image_url_original` para permitir restaurarla.
+
+    Si la imagen actual ya viene del proceso de eliminar fondo (existe
+    image_url_original), no la pisa — devuelve 409 para evitar perder
+    el original.
+    """
+    import os as _os
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    if not product.image_url:
+        raise HTTPException(status_code=400, detail="El producto no tiene imagen")
+
+    if product.image_url_original:
+        raise HTTPException(
+            status_code=409,
+            detail=("Esta imagen ya tiene su fondo eliminado. "
+                    "Restaura primero el original si quieres re-procesar.")
+        )
+
+    # Leer archivo físico desde /app/media — la URL es /media/products/<uuid>.webp
+    from ..utils.media_utils import BASE_MEDIA_DIR, save_bytes_as_image
+    rel = product.image_url.lstrip("/")
+    if rel.startswith("media/"):
+        rel = rel[len("media/"):]
+    file_path = _os.path.join(BASE_MEDIA_DIR, rel)
+    if not _os.path.exists(file_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"El archivo de imagen no se encontró en disco ({file_path})"
+        )
+
+    with open(file_path, "rb") as f:
+        original_bytes = f.read()
+
+    # Procesar con rembg
+    processed = remove_background(original_bytes)
+
+    # Guardar nueva imagen (PNG con alpha -> WebP con alpha)
+    new_url = save_bytes_as_image(processed, folder="products", extension="png")
+
+    # Actualizar producto: la URL anterior pasa a ser image_url_original
+    old_url = product.image_url
+    product.image_url_original = old_url
+    product.image_url = new_url
+    db.commit()
+    db.refresh(product)
+
+    return {
+        "success": True,
+        "image_url": new_url,
+        "image_url_original": old_url,
+        "message": "Fondo eliminado correctamente"
+    }
+
+
+@router.post("/{product_id}/restore-background",
+             dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+def restore_bg_on_existing(product_id: int, db: Session = Depends(get_db)):
+    """
+    Restaura la imagen ORIGINAL del producto (deshace remove-background).
+    No borra el archivo procesado del disco; si el usuario vuelve a
+    pedir remove-background, se regenera.
+    """
+    product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    if not product.image_url_original:
+        raise HTTPException(
+            status_code=400,
+            detail="Este producto no tiene imagen original guardada"
+        )
+
+    product.image_url = product.image_url_original
+    product.image_url_original = None
+    db.commit()
+    db.refresh(product)
+
+    return {
+        "success": True,
+        "image_url": product.image_url,
+        "message": "Imagen original restaurada"
+    }
 
 # ========================================
 # PRICE CALCULATION UTILITY
