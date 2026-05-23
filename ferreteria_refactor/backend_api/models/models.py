@@ -195,6 +195,7 @@ class Product(Base):
 
     # Image Support
     image_url = Column(String(255), nullable=True)  # Relative path to product image
+    image_url_original = Column(String(500), nullable=True)  # Imagen ORIGINAL (antes de eliminar fondo)
     updated_at = Column(DateTime, default=get_venezuela_now, onupdate=datetime.datetime.now)  # Auto-updated timestamp
 
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)

@@ -104,6 +104,7 @@ const ConsolidatedDashboard = React.lazy(() => import('./pages/Org/ConsolidatedD
 const SharedCatalog = React.lazy(() => import('./pages/Org/SharedCatalog'));
 // Multi-empresa — Sprint 5
 const InterCompanyTransfers = React.lazy(() => import('./pages/Org/InterCompanyTransfers'));
+const StockSearch = React.lazy(() => import('./pages/Org/StockSearch'));
 // Multi-empresa — Sprint 6
 const OrgConfig = React.lazy(() => import('./pages/Org/OrgConfig'));
 
@@ -330,6 +331,7 @@ function App() {
                                 <Route index element={<ConsolidatedDashboard />} />
                                 <Route path="dashboard" element={<ConsolidatedDashboard />} />
                                 <Route path="transfers" element={<InterCompanyTransfers />} />
+                                <Route path="stock-search" element={<StockSearch />} />
                                 <Route path="catalog" element={<SharedCatalog />} />
                                 <Route path="members" element={<OrgMembers />} />
                                 <Route path="config" element={<OrgConfig />} />

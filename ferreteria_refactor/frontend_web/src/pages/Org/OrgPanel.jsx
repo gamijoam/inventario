@@ -8,7 +8,7 @@ import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Building2, BarChart3, ArrowLeftRight, Package,
   Settings, Users, ChevronRight, LogOut, ExternalLink,
-  Menu, X, Store, Wifi
+  Menu, X, Store, Wifi, PackageSearch
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -16,6 +16,7 @@ import { toast } from 'react-hot-toast';
 const NAV = [
   { to: '/org/dashboard',  icon: BarChart3,       label: 'Dashboard',    desc: 'Resumen consolidado' },
   { to: '/org/transfers',  icon: ArrowLeftRight,  label: 'Traslados',    desc: 'Entre empresas' },
+  { to: '/org/stock-search', icon: PackageSearch, label: 'Buscar stock', desc: 'En todo el grupo' },
   { to: '/org/catalog',    icon: Package,         label: 'Catálogo',     desc: 'Productos compartidos' },
   { to: '/org/members',    icon: Users,           label: 'Miembros',     desc: 'Equipo del grupo' },
   { to: '/org/config',     icon: Settings,        label: 'Configuración',desc: 'Ajustes del grupo' },
@@ -28,6 +29,7 @@ export default function OrgPanel() {
   const [companies, setCompanies] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [switching, setSwitching] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     // Cargar org del usuario actual (endpoint propio sin necesitar superadmin)
@@ -49,6 +51,37 @@ export default function OrgPanel() {
         } catch {}
       });
   }, []);
+
+  // Poll de traslados pendientes recibidos (para badge en nav)
+  useEffect(() => {
+    let alive = true;
+    const fetchPending = async () => {
+      try {
+        // Necesitamos saber nuestra empresa actual
+        const hostname  = window.location.hostname;
+        const subParts  = hostname.split('.');
+        const subdomain = subParts.length >= 3 ? subParts[0] : null;
+        const lsTenant  = localStorage.getItem('selected_tenant');
+        const currentSchema = subdomain || lsTenant || '';
+        if (!currentSchema) { if (alive) setPendingCount(0); return; }
+
+        const r = await apiClient.get('/inter-transfers', { params: { status: 'PENDING' } });
+        if (!alive) return;
+        const list = Array.isArray(r.data) ? r.data : [];
+        // Contar las que apuntan a NUESTRA empresa (incoming)
+        const incoming = list.filter(t => {
+          // Si tenemos companies, usamos el id; si no, fallback al schema name
+          const company = companies.find(c => c.schema_name === currentSchema);
+          if (company) return t.to_tenant_id === (company.id || company.tenant_id);
+          return false;
+        });
+        setPendingCount(incoming.length);
+      } catch { if (alive) setPendingCount(0); }
+    };
+    fetchPending();
+    const iv = setInterval(fetchPending, 60000);
+    return () => { alive = false; clearInterval(iv); };
+  }, [companies]);
 
   const handleEnterCompany = async (company) => {
     const schema = company.schema_name;
@@ -125,7 +158,7 @@ export default function OrgPanel() {
               key={to}
               to={to}
               className={({ isActive }) => `
-                flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all
+                relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all
                 ${isActive
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
                   : 'text-slate-300 hover:bg-slate-800 hover:text-white'}
@@ -133,10 +166,16 @@ export default function OrgPanel() {
             >
               <Icon size={18} className="flex-shrink-0" />
               {sidebarOpen && (
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold leading-none">{label}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">{desc}</p>
                 </div>
+              )}
+              {/* Badge de traslados pendientes */}
+              {to === '/org/transfers' && pendingCount > 0 && (
+                <span className={`${sidebarOpen ? 'ml-auto' : 'absolute -top-1 -right-1'} bg-rose-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center shadow-md`}>
+                  {pendingCount > 99 ? '99+' : pendingCount}
+                </span>
               )}
             </NavLink>
           ))}

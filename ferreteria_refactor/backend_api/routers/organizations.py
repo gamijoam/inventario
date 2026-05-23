@@ -21,7 +21,8 @@ from ..schemas.organization import (
     SharedProductCreate, SharedProductOut, ImportSharedProductRequest,
     InterCompanyTransferCreate, InterCompanyTransferOut,
     ConsolidatedSummary, TenantDailySummary, OrgCompanyOut,
-    OrgPlanConfig, OrgWhatsAppConfig
+    OrgPlanConfig, OrgWhatsAppConfig,
+    StockSearchMatch, StockSearchResponse
 )
 from ..dependencies import get_current_active_user, get_current_superuser
 from ..utils.time_utils import get_venezuela_now
@@ -290,6 +291,96 @@ def consolidated_mine(
 
     # Llamar al endpoint consolidado con el org_id detectado
     return consolidated_dashboard(membership.organization_id, db, current_user)
+
+
+@router.get("/my-org/stock-search", response_model=StockSearchResponse)
+def stock_search_my_org(
+    q: str = Query(..., min_length=2, description="Buscar por SKU o nombre (mín. 2 caracteres)"),
+    limit_per_tenant: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Busca un producto por SKU o nombre en TODAS las empresas de la organización
+    del usuario actual. Devuelve dónde hay stock y cuánto.
+
+    - Match: SKU ILIKE 'q%' (prefijo) OR name ILIKE '%q%' (contiene).
+    - Solo tenants activos y productos activos.
+    - Resultados ordenados por stock desc.
+
+    Permisos: cualquier miembro de la organización (con can_switch=true).
+    TODO: en una fase posterior, gate por role (owner/manager/viewer).
+    """
+    # Localizar la organización del usuario por su email
+    membership = db.query(OrganizationUser).filter(
+        OrganizationUser.user_email == current_user.email,
+        OrganizationUser.can_switch == True
+    ).first()
+    if not membership:
+        raise HTTPException(status_code=404, detail="No perteneces a ninguna organización")
+
+    org = db.query(Organization).filter(
+        Organization.id == membership.organization_id,
+        Organization.is_active == True
+    ).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organización inactiva o no encontrada")
+
+    tenants = db.query(Tenant).filter(
+        Tenant.organization_id == org.id,
+        Tenant.is_active == True
+    ).all()
+
+    q_clean   = q.strip()
+    sku_like  = f"{q_clean}%"
+    name_like = f"%{q_clean}%"
+
+    results: List[StockSearchMatch] = []
+    for t in tenants:
+        try:
+            rows = db.execute(text(
+                f'SELECT id, sku, name, stock, COALESCE(min_stock,0) AS min_stock, '
+                f'       COALESCE(price,0) AS price, COALESCE(cost_price,0) AS cost_price, '
+                f'       is_active '
+                f'FROM "{t.schema_name}".products '
+                f'WHERE is_active = true '
+                f'  AND (sku ILIKE :sku_like OR name ILIKE :name_like) '
+                f'ORDER BY stock DESC, name ASC '
+                f'LIMIT :lim'
+            ), {"sku_like": sku_like, "name_like": name_like, "lim": limit_per_tenant}).fetchall()
+
+            for r in rows:
+                stk = float(r.stock or 0)
+                ms  = float(r.min_stock or 0)
+                results.append(StockSearchMatch(
+                    tenant_id     = t.id,
+                    tenant_name   = t.name,
+                    tenant_schema = t.schema_name,
+                    product_id    = int(r.id),
+                    sku           = r.sku,
+                    name          = r.name,
+                    stock         = stk,
+                    min_stock     = ms,
+                    price         = float(r.price or 0),
+                    cost_price    = float(r.cost_price or 0),
+                    is_active     = bool(r.is_active),
+                    low_stock     = (ms > 0 and stk <= ms)
+                ))
+        except Exception:
+            # Schema sin tabla products todavía (tenant recén creado) -> ignorar
+            continue
+
+    # Re-ordenar globalmente por stock desc para que las mejores filas suban
+    results.sort(key=lambda x: (-x.stock, x.name or ""))
+
+    return StockSearchResponse(
+        query             = q_clean,
+        organization_id   = org.id,
+        organization_name = org.name,
+        tenants_searched  = len(tenants),
+        total_matches     = len(results),
+        results           = results
+    )
 
 
 @router.get("/{org_id}", response_model=OrganizationOut)

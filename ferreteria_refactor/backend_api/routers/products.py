@@ -19,7 +19,9 @@ from ..websocket.events import WebSocketEvents
 from ..audit_utils import log_action
 from ..services.product_import_service import ProductImportService
 from ..services.product_export_service import ProductExportService
-from ..utils.media_utils import save_upload_file
+from ..utils.media_utils import save_upload_file, save_bytes_as_image
+from ..services.bg_remover import remove_background, is_available as bg_is_available
+from fastapi.responses import Response
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -30,10 +32,47 @@ async def upload_product_image(
 ):
     """
     Securely upload a product image.
-    Isolation: /media/{tenant_id}/products/{uuid}.jpg
+    Isolation: /media/{tenant_id}/products/{uuid}.webp
+    Soporta imágenes con canal alpha (resultado de eliminar fondo).
     """
     image_url = save_upload_file(file, folder="products")
     return {"success": True, "image_url": image_url}
+
+
+@router.post("/remove-background", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
+async def remove_image_background(
+    file: UploadFile = File(...),
+    current_user: models.User = Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))
+):
+    """
+    Elimina el fondo de una imagen usando AI (rembg/u2netp).
+    Recibe imagen multipart, devuelve PNG con fondo transparente como binario.
+
+    El frontend usa este endpoint en el preview ANTES de subir la imagen final.
+    Después puede subir el resultado (con alpha) vía /upload-image normal.
+    """
+    # Validar tipo
+    if not (file.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+
+    raw = await file.read()
+    if not raw or len(raw) < 50:
+        raise HTTPException(status_code=400, detail="Imagen vacía o inválida")
+
+    # Procesar con rembg
+    out_bytes = remove_background(raw)
+
+    return Response(
+        content=out_bytes,
+        media_type="image/png",
+        headers={"Cache-Control": "no-store", "X-BG-Removed": "1"}
+    )
+
+
+@router.get("/remove-background/status")
+async def remove_background_status():
+    """Indica si el servicio de eliminar fondo está disponible."""
+    return {"available": bg_is_available()}
 
 # Helper para ejecutar broadcast asíncrono desde contexto síncrono
 def run_broadcast(event: str, data: dict):

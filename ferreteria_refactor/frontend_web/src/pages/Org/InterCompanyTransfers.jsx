@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   ArrowLeftRight, Plus, RefreshCw, Store,
   CheckCircle, XCircle, Clock, Search, Trash2, AlertCircle
@@ -63,6 +63,60 @@ export default function InterCompanyTransfers() {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // ── Prefill desde Buscar Stock ────────────────────────────────────────
+  // Si el usuario hizo click en "Solicitar" en /org/stock-search, viene aquí
+  // con prefill_transfer en localStorage. Lo consumimos UNA vez por sesión.
+  const prefillConsumedRef = useRef(false);
+  const [prefillBanner, setPrefillBanner] = useState(null);  // { product_name, from_tenant_name } o null
+
+  useEffect(() => {
+    if (prefillConsumedRef.current) return;
+    if (loading) return;  // esperar a que companies esté cargado
+    let raw = null;
+    try { raw = localStorage.getItem('prefill_transfer'); } catch {}
+    if (!raw) return;
+
+    let pf;
+    try { pf = JSON.parse(raw); } catch { localStorage.removeItem('prefill_transfer'); return; }
+    if (!pf || !pf.product_sku) {
+      localStorage.removeItem('prefill_transfer');
+      return;
+    }
+    prefillConsumedRef.current = true;
+    localStorage.removeItem('prefill_transfer');
+
+    // Detectar empresa actual desde subdominio o localStorage
+    const hostname  = (typeof window !== 'undefined') ? window.location.hostname : '';
+    const subParts  = hostname.split('.');
+    const subdomain = subParts.length >= 3 ? subParts[0] : null;
+    const lsTenant  = (typeof localStorage !== 'undefined') ? localStorage.getItem('selected_tenant') : null;
+    const currentSchema = subdomain || lsTenant || '';
+
+    if (pf.from_tenant_schema && currentSchema && currentSchema !== pf.from_tenant_schema) {
+      // Usuario está en otra empresa → mostrar banner para que cambie primero
+      setPrefillBanner({
+        product_name      : pf.product_name,
+        from_tenant_name  : pf.from_tenant_name,
+        from_tenant_schema: pf.from_tenant_schema,
+        stock_available   : pf.stock_available,
+      });
+      return;
+    }
+
+    // Estamos en la empresa origen correcta → abrir formulario con item pre-llenado
+    setShowForm(true);
+    setForm({ to_id: '', notes: 'Solicitud generada desde Buscar Stock' });
+    setItems([{
+      product_sku : pf.product_sku,
+      product_name: pf.product_name,
+      quantity    : 1,
+      stock       : parseFloat(pf.stock_available || 0),
+      unit_cost   : parseFloat(pf.cost_price || 0),
+    }]);
+    loadProducts();
+    toast.success(`Pre-llenado: ${pf.product_name} (origen: ${pf.from_tenant_name})`);
+  }, [loading]);
 
   // Cargar productos frescos del tenant actual
   const loadProducts = async () => {
@@ -202,6 +256,27 @@ export default function InterCompanyTransfers() {
           </button>
         </div>
       </div>
+
+      {/* Banner si el prefill apunta a otra empresa */}
+      {prefillBanner && (
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+          <AlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-amber-900">
+              Quieres trasladar <span className="underline">{prefillBanner.product_name}</span> desde <strong>{prefillBanner.from_tenant_name}</strong>
+            </p>
+            <p className="text-xs text-amber-800 mt-1">
+              Pero estás dentro de otra empresa. Cambia primero a <strong>{prefillBanner.from_tenant_name}</strong> para crear el traslado.
+              <br/>
+              Stock disponible allí: <strong>{prefillBanner.stock_available}</strong>.
+            </p>
+          </div>
+          <button onClick={() => setPrefillBanner(null)}
+            className="text-amber-700 hover:text-amber-900 text-xs font-bold p-1">
+            Cerrar
+          </button>
+        </div>
+      )}
 
       {/* Formulario */}
       {showForm && (

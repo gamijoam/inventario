@@ -13,6 +13,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-descargar modelo u2netp (~5MB) para eliminar fondo de imágenes (rembg)
+# Se descarga en build-time para evitar cold start en producción.
+ENV U2NET_HOME=/app/.u2net
+RUN mkdir -p /app/.u2net && \
+    python -c "from rembg import new_session; new_session('u2netp')" && \
+    ls -la /app/.u2net
+
 # Copy the rest of the code from the root context (context is .)
 COPY . .
 

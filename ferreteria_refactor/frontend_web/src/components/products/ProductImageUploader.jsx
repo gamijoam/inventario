@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, X, Image as ImageIcon, Trash2, RefreshCw, Camera, RotateCw, Check, ZoomIn } from 'lucide-react';
+import { Upload, X, Image as ImageIcon, Trash2, RefreshCw, Camera, RotateCw, Check, ZoomIn, Sparkles, Undo2 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { API_ROOT_URL } from '../../config/constants';
 import noImgPlaceholder from '../../assets/no-img.svg';
@@ -13,6 +13,88 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
   const [editorError, setEditorError] = useState(false);
   const imgRef = useRef(null);
 
+  // ── Eliminar fondo (IA) ────────────────────────────────────────────
+  const [processedSrc, setProcessedSrc] = useState(null);   // dataURL del PNG sin fondo
+  const [originalSrc, setOriginalSrc]   = useState(src);    // fuente original para restaurar
+  const [bgRemoving, setBgRemoving]     = useState(false);
+  const [bgError, setBgError]           = useState(null);
+
+  const currentSrc = processedSrc || originalSrc;
+
+  const handleRemoveBackground = async () => {
+    if (bgRemoving) return;
+    setBgRemoving(true);
+    setBgError(null);
+    try {
+      // 1) Aplicar primero la rotación/zoom actual a un canvas
+      const img = imgRef.current;
+      if (!img) throw new Error('No hay imagen');
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (!w || !h) throw new Error('Imagen sin dimensiones');
+
+      const MAX_SIZE = 1280;  // Limitar para que rembg sea rápido
+      let drawW = w, drawH = h;
+      if (Math.max(w, h) > MAX_SIZE) {
+        const r = MAX_SIZE / Math.max(w, h);
+        drawW = Math.round(w * r);
+        drawH = Math.round(h * r);
+      }
+      const canvas = document.createElement('canvas');
+      const rad = (rotation * Math.PI) / 180;
+      const sin = Math.abs(Math.sin(rad));
+      const cos = Math.abs(Math.cos(rad));
+      canvas.width  = Math.ceil(drawW * cos + drawH * sin);
+      canvas.height = Math.ceil(drawW * sin + drawH * cos);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(rad);
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+
+      // 2) Canvas → Blob → enviar al backend
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('Canvas vacío')),
+                      'image/png', 0.92);
+      });
+      const formData = new FormData();
+      formData.append('file', blob, 'preview.png');
+
+      const apiClientMod = await import('../../config/axios');
+      const r = await apiClientMod.default.post('/products/remove-background', formData, {
+        responseType: 'blob',
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
+      });
+
+      // 3) Convertir blob → dataURL para mostrar en el preview
+      const reader = new FileReader();
+      reader.onload = e => {
+        setProcessedSrc(e.target.result);
+        // Resetear rotación y zoom para que el resultado se vea bien
+        setRotation(0);
+        setScale(1);
+      };
+      reader.readAsDataURL(r.data);
+    } catch (e) {
+      const msg = e?.response?.status === 503
+        ? 'El servicio de eliminar fondo no está disponible'
+        : (e?.response?.data instanceof Blob
+            ? 'Error al procesar la imagen'
+            : (e?.message || 'Error al eliminar fondo'));
+      setBgError(msg);
+    } finally {
+      setBgRemoving(false);
+    }
+  };
+
+  const handleRestoreBackground = () => {
+    setProcessedSrc(null);
+    setBgError(null);
+  };
+
   const rotate = () => {
     try { setRotation(r => (r + 90) % 360); }
     catch (e) { console.error(e); }
@@ -23,19 +105,15 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
       const img = imgRef.current;
       if (!img) return;
 
-      // Esperar a que la imagen tenga dimensiones reales
       const w = img.naturalWidth || img.width;
       const h = img.naturalHeight || img.height;
       if (!w || !h) {
-        // Si aún no cargó, esperar
         await new Promise(res => setTimeout(res, 300));
         return handleConfirm();
       }
 
-      // Limitar resolución máxima para evitar OOM en tablets
       const MAX_SIZE = 1600;
-      let drawW = w;
-      let drawH = h;
+      let drawW = w, drawH = h;
       if (Math.max(w, h) > MAX_SIZE) {
         const ratio = MAX_SIZE / Math.max(w, h);
         drawW = Math.round(w * ratio);
@@ -46,38 +124,43 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
       const rad = (rotation * Math.PI) / 180;
       const sin = Math.abs(Math.sin(rad));
       const cos = Math.abs(Math.cos(rad));
-
       const canvasW = Math.ceil(drawW * cos + drawH * sin);
       const canvasH = Math.ceil(drawW * sin + drawH * cos);
-
       if (canvasW <= 0 || canvasH <= 0 || canvasW > 4000 || canvasH > 4000) return;
 
       canvas.width = canvasW;
       canvas.height = canvasH;
-
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
       ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvasW, canvasH);
+      // Si la imagen tiene fondo eliminado (processedSrc), NO pintamos fondo blanco
+      // (preservamos transparencia). Para originales, sí pintamos blanco.
+      if (!processedSrc) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvasW, canvasH);
+      } else {
+        ctx.clearRect(0, 0, canvasW, canvasH);
+      }
       ctx.translate(canvasW / 2, canvasH / 2);
       ctx.rotate(rad);
       ctx.scale(scale, scale);
       ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
 
+      // Si hay transparencia (bg removido), exportar como PNG. Si no, JPEG.
+      const mime = processedSrc ? 'image/png' : 'image/jpeg';
+      const ext  = processedSrc ? 'png'        : 'jpg';
       canvas.toBlob(blob => {
         if (!blob) return;
-        const file = new File([blob], 'edited.jpg', { type: 'image/jpeg' });
+        const file = new File([blob], `edited.${ext}`, { type: mime });
         onConfirm(file);
-      }, 'image/jpeg', 0.88);
+      }, mime, 0.92);
     } catch (err) {
       console.error('Error procesando imagen:', err);
-      // Si falla el canvas (ej: CORS), cerrar editor sin cambios
       onCancel();
     }
-  }, [rotation, scale, onConfirm, imgLoaded, src]);
+  }, [rotation, scale, onConfirm, imgLoaded, processedSrc]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -88,10 +171,12 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
             <X size={16} />
           </button>
         </div>
-        <div className="bg-slate-100 flex items-center justify-center overflow-hidden" style={{ height: 260 }}>
+        <div
+          className={`flex items-center justify-center overflow-hidden ${processedSrc ? 'bg-[length:20px_20px] bg-[linear-gradient(45deg,#e2e8f0_25%,transparent_25%,transparent_75%,#e2e8f0_75%),linear-gradient(45deg,#e2e8f0_25%,transparent_25%,transparent_75%,#e2e8f0_75%)] bg-[position:0_0,10px_10px] bg-white' : 'bg-slate-100'}`}
+          style={{ height: 260 }}>
           <img
             ref={imgRef}
-            src={src}
+            src={currentSrc}
             alt="Preview"
             crossOrigin="anonymous"
             onLoad={() => setImgLoaded(true)}
@@ -110,6 +195,46 @@ const ImageEditor = ({ src, onConfirm, onCancel }) => {
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest w-16">Zoom</span>
             <input type="range" min="0.5" max="2" step="0.05" value={scale} onChange={e => setScale(parseFloat(e.target.value))} className="flex-1 accent-indigo-600" />
             <span className="text-xs text-slate-400 font-mono w-10">{(scale * 100).toFixed(0)}%</span>
+          </div>
+
+          {/* Eliminar fondo (IA) */}
+          <div className="pt-2 border-t border-slate-100">
+            {!processedSrc ? (
+              <button
+                onClick={handleRemoveBackground}
+                disabled={!imgLoaded || bgRemoving}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold text-xs hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
+              >
+                {bgRemoving ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Procesando con IA... (puede tardar unos segundos)
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} />
+                    Eliminar fondo con IA
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={handleRestoreBackground}
+                disabled={bgRemoving}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-all"
+              >
+                <Undo2 size={14} />
+                Restaurar fondo original
+              </button>
+            )}
+            {bgError && (
+              <p className="mt-2 text-[10px] text-rose-600 text-center font-semibold">{bgError}</p>
+            )}
+            {processedSrc && !bgError && (
+              <p className="mt-2 text-[10px] text-emerald-600 text-center font-bold">
+                ✨ Fondo eliminado. El cuadriculado indica transparencia.
+              </p>
+            )}
           </div>
         </div>
         <div className="px-5 pb-5 flex gap-3">

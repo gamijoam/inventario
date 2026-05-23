@@ -214,3 +214,31 @@ class OrgWhatsAppConfig(BaseModel):
     """Configuración de WhatsApp compartido para la organización."""
     use_shared_whatsapp : bool          # Activar / desactivar WA compartido
     whatsapp_instance   : Optional[str] = None  # Nombre de la instancia Baileys
+
+
+# ── Stock Search Cross-Empresa ────────────────────────────────────────────────
+
+class StockSearchMatch(BaseModel):
+    """Una coincidencia de producto en una empresa del grupo."""
+    tenant_id     : int
+    tenant_name   : str
+    tenant_schema : str
+    product_id    : int
+    sku           : Optional[str] = None
+    name          : str
+    stock         : float
+    min_stock     : float = 0.0
+    price         : float = 0.0
+    cost_price    : float = 0.0
+    is_active     : bool  = True
+    low_stock     : bool  = False   # True si stock <= min_stock (y min_stock > 0)
+
+
+class StockSearchResponse(BaseModel):
+    """Respuesta de búsqueda de stock cross-empresa."""
+    query             : str
+    organization_id   : int
+    organization_name : str
+    tenants_searched  : int
+    total_matches     : int
+    results           : List[StockSearchMatch]

@@ -20,6 +20,56 @@ from ..schemas.organization import (
 from ..dependencies import get_current_active_user
 from ..tenant_context import get_tenant_schema
 from ..utils.time_utils import get_venezuela_now
+import httpx
+
+def _notify_wa_destination(db: Session, from_tenant: Tenant, to_tenant: Tenant,
+                          transfer: InterCompanyTransfer, items_count: int):
+    """Notifica por WhatsApp a la empresa destino sobre un traslado nuevo.
+    Lee la config de WA del schema de destino. Falla silenciosamente.
+    Activado por feature flag 'whatsapp_notify_transfer'."""
+    try:
+        dest = to_tenant.schema_name
+        def _cfg(k: str) -> str:
+            row = db.execute(
+                text(f'SELECT value FROM "{dest}".business_config WHERE key = :k'),
+                {"k": k}
+            ).fetchone()
+            return (row[0] or "") if row else ""
+
+        if _cfg("whatsapp_notify_transfer") != "true":
+            return  # feature flag desactivado en destino
+        if _cfg("whatsapp_enabled") != "true":
+            return  # WhatsApp deshabilitado
+        if _cfg("whatsapp_instance_status") != "CONNECTED":
+            return  # instancia no conectada
+
+        phone    = _cfg("whatsapp_admin_phone")
+        instance = _cfg("whatsapp_instance_name")
+        if not phone or not instance:
+            return
+
+        clean = "".join(c for c in phone if c.isdigit())
+        if len(clean) < 7:
+            return
+
+        message = (
+            f"📦 *Nuevo traslado entrante*\n\n"
+            f"De: *{from_tenant.name}*\n"
+            f"A: *{to_tenant.name}*\n\n"
+            f"Ítems en la solicitud: {items_count}\n"
+            f"ID: #{transfer.id}\n"
+            f"Notas: {transfer.notes or '—'}\n\n"
+            f"Ingresa a Mi Inventario → Traslados para aceptar o rechazar."
+        )
+        WA_URL = "http://whatsapp_service:3000"
+        with httpx.Client(timeout=6.0) as c:
+            c.post(f"{WA_URL}/instance/{instance}/send",
+                   json={"phone": clean, "message": message})
+        print(f"[WA Transfer] Notificación enviada a {clean} (instancia {instance})")
+    except Exception as e:
+        # Fallar silenciosamente — la creación del traslado no debe fallar por WA
+        print(f"[WA Transfer] Notificación falló (no bloqueante): {e}")
+
 
 router = APIRouter(prefix="/inter-transfers", tags=["inter-transfers"])
 
@@ -109,6 +159,10 @@ def create_transfer(
 
     db.commit()
     db.refresh(transfer)
+
+    # Notificación WhatsApp a la empresa destino (no bloqueante)
+    _notify_wa_destination(db, from_tenant, to_tenant, transfer, len(data.items))
+
     return _build_transfer_out(transfer, db)
 
 

@@ -569,6 +569,15 @@ def startup_event():
         print("[INFO] ✅ Migración de multicajas completada.")
     except Exception as e:
         print(f"[ERROR] ⚠️ Error en migración de multicajas: {e}")
+
+    # NEW: image_url_original (para soporte de "eliminar fondo")
+    print("[INFO] Propagando columna image_url_original...")
+    try:
+        from .migrate_image_original import migrate_image_original
+        migrate_image_original(engine)
+        print("[INFO] ✅ Migración image_url_original completada.")
+    except Exception as e:
+        print(f"[ERROR] ⚠️ Error en migración image_url_original: {e}")
     
     # FALLBACK: Create tables if they don't exist (for development/first run)
     # This ensures the app works even if migrations fail or DB is in inconsistent state
