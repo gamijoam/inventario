@@ -511,14 +511,14 @@ export default function ProductImageUploader({ productId, currentImageUrl, curre
           </button>
 
           {/* Botones editar — esquina inferior, no cubren toda la imagen */}
-          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-3 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-            {/* Galería */}
-            <label className="cursor-pointer bg-white text-slate-700 px-3 py-1.5 rounded-xl text-[11px] font-bold hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow flex items-center gap-1.5" title="Galería">
-              <RefreshCw size={13} className={cn(uploading && 'animate-spin')} /> Galería
+          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-2 flex items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all flex-wrap">
+            {/* Galería (icon-only) */}
+            <label className="cursor-pointer bg-white text-slate-700 p-2 rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow flex items-center justify-center" title="Cambiar imagen desde galería">
+              <RefreshCw size={14} className={cn(uploading && 'animate-spin')} />
               <input type="file" className="hidden" accept="image/*" onChange={(e) => openEditor(e.target.files[0])} disabled={uploading} />
             </label>
             {/* Cámara */}
-            <label className="cursor-pointer bg-indigo-600 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold hover:bg-indigo-700 transition-all shadow flex items-center gap-1.5" title="Tomar foto">
+            <label className="cursor-pointer bg-indigo-600 text-white px-2.5 py-1.5 rounded-xl text-[11px] font-bold hover:bg-indigo-700 transition-all shadow flex items-center gap-1" title="Tomar foto">
               <Camera size={13} /> Foto
               <input type="file" className="hidden" accept="image/*" capture="environment" onChange={(e) => openEditor(e.target.files[0])} disabled={uploading} />
             </label>
@@ -528,7 +528,7 @@ export default function ProductImageUploader({ productId, currentImageUrl, curre
                 onClick={handleOpenBgModal}
                 disabled={uploading || !productId}
                 title={!productId ? 'Guarda primero el producto' : 'Eliminar el fondo de esta imagen'}
-                className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow flex items-center gap-1.5 disabled:opacity-50"
+                className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-2.5 py-1.5 rounded-xl text-[11px] font-bold hover:from-purple-600 hover:to-indigo-600 transition-all shadow flex items-center gap-1 disabled:opacity-50 whitespace-nowrap"
               >
                 <Sparkles size={13} /> Sin fondo
               </button>
@@ -537,14 +537,15 @@ export default function ProductImageUploader({ productId, currentImageUrl, curre
                 onClick={handleRestoreOriginal}
                 disabled={uploading}
                 title="Restaurar imagen original (con fondo)"
-                className="bg-amber-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold hover:bg-amber-600 transition-all shadow flex items-center gap-1.5"
+                className="bg-amber-500 text-white px-2.5 py-1.5 rounded-xl text-[11px] font-bold hover:bg-amber-600 transition-all shadow flex items-center gap-1 whitespace-nowrap"
               >
                 <Undo2 size={13} /> Restaurar
               </button>
             )}
-            {/* Eliminar */}
-            <button onClick={handleDelete} disabled={uploading} className="bg-rose-500 text-white px-3 py-1.5 rounded-xl text-[11px] font-bold hover:bg-rose-600 transition-all shadow flex items-center gap-1.5">
-              <Trash2 size={13} /> Borrar
+            {/* Eliminar (icon-only) */}
+            <button onClick={handleDelete} disabled={uploading} title="Eliminar imagen"
+              className="bg-rose-500 text-white p-2 rounded-xl hover:bg-rose-600 transition-all shadow flex items-center justify-center">
+              <Trash2 size={14} />
             </button>
           </div>
           {uploading && (
