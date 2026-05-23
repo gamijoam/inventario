@@ -286,6 +286,7 @@ v1_router.include_router(admin_flags_router, tags=["Feature Flags"])
 from .routers import public_auth
 from .routers import organizations
 from .routers import inter_transfers, bloqueo as bloqueo_mod
+from .routers import pricing as pricing_mod
 v1_router.include_router(public_auth.router, tags=["Public Auth"])
 
 from .routers.modules.restaurant import tables as restaurant_tables
@@ -304,6 +305,7 @@ v1_router.include_router(restaurant_print.router, prefix="/restaurant")
 app.include_router(v1_router)
 app.include_router(organizations.router, prefix="/api/v1")
 app.include_router(inter_transfers.router, prefix="/api/v1")
+app.include_router(pricing_mod.router, prefix="/api/v1/config")
 app.include_router(bloqueo_mod.router,     prefix="/api/v1")
 
 # DEBUG ENDPOINT - Remove after debugging
@@ -578,6 +580,15 @@ def startup_event():
         print("[INFO] ✅ Migración image_url_original completada.")
     except Exception as e:
         print(f"[ERROR] ⚠️ Error en migración image_url_original: {e}")
+
+    # NEW: tablas para audit de cambios masivos de precios
+    print("[INFO] Propagando tablas price_change_log...")
+    try:
+        from .migrate_price_change_log import migrate_price_change_log
+        migrate_price_change_log(engine)
+        print("[INFO] ✅ Migración price_change_log completada.")
+    except Exception as e:
+        print(f"[ERROR] ⚠️ Error en migración price_change_log: {e}")
     
     # FALLBACK: Create tables if they don't exist (for development/first run)
     # This ensures the app works even if migrations fail or DB is in inconsistent state

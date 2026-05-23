@@ -7,7 +7,7 @@ import MessageCircle from 'lucide-react/dist/esm/icons/message-circle';
 import ShoppingBag from 'lucide-react/dist/esm/icons/shopping-bag';
 import {
     Building2, Users, DollarSign, Percent, CreditCard, Printer,
-    ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X, Lock
+    ShieldCheck, ClipboardList, Monitor, ChevronRight, Menu, X, Lock, Calculator
 } from 'lucide-react';
 
 const GeneralTab        = React.lazy(() => import('./tabs/GeneralTab'));
@@ -24,6 +24,7 @@ const WhatsAppTab       = React.lazy(() => import('./tabs/WhatsAppTab'));
 const CatalogTab        = React.lazy(() => import('./tabs/CatalogTab'));
 const IntegracionesTab      = React.lazy(() => import('./tabs/IntegracionesTab'));
 const FinanciadoresConfigTab = React.lazy(() => import('./tabs/FinanciadoresConfigTab'));
+const PreciosMasivosTab     = React.lazy(() => import('./tabs/PreciosMasivosTab'));
 
 // ── Grupos del menú lateral ──────────────────────────────────────────────────
 const GROUPS = [
@@ -41,6 +42,7 @@ const GROUPS = [
             { id: 'monedas',    label: 'Monedas',           icon: DollarSign,   desc: 'Tasas de cambio y monedas' },
             { id: 'impuestos',  label: 'Impuestos',         icon: Percent,      desc: 'IVA, IGTF y tasas especiales' },
             { id: 'pagos',      label: 'Métodos de Pago',   icon: CreditCard,   desc: 'Formas de cobro disponibles' },
+            { id: 'precios',    label: 'Precios masivos',   icon: Calculator,   desc: 'Aplicar margen a todos los productos' },
             { id: 'financiadoras', label: 'Financiadoras',      icon: Building2,    desc: 'Cashea, Krece y empresas de crédito externo' },
         ],
     },
@@ -71,6 +73,7 @@ const renderTabContent = (activeTab) => {
         <Suspense fallback={<TabSpinner />}><Component /></Suspense>
     );
     switch (activeTab) {
+        case 'precios':    return wrap(PreciosMasivosTab);
         case 'general':    return wrap(GeneralTab);
         case 'usuarios':   return wrap(UsuariosTab);
         case 'monedas':    return wrap(MonedasTab);
