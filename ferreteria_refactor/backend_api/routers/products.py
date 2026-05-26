@@ -1133,8 +1133,29 @@ def export_pdf(
         joinedload(models.Product.category),
         joinedload(models.Product.supplier)
     ).order_by(func.lower(models.Product.name)).all()
-    
-    buffer = ProductExportService.export_to_pdf(products, business_name)
+
+    # Cargar listas de precios activas del tenant + precios por producto
+    price_lists = db.query(models.PriceList).filter(
+        models.PriceList.is_active == True
+    ).order_by(models.PriceList.id).all()
+
+    prices_by_product = {}
+    if price_lists:
+        product_ids = [p.id for p in products]
+        list_ids = [pl.id for pl in price_lists]
+        if product_ids and list_ids:
+            pp_rows = db.query(models.ProductPrice).filter(
+                models.ProductPrice.product_id.in_(product_ids),
+                models.ProductPrice.price_list_id.in_(list_ids)
+            ).all()
+            for pp in pp_rows:
+                prices_by_product.setdefault(pp.product_id, {})[pp.price_list_id] = float(pp.price or 0)
+
+    buffer = ProductExportService.export_to_pdf(
+        products, business_name,
+        price_lists=price_lists,
+        prices_by_product=prices_by_product
+    )
     
     filename = f"inventario_{date.today().strftime('%Y-%m-%d')}.pdf"
     

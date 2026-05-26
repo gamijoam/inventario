@@ -1454,6 +1454,12 @@ def render_legal(
         _logo_top = h - 28*mm + _logo_h
         _logo_drawn = _draw_logo(can, _logo_path, margen, _logo_top, _logo_w, _logo_h)
 
+    # ── FECHA al mismo nivel que el nombre de la compañia (h - 15mm) ──
+    fc(*GRIS_MED); can.setFont("Helvetica", 7)
+    can.drawRightString(w - margen, h - 11*mm, "FECHA DE EMISION")
+    fc(*AZUL_AC); can.setFont("Helvetica-Bold", 14)
+    can.drawRightString(w - margen, h - 15*mm, sale_date or "")
+
     def draw_dotted_line(x1, y, x2, label_value=""):
         sc(*GRIS_LINE); can.setLineWidth(0.4)
         can.setDash(1, 2); can.line(x1, y, x2, y); can.setDash([])
@@ -1488,7 +1494,7 @@ def render_legal(
     can.drawCentredString(cx, y, "DOCUMENTO DE GARANTIA Y COMPROBANTE DE VENTA")
     y -= 4*mm
     fc(*GRIS_MED); can.setFont("Helvetica", 7.5)
-    can.drawCentredString(cx, y, f"N° {str(sale_id).zfill(6)}   ·   Emitido: {sale_date}")
+    can.drawCentredString(cx, y, f"N° {str(sale_id).zfill(6)}")
     y -= 6*mm
 
     first_item = imei_items[0] if imei_items else None
@@ -1530,10 +1536,6 @@ def render_legal(
         fc(*GRIS_OSC); can.setFont("Helvetica-Oblique", 7.5)
         extras = ", ".join([it["product_name"][:25] for it in imei_items[1:]])
         can.drawString(margen, y, ("Equipos adicionales: " + extras)[:140])
-        y -= 5*mm
-    else:
-        draw_field(margen, y, "Color", "", margen + (inner_w/2) - 3*mm)
-        draw_field(margen + (inner_w/2) + 3*mm, y, "Capacidad", "", w - margen)
         y -= 5*mm
     y -= 2*mm
 

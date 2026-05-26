@@ -7,7 +7,7 @@ from io import BytesIO
 from datetime import date
 from typing import List
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.pagesizes import letter, A4, landscape
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
@@ -83,15 +83,26 @@ class ProductExportService:
         return buffer
     
     @staticmethod
-    def export_to_pdf(products: List[models.Product], business_name: str = "Inventario") -> BytesIO:
+    def export_to_pdf(products: List[models.Product], business_name: str = "Inventario",
+                       price_lists: list = None, prices_by_product: dict = None) -> BytesIO:
         """
-        Export products to PDF file
-        
-        Returns:
-            BytesIO buffer with PDF file
+        Export products to PDF file con precios de cada lista de precios activa.
+
+        Args:
+            products: lista de productos
+            business_name: nombre del negocio
+            price_lists: lista de PriceList objects activas (opcional)
+            prices_by_product: dict {product_id: {price_list_id: price}} (opcional)
         """
+        price_lists = price_lists or []
+        prices_by_product = prices_by_product or {}
+
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        # Si hay listas de precios, usar landscape para más espacio horizontal
+        pagesize = landscape(A4) if len(price_lists) > 0 else A4
+        doc = SimpleDocTemplate(buffer, pagesize=pagesize,
+                                topMargin=0.4*inch, bottomMargin=0.4*inch,
+                                leftMargin=0.4*inch, rightMargin=0.4*inch)
         elements = []
         
         # Styles
@@ -117,18 +128,29 @@ class ProductExportService:
         elements.append(date_text)
         elements.append(Spacer(1, 0.3*inch))
         
-        # Prepare table data
-        table_data = [['ID', 'Nombre', 'SKU', 'Precio', 'Stock', 'Categoría']]
-        
+        # Headers fijos + dinámicos según listas de precios
+        headers = ['ID', 'Nombre', 'SKU', 'Costo', 'Precio Base', 'Stock', 'Categoría']
+        # Una columna por cada lista de precios activa
+        for pl in price_lists:
+            headers.append(pl.name)
+        table_data = [headers]
+
         for p in products:
-            table_data.append([
+            row = [
                 str(p.id),
-                p.name[:30] + '...' if len(p.name) > 30 else p.name,
+                p.name[:35] + '...' if len(p.name) > 35 else p.name,
                 p.sku or '-',
-                f"${p.price:.2f}",
-                f"{p.stock:.0f}",
+                f"${(p.cost_price or 0):.2f}",
+                f"${(p.price or 0):.2f}",
+                f"{(p.stock or 0):.0f}",
                 (p.category.name[:15] if p.category else '-')
-            ])
+            ]
+            # Precios por lista de precios
+            prod_prices = prices_by_product.get(p.id, {})
+            for pl in price_lists:
+                price = prod_prices.get(pl.id)
+                row.append(f"${price:.2f}" if price is not None and price > 0 else '-')
+            table_data.append(row)
         
         # Create table
         table = Table(table_data, repeatRows=1)
@@ -138,14 +160,14 @@ class ProductExportService:
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 0), (-1, 0), 8 if len(price_lists) > 0 else 10),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
             
             # Body
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('FONTSIZE', (0, 1), (-1, -1), 7 if len(price_lists) > 0 else 8),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
         ]))
         
