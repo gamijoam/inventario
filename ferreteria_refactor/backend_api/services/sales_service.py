@@ -1371,14 +1371,9 @@ class SalesService:
             else:
                 template = template + financing_section
 
-        # 4. Si la venta tiene IMEI/seriales → usar template de servicios SOLO si el
-        # cliente NO tiene un template personalizado configurado.
-        # Si el usuario seleccionó una plantilla en /ticket-templates/apply, esa
-        # plantilla GANA siempre (respeta su elección incluso con celulares/IMEI).
+        # 4. Si la venta tiene IMEI/seriales → usar template de servicios (solo si está guardado)
         has_serialized = any(item.get("serial_numbers") for item in formatted_items)
-        has_custom_template = bool(template_config and template_config.value
-                                   and "{%" not in template_config.value)
-        if has_serialized and not has_custom_template:
+        if has_serialized:
             svc_key = f"ticket_template_services_{paper_width}"
             svc_config = db.query(models.BusinessConfig).get(svc_key)
             if svc_config and svc_config.value and "{%" not in svc_config.value:
