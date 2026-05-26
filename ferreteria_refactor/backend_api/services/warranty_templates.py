@@ -1504,7 +1504,7 @@ def render_legal(
     elif wp and wp.type == "LIFETIME":
         warranty_text = "de por vida"
     else:
-        warranty_text = "6 meses"
+        warranty_text = "15 dias"
 
     fc(*AZUL_AC); can.setFont("Helvetica-Bold", 9.5)
     can.drawString(margen, y, "1. DATOS DEL CLIENTE")
