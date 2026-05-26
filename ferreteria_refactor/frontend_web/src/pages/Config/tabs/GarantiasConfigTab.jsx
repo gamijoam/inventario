@@ -15,6 +15,7 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Textarea } from '../../../components/ui/textarea';
 import { toast } from 'react-hot-toast';
+import WarrantyTemplateSelector from './WarrantyTemplateSelector';
 
 const GarantiasConfigTab = () => {
     const [policies, setPolicies] = useState([]);
@@ -79,6 +80,9 @@ const GarantiasConfigTab = () => {
 
     return (
         <div className="space-y-6">
+            {/* Selector visual de plantilla de PDF */}
+            <WarrantyTemplateSelector />
+
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <p className="text-slate-500 text-sm mt-1">Define las condiciones de garantía que aplicarán a tus productos.</p>

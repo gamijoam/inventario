@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Save } from 'lucide-react';
+import BusinessLogoUploader from './BusinessLogoUploader';
 import { useConfig } from '../../../context/ConfigContext';
 import configService from '../../../services/configService';
 import { toast } from 'react-hot-toast';
@@ -61,6 +62,9 @@ const GeneralTab = () => {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Logo del negocio */}
+            <BusinessLogoUploader />
 
             {/* Fiscal Data Card */}
             <Card>

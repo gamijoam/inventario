@@ -1269,3 +1269,93 @@ def set_auto_print_ticket(
         db.add(models.BusinessConfig(key="auto_print_ticket", value="true" if enabled else "false"))
     db.commit()
     return {"auto_print_ticket": enabled}
+
+@router.post("/business/upload-logo")
+async def upload_business_logo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only)
+):
+    """Sube el logo del negocio y guarda la URL en business_config.business_logo"""
+    import os, time
+    from PIL import Image
+    from ..tenant_context import get_tenant_schema
+
+    schema = get_tenant_schema()
+    if schema == "public":
+        raise HTTPException(status_code=400, detail="Invalid context")
+
+    # Validar extensión
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+        raise HTTPException(status_code=400, detail="Formato no permitido. Use PNG, JPG o WEBP.")
+
+    raw = await file.read()
+    if len(raw) < 50:
+        raise HTTPException(status_code=400, detail="Archivo inválido")
+    if len(raw) > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Imagen demasiado grande (máx 2 MB)")
+
+    upload_dir = f"/app/media/{schema}/business"
+    os.makedirs(upload_dir, exist_ok=True)
+
+    # Limpiar logos viejos
+    for old_file in os.listdir(upload_dir):
+        if old_file.startswith("logo_"):
+            try: os.remove(os.path.join(upload_dir, old_file))
+            except: pass
+
+    timestamp = int(time.time())
+    filename = f"logo_{timestamp}.png"
+    file_path = os.path.join(upload_dir, filename)
+
+    # Procesar con PIL: convertir a PNG y limitar tamaño max 600x600
+    try:
+        from io import BytesIO
+        img = Image.open(BytesIO(raw))
+        if img.mode not in ("RGBA", "RGB"):
+            img = img.convert("RGBA")
+        img.thumbnail((600, 600))
+        img.save(file_path, "PNG", optimize=True)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar imagen: {e}")
+
+    url = f"/media/{schema}/business/{filename}"
+    cfg = db.query(models.BusinessConfig).filter(
+        models.BusinessConfig.key == "business_logo"
+    ).first()
+    if cfg:
+        cfg.value = url
+    else:
+        db.add(models.BusinessConfig(key="business_logo", value=url))
+    db.commit()
+
+    return {"success": True, "url": url}
+
+
+@router.delete("/business/logo")
+def delete_business_logo(
+    db: Session = Depends(get_db),
+    user: Any = Depends(admin_only)
+):
+    """Elimina el logo del negocio."""
+    import os
+    from ..tenant_context import get_tenant_schema
+    schema = get_tenant_schema()
+    if schema == "public":
+        raise HTTPException(status_code=400, detail="Invalid context")
+
+    cfg = db.query(models.BusinessConfig).filter(
+        models.BusinessConfig.key == "business_logo"
+    ).first()
+    if cfg and cfg.value:
+        # Borrar archivo físico (best-effort)
+        try:
+            file_path = cfg.value.replace("/media/", "/app/media/")
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except: pass
+        cfg.value = ""
+        db.commit()
+    return {"success": True}
+

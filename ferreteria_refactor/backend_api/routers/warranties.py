@@ -356,3 +356,128 @@ async def send_warranty_whatsapp(
         "customer": customer_name,
         "message": f"Garantía enviada a {customer_name} ({phone})"
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# PDF TEMPLATES (selección de plantilla visual)
+# ════════════════════════════════════════════════════════════════════════════
+
+from pydantic import BaseModel as _PydBM
+from fastapi.responses import Response as _Resp
+
+
+class TemplateInfo(_PydBM):
+    id: str
+    name: str
+    description: str
+    is_default: bool
+
+
+class TemplateConfig(_PydBM):
+    style: str
+
+
+@router.get("/templates", response_model=List[TemplateInfo])
+def list_templates():
+    """Lista las plantillas visuales disponibles para el PDF de garantía."""
+    from ..services.warranty_templates import TEMPLATES
+    return TEMPLATES
+
+
+@router.get("/template-config")
+def get_template_config(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """Devuelve la plantilla configurada para este tenant."""
+    row = db.query(models.BusinessConfig).filter(
+        models.BusinessConfig.key == "warranty_pdf_style"
+    ).first()
+    return {"style": row.value if row else "moderno"}
+
+
+@router.put("/template-config")
+def set_template_config(
+    body: TemplateConfig,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(admin_only)
+):
+    """Actualiza la plantilla visual usada para el PDF de garantía."""
+    from ..services.warranty_templates import RENDERERS
+    if body.style not in RENDERERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Plantilla no reconocida. Opciones: {', '.join(RENDERERS.keys())}"
+        )
+
+    row = db.query(models.BusinessConfig).filter(
+        models.BusinessConfig.key == "warranty_pdf_style"
+    ).first()
+    if row:
+        row.value = body.style
+    else:
+        row = models.BusinessConfig(key="warranty_pdf_style", value=body.style)
+        db.add(row)
+    db.commit()
+    return {"success": True, "style": body.style}
+
+
+@router.get("/template-preview/{style}")
+def template_preview(
+    style: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_active_user)
+):
+    """
+    Genera un PDF de PREVIEW con datos ficticios para que el usuario
+    pueda ver cómo se ve cada plantilla antes de elegirla.
+    """
+    from ..services.warranty_templates import render, RENDERERS
+    if style not in RENDERERS:
+        raise HTTPException(status_code=404, detail="Plantilla no encontrada")
+
+    # Mock data realistic
+    from datetime import datetime, timedelta
+    class _MockPolicy:
+        name = "Garantía Celulares"
+        type = "DAYS"
+        duration = 30
+        description = "Garantía de 30 días por defectos de fabricación del equipo de celular. Cubre fallas técnicas internas y mal funcionamiento del equipo en condiciones normales de uso."
+
+    business_config = {}
+    for c in db.query(models.BusinessConfig).all():
+        business_config[c.key] = c.value
+
+    items = [
+        {
+            "product_name": "iPhone 15 Pro Max 256GB",
+            "serials": ["356789012345678"],
+            "quantity": 1,
+            "warranty_policy": _MockPolicy(),
+            "warranty_expiration": datetime.now() + timedelta(days=30),
+        },
+    ]
+
+    pdf_bytes = render(
+        style=style,
+        imei_items=items,
+        business_name=business_config.get("business_name", "Mi Negocio"),
+        business_rif=business_config.get("business_rif", "J-12345678-9"),
+        business_address=business_config.get("business_address", "Av. Principal, Local 1"),
+        business_phone=business_config.get("business_phone", "+58 412-1234567"),
+        business_logo=business_config.get("business_logo", ""),
+        business_logo_size=business_config.get("business_logo_size", "medium"),
+        customer_name="Juan Perez (Ejemplo)",
+        customer_doc="V-12345678",
+        customer_phone="+58 414-9876543",
+        customer_email="cliente@ejemplo.com",
+        sale_date=datetime.now().strftime("%d/%m/%Y %H:%M"),
+        sale_total="$899.00",
+        sale_id=12345,
+    )
+
+    return _Resp(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="preview_{style}.pdf"'}
+    )
