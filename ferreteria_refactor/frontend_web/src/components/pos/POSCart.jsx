@@ -345,8 +345,8 @@ const POSCart = ({
 
                                     {/* Info */}
                                     <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
-                                        <div className="flex justify-between items-start">
-                                            <div className="min-w-0">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <div className="min-w-0 flex-1">
                                                 <h4 className="text-sm font-black text-slate-800 truncate pr-1 leading-tight" title={item.name}>
                                                     {item.name}
                                                 </h4>
@@ -381,7 +381,7 @@ const POSCart = ({
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="text-right flex flex-col items-end gap-0.5">
+                                            <div className="text-right flex flex-col items-end gap-0.5 flex-shrink-0">
                                                 {/* Precio — editable si precio_libre_pos está activo */}
                                                 {precioLibre && editingPriceItemId === item.id ? (
                                                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
