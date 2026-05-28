@@ -497,12 +497,10 @@ const POSCart = ({
                                                 const activeName = item.price_list_name
                                                     || (item.price_list_id && priceLists.find(pl => pl.id === item.price_list_id)?.name)
                                                     || null;
-                                                // Verificar si el producto tiene precios en alguna lista
-                                                const cachedProduct = getFromCache ? getFromCache(item.product_id) : null;
-                                                const hasPriceLists = priceLists.length > 0 && (
-                                                    activeName ||
-                                                    (cachedProduct?.prices && cachedProduct.prices.length > 0)
-                                                );
+                                                // Mostrar el botón si hay listas de precio configuradas en el tenant.
+                                                // No dependemos de cachedProduct.prices (puede estar desactualizado);
+                                                // al hacer click, handlePriceListSelect refresca del servidor.
+                                                const hasPriceLists = priceLists.length > 0;
                                                 if (!hasPriceLists) return null;
                                                 return (
                                                     <button

@@ -152,7 +152,7 @@ const usePOSCatalog = () => {
 
     // Refresh a single product from server and update cache + products array
     const refreshProduct = useCallback(async (productId) => {
-        if (!productId) return;
+        if (!productId) return null;
         try {
             const { data } = await apiClient.get('/products/lookup', {
                 params: { product_id: productId },
@@ -164,10 +164,12 @@ const usePOSCatalog = () => {
                 setProducts(prev =>
                     prev.map(p => (p.id === data.id ? data : p))
                 );
+                return data;
             }
         } catch (err) {
             console.error('refreshProduct error:', err);
         }
+        return null;
     }, []);
 
     return {

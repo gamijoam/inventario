@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Query, Response
-from ..cache import get_cached, set_cached, invalidate
+from ..cache import get_cached, set_cached, invalidate, invalidate_resource
 from ..tenant_context import get_tenant_schema
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload, subqueryload
@@ -677,6 +677,12 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
         }
         background_tasks.add_task(run_broadcast, WebSocketEvents.PRODUCT_CREATED, payload)
 
+        # Invalidar caché del catálogo para que el POS vea el producto/precios nuevos
+        try:
+            invalidate_resource(get_tenant_schema(), "catalog")
+        except Exception:
+            pass
+
         return response_data
 
     except Exception as e:
@@ -980,7 +986,13 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
         "combo_items": response_data["combo_items"]
     }
     background_tasks.add_task(manager.broadcast, WebSocketEvents.PRODUCT_UPDATED, payload)
-        
+
+    # Invalidar caché del catálogo para que el POS vea cambios de precio/lista al instante
+    try:
+        invalidate_resource(get_tenant_schema(), "catalog")
+    except Exception:
+        pass
+
     return response_data
 
 # ========================================

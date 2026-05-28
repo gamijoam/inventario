@@ -784,7 +784,7 @@ const POS = () => {
     };
 
     // NEW: Price List Logic
-    const handlePriceListSelect = (list, item) => {
+    const handlePriceListSelect = async (list, item) => {
         // null list = revert to base price
         if (!list) {
             const itemProduct = getFromCache(item.product_id);
@@ -794,12 +794,20 @@ const POS = () => {
             return;
         }
 
-        const itemProduct = getFromCache(item.product_id);
-        let newPrice = null;
-        if (itemProduct && itemProduct.prices) {
-            const priceEntry = itemProduct.prices.find(p => p.price_list_id === list.id);
-            if (priceEntry) newPrice = parseFloat(priceEntry.price);
+        let itemProduct = getFromCache(item.product_id);
+        let priceEntry = itemProduct?.prices?.find(p => p.price_list_id === list.id);
+
+        // Si el cache no tiene precio para esta lista, refrescar del servidor
+        // (evita falsos "no tiene lista" por cache desactualizado)
+        if (!priceEntry) {
+            const fresh = await refreshProduct(item.product_id);
+            if (fresh) {
+                itemProduct = fresh;
+                priceEntry = fresh?.prices?.find(p => p.price_list_id === list.id);
+            }
         }
+
+        let newPrice = priceEntry ? parseFloat(priceEntry.price) : null;
 
         if (newPrice === null) {
             toast.error("Este producto no tiene precio asignado en esta lista");

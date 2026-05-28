@@ -18,6 +18,7 @@ from ..database.db import get_db
 from ..dependencies import has_role
 from ..models.models import User, UserRole
 from ..tenant_context import get_tenant_schema
+from ..cache import invalidate_resource
 
 router = APIRouter(prefix="/pricing", tags=["pricing"])
 
@@ -229,6 +230,8 @@ def delete_price_list(list_id: int,
         ), {"id": list_id})
 
         db.commit()
+        try: invalidate_resource(s, "catalog")
+        except Exception: pass
         return {
             "success": True,
             "message": f"Lista \"{lst.name}\" eliminada",
@@ -320,6 +323,8 @@ def apply_bulk_margin(req: BulkMarginRequest,
             })
 
         db.commit()
+        try: invalidate_resource(s, "catalog")
+        except Exception: pass
         return ApplyResponse(
             log_id=log_id,
             margin_percent=float(margin),
@@ -394,6 +399,8 @@ def revert_change(log_id: int,
         ), {"u": current_user.email, "id": log_id})
 
         db.commit()
+        try: invalidate_resource(s, "catalog")
+        except Exception: pass
         return ApplyResponse(
             log_id=log_id, margin_percent=0, target=log.target,
             total_products=len(items),
