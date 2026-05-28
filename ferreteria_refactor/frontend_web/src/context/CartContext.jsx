@@ -126,6 +126,23 @@ export const CartProvider = ({ children }) => {
     // Add Item Logic with multi-unit support and exchange rate hierarchy
     const addToCart = (product, unit) => {
         // unit: { name, price_usd, factor, is_base, exchange_rate_id?, exchange_rate_name?, is_special_rate?, unit_id? }
+
+        // ── Lista de precio predeterminada del POS (por tenant) ──
+        // Si hay una lista configurada y el producto tiene precio en ella, se aplica
+        // automáticamente (solo a la unidad base; las unidades especiales mantienen su precio).
+        let _defaultListId = null, _defaultListName = null;
+        try {
+            const cfgListId = localStorage.getItem('pos_default_price_list_id');
+            if (cfgListId && unit?.is_base && Array.isArray(product?.prices) && product.prices.length) {
+                const entry = product.prices.find(p => String(p.price_list_id) === String(cfgListId));
+                if (entry && entry.price != null) {
+                    unit = { ...unit, price_usd: parseFloat(entry.price) };
+                    _defaultListId = parseInt(cfgListId);
+                    _defaultListName = entry.price_list?.name || null;
+                }
+            }
+        } catch {}
+
         // CRITICAL FIX: Use unit.unit_id if available (e.g. for IMEI specific items)
         const unitSuffix = unit.unit_id || unit.name;
         const itemId = `${product.id}_${unitSuffix.replace(/\s+/g, '_')}`;
@@ -204,6 +221,9 @@ export const CartProvider = ({ children }) => {
                     // NEW: Barbershop Service properties
                     is_barbershop_service: product.is_barbershop_service || false,
                     employee_id: unit.employee_id || null, // Can be pre-assigned
+                    // Lista de precio predeterminada aplicada (si la hay)
+                    price_list_id: _defaultListId,
+                    price_list_name: _defaultListName,
                 };
 
                 return [...prevCart, newItem];

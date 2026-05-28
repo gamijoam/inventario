@@ -72,6 +72,23 @@ const POS = () => {
         } catch { return {}; }
     });
     
+    // ── Config por tenant: lista de precio predeterminada + mostrar Bs ──
+    const [posShowBs, setPosShowBs] = useState(true);
+    useEffect(() => {
+        // Cargar lista predeterminada → localStorage (la usa CartContext.addToCart)
+        apiClient.get('/config/pos_default_price_list_id')
+            .then(r => {
+                const v = r.data?.value || '';
+                if (v) localStorage.setItem('pos_default_price_list_id', v);
+                else localStorage.removeItem('pos_default_price_list_id');
+            })
+            .catch(() => localStorage.removeItem('pos_default_price_list_id'));
+        // Cargar preferencia de mostrar Bs
+        apiClient.get('/config/pos_show_bs')
+            .then(r => setPosShowBs(r.data?.value !== 'false'))
+            .catch(() => setPosShowBs(true));
+    }, []);
+
     const isCurrencyVisible = (code) => showCurrencies[code] !== false;
     const toggleCurrency = (code) => {
         setShowCurrencies(prev => {
@@ -88,7 +105,9 @@ const POS = () => {
             .map(c => [c.currency_code, c])
     ).values()];
     // Solo las monedas que el usuario habilitó
-    const visibleSecondaryCurrencies = secondaryCurrencies.filter(c => isCurrencyVisible(c.currency_code));
+    const visibleSecondaryCurrencies = posShowBs
+        ? secondaryCurrencies.filter(c => isCurrencyVisible(c.currency_code))
+        : [];  // Si la config del tenant oculta Bs, no mostrar monedas secundarias
     const showSecondaryPrice = visibleSecondaryCurrencies.length > 0;
 
     // Theme State - Resolve by ID to ensure latest styles

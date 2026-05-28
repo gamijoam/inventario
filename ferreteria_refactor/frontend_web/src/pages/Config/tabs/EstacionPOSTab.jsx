@@ -13,6 +13,50 @@ const EstacionPOSTab = () => {
     const [loadingAutoPrint, setLoadingAutoPrint] = useState(true);
     const [savingAutoPrint, setSavingAutoPrint] = useState(false);
 
+    // ── Lista de precio predeterminada + visibilidad Bs (por tenant) ──
+    const [priceLists, setPriceLists] = useState([]);
+    const [defaultPriceListId, setDefaultPriceListId] = useState('');  // '' = Precio Base
+    const [showBs, setShowBs] = useState(true);
+    const [savingPricing, setSavingPricing] = useState(false);
+
+    useEffect(() => {
+        // Cargar listas de precio activas
+        apiClient.get('/price-lists/', { params: { active_only: true } })
+            .then(r => setPriceLists(r.data || []))
+            .catch(() => {});
+        // Cargar config actual (manejar 404 si no existe la key)
+        apiClient.get('/config/pos_default_price_list_id')
+            .then(r => setDefaultPriceListId(r.data?.value || ''))
+            .catch(() => setDefaultPriceListId(''));
+        apiClient.get('/config/pos_show_bs')
+            .then(r => setShowBs(r.data?.value !== 'false'))
+            .catch(() => setShowBs(true));
+    }, []);
+
+    const saveDefaultPriceList = async (value) => {
+        setSavingPricing(true);
+        setDefaultPriceListId(value);
+        try {
+            await apiClient.put('/config/pos_default_price_list_id', { key: 'pos_default_price_list_id', value: value || '' });
+            toast.success(value
+                ? `Lista predeterminada: ${priceLists.find(l => String(l.id) === String(value))?.name || value}`
+                : 'Precio base predeterminado');
+        } catch {
+            toast.error('Error guardando lista predeterminada');
+        } finally { setSavingPricing(false); }
+    };
+
+    const toggleShowBs = async () => {
+        const next = !showBs;
+        setShowBs(next);
+        try {
+            await apiClient.put('/config/pos_show_bs', { key: 'pos_show_bs', value: next ? 'true' : 'false' });
+            toast.success(next ? 'Mostrando equivalente en Bs' : 'Bs oculto en el POS');
+        } catch {
+            toast.error('Error guardando preferencia de Bs');
+        }
+    };
+
     useEffect(() => {
         apiClient.get('/config/pos/auto-print-ticket')
             .then(r => setAutoPrint(r.data.auto_print_ticket))
@@ -67,6 +111,64 @@ const EstacionPOSTab = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-300">
+
+            {/* ── Precios en el POS — Solo ADMIN ──────────────────────────────── */}
+            {user?.role === 'ADMIN' && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Zap className="h-5 w-5 text-emerald-600" />
+                            Precios en el Punto de Venta
+                        </CardTitle>
+                        <CardDescription>
+                            Configura qué lista de precios se aplica por defecto al agregar
+                            productos al carrito, y si se muestra el equivalente en Bolívares.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Lista de precio predeterminada */}
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <p className="font-bold text-slate-800 text-sm mb-1">Lista de precio predeterminada</p>
+                            <p className="text-xs text-slate-500 mb-3">
+                                Se aplica automáticamente al agregar cada producto al carrito.
+                            </p>
+                            <select
+                                value={defaultPriceListId}
+                                onChange={e => saveDefaultPriceList(e.target.value)}
+                                disabled={savingPricing}
+                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+                            >
+                                <option value="">Precio Base (divisa)</option>
+                                {priceLists.map(l => (
+                                    <option key={l.id} value={l.id}>{l.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Toggle mostrar Bs */}
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <div>
+                                <p className="font-bold text-slate-800 text-sm">Mostrar equivalente en Bolívares</p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                    {showBs
+                                        ? '🟢 Mostrando precios en $ y Bs'
+                                        : '⚪ Solo divisa ($), sin Bs'}
+                                </p>
+                            </div>
+                            <button
+                                onClick={toggleShowBs}
+                                className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none ${
+                                    showBs ? 'bg-emerald-600' : 'bg-slate-300'
+                                }`}
+                            >
+                                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${
+                                    showBs ? 'translate-x-6' : 'translate-x-0'
+                                }`} />
+                            </button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {/* ── Auto Print Ticket — Solo ADMIN ──────────────────────────────── */}
             {user?.role === 'ADMIN' && (
