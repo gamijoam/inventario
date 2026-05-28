@@ -264,7 +264,23 @@ def process_return(
         if item.condition == "GOOD":
             # GOOD condition: Simply restore to stock
             product.stock += item.quantity
-            
+
+            # Restaurar también el stock por almacén (product_stocks), espejo de la venta.
+            # El inventario y el POS muestran la suma de product_stocks, no products.stock.
+            if sale.warehouse_id:
+                ps = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == product.id,
+                    models.ProductStock.warehouse_id == sale.warehouse_id
+                ).first()
+                if ps:
+                    ps.quantity += item.quantity
+                else:
+                    db.add(models.ProductStock(
+                        product_id=product.id,
+                        warehouse_id=sale.warehouse_id,
+                        quantity=item.quantity
+                    ))
+
             # Kardex Entry: RETURN (Entrada)
             kardex = models.Kardex(
                 product_id=product.id,
@@ -487,6 +503,22 @@ def void_sale(
         product = db.query(models.Product).get(item.product_id)
         if product:
             product.stock += item.quantity
+
+            # Restaurar stock por almacén (product_stocks), espejo de la venta
+            if sale.warehouse_id:
+                ps = db.query(models.ProductStock).filter(
+                    models.ProductStock.product_id == product.id,
+                    models.ProductStock.warehouse_id == sale.warehouse_id
+                ).first()
+                if ps:
+                    ps.quantity += item.quantity
+                else:
+                    db.add(models.ProductStock(
+                        product_id=product.id,
+                        warehouse_id=sale.warehouse_id,
+                        quantity=item.quantity
+                    ))
+
             db.add(models.Kardex(
                 product_id=product.id,
                 movement_type="RETURN",
