@@ -32,12 +32,34 @@ const ProductCard = ({
         setTimeout(() => setIsAnimating(false), 300);
     };
 
-    // ── Precios secundarios (lógica intacta) ──────────────────────────────────
+    // ── Precio efectivo según lista predeterminada del POS (por tenant) ──
+    // Si hay una lista configurada y el producto tiene precio en ella, ese precio
+    // se muestra en la tarjeta (consistente con lo que se aplica al carrito).
+    const effectivePrice = React.useMemo(() => {
+        let p = parseFloat(product.price) || 0;
+        try {
+            const listId = localStorage.getItem('pos_default_price_list_id');
+            if (listId && Array.isArray(product.prices)) {
+                const entry = product.prices.find(x => String(x.price_list_id) === String(listId));
+                if (entry && entry.price != null && parseFloat(entry.price) > 0) {
+                    p = parseFloat(entry.price);
+                }
+            }
+        } catch {}
+        return p;
+    }, [product]);
+
+    // Producto "efectivo" para convertir a moneda secundaria sobre el precio correcto
+    const priceProduct = (effectivePrice !== (parseFloat(product.price) || 0))
+        ? { ...product, price: effectivePrice }
+        : product;
+
+    // ── Precios secundarios (usa el precio efectivo) ──────────────────────────
     const secondaryPrices = showSecondaryPrice && secondaryCurrencies.length > 0 && convertProductPrice
         ? secondaryCurrencies.map(curr => {
             const code = curr.currency_code || curr.symbol;
             const sym = curr.currency_symbol || curr.symbol;
-            const price = convertProductPrice(product, code);
+            const price = convertProductPrice(priceProduct, code);
             return { code, sym, price };
         }).filter(p => p.price > 0)
         : [];
@@ -45,7 +67,7 @@ const ProductCard = ({
     const secCode = secondaryCurrency?.currency_code || secondaryCurrency?.symbol || null;
     const secSymbol = secondaryCurrency?.currency_symbol || secondaryCurrency?.symbol || null;
     const priceBS = secondaryPrices.length === 0 && showSecondaryPrice && secCode && convertProductPrice
-        ? convertProductPrice(product, secCode)
+        ? convertProductPrice(priceProduct, secCode)
         : 0;
 
     const numStock = Number(currentStock);
@@ -172,7 +194,7 @@ const ProductCard = ({
                 {/* Precios */}
                 <div className="mt-auto pt-1.5 flex items-end justify-between gap-1">
                     <span className="text-sm font-black text-indigo-600 leading-none">
-                        ${fmt(product.price)}
+                        ${fmt(effectivePrice)}
                     </span>
                     {secondaryPrices.length > 0 ? (
                         <div className="flex flex-wrap gap-1 justify-end">
