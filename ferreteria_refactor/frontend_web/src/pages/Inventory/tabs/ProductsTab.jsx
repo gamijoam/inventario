@@ -6,10 +6,11 @@ import {
     MoreHorizontal, ChevronDown, Barcode, ArrowUpAZ, ArrowDownAZ,
     TrendingUp, TrendingDown, Download, Upload, FileSpreadsheet,
     FileText, SlidersHorizontal, Boxes, AlertTriangle, Ban,
-    Sparkles
+    Sparkles, Zap
 } from 'lucide-react';
 import SearchWithScanner from '../../../components/common/SearchWithScanner';
 import ProductForm from '../../../components/products/ProductForm';
+import QuickProductCreateModal from '../../../components/products/QuickProductCreateModal';
 import ProductMobileCard from '../../../components/products/ProductMobileCard';
 import BulkProductActions from '../../../components/products/BulkProductActions';
 import InventoryValuationCard from '../../../components/products/InventoryValuationCard';
@@ -88,6 +89,7 @@ const ProductsTab = () => {
 
     const [isModalOpen, setIsModalOpen]   = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [isQuickModalOpen, setIsQuickModalOpen] = useState(false);
     const [isInstancesModalOpen, setIsInstancesModalOpen] = useState(false);
     const [selectedProductForInstances, setSelectedProductForInstances] = useState(null);
     const [searchTerm, setSearchTerm]     = useState('');
@@ -278,6 +280,18 @@ const ProductsTab = () => {
                         </Link>
                     )}
 
+                    {/* CTA Producto rápido (solo lo esencial) */}
+                    {isAdmin && (
+                        <button
+                            onClick={() => setIsQuickModalOpen(true)}
+                            className="flex items-center gap-2 h-10 px-3.5 rounded-xl text-sm font-bold border bg-white text-amber-600 border-amber-200 hover:bg-amber-50 shadow-sm transition-all"
+                            title="Crear un producto con los datos mínimos (nombre, precio, stock inicial)"
+                        >
+                            <Zap size={15} />
+                            <span className="hidden sm:inline">Producto rápido</span>
+                        </button>
+                    )}
+
                     {/* CTA Principal */}
                     {isAdmin && (
                         <button
@@ -457,16 +471,26 @@ const ProductsTab = () => {
                                             )}
                                         </div>
                                         {showPriceList && Array.isArray(product.prices) && product.prices.length > 0 && (
-                                            <div className="flex flex-col items-end bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-1.5 min-w-[76px]">
-                                                <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest truncate max-w-[72px]">
-                                                    {product.prices[0].price_list?.name || 'Lista'}
-                                                </span>
-                                                <span className="text-base font-black text-indigo-700 leading-none">${Number(product.prices[0].price || 0).toFixed(2)}</span>
-                                                {convertProductPrice && (
-                                                    <span className="text-[9px] text-indigo-300 mt-0.5">
-                                                        Bs {Number((Number(product.prices[0].price||0) * (convertProductPrice(product,'VES')/(Number(product.price)||1))).toFixed(2)).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})}
-                                                    </span>
-                                                )}
+                                            <div className="flex flex-col items-end gap-1.5">
+                                                {product.prices.map((priceItem, idx) => (
+                                                    <div
+                                                        key={priceItem.id ?? `${priceItem.price_list_id ?? 'list'}-${idx}`}
+                                                        className="flex flex-col items-end bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-1.5 min-w-[120px] max-w-[200px]"
+                                                    >
+                                                        <span
+                                                            className="text-[8px] font-black text-indigo-500 uppercase tracking-widest text-right whitespace-normal leading-tight"
+                                                            title={priceItem.price_list?.name || 'Lista'}
+                                                        >
+                                                            {priceItem.price_list?.name || 'Lista'}
+                                                        </span>
+                                                        <span className="text-base font-black text-indigo-700 leading-none mt-0.5">${Number(priceItem.price || 0).toFixed(2)}</span>
+                                                        {convertProductPrice && (
+                                                            <span className="text-[9px] text-indigo-300 mt-0.5">
+                                                                Bs {Number((Number(priceItem.price||0) * (convertProductPrice(product,'VES')/(Number(product.price)||1))).toFixed(2)).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
@@ -587,6 +611,11 @@ const ProductsTab = () => {
                 isOpen={isInstancesModalOpen}
                 onClose={() => { setIsInstancesModalOpen(false); setSelectedProductForInstances(null); }}
                 product={selectedProductForInstances}
+            />
+            <QuickProductCreateModal
+                isOpen={isQuickModalOpen}
+                onClose={() => setIsQuickModalOpen(false)}
+                onSuccess={() => { fetchProducts(); }}
             />
         </div>
     );

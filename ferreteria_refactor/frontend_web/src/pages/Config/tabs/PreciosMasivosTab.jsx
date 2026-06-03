@@ -26,6 +26,20 @@ const TARGET_LABELS = {
   both:          'Ambos',
 };
 
+// FastAPI/Pydantic v2 puede devolver detail como string o como array de validation errors.
+// Si lo renderizamos tal cual, React tira "object is not a valid child" (#31).
+const getApiErrorMessage = (e, fallback) => {
+  const detail = e?.response?.data?.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    return detail.map(d => {
+      const loc = Array.isArray(d?.loc) ? (d.loc.slice(1).join('.') || d.loc.join('.')) : '';
+      return loc ? `${loc}: ${d.msg || 'inválido'}` : (d.msg || 'inválido');
+    }).join(' | ') || fallback;
+  }
+  return fallback;
+};
+
 export default function PreciosMasivosTab() {
   const [priceLists, setPriceLists] = useState([]);
   const [form, setForm] = useState({
@@ -59,7 +73,29 @@ export default function PreciosMasivosTab() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadLists(); loadHistory(); }, [loadLists, loadHistory]);
+  // Cargar margen por defecto desde /config (unifica con ProductForm) — sobreescribe el 45 inicial
+  const loadDefaultMargin = useCallback(async () => {
+    try {
+      const { data } = await apiClient.get('/config/default_price_list_margin');
+      const v = parseFloat(data?.value);
+      if (Number.isFinite(v)) setForm(p => ({ ...p, margin_percent: v }));
+    } catch (_) { /* mantener 45 si falla */ }
+  }, []);
+
+  // Persistir el margen actual como nuevo predeterminado para todo el sistema
+  const saveDefaultMargin = async () => {
+    try {
+      await apiClient.put('/config/default_price_list_margin', {
+        key: 'default_price_list_margin',
+        value: String(form.margin_percent)
+      });
+      toast.success(`✓ Margen predeterminado guardado: ${form.margin_percent}%`);
+    } catch (e) {
+      toast.error(getApiErrorMessage(e, 'Error al guardar el margen predeterminado'));
+    }
+  };
+
+  useEffect(() => { loadLists(); loadHistory(); loadDefaultMargin(); }, [loadLists, loadHistory, loadDefaultMargin]);
 
   const handlePreview = async () => {
     if ((form.target === 'price_list' || form.target === 'both') && !form.price_list_id) {
@@ -73,12 +109,19 @@ export default function PreciosMasivosTab() {
       });
       setPreview(r.data);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error en preview');
+      toast.error(getApiErrorMessage(e, 'Error en preview'));
     } finally { setLoading(false); }
   };
 
   const handleApply = async () => {
     if (!preview) { toast.error('Primero genera la vista previa'); return; }
+    // Si el total antes ≈ total después, no hay cambios reales (precios ya están a este margen
+    // o el redondeo los deja iguales). No tiene sentido aplicar.
+    const totalDiff = Math.abs(preview.total_value_after - preview.total_value_before);
+    if (totalDiff < 0.01) {
+      toast.error('No hay cambios que aplicar. Los precios de esta lista ya están a este margen o el redondeo los deja iguales. Probá con un margen mayor.');
+      return;
+    }
     const msg = `¿Aplicar margen del ${form.margin_percent}% a ${preview.total_products} productos?\n\n` +
       `Valor total antes: $${preview.total_value_before.toFixed(2)}\n` +
       `Valor total después: $${preview.total_value_after.toFixed(2)}\n\n` +
@@ -94,7 +137,7 @@ export default function PreciosMasivosTab() {
       setPreview(null);
       loadHistory();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error al aplicar');
+      toast.error(getApiErrorMessage(e, 'Error al aplicar'));
     } finally { setApplying(false); }
   };
 
@@ -117,7 +160,7 @@ export default function PreciosMasivosTab() {
       }
       loadLists();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error al eliminar');
+      toast.error(getApiErrorMessage(e, 'Error al eliminar'));
     }
   };
 
@@ -128,7 +171,7 @@ export default function PreciosMasivosTab() {
       toast.success('Cambio revertido. Precios restaurados.');
       loadHistory();
     } catch (e) {
-      toast.error(e?.response?.data?.detail || 'Error al revertir');
+      toast.error(getApiErrorMessage(e, 'Error al revertir'));
     }
   };
 
@@ -179,6 +222,14 @@ export default function PreciosMasivosTab() {
             <p className="text-[10px] text-slate-400 mt-1">
               Ej. 45% = costo × 1.45 (un costo de $100 se vende a $145)
             </p>
+            <button
+              type="button"
+              onClick={saveDefaultMargin}
+              className="mt-2 text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg py-1.5 px-2.5 transition-all"
+              title="Guarda este valor como margen predeterminado (lo usará también el formulario de producto al calcular)"
+            >
+              ⭐ Guardar como margen predeterminado
+            </button>
           </div>
 
           {/* Target */}
@@ -317,6 +368,19 @@ export default function PreciosMasivosTab() {
               </span>
             </div>
           </div>
+
+          {Math.abs(preview.total_value_after - preview.total_value_before) < 0.01 && (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 flex items-start gap-2">
+              <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-amber-800">No hay cambios que aplicar</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  Los precios de esta lista ya están a este margen, o el redondeo los deja iguales.
+                  Probá con un margen mayor para ver cambios reales.
+                </p>
+              </div>
+            </div>
+          )}
 
           <p className="text-[11px] text-slate-500">
             Mostrando primeras 10 filas. Al aplicar, se procesarán las {preview.total_products}.
