@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
-import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle, Camera, X, Image as ImageIcon } from 'lucide-react';
+import { Search, Package, ArrowRight, Download, Trash2, AlertTriangle, CheckCircle, Camera, X, Image as ImageIcon, Zap } from 'lucide-react';
 
 const ExternalTransferOut = () => {
     const [products, setProducts] = useState([]);
@@ -15,10 +15,12 @@ const ExternalTransferOut = () => {
     const [exportSummary, setExportSummary] = useState(null);
     const [photos, setPhotos] = useState([]); // { file, preview, uploading, url }
     const [uploadingPhotos, setUploadingPhotos] = useState(false);
+    const [imeiPicker, setImeiPicker] = useState({ openFor: null, instances: [], loading: false, query: '' });
     const fileInputRef = useRef(null);
 
     // Check if any item exceeds available stock
     const hasStockError = selectedItems.some(i => i.quantity > i.current_stock);
+    const hasImeiError = selectedItems.some(i => i.has_imei && (i.selected_imeis?.length || 0) !== Number(i.quantity));
 
     // Load warehouses on mount
     useEffect(() => {
@@ -38,6 +40,11 @@ const ExternalTransferOut = () => {
         };
         fetchWarehouses();
     }, []);
+
+    useEffect(() => {
+        setSelectedItems(prev => prev.map(item => ({ ...item, selected_imeis: [] })));
+        setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
+    }, [selectedWarehouseId]);
 
     // Initial Search Logic
     useEffect(() => {
@@ -60,11 +67,11 @@ const ExternalTransferOut = () => {
 
     const addToTransfer = (product) => {
         if (!product.sku) {
-            toast.error(`El producto "${product.name}" no tiene Código de Barras (SKU) y no se puede transferir.`);
+            toast.error(`El producto "${product.name}" no tiene C?digo de Barras (SKU) y no se puede transferir.`);
             return;
         }
         if (selectedItems.find(i => i.product_id === product.id)) {
-            toast('El producto ya está en la lista', { icon: '⚠️' });
+            toast('El producto ya est? en la lista', { icon: '??' });
             return;
         }
         setSelectedItems([...selectedItems, {
@@ -72,13 +79,21 @@ const ExternalTransferOut = () => {
             name: product.name,
             sku: product.sku,
             current_stock: product.stock,
-            quantity: 1
+            quantity: 1,
+            has_imei: !!product.has_imei,
+            selected_imeis: []
         }]);
     };
 
     const updateQuantity = (id, qty) => {
         setSelectedItems(selectedItems.map(item =>
-            item.product_id === id ? { ...item, quantity: parseFloat(qty) || 0 } : item
+            item.product_id === id
+                ? {
+                    ...item,
+                    quantity: parseFloat(qty) || 0,
+                    selected_imeis: (item.selected_imeis || []).slice(0, parseFloat(qty) || 0)
+                }
+                : item
         ));
         // Reset confirmation when quantities change
         setShowConfirmation(false);
@@ -86,6 +101,61 @@ const ExternalTransferOut = () => {
 
     const removeItem = (id) => {
         setSelectedItems(selectedItems.filter(item => item.product_id !== id));
+    };
+
+    const openImeiPicker = async (itemIdx) => {
+        const item = selectedItems[itemIdx];
+        if (!item || !selectedWarehouseId) return;
+        setImeiPicker({ openFor: itemIdx, instances: [], loading: true, query: '' });
+        try {
+            const { data } = await apiClient.get(`/inventory/product/${item.product_id}/instances`);
+            const sourceId = Number(selectedWarehouseId);
+            const filtered = (Array.isArray(data) ? data : []).filter(
+                pi => Number(pi.warehouse_id) === sourceId && pi.status === 'AVAILABLE'
+            );
+            setImeiPicker(prev => ({ ...prev, instances: filtered, loading: false }));
+        } catch (error) {
+            console.error(error);
+            toast.error('Error cargando IMEIs disponibles');
+            setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
+        }
+    };
+
+    const closeImeiPicker = () => setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
+
+    const toggleImeiForItem = (itemIdx, instance) => {
+        const next = [...selectedItems];
+        const current = next[itemIdx].selected_imeis || [];
+        const isSelected = current.some(s => s.id === instance.id);
+        if (isSelected) {
+            next[itemIdx].selected_imeis = current.filter(s => s.id !== instance.id);
+        } else {
+            if (current.length >= next[itemIdx].quantity) {
+                return toast.error(`Ya seleccionaste ${current.length} IMEIs para cantidad ${next[itemIdx].quantity}`);
+            }
+            next[itemIdx].selected_imeis = [...current, { id: instance.id, serial_number: instance.serial_number }];
+        }
+        setSelectedItems(next);
+    };
+
+    const selectFirstN = (itemIdx, quantity) => {
+        const next = [...selectedItems];
+        next[itemIdx].selected_imeis = imeiPicker.instances
+            .slice(0, quantity)
+            .map(pi => ({ id: pi.id, serial_number: pi.serial_number }));
+        setSelectedItems(next);
+    };
+
+    const scanImeiForItem = (itemIdx) => {
+        const code = imeiPicker.query.trim().toUpperCase();
+        if (!code) return;
+        const instance = imeiPicker.instances.find(pi => (pi.serial_number || '').toUpperCase() === code);
+        if (!instance) {
+            toast.error('IMEI no disponible en el almac?n origen');
+            return;
+        }
+        toggleImeiForItem(itemIdx, instance);
+        setImeiPicker(prev => ({ ...prev, query: '' }));
     };
 
     const handleAddPhotos = (e) => {
@@ -149,8 +219,14 @@ const ExternalTransferOut = () => {
     const handleExport = async () => {
         if (selectedItems.length === 0) return;
         if (!selectedWarehouseId) {
-            toast.error("Seleccione un almacén de origen");
+            toast.error("Seleccione un almac?n de origen");
             return;
+        }
+        for (const item of selectedItems) {
+            if (item.has_imei && (item.selected_imeis?.length || 0) !== Number(item.quantity)) {
+                toast.error(`"${item.name}" maneja IMEI. Selecciona o escanea exactamente ${item.quantity} seriales.`);
+                return;
+            }
         }
 
         try {
@@ -180,7 +256,9 @@ const ExternalTransferOut = () => {
                 warehouse_id: parseInt(selectedWarehouseId),
                 items: selectedItems.map(item => ({
                     product_id: item.product_id,
-                    quantity: item.quantity
+                    quantity: item.quantity,
+                    serial_numbers: item.selected_imeis?.map(i => i.serial_number) || [],
+                    instances: item.selected_imeis?.map(i => ({ product_instance_id: i.id })) || []
                 })),
                 photo_urls: photoUrls
             };
@@ -204,6 +282,7 @@ const ExternalTransferOut = () => {
                 items: selectedItems.map(i => ({ sku: i.sku, name: i.name, quantity: i.quantity }))
             });
             setSelectedItems([]);
+            setImeiPicker({ openFor: null, instances: [], loading: false, query: '' });
             setShowConfirmation(false);
             setSearch('');
             setProducts([]);
@@ -231,7 +310,7 @@ const ExternalTransferOut = () => {
 
                 {/* Warehouse Selector */}
                 <div className="mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacén de Origen</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almac?n de Origen</label>
                     <select
                         value={selectedWarehouseId}
                         onChange={(e) => setSelectedWarehouseId(e.target.value)}
@@ -246,7 +325,7 @@ const ExternalTransferOut = () => {
                 <div className="relative mb-6">
                     <input
                         type="text"
-                        placeholder="Buscar por nombre o código..."
+                        placeholder="Buscar por nombre o c?digo..."
                         className="w-full pl-10 pr-4 py-3 rounded-xl border-none shadow-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-600"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -309,17 +388,36 @@ const ExternalTransferOut = () => {
                     ) : (
                         <div className="space-y-3">
                             {selectedItems.map(item => (
-                                <div key={item.product_id} className="bg-white p-3 rounded-lg shadow-sm border border-slate-200 flex items-center gap-4">
+                                <div key={item.product_id} className="bg-white p-3 rounded-lg shadow-sm border border-slate-200">
+                                    <div className="flex items-center gap-4">
                                     <div className="flex-1">
-                                        <h4 className="font-bold text-slate-700 text-sm">{item.name}</h4>
+                                        <h4 className="font-bold text-slate-700 text-sm flex items-center gap-2">
+                                            {item.name}
+                                            {item.has_imei && <span className="text-[10px] uppercase font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">IMEI</span>}
+                                        </h4>
                                         <p className="text-xs text-slate-400 font-mono">{item.sku}</p>
                                         <p className={`text-xs mt-0.5 ${item.quantity > item.current_stock ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
                                             Stock: {item.current_stock}
                                             {item.quantity > item.current_stock && (
-                                                <span className="ml-1">— Excede el stock disponible</span>
+                                                <span className="ml-1">? Excede el stock disponible</span>
                                             )}
                                         </p>
                                     </div>
+
+                                    {item.has_imei && (
+                                        <button
+                                            type="button"
+                                            onClick={() => imeiPicker.openFor === selectedItems.indexOf(item) ? closeImeiPicker() : openImeiPicker(selectedItems.indexOf(item))}
+                                            className={`text-xs font-bold px-3 py-2 rounded-lg border transition-colors flex items-center gap-1.5 ${
+                                                (item.selected_imeis?.length || 0) > 0
+                                                    ? 'bg-amber-50 border-amber-300 text-amber-700'
+                                                    : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:text-amber-700'
+                                            }`}
+                                        >
+                                            <Zap size={13} />
+                                            {(item.selected_imeis?.length || 0) > 0 ? `${item.selected_imeis.length} IMEI${item.selected_imeis.length > 1 ? 's' : ''}` : 'IMEIs'}
+                                        </button>
+                                    )}
 
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs text-slate-400 font-bold uppercase">Cant:</span>
@@ -338,6 +436,71 @@ const ExternalTransferOut = () => {
                                     >
                                         <Trash2 size={18} />
                                     </button>
+                                    </div>
+
+                                    {item.has_imei && imeiPicker.openFor === selectedItems.indexOf(item) && (
+                                        <div className="mt-3 border-t border-slate-100 pt-3">
+                                            {imeiPicker.loading ? (
+                                                <div className="text-xs text-slate-400 py-3 text-center">Cargando IMEIs disponibles...</div>
+                                            ) : imeiPicker.instances.length === 0 ? (
+                                                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                                    No hay IMEIs disponibles de este producto en el almac?n origen.
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            value={imeiPicker.query}
+                                                            onChange={(e) => setImeiPicker(prev => ({ ...prev, query: e.target.value }))}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    scanImeiForItem(selectedItems.indexOf(item));
+                                                                }
+                                                            }}
+                                                            placeholder="Escanea o escribe el IMEI..."
+                                                            className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-xs font-mono focus:ring-2 focus:ring-amber-300 outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => scanImeiForItem(selectedItems.indexOf(item))}
+                                                            className="px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-bold"
+                                                        >
+                                                            Agregar
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs text-slate-600">
+                                                        <span><b>{imeiPicker.instances.length}</b> disponibles ? <b>{item.selected_imeis?.length || 0}/{item.quantity}</b> seleccionados</span>
+                                                        {(item.selected_imeis?.length || 0) < item.quantity && imeiPicker.instances.length >= item.quantity && (
+                                                            <button type="button" onClick={() => selectFirstN(selectedItems.indexOf(item), item.quantity)} className="font-bold text-indigo-600">
+                                                                Auto-seleccionar {item.quantity}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-1 max-h-32 overflow-y-auto">
+                                                        {imeiPicker.instances.map(pi => {
+                                                            const isSelected = item.selected_imeis?.some(s => s.id === pi.id);
+                                                            return (
+                                                                <button
+                                                                    key={pi.id}
+                                                                    type="button"
+                                                                    onClick={() => toggleImeiForItem(selectedItems.indexOf(item), pi)}
+                                                                    className={`text-left p-2 rounded-lg border text-xs font-mono flex items-center gap-2 ${
+                                                                        isSelected ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-slate-100 text-slate-600 hover:border-slate-300'
+                                                                    }`}
+                                                                >
+                                                                    <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300'}`}>
+                                                                        {isSelected && '?'}
+                                                                    </span>
+                                                                    <span className="flex-1 truncate">{pi.serial_number}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -349,7 +512,7 @@ const ExternalTransferOut = () => {
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-bold text-slate-600 flex items-center gap-2">
                             <Camera size={16} className="text-indigo-500" />
-                            Evidencia Fotográfica
+                            Evidencia Fotogr?fica
                         </h3>
                         <button
                             onClick={() => fileInputRef.current?.click()}
@@ -434,15 +597,22 @@ const ExternalTransferOut = () => {
                         <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-red-700">
                             <AlertTriangle className="flex-shrink-0 text-red-500" size={20} />
                             <p>
-                                Uno o más productos exceden el stock disponible. Ajusta las cantidades antes de continuar.
+                                Uno o m?s productos exceden el stock disponible. Ajusta las cantidades antes de continuar.
                             </p>
+                        </div>
+                    )}
+
+                    {hasImeiError && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
+                            <AlertTriangle className="flex-shrink-0" size={20} />
+                            <p>Hay productos con IMEI pendientes por seleccionar o escanear.</p>
                         </div>
                     )}
 
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
                         <AlertTriangle className="flex-shrink-0" size={20} />
                         <p>
-                            Al generar el paquete, el stock se descontará <strong>automáticamente</strong> del almacén seleccionado ({warehouses.find(w => w.id == selectedWarehouseId)?.name}) como "Traspaso de Salida".
+                            Al generar el paquete, el stock se descontar? <strong>autom?ticamente</strong> del almac?n seleccionado ({warehouses.find(w => w.id == selectedWarehouseId)?.name}) como "Traspaso de Salida".
                         </p>
                     </div>
 
@@ -451,12 +621,12 @@ const ExternalTransferOut = () => {
                         <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4">
                             <p className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
                                 <AlertTriangle size={16} />
-                                Se descontará del inventario:
+                                Se descontar? del inventario:
                             </p>
                             <ul className="text-sm text-amber-900 space-y-1 mb-3 ml-1">
                                 {selectedItems.map(item => (
                                     <li key={item.product_id}>
-                                        • <span className="font-mono text-xs">{item.sku}</span> {item.name} — <strong>{item.quantity}</strong> unidades
+                                        ? <span className="font-mono text-xs">{item.sku}</span> {item.name} ? <strong>{item.quantity}</strong> unidades
                                     </li>
                                 ))}
                             </ul>
@@ -487,7 +657,7 @@ const ExternalTransferOut = () => {
 
                     <button
                         onClick={() => { setShowConfirmation(true); setExportSummary(null); }}
-                        disabled={selectedItems.length === 0 || generating || !selectedWarehouseId || hasStockError || showConfirmation}
+                        disabled={selectedItems.length === 0 || generating || !selectedWarehouseId || hasStockError || hasImeiError || showConfirmation}
                         className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                     >
                         <Download size={20} />

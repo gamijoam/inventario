@@ -1209,8 +1209,11 @@ class TransferItemSchema(BaseModel):
     sku: str
     quantity: float
     name: str
+    has_imei: bool = False
+    serial_numbers: List[str] = []
 
 class TransferPackageSchema(BaseModel):
+    package_id: Optional[str] = None
     source_company: str
     generated_at: datetime
     items: List[TransferItemSchema]
@@ -1229,6 +1232,8 @@ class TransferPreviewItemResult(BaseModel):
     sku: str
     name: str
     quantity: float
+    has_imei: bool = False
+    serial_numbers: List[str] = []
     match_type: str  # exact, fuzzy, name, none
     matched_product_id: Optional[int] = None
     matched_sku: Optional[str] = None
@@ -1236,6 +1241,7 @@ class TransferPreviewItemResult(BaseModel):
     matched_stock: Optional[float] = None
 
 class TransferPreviewResult(BaseModel):
+    package_id: Optional[str] = None
     source_company: str
     items: List[TransferPreviewItemResult]
     photo_urls: Optional[List[str]] = None
@@ -1245,11 +1251,14 @@ class TransferImportV2Item(BaseModel):
     sku: str
     name: str
     quantity: float
+    has_imei: bool = False
+    serial_numbers: List[str] = []
     target_product_id: Optional[int] = None
     create_new: bool = False
     warehouse_id: Optional[int] = None
 
 class TransferImportV2Request(BaseModel):
+    package_id: Optional[str] = None
     source_company: str
     warehouse_id: Optional[int] = None
     items: List[TransferImportV2Item]

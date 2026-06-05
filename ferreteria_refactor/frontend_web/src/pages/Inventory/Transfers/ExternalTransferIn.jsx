@@ -7,7 +7,7 @@ import {
   ArrowRight, X, FileJson, RefreshCw, Warehouse, Camera, Image as ImageIcon
 } from 'lucide-react';
 
-/* ─── Product Search Modal (replaces inline dropdown) ─── */
+/* ??? Product Search Modal (replaces inline dropdown) ??? */
 function ProductSearchModal({ isOpen, onClose, onSelect }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -50,7 +50,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect }) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar producto por nombre o código..."
+            placeholder="Buscar producto por nombre o c?digo..."
             className="flex-1 bg-transparent outline-none text-slate-700 font-medium placeholder:text-slate-400"
           />
           <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors">
@@ -100,7 +100,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect }) {
   );
 }
 
-/* ─── Match badge helper ─── */
+/* ??? Match badge helper ??? */
 const MATCH_CONFIG = {
   exact:  { label: 'Exacto',     color: 'bg-emerald-100 text-emerald-700', icon: Check },
   fuzzy:  { label: 'Similar',    color: 'bg-yellow-100 text-yellow-700',   icon: AlertTriangle },
@@ -119,7 +119,7 @@ function MatchBadge({ type }) {
   );
 }
 
-/* ─── Main component ─── */
+/* ??? Main component ??? */
 const ExternalTransferIn = () => {
   const fileInputRef = useRef(null);
   const [step, setStep] = useState('upload');
@@ -128,6 +128,7 @@ const ExternalTransferIn = () => {
   const [confirming, setConfirming] = useState(false);
 
   const [previewItems, setPreviewItems] = useState([]);
+  const [packageId, setPackageId] = useState('');
   const [sourceCompany, setSourceCompany] = useState('');
   const [sourceSchema, setSourceSchema] = useState('');
 
@@ -176,6 +177,7 @@ const ExternalTransferIn = () => {
       });
 
       const data = res.data;
+      setPackageId(data.package_id || '');
       setSourceCompany(data.source_company || '');
       setSourceSchema(data.source_schema || '');
       setPhotoUrls(data.photo_urls || []);
@@ -188,6 +190,8 @@ const ExternalTransferIn = () => {
         matched_sku: item.matched_sku || '',
         matched_name: item.matched_name || '',
         matched_stock: item.matched_stock ?? 0,
+        has_imei: !!item.has_imei,
+        serial_numbers: item.serial_numbers || [],
         create_new: false,
         warehouse_id: null,
         _override: item.matched_product_id
@@ -196,7 +200,7 @@ const ExternalTransferIn = () => {
       }));
       setPreviewItems(items);
       setStep('preview');
-      toast.success(`${items.length} productos cargados para revisión`);
+      toast.success(`${items.length} productos cargados para revisi?n`);
     } catch (error) {
       const detail = error.response?.data?.detail;
       const msg = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join(', ') : 'Error al previsualizar el archivo';
@@ -242,6 +246,8 @@ const ExternalTransferIn = () => {
         sku: it.sku,
         name: it.name,
         quantity: it.quantity,
+        has_imei: !!it.has_imei,
+        serial_numbers: it.serial_numbers || [],
         target_product_id: it._override?.id || null,
         create_new: it.create_new,
         warehouse_id: it.warehouse_id || null,
@@ -251,10 +257,15 @@ const ExternalTransferIn = () => {
       toast.error('No hay productos mapeados para importar');
       return;
     }
+    if (items.length !== previewItems.length) {
+      toast.error('Debes mapear todos los productos antes de confirmar');
+      return;
+    }
 
     try {
       setConfirming(true);
       const res = await apiClient.post('/inventory/transfer/import-mapped', {
+        package_id: packageId || null,
         source_company: sourceCompany,
         source_schema: sourceSchema || null,
         warehouse_id: globalWarehouseId ? parseInt(globalWarehouseId, 10) : null,
@@ -275,7 +286,9 @@ const ExternalTransferIn = () => {
   const resetProcess = () => {
     setFile(null);
     setPreviewItems([]);
+    setPackageId('');
     setSourceCompany('');
+    setSourceSchema('');
     setPhotoUrls([]);
     setShowPhotoModal(false);
     setSelectedPhoto(null);
@@ -285,9 +298,9 @@ const ExternalTransferIn = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  /* ──────────────────── RENDER ──────────────────── */
+  /* ???????????????????? RENDER ???????????????????? */
 
-  // ── Step 1: Upload ──
+  // ?? Step 1: Upload ??
   if (step === 'upload') {
     return (
       <div className="flex h-full bg-slate-50 items-center justify-center p-6">
@@ -299,7 +312,7 @@ const ExternalTransferIn = () => {
             <h2 className="text-2xl font-bold text-slate-800">Importar Inventario</h2>
           </div>
           <p className="text-slate-500 mb-8 text-sm">
-            Carga el archivo JSON generado por la otra sucursal. Podrás revisar y mapear los productos antes de confirmar.
+            Carga el archivo JSON generado por la otra sucursal. Podr?s revisar y mapear los productos antes de confirmar.
           </p>
 
           <div
@@ -352,7 +365,7 @@ const ExternalTransferIn = () => {
     );
   }
 
-  // ── Step 2: Preview table ──
+  // ?? Step 2: Preview table ??
   if (step === 'preview') {
     return (
       <div className="flex flex-col h-full bg-slate-50">
@@ -366,7 +379,7 @@ const ExternalTransferIn = () => {
         {/* Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Revisión de Productos</h2>
+            <h2 className="text-xl font-bold text-slate-800">Revisi?n de Productos</h2>
             {sourceCompany && (
               <p className="text-sm text-slate-500">Origen: <span className="font-semibold">{sourceCompany}</span></p>
             )}
@@ -396,7 +409,7 @@ const ExternalTransferIn = () => {
               onChange={(e) => handleGlobalWarehouseChange(e.target.value)}
               className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none min-w-[200px]"
             >
-              <option value="">-- Sin almacén (stock global) --</option>
+              <option value="">-- Sin almac?n (stock global) --</option>
               {warehouses.map((wh) => (
                 <option key={wh.id} value={wh.id}>{wh.name}</option>
               ))}
@@ -409,7 +422,7 @@ const ExternalTransferIn = () => {
           <div className="bg-white border-b border-slate-200 px-6 py-3">
             <div className="flex items-center gap-2 mb-2">
               <Camera size={16} className="text-indigo-500" />
-              <span className="text-sm font-bold text-slate-700">Evidencia Fotográfica ({photoUrls.length} foto{photoUrls.length !== 1 ? 's' : ''})</span>
+              <span className="text-sm font-bold text-slate-700">Evidencia Fotogr?fica ({photoUrls.length} foto{photoUrls.length !== 1 ? 's' : ''})</span>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {photoUrls.map((url, idx) => (
@@ -485,9 +498,9 @@ const ExternalTransferIn = () => {
                   <th className="text-center px-4 py-3 font-semibold text-slate-600 w-28">Match</th>
                   <th className="text-left px-4 py-3 font-semibold text-slate-600 min-w-[240px]">Producto Local</th>
                   {warehouses.length > 0 && (
-                    <th className="text-center px-4 py-3 font-semibold text-slate-600 w-40">Almacén</th>
+                    <th className="text-center px-4 py-3 font-semibold text-slate-600 w-40">Almac?n</th>
                   )}
-                  <th className="text-center px-4 py-3 font-semibold text-slate-600 w-32">Acción</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-600 w-32">Acci?n</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -499,6 +512,11 @@ const ExternalTransferIn = () => {
                       <td className="px-4 py-3">
                         <div className="font-mono text-xs text-indigo-600">{item.sku}</div>
                         <div className="text-slate-700 truncate max-w-[200px]">{item.name}</div>
+                        {item.serial_numbers?.length > 0 && (
+                          <div className="text-[10px] text-amber-700 font-bold mt-1">
+                            {item.serial_numbers.length} IMEI{item.serial_numbers.length > 1 ? 's' : ''}: {item.serial_numbers.slice(0, 2).join(', ')}{item.serial_numbers.length > 2 ? '...' : ''}
+                          </div>
+                        )}
                       </td>
 
                       <td className="text-center px-4 py-3">
@@ -582,7 +600,7 @@ const ExternalTransferIn = () => {
           </button>
           <button
             onClick={handleConfirm}
-            disabled={mappedCount === 0 || confirming}
+            disabled={mappedCount !== totalCount || confirming}
             className="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
           >
             {confirming ? (
@@ -602,7 +620,7 @@ const ExternalTransferIn = () => {
     );
   }
 
-  // ── Step 3: Result ──
+  // ?? Step 3: Result ??
   return (
     <div className="flex h-full bg-slate-50 items-center justify-center p-6">
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-8">
