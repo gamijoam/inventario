@@ -91,6 +91,12 @@ REGISTRY["kardex_imei_mejorado"] = {
     "category": "inventario",
 }
 
+REGISTRY["traslados_con_imei"] = {
+    "label": "Traslados con IMEI / seriales 📦",
+    "description": "Permite especificar IMEIs/seriales específicos al crear un traslado. Si el producto tiene has_imei=true, se exige la misma cantidad de IMEIs en items[].instances. Las ProductInstance se mueven de bodega origen a destino (cambia warehouse_id). Default OFF.",
+    "category": "inventario",
+}
+
 REGISTRY["pdf_catalogo_seriales"] = {
     "label": "PDF Catálogo de equipos serializados 📄",
     "description": "Botón para generar PDF del catálogo de equipos con IMEI, mostrando precio detal, precio mayor y listas de precios asociadas.",

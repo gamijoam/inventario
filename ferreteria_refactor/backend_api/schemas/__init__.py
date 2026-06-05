@@ -750,6 +750,11 @@ class ReturnItemCreate(BaseModel):
     quantity: Decimal
     condition: ItemCondition = ItemCondition.GOOD  # Default to GOOD condition
     product: Optional[ProductRead] = None
+    # Fix 4: lista explicita de IMEIs/serials devueltos. Si esta vacia,
+    # el backend usa la logica legacy (item.quantity + .limit()).
+    # Si viene con seriales, se trackean explicitamente en
+    # return_detail_instances y se marca el SaleDetailInstance como RETURNED.
+    serial_numbers: List[str] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -1141,18 +1146,32 @@ class WarehouseWithStocks(WarehouseRead):
 # Inventory Transfer Schemas
 # ========================
 
+class TransferDetailInstanceCreate(BaseModel):
+    """IMEI/serial especifico que se traslada en esta linea."""
+    product_instance_id: int
+
+class TransferDetailInstanceRead(BaseModel):
+    id: int
+    product_instance_id: int
+    serial_number: Optional[str] = None  # populated from product_instance for convenience
+
+    model_config = ConfigDict(from_attributes=True)
+
 class TransferDetailBase(BaseModel):
     product_id: int
     quantity: Decimal
 
 class TransferDetailCreate(TransferDetailBase):
-    pass
+    instances: List["TransferDetailInstanceCreate"] = Field(
+        [], description="IMEIs/seriales especificos a trasladar (solo si el producto tiene has_imei=true y el feature flag esta ON)"
+    )
 
 class TransferDetailRead(TransferDetailBase):
     id: int
     transfer_id: int
     product: Optional[ProductRead] = None
-    
+    instances: List[TransferDetailInstanceRead] = Field([], description="IMEIs/seriales que se trasladaron")
+
     model_config = ConfigDict(from_attributes=True)
 
 class InventoryTransferBase(BaseModel):

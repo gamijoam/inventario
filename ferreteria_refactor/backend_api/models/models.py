@@ -1065,9 +1065,27 @@ class TransferDetail(Base):
 
     transfer = relationship("InventoryTransfer", back_populates="details")
     product = relationship("Product")
+    instances = relationship("TransferDetailInstance", back_populates="transfer_detail", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<TransferDetail(t={self.transfer_id}, p={self.product_id}, q={self.quantity})>"
+
+
+class TransferDetailInstance(Base):
+    __tablename__ = "transfer_detail_instances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transfer_detail_id = Column(Integer, ForeignKey("transfer_details.id", ondelete="CASCADE"), nullable=False)
+    product_instance_id = Column(Integer, ForeignKey("product_instances.id", ondelete="RESTRICT"), nullable=False)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    transfer_detail = relationship("TransferDetail", back_populates="instances")
+    product_instance = relationship("ProductInstance")
+
+    __table_args__ = (UniqueConstraint('transfer_detail_id', 'product_instance_id', name='uix_tdi_detail_instance'),)
+
+    def __repr__(self):
+        return f"<TransferDetailInstance(td={self.transfer_detail_id}, pi={self.product_instance_id})>"
 
 class WarrantyPolicy(Base):
     __tablename__ = "warranty_policies"
