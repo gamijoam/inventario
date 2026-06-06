@@ -128,23 +128,22 @@ const ConfigCenter = () => {
     // ── Sidebar Nav ──────────────────────────────────────────────────────────
     const SidebarNav = ({ onClose }) => (
         <nav className="flex h-full flex-col">
-            {/* Logo / título */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
-                <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
-                        <Building2 size={18} />
+            {onClose && (
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
+                            <Building2 size={18} />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Panel</p>
+                            <p className="truncate text-base font-black text-slate-800">Configuración</p>
+                        </div>
                     </div>
-                    <div className="min-w-0">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Panel</p>
-                        <p className="truncate text-base font-black text-slate-800">Configuración</p>
-                    </div>
-                </div>
-                {onClose && (
                     <button onClick={onClose} className="rounded-md p-1.5 transition-colors hover:bg-slate-100 md:hidden">
                         <X size={18} className="text-slate-500" />
                     </button>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Grupos */}
             <div className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
@@ -178,16 +177,42 @@ const ConfigCenter = () => {
     );
 
     return (
-        <div className="flex min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-slate-50">
 
-            {/* ── SIDEBAR DESKTOP (md+) ─────────────────────────────────── */}
-            <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-64 shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white/95 md:flex">
-                <SidebarNav />
-            </aside>
+            {/* Header del centro de configuración */}
+            <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm shadow-slate-200/40 backdrop-blur-md">
+                <div className="flex items-center gap-4 px-4 py-4 sm:px-6">
+                    <button onClick={() => setMobileOpen(true)}
+                        className="-ml-1 rounded-md p-2 transition-colors hover:bg-slate-100 md:hidden">
+                        <Menu size={20} className="text-slate-600" />
+                    </button>
 
-            {/* ── DRAWER MOBILE ─────────────────────────────────────────── */}
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
+                        <Building2 size={19} />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                        <p className="hidden text-[10px] font-black uppercase tracking-widest text-slate-400 sm:block">Panel administrativo</p>
+                        <h1 className="truncate text-xl font-black leading-tight text-slate-900">Configuración</h1>
+                        <p className="hidden truncate text-xs text-slate-500 sm:block">
+                            Ajustes del negocio, finanzas, POS e integraciones
+                        </p>
+                    </div>
+
+                    <div className="hidden min-w-0 items-center gap-2 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-700 lg:flex">
+                        <CurrentIcon size={16} />
+                        <span className="truncate">{currentItem?.label || 'General'}</span>
+                    </div>
+
+                    <HelpButton contextKey={configHelpKey} onClick={help.open} />
+                </div>
+            </div>
+
+            {help.isOpen && <HelpDrawer contextKey={configHelpKey} onClose={help.close} />}
+
+            {/* DRAWER MOBILE */}
             {mobileOpen && (
-                <div className="fixed inset-0 z-50 md:hidden flex">
+                <div className="fixed inset-0 z-50 flex md:hidden">
                     <div className="absolute inset-0 bg-indigo-950/35" onClick={() => setMobileOpen(false)} />
                     <div className="relative flex h-full w-72 flex-col bg-white shadow-xl">
                         <SidebarNav onClose={() => setMobileOpen(false)} />
@@ -195,45 +220,27 @@ const ConfigCenter = () => {
                 </div>
             )}
 
-            {/* ── CONTENIDO ─────────────────────────────────────────────── */}
-            <div className="flex-1 flex flex-col min-w-0">
-
-                {/* Header del contenido */}
-                <div className="sticky top-0 z-30 flex items-center gap-4 border-b border-slate-200 bg-white/95 px-4 py-4 shadow-sm shadow-slate-200/40 backdrop-blur-md sm:px-6">
-                    {/* Botón menú móvil */}
-                    <button onClick={() => setMobileOpen(true)}
-                        className="-ml-1 rounded-md p-2 transition-colors hover:bg-slate-100 md:hidden">
-                        <Menu size={20} className="text-slate-600" />
-                    </button>
-
-                    {/* Icono + título de la sección activa */}
-                    <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-indigo-100 bg-indigo-50">
-                            <CurrentIcon size={19} className="text-indigo-600" />
-                        </div>
-                        <div className="min-w-0">
-                            <p className="hidden text-[10px] font-black uppercase tracking-widest text-slate-400 sm:block">Configuración</p>
-                            <h1 className="truncate text-lg font-black leading-tight text-slate-900">
-                                {currentItem?.label || 'Configuración'}
-                            </h1>
-                            <p className="hidden truncate text-xs text-slate-500 sm:block">
-                                {currentItem?.desc}
-                            </p>
-                        </div>
-                    </div>
-                    <div className="ml-auto">
-                        <HelpButton contextKey={configHelpKey} onClick={help.open} />
-                    </div>
-                </div>
-
-                {help.isOpen && <HelpDrawer contextKey={configHelpKey} onClose={help.close} />}
+            <div className="flex min-w-0">
+                {/* Navegación interna desktop */}
+                <aside className="sticky top-[73px] hidden h-[calc(100vh-73px)] w-60 shrink-0 overflow-hidden border-r border-slate-200 bg-white/90 md:flex lg:w-64">
+                    <SidebarNav />
+                </aside>
 
                 {/* Área de contenido */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+                <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
                     <div className="mx-auto w-full max-w-6xl">
+                        <div className="mb-4 flex items-center gap-3 md:hidden">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-indigo-100 bg-indigo-50">
+                                <CurrentIcon size={18} className="text-indigo-600" />
+                            </div>
+                            <div className="min-w-0">
+                                <h2 className="truncate text-lg font-black text-slate-900">{currentItem?.label || 'Configuración'}</h2>
+                                <p className="truncate text-xs text-slate-500">{currentItem?.desc}</p>
+                            </div>
+                        </div>
                         {renderTabContent(activeTab)}
                     </div>
-                </div>
+                </main>
             </div>
         </div>
     );

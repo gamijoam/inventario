@@ -101,9 +101,9 @@ export default function BusinessLogoUploader() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className="rounded-lg border-slate-200 shadow-sm">
+      <CardHeader className="p-5 pb-3">
+        <CardTitle className="flex items-center gap-2 text-xl font-black tracking-normal text-slate-900">
           <ImageIcon size={18} className="text-indigo-500" />
           Logo del Negocio
         </CardTitle>
@@ -111,33 +111,33 @@ export default function BusinessLogoUploader() {
           Se muestra en tickets, catálogo público y certificado de garantía. PNG/JPG/WEBP, máx 2 MB.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-5 pt-0">
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 size={20} className="animate-spin text-indigo-500" />
           </div>
         ) : logoUrl ? (
           <>
-          <div className="flex items-center gap-6 flex-wrap">
+          <div className="grid gap-4 sm:grid-cols-[112px_minmax(0,1fr)] sm:items-center">
             {/* Preview */}
-            <div className="w-40 h-40 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shadow-inner relative">
+            <div className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50 shadow-inner">
               <img src={getFullUrl(logoUrl)} alt="Logo del negocio"
-                className="max-w-full max-h-full object-contain p-3" />
-              <div className="absolute top-1 right-1 bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                className="max-h-full max-w-full object-contain p-2" />
+              <div className="absolute right-1 top-1 flex items-center gap-0.5 rounded-md bg-emerald-500 px-1.5 py-0.5 text-[9px] font-black text-white">
                 <Check size={9} /> ACTIVO
               </div>
             </div>
 
             {/* Acciones */}
             <div className="space-y-2">
-              <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold shadow-sm transition disabled:opacity-50">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50">
                 <ImagePlus size={16} />
                 {uploading ? 'Subiendo…' : 'Reemplazar logo'}
                 <input ref={fileInputRef} type="file" className="hidden" accept="image/*" disabled={uploading}
                   onChange={e => handleUpload(e.target.files?.[0])} />
               </label>
               <button onClick={handleDelete} disabled={uploading}
-                className="block w-full px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-sm font-bold transition disabled:opacity-50 flex items-center justify-center gap-2">
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-rose-50 px-4 py-2 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-100 disabled:opacity-50">
                 <Trash2 size={16} /> Eliminar logo
               </button>
               <p className="text-[10px] text-slate-400">
@@ -147,11 +147,11 @@ export default function BusinessLogoUploader() {
           </div>
 
           {/* Selector de tamaño del logo en garantía */}
-          <div className="mt-5 pt-5 border-t border-slate-100">
+          <div className="mt-4 border-t border-slate-100 pt-4">
             <Label className="text-xs font-bold uppercase text-slate-500 mb-2 block">
               Tamaño del logo en el PDF de garantía
             </Label>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {[
                 { id: 'small',   label: 'Pequeño',  desc: '70%' },
                 { id: 'medium',  label: 'Mediano',  desc: '100%' },
@@ -161,10 +161,10 @@ export default function BusinessLogoUploader() {
               ].map(opt => (
                 <button key={opt.id}
                   onClick={() => handleSizeChange(opt.id)}
-                  className={`px-3 py-2 rounded-xl border-2 transition text-center ${
+                  className={`rounded-md border px-3 py-2 text-center transition-colors ${
                     logoSize === opt.id
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:bg-indigo-50'
                   }`}>
                   <div className="text-xs font-bold">{opt.label}</div>
                   <div className="text-[10px] opacity-70">{opt.desc}</div>
@@ -178,12 +178,12 @@ export default function BusinessLogoUploader() {
           </>
         ) : (
           <div onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-            className={`rounded-2xl border-2 border-dashed py-10 px-6 text-center transition cursor-pointer ${
+            className={`cursor-pointer rounded-lg border border-dashed px-5 py-8 text-center transition-colors ${
               dragActive ? 'border-indigo-500 bg-indigo-50/50' : 'border-slate-200 hover:border-indigo-300 bg-slate-50/50'
             }`}
             onClick={() => fileInputRef.current?.click()}>
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-white border border-slate-200 flex items-center justify-center mb-3 shadow-sm">
-              <ImagePlus size={24} className="text-slate-400" />
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-md border border-slate-200 bg-white shadow-sm">
+              <ImagePlus size={22} className="text-slate-400" />
             </div>
             <p className="text-sm font-bold text-slate-700 mb-1">Arrastra tu logo aquí o haz click</p>
             <p className="text-xs text-slate-500">PNG, JPG o WEBP · Máximo 2 MB · Se redimensiona a 600×600</p>
