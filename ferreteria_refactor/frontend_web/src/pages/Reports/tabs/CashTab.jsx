@@ -75,6 +75,15 @@ const CashTab = ({ dateRange }) => {
         });
     };
 
+    const showRecentSessions = () => {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(start.getDate() - 90);
+        const toDateInput = (date) => date.toISOString().slice(0, 10);
+        setStartDate(toDateInput(start));
+        setEndDate(toDateInput(end));
+    };
+
     const getSessionAlertStatus = (session) => {
         if (!session.currencies || session.currencies.length === 0) {
             const diff = parseFloat(session.difference || 0);
@@ -271,9 +280,21 @@ const CashTab = ({ dateRange }) => {
                         Cargando historial...
                     </div>
                 ) : sessions.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-slate-400 opacity-60">
-                        <Clock size={48} className="mb-2" />
-                        <p className="font-medium">No se encontraron sesiones</p>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-10 text-center text-slate-500">
+                        <div className="mb-3 rounded-xl bg-slate-100 p-3 text-slate-400">
+                            <Clock size={28} />
+                        </div>
+                        <p className="text-sm font-black text-slate-700">No hay sesiones en este rango</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">
+                            Rango actual: {startDate || 'inicio'} - {endDate || 'fin'}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={showRecentSessions}
+                            className="mt-4 h-9 rounded-lg bg-indigo-600 px-3 text-xs font-black text-white shadow-sm transition-colors hover:bg-indigo-700 active:scale-95"
+                        >
+                            Ver ultimas sesiones
+                        </button>
                     </div>
                 ) : (
                     sessions.map((session) => {
