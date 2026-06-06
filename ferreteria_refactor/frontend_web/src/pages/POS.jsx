@@ -648,7 +648,7 @@ const POS = () => {
         for (const item of order.details) {
             // Logic to find or mock product
             let product;
-            if (item.product_id) product = getFromCache(item.product_id) || await lookupProduct(item.product_id);
+            if (item.product_id) product = item.product || getFromCache(item.product_id) || await lookupProduct(item.product_id);
             if (!product) {
                 product = {
                     id: `SRV_${item.id}`,

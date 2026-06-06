@@ -600,7 +600,7 @@ def get_ready_service_orders(
     # We filter in Python to handle JSON metadata checking easily or use cast/JSON logic in SQL
     # But since it's a small list, Python filter is safer across DB types
     orders = db.query(models.ServiceOrder)\
-        .options(joinedload(models.ServiceOrder.payments))\
+        .options(*_service_order_options())\
         .filter(
             models.ServiceOrder.status == models.ServiceOrderStatus.READY,
             models.ServiceOrder.tenant_id == tenant_id
