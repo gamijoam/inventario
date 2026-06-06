@@ -3,12 +3,13 @@ import { useFeatureFlag } from '../hooks/useFeatureFlag';
 import HelpDrawer, { HelpButton } from '../help/HelpDrawer';
 import { useHelp } from '../help/useHelp';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Banknote, Lock, ShoppingCart, PauseCircle, PlayCircle, Zap, Layers, Settings as SettingsIcon, Users, Building2, LayoutGrid, Image, Search, ChevronDown } from 'lucide-react';
 import CashClosingModal from '../components/cash/CashClosingModal';
 
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Button } from '../components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../components/ui/dropdown-menu';
 import { useCart } from '../context/CartContext';
 import { useCash } from '../context/CashContext';
 import { useConfig } from '../context/ConfigContext';
@@ -848,22 +849,77 @@ const POS = () => {
                         <HelpButton contextKey={helpKey} onClick={help.open} />
                 </div>
 
-                <div className="flex items-center gap-3">
-                    {!(isCashier && showCajeroRestringido) && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsMovementOpen(true)}
-                        className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200"
-                    >
-                        <ArrowRightLeft size={16} /> Movimientos
-                    </Button>
-                    )}
+                <div className="flex items-center gap-2 md:gap-3">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="hidden md:flex h-9 gap-2 rounded-xl border-slate-200 bg-white px-3 font-black text-slate-700 hover:bg-slate-50 hover:text-indigo-600 hover:border-indigo-200"
+                            >
+                                <Banknote size={16} />
+                                Caja
+                                <ChevronDown size={14} className="text-slate-400" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 rounded-xl border-slate-200 p-1.5 shadow-xl">
+                            <DropdownMenuLabel className="px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                Acciones de caja
+                            </DropdownMenuLabel>
+                            {!(isCashier && showCajeroRestringido) && (
+                                <>
+                                    <DropdownMenuItem
+                                        onClick={() => setIsMovementOpen(true)}
+                                        className="cursor-pointer rounded-lg py-2 font-bold text-slate-700 focus:bg-indigo-50 focus:text-indigo-700"
+                                    >
+                                        <ArrowRightLeft size={15} className="mr-2 text-indigo-500" />
+                                        Movimientos
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => setIsAdvanceOpen(true)}
+                                        className="cursor-pointer rounded-lg py-2 font-bold text-slate-700 focus:bg-emerald-50 focus:text-emerald-700"
+                                    >
+                                        <Banknote size={15} className="mr-2 text-emerald-500" />
+                                        Avance
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                            {!heldCart && (
+                                <DropdownMenuItem
+                                    id="tour-pos-hold-btn"
+                                    onClick={holdCart}
+                                    disabled={cart.length === 0}
+                                    className="cursor-pointer rounded-lg py-2 font-bold text-amber-700 focus:bg-amber-50 focus:text-amber-700"
+                                    title={cart.length === 0 ? 'Agrega productos para pausar la venta' : 'Pausar venta y atender otro cliente (F6)'}
+                                >
+                                    <PauseCircle size={15} className="mr-2 text-amber-500" />
+                                    Pausar venta
+                                    <span className="ml-auto text-[10px] text-amber-400">F6</span>
+                                </DropdownMenuItem>
+                            )}
+                            {!(isCashier && showCajeroRestringido) && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            if (window.confirm('Desea cerrar la caja actual? Se generara un resumen de ventas.')) {
+                                                setIsClosingOpen(true);
+                                            }
+                                        }}
+                                        className="cursor-pointer rounded-lg py-2 font-bold text-rose-600 focus:bg-rose-50 focus:text-rose-700"
+                                    >
+                                        <Lock size={15} className="mr-2" />
+                                        Cerrar caja
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
 
-                    {/* Buscador rápido F1 — siempre visible */}
+                    {/* Buscador rapido F1 - siempre visible */}
                     <button
                         onClick={() => setIsLookupOpen(true)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs transition-all border border-indigo-200"
+                        className="flex h-9 items-center gap-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-xs transition-all border border-indigo-200"
                         title="Buscador de productos (Alt+B)"
                     >
                         <Search size={15} />
@@ -871,49 +927,7 @@ const POS = () => {
                         <kbd className="text-[9px] font-mono text-indigo-300 bg-indigo-100 px-1 rounded hidden lg:block">Alt+B</kbd>
                     </button>
 
-                    {!(isCashier && showCajeroRestringido) && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsAdvanceOpen(true)}
-                        className="hidden md:flex gap-2 font-bold text-slate-600 border-slate-200 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200"
-                    >
-                        <Banknote size={16} /> Avance
-                    </Button>
-                    )}
-
-                    {/* Órdenes — oculto temporalmente para todos */}
-
-                    {/* Pausar venta — siempre visible, desactivado sin items o con pausa activa */}
-                    {!heldCart && (
-                        <Button
-                            id="tour-pos-hold-btn"
-                            variant="outline"
-                            size="sm"
-                            onClick={holdCart}
-                            disabled={cart.length === 0}
-                            className="hidden md:flex gap-2 font-bold text-amber-600 border-amber-300 hover:bg-amber-50 hover:border-amber-400 disabled:opacity-40 disabled:cursor-not-allowed"
-                            title={cart.length === 0 ? 'Agrega productos para pausar la venta' : 'Pausar venta y atender otro cliente (F6)'}
-                        >
-                            <PauseCircle size={16} /> Pausar
-                        </Button>
-                    )}
-
-
-                    {!(isCashier && showCajeroRestringido) && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            if (window.confirm('¿Desea cerrar la caja actual? Se generará un resumen de ventas.')) {
-                                setIsClosingOpen(true);
-                            }
-                        }}
-                        className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 font-bold gap-2"
-                    >
-                        <Lock size={16} /> Cerrar Caja
-                    </Button>
-                    )}
+                    {/* Ordenes - oculto temporalmente para todos */}
 
                     {/* Botón Modo Express — temporalmente oculto
                     <Button
