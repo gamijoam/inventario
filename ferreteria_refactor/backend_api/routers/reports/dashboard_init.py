@@ -1,12 +1,12 @@
 """
 dashboard_init.py — Endpoint optimizado para carga inicial del Dashboard.
 Consolida en 1 request lo que antes eran 6-8 requests separados.
-Cacheable en Redis por 60 segundos (datos cambian con cada venta).
+Cacheable en Redis por 30 segundos (datos cambian con cada venta).
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 from decimal import Decimal
 
@@ -37,7 +37,7 @@ def get_dashboard_init(
     - Métodos de pago
     - Stock bajo
     - Resumen de créditos
-    TTL de caché: 60 segundos
+    TTL de cache: 30 segundos
     """
     from ...tenant_context import get_tenant_schema
     schema = get_tenant_schema()
@@ -48,6 +48,8 @@ def get_dashboard_init(
     today = date.today()
     d_from = date.fromisoformat(date_from) if date_from else today.replace(day=1)
     d_to   = date.fromisoformat(date_to)   if date_to   else today
+    start_dt = datetime.combine(d_from, datetime.min.time())
+    end_next = datetime.combine(d_to + timedelta(days=1), datetime.min.time())
 
     cache_key = f"dashboard_init:{d_from}:{d_to}"
     cached = get_cached(schema, cache_key)
@@ -67,8 +69,8 @@ def get_dashboard_init(
             COUNT(*) FILTER (WHERE is_credit = true)         AS credit_count,
             COALESCE(SUM(total_amount) FILTER (WHERE is_credit = true), 0) AS credit_amount
         FROM {schema}.sales
-        WHERE date::date BETWEEN :d_from AND :d_to
-    """), {"d_from": d_from, "d_to": d_to}).first()
+        WHERE date >= :start_dt AND date < :end_next
+    """), {"start_dt": start_dt, "end_next": end_next}).first()
 
     # ── 2. Rentabilidad (costo vs ingreso) ───────────────────────────────────
     try:
@@ -78,8 +80,8 @@ def get_dashboard_init(
                 COALESCE(SUM(sd.cost_at_sale * sd.quantity), 0)      AS cost
             FROM {schema}.sale_details sd
             JOIN {schema}.sales s ON s.id = sd.sale_id
-            WHERE s.date::date BETWEEN :d_from AND :d_to
-        """), {"d_from": d_from, "d_to": d_to}).first()
+            WHERE s.date >= :start_dt AND s.date < :end_next
+        """), {"start_dt": start_dt, "end_next": end_next}).first()
     except Exception as e:
         log.error(f"[dashboard-init] ERROR en profit query: {e}")
         profit = type('obj', (object,), {'revenue': 0, 'cost': 0})()
@@ -91,24 +93,24 @@ def get_dashboard_init(
 
     # ── 3. Top 5 productos ───────────────────────────────────────────────────
     top_products = db.execute(text(f"""
-        SELECT p.name, SUM(sd.quantity) AS qty, SUM(sd.subtotal) AS revenue
+        SELECT p.id AS product_id, p.name, SUM(sd.quantity) AS qty, SUM(sd.subtotal) AS revenue
         FROM {schema}.sale_details sd
         JOIN {schema}.products p ON p.id = sd.product_id
         JOIN {schema}.sales s ON s.id = sd.sale_id
-        WHERE s.date::date BETWEEN :d_from AND :d_to
-        GROUP BY p.name
+        WHERE s.date >= :start_dt AND s.date < :end_next
+        GROUP BY p.id, p.name
         ORDER BY qty DESC
         LIMIT 5
-    """), {"d_from": d_from, "d_to": d_to}).all()
+    """), {"start_dt": start_dt, "end_next": end_next}).all()
 
     # ── 4. Métodos de pago ───────────────────────────────────────────────────
     payment_methods = db.execute(text(f"""
         SELECT payment_method, COUNT(*) AS count, SUM(total_amount) AS total
         FROM {schema}.sales
-        WHERE date::date BETWEEN :d_from AND :d_to
+        WHERE date >= :start_dt AND date < :end_next
         GROUP BY payment_method
         ORDER BY total DESC
-    """), {"d_from": d_from, "d_to": d_to}).all()
+    """), {"start_dt": start_dt, "end_next": end_next}).all()
 
     # ── 5. Stock bajo (usa el índice nuevo) ──────────────────────────────────
     low_stock = db.execute(text(f"""
@@ -126,12 +128,14 @@ def get_dashboard_init(
     days = (d_to - d_from).days or 1
     prev_to   = d_from - timedelta(days=1)
     prev_from = prev_to - timedelta(days=days)
+    prev_start_dt = datetime.combine(prev_from, datetime.min.time())
+    prev_end_next = datetime.combine(prev_to + timedelta(days=1), datetime.min.time())
 
     prev_sales = db.execute(text(f"""
         SELECT COALESCE(COUNT(*), 0) AS count, COALESCE(SUM(total_amount), 0) AS revenue
         FROM {schema}.sales
-        WHERE date::date BETWEEN :d_from AND :d_to
-    """), {"d_from": prev_from, "d_to": prev_to}).first()
+        WHERE date >= :start_dt AND date < :end_next
+    """), {"start_dt": prev_start_dt, "end_next": prev_end_next}).first()
 
     try:
         prev_profit = db.execute(text(f"""
@@ -140,28 +144,32 @@ def get_dashboard_init(
                 COALESCE(SUM(sd.cost_at_sale * sd.quantity), 0) AS cost
             FROM {schema}.sale_details sd
             JOIN {schema}.sales s ON s.id = sd.sale_id
-            WHERE s.date::date BETWEEN :d_from AND :d_to
-        """), {"d_from": prev_from, "d_to": prev_to}).first()
+            WHERE s.date >= :start_dt AND s.date < :end_next
+        """), {"start_dt": prev_start_dt, "end_next": prev_end_next}).first()
     except Exception as e:
         log.error(f"[dashboard-init] ERROR en previous profit query: {e}")
         prev_profit = type('obj', (object,), {'revenue': 0, 'cost': 0})()
 
     daily_rows = db.execute(text(f"""
-        WITH sale_costs AS (
-            SELECT sale_id, COALESCE(SUM(cost_at_sale * quantity), 0) AS cost
-            FROM {schema}.sale_details
-            GROUP BY sale_id
+        WITH period_sales AS (
+            SELECT id, date::date AS day, total_amount
+            FROM {schema}.sales
+            WHERE date >= :start_dt AND date < :end_next
+        ), sale_costs AS (
+            SELECT sd.sale_id, COALESCE(SUM(sd.cost_at_sale * sd.quantity), 0) AS cost
+            FROM {schema}.sale_details sd
+            JOIN period_sales ps ON ps.id = sd.sale_id
+            GROUP BY sd.sale_id
         )
         SELECT
-            s.date::date AS day,
-            COALESCE(SUM(s.total_amount), 0) AS revenue,
+            ps.day,
+            COALESCE(SUM(ps.total_amount), 0) AS revenue,
             COALESCE(SUM(sc.cost), 0) AS cost
-        FROM {schema}.sales s
-        LEFT JOIN sale_costs sc ON sc.sale_id = s.id
-        WHERE s.date::date BETWEEN :d_from AND :d_to
-        GROUP BY s.date::date
-        ORDER BY s.date::date
-    """), {"d_from": d_from, "d_to": d_to}).all()
+        FROM period_sales ps
+        LEFT JOIN sale_costs sc ON sc.sale_id = ps.id
+        GROUP BY ps.day
+        ORDER BY ps.day
+    """), {"start_dt": start_dt, "end_next": end_next}).all()
 
     result = {
         "period": {"from": str(d_from), "to": str(d_to)},
@@ -194,7 +202,7 @@ def get_dashboard_init(
             ),
         },
         "top_products": [
-            {"name": r.name, "qty": _float(r.qty), "revenue": _float(r.revenue)}
+            {"product_id": r.product_id, "name": r.name, "qty": _float(r.qty), "revenue": _float(r.revenue)}
             for r in top_products
         ],
         "payment_methods": [
@@ -215,6 +223,6 @@ def get_dashboard_init(
         ],
     }
 
-    # Cachear 60 segundos
-    set_cached(schema, cache_key, result, ttl=60)
+    # Cachear 30 segundos
+    set_cached(schema, cache_key, result, ttl=30)
     return result
