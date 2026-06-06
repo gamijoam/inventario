@@ -176,6 +176,41 @@ const ConfigCenter = () => {
         </nav>
     );
 
+
+    const DesktopTabs = () => (
+        <div className="hidden border-b border-slate-200 bg-white md:block">
+            <div className="space-y-3 px-5 py-4">
+                {visibleGroups.map(group => (
+                    <div key={group.label} className="grid gap-2 lg:grid-cols-[96px_minmax(0,1fr)] lg:items-center">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            {group.label}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {group.items.map(item => {
+                                const Icon = item.icon;
+                                const active = activeTab === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setTab(item.id)}
+                                        className={`group inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors ${
+                                            active
+                                                ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-200'
+                                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700'
+                                        }`}
+                                    >
+                                        <Icon size={15} className={active ? 'text-white' : 'text-slate-400 group-hover:text-indigo-600'} />
+                                        <span>{item.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-slate-50">
 
@@ -220,28 +255,22 @@ const ConfigCenter = () => {
                 </div>
             )}
 
-            <div className="flex min-w-0">
-                {/* Navegación interna desktop */}
-                <aside className="sticky top-[73px] hidden h-[calc(100vh-73px)] w-60 shrink-0 overflow-hidden border-r border-slate-200 bg-white/90 md:flex lg:w-64">
-                    <SidebarNav />
-                </aside>
+            <DesktopTabs />
 
-                {/* Área de contenido */}
-                <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
-                    <div className="mx-auto w-full max-w-6xl">
-                        <div className="mb-4 flex items-center gap-3 md:hidden">
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-indigo-100 bg-indigo-50">
-                                <CurrentIcon size={18} className="text-indigo-600" />
-                            </div>
-                            <div className="min-w-0">
-                                <h2 className="truncate text-lg font-black text-slate-900">{currentItem?.label || 'Configuración'}</h2>
-                                <p className="truncate text-xs text-slate-500">{currentItem?.desc}</p>
-                            </div>
+            <main className="min-w-0 p-4 sm:p-6">
+                <div className="mx-auto w-full max-w-7xl">
+                    <div className="mb-4 flex items-center gap-3 md:hidden">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-indigo-100 bg-indigo-50">
+                            <CurrentIcon size={18} className="text-indigo-600" />
                         </div>
-                        {renderTabContent(activeTab)}
+                        <div className="min-w-0">
+                            <h2 className="truncate text-lg font-black text-slate-900">{currentItem?.label || 'Configuración'}</h2>
+                            <p className="truncate text-xs text-slate-500">{currentItem?.desc}</p>
+                        </div>
                     </div>
-                </main>
-            </div>
+                    {renderTabContent(activeTab)}
+                </div>
+            </main>
         </div>
     );
 };
