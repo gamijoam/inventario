@@ -182,9 +182,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
     # Aceptar la conexión
     await websocket.accept()
+    temp_id = f"web_{str(uuid.uuid4())[:8]}"
 
     try:
-        temp_id = f"web_{str(uuid.uuid4())[:8]}"
         await manager.connect(websocket, client_id=temp_id, tenant_id=tenant_id)
         await websocket.send_text(json.dumps({"type": "conn_ack", "msg": "Connected", "tenant": tenant_id}))
         print(f"✅ [WS] Frontend conectado: tenant={tenant_id} id={temp_id}")
@@ -209,13 +209,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 }))
                 
     except WebSocketDisconnect:
-        # We need to know the ID to disconnect, but here it's local scope.
-        # Ideally we'd store it. For now, we catch the generic disconnect.
-        # In a real app, we'd restructure this too.
-        # calling disconnect without ID is impossible with new manager.
-        # So we skip explicit disconnect here for the legacy endpoint or rely on the manager not leaking too much.
-        # Actually, let's just pass the temp_id if we can.
-        pass # manager.disconnect(temp_id, "public") - tricky to access temp_id in except block if defined inside try
+        print(f"🔌 [WS] Frontend disconnected: tenant={tenant_id} id={temp_id}")
          
     except Exception as e:
         print(f"WebSocket error: {e}")
+    finally:
+        manager.disconnect(temp_id, tenant_id)
