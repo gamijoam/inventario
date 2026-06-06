@@ -266,6 +266,12 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         );
     };
 
+    const CollapsedTooltip = ({ label }) => (
+        <span className="pointer-events-none absolute left-[58px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 opacity-0 shadow-lg shadow-slate-200/70 transition-opacity group-hover:block group-hover:opacity-100">
+            {label}
+        </span>
+    );
+
     useEffect(() => {
         if (isCollapsed) return;
         menuStructure.forEach(group => {
@@ -346,22 +352,25 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                         return (
                             <div key={`nav-${group.item.path}`}>
                                 {sectionMarker}
-                                <Link
-                                    to={group.item.path}
-                                    id={group.item.label === 'Resumen' ? 'sidebar-dashboard' : undefined}
-                                    onClick={closeMobileMenu}
-                                    className={cn(
-                                        "flex items-center px-4 py-3 rounded-lg text-sm transition-colors relative group mb-1",
-                                        isActive
-                                            ? "bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-100"
-                                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
-                                        isCollapsed && "justify-center px-0 h-11"
-                                    )}
-                                    title={isCollapsed ? group.item.label : ''}
-                                >
-                                    <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600")} strokeWidth={isActive ? 2.4 : 2} />
-                                    {!isCollapsed && <span className="ml-3 font-bold">{group.item.label}</span>}
-                                </Link>
+                                <div className={cn("relative", isCollapsed && "group")}>
+                                    <Link
+                                        to={group.item.path}
+                                        id={group.item.label === 'Resumen' ? 'sidebar-dashboard' : undefined}
+                                        onClick={closeMobileMenu}
+                                        className={cn(
+                                            "flex items-center px-4 py-3 rounded-lg text-sm transition-colors relative mb-1",
+                                            isActive
+                                                ? "bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-100"
+                                                : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
+                                            isCollapsed && "justify-center px-0 h-11"
+                                        )}
+                                        title={isCollapsed ? group.item.label : ''}
+                                    >
+                                        <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-indigo-600" : "text-slate-400")} strokeWidth={isActive ? 2.4 : 2} />
+                                        {!isCollapsed && <span className="ml-3 font-bold">{group.item.label}</span>}
+                                    </Link>
+                                    {isCollapsed && <CollapsedTooltip label={group.item.label} />}
+                                </div>
                             </div>
                         );
                     }
@@ -381,12 +390,13 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                         onClick={() => toggleGroup(group.label)}
                                         className={cn(
                                             "w-11 h-11 flex items-center justify-center rounded-lg transition-colors",
-                                            hasActiveChild ? "bg-indigo-50 text-indigo-600 shadow-sm" : "text-slate-400 hover:bg-slate-50"
+                                            hasActiveChild ? "bg-indigo-50 text-indigo-600 shadow-sm ring-1 ring-indigo-100" : "text-slate-400 hover:bg-slate-50"
                                         )}
                                         title={group.label}
                                     >
                                         <group.icon size={20} />
                                     </button>
+                                    <CollapsedTooltip label={group.label} />
                                 </div>
                             </div>
                         );
@@ -452,9 +462,10 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 {!isCollapsed && <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Soporte y Guía</p>}
 
                 <div className={cn("grid gap-1", isCollapsed ? "grid-cols-1" : "grid-cols-1")}>
-                    <Link to="/support" className={cn("flex items-center px-4 py-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors font-bold text-sm relative", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")} title="Soporte Técnico">
+                    <Link to="/support" className={cn("group flex items-center px-4 py-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors font-bold text-sm relative", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")} title="Soporte Técnico">
                         <LifeBuoy size={18} />
                         {!isCollapsed && <span className="ml-3">Soporte</span>}
+                        {isCollapsed && <CollapsedTooltip label="Soporte" />}
                         {supportUnread > 0 && (
                             <span className={cn(
                                 "absolute flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black text-white bg-rose-500 rounded-full shadow-sm animate-pulse",
@@ -467,11 +478,12 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
                     <button
                         onClick={() => setIsTourModalOpen(true)}
-                        className={cn("flex items-center px-4 py-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors font-bold text-sm", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")}
+                        className={cn("group relative flex items-center px-4 py-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors font-bold text-sm", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")}
                         title="Guía de Uso"
                     >
                         <BookOpen size={18} />
                         {!isCollapsed && <span className="ml-3">Manual</span>}
+                        {isCollapsed && <CollapsedTooltip label="Manual" />}
                     </button>
                 </div>
 
@@ -479,7 +491,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                     <button
                         onClick={handleLogout}
                         className={cn(
-                            "flex items-center px-4 py-3 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors w-full font-bold text-sm group",
+                            "group relative flex items-center px-4 py-3 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors w-full font-bold text-sm",
                             isCollapsed && "justify-center p-0 h-11 w-11 mx-auto"
                         )}
                         title="Cerrar Sesión"
