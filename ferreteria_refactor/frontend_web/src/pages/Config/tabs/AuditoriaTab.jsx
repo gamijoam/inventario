@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, Filter, RefreshCw, Clock, Database, ArrowRight, ChevronDown, ChevronUp, User, Shield } from 'lucide-react';
+import { ClipboardList, Filter, RefreshCw, Clock, ArrowRight, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 import auditService from '../../../services/auditService';
 import { toast } from 'react-hot-toast';
 
 const ACTION_STYLES = {
     CREATE: { bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'CREAR' },
-    UPDATE: { bg: 'bg-blue-100',    text: 'text-blue-700',    dot: 'bg-blue-500',    label: 'EDITAR' },
+    UPDATE: { bg: 'bg-indigo-100', text: 'text-indigo-700', dot: 'bg-indigo-500', label: 'EDITAR' },
     DELETE: { bg: 'bg-rose-100',    text: 'text-rose-700',    dot: 'bg-rose-500',    label: 'ELIMINAR' },
 };
 
 const TABLE_LABELS = {
-    products:  '📦 Productos',
-    users:     '👤 Usuarios',
-    sales:     '🛒 Ventas',
-    purchases: '📥 Compras',
-    suppliers: '🏭 Proveedores',
-    customers: '👥 Clientes',
+    products:  'Productos',
+    users:     'Usuarios',
+    sales:     'Ventas',
+    purchases: 'Compras',
+    suppliers: 'Proveedores',
+    customers: 'Clientes',
 };
 
 const fmtDate = (ts) => {
@@ -79,7 +79,7 @@ const LogRow = ({ log }) => {
     } catch {}
 
     return (
-        <div className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden ${expanded ? 'border-indigo-200 shadow-md' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'}`}>
+        <div className={`bg-white rounded-lg border transition-all duration-200 overflow-hidden ${expanded ? 'border-indigo-200 shadow-sm' : 'border-slate-200 hover:border-indigo-200 hover:shadow-sm'}`}>
             {/* Header siempre visible */}
             <button
                 onClick={() => setExpanded(e => !e)}
@@ -89,19 +89,19 @@ const LogRow = ({ log }) => {
                 <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${style.dot}`} />
 
                 {/* Badge acción */}
-                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-lg shrink-0 ${style.bg} ${style.text}`}>
+                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md shrink-0 ${style.bg} ${style.text}`}>
                     {style.label}
                 </span>
 
                 {/* Tabla + ID */}
-                <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-xl shrink-0">
+                <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-md shrink-0">
                     <span className="text-xs font-bold text-slate-700">{tableLabel}</span>
                     <span className="text-[10px] text-slate-400 font-mono">#{log.record_id}</span>
                 </div>
 
                 {/* Usuario */}
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-black flex items-center justify-center shrink-0">
+                    <div className="h-6 w-6 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-black flex items-center justify-center shrink-0">
                         {userInitial}
                     </div>
                     <span className="text-xs font-bold text-slate-600 truncate">{userName}</span>
@@ -118,7 +118,7 @@ const LogRow = ({ log }) => {
 
                 {/* Contador cambios + chevron */}
                 {changesCount > 0 && (
-                    <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-lg shrink-0">
+                    <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-md shrink-0">
                         {changesCount} campo{changesCount !== 1 ? 's' : ''}
                     </span>
                 )}
@@ -169,19 +169,19 @@ const AuditoriaTab = () => {
         <div className="space-y-5">
 
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-100 rounded-2xl flex items-center justify-center">
+                    <div className="h-10 w-10 bg-indigo-50 rounded-md flex items-center justify-center">
                         <Shield size={20} className="text-indigo-600" />
                     </div>
                     <div>
-                        <h2 className="font-black text-slate-800 text-base">Registro de Actividad</h2>
+                        <h2 className="font-black text-slate-900 text-lg">Registro de Actividad</h2>
                         <p className="text-xs text-slate-400">Todos los cambios quedan registrados</p>
                     </div>
                 </div>
                 <button
                     onClick={fetchLogs}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm active:scale-95"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-md text-sm font-bold text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-all shadow-sm active:scale-95"
                 >
                     <RefreshCw size={15} className={loading ? 'animate-spin text-indigo-500' : ''} />
                     Actualizar
@@ -190,14 +190,14 @@ const AuditoriaTab = () => {
 
             {/* Stats */}
             {!loading && logs.length > 0 && (
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                         { label: 'Total', value: stats.total, color: 'bg-slate-100 text-slate-700' },
                         { label: 'Creados', value: stats.creates, color: 'bg-emerald-100 text-emerald-700' },
-                        { label: 'Editados', value: stats.updates, color: 'bg-blue-100 text-blue-700' },
+                        { label: 'Editados', value: stats.updates, color: 'bg-indigo-100 text-indigo-700' },
                         { label: 'Eliminados', value: stats.deletes, color: 'bg-rose-100 text-rose-700' },
                     ].map(s => (
-                        <div key={s.label} className={`${s.color} rounded-2xl px-3 py-2.5 text-center`}>
+                        <div key={s.label} className={`${s.color} rounded-lg px-3 py-2.5 text-center`}>
                             <p className="text-xl font-black">{s.value}</p>
                             <p className="text-[10px] font-bold uppercase tracking-widest opacity-70">{s.label}</p>
                         </div>
@@ -206,33 +206,33 @@ const AuditoriaTab = () => {
             )}
 
             {/* Filtro */}
-            <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm">
                 <Filter size={15} className="text-slate-400 shrink-0" />
                 <span className="text-sm font-bold text-slate-500">Filtrar por tabla:</span>
                 <select
                     value={filters.table_name}
                     onChange={e => setFilters({ ...filters, table_name: e.target.value })}
-                    className="flex-1 bg-transparent text-sm font-bold text-slate-700 outline-none cursor-pointer"
+                    className="w-full sm:flex-1 bg-transparent text-sm font-bold text-slate-700 outline-none cursor-pointer"
                 >
                     <option value="ALL">Todas las tablas</option>
-                    <option value="products">📦 Productos</option>
-                    <option value="users">👤 Usuarios</option>
-                    <option value="sales">🛒 Ventas</option>
-                    <option value="purchases">📥 Compras</option>
-                    <option value="suppliers">🏭 Proveedores</option>
-                    <option value="customers">👥 Clientes</option>
+                    <option value="products">Productos</option>
+                    <option value="users">Usuarios</option>
+                    <option value="sales">Ventas</option>
+                    <option value="purchases">Compras</option>
+                    <option value="suppliers">Proveedores</option>
+                    <option value="customers">Clientes</option>
                 </select>
             </div>
 
             {/* Lista de logs */}
             <div className="space-y-2">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                    <div className="flex flex-col items-center justify-center py-16 text-slate-400">
                         <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-3" style={{ borderWidth: 3 }} />
                         <p className="text-sm font-bold">Cargando registros...</p>
                     </div>
                 ) : logs.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+                    <div className="flex flex-col items-center justify-center py-16 text-slate-300">
                         <ClipboardList size={48} strokeWidth={1} />
                         <p className="text-sm font-bold mt-3 text-slate-400">Sin registros de auditoría</p>
                         <p className="text-xs text-slate-300 mt-1">Los cambios aparecerán aquí automáticamente</p>
