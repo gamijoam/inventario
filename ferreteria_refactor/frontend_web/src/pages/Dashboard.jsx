@@ -420,11 +420,13 @@ const Dashboard = () => {
                 <KPICard title="Transacciones" value={salesCurr?.net_transactions || salesCurr?.total_transactions || 0} prevValue={salesPrev?.net_transactions || salesPrev?.total_transactions} icon={ShoppingCart} color="blue" isCurrency={false} loading={loading} />
                 <KPICard title="Ticket prom."  value={salesCurr?.average_ticket || 0}     prevValue={salesPrev?.average_ticket}                            icon={BarChart2}    color="violet"  loading={loading} />
                 <KPICard title="Créditos pend." value={credits?.total_pending_usd || 0}   prevValue={null}                                                 icon={CreditCard}   color="amber"   loading={loading} />
-                <KPICard title="Órdenes taller" value={alerts.tallerReady}                prevValue={null}                                                 icon={Wrench}       color="rose"    loading={loading} isCurrency={false} />
+                {modules?.services && (
+                    <KPICard title="Órdenes taller" value={alerts.tallerReady}                prevValue={null}                                                 icon={Wrench}       color="rose"    loading={loading} isCurrency={false} />
+                )}
             </div>
 
             {/* ── ALERTAS ACCIONABLES ── */}
-            {!loading && (alerts.lowStock > 0 || alerts.tallerReady > 0 || alerts.overdueCredits > 0 || alerts.pendingCommissions > 0) && (
+            {!loading && (alerts.lowStock > 0 || (modules?.services && alerts.tallerReady > 0) || alerts.overdueCredits > 0 || alerts.pendingCommissions > 0) && (
                 <div>
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                         <Bell size={12} /> Requieren atención
@@ -433,7 +435,7 @@ const Dashboard = () => {
                         {alerts.lowStock > 0 && (
                             <AlertCard icon={Package}     title="Stock bajo"         count={alerts.lowStock}           desc="Productos por debajo del mínimo"         color="red"    onClick={() => navigate('/products')} />
                         )}
-                        {alerts.tallerReady > 0 && (
+                        {modules?.services && alerts.tallerReady > 0 && (
                             <AlertCard icon={Wrench}      title="Taller listo"       count={alerts.tallerReady}        desc="Órdenes listas para cobrar"              color="amber"  onClick={() => navigate('/services')} />
                         )}
                         {alerts.overdueCredits > 0 && (
