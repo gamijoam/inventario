@@ -1,5 +1,5 @@
 import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen } from 'lucide-react';
-import GlobalSearch from './GlobalSearch';
+// import GlobalSearch from './GlobalSearch';
 import { Link } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
@@ -207,12 +207,15 @@ export default function Header() {
 
     return (
         <>
-            <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-20 px-4 md:px-6 flex items-center justify-between transition-all">
+            <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-[80] px-4 md:px-6 flex items-center justify-between transition-all">
 
                 {/* GlobalSearch — Ctrl+K */}
+                {/* GlobalSearch oculto temporalmente por solicitud de UX.
                 <div className="flex-1 flex items-center">
                     <GlobalSearch />
                 </div>
+                */}
+                <div className="flex-1" />
 
                 {/* Right: Actions & User */}
                 <div className="flex items-center gap-2 md:gap-4">
@@ -297,11 +300,11 @@ export default function Header() {
                         </button>
 
                         {isHelpMenuOpen && (
-                            <div className="fixed inset-0 z-40" onClick={() => setIsHelpMenuOpen(false)} />
+                            <div className="fixed inset-0 z-[85]" onClick={() => setIsHelpMenuOpen(false)} />
                         )}
 
                         {isHelpMenuOpen && (
-                            <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-slate-100 bg-white shadow-xl shadow-slate-200/70 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                            <div className="absolute right-0 z-[90] mt-2 w-56 overflow-hidden rounded-lg border border-slate-100 bg-white shadow-xl shadow-slate-200/70 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
                                 <div className="border-b border-slate-50 bg-slate-50/70 px-4 py-3">
                                     <p className="text-xs font-black uppercase tracking-widest text-slate-400">Ayuda y soporte</p>
                                 </div>
@@ -352,11 +355,11 @@ export default function Header() {
                         </button>
 
                         {isNotificationMenuOpen && (
-                            <div className="fixed inset-0 z-40" onClick={() => setIsNotificationMenuOpen(false)} />
+                            <div className="fixed inset-0 z-[85]" onClick={() => setIsNotificationMenuOpen(false)} />
                         )}
 
                         {isNotificationMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-80 max-h-[480px] bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 animate-in fade-in zoom-in-95 duration-100 origin-top-right flex flex-col overflow-hidden">
+                            <div className="absolute right-0 mt-2 w-80 max-h-[480px] bg-white rounded-2xl shadow-2xl border border-slate-100 z-[90] animate-in fade-in zoom-in-95 duration-100 origin-top-right flex flex-col overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
                                     <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Notificaciones</h3>
                                     {unreadCount > 0 && (
@@ -442,11 +445,11 @@ export default function Header() {
                         </button>
 
                         {isUserMenuOpen && (
-                            <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} />
+                            <div className="fixed inset-0 z-[85]" onClick={() => setIsUserMenuOpen(false)} />
                         )}
 
                         {isUserMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 animate-in fade-in zoom-in-95 duration-100 origin-top-right overflow-hidden">
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-[90] animate-in fade-in zoom-in-95 duration-100 origin-top-right overflow-hidden">
                                 <div className="px-4 py-3 border-b border-slate-50 bg-slate-50/50">
                                     <p className="text-sm font-bold text-slate-900 truncate">{user?.username}</p>
                                     <p className="text-xs text-slate-500 truncate">{user?.email || user?.role}</p>
