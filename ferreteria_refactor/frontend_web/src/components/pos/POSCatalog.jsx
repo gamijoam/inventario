@@ -53,6 +53,7 @@ const POSCatalog = forwardRef(({
     const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
     const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
     const debounceTimerRef = useRef(null);
+    const lastSubmittedSearchRef = useRef(searchTerm);
 
     // Expose resetScroll, focusSearch, clearSearch to parent via ref
     useImperativeHandle(ref, () => ({
@@ -72,7 +73,10 @@ const POSCatalog = forwardRef(({
             // Notify parent about the change
             if (onSearchChange) {
                 if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-                onSearchChange('');
+                if (lastSubmittedSearchRef.current !== '') {
+                    lastSubmittedSearchRef.current = '';
+                    onSearchChange('');
+                }
             } else if (onSearch) {
                 onSearch('');
             }
@@ -86,6 +90,7 @@ const POSCatalog = forwardRef(({
     // Sync localSearchTerm with prop
     useEffect(() => {
         setLocalSearchTerm(searchTerm);
+        lastSubmittedSearchRef.current = searchTerm;
     }, [searchTerm]);
 
     // Reset scroll when search or category changes
@@ -121,7 +126,10 @@ const POSCatalog = forwardRef(({
             // Server-side: debounce 300ms
             if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
             debounceTimerRef.current = setTimeout(() => {
-                onSearchChange(val);
+                if (lastSubmittedSearchRef.current !== val) {
+                    lastSubmittedSearchRef.current = val;
+                    onSearchChange(val);
+                }
             }, 300);
         } else if (onSearch) {
             // Legacy: call onSearch directly
