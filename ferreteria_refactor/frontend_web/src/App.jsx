@@ -13,6 +13,7 @@ import { Toaster } from 'react-hot-toast';
 import AppWithCloudConfig from './components/setup/AppWithCloudConfig';
 import { Capacitor } from '@capacitor/core';
 import AndroidBackButton from './components/common/AndroidBackButton';
+import ChunkReloadGuard from './components/ChunkReloadGuard';
 
 // Eager imports — critical path only
 import OnboardingWizard from './components/onboarding/OnboardingWizard';
@@ -278,6 +279,7 @@ function App() {
           containerStyle={{ zIndex: 99999, top: 16, left: 16 }}
         />
         <AppWithCloudConfig>
+          <ChunkReloadGuard />
           <AutoSyncProvider>
             <WebSocketProvider>
               <NotificationProvider>
