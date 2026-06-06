@@ -14,6 +14,13 @@ export const WebSocketProvider = ({ children }) => {
     const isMounting = useRef(true);
 
     const connect = useCallback(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            console.log('WS: No authenticated session. Skipping connection.');
+            setStatus('DISCONNECTED');
+            return;
+        }
+
         // 1. Check if already connected or connecting
         if (ws.current) {
             if (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING) {
@@ -62,13 +69,21 @@ export const WebSocketProvider = ({ children }) => {
                     tenantId = sub;
                 }
             }
+            if (tenantId === 'public') {
+                const storedTenant = localStorage.getItem('selected_tenant');
+                if (storedTenant && !storedTenant.includes('public')) {
+                    tenantId = storedTenant;
+                }
+            }
             // Limpiar el .qa de tenants QA (restaurante3.qa -> restaurante3)
             tenantId = tenantId.replace('.qa', '');
             
-            const wsUrlWithTenant = wsUrl + (wsUrl.includes('?') ? '&' : '?') + `tenant_id=${tenantId}`;
+            const queryPrefix = wsUrl.includes('?') ? '&' : '?';
+            const wsUrlWithTenant = `${wsUrl}${queryPrefix}tenant_id=${encodeURIComponent(tenantId)}&token=${encodeURIComponent(token)}`;
+            const safeWsUrl = `${wsUrl}${queryPrefix}tenant_id=${encodeURIComponent(tenantId)}&token=[redacted]`;
 
-            console.log("🔌 Conectando WS a:", wsUrlWithTenant, "tenant:", tenantId);
-            console.log(`🔌 WS: Connecting to ${wsUrlWithTenant} (Attempt ${retryCount.current + 1})`);
+            console.log("WS: Connecting to", safeWsUrl, "tenant:", tenantId);
+            console.log(`WS: Connecting to ${safeWsUrl} (Attempt ${retryCount.current + 1})`);
 
             setStatus(retryCount.current > 0 ? 'RECONNECTING' : 'DISCONNECTED');
 

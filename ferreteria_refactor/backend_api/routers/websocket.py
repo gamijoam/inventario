@@ -22,6 +22,78 @@ def _should_log_ws_fail(ip: str) -> bool:
     return False
 
 
+def _validate_frontend_ws_access(websocket: WebSocket, tenant_id: str):
+    """Validate frontend WebSocket access with the HTTP auth tenant rules."""
+    from jose import JWTError, jwt
+    from ..config import settings
+    from ..database.db import SessionLocal
+    from ..models.models import User
+    from ..models.tenant import Tenant
+    from ..models.organization import OrganizationUser
+
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    token = websocket.cookies.get("access_token") or websocket.query_params.get("token")
+
+    if not token:
+        if _should_log_ws_fail(client_ip):
+            print(f"[WS] Frontend rejected from {client_ip}: missing auth token")
+        return None
+
+    db = SessionLocal()
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        email = payload.get("sub")
+        if not email:
+            if _should_log_ws_fail(client_ip):
+                print(f"[WS] Frontend rejected from {client_ip}: token missing subject")
+            return None
+
+        user = db.query(User).filter(User.email == email).first()
+        if not user or not user.is_active:
+            if _should_log_ws_fail(client_ip):
+                print(f"[WS] Frontend rejected from {client_ip}: inactive or missing user")
+            return None
+
+        tenant_id = (tenant_id or "public").strip().lower()
+        if tenant_id == "public":
+            if user.is_superuser or user.tenant_id is None:
+                return user
+            if _should_log_ws_fail(client_ip):
+                print(f"[WS] Frontend rejected: user '{email}' tried public WS")
+            return None
+
+        target_tenant = db.query(Tenant).filter(Tenant.schema_name == tenant_id).first()
+        if not target_tenant or not target_tenant.is_active:
+            if _should_log_ws_fail(client_ip):
+                print(f"[WS] Frontend rejected: tenant '{tenant_id}' not found or inactive")
+            return None
+
+        if user.is_superuser or user.tenant_id == target_tenant.id:
+            return user
+
+        if target_tenant.organization_id:
+            membership = db.query(OrganizationUser).filter(
+                OrganizationUser.organization_id == target_tenant.organization_id,
+                OrganizationUser.user_email == email,
+                OrganizationUser.can_switch == True
+            ).first()
+            if membership:
+                return user
+
+        if _should_log_ws_fail(client_ip):
+            print(f"[WS] Frontend rejected: user '{email}' has no access to '{tenant_id}'")
+        return None
+    except JWTError as e:
+        if _should_log_ws_fail(client_ip):
+            print(f"[WS] Frontend rejected from {client_ip}: invalid token ({e})")
+        return None
+    except Exception as e:
+        print(f"[WS] Unexpected frontend auth error: {e}")
+        return None
+    finally:
+        db.close()
+
+
 @router.websocket("/hardware/connect")
 async def hardware_connect(
     websocket: WebSocket,
@@ -185,9 +257,14 @@ async def websocket_endpoint(websocket: WebSocket):
     temp_id = f"web_{str(uuid.uuid4())[:8]}"
 
     try:
+        current_user = _validate_frontend_ws_access(websocket, tenant_id)
+        if not current_user:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
         await manager.connect(websocket, client_id=temp_id, tenant_id=tenant_id)
         await websocket.send_text(json.dumps({"type": "conn_ack", "msg": "Connected", "tenant": tenant_id}))
-        print(f"✅ [WS] Frontend conectado: tenant={tenant_id} id={temp_id}")
+        print(f"[WS] Frontend connected: tenant={tenant_id} id={temp_id} user={current_user.email}")
     except Exception as e:
         print(f"[WS] Error conectando WebSocket: {e}")
         return
