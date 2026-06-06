@@ -267,6 +267,8 @@ class SalesService:
                     db.add(quote)       
             
             # 2. Process Items
+            employee_cache = {}
+            salesperson_cache = {}
             for item in sale_data.items:
                 sold_instances = [] 
                 
@@ -701,7 +703,10 @@ class SalesService:
                 # BARBERSHOP / SALON COMMISSION ENGINE
                 # =====================================================================
                 if getattr(item, 'employee_id', None):
-                    employee = db.query(models.Employee).filter(models.Employee.id == item.employee_id).first()
+                    employee = employee_cache.get(item.employee_id)
+                    if item.employee_id not in employee_cache:
+                        employee = db.query(models.Employee).filter(models.Employee.id == item.employee_id).first()
+                        employee_cache[item.employee_id] = employee
                     if employee:
                         calc_comm = Decimal("0.00")
                         
@@ -746,7 +751,10 @@ class SalesService:
                 if not _sp_id:
                     _sp_id = user_id
                 if _sp_id:
-                    _salesperson = db.query(models.User).filter(models.User.id == _sp_id).first()
+                    _salesperson = salesperson_cache.get(_sp_id)
+                    if _sp_id not in salesperson_cache:
+                        _salesperson = db.query(models.User).filter(models.User.id == _sp_id).first()
+                        salesperson_cache[_sp_id] = _salesperson
                     if _salesperson:
                         # Detectar si algún pago fue en Bs — desde sale_data antes de persistir
                         _paid_in_bs = any(
