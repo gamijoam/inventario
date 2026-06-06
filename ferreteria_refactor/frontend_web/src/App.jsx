@@ -339,8 +339,9 @@ function App() {
                                 <Route path="transfers" element={<InterCompanyTransfers />} />
                                 <Route path="stock-search" element={<StockSearch />} />
                                 <Route path="catalog" element={<SharedCatalog />} />
-                                <Route path="members" element={<OrgMembers />} />
-                                <Route path="config" element={<OrgConfig />} />
+                                <Route path="admin" element={<OrgConfig />} />
+                                <Route path="members" element={<Navigate to="/org/admin" replace />} />
+                                <Route path="config" element={<Navigate to="/org/admin" replace />} />
                               </Route>
 
                               {/* Unified Inventory Center */}

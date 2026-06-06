@@ -1,26 +1,37 @@
 /**
- * OrgPanel.jsx — Panel Multi-Empresa
+ * OrgPanel.jsx — Centro empresarial
  * Layout contenedor con navegación lateral propia.
- * Rutas hijas: /org/dashboard | /org/transfers | /org/catalog | /org/config | /org/members
+ * Rutas hijas: /org/dashboard | /org/transfers | /org/catalog | /org/admin
  */
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Building2, BarChart3, ArrowLeftRight, Package,
-  Settings, Users, ChevronRight, LogOut, ExternalLink,
-  Menu, X, Store, Wifi, PackageSearch
+  ChevronRight, LogOut, ExternalLink,
+  Menu, X, Store, Wifi, PackageSearch, ShieldCheck
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
 
-const NAV = [
-  { to: '/org/dashboard',  icon: BarChart3,       label: 'Dashboard',    desc: 'Resumen consolidado' },
-  { to: '/org/transfers',  icon: ArrowLeftRight,  label: 'Traslados',    desc: 'Entre empresas' },
-  { to: '/org/stock-search', icon: PackageSearch, label: 'Buscar stock', desc: 'En todo el grupo' },
-  { to: '/org/catalog',    icon: Package,         label: 'Catálogo',     desc: 'Productos compartidos' },
-  { to: '/org/members',    icon: Users,           label: 'Miembros',     desc: 'Equipo del grupo' },
-  { to: '/org/config',     icon: Settings,        label: 'Configuración',desc: 'Ajustes del grupo' },
+const NAV_GROUPS = [
+  {
+    title: 'Operacion',
+    items: [
+      { to: '/org/dashboard',    icon: BarChart3,      label: 'Dashboard',    desc: 'Resumen consolidado' },
+      { to: '/org/transfers',    icon: ArrowLeftRight, label: 'Traslados',    desc: 'Entre empresas' },
+      { to: '/org/stock-search', icon: PackageSearch, label: 'Buscar stock', desc: 'En todo el grupo' },
+      { to: '/org/catalog',      icon: Package,       label: 'Catalogo',     desc: 'Productos compartidos' },
+    ],
+  },
+  {
+    title: 'Administracion',
+    items: [
+      { to: '/org/admin',        icon: ShieldCheck,   label: 'Admin',        desc: 'Permisos y ajustes' },
+    ],
+  },
 ];
+
+const NAV = NAV_GROUPS.flatMap(group => group.items);
 
 export default function OrgPanel() {
   const navigate = useNavigate();
@@ -134,7 +145,7 @@ export default function OrgPanel() {
                 <p className="text-xs font-bold text-white truncate">
                   {org?.name || 'Mi Organización'}
                 </p>
-                <p className="text-[10px] text-slate-400">Panel Multi-Empresa</p>
+                <p className="text-[10px] text-slate-400">Centro empresarial</p>
               </div>
             </div>
           )}
@@ -148,36 +159,39 @@ export default function OrgPanel() {
 
         {/* Nav principal */}
         <nav className="flex-1 py-3 space-y-1 px-2 overflow-y-auto">
-          {sidebarOpen && (
-            <p className="text-[10px] font-bold text-slate-500 uppercase px-2 pb-1">
-              Gestión
-            </p>
-          )}
-          {NAV.map(({ to, icon: Icon, label, desc }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) => `
-                relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all
-                ${isActive
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
-                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'}
-              `}
-            >
-              <Icon size={18} className="flex-shrink-0" />
+          {NAV_GROUPS.map(group => (
+            <div key={group.title} className="space-y-1">
               {sidebarOpen && (
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold leading-none">{label}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{desc}</p>
-                </div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase px-2 pb-1 pt-2 ">
+                  {group.title}
+                </p>
               )}
-              {/* Badge de traslados pendientes */}
-              {to === '/org/transfers' && pendingCount > 0 && (
-                <span className={`${sidebarOpen ? 'ml-auto' : 'absolute -top-1 -right-1'} bg-rose-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center shadow-md`}>
-                  {pendingCount > 99 ? '99+' : pendingCount}
-                </span>
-              )}
-            </NavLink>
+              {group.items.map(({ to, icon: Icon, label, desc }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className={({ isActive }) => `
+                    relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all
+                    ${isActive
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'}
+                  `}
+                >
+                  <Icon size={18} className="flex-shrink-0" />
+                  {sidebarOpen && (
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold leading-none">{label}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{desc}</p>
+                    </div>
+                  )}
+                  {to === '/org/transfers' && pendingCount > 0 && (
+                    <span className={`${sidebarOpen ? 'ml-auto' : 'absolute -top-1 -right-1'} bg-rose-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center shadow-md`}>
+                      {pendingCount > 99 ? '99+' : pendingCount}
+                    </span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
           ))}
 
           {/* Empresas del grupo */}
