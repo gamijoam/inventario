@@ -126,7 +126,7 @@ const KPICard = ({ title, value, prevValue, icon: Icon, prefix = '$', isCurrency
     };
 
     if (loading) return (
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm animate-pulse">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-pulse">
             <div className="h-3 bg-slate-100 rounded w-24 mb-4" />
             <div className="h-8 bg-slate-100 rounded w-32 mb-3" />
             <div className="h-3 bg-slate-100 rounded w-16" />
@@ -134,14 +134,14 @@ const KPICard = ({ title, value, prevValue, icon: Icon, prefix = '$', isCurrency
     );
 
     return (
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
-            <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest leading-tight">{title}</p>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${colorMap[color] || colorMap.indigo}`}>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+            <div className="flex items-center justify-between mb-2.5">
+                <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest leading-tight">{title}</p>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorMap[color] || colorMap.indigo}`}>
                     <Icon size={16} />
                 </div>
             </div>
-            <div className="text-2xl font-black text-slate-900 tracking-tight mb-2">
+            <div className="text-xl font-black text-slate-900 tracking-tight mb-1.5">
                 {isCurrency ? fmt(value) : (Number(value || 0).toLocaleString())}
             </div>
             {pct !== null ? (
@@ -177,16 +177,16 @@ const AlertCard = ({ icon: Icon, title, count, desc, color, onClick }) => {
     };
     return (
         <button onClick={onClick}
-            className={`w-full text-left p-4 rounded-2xl border-2 flex items-center gap-3 hover:shadow-sm transition-all ${colorMap[color]}`}>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconMap[color]}`}>
+            className={`w-full text-left p-3 rounded-xl border flex items-center gap-3 hover:shadow-sm transition-all ${colorMap[color]}`}>
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconMap[color]}`}>
                 <Icon size={18} />
             </div>
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-800 text-sm">{title}</span>
+                    <span className="font-black text-slate-800 text-sm">{title}</span>
                     <span className={`text-xs font-black px-1.5 py-0.5 rounded-full ${iconMap[color]}`}>{count}</span>
                 </div>
-                <p className="text-xs text-slate-500 truncate mt-0.5">{desc}</p>
+                <p className="text-[11px] font-semibold text-slate-500 truncate mt-0.5">{desc}</p>
             </div>
             <ChevronRight size={16} className="text-slate-400 shrink-0" />
         </button>
@@ -286,7 +286,7 @@ const Dashboard = () => {
                 apiClient.get(`/commissions/summary`).catch(() => ({ data: [] })),
                 unifiedReportService.getCreditsSummary().catch(() => null),
                 unifiedReportService.getRecentTransactions(8).catch(() => []),
-                apiClient.get('/services/orders/status/ready').catch(() => ({ data: [] })),
+                modules?.services ? apiClient.get('/services/orders/status/ready').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
             ]);
 
             const sales = init?.sales || {};
@@ -370,7 +370,7 @@ const Dashboard = () => {
         } finally {
             setLoading(false);
         }
-    }, [period, buildChartFromDaily]);
+    }, [period, buildChartFromDaily, modules?.services]);
 
     useEffect(() => { if (user && user.role !== 'CASHIER') load(); }, [load, user]);
     useEffect(() => {
@@ -383,31 +383,31 @@ const Dashboard = () => {
 
     /* ── RENDER ── */
     return (
-        <div className="space-y-6 animate-in fade-in duration-300 max-w-7xl mx-auto pb-12 px-1">
+        <div className="space-y-4 animate-in fade-in duration-300 max-w-[1520px] mx-auto pb-10 px-1">
 
             {/* ── HEADER ── */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-1">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Resumen del Negocio</h1>
-                    <p className="text-slate-500 text-sm mt-0.5">Vista general de tu actividad</p>
+                    <h1 className="text-xl font-black text-slate-900 tracking-tight">Resumen del Negocio</h1>
+                    <p className="text-slate-500 text-xs font-semibold mt-0.5">Vista general de tu actividad</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* Selector de periodo */}
-                    <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+                    <div className="flex bg-slate-100 p-1 rounded-lg gap-1 shadow-inner shadow-slate-200/60">
                         {PRESETS.map(p => (
                             <button key={p.id} onClick={() => setPreset(p.id)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${preset === p.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                                className={`px-3 py-1.5 rounded-md text-xs font-black transition-all ${preset === p.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                                 {p.label}
                             </button>
                         ))}
                     </div>
                     <HelpButton contextKey="dashboard" onClick={help.open} />
                     <button onClick={() => load(false, true)} title="Actualizar"
-                        className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm">
+                        className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm">
                         <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                     </button>
                     <button onClick={() => navigate('/pos')}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-sm transition-all">
+                        className="h-9 flex items-center gap-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-lg shadow-sm transition-all">
                         <Monitor size={15} /> Abrir POS
                     </button>
                 </div>
@@ -447,10 +447,10 @@ const Dashboard = () => {
             )}
 
             {/* ── GRÁFICO PRINCIPAL + MÉTODOS DE PAGO ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
                 {/* Gráfico combinado */}
-                <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <h3 className="font-bold text-slate-800">Ventas vs Ganancia</h3>
@@ -478,7 +478,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Métodos de pago */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
                     <h3 className="font-bold text-slate-800 mb-1">Métodos de Pago</h3>
                     <p className="text-xs text-slate-400 mb-3">Distribución del periodo</p>
                     {loading ? (
@@ -515,13 +515,13 @@ const Dashboard = () => {
             </div>
 
             {/* ── TOP PRODUCTOS + TOP EMPLEADOS ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Top productos */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <div>
-                            <h3 className="font-bold text-slate-800 text-sm">Top Productos</h3>
+                            <h3 className="font-black text-slate-800 text-sm">Top Productos</h3>
                             <p className="text-xs text-slate-400">Por ingresos — {period.label}</p>
                         </div>
                         <button onClick={() => navigate('/reports?tab=ventas')} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5">
@@ -533,7 +533,7 @@ const Dashboard = () => {
                     ) : topProducts.length > 0 ? (
                         <div className="divide-y divide-slate-50">
                             {topProducts.map((p, i) => (
-                                <div key={p.product_id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+                                <div key={p.product_id || i} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
                                     <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-xs font-black flex items-center justify-center shrink-0">{i+1}</span>
                                     <p className="flex-1 text-sm font-semibold text-slate-700 truncate">{p.product_name}</p>
                                     <div className="text-right">
@@ -549,10 +549,10 @@ const Dashboard = () => {
                 </div>
 
                 {/* Top empleados por comisiones */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <div>
-                            <h3 className="font-bold text-slate-800 text-sm">Rendimiento Equipo</h3>
+                            <h3 className="font-black text-slate-800 text-sm">Rendimiento Equipo</h3>
                             <p className="text-xs text-slate-400">Comisiones generadas acumuladas</p>
                         </div>
                         <button onClick={() => navigate('/reports?tab=comisiones')} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5">
@@ -567,7 +567,7 @@ const Dashboard = () => {
                                 const total   = Number(e.total_earned || 0);
                                 const pending = Number(e.total_pending || 0);
                                 return (
-                                    <div key={e.user_id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+                                    <div key={e.user_id || i} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
                                         <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs font-black flex items-center justify-center shrink-0 uppercase">
                                             {(e.full_name || e.username || '?')[0]}
                                         </div>
@@ -590,10 +590,10 @@ const Dashboard = () => {
             </div>
 
             {/* ── ACTIVIDAD RECIENTE MEJORADA ── */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                     <div>
-                        <h3 className="font-bold text-slate-800 text-sm">Actividad Reciente</h3>
+                        <h3 className="font-black text-slate-800 text-sm">Actividad Reciente</h3>
                         <p className="text-xs text-slate-400">Últimas 8 transacciones</p>
                     </div>
                     <button onClick={() => navigate('/sales-history')} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5">
@@ -607,7 +607,7 @@ const Dashboard = () => {
                         {/* Mobile */}
                         <div className="block md:hidden divide-y divide-slate-50">
                             {recentSales.slice(0,5).map(sale => (
-                                <div key={sale.id} className="px-5 py-3 hover:bg-slate-50">
+                                <div key={sale.id} className="px-4 py-2.5 hover:bg-slate-50">
                                     <div className="flex justify-between items-start">
                                         <p className="font-semibold text-slate-800 text-sm">{sale.customer?.name || 'Cliente General'}</p>
                                         <span className="font-bold text-slate-900 text-sm">${Number(sale.total_amount||0).toFixed(2)}</span>
@@ -624,36 +624,36 @@ const Dashboard = () => {
                             <table className="min-w-full text-sm">
                                 <thead className="border-b border-slate-100 bg-slate-50/50">
                                     <tr>
-                                        <th className="px-5 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Cliente</th>
-                                        <th className="px-5 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Fecha</th>
-                                        <th className="px-5 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Método</th>
-                                        <th className="px-5 py-3 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Estado</th>
-                                        <th className="px-5 py-3 text-right font-semibold text-slate-500 text-xs uppercase tracking-wider">Monto</th>
+                                        <th className="px-4 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Cliente</th>
+                                        <th className="px-4 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Fecha</th>
+                                        <th className="px-4 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Método</th>
+                                        <th className="px-4 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Estado</th>
+                                        <th className="px-4 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wider">Monto</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50">
                                     {recentSales.map(sale => (
                                         <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
-                                            <td className="px-5 py-3.5">
+                                            <td className="px-4 py-2.5">
                                                 <p className="font-semibold text-slate-800">{sale.customer?.name || 'Cliente General'}</p>
                                                 <p className="text-xs text-slate-400">#{sale.id}</p>
                                             </td>
-                                            <td className="px-5 py-3.5 text-slate-500 text-xs">
+                                            <td className="px-4 py-2.5 text-slate-500 text-xs">
                                                 {sale.date ? new Date(sale.date).toLocaleDateString('es-VE',{ month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '—'}
                                             </td>
-                                            <td className="px-5 py-3.5">
+                                            <td className="px-4 py-2.5">
                                                 <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-300" />
                                                     {sale.payment_method || 'Efectivo'}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-3.5">
+                                            <td className="px-4 py-2.5">
                                                 <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${sale.credit_sale ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
                                                     {sale.credit_sale ? <Clock size={10}/> : <CheckCircle size={10}/>}
                                                     {sale.credit_sale ? 'Crédito' : 'Pagado'}
                                                 </span>
                                             </td>
-                                            <td className="px-5 py-3.5 text-right font-bold text-slate-900">
+                                            <td className="px-4 py-2.5 text-right font-bold text-slate-900">
                                                 ${Number(sale.total_amount||0).toFixed(2)}
                                             </td>
                                         </tr>
