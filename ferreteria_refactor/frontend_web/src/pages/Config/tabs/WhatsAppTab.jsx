@@ -12,11 +12,11 @@ import {
 
 /* ── Toggle ─────────────────────────────────────────────── */
 const NotifToggle = ({ icon: Icon, label, desc, value, onChange, disabled }) => (
-    <div className={`flex items-center justify-between p-4 rounded-xl border transition-all
+    <div className={`flex items-center justify-between p-4 rounded-lg border transition-all
         ${value ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-200'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
         <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center
+            <div className={`h-9 w-9 rounded-md flex items-center justify-center
                 ${value ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-200 text-slate-500'}`}>
                 <Icon size={16} />
             </div>
@@ -38,10 +38,10 @@ const NotifToggle = ({ icon: Icon, label, desc, value, onChange, disabled }) => 
 const GuideRow = ({ icon: Icon, iconColor, label, trigger, recipient, recipientType, example, vars }) => {
     const [open, setOpen] = useState(false);
     return (
-        <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
             <button onClick={() => setOpen(o => !o)}
                 className="w-full flex items-center gap-3 p-3.5 hover:bg-slate-50 transition-colors text-left">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${iconColor}`}>
+                <div className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${iconColor}`}>
                     <Icon size={15} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -50,7 +50,7 @@ const GuideRow = ({ icon: Icon, iconColor, label, trigger, recipient, recipientT
                 </div>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0
                     ${recipientType === 'cliente' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {recipientType === 'cliente' ? '👤 Cliente' : '🔑 Admin'}
+                    {recipientType === 'cliente' ? 'Cliente' : 'Admin'}
                 </span>
                 {open ? <ChevronUp size={14} className="text-slate-400 shrink-0" /> : <ChevronDown size={14} className="text-slate-400 shrink-0" />}
             </button>
@@ -191,8 +191,8 @@ export default function WhatsAppTab() {
 
     /* ── Pantalla premium bloqueada ── */
     if (!hasWhatsApp) return (
-        <div className="p-8 flex flex-col items-center justify-center text-center gap-4 min-h-64">
-            <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center">
+        <div className="p-8 flex flex-col items-center justify-center text-center gap-4 min-h-64 bg-white border border-slate-200 rounded-lg">
+            <div className="h-14 w-14 rounded-lg bg-amber-100 flex items-center justify-center">
                 <MessageCircle size={28} className="text-amber-500" />
             </div>
             <div>
@@ -206,7 +206,7 @@ export default function WhatsAppTab() {
             </div>
             <div className="flex flex-wrap gap-2 justify-center text-xs text-slate-400 mt-2">
                 {['Ticket de venta automático','Cotizaciones PDF','Taller listo','Recordatorios','Plantillas personalizadas'].map(f => (
-                    <span key={f} className="px-3 py-1 bg-slate-100 rounded-full">{f}</span>
+                    <span key={f} className="px-3 py-1 bg-slate-100 rounded-md">{f}</span>
                 ))}
             </div>
         </div>
@@ -292,19 +292,19 @@ export default function WhatsAppTab() {
     ];
 
     return (
-        <div className="p-6 max-w-2xl mx-auto space-y-6">
+        <div className="max-w-5xl space-y-5">
 
             {/* Header */}
             <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-md bg-emerald-100 flex items-center justify-center">
                     <MessageCircle size={24} className="text-emerald-600" />
                 </div>
                 <div>
-                    <h2 className="text-xl font-black text-slate-800">WhatsApp Business</h2>
+                    <h2 className="text-lg font-black text-slate-900">WhatsApp Business</h2>
                     <p className="text-sm text-slate-500">Notificaciones automáticas a tus clientes</p>
                 </div>
                 <div className="ml-auto">
-                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border
+                    <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold border
                         ${isConnected  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                           isPendingQr  ? 'bg-amber-50   text-amber-700  border-amber-200' :
                                          'bg-slate-50   text-slate-500  border-slate-200'}`}>
@@ -316,12 +316,12 @@ export default function WhatsAppTab() {
             </div>
 
             {/* ── GUÍA COMPLETA (expandible) ── */}
-            <div className="border border-indigo-200 rounded-2xl overflow-hidden">
+            <div className="border border-indigo-200 rounded-lg overflow-hidden">
                 <button onClick={() => setShowGuide(g => !g)}
                     className="w-full flex items-center gap-3 p-4 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left">
                     <BookOpen size={18} className="text-indigo-600 shrink-0" />
                     <div className="flex-1">
-                        <p className="text-sm font-black text-indigo-800">📖 Guía de automatizaciones</p>
+                        <p className="text-sm font-black text-indigo-800">Guia de automatizaciones</p>
                         <p className="text-xs text-indigo-600">¿Qué mensajes se envían y cuándo? Toca para ver</p>
                     </div>
                     {showGuide ? <ChevronUp size={16} className="text-indigo-500" /> : <ChevronDown size={16} className="text-indigo-500" />}
@@ -329,11 +329,11 @@ export default function WhatsAppTab() {
                 {showGuide && (
                     <div className="p-4 space-y-3 bg-white">
                         <div className="flex gap-3 text-xs mb-2">
-                            <span className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full font-bold">
-                                👤 Cliente — le llega al cliente
+                            <span className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700 rounded-md font-bold">
+                                Cliente: le llega al cliente
                             </span>
-                            <span className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded-full font-bold">
-                                🔑 Admin — te llega a ti
+                            <span className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-700 rounded-md font-bold">
+                                Admin: te llega a ti
                             </span>
                         </div>
                         {guideItems.map((item) => (
@@ -348,8 +348,8 @@ export default function WhatsAppTab() {
 
             {/* ── DESCONECTADO ── */}
             {isDisconnected && (
-                <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                <div className="bg-slate-50 border border-dashed border-slate-200 rounded-lg p-8 text-center">
+                    <div className="h-14 w-14 rounded-lg bg-emerald-100 flex items-center justify-center mx-auto mb-4">
                         <Smartphone size={28} className="text-emerald-600" />
                     </div>
                     <h3 className="text-lg font-black text-slate-700 mb-2">Conecta tu número de WhatsApp</h3>
@@ -357,7 +357,7 @@ export default function WhatsAppTab() {
                         Conecta el número del negocio para enviar tickets, notificaciones y más automáticamente.
                     </p>
                     <button onClick={handleCreate} disabled={creating}
-                        className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-all mx-auto shadow-lg shadow-emerald-200 disabled:opacity-60">
+                        className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-sm transition-all mx-auto shadow-sm disabled:opacity-60">
                         {creating ? <><Loader size={16} className="animate-spin" /> Preparando QR...</> : <><QrCode size={16} /> Conectar WhatsApp</>}
                     </button>
                 </div>
@@ -365,14 +365,14 @@ export default function WhatsAppTab() {
 
             {/* ── PENDING QR ── */}
             {isPendingQr && (
-                <div className="bg-white border border-amber-200 rounded-2xl p-6 shadow-sm">
+                <div className="bg-white border border-amber-200 rounded-lg p-5 shadow-sm">
                     <div className="text-center mb-4">
                         <h3 className="text-base font-black text-slate-700 mb-1">Escanea el código QR</h3>
                         <p className="text-xs text-slate-500">Abre WhatsApp → Menú (⋮) → Dispositivos vinculados → Vincular dispositivo</p>
                     </div>
                     {qr ? (
                         <div className="flex flex-col items-center gap-4">
-                            <div className={`relative rounded-2xl overflow-hidden border-4 transition-colors ${qrExpiringSoon ? 'border-amber-300' : 'border-indigo-100'}`}>
+                            <div className={`relative rounded-lg overflow-hidden border transition-colors ${qrExpiringSoon ? 'border-amber-300' : 'border-indigo-100'}`}>
                                 <img src={qr.startsWith('data:') ? qr : `data:image/png;base64,${qr}`} alt="QR WhatsApp" className="w-56 h-56" />
                                 {qrExpiringSoon && (
                                     <div className="absolute inset-0 bg-amber-50/80 flex items-center justify-center flex-col gap-2">
@@ -396,16 +396,16 @@ export default function WhatsAppTab() {
                             <p className="text-xs text-slate-400 mt-1">Esto tarda unos segundos</p>
                         </div>
                     )}
-                    <div className="mt-4 p-3 bg-blue-50 rounded-xl flex gap-2">
-                        <Info size={14} className="text-blue-500 shrink-0 mt-0.5" />
-                        <p className="text-xs text-blue-700">El QR se actualiza automáticamente cada 60 segundos. Una vez escaneado, esta pantalla cambiará automáticamente.</p>
+                    <div className="mt-4 p-3 bg-indigo-50 rounded-lg flex gap-2">
+                        <Info size={14} className="text-indigo-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-indigo-700">El QR se actualiza automáticamente cada 60 segundos. Una vez escaneado, esta pantalla cambiará automáticamente.</p>
                     </div>
                 </div>
             )}
 
             {/* ── CONECTADO ── */}
             {isConnected && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <CheckCircle size={22} className="text-emerald-600" />
                         <div>
@@ -422,18 +422,18 @@ export default function WhatsAppTab() {
 
             {/* ── CHATBOT ROBOT ── */}
             {isConnected && (
-                <div className={`rounded-2xl border-2 p-4 transition-all ${config?.chatbot_enabled ? 'bg-violet-50 border-violet-300' : 'bg-slate-50 border-slate-200'}`}>
+                <div className={`rounded-lg border p-4 transition-all ${config?.chatbot_enabled ? 'bg-violet-50 border-violet-300' : 'bg-slate-50 border-slate-200'}`}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${config?.chatbot_enabled ? 'bg-violet-100 text-violet-600' : 'bg-slate-200 text-slate-500'}`}>
+                            <div className={`h-10 w-10 rounded-md flex items-center justify-center ${config?.chatbot_enabled ? 'bg-violet-100 text-violet-600' : 'bg-slate-200 text-slate-500'}`}>
                                 <Bot size={20} />
                             </div>
                             <div>
                                 <p className="text-sm font-black text-slate-700">Robot de respuesta automática</p>
                                 <p className="text-xs text-slate-400">
                                     {config?.chatbot_enabled
-                                        ? '🟢 Activo — responde mensajes de clientes automáticamente'
-                                        : '⚫ Inactivo — solo se envían notificaciones normales'}
+                                        ? 'Activo: responde mensajes de clientes automaticamente'
+                                        : 'Inactivo: solo se envian notificaciones normales'}
                                 </p>
                             </div>
                         </div>
@@ -445,7 +445,7 @@ export default function WhatsAppTab() {
                         </button>
                     </div>
                     {config?.chatbot_enabled && (
-                        <div className="mt-3 p-3 bg-violet-100 rounded-xl text-xs text-violet-700 space-y-1">
+                        <div className="mt-3 p-3 bg-violet-100 rounded-lg text-xs text-violet-700 space-y-1">
                             <p className="font-bold">¿Qué hace el robot?</p>
                             <p>• Responde automáticamente con categorías y productos disponibles</p>
                             <p>• Muestra precios y fotos al buscar</p>
@@ -488,7 +488,7 @@ export default function WhatsAppTab() {
 
             {/* ── CONFIG RECORDATORIO CRÉDITO ── */}
             {(isConnected || isPendingQr) && config?.notify_credit && (
-                <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 space-y-4">
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 space-y-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <CreditCard size={14} className="text-indigo-600" />
@@ -506,11 +506,11 @@ export default function WhatsAppTab() {
                             <button
                                 onClick={() => handleToggle('credit_reminder_auto', !config?.credit_reminder_auto)}
                                 disabled={!isConnected}
-                                className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-all
+                                className={`w-full px-3 py-2 rounded-md text-xs font-bold border transition-all
                                     ${config?.credit_reminder_auto
                                         ? 'bg-indigo-600 text-white border-indigo-600'
                                         : 'bg-white text-slate-500 border-slate-200'}`}>
-                                {config?.credit_reminder_auto ? '✅ Automático' : '⏸ Manual'}
+                                {config?.credit_reminder_auto ? 'Automatico' : 'Manual'}
                             </button>
                         </div>
                         <div>
@@ -523,7 +523,7 @@ export default function WhatsAppTab() {
                                     apiClient.post('/whatsapp/config', { credit_reminder_hour: h });
                                 }}
                                 disabled={!isConnected || !config?.credit_reminder_auto}
-                                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50">
+                                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-md bg-white outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50">
                                 {Array.from({length: 24}, (_,i) => (
                                     <option key={i} value={i}>
                                         {String(i).padStart(2,'0')}:00 {i < 12 ? 'am' : 'pm'}
@@ -564,7 +564,7 @@ export default function WhatsAppTab() {
             {/* ── NÚMERO DEL ADMINISTRADOR ── */}
             {/* ── NÚMERO DEL ADMINISTRADOR ──  */}
             {(isConnected || isPendingQr) && (
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2">
                     <div className="flex items-center gap-2 mb-1">
                         <User size={14} className="text-amber-600" />
                         <span className="text-sm font-bold text-amber-800">Mi número personal (Admin)</span>
@@ -576,10 +576,10 @@ export default function WhatsAppTab() {
                         onChange={e => setConfig(c => ({ ...c, admin_phone: e.target.value }))}
                         onBlur={e => handleSaveAdminPhone(e.target.value)}
                         placeholder="Ej: 584121234567"
-                        className="w-full px-3 py-2 text-sm border border-amber-200 rounded-xl focus:ring-2 focus:ring-amber-300 outline-none bg-white"
+                        className="w-full px-3 py-2 text-sm border border-amber-200 rounded-md focus:ring-2 focus:ring-amber-300 outline-none bg-white"
                     />
-                    <div className="grid grid-cols-1 gap-1.5 text-[11px] text-amber-700 bg-amber-100 rounded-lg p-2.5 mt-1">
-                        <p className="font-black uppercase tracking-wide text-amber-800 mb-0.5">📋 Formato del número</p>
+                    <div className="grid grid-cols-1 gap-1.5 text-[11px] text-amber-700 bg-amber-100 rounded-md p-2.5 mt-1">
+                        <p className="font-black uppercase tracking-wide text-amber-800 mb-0.5">Formato del numero</p>
                         <div className="grid grid-cols-3 gap-1 mb-1">
                           <span className="bg-white/70 px-2 py-1 rounded text-center font-mono font-bold">🇻🇪 58...</span>
                           <span className="bg-white/70 px-2 py-1 rounded text-center font-mono font-bold">🇨🇴 57...</span>
@@ -607,7 +607,7 @@ export default function WhatsAppTab() {
                         { key: 'template_credit', label: 'Recordatorio de deuda',   icon: CreditCard,
                           vars: ['{{cliente}}','{{monto}}'] },
                     ].map(({ key, label, icon: Icon, vars }) => (
-                        <div key={key} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                        <div key={key} className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
                             <div className="flex items-center gap-2">
                                 <Icon size={14} className="text-indigo-500" />
                                 <span className="text-sm font-bold text-slate-700">{label}</span>
@@ -632,16 +632,16 @@ export default function WhatsAppTab() {
 
             {/* ── MENSAJE DE PRUEBA ── */}
             {isConnected && (
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-3">
                     <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                         <Send size={13} className="text-indigo-500" /> Mensaje de prueba
                     </h3>
                     <div className="flex gap-2">
                         <input type="text" value={testPhone} onChange={e => setTestPhone(e.target.value)}
                             placeholder="Ej: +58 412 123 4567"
-                            className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-300 outline-none bg-white" />
+                            className="flex-1 px-4 py-2.5 text-sm border border-slate-200 rounded-md focus:ring-2 focus:ring-indigo-300 outline-none bg-white" />
                         <button onClick={handleTest} disabled={testing || !testPhone.trim()}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all disabled:opacity-60 shrink-0">
+                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-bold transition-all disabled:opacity-60 shrink-0">
                             {testing ? <Loader size={15} className="animate-spin" /> : <Send size={15} />}
                             {testing ? 'Enviando...' : 'Enviar'}
                         </button>
