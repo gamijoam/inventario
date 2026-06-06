@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { CheckCircle, Printer, FileText, X, ShieldCheck, ArrowRight, Shield, MessageCircle, Building2 } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { CheckCircle, Printer, FileText, ShieldCheck, ArrowRight, MessageCircle, Building2 } from "lucide-react";
 import printerService from "../../services/printerService";
 import apiClient from "../../config/axios";
 import toast from "react-hot-toast";
@@ -9,13 +9,12 @@ import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 
 const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     const [printing, setPrinting] = useState(false);
-    const [printStatus, setPrintStatus] = useState(null);
     const [printingWarranty, setPrintingWarranty] = useState(false);
     const [sendingWarrantyWa, setSendingWarrantyWa] = useState(false);
-    const [warrantyUrl, setWarrantyUrl] = useState("");
 
     const facturaA4Active = useFeatureFlag('impresion_factura_a4');
     const { business, autoPrintTicket } = useConfig();
+    const autoPrintedSaleRef = useRef(null);
 
     // Extraer saleId de manera robusta
     const saleId = saleData?.saleId
@@ -26,21 +25,12 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     const isFinancing = saleData?.paymentData?.isFinancing || false;
     const financingData = saleData?.paymentData?.financingData || null;
 
+    // Auto-print solo una vez por venta. El modal puede re-renderizarse mientras
+    // carga configuracion/contexto, pero el ticket no debe salir duplicado.
     useEffect(() => {
-        if (isOpen) {
-            apiClient.get("/config/business").then(res => {
-                setWarrantyUrl(res.data.warranty_format_url || "");
-            }).catch(() => {});
-        }
-    }, [isOpen]);
-
-    // Auto-print solo si hay saleId
-    useEffect(() => {
-        if (isOpen && autoPrintTicket && saleId) {
-            printerService.printTicket(saleId)
-                .then(() => setPrintStatus('success'))
-                .catch(() => {});
-        }
+        if (!isOpen || !autoPrintTicket || !saleId || autoPrintedSaleRef.current === saleId) return;
+        autoPrintedSaleRef.current = saleId;
+        printerService.printTicket(saleId).catch(() => {});
     }, [isOpen, autoPrintTicket, saleId]);
 
     const hasImeiItems = useMemo(() => {
@@ -65,10 +55,8 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
         setPrinting(true);
         try {
             await printerService.printTicket(saleId);
-            setPrintStatus('success');
             toast.success("Ticket enviado a la impresora");
         } catch (error) {
-            setPrintStatus('error');
             toast.error("Error: " + error.message);
         } finally {
             setPrinting(false);
