@@ -7,8 +7,19 @@ from ..models import models
 from .. import schemas
 from ..models.models import UserRole
 from ..dependencies import has_role
+from ..cache import invalidate_resource
+from ..tenant_context import get_tenant_schema
 
 router = APIRouter(prefix="/warehouses", tags=["warehouses"])
+
+
+def _invalidate_pos_warehouse_cache():
+    try:
+        schema = get_tenant_schema()
+        invalidate_resource(schema, "pos_init")
+        invalidate_resource(schema, "pos-init")
+    except Exception:
+        pass
 
 @router.get("", response_model=List[schemas.WarehouseRead])
 def read_warehouses(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
@@ -29,6 +40,7 @@ def create_warehouse(warehouse: schemas.WarehouseCreate, db: Session = Depends(g
     db.add(db_warehouse)
     try:
         db.commit()
+        _invalidate_pos_warehouse_cache()
         return db_warehouse
     except IntegrityError:
         db.rollback()
@@ -58,6 +70,7 @@ def update_warehouse(warehouse_id: int, warehouse: schemas.WarehouseUpdate, db: 
 
     try:
         db.commit()
+        _invalidate_pos_warehouse_cache()
         return db_warehouse
     except Exception as e:
         db.rollback()
@@ -81,6 +94,7 @@ def delete_warehouse(warehouse_id: int, db: Session = Depends(get_db)):
 
     db.delete(db_warehouse)
     db.commit()
+    _invalidate_pos_warehouse_cache()
     return {"status": "success", "message": "Warehouse deleted"}
 
 @router.get("/{warehouse_id}/inventory", response_model=List[schemas.WarehouseInventoryItem])

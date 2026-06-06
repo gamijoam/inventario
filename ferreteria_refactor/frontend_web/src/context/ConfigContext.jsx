@@ -21,6 +21,8 @@ export const ConfigProvider = ({ children }) => {
     const [featureFlags, setFeatureFlags] = useState({});
     const [autoPrintTicket, setAutoPrintTicket] = useState(false);
     const [priceLists, setPriceLists] = useState([]);
+    const [posCategories, setPosCategories] = useState([]);
+    const [posWarehouses, setPosWarehouses] = useState([]);
     const [posSettings, setPosSettings] = useState({
         pos_default_price_list_id: '',
         pos_show_bs: true,
@@ -119,12 +121,14 @@ export const ConfigProvider = ({ children }) => {
                 paymentMethods: false,
                 autoPrint: false,
                 priceLists: false,
+                categories: false,
+                warehouses: false,
             };
 
             try {
                 const posInit = await apiClient.get('/config/pos-init', { _silentNetworkError: true });
                 if (posInit.data) {
-                    const { business, exchange_rates, payment_methods, price_lists, settings } = posInit.data;
+                    const { business, exchange_rates, payment_methods, price_lists, categories, warehouses, settings } = posInit.data;
                     if (business?.name) {
                         setBusiness(prev => ({ ...prev, ...business }));
                         loadedFromPosInit.business = true;
@@ -140,6 +144,14 @@ export const ConfigProvider = ({ children }) => {
                     if (Array.isArray(price_lists)) {
                         setPriceLists(price_lists.filter(pl => pl.is_active));
                         loadedFromPosInit.priceLists = true;
+                    }
+                    if (Array.isArray(categories)) {
+                        setPosCategories(categories);
+                        loadedFromPosInit.categories = true;
+                    }
+                    if (Array.isArray(warehouses)) {
+                        setPosWarehouses(warehouses);
+                        loadedFromPosInit.warehouses = true;
                     }
                     if (settings) {
                         setAutoPrintTicket(!!settings.auto_print_ticket);
@@ -200,6 +212,18 @@ export const ConfigProvider = ({ children }) => {
                     _silentNetworkError: true,
                 })
                     .then(res => setPriceLists(Array.isArray(res.data) ? res.data.filter(pl => pl.is_active) : []))
+                    .catch(() => {});
+            }
+
+            // 2.6. Fallback for older/stale pos-init cache payloads
+            if (!loadedFromPosInit.categories) {
+                apiClient.get('/categories', { _silentNetworkError: true })
+                    .then(res => setPosCategories(Array.isArray(res.data) ? res.data : []))
+                    .catch(() => {});
+            }
+            if (!loadedFromPosInit.warehouses) {
+                apiClient.get('/warehouses', { _silentNetworkError: true })
+                    .then(res => setPosWarehouses(Array.isArray(res.data) ? res.data : []))
                     .catch(() => {});
             }
 
@@ -356,6 +380,8 @@ export const ConfigProvider = ({ children }) => {
             currencies,
             autoPrintTicket,
             priceLists,
+            posCategories,
+            posWarehouses,
             posSettings,
             loading,
             refreshConfig,

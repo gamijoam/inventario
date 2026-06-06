@@ -469,6 +469,8 @@ def get_pos_init(db: Session = Depends(get_db)):
     exchange_rates = db.query(models.ExchangeRate).filter(models.ExchangeRate.is_active == True).all()
     payment_methods = db.query(models.PaymentMethod).filter(models.PaymentMethod.is_active == True).all()
     price_lists = db.query(models.PriceList).filter(models.PriceList.is_active == True).order_by(models.PriceList.id.asc()).all()
+    categories = db.query(models.Category).order_by(models.Category.name.asc()).all()
+    warehouses = db.query(models.Warehouse).order_by(models.Warehouse.id.asc()).all()
 
     result = {
         "business": {
@@ -496,6 +498,16 @@ def get_pos_init(db: Session = Depends(get_db)):
             {"id": pl.id, "name": pl.name, "requires_auth": pl.requires_auth,
              "is_active": pl.is_active, "created_at": pl.created_at.isoformat() if pl.created_at else None}
             for pl in price_lists
+        ],
+        "categories": [
+            {"id": c.id, "name": c.name, "description": c.description,
+             "parent_id": c.parent_id, "is_no_kitchen_category": c.is_no_kitchen_category}
+            for c in categories
+        ],
+        "warehouses": [
+            {"id": w.id, "name": w.name, "address": w.address,
+             "is_main": w.is_main, "is_active": w.is_active, "stocks_count": 0}
+            for w in warehouses
         ],
         "settings": {
             "auto_print_ticket": configs.get("auto_print_ticket", "false").lower() == "true",

@@ -53,7 +53,7 @@ const POS = () => {
     const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
-    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists } = useConfig();
+    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists, posCategories, posWarehouses } = useConfig();
     const { subscribe } = useWebSocket();
     const {
         products: displayProducts, isLoading: catalogLoading, isLoadingMore,
@@ -171,8 +171,8 @@ const POS = () => {
     const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
 
     // Data State
-    const [categories, setCategories] = useState([]);
-    const [warehouses, setWarehouses] = useState([]);
+    const categories = posCategories || [];
+    const warehouses = posWarehouses || [];
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
     const [salespeople, setSalespeople] = useState([]);
     const [employees, setEmployees] = useState([]);
@@ -362,16 +362,11 @@ const POS = () => {
             // Assuming session check is handled by context/other logic or implicit here
 
             try {
-                const [categoriesRes, warehousesRes] = await Promise.all([
-                    apiClient.get('/categories'),
-                    apiClient.get('/warehouses')
-                ]);
-                setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
-                setWarehouses(Array.isArray(warehousesRes.data) ? warehousesRes.data : []);
                 setSelectedWarehouseId('all');
 
-                // PERF: users/employees se cargan en background DESPUÉS del render inicial
-                // No bloquean la carga del catálogo ni los pagos
+                // PERF: users/employees se cargan en background DESPUES del render inicial
+
+                // No bloquean la carga del catalogo ni los pagos
                 setTimeout(() => {
                     Promise.all([
                         apiClient.get('/users', { _silent403: true, _silentNetworkError: true }),
