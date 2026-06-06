@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useLocation, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useLocation, Link } from 'react-router-dom';
 import {
     LayoutDashboard,
     ShoppingCart,
     Package,
     Users,
     Settings,
-    LogOut,
     FileText,
     Truck,
     CreditCard,
@@ -40,8 +39,6 @@ import {
     Wrench,
     ShieldCheck,
     X,
-    HelpCircle,
-    LifeBuoy,
     Scissors,
     Pill,
     Zap
@@ -49,21 +46,14 @@ import {
 import { cn } from '../../utils/cn';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
-import { useAppTour } from '../../hooks/useAppTour';
-import TourSelectionModal from '../common/TourSelectionModal';
-import supportService from '../../services/supportService';
 
 export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, closeMobileMenu }) {
     const location = useLocation();
-    const navigate = useNavigate();
-    const { logout, user } = useAuth();
+    const { user } = useAuth();
     const { modules, business } = useConfig();
     const [hasOrg, setHasOrg] = useState(() => {
         try { return JSON.parse(localStorage.getItem('org_companies') || '[]').length > 1 || localStorage.getItem('has_multiple_companies') === 'true'; } catch { return false; }
     });
-    const { startTour: _startTour } = useAppTour();
-    const [isTourModalOpen, setIsTourModalOpen] = useState(false);
-    const [supportUnread, setSupportUnread] = useState(0);
 
     // Consultar si el usuario tiene org con múltiples empresas
     useEffect(() => {
@@ -93,32 +83,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         });
     }, [user?.email]);
 
-    // Poll unread support ticket count every 60 seconds
-    const fetchUnreadCount = useCallback(async () => {
-        try {
-            const count = await supportService.getUnreadCount();
-            setSupportUnread(count);
-        } catch {
-            // Silently ignore — user may not be authenticated yet
-        }
-    }, []);
-
-    useEffect(() => {
-        const initSupportUnread = async () => {
-          await fetchUnreadCount();
-        };
-        initSupportUnread();
-        const interval = setInterval(fetchUnreadCount, 180000); // cada 3 min
-        return () => clearInterval(interval);
-    }, [fetchUnreadCount]);
-
-    // Reset badge when user navigates to /support
-    useEffect(() => {
-        if (location.pathname === '/support') {
-            supportService.markAsRead();
-            setSupportUnread(0); // This is fine, it's a reaction to navigation
-        }
-    }, [location.pathname]);
 
     // En desarrollo, VITE_FORCE_ALL_MODULES=true (en .env.development) activa todos los módulos
     // para poder probarlos sin depender de los feature flags reales del backend.
@@ -282,7 +246,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
         });
     }, [location.pathname, isCollapsed, menuStructure]);
 
-    const handleLogout = () => { logout(); navigate('/login'); };
 
     const toggleGroup = (label) => {
         if (isCollapsed) {
@@ -456,57 +419,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 })}
             </nav>
 
-            {/* Footer Actions */}
-            <div className="px-3 py-4 border-t border-slate-100 bg-white shrink-0 space-y-1">
-                {/* Support Group */}
-                {!isCollapsed && <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Soporte y Guía</p>}
-
-                <div className={cn("grid gap-1", isCollapsed ? "grid-cols-1" : "grid-cols-1")}>
-                    <Link to="/support" className={cn("group flex items-center px-4 py-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors font-bold text-sm relative", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")} title="Soporte Técnico">
-                        <LifeBuoy size={18} />
-                        {!isCollapsed && <span className="ml-3">Soporte</span>}
-                        {isCollapsed && <CollapsedTooltip label="Soporte" />}
-                        {supportUnread > 0 && (
-                            <span className={cn(
-                                "absolute flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black text-white bg-rose-500 rounded-full shadow-sm animate-pulse",
-                                isCollapsed ? "top-0 right-0" : "top-1 right-2"
-                            )}>
-                                {supportUnread > 9 ? '9+' : supportUnread}
-                            </span>
-                        )}
-                    </Link>
-
-                    <button
-                        onClick={() => setIsTourModalOpen(true)}
-                        className={cn("group relative flex items-center px-4 py-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors font-bold text-sm", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")}
-                        title="Guía de Uso"
-                    >
-                        <BookOpen size={18} />
-                        {!isCollapsed && <span className="ml-3">Manual</span>}
-                        {isCollapsed && <CollapsedTooltip label="Manual" />}
-                    </button>
-                </div>
-
-                <div className="pt-2">
-                    <button
-                        onClick={handleLogout}
-                        className={cn(
-                            "group relative flex items-center px-4 py-3 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors w-full font-bold text-sm",
-                            isCollapsed && "justify-center p-0 h-11 w-11 mx-auto"
-                        )}
-                        title="Cerrar Sesión"
-                    >
-                        <LogOut size={20} className="text-slate-400 group-hover:text-rose-500" />
-                        {!isCollapsed && <span className="ml-3">Cerrar Sesión</span>}
-                    </button>
-                </div>
-            </div>
-
-            {/* Tour Selection Modal */}
-            <TourSelectionModal
-                isOpen={isTourModalOpen}
-                onClose={() => setIsTourModalOpen(false)}
-            />
         </aside>
     );
 }

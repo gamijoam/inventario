@@ -1,12 +1,14 @@
-import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown } from 'lucide-react';
+import { Bell, ShoppingCart, LogOut, Settings, AlertTriangle, AlertCircle, BarChart2, TrendingUp, X, ChevronDown, HelpCircle, LifeBuoy, BookOpen } from 'lucide-react';
 import GlobalSearch from './GlobalSearch';
 import { Link } from 'react-router-dom';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useCash } from '../../context/CashContext';
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { cn } from '../../utils/cn';
+import TourSelectionModal from '../common/TourSelectionModal';
+import supportService from '../../services/supportService';
 
 // ─── Rate freshness helper ───────────────────────────────────────────────────
 function getRateFreshness(updatedAt) {
@@ -167,11 +169,41 @@ export default function Header() {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
     const [isRateSheetOpen, setIsRateSheetOpen] = useState(false);
+    const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
+    const [isTourModalOpen, setIsTourModalOpen] = useState(false);
+    const [supportUnread, setSupportUnread] = useState(0);
 
     const secondaryCurrencies = currencies.filter(c => !c.is_anchor && c.is_active);
     const primaryRate = secondaryCurrencies.find(c => c.is_default) || secondaryCurrencies[0];
     const rate = primaryRate ? parseFloat(primaryRate.rate) : 0;
     const freshness = primaryRate ? getRateFreshness(primaryRate.updated_at) : 'unknown';
+
+
+    const fetchUnreadCount = useCallback(async () => {
+        try {
+            const count = await supportService.getUnreadCount();
+            setSupportUnread(count);
+        } catch {
+            // User may not be authenticated yet.
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchUnreadCount();
+        const interval = setInterval(fetchUnreadCount, 180000);
+        return () => clearInterval(interval);
+    }, [fetchUnreadCount]);
+
+    const openManual = () => {
+        setIsHelpMenuOpen(false);
+        setIsTourModalOpen(true);
+    };
+
+    const openSupport = () => {
+        supportService.markAsRead();
+        setSupportUnread(0);
+        setIsHelpMenuOpen(false);
+    };
 
     return (
         <>
@@ -244,10 +276,60 @@ export default function Header() {
                         </Link>
                     </div>
 
+                    {/* Help Menu */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsHelpMenuOpen(!isHelpMenuOpen)}
+                            className={cn(
+                                "relative flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-600 shadow-sm transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700",
+                                isHelpMenuOpen && "border-indigo-300 bg-indigo-50 text-indigo-700"
+                            )}
+                            title="Ayuda"
+                        >
+                            <HelpCircle size={17} />
+                            <span className="hidden lg:inline">Ayuda</span>
+                            <ChevronDown size={13} className={cn("text-slate-400 transition-transform", isHelpMenuOpen && "rotate-180 text-indigo-500")} />
+                            {supportUnread > 0 && (
+                                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white ring-2 ring-white">
+                                    {supportUnread > 9 ? '9+' : supportUnread}
+                                </span>
+                            )}
+                        </button>
+
+                        {isHelpMenuOpen && (
+                            <div className="fixed inset-0 z-40" onClick={() => setIsHelpMenuOpen(false)} />
+                        )}
+
+                        {isHelpMenuOpen && (
+                            <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-slate-100 bg-white shadow-xl shadow-slate-200/70 animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                <div className="border-b border-slate-50 bg-slate-50/70 px-4 py-3">
+                                    <p className="text-xs font-black uppercase tracking-widest text-slate-400">Ayuda y soporte</p>
+                                </div>
+                                <div className="p-1.5">
+                                    <Link
+                                        to="/support"
+                                        onClick={openSupport}
+                                        className="flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                                    >
+                                        <span className="flex items-center gap-2"><LifeBuoy size={16} /> Soporte</span>
+                                        {supportUnread > 0 && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-600">{supportUnread > 9 ? '9+' : supportUnread}</span>}
+                                    </Link>
+                                    <button
+                                        type="button"
+                                        onClick={openManual}
+                                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-bold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                                    >
+                                        <BookOpen size={16} /> Manual / Guía
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Notifications */}
                     <div className="relative">
                         <button
-                            onClick={() => setIsNotificationMenuOpen(!isNotificationMenuOpen)}
+                            onClick={() => { setIsHelpMenuOpen(false); setIsNotificationMenuOpen(!isNotificationMenuOpen); }}
                             className={cn(
                                 "relative p-2.5 rounded-full transition-all group focus:outline-none focus:ring-2 focus:ring-indigo-500",
                                 unreadCount > 0
@@ -350,7 +432,7 @@ export default function Header() {
                     {/* User Menu */}
                     <div className="relative">
                         <button
-                            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                            onClick={() => { setIsHelpMenuOpen(false); setIsUserMenuOpen(!isUserMenuOpen); }}
                             id="user-menu"
                             className="flex items-center gap-2 focus:outline-none"
                         >
@@ -382,6 +464,11 @@ export default function Header() {
                     </div>
                 </div>
             </header>
+
+            <TourSelectionModal
+                isOpen={isTourModalOpen}
+                onClose={() => setIsTourModalOpen(false)}
+            />
 
             {/* Rate Bottom Sheet */}
             {isRateSheetOpen && (
