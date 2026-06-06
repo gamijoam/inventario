@@ -26,7 +26,7 @@ const TransfersTab = () => {
               className={`
                 flex min-h-[68px] items-center gap-3 rounded-lg border px-4 text-left transition-colors
                 ${isActive
-                  ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                  ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-100'
                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                 }
               `}

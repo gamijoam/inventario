@@ -263,7 +263,7 @@ const ProductsTab = () => {
                             className={cn(
                                 'inline-flex h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors',
                                 showFilters || hasFilters
-                                    ? 'border-slate-900 bg-slate-900 text-white'
+                                    ? 'border-indigo-600 bg-indigo-600 text-white'
                                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                             )}
                         >
@@ -316,7 +316,7 @@ const ProductsTab = () => {
                         {isAdmin && (
                             <button
                                 onClick={() => { setSelectedProduct(null); setIsModalOpen(true); }}
-                                className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
+                                className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700"
                             >
                                 <Plus size={16} />
                                 Nuevo Producto

@@ -676,7 +676,7 @@ const ExternalTransferOut = () => {
                     <button
                         onClick={() => { setShowConfirmation(true); setExportSummary(null); }}
                         disabled={selectedItems.length === 0 || generating || !selectedWarehouseId || hasStockError || hasImeiError || showConfirmation}
-                        className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                        className="w-full bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                     >
                         <Download size={20} />
                         Generar paquete

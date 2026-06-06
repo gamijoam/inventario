@@ -321,10 +321,10 @@ const InventoryTransfers = () => {
     // --- Render List View ---
     if (view === 'list') {
         return (
-            <div className="p-6 max-w-7xl mx-auto space-y-6">
+            <div className="max-w-7xl mx-auto space-y-6">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
+                        <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
                             <Truck className="text-indigo-600" size={32} /> Traslados de Inventario
                         </h1>
                         <p className="text-slate-500 font-medium">Historial y gestión de movimientos entre bodegas</p>
@@ -332,13 +332,13 @@ const InventoryTransfers = () => {
                     <button
                         id="tour-transfers-add-btn"
                         onClick={() => setView('create')}
-                        className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5"
+                        className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-sm shadow-indigo-100 hover:shadow-indigo-300 "
                     >
                         <Plus size={20} /> Nuevo Traslado
                     </button>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 border-b border-slate-200">
@@ -414,7 +414,7 @@ const InventoryTransfers = () => {
 
     // --- Render Create View ---
     return (
-        <div className="p-6 max-w-6xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
+        <div className="max-w-6xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
             <div className="flex items-center gap-4 mb-8">
                 <button
                     onClick={() => setView('list')}
@@ -422,7 +422,7 @@ const InventoryTransfers = () => {
                 >
                     <ArrowRight className="rotate-180" size={20} />
                 </button>
-                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Nuevo Traslado</h1>
+                <h1 className="text-xl font-black text-slate-800 tracking-tight">Nuevo Traslado</h1>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -430,7 +430,7 @@ const InventoryTransfers = () => {
                 <div className="lg:col-span-2 space-y-6">
 
                     {/* Route Card */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
                         <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
                             <MapPin className="text-indigo-600" size={20} /> Ruta del Traslado
                         </h3>
@@ -470,7 +470,7 @@ const InventoryTransfers = () => {
                     </div>
 
                     {/* Products Card */}
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 min-h-[500px] flex flex-col">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 min-h-[500px] flex flex-col">
                         <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
                             <Package className="text-indigo-600" size={20} /> Productos a Trasladar
                         </h3>
@@ -657,7 +657,7 @@ const InventoryTransfers = () => {
 
                 {/* Right Column: Actions */}
                 <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 sticky top-6">
+                    <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 sticky top-6">
                         <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
                             <Calendar className="text-indigo-600" size={20} /> Detalles del envio
                         </h3>
@@ -701,7 +701,7 @@ const InventoryTransfers = () => {
                                 <button
                                     onClick={(e) => handleSubmit(e, false)}
                                     disabled={items.length === 0 || !formData.source_warehouse_id || !formData.target_warehouse_id}
-                                    className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
+                                    className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 disabled:opacity-50 disabled:shadow-none flex justify-center items-center gap-2"
                                 >
                                     <CheckCircle size={20} /> Solo Guardar
                                 </button>

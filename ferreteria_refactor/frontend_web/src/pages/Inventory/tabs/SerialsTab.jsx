@@ -47,15 +47,15 @@ const CatalogView = ({ catalog, onSelectProduct, isLoading }) => {
         <div className="flex flex-col gap-4 h-full">
             {/* Stats rápidas */}
             <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white rounded-2xl border border-slate-200 p-3 text-center shadow-sm">
+                <div className="bg-white rounded-lg border border-slate-200 p-3 text-center shadow-sm">
                     <div className="text-2xl font-black text-slate-800">{catalog.length}</div>
                     <div className="text-xs text-slate-400 font-semibold mt-0.5">Modelos</div>
                 </div>
-                <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-3 text-center shadow-sm">
+                <div className="bg-emerald-50 rounded-lg border border-emerald-200 p-3 text-center shadow-sm">
                     <div className="text-2xl font-black text-emerald-600">{totalStock}</div>
                     <div className="text-xs text-emerald-500 font-semibold mt-0.5">Unidades</div>
                 </div>
-                <div className="bg-indigo-50 rounded-2xl border border-indigo-200 p-3 text-center shadow-sm">
+                <div className="bg-indigo-50 rounded-lg border border-indigo-200 p-3 text-center shadow-sm">
                     <div className="text-2xl font-black text-indigo-600">{withStock}</div>
                     <div className="text-xs text-indigo-500 font-semibold mt-0.5">Con stock</div>
                 </div>
@@ -64,7 +64,7 @@ const CatalogView = ({ catalog, onSelectProduct, isLoading }) => {
             {/* Botón Recepción Multi-Producto */}
             <Link
                 to="/inventory/serialized-reception"
-                className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-2xl shadow-md shadow-indigo-200 transition-all hover:-translate-y-0.5"
+                className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-sm rounded-lg shadow-md shadow-indigo-200 transition-colors "
             >
                 <Zap size={16} />
                 Recepción con IMEI.info — Identificación automática
@@ -80,7 +80,7 @@ const CatalogView = ({ catalog, onSelectProduct, isLoading }) => {
                         placeholder="Buscar modelo, SKU..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                        className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     />
                 </div>
                 <div className="flex gap-1.5">
@@ -93,7 +93,7 @@ const CatalogView = ({ catalog, onSelectProduct, isLoading }) => {
                             key={f.v}
                             onClick={() => setFilterStatus(f.v)}
                             className={clsx(
-                                'px-3 py-2 rounded-xl text-xs font-bold border transition-all whitespace-nowrap',
+                                'px-3 py-2 rounded-md text-xs font-bold border transition-colors whitespace-nowrap',
                                 filterStatus === f.v
                                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                                     : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-400'
@@ -197,7 +197,7 @@ const ProductCard = ({ product, onSelect }) => {
 
     return (
         <div className={clsx(
-            'bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm',
+            'bg-white rounded-lg border transition-colors duration-200 overflow-hidden shadow-sm',
             expanded ? 'border-indigo-300 shadow-md' : 'border-slate-200 hover:border-indigo-300 hover:shadow-md'
         )}>
             {/* Cabecera clickeable → ingresa IMEIs */}
@@ -221,7 +221,7 @@ const ProductCard = ({ product, onSelect }) => {
                 </div>
                 {/* Stock badge */}
                 <div className={clsx(
-                    'shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-xl font-black text-lg',
+                    'shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-md font-black text-lg',
                     product.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'
                 )}>
                     {product.stock}
@@ -413,11 +413,11 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
             {/* Panel izquierdo: producto + input */}
             <div className="flex-1 flex flex-col gap-4">
                 {/* Header producto */}
-                <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-lg border border-indigo-200 shadow-sm overflow-hidden">
                     <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-indigo-50 to-white">
                         <button
                             onClick={onBack}
-                            className="p-2 hover:bg-white rounded-xl text-indigo-400 hover:text-slate-700 transition-all border border-transparent hover:border-slate-200"
+                            className="p-2 hover:bg-white rounded-md text-indigo-400 hover:text-slate-700 transition-colors border border-transparent hover:border-slate-200"
                         >
                             <ArrowLeft size={18} />
                         </button>
@@ -440,7 +440,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                                 <Warehouse size={10} /> Bodega destino
                             </label>
                             <select
-                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                                 value={warehouseId}
                                 onChange={e => setWarehouseId(e.target.value)}
                             >
@@ -453,7 +453,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                             </label>
                             <input
                                 type="number"
-                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
                                 value={unitCost}
                                 onChange={e => setUnitCost(e.target.value)}
                                 placeholder="0.00"
@@ -463,7 +463,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                 </div>
 
                 {/* Scanner principal */}
-                <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center p-6 gap-5">
+                <div className="flex-1 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center p-6 gap-5">
                     <div className="flex flex-col items-center gap-1 text-slate-400">
                         <ScanLine size={36} className="text-indigo-400" />
                         <span className="text-xs font-bold uppercase tracking-widest">Escanear IMEI / Serial</span>
@@ -473,7 +473,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                         <input
                             ref={inputRef}
                             type="text"
-                            className="w-full text-center px-4 py-5 text-xl font-mono bg-white border-2 border-indigo-200 rounded-2xl shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all placeholder:text-slate-200 tracking-widest"
+                            className="w-full text-center px-4 py-5 text-xl font-mono bg-white border-2 border-indigo-200 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-colors placeholder:text-slate-200 tracking-widest"
                             placeholder="· · · · · · · · · · · · · · ·"
                             value={imeiInput}
                             onChange={e => setImeiInput(e.target.value)}
@@ -484,7 +484,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                         {imeiInput && (
                             <button
                                 onClick={addImei}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 transition-colors"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-indigo-600 text-white p-2 rounded-md hover:bg-indigo-700 transition-colors"
                             >
                                 <Plus size={16} />
                             </button>
@@ -499,7 +499,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
             </div>
 
             {/* Panel derecho: lista capturada */}
-            <div className="w-full lg:w-80 xl:w-96 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+            <div className="w-full lg:w-80 xl:w-96 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
                 {/* Header lista */}
                 <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                     <div>
@@ -529,7 +529,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                         scannedList.map((item, idx) => (
                             <div
                                 key={item.code}
-                                className="flex items-center gap-2.5 px-3 py-2.5 bg-white border border-slate-100 rounded-xl shadow-sm group hover:border-rose-200 transition-colors"
+                                className="flex items-center gap-2.5 px-3 py-2.5 bg-white border border-slate-100 rounded-md shadow-sm group hover:border-rose-200 transition-colors"
                             >
                                 <div className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">
                                     {scannedList.length - idx}
@@ -553,7 +553,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                     {scannedList.length > 0 && (
                         <button
                             onClick={() => { if (confirm(`¿Borrar los ${scannedList.length} IMEIs capturados?`)) setScannedList([]); }}
-                            className="w-full py-2 text-xs font-bold text-slate-500 hover:text-rose-500 border border-slate-200 hover:border-rose-300 rounded-xl transition-all bg-white"
+                            className="w-full py-2 text-xs font-bold text-slate-500 hover:text-rose-500 border border-slate-200 hover:border-rose-300 rounded-md transition-colors bg-white"
                         >
                             Limpiar lista
                         </button>
@@ -561,7 +561,7 @@ const ScanView = ({ product, warehouses, onBack, onSuccess }) => {
                     <button
                         onClick={handleSubmit}
                         disabled={scannedList.length === 0 || submitting}
-                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2"
+                        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-md text-sm shadow-sm shadow-indigo-100  transition-colors flex items-center justify-center gap-2"
                     >
                         {submitting ? (
                             <Loader2 size={16} className="animate-spin" />
@@ -612,27 +612,30 @@ const SerialsTab = () => {
     return (
         <div className="flex flex-col h-full gap-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-lg font-black text-slate-800">
-                        {selectedProduct ? 'Ingreso de IMEIs' : 'Equipos Serializados'}
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                        {selectedProduct
-                            ? `Escaneando para: ${selectedProduct.name}`
-                            : 'Gestión de equipos con número de serie / IMEI'}
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <InversionReportPDF />
-                    <SerializedReportPDF />
-                    <button
-                        onClick={loadData}
-                        className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 transition-all bg-white"
-                        title="Actualizar"
-                    >
-                        <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
-                    </button>
+            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                        <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                            <Smartphone className="text-indigo-600" size={20} />
+                            {selectedProduct ? 'Ingreso de IMEIs' : 'Equipos serializados'}
+                        </h2>
+                        <p className="text-xs font-medium text-slate-400">
+                            {selectedProduct
+                                ? `Escaneando para: ${selectedProduct.name}`
+                                : `${catalog.length} modelos con control IMEI - ${warehouses.length} almacenes`}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <InversionReportPDF />
+                        <SerializedReportPDF />
+                        <button
+                            onClick={loadData}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+                            title="Actualizar"
+                        >
+                            <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
                 </div>
             </div>
 

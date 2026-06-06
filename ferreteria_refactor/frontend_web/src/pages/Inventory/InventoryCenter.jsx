@@ -182,7 +182,7 @@ const InventoryCenter = () => {
                                         onClick={() => setActiveTab(tab.id)}
                                         className={`flex h-10 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-bold transition-colors ${
                                             isActive
-                                                ? 'bg-slate-900 text-white shadow-sm'
+                                                ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-100'
                                                 : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                                         }`}
                                     >

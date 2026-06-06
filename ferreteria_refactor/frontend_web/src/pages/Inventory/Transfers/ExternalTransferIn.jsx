@@ -41,7 +41,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-4 pt-[10vh]">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-white w-full max-w-lg rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center gap-3 p-4 border-b border-slate-100 bg-slate-50">
           <Search size={20} className="text-indigo-600" />
@@ -304,7 +304,7 @@ const ExternalTransferIn = () => {
   if (step === 'upload') {
     return (
       <div className="flex h-full bg-slate-50 items-center justify-center p-6">
-        <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-8">
+        <div className="bg-white w-full max-w-lg rounded-lg shadow-xl p-8">
           <div className="flex items-center gap-3 mb-2">
             <div className="bg-indigo-100 p-2 rounded-lg">
               <Upload size={22} className="text-indigo-600" />
@@ -346,7 +346,7 @@ const ExternalTransferIn = () => {
           <button
             onClick={handlePreview}
             disabled={!file || uploading}
-            className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+            className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
           >
             {uploading ? (
               <>
@@ -454,7 +454,7 @@ const ExternalTransferIn = () => {
               <img
                 src={`${API_ROOT_URL}${selectedPhoto}`}
                 alt="Evidencia de traslado"
-                className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain"
+                className="max-w-full max-h-[85vh] rounded-xl shadow-xl object-contain"
               />
               {/* Navigation arrows */}
               {photoUrls.length > 1 && (
@@ -601,7 +601,7 @@ const ExternalTransferIn = () => {
           <button
             onClick={handleConfirm}
             disabled={mappedCount !== totalCount || confirming}
-            className="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+            className="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-sm shadow-emerald-100 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
           >
             {confirming ? (
               <>
@@ -623,7 +623,7 @@ const ExternalTransferIn = () => {
   // Step 3: Result
   return (
     <div className="flex h-full bg-slate-50 items-center justify-center p-6">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-8">
+      <div className="bg-white w-full max-w-lg rounded-lg shadow-xl p-8">
         <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">Resultado del Traslado</h2>
 
         <div className="space-y-4 mb-8">
@@ -682,7 +682,7 @@ const ExternalTransferIn = () => {
 
         <button
           onClick={resetProcess}
-          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-sm shadow-indigo-100 hover:bg-indigo-700 transition-all"
         >
           <RefreshCw size={18} />
           Importar Otro
