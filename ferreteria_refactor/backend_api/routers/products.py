@@ -180,71 +180,92 @@ def read_catalog_products(
     # Count query (before adding joinedload options)
     total = base_query.with_entities(func.count(models.Product.id)).scalar()
 
-    # Main query with eager loading
     products = base_query.options(
-        joinedload(models.Product.category),
         selectinload(models.Product.units),
         selectinload(models.Product.stocks),
         selectinload(models.Product.prices).joinedload(models.ProductPrice.price_list),
-        # Collections use selectinload to avoid row multiplication in POS catalog pages.
-        selectinload(models.Product.combo_items)
-            .selectinload(models.ComboItem.child_product)
-            .selectinload(models.Product.stocks),
-        selectinload(models.Product.recipes)
-            .selectinload(rest_models.RestaurantRecipe.ingredient)
-            .selectinload(models.Product.stocks),
     ).order_by(models.Product.name).offset(skip).limit(limit).all()
 
-    # For combo or recipe products, replace stock with the effective quantity
-    # from ingredient/component availability: min(floor(child_stock / qty_needed))
-    for p in products:
-        if p.recipes:
-            min_available = float('inf')
-            for rec in p.recipes:
-                ing = rec.ingredient
-                if not ing: continue
-                if warehouse_id:
-                    ing_stock = next((float(s.quantity) for s in ing.stocks if s.warehouse_id == warehouse_id), 0.0)
-                else:
-                    ing_stock = sum(float(s.quantity) for s in ing.stocks)
-                qty_needed = float(rec.quantity) if rec.quantity else 1.0
-                available = ing_stock / qty_needed
-                if available < min_available: min_available = available
-            p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
-
-        elif p.is_combo and p.combo_items:
-            min_available = float('inf')
-            for ci in p.combo_items:
-                child = ci.child_product
-                if not child:
-                    min_available = 0
-                    break
-                if warehouse_id:
-                    child_stock = next(
-                        (float(s.quantity) for s in child.stocks if s.warehouse_id == warehouse_id),
-                        0.0
-                    )
-                else:
-                    child_stock = sum(float(s.quantity) for s in child.stocks)
-                qty_needed = float(ci.quantity) if ci.quantity else 1.0
-                available = child_stock / qty_needed
-                if available < min_available:
-                    min_available = available
-            p.stock = Decimal(str(int(min_available))) if min_available != float('inf') else Decimal('0')
+    def serialize_catalog_product(product):
+        if warehouse_id:
+            stock = sum(float(s.quantity) for s in product.stocks if s.warehouse_id == warehouse_id)
         else:
-            if warehouse_id:
-                warehouse_stock = sum(
-                    float(s.quantity) for s in p.stocks if s.warehouse_id == warehouse_id
-                )
-                p.stock = Decimal(str(warehouse_stock))
-            else:
-                warehouse_stock = sum(float(s.quantity) for s in p.stocks)
-                p.stock = Decimal(str(warehouse_stock))
-            if warehouse_id:
-                p.stocks = [s for s in p.stocks if s.warehouse_id == warehouse_id]
+            stock = sum(float(s.quantity) for s in product.stocks)
+
+        return {
+            "id": product.id,
+            "name": product.name,
+            "sku": product.sku,
+            "price": product.price,
+            "price_mayor_1": product.price_mayor_1,
+            "price_mayor_2": product.price_mayor_2,
+            "stock": Decimal(str(stock)),
+            "description": product.description,
+            "cost_price": product.cost_price,
+            "profit_margin": product.profit_margin,
+            "discount_percentage": product.discount_percentage,
+            "is_discount_active": bool(product.is_discount_active),
+            "tax_rate": product.tax_rate,
+            "min_stock": product.min_stock,
+            "unit_type": product.unit_type,
+            "is_box": bool(product.is_box),
+            "conversion_factor": product.conversion_factor,
+            "category_id": product.category_id,
+            "supplier_id": product.supplier_id,
+            "location": product.location,
+            "exchange_rate_id": product.exchange_rate_id,
+            "is_combo": bool(product.is_combo),
+            "has_imei": bool(product.has_imei),
+            "is_service": bool(product.is_service),
+            "is_commissionable": bool(product.is_commissionable),
+            "is_barbershop_service": bool(product.is_barbershop_service),
+            "is_menu_item": bool(product.is_menu_item),
+            "needs_kitchen": product.needs_kitchen if product.needs_kitchen is not None else True,
+            "is_active": bool(product.is_active),
+            "image_url": product.image_url,
+            "image_url_original": product.image_url_original,
+            "updated_at": product.updated_at,
+            "warranty_duration": product.warranty_duration,
+            "warranty_unit": product.warranty_unit,
+            "warranty_notes": product.warranty_notes,
+            "warranty_policy_id": product.warranty_policy_id,
+            "units": [
+                {
+                    "id": u.id,
+                    "product_id": u.product_id,
+                    "unit_name": u.unit_name,
+                    "conversion_factor": u.conversion_factor,
+                    "barcode": u.barcode,
+                    "cost_price": u.cost_price,
+                    "price_usd": u.price_usd,
+                    "profit_margin": u.profit_margin,
+                    "discount_percentage": u.discount_percentage,
+                    "is_discount_active": bool(u.is_discount_active),
+                    "is_default": bool(u.is_default),
+                    "exchange_rate_id": u.exchange_rate_id,
+                }
+                for u in product.units
+            ],
+            "prices": [
+                {
+                    "id": pp.id,
+                    "product_id": pp.product_id,
+                    "price_list_id": pp.price_list_id,
+                    "price": pp.price,
+                    "price_list": {
+                        "id": pp.price_list.id,
+                        "name": pp.price_list.name,
+                        "requires_auth": pp.price_list.requires_auth,
+                        "is_active": pp.price_list.is_active,
+                        "created_at": pp.price_list.created_at,
+                    } if pp.price_list else None,
+                }
+                for pp in product.prices
+            ],
+        }
 
     catalog_result = {
-        "items": products,
+        "items": [serialize_catalog_product(p) for p in products],
         "total": total,
         "has_more": (skip + limit) < total,
     }
@@ -907,7 +928,7 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
                 "barcode": u.barcode,
                 "price_usd": float(u.price_usd) if u.price_usd else None,
                 "product_id": u.product_id,
-                "is_default": u.is_default,
+                "is_default": bool(u.is_default),
                 # Include exchange_rate if needed/present, but ProductUnitRead usually doesn't strictly require full object
                 # Update: ProductUnitRead has exchange_rate: Optional[ExchangeRateRead] = None
                 # If u is new, u.exchange_rate might be None unless we fetched it. Defaults to None is safe.

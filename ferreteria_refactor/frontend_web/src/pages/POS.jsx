@@ -476,45 +476,49 @@ const POS = () => {
         }
     }, [isLoadingEmployees]);
 
-    const handleProductClick = (product) => {
+    const handleProductClick = async (product) => {
         // Bug [006] fix: clear search text and keep focus on search bar
         setSearchTerm('');
         if (catalogRef.current) {
             catalogRef.current.clearAndFocusSearch();
         }
 
+        const productForSale = product.is_combo
+            ? (await refreshProduct(product.id)) || product
+            : product;
+
         // NEW: Barbershop Service check
-        if (product.is_barbershop_service) {
-            setSelectedProductForEmployee(product);
+        if (productForSale.is_barbershop_service) {
+            setSelectedProductForEmployee(productForSale);
             setIsEmployeeModalOpen(true);
             loadEmployees();
             return;
         }
 
-        if (product.has_imei) {
-            setSelectedProductForSerialized(product);
+        if (productForSale.has_imei) {
+            setSelectedProductForSerialized(productForSale);
             return;
         }
 
         // Combo con componentes serializados
-        if (product.is_combo && product.combo_items?.some(ci => ci.child_product?.has_imei)) {
-            const serializedComponents = product.combo_items
+        if (productForSale.is_combo && productForSale.combo_items?.some(ci => ci.child_product?.has_imei)) {
+            const serializedComponents = productForSale.combo_items
                 .filter(ci => ci.child_product?.has_imei)
                 .map(ci => ({
                     product: ci.child_product,
                     qty: Math.ceil(ci.quantity),
                     combo_item_id: ci.id
                 }));
-            setPendingComboProduct(product);
+            setPendingComboProduct(productForSale);
             setComboImeiCollected({});
             setComboImeiQueue(serializedComponents);
             return;
         }
 
-        if (product.units?.length > 0) {
-            setSelectedProductForUnits(product);
+        if (productForSale.units?.length > 0) {
+            setSelectedProductForUnits(productForSale);
         } else {
-            addBaseProductToCart(product);
+            addBaseProductToCart(productForSale);
         }
     };
 

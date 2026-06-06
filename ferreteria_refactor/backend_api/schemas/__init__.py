@@ -222,6 +222,14 @@ class ProductPriceRead(ProductPriceBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class CatalogProductRead(ProductBase):
+    id: int
+    units: List[ProductUnitRead] = []
+    prices: List[ProductPriceRead] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ProductCreate(ProductBase):
     units: List[ProductUnitCreate] = Field([], description="Lista de unidades alternativas (cajas, bultos)")
     combo_items: List[ComboItemCreate] = Field([], description="Lista de componentes si es un combo")
@@ -290,7 +298,7 @@ class ProductRead(ProductBase):
     model_config = ConfigDict(from_attributes=True)
 
 class PaginatedCatalog(BaseModel):
-    items: List[ProductRead]
+    items: List[CatalogProductRead]
     total: int
     has_more: bool
 
