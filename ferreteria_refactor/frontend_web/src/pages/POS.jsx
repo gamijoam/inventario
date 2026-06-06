@@ -446,7 +446,7 @@ const POS = () => {
             const items = quote.details || quote.items || [];
 
             for (const item of items) {
-                const product = getFromCache(item.product_id) || await lookupProduct(item.product_id);
+                const product = item.product || getFromCache(item.product_id) || await lookupProduct(item.product_id);
                 if (product) {
                     // Try to match unit or use base
                     const unitName = item.is_box ? 'Caja' : 'Unidad';
