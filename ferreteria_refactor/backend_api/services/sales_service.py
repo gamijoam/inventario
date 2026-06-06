@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, load_only
 from sqlalchemy import func, or_, text
 from datetime import datetime, timedelta
 from ..tenant_context import get_tenant_schema
@@ -140,27 +140,40 @@ class SalesService:
                     if first_wh:
                         warehouse_id = first_wh.id
                     
-            # Validar si es una venta puramente de servicios (intangibles)
-            # Para permitir que warehouse_id sea None si no hay warehouses físicos
+            # Validar si es una venta puramente de servicios (intangibles).
+            # Carga todos los productos del carrito en una sola consulta para evitar
+            # consultar producto por producto antes del procesamiento real con lock.
+            item_product_ids = {item.product_id for item in sale_data.items}
+            service_check_products = db.query(models.Product).options(
+                load_only(
+                    models.Product.id,
+                    models.Product.is_service,
+                    models.Product.unit_type,
+                    models.Product.category_id,
+                ),
+                joinedload(models.Product.category),
+            ).filter(models.Product.id.in_(item_product_ids)).all() if item_product_ids else []
+            products_by_id = {prod.id: prod for prod in service_check_products}
+
             is_service_only = True
             for item in sale_data.items:
-                 prod = db.query(models.Product).filter(models.Product.id == item.product_id).first()
-                 
-                 is_service = False
-                 if prod:
-                     # PRIMARY CHECK: is_service field
-                     if prod.is_service:
-                         is_service = True
-                     # FALLBACK: Check Unit Type
-                     elif prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']:
-                         is_service = True
-                     # FALLBACK: Check Category Name (Robust fallback)
-                     elif prod.category and ('SERVICIO' in prod.category.name.upper() or 'LAVANDERIA' in prod.category.name.upper() or 'LAUNDRY' in prod.category.name.upper()):
-                         is_service = True
-                         
-                 if not is_service:
-                     is_service_only = False
-                     break
+                prod = products_by_id.get(item.product_id)
+                is_service = False
+                if prod:
+                    if prod.is_service:
+                        is_service = True
+                    elif prod.unit_type and prod.unit_type.upper() in ['SERVICIO', 'SERVICE']:
+                        is_service = True
+                    elif prod.category and (
+                        'SERVICIO' in prod.category.name.upper()
+                        or 'LAVANDERIA' in prod.category.name.upper()
+                        or 'LAUNDRY' in prod.category.name.upper()
+                    ):
+                        is_service = True
+
+                if not is_service:
+                    is_service_only = False
+                    break
             
             if not warehouse_id and not is_service_only:
                  raise HTTPException(status_code=500, detail="No active warehouse found to deduct stock")
@@ -752,6 +765,7 @@ class SalesService:
         
             # 3. Process Payments (New Multi-Payment Logic)
             total_paid_usd = Decimal("0.00")
+            exchange_rate_cache = {}
             if sale_data.payments:
 
                 for p in sale_data.payments:
@@ -761,31 +775,36 @@ class SalesService:
                     validated_exchange_rate = p.exchange_rate  # Default: use what frontend sent
 
                     if p.currency not in ("USD", "$"):
-                        # Fetch the active rate matching by currency_code OR currency_symbol
-                        # (frontend may send 'Bs' as symbol while DB stores code 'VES')
-                        db_rate = db.query(models.ExchangeRate).filter(
-                            or_(
-                                models.ExchangeRate.currency_code == p.currency,
-                                models.ExchangeRate.currency_symbol == p.currency,
-                            ),
-                            models.ExchangeRate.is_active == True,
-                            models.ExchangeRate.is_default == True
-                        ).first()
-
-                        # If no default found, fall back to any active rate
-                        if not db_rate:
+                        # Fetch each currency rate once per sale; multi-payment often repeats VES/Bs.
+                        db_rate = exchange_rate_cache.get(p.currency)
+                        if p.currency not in exchange_rate_cache:
+                            # Match by currency_code OR currency_symbol
+                            # (frontend may send 'Bs' as symbol while DB stores code 'VES')
                             db_rate = db.query(models.ExchangeRate).filter(
                                 or_(
                                     models.ExchangeRate.currency_code == p.currency,
                                     models.ExchangeRate.currency_symbol == p.currency,
                                 ),
-                                models.ExchangeRate.is_active == True
+                                models.ExchangeRate.is_active == True,
+                                models.ExchangeRate.is_default == True
                             ).first()
+
+                            # If no default found, fall back to any active rate
+                            if not db_rate:
+                                db_rate = db.query(models.ExchangeRate).filter(
+                                    or_(
+                                        models.ExchangeRate.currency_code == p.currency,
+                                        models.ExchangeRate.currency_symbol == p.currency,
+                                    ),
+                                    models.ExchangeRate.is_active == True
+                                ).first()
+
+                            exchange_rate_cache[p.currency] = db_rate
 
                         if not db_rate:
                             raise HTTPException(
                                 status_code=400,
-                                detail=f"Moneda no válida o no activa: {p.currency}"
+                                detail=f"Moneda no valida o no activa: {p.currency}"
                             )
 
                         db_rate_val = float(db_rate.rate)
