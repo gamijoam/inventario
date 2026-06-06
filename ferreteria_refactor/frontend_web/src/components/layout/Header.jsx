@@ -189,7 +189,7 @@ export default function Header() {
                     {primaryRate && (
                         <button
                             onClick={() => setIsRateSheetOpen(true)}
-                            className="flex items-center gap-2 px-3.5 py-2 bg-white border-2 border-slate-200 rounded-2xl shadow-sm hover:border-indigo-400 hover:shadow-md active:scale-95 transition-all"
+                            className="flex items-center gap-2 px-3.5 py-2 bg-white border-2 border-slate-200 rounded-lg shadow-sm hover:border-indigo-400 active:scale-95 transition-colors"
                         >
                             <div className={cn('w-2.5 h-2.5 rounded-full flex-shrink-0', FRESHNESS_DOT[freshness])} />
                             <div className="flex flex-col items-start leading-none">
@@ -231,13 +231,13 @@ export default function Header() {
                             }
                         </div>
 
-                        <Link to="/pos" className="hidden md:flex items-center gap-2 px-3 py-2 bg-slate-900 text-white hover:bg-slate-800 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0">
+                        <Link to="/pos" className="hidden md:flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-sm transition-colors active:translate-y-0">
                             <ShoppingCart size={16} />
                             <span className="text-sm font-bold">Vender</span>
                         </Link>
                         <Link
                             to="/reports"
-                            className="hidden md:flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0"
+                            className="hidden md:flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow-sm transition-colors active:translate-y-0"
                         >
                             <BarChart2 size={16} />
                             <span className="text-sm font-bold">Reportes</span>

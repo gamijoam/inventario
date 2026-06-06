@@ -265,7 +265,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
     return (
         <aside className={cn(
-            "bg-white border-r border-slate-200 fixed h-full transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) shadow-[1px_0_15px_rgba(0,0,0,0.02)] inset-y-0 left-0 flex flex-col z-20",
+            "bg-white border-r border-slate-200 fixed h-full transition-all duration-300 ease-in-out shadow-sm inset-y-0 left-0 flex flex-col z-20",
             // Padding seguro para Notch y Barra de Inicio en móvil
             "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
             isCollapsed ? "md:w-20" : "md:w-64",
@@ -275,14 +275,14 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             <div className="h-16 flex items-center px-6 border-b border-slate-100 bg-white relative shrink-0">
                 {!isCollapsed ? (
                     <div className="flex items-center gap-3 animate-in fade-in duration-300">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm shadow-indigo-100">
                             <span className="font-black text-lg">M</span>
                         </div>
                         <span className="font-black text-lg text-slate-900 tracking-tighter">Mi Inventario</span>
                     </div>
                 ) : (
                     <div className="w-full flex justify-center">
-                        <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm shadow-indigo-100">
                             <span className="font-black text-lg">M</span>
                         </div>
                     </div>
@@ -299,7 +299,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             {/* Desktop Collapse Button - Positioned Precisely */}
             <button
                 onClick={toggleSidebar}
-                className="hidden md:flex absolute -right-3 top-[68px] w-6 h-12 bg-white border-2 border-slate-200 rounded-full items-center justify-center text-slate-400 shadow-sm hover:border-indigo-500 hover:text-indigo-600 transition-all duration-300 z-30 group/collapse"
+                className="hidden md:flex absolute -right-3 top-[68px] w-6 h-12 bg-white border-2 border-slate-200 rounded-lg items-center justify-center text-slate-400 shadow-sm hover:border-indigo-500 hover:text-indigo-600 transition-colors duration-200 z-30 group/collapse"
                 title={isCollapsed ? "Expandir menú (→)" : "Colapsar menú (←)"}
             >
                 {isCollapsed ? (
@@ -322,15 +322,15 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                 id={group.item.label === 'Resumen' ? 'sidebar-dashboard' : undefined}
                                 onClick={closeMobileMenu}
                                 className={cn(
-                                    "flex items-center px-4 py-3 rounded-xl text-sm transition-all relative group mb-1",
+                                    "flex items-center px-4 py-3 rounded-lg text-sm transition-colors relative group mb-1",
                                     isActive
-                                        ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200"
+                                        ? "bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-100"
                                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
                                     isCollapsed && "justify-center px-0 h-11"
                                 )}
                                 title={isCollapsed ? group.item.label : ''}
                             >
-                                <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-slate-600")} strokeWidth={isActive ? 2.5 : 2} />
+                                <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600")} strokeWidth={isActive ? 2.4 : 2} />
                                 {!isCollapsed && <span className="ml-3 font-bold">{group.item.label}</span>}
                             </Link>
                         );
@@ -348,7 +348,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                     id={groupId}
                                     onClick={() => toggleGroup(group.label)}
                                     className={cn(
-                                        "w-11 h-11 flex items-center justify-center rounded-xl transition-all",
+                                        "w-11 h-11 flex items-center justify-center rounded-lg transition-colors",
                                         hasActiveChild ? "bg-indigo-50 text-indigo-600 shadow-sm" : "text-slate-400 hover:bg-slate-50"
                                     )}
                                     title={group.label}
@@ -365,7 +365,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                 onClick={() => toggleGroup(group.label)}
                                 id={groupId}
                                 className={cn(
-                                    "w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all group select-none mb-1",
+                                    "w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition-colors group select-none mb-1",
                                     isExpanded ? "bg-slate-50/80 text-slate-900" : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                                 )}
                             >
@@ -392,7 +392,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                                             id={itemId}
                                             onClick={closeMobileMenu}
                                             className={cn(
-                                                "flex items-center px-4 py-2 rounded-lg text-[13px] transition-all relative group",
+                                                "flex items-center px-4 py-2 rounded-md text-[13px] transition-colors relative group",
                                                 isSubActive
                                                     ? "text-indigo-600 font-bold bg-indigo-50/50"
                                                     : "text-slate-500 font-semibold hover:text-slate-900 hover:bg-slate-50/50"
@@ -418,7 +418,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                 {!isCollapsed && <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 mb-2">Soporte y Guía</p>}
 
                 <div className={cn("grid gap-1", isCollapsed ? "grid-cols-1" : "grid-cols-1")}>
-                    <Link to="/support" className={cn("flex items-center px-4 py-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-sm relative", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")} title="Soporte Técnico">
+                    <Link to="/support" className={cn("flex items-center px-4 py-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors font-bold text-sm relative", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")} title="Soporte Técnico">
                         <LifeBuoy size={18} />
                         {!isCollapsed && <span className="ml-3">Soporte</span>}
                         {supportUnread > 0 && (
@@ -433,7 +433,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
                     <button
                         onClick={() => setIsTourModalOpen(true)}
-                        className={cn("flex items-center px-4 py-2.5 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all font-bold text-sm", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")}
+                        className={cn("flex items-center px-4 py-2.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors font-bold text-sm", isCollapsed && "justify-center p-0 h-10 w-10 mx-auto")}
                         title="Guía de Uso"
                     >
                         <BookOpen size={18} />
@@ -445,7 +445,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
                     <button
                         onClick={handleLogout}
                         className={cn(
-                            "flex items-center px-4 py-3 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all w-full font-bold text-sm group",
+                            "flex items-center px-4 py-3 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors w-full font-bold text-sm group",
                             isCollapsed && "justify-center p-0 h-11 w-11 mx-auto"
                         )}
                         title="Cerrar Sesión"
