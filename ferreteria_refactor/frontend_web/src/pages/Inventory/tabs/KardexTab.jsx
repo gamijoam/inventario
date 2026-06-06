@@ -85,10 +85,10 @@ const KardexRow = ({ item, index }) => {
             <tr
                 onClick={() => setExpanded(e => !e)}
                 className={clsx(
-                    "transition-all duration-150 cursor-pointer",
-                    index % 2 === 0 ? "bg-white" : "bg-slate-50/40",
-                    "hover:bg-indigo-50/40",
-                    expanded && "bg-indigo-50/60"
+                    "cursor-pointer transition-colors duration-150",
+                    index % 2 === 0 ? "bg-white" : "bg-slate-50/30",
+                    "hover:bg-slate-50",
+                    expanded && "bg-slate-100/70"
                 )}
             >
                 {/* Fecha */}
@@ -122,7 +122,7 @@ const KardexRow = ({ item, index }) => {
 
                 {/* Tipo */}
                 <td className="px-4 py-3 whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${cfg.bg} ${cfg.color} ${cfg.border}`}>
+                    <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold ${cfg.bg} ${cfg.color} ${cfg.border}`}>
                         <Icon size={12} />
                         {cfg.label}
                     </span>
@@ -142,7 +142,7 @@ const KardexRow = ({ item, index }) => {
 
                 {/* Saldo */}
                 <td className="px-4 py-3 whitespace-nowrap text-right">
-                    <span className="font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg text-sm">
+                    <span className="rounded-md bg-slate-100 px-2 py-1 text-sm font-bold text-slate-700">
                         {item.balance_after}
                     </span>
                 </td>
@@ -158,11 +158,11 @@ const KardexRow = ({ item, index }) => {
 
             {/* Fila expandida — detalle completo */}
             {expanded && (
-                <tr className="bg-indigo-50/30">
-                    <td colSpan={7} className="px-6 py-4 border-b border-indigo-100">
+                <tr className="bg-slate-50/80">
+                    <td colSpan={7} className="border-b border-slate-100 px-6 py-4">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {/* Producto completo */}
-                            <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+                            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                     <Package size={10} /> Producto
                                 </div>
@@ -175,7 +175,7 @@ const KardexRow = ({ item, index }) => {
                             </div>
 
                             {/* Fecha y hora exacta */}
-                            <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+                            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                     <Calendar size={10} /> Fecha y Hora
                                 </div>
@@ -184,7 +184,7 @@ const KardexRow = ({ item, index }) => {
                             </div>
 
                             {/* Movimiento */}
-                            <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+                            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                     <BarChart2 size={10} /> Movimiento
                                 </div>
@@ -198,7 +198,7 @@ const KardexRow = ({ item, index }) => {
 
                             {/* IMEI / Info extra */}
                             {imei ? (
-                                <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-200 shadow-sm">
+                                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 shadow-sm">
                                     <div className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                         <Smartphone size={10} /> IMEI
                                     </div>
@@ -210,7 +210,7 @@ const KardexRow = ({ item, index }) => {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+                                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                                         <Layers size={10} /> Tipo
                                     </div>
@@ -223,7 +223,7 @@ const KardexRow = ({ item, index }) => {
 
                         {/* Descripción completa */}
                         {item.description && (
-                            <div className="mt-3 bg-white rounded-xl p-3 border border-slate-200 shadow-sm">
+                            <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
                                     <Info size={10} /> Descripción completa
                                 </div>
@@ -385,7 +385,7 @@ const KardexTab = () => {
 
     // Filtrado: búsqueda por nombre, IMEI o descripción + tipo
     const filtered = kardex.filter(item => {
-        if (kardexMejorado && filterType !== 'ALL' && item.movement_type !== filterType) return false;
+        if (filterType !== 'ALL' && item.movement_type !== filterType) return false;
         if (!searchQuery) return true;
         const q = normalizeSearch(searchQuery);
         const name = normalizeSearch(item.product?.name || '');
@@ -396,132 +396,168 @@ const KardexTab = () => {
     // Stats rápidas
     const totalIn  = filtered.filter(i => getConfig(i.movement_type).dir === 'in').reduce((s, i) => s + Number(i.quantity), 0);
     const totalOut = filtered.filter(i => getConfig(i.movement_type).dir === 'out').reduce((s, i) => s + Math.abs(Number(i.quantity)), 0);
+    const activeTypeLabel = filterType === 'ALL' ? 'Todos los movimientos' : getConfig(filterType).label;
     const hasActiveFilters = filterType !== 'ALL' || searchQuery;
+    const clearFilters = () => {
+        setSearchQuery('');
+        setFilterType('ALL');
+    };
 
     return (
-        <div className="space-y-5">
-            {/* Barra superior */}
-            <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-black text-slate-800 hidden md:block">Kardex de Inventario</h2>
-                <div className="flex gap-2 ml-auto">
-                    <button
-                        onClick={() => setShowFilters(f => !f)}
-                        className={clsx(
-                            "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold border transition-all",
-                            showFilters ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-600 border-slate-200 hover:border-indigo-400"
-                        )}
-                    >
-                        <Filter size={15} />
-                        <span className="hidden md:inline">Filtros</span>
-                        {hasActiveFilters && <span className="w-2 h-2 bg-rose-500 rounded-full" />}
-                    </button>
-                    <button
-                        onClick={() => setIsSheetOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow-lg shadow-indigo-200 hover:-translate-y-0.5 transition-all font-bold text-sm flex items-center gap-2"
-                    >
-                        + <span className="md:hidden">Ajuste</span>
-                        <span className="hidden md:inline">Nuevo Ajuste Manual</span>
-                    </button>
-                </div>
-            </div>
+        <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                        <h2 className="text-lg font-black text-slate-900">Kardex de Inventario</h2>
+                        <p className="text-xs font-medium text-slate-400">
+                            {filtered.length} movimientos en el rango seleccionado
+                        </p>
+                    </div>
 
-            {/* Panel de filtros — avanzados solo con flag */}
-            {showFilters && (
-                <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-3">
-                    {/* Búsqueda */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button
+                            onClick={() => setShowFilters(f => !f)}
+                            className={clsx(
+                                "inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors",
+                                showFilters || filterType !== 'ALL'
+                                    ? "border-slate-900 bg-slate-900 text-white"
+                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                            )}
+                        >
+                            <Filter size={15} />
+                            Tipos
+                            {filterType !== 'ALL' && <span className="h-2 w-2 rounded-full bg-amber-400" />}
+                        </button>
+                        <button
+                            onClick={() => setIsSheetOpen(true)}
+                            className="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
+                        >
+                            <ArrowUpCircle size={16} />
+                            <span className="md:hidden">Ajuste</span>
+                            <span className="hidden md:inline">Nuevo ajuste manual</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-center">
                     <div className="relative">
-                        <Search className="absolute left-3 top-2.5 text-slate-400" size={17} />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
                         <input
                             type="text"
-                            placeholder="Buscar por producto, IMEI, descripción..."
+                            placeholder="Buscar por producto, IMEI o descripción..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium text-slate-700 text-sm"
+                            className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-9 text-sm font-medium text-slate-700 outline-none transition-colors focus:border-slate-400"
                         />
                         {searchQuery && (
-                            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                                 <X size={16} />
                             </button>
                         )}
                     </div>
 
-                    {/* Fechas */}
-                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
-                        <Calendar size={14} className="text-slate-400 shrink-0" />
-                        <input type="date" className="bg-transparent text-sm font-medium text-slate-600 outline-none" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-2">
+                        <Calendar size={14} className="text-slate-400" />
+                        <input
+                            type="date"
+                            className="h-8 rounded border border-slate-200 bg-white px-2 text-sm font-medium text-slate-600 outline-none focus:border-slate-400"
+                            value={startDate}
+                            onChange={e => setStartDate(e.target.value)}
+                        />
                         <ChevronRight size={14} className="text-slate-400" />
-                        <input type="date" className="bg-transparent text-sm font-medium text-slate-600 outline-none" value={endDate} onChange={e => setEndDate(e.target.value)} />
+                        <input
+                            type="date"
+                            className="h-8 rounded border border-slate-200 bg-white px-2 text-sm font-medium text-slate-600 outline-none focus:border-slate-400"
+                            value={endDate}
+                            onChange={e => setEndDate(e.target.value)}
+                        />
                     </div>
+                </div>
 
-                    {/* Tipo de movimiento */}
-                    <div>
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tipo de movimiento</div>
-                        <div className="flex flex-wrap gap-2">
-                            <button
-                                onClick={() => setFilterType('ALL')}
-                                className={clsx("px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
-                                    filterType === 'ALL' ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                                )}
-                            >
-                                Todos
+                {(hasActiveFilters || showFilters) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                        <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Vista</span>
+                        <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">{activeTypeLabel}</span>
+                        {searchQuery && (
+                            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
+                                Búsqueda: {searchQuery}
+                            </span>
+                        )}
+                        {hasActiveFilters && (
+                            <button onClick={clearFilters} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50">
+                                <X size={13} /> Limpiar
                             </button>
-                            {ALL_TYPES.map(({ value, label }) => {
-                                const cfg = getConfig(value);
-                                const Icon = cfg.icon;
-                                return (
-                                    <button
-                                        key={value}
-                                        onClick={() => setFilterType(value)}
-                                        className={clsx("flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
-                                            filterType === value
-                                                ? `${cfg.bg} ${cfg.color} ${cfg.border}`
-                                                : "bg-white text-slate-500 border-slate-200 hover:border-slate-400"
-                                        )}
-                                    >
-                                        <Icon size={11} /> {label}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {showFilters && (
+                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Tipo de movimiento</div>
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setFilterType('ALL')}
+                            className={clsx("rounded-md border px-3 py-1.5 text-xs font-bold transition-colors",
+                                filterType === 'ALL' ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                            )}
+                        >
+                            Todos
+                        </button>
+                        {ALL_TYPES.map(({ value, label }) => {
+                            const cfg = getConfig(value);
+                            const Icon = cfg.icon;
+                            return (
+                                <button
+                                    key={value}
+                                    onClick={() => setFilterType(value)}
+                                    className={clsx("inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-bold transition-colors",
+                                        filterType === value
+                                            ? `${cfg.bg} ${cfg.color} ${cfg.border}`
+                                            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                                    )}
+                                >
+                                    <Icon size={11} /> {label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             )}
 
-            {/* Stats rápidas */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm text-center">
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Movimientos</div>
-                    <div className="text-2xl font-black text-slate-800">{filtered.length}</div>
+            <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Movimientos</div>
+                    <div className="mt-1 text-2xl font-black text-slate-800">{filtered.length}</div>
                 </div>
-                <div className="bg-emerald-50 rounded-2xl p-3 border border-emerald-200 shadow-sm text-center">
-                    <div className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-0.5">Entradas</div>
-                    <div className="text-2xl font-black text-emerald-600">+{totalIn.toFixed(0)}</div>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 shadow-sm">
+                    <div className="text-xs font-bold uppercase tracking-wide text-emerald-600">Entradas</div>
+                    <div className="mt-1 text-2xl font-black text-emerald-700">+{totalIn.toFixed(0)}</div>
                 </div>
-                <div className="bg-rose-50 rounded-2xl p-3 border border-rose-200 shadow-sm text-center">
-                    <div className="text-xs font-bold text-rose-500 uppercase tracking-wider mb-0.5">Salidas</div>
-                    <div className="text-2xl font-black text-rose-600">-{totalOut.toFixed(0)}</div>
+                <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 shadow-sm">
+                    <div className="text-xs font-bold uppercase tracking-wide text-rose-600">Salidas</div>
+                    <div className="mt-1 text-2xl font-black text-rose-700">-{totalOut.toFixed(0)}</div>
                 </div>
             </div>
 
-            {/* Tabla desktop */}
-            <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
                 <table className="min-w-full divide-y divide-slate-100">
-                    <thead className="bg-slate-50/70">
+                    <thead className="bg-slate-50">
                         <tr>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha / Hora</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Producto / IMEI</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Tipo</th>
-                            <th className="px-4 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Descripción</th>
-                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Cantidad</th>
-                            <th className="px-4 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Saldo</th>
-                            <th className="px-4 py-3 w-8"></th>
+                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Fecha</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Producto / IMEI</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Tipo</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Descripción</th>
+                            <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-slate-500">Cantidad</th>
+                            <th className="px-4 py-3 text-right text-xs font-bold uppercase tracking-wide text-slate-500">Saldo</th>
+                            <th className="w-8 px-4 py-3"></th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-50 bg-white">
                         {isLoading ? (
-                            <tr><td colSpan="7" className="text-center py-12 text-slate-400 animate-pulse">Cargando movimientos...</td></tr>
+                            <tr><td colSpan="7" className="py-12 text-center text-slate-400 animate-pulse">Cargando movimientos...</td></tr>
                         ) : filtered.length === 0 ? (
-                            <tr><td colSpan="7" className="text-center py-12 text-slate-400">No hay movimientos para los filtros seleccionados.</td></tr>
+                            <tr><td colSpan="7" className="py-12 text-center text-slate-400">No hay movimientos para los filtros seleccionados.</td></tr>
                         ) : (
                             filtered.map((item, index) => (
                                 <KardexRow key={item.id} item={item} index={index} />
@@ -531,12 +567,11 @@ const KardexTab = () => {
                 </table>
             </div>
 
-            {/* Cards móvil */}
-            <div className="md:hidden space-y-3">
+            <div className="space-y-3 md:hidden">
                 {isLoading ? (
                     <div className="py-12 text-center text-slate-400 animate-pulse font-medium">Cargando movimientos...</div>
                 ) : filtered.length === 0 ? (
-                    <div className="py-12 text-center text-slate-400 font-medium">No hay movimientos.</div>
+                    <div className="rounded-lg border border-dashed border-slate-200 bg-white py-12 text-center text-slate-400 font-medium">No hay movimientos.</div>
                 ) : (
                     filtered.map(item => <KardexCard key={item.id} item={item} />)
                 )}
