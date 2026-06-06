@@ -123,8 +123,11 @@ def invalidate_resource(tenant: str, resource: str) -> int:
     if not r:
         return 0
     try:
-        pattern = f"mif:{tenant}:{resource}:*"
+        base_key = cache_key(tenant, resource)
+        pattern = f"{base_key}:*"
         keys = r.keys(pattern)
+        if r.exists(base_key):
+            keys.append(base_key)
         if keys:
             r.delete(*keys)
         return len(keys)
