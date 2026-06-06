@@ -269,7 +269,15 @@ class SalesService:
             # 2. Process Items
             employee_cache = {}
             salesperson_cache = {}
+            product_cache = {}
             product_stock_cache = {}
+
+            def get_locked_product(product_id):
+                if product_id not in product_cache:
+                    product_cache[product_id] = db.query(models.Product).filter(
+                        models.Product.id == product_id
+                    ).with_for_update().first()
+                return product_cache[product_id]
 
             def get_product_stock(product_id):
                 key = (product_id, warehouse_id)
@@ -284,7 +292,7 @@ class SalesService:
                 sold_instances = [] 
                 
                 # Fetch Product with Pessimistic Lock
-                product = db.query(models.Product).filter(models.Product.id == item.product_id).with_for_update().first()
+                product = get_locked_product(item.product_id)
                 if not product:
                     raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
                 
