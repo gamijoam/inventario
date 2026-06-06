@@ -82,17 +82,17 @@ export default function WarrantyTemplateSelector() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center justify-center">
+      <div className="bg-white rounded-lg border border-slate-200 p-5 flex items-center justify-center">
         <Loader2 size={20} className="animate-spin text-indigo-500" />
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-      <div className="flex items-start gap-3 mb-5">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shadow">
-          <FileText size={18} className="text-white" />
+    <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-sm">
+      <div className="flex items-start gap-3 mb-4">
+        <div className="h-10 w-10 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <FileText size={18} />
         </div>
         <div className="flex-1">
           <h3 className="font-black text-slate-900">Diseño del Certificado de Garantía</h3>
@@ -102,7 +102,7 @@ export default function WarrantyTemplateSelector() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
         {templates.map(tpl => {
           const isActive = tpl.id === currentStyle;
           const isSaving = saving === tpl.id;
@@ -111,22 +111,22 @@ export default function WarrantyTemplateSelector() {
           return (
             <div key={tpl.id}
               onClick={() => handleSelect(tpl.id)}
-              className={`relative rounded-2xl p-4 cursor-pointer transition-all
+              className={`relative rounded-lg p-4 cursor-pointer transition-all
                 ${isActive
-                  ? 'border-2 border-indigo-500 bg-indigo-50/50 shadow-lg'
-                  : 'border-2 border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md'
+                  ? 'border border-indigo-500 bg-indigo-50/70 shadow-sm'
+                  : 'border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm'
                 }`}>
 
               {/* Badge "Activa" */}
               {isActive && (
-                <div className="absolute -top-2 -right-2 bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                <div className="absolute top-3 right-3 bg-indigo-600 text-white text-[10px] font-black px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">
                   <Check size={10} /> ACTIVA
                 </div>
               )}
 
               {/* Thumbnail tipo paleta */}
-              <div className={`h-28 rounded-xl bg-gradient-to-br ${theme} flex items-center justify-center mb-3 shadow-inner overflow-hidden relative`}>
-                <span className="text-5xl">{STYLE_ICONS[tpl.id] || '📄'}</span>
+              <div className={`h-20 rounded-md bg-gradient-to-br ${theme} flex items-center justify-center mb-3 overflow-hidden relative`}>
+                <span className="text-3xl">{STYLE_ICONS[tpl.id] || '📄'}</span>
                 {/* Líneas decorativas que simulan un PDF */}
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-3 left-3 right-3 h-0.5 bg-white rounded"></div>
@@ -137,7 +137,7 @@ export default function WarrantyTemplateSelector() {
               </div>
 
               <div className="flex items-center justify-between mb-1">
-                <h4 className="font-bold text-slate-900 capitalize">{tpl.name}</h4>
+                <h4 className="font-black text-sm text-slate-900 capitalize">{tpl.name}</h4>
                 {tpl.is_default && (
                   <span className="text-[9px] font-bold bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded">
                     DEFAULT
@@ -145,7 +145,7 @@ export default function WarrantyTemplateSelector() {
                 )}
               </div>
 
-              <p className="text-[11px] text-slate-500 leading-snug min-h-[40px]">
+              <p className="text-[11px] text-slate-500 leading-snug min-h-[34px]">
                 {tpl.description}
               </p>
 
@@ -153,7 +153,7 @@ export default function WarrantyTemplateSelector() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handlePreview(tpl.id); }}
                   disabled={isPreviewing}
-                  className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition disabled:opacity-50">
+                  className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition disabled:opacity-50">
                   {isPreviewing ? <Loader2 size={11} className="animate-spin" /> : <Eye size={11} />}
                   Ver ejemplo
                 </button>
@@ -161,7 +161,7 @@ export default function WarrantyTemplateSelector() {
                   <button
                     onClick={(e) => { e.stopPropagation(); handleSelect(tpl.id); }}
                     disabled={isSaving}
-                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white text-[11px] font-bold transition disabled:opacity-50">
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold transition disabled:opacity-50">
                     {isSaving ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
                     Usar esta
                   </button>

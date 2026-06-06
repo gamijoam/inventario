@@ -79,48 +79,55 @@ const GarantiasConfigTab = () => {
     );
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             {/* Selector visual de plantilla de PDF */}
             <WarrantyTemplateSelector />
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <p className="text-slate-500 text-sm mt-1">Define las condiciones de garantía que aplicarán a tus productos.</p>
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                            <ShieldCheck size={20} />
+                        </div>
+                        <div>
+                            <h3 className="font-black text-slate-900">Políticas de Garantía</h3>
+                            <p className="text-xs font-medium text-slate-500">Define condiciones, duración y disponibilidad para tus productos.</p>
+                        </div>
+                    </div>
+                    <Button onClick={openCreateModal} className="rounded-md shadow-sm">
+                        <Plus size={18} />
+                        Nueva Política
+                    </Button>
                 </div>
-                <Button onClick={openCreateModal} className="shadow-lg shadow-indigo-100">
-                    <Plus size={18} />
-                    Nueva Política
-                </Button>
-            </div>
 
-            {/* Policies Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {policies.map((policy) => (
+                {/* Policies Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {policies.map((policy) => (
                     <div
                         key={policy.id}
                         className={clsx(
-                            "bg-white rounded-2xl p-6 border transition-all hover:shadow-md group",
+                            "bg-white rounded-lg p-4 border transition-all hover:shadow-sm group",
                             policy.is_active ? "border-slate-200" : "border-slate-100 opacity-60"
                         )}
                     >
                         <div className="flex justify-between items-start mb-4">
                             <div className={clsx(
-                                "p-3 rounded-xl",
+                                "h-10 w-10 rounded-md flex items-center justify-center",
                                 policy.is_active ? "bg-indigo-50 text-indigo-600" : "bg-slate-100 text-slate-400"
                             )}>
                                 <ShieldCheck size={24} />
                             </div>
-                            <div className="flex gap-1 group-hover:opacity-100 opacity-0 transition-opacity">
+                            <div className="flex gap-1 opacity-100 transition-opacity">
                                 <button
                                     onClick={() => openEditModal(policy)}
-                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                    className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
                                     title="Editar"
                                 >
                                     <Edit2 size={16} />
                                 </button>
                                 <button
                                     onClick={() => handleDelete(policy.id, policy.name)}
-                                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                                    className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-colors"
                                     title="Eliminar"
                                 >
                                     <Trash2 size={16} />
@@ -130,19 +137,19 @@ const GarantiasConfigTab = () => {
 
                         <div className="space-y-2">
                             <div className="flex items-center gap-2">
-                                <h3 className="font-bold text-slate-800">{policy.name}</h3>
+                                <h3 className="font-black text-slate-900">{policy.name}</h3>
                                 {policy.is_default && (
                                     <span className="bg-amber-50 text-amber-600 text-[10px] px-2 py-0.5 rounded-full font-black border border-amber-100">
                                         DEFAULT
                                     </span>
                                 )}
                             </div>
-                            <p className="text-sm text-slate-500 line-clamp-2 h-10">
+                            <p className="text-xs text-slate-500 line-clamp-2 h-9">
                                 {policy.description || <span className="italic opacity-50">Sin descripción facilitada.</span>}
                             </p>
                         </div>
 
-                        <div className="mt-6 pt-6 border-t border-slate-50 flex items-center justify-between">
+                        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
                             <div className="flex items-center text-indigo-600 font-bold">
                                 <Clock size={16} className="mr-2" />
                                 <span>
@@ -155,7 +162,7 @@ const GarantiasConfigTab = () => {
                                 </span>
                             </div>
                             <span className={clsx(
-                                "text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-wider",
+                                "text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider",
                                 policy.is_active ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"
                             )}>
                                 {policy.is_active ? 'Activa' : 'Inactiva'}
@@ -164,9 +171,9 @@ const GarantiasConfigTab = () => {
                     </div>
                 ))}
 
-                {policies.length === 0 && (
-                    <div className="col-span-full py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 text-center px-6">
-                        <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-sm">
+                    {policies.length === 0 && (
+                    <div className="col-span-full py-14 bg-slate-50 rounded-lg border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 text-center px-6">
+                        <div className="h-14 w-14 bg-white rounded-lg flex items-center justify-center mb-4 shadow-sm">
                             <ShieldCheck size={32} className="opacity-20" />
                         </div>
                         <h3 className="text-lg font-bold text-slate-600 mb-1">No hay políticas configuradas</h3>
@@ -176,6 +183,7 @@ const GarantiasConfigTab = () => {
                         </Button>
                     </div>
                 )}
+                </div>
             </div>
 
             {showModal && (
@@ -231,7 +239,7 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
             <SheetContent side="right" className="w-full sm:max-w-md flex flex-col">
                 <SheetHeader>
                     <SheetTitle className="flex items-center gap-2">
-                        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-md">
                             <ShieldCheck size={20} />
                         </div>
                         {policy ? 'Editar Política' : 'Nueva Política'}
@@ -261,7 +269,7 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
                                     id="policy-type"
                                     value={formData.type}
                                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                    className="w-full h-11 px-4 rounded-xl border-2 border-slate-200 bg-white focus:border-indigo-500 outline-none font-bold text-sm"
+                                    className="w-full h-11 px-4 rounded-md border border-slate-200 bg-white focus:border-indigo-500 outline-none font-bold text-sm"
                                 >
                                     <option value="DAYS">Días</option>
                                     <option value="MONTHS">Meses</option>
@@ -297,7 +305,7 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
                             />
                         </div>
 
-                        <div className="space-y-4 pt-4 border-t border-slate-100">
+                        <div className="space-y-3 pt-4 border-t border-slate-100">
                             <div className="flex items-center justify-between">
                                 <div className="space-y-0.5">
                                     <Label className="text-base">Política por Defecto</Label>
@@ -325,19 +333,19 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
                             </div>
                         </div>
 
-                        <div className="bg-blue-50 p-4 rounded-xl flex gap-3">
-                            <Info size={20} className="text-blue-600 shrink-0 mt-0.5" />
-                            <p className="text-xs text-blue-700 leading-relaxed font-medium">
+                        <div className="bg-indigo-50 p-4 rounded-lg flex gap-3">
+                            <Info size={20} className="text-indigo-600 shrink-0 mt-0.5" />
+                            <p className="text-xs text-indigo-700 leading-relaxed font-medium">
                                 Los cambios en las políticas solo afectarán a los productos vinculados a partir de este momento. Reclamos existentes mantendrán las condiciones originales del momento de la venta.
                             </p>
                         </div>
                     </div>
 
-                    <SheetFooter className="gap-3">
-                        <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+                    <SheetFooter className="gap-3 border-t border-slate-100 pt-4">
+                        <Button type="button" variant="outline" onClick={onClose} className="flex-1 rounded-md">
                             Cancelar
                         </Button>
-                        <Button type="submit" disabled={loading} className="flex-1">
+                        <Button type="submit" disabled={loading} className="flex-1 rounded-md">
                             {loading ? 'Guardando...' : <><Check size={18} /> Guardar</>}
                         </Button>
                     </SheetFooter>
