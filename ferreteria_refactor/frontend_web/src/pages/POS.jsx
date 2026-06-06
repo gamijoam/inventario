@@ -58,7 +58,8 @@ const POS = () => {
     const {
         products: displayProducts, isLoading: catalogLoading, isLoadingMore,
         hasMore, total: totalProducts, loadMore, setSearch: setServerSearch,
-        setCategoryId: setServerCategory, lookupProduct, getFromCache, refreshProduct
+        setCategoryId: setServerCategory, lookupProduct, getFromCache, refreshProduct,
+        mergeProductUpdate, applyStockUpdate, removeProductFromCatalog
     } = usePOSCatalog();
     const anchorCurrency = currencies.find(c => c.is_anchor) || { symbol: '$' };
 
@@ -405,19 +406,17 @@ const POS = () => {
         fetchData();
     }, [modules]);
 
-    // WebSocket: real-time product updates
+    // WebSocket: real-time product updates without refetching each changed item
     useEffect(() => {
-        const unsub1 = subscribe('product:updated', (data) => {
-            refreshProduct(data.id || data.product_id);
-        });
-        const unsub2 = subscribe('product:deleted', (data) => {
-            refreshProduct(data.id || data.product_id);
-        });
+        const unsubUpdate = subscribe('product:updated', mergeProductUpdate);
+        const unsubStock = subscribe('product:stock_updated', applyStockUpdate);
+        const unsubDelete = subscribe('product:deleted', removeProductFromCatalog);
         return () => {
-            if (unsub1) unsub1();
-            if (unsub2) unsub2();
+            if (unsubUpdate) unsubUpdate();
+            if (unsubStock) unsubStock();
+            if (unsubDelete) unsubDelete();
         };
-    }, [subscribe, refreshProduct]);
+    }, [subscribe, mergeProductUpdate, applyStockUpdate, removeProductFromCatalog]);
 
     // ... Quote Loading Logic ...
     useEffect(() => {

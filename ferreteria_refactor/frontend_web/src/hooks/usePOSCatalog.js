@@ -145,6 +145,55 @@ const usePOSCatalog = () => {
         return null;
     }, []);
 
+    const writeProductCache = useCallback((product) => {
+        if (!product?.id) return null;
+        const previous = productCache.current.get(product.id);
+        if (previous?.sku && previous.sku !== product.sku) {
+            productCache.current.delete(`sku:${previous.sku}`);
+        }
+        productCache.current.set(product.id, product);
+        if (product.sku) productCache.current.set(`sku:${product.sku}`, product);
+        return product;
+    }, []);
+
+    const mergeProductUpdate = useCallback((update) => {
+        const productId = update?.id || update?.product_id;
+        if (!productId) return null;
+
+        const cached = productCache.current.get(productId) || {};
+        const merged = { ...cached, ...update, id: productId };
+        writeProductCache(merged);
+
+        setProducts(prev => prev.map(product => (
+            product.id === productId ? { ...product, ...update, id: productId } : product
+        )));
+
+        return merged;
+    }, [writeProductCache]);
+
+    const applyStockUpdate = useCallback((update) => {
+        const productId = update?.id || update?.product_id;
+        if (!productId || update.stock === undefined) return null;
+
+        return mergeProductUpdate({ id: productId, stock: update.stock });
+    }, [mergeProductUpdate]);
+
+    const removeProductFromCatalog = useCallback((update) => {
+        const productId = update?.id || update?.product_id;
+        if (!productId) return;
+
+        const cached = productCache.current.get(productId);
+        productCache.current.delete(productId);
+        if (cached?.sku) productCache.current.delete(`sku:${cached.sku}`);
+        setProducts(prev => {
+            const next = prev.filter(product => product.id !== productId);
+            if (next.length !== prev.length) {
+                setTotal(current => Math.max(0, current - (prev.length - next.length)));
+            }
+            return next;
+        });
+    }, []);
+
     // Synchronous cache get by product ID
     const getFromCache = useCallback((productId) => {
         return productCache.current.get(productId) || null;
@@ -158,8 +207,7 @@ const usePOSCatalog = () => {
                 params: { product_id: productId },
             });
             if (data) {
-                productCache.current.set(data.id, data);
-                if (data.sku) productCache.current.set(`sku:${data.sku}`, data);
+                writeProductCache(data);
 
                 setProducts(prev =>
                     prev.map(p => (p.id === data.id ? data : p))
@@ -170,7 +218,7 @@ const usePOSCatalog = () => {
             console.error('refreshProduct error:', err);
         }
         return null;
-    }, []);
+    }, [writeProductCache]);
 
     return {
         products,
@@ -185,6 +233,9 @@ const usePOSCatalog = () => {
         lookupProduct,
         getFromCache,
         refreshProduct,
+        mergeProductUpdate,
+        applyStockUpdate,
+        removeProductFromCatalog,
         search,
         categoryId,
     };
