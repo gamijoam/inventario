@@ -158,13 +158,13 @@ const POSCart = ({
             />
 
             {/* Header */}
-            <div className="px-3 py-1.5 border-b border-slate-200 bg-white flex justify-between items-center flex-shrink-0 z-10 shadow-sm">
+            <div className="px-3 py-1 border-b border-slate-200 bg-white flex justify-between items-center flex-shrink-0 z-10 shadow-sm">
                 <div className="flex items-center gap-2">
-                    <h2 className="font-black text-slate-800 tracking-tight flex items-center gap-2">
+                    <h2 className="font-black text-slate-800 tracking-tight flex items-center gap-1.5 text-sm">
                         <ShoppingCart className="text-blue-500" size={18} />
                         CARRITO
                     </h2>
-                    <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-200/50 px-2 font-bold tracking-widest text-[10px]">
+                    <Badge variant="secondary" className="bg-blue-50 text-blue-600 border-blue-200/50 px-1.5 h-5 font-bold tracking-widest text-[10px]">
                         {cartItems.length}
                     </Badge>
                 </div>
@@ -175,7 +175,7 @@ const POSCart = ({
                         size="icon"
                         onClick={() => setShowDiscountPanel(v => !v)}
                         className={cn(
-                            "h-8 w-8 rounded-lg transition-all font-bold border",
+                            "h-7 w-7 rounded-md transition-all font-bold border",
                             cartDiscount?.active
                                 ? "bg-rose-500 text-white border-rose-600 hover:bg-rose-600 shadow-md shadow-rose-200"
                                 : "bg-white text-slate-600 border-slate-200 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 shadow-sm"
@@ -189,7 +189,7 @@ const POSCart = ({
                         variant="secondary"
                         size="icon"
                         onClick={onClearCart}
-                        className="h-8 w-8 bg-white text-slate-600 border border-slate-200 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 rounded-lg transition-all shadow-sm ml-1"
+                        className="h-7 w-7 bg-white text-slate-600 border border-slate-200 hover:text-rose-600 hover:bg-rose-50 hover:border-rose-200 rounded-md transition-all shadow-sm"
                         title="Limpiar Carrito"
                         disabled={cartItems.length === 0}
                     >
@@ -200,7 +200,7 @@ const POSCart = ({
 
             {/* Discount Panel - Inline Dropdown */}
             {showDiscountPanel && (
-                <div className="border-b border-rose-100 bg-rose-50/60 px-4 py-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                <div className="border-b border-rose-100 bg-rose-50/60 px-3 py-2 space-y-2 animate-in slide-in-from-top-2 duration-200">
                     <div className="flex items-center justify-between">
                         <p className="text-[11px] font-black text-rose-700 uppercase tracking-widest flex items-center gap-1.5">
                             <Tag size={12} />
@@ -212,11 +212,11 @@ const POSCart = ({
                     </div>
 
                     {/* Type Toggle */}
-                    <div className="flex rounded-xl overflow-hidden border border-rose-200 w-full mb-3 shadow-sm bg-white flex-wrap sm:flex-nowrap">
+                    <div className="flex rounded-lg overflow-hidden border border-rose-200 w-full mb-2 shadow-sm bg-white flex-wrap sm:flex-nowrap">
                         <button
                             onClick={() => setDiscountType('percent')}
                             className={cn(
-                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1 py-1.5 text-[9px] font-black transition-all",
                                 discountType === 'percent'
                                     ? "bg-rose-500 text-white shadow-inner"
                                     : "bg-white text-rose-400 hover:bg-rose-50 border-r border-b sm:border-b-0 border-rose-100"
@@ -227,7 +227,7 @@ const POSCart = ({
                         <button
                             onClick={() => setDiscountType('fixed')}
                             className={cn(
-                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1 py-1.5 text-[9px] font-black transition-all",
                                 discountType === 'fixed'
                                     ? "bg-rose-500 text-white shadow-inner"
                                     : "bg-white text-rose-400 hover:bg-rose-50 border-r border-b sm:border-b-0 border-rose-100"
@@ -238,7 +238,7 @@ const POSCart = ({
                         <button
                             onClick={() => setDiscountType('fixed_bs')}
                             className={cn(
-                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1 py-1.5 text-[9px] font-black transition-all",
                                 discountType === 'fixed_bs'
                                     ? "bg-rose-500 text-white shadow-inner"
                                     : "bg-white text-rose-400 hover:bg-rose-50 border-r sm:border-r-0 border-b sm:border-b-0 border-rose-100"
@@ -249,7 +249,7 @@ const POSCart = ({
                         <button
                             onClick={() => setDiscountType('target')}
                             className={cn(
-                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1 py-1.5 text-[9px] font-black transition-all",
                                 discountType === 'target'
                                     ? "bg-indigo-500 text-white shadow-inner"
                                     : "bg-indigo-50 text-indigo-400 hover:bg-indigo-100 border-r border-indigo-200"
@@ -261,7 +261,7 @@ const POSCart = ({
                         <button
                             onClick={() => setDiscountType('target_bs')}
                             className={cn(
-                                "flex-1 min-w-[50px] flex items-center justify-center gap-1.5 py-2 text-[10px] font-black transition-all",
+                                "flex-1 min-w-[50px] flex items-center justify-center gap-1 py-1.5 text-[9px] font-black transition-all",
                                 discountType === 'target_bs'
                                     ? "bg-indigo-500 text-white shadow-inner"
                                     : "bg-indigo-50 text-indigo-400 hover:bg-indigo-100"
@@ -287,12 +287,12 @@ const POSCart = ({
                                 onKeyDown={e => e.key === 'Enter' && handleApplyDiscount()}
                                 placeholder={discountType === 'percent' ? '0 – 100' : (discountType === 'target' || discountType === 'target_bs' ? 'Monto final a cobrar' : '0.00')}
                                 autoFocus
-                                className="w-full pl-8 pr-3 py-2 rounded-xl border-2 border-rose-200 bg-white text-sm font-black text-slate-800 focus:border-rose-400 focus:ring-4 focus:ring-rose-100 outline-none transition-all"
+                                className="w-full pl-8 pr-3 py-1.5 rounded-lg border-2 border-rose-200 bg-white text-sm font-black text-slate-800 focus:border-rose-400 focus:ring-4 focus:ring-rose-100 outline-none transition-all"
                             />
                         </div>
                         <button
                             onClick={handleApplyDiscount}
-                            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-black rounded-xl transition-all active:scale-95 shadow-md flex items-center gap-1.5"
+                            className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black rounded-lg transition-all active:scale-95 shadow-md flex items-center gap-1.5"
                         >
                             <ShieldCheck size={14} />
                             Aplicar
@@ -315,8 +315,8 @@ const POSCart = ({
             {/* Cart Items List */}
             <div className="flex-1 overflow-hidden relative bg-slate-50/20">
                 {cartItems.length === 0 ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 p-8 text-center animate-in fade-in zoom-in-95 duration-500">
-                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mb-2">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 p-4 text-center animate-in fade-in zoom-in-95 duration-500">
+                        <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mb-2">
                             <ShoppingCart size={20} className="text-slate-300" strokeWidth={1.5} />
                         </div>
                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Carrito Vacío</p>
@@ -324,16 +324,16 @@ const POSCart = ({
                     </div>
                 ) : (
                     <ScrollArea className="h-full w-full">
-                        <div className="p-1.5 space-y-1">
+                        <div className="p-1.5 space-y-1.5">
                             {/* NEW: Reverse sort to show latest at top */}
                             {[...cartItems].reverse().map((item, idx) => (
                                 <div
                                     key={`${item.id}-${item.unit_id}-${idx}`}
                                     onClick={() => onItemClick && onItemClick(item)}
-                                    className="group flex items-center gap-2 px-2 py-1.5 bg-white border border-slate-100 rounded-lg hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer relative"
+                                    className="group flex items-start gap-2 px-2 py-1.5 bg-white border border-slate-200/80 rounded-lg hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer relative"
                                 >
                                     {/* Thumbnail */}
-                                    <div className="w-8 h-8 flex-shrink-0 bg-slate-50 rounded-md overflow-hidden border border-slate-100 relative group-hover:bg-white transition-colors">
+                                    <div className="w-7 h-7 flex-shrink-0 bg-slate-50 rounded-md overflow-hidden border border-slate-100 relative group-hover:bg-white transition-colors mt-0.5">
                                         <ProductThumbnail
                                             imageUrl={item.image_url}
                                             productName={item.name}
@@ -347,11 +347,11 @@ const POSCart = ({
                                     <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
                                         <div className="flex justify-between items-start gap-2">
                                             <div className="min-w-0 flex-1">
-                                                <h4 className="text-[12px] font-black text-slate-800 leading-tight line-clamp-2 pr-1" title={item.name}>
+                                                <h4 className="text-[11px] font-black text-slate-800 leading-tight line-clamp-2 pr-1" title={item.name}>
                                                     {item.name}
                                                 </h4>
                                                 <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="text-[9px] font-bold text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-md border border-blue-100/50">
+                                                    <span className="text-[8px] font-bold text-blue-500 bg-blue-50 px-1 py-0.5 rounded border border-blue-100/50">
                                                         {item.unit_name}
                                                     </span>
                                                     {item.discount_percentage > 0 && (
@@ -422,7 +422,7 @@ const POSCart = ({
                                                                 <span className="text-[8px] font-black text-orange-500 bg-orange-50 border border-orange-200 px-1 rounded">MOD</span>
                                                             )}
                                                             <div className={cn(
-                                                                "text-sm font-black text-blue-600 tabular-nums",
+                                                                "text-[13px] font-black text-blue-600 tabular-nums",
                                                                 precioLibre && "group-hover/price:text-blue-400 transition-colors"
                                                             )}>
                                                                 <span className="text-[10px] mr-0.5">$</span>
@@ -443,7 +443,7 @@ const POSCart = ({
                                                     const rateObj = currencies.find(r => r.id === item.exchange_rate_id);
                                                     const localSym = rateObj?.currency_symbol || rateObj?.currency_code || secondaryCurrency.symbol;
                                                     return (
-                                                        <div className="text-[10px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 py-0.5 rounded-md border border-emerald-200/50">
+                                                        <div className="text-[9px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 py-0.5 rounded border border-emerald-200/50">
                                                             <span className="text-[8px] mr-1 italic opacity-60">{localSym}</span>
                                                             {formatLocalCurrency(item.subtotal_bs)}
                                                         </div>
@@ -454,14 +454,14 @@ const POSCart = ({
 
                                         <div className="flex items-center justify-between mt-1">
                                             {/* Quantity Control (Elegant) */}
-                                            <div className="flex items-center bg-slate-50 rounded-md border border-slate-200 h-6 shadow-inner overflow-hidden">
+                                            <div className="flex items-center bg-slate-50 rounded-md border border-slate-200 h-5 shadow-inner overflow-hidden">
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         onUpdateQuantity(item.id, Math.max(0, item.quantity - 1));
                                                     }}
                                                     disabled={item.has_imei}
-                                                    className="w-6 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white transition-all border-r border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="w-5 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white transition-all border-r border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     title={item.has_imei ? "Elimine el item para modificar seriales" : "Disminuir cantidad"}
                                                 >
                                                     <Minus size={10} strokeWidth={3} />
@@ -476,7 +476,7 @@ const POSCart = ({
                                                         if (!isNaN(val)) onUpdateQuantity(item.id, val);
                                                     }}
                                                     disabled={item.has_imei}
-                                                    className="w-8 text-center text-[11px] font-black text-slate-900 bg-transparent border-none focus:ring-0 tabular-nums disabled:text-slate-500"
+                                                    className="w-7 text-center text-[10px] font-black text-slate-900 bg-transparent border-none focus:ring-0 tabular-nums disabled:text-slate-500"
                                                 />
                                                 <button
                                                     onClick={(e) => {
@@ -484,7 +484,7 @@ const POSCart = ({
                                                         onUpdateQuantity(item.id, item.quantity + 1);
                                                     }}
                                                     disabled={item.has_imei}
-                                                    className="w-6 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white transition-all border-l border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="w-5 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white transition-all border-l border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     title={item.has_imei ? "Escanee otro serial para agregar" : "Aumentar cantidad"}
                                                 >
                                                     <Plus size={10} strokeWidth={3} />
@@ -506,7 +506,7 @@ const POSCart = ({
                                                     <button
                                                         onClick={e => { e.stopPropagation(); onItemClick && onItemClick(item); }}
                                                         className={cn(
-                                                            "flex items-center gap-1 h-6 px-2 rounded-md border transition-all text-[9px] font-bold shrink-0 shadow-sm max-w-full truncate",
+                                                            "flex items-center gap-1 h-5 px-1.5 rounded-md border transition-all text-[8px] font-bold shrink-0 shadow-sm max-w-full truncate",
                                                             activeName
                                                                 ? "bg-indigo-50 border-indigo-300 text-indigo-700 hover:bg-indigo-100"
                                                                 : "bg-white border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50"
@@ -526,7 +526,7 @@ const POSCart = ({
                                             e.stopPropagation();
                                             onRemoveItem(item.cartItemId || item.id);
                                         }}
-                                        className="absolute top-1.5 right-1.5 bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg w-7 h-7 flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 active:scale-95"
+                                        className="absolute top-1 right-1 bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white rounded-md w-6 h-6 flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 active:scale-95"
                                         title="Eliminar item"
                                     >
                                         <Trash2 size={13} />
@@ -539,7 +539,7 @@ const POSCart = ({
             </div>
 
             {/* Footer Totals */}
-            <div className="bg-white border-t border-slate-100 px-3 pt-2 pb-safe space-y-1 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10 pb-3" style={{paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))"}}>
+            <div className="bg-white border-t border-slate-100 px-3 pt-1.5 pb-safe space-y-1 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.05)] z-10 pb-2" style={{paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0.75rem))"}}>
                 <div className="space-y-1">
                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         <span>Subtotal Neto</span>
@@ -568,12 +568,12 @@ const POSCart = ({
                     )}
                 </div>
 
-                <div className="pt-1.5 border-t border-slate-100">
-                    <div className="flex justify-between items-end mb-1.5">
+                <div className="pt-1 border-t border-slate-100">
+                    <div className="flex justify-between items-end mb-1">
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total a Recibir</span>
                             <div className="flex items-baseline gap-1 animate-in slide-in-from-left-2 duration-500">
-                                <span className="text-lg font-black text-indigo-600 tracking-tighter tabular-nums">
+                                <span className="text-[20px] font-black text-indigo-600 tracking-tighter tabular-nums">
                                     {anchorCurrency.symbol}{formatLocalCurrency(totals.totalUSD)}
                                 </span>
                             </div>
@@ -583,8 +583,8 @@ const POSCart = ({
                                 const curr = currencies.find(c => c.currency_code === code && c.is_active);
                                 const sym = curr?.currency_symbol || code;
                                 return (
-                                    <div key={code} className="bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-xl">
-                                        <span className="text-sm font-black text-emerald-500 tabular-nums tracking-tighter">
+                                    <div key={code} className="bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-lg">
+                                        <span className="text-xs font-black text-emerald-500 tabular-nums tracking-tighter">
                                             {formatLocalCurrency(amt)} <span className="text-[10px] uppercase ml-0.5">{sym}</span>
                                         </span>
                                     </div>
@@ -599,13 +599,13 @@ const POSCart = ({
                             {!showTotalEdit ? (
                                 <button
                                     onClick={() => { setShowTotalEdit(true); setTotalEditInput(String(totals.totalUSD.toFixed(2))); }}
-                                    className="w-full flex items-center justify-center gap-1.5 text-[10px] font-black text-orange-500 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl py-2 transition-colors"
+                                    className="w-full flex items-center justify-center gap-1.5 text-[10px] font-black text-orange-500 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg py-1.5 transition-colors"
                                 >
                                     <Pencil size={10} />
                                     EDITAR TOTAL FINAL
                                 </button>
                             ) : (
-                                <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2">
+                                <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-2 py-1.5">
                                     <span className="text-[10px] font-black text-orange-600 whitespace-nowrap">Total $</span>
                                     <input
                                         autoFocus
@@ -634,7 +634,7 @@ const POSCart = ({
                     <Button
                         id="tour-pos-pay-btn"
                         size="lg"
-                        className="w-full h-10 text-sm font-black bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200/50 rounded-xl transition-all active:scale-[0.98] group"
+                        className="w-full h-9 text-sm font-black bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200/50 rounded-lg transition-all active:scale-[0.98] group"
                         onClick={onCheckout}
                         disabled={cartItems.length === 0}
                     >
