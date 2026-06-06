@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFi
 from ..cache import get_cached, set_cached, invalidate, invalidate_resource
 from ..tenant_context import get_tenant_schema
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session, joinedload, subqueryload
+from sqlalchemy.orm import Session, joinedload, subqueryload, selectinload
 from decimal import Decimal
 from typing import List
 import json
@@ -183,17 +183,16 @@ def read_catalog_products(
     # Main query with eager loading
     products = base_query.options(
         joinedload(models.Product.category),
-        joinedload(models.Product.units),
-        joinedload(models.Product.stocks),
-        joinedload(models.Product.prices).joinedload(models.ProductPrice.price_list),
-        # Combos: load components + their stocks to compute effective availability
-        subqueryload(models.Product.combo_items)
-            .subqueryload(models.ComboItem.child_product)
-            .subqueryload(models.Product.stocks),
-        # Recipes: load ingredients + their stocks for virtual stock calculation
-        subqueryload(models.Product.recipes)
-            .subqueryload(rest_models.RestaurantRecipe.ingredient)
-            .subqueryload(models.Product.stocks),
+        selectinload(models.Product.units),
+        selectinload(models.Product.stocks),
+        selectinload(models.Product.prices).joinedload(models.ProductPrice.price_list),
+        # Collections use selectinload to avoid row multiplication in POS catalog pages.
+        selectinload(models.Product.combo_items)
+            .selectinload(models.ComboItem.child_product)
+            .selectinload(models.Product.stocks),
+        selectinload(models.Product.recipes)
+            .selectinload(rest_models.RestaurantRecipe.ingredient)
+            .selectinload(models.Product.stocks),
     ).order_by(models.Product.name).offset(skip).limit(limit).all()
 
     # For combo or recipe products, replace stock with the effective quantity
