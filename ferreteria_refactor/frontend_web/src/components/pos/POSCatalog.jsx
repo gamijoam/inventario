@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { FixedSizeGrid } from 'react-window';
-import { Search, Package, Box, Loader2 } from 'lucide-react';
+import { Package, Box, Loader2 } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -203,26 +203,36 @@ const POSCatalog = forwardRef(({
             {/* Sticky Header */}
             <div className="p-2.5 bg-background border-b z-10 space-y-2 shadow-sm">
                 {/* Row 1: Search */}
-                <SearchWithScanner
-                    ref={searchInputRef}
-                    id="tour-pos-search"
-                    value={localSearchTerm}
-                    onChange={handleSearchInput}
-                    placeholder="Buscar productos por nombre o código..."
-                    autoFocus
-                    inputClassName="h-9 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-lg"
-                />
+                <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                        <SearchWithScanner
+                            ref={searchInputRef}
+                            id="tour-pos-search"
+                            value={localSearchTerm}
+                            onChange={handleSearchInput}
+                            placeholder="Buscar productos por nombre o codigo..."
+                            autoFocus
+                            inputClassName="h-9 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-lg"
+                        />
+                    </div>
+                    {showTotalCount && (
+                        <div className="hidden lg:flex flex-col items-end justify-center rounded-lg border border-slate-200 bg-white px-2.5 h-9 min-w-[98px] shadow-sm">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Productos</span>
+                            <span className="text-[11px] font-black text-slate-700 tabular-nums">{products.length}/{totalCount}</span>
+                        </div>
+                    )}
+                </div>
 
-                {/* Row 2: Categories + Count */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pr-2 scrollbar-hide mask-gradient-right [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {/* Row 2: Categories */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 pr-1 scrollbar-hide mask-gradient-right [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     <Button
                         variant={selectedCategoryId === null ? "default" : "outline"}
                         size="md"
                         onClick={() => handleCategoryClick(null)}
                         className={cn(
-                            "rounded-md px-3 h-7 font-black transition-all uppercase text-[9px] tracking-widest",
+                            "rounded-md px-2.5 h-6 font-black transition-all uppercase text-[8.5px] tracking-widest",
                             selectedCategoryId === null
-                                ? "bg-slate-900 hover:bg-black text-white shadow-md shadow-slate-900/10"
+                                ? "bg-slate-900 hover:bg-black text-white shadow-sm"
                                 : "border-slate-200 text-slate-500 bg-white hover:text-slate-900 hover:border-slate-400"
                         )}
                     >
@@ -235,22 +245,15 @@ const POSCatalog = forwardRef(({
                             size="md"
                             onClick={() => handleCategoryClick(cat.id)}
                             className={cn(
-                                "rounded-md px-3 h-7 font-black transition-all uppercase text-[9px] tracking-widest whitespace-nowrap",
+                                "rounded-md px-2.5 h-6 font-black transition-all uppercase text-[8.5px] tracking-widest whitespace-nowrap",
                                 selectedCategoryId === cat.id
-                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-300/20"
+                                    ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
                                     : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
                             )}
                         >
                             {cat.name}
                         </Button>
                     ))}
-
-                    {/* Total count indicator */}
-                    {showTotalCount && (
-                        <span className="ml-auto text-[11px] text-slate-400 font-medium whitespace-nowrap shrink-0 pl-3">
-                            Mostrando {products.length} de {totalCount} productos
-                        </span>
-                    )}
                 </div>
             </div>
 
@@ -259,8 +262,8 @@ const POSCatalog = forwardRef(({
                 {loading ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                         <div className="animate-pulse flex flex-col items-center">
-                            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                                <Package size={32} className="text-blue-500" />
+                            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-3">
+                                <Package size={24} className="text-blue-500" />
                             </div>
                             <span className="text-slate-400 font-bold uppercase tracking-widest text-xs">Cargando catálogo...</span>
                         </div>
@@ -268,8 +271,8 @@ const POSCatalog = forwardRef(({
                 ) : products.length === 0 ? (
                     <div className="absolute inset-0 flex items-center justify-center animate-in fade-in zoom-in-95">
                         <div className="text-center">
-                            <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-inner">
-                                <Box size={40} className="text-slate-300" />
+                            <div className="w-14 h-14 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3 border-4 border-white shadow-inner">
+                                <Box size={28} className="text-slate-300" />
                             </div>
                             <p className="font-black text-slate-800 uppercase tracking-tighter">No hay resultados</p>
                             <p className="text-xs text-slate-400 font-medium mt-1">Intenta con otra búsqueda o categoría</p>
