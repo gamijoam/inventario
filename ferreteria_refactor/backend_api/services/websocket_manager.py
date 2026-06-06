@@ -67,7 +67,7 @@ class ConnectionManager:
                 del self.active_connections[tenant_id]
                 # print(f"   Tenant {tenant_id} cleared (no active connections)")
     
-    async def send_to_client(self, message: dict, client_id: str, tenant_id: str) -> bool:
+    async def send_to_client(self, message: dict, client_id: str, tenant_id: str, timeout: float = 5.0) -> bool:
         """
         Send a message to a specific Hardware Bridge client
         """
@@ -85,7 +85,7 @@ class ConnectionManager:
             
             # Use a timeout to prevent hanging on zombified sockets
             import asyncio
-            await asyncio.wait_for(self._send_json_safe(websocket, message), timeout=5.0)
+            await asyncio.wait_for(self._send_json_safe(websocket, message), timeout=timeout)
             
             print(f"✅ [WS] Sent to {client_id}: {message.get('type', 'unknown')}")
             return True

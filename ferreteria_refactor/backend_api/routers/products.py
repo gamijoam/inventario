@@ -1624,7 +1624,7 @@ async def print_remote(
         "payload": payload
     }
     
-    success = await manager.send_to_client(message, actual_client_id, tenant_id)
+    success = await manager.send_to_client(message, actual_client_id, tenant_id, timeout=1.5)
     
     if not success:
         raise HTTPException(
@@ -1684,7 +1684,7 @@ async def print_remote_payload(
         "payload": request.payload
     }
     
-    success = await manager.send_to_client(message, actual_client_id, tenant_id)
+    success = await manager.send_to_client(message, actual_client_id, tenant_id, timeout=1.5)
     
     if not success:
         raise HTTPException(
