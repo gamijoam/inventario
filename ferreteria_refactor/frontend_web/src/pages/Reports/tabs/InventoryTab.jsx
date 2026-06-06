@@ -24,7 +24,7 @@ const fmtNumber = (n) => new Intl.NumberFormat('es-VE').format(Number(n) || 0);
 // Skeleton loader
 // ---------------------------------------------------------------------------
 const SkeletonCard = () => (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm animate-pulse">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-pulse">
         <div className="h-3 w-24 bg-slate-200 rounded mb-4" />
         <div className="h-7 w-32 bg-slate-200 rounded mb-3" />
         <div className="h-3 w-20 bg-slate-100 rounded" />
@@ -35,15 +35,15 @@ const SkeletonCard = () => (
 // KPI Card
 // ---------------------------------------------------------------------------
 const KPICard = ({ title, value, subtitle, icon: Icon, color = 'bg-indigo-500' }) => (
-    <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg hover:ring-1 hover:ring-emerald-500/20 transition-all duration-300 relative overflow-hidden group hover:-translate-y-0.5">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-lg hover:ring-1 hover:ring-emerald-500/20 transition-all duration-300 relative overflow-hidden group hover:-translate-y-0.5">
         <div className="flex justify-between items-start mb-3">
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider leading-tight">{title}</p>
+            <p className="text-slate-500 text-[11px] font-black uppercase tracking-wider leading-tight">{title}</p>
             <div className={`p-2 rounded-lg ${color} bg-opacity-10 group-hover:bg-opacity-20 transition-colors`}>
                 <Icon size={16} className={color.replace('bg-', 'text-')} />
             </div>
         </div>
-        <h3 className="text-2xl font-black text-slate-900 tracking-tight mb-1">{value}</h3>
-        {subtitle && <p className="text-xs text-slate-400 font-medium">{subtitle}</p>}
+        <h3 className="text-xl font-black text-slate-900 tracking-tight mb-1">{value}</h3>
+        {subtitle && <p className="text-[11px] text-slate-400 font-semibold">{subtitle}</p>}
     </div>
 );
 
@@ -109,11 +109,11 @@ const InventoryTab = ({ dateRange }) => {
     // ---------------------------------------------------------------------------
     if (loading) {
         return (
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+            <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
                     {[...Array(5)].map((_, i) => <SkeletonCard key={i} />)}
                 </div>
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-pulse">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-pulse">
                     <div className="h-4 w-40 bg-slate-200 rounded mb-6" />
                     {[...Array(5)].map((_, i) => (
                         <div key={i} className="flex gap-4 mb-3">
@@ -138,20 +138,20 @@ const InventoryTab = ({ dateRange }) => {
     // RENDER
     // ---------------------------------------------------------------------------
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Toolbar */}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                 <button
                     onClick={loadData}
                     disabled={loading}
-                    className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
+                    className="h-8 w-8 inline-flex items-center justify-center bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors disabled:opacity-50"
                     title="Actualizar"
                 >
                     <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 </button>
                 <button
                     onClick={handleExport}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                    className="h-8 inline-flex items-center gap-1.5 px-3 bg-emerald-600 text-white text-xs font-black rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                 >
                     <Download size={14} />
                     Exportar
@@ -159,7 +159,7 @@ const InventoryTab = ({ dateRange }) => {
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
                 <KPICard
                     title="Total Items en Stock"
                     value={fmtNumber(totalStock)}
@@ -205,7 +205,7 @@ const InventoryTab = ({ dateRange }) => {
 
             {/* Valuation summary banner */}
             {inventoryData && ['ADMIN', 'WAREHOUSE'].includes(user?.role) && (
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-center">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
                     <h3 className="text-lg font-bold text-slate-800 mb-2">Valoracion de Inventario</h3>
                     <p className="text-slate-500 max-w-lg mx-auto">
                         Si vendieras todo tu inventario hoy, generarias <strong className="text-emerald-600">{formatUSD(potentialProfit)}</strong> de ganancia bruta
@@ -216,13 +216,13 @@ const InventoryTab = ({ dateRange }) => {
 
             {/* Low Stock Alerts Table */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-3 py-2.5 border-b border-slate-100 flex items-center justify-between gap-3">
                     <div>
-                        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                             <AlertTriangle size={18} className="text-amber-500" />
                             Stock Bajo - Alertas
                         </h3>
-                        <p className="text-sm text-slate-500">Productos con stock bajo o agotado, ordenados por urgencia</p>
+                        <p className="text-xs font-semibold text-slate-500">Productos con stock bajo o agotado, ordenados por urgencia</p>
                     </div>
                     <span className="bg-amber-50 text-amber-700 text-xs font-bold px-2.5 py-1 rounded-full border border-amber-200">
                         {sortedLowStock.length} alertas
@@ -230,19 +230,19 @@ const InventoryTab = ({ dateRange }) => {
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                        <thead className="bg-slate-50/80 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                        <thead className="bg-slate-50/80 text-slate-500 text-[11px] font-black uppercase tracking-wider">
                             <tr>
-                                <th className="text-left px-4 py-3">Producto</th>
-                                <th className="text-left px-4 py-3">SKU</th>
-                                <th className="text-right px-4 py-3">Stock Actual</th>
-                                <th className="text-right px-4 py-3">Stock Minimo</th>
-                                <th className="text-center px-4 py-3">Estado</th>
+                                <th className="text-left px-3 py-2.5">Producto</th>
+                                <th className="text-left px-3 py-2.5">SKU</th>
+                                <th className="text-right px-3 py-2.5">Stock Actual</th>
+                                <th className="text-right px-3 py-2.5">Stock Minimo</th>
+                                <th className="text-center px-3 py-2.5">Estado</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {sortedLowStock.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="px-4 py-12 text-center text-slate-400">
+                                    <td colSpan="5" className="px-3 py-10 text-center text-slate-400">
                                         <div className="flex flex-col items-center">
                                             <Package size={40} className="mb-3 text-emerald-200" />
                                             <p className="font-bold text-slate-500">Sin alertas de stock bajo</p>
@@ -258,15 +258,15 @@ const InventoryTab = ({ dateRange }) => {
 
                                     return (
                                         <tr key={item.id || idx} className={clsx('hover:bg-slate-50/60 transition-colors', isOut && 'bg-rose-50/30')}>
-                                            <td className="px-4 py-3 font-medium text-slate-800 max-w-[250px] truncate">
+                                            <td className="px-3 py-2.5 font-medium text-slate-800 max-w-[250px] truncate">
                                                 {item.product_name || item.name}
                                             </td>
-                                            <td className="px-4 py-3 text-slate-500 font-mono text-xs">
+                                            <td className="px-3 py-2.5 text-slate-500 font-mono text-xs">
                                                 {item.sku || item.barcode || '-'}
                                             </td>
-                                            <td className="px-4 py-3 text-right font-bold text-slate-700">{current}</td>
-                                            <td className="px-4 py-3 text-right text-slate-500">{min}</td>
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-3 py-2.5 text-right font-bold text-slate-700">{current}</td>
+                                            <td className="px-3 py-2.5 text-right text-slate-500">{min}</td>
+                                            <td className="px-3 py-2.5 text-center">
                                                 {isOut ? (
                                                     <span className="px-2.5 py-1 rounded-full text-xs font-bold border bg-rose-50 text-rose-700 border-rose-200">
                                                         Agotado
