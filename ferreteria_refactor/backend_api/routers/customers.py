@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import List, Optional
 from ..database.db import get_db
 from ..models import models
@@ -58,10 +59,17 @@ def read_customers(
         query = query.filter(models.Customer.is_active == True)
     if q:
         search = f"%{q}%"
-        query = query.filter(
-            (models.Customer.name.ilike(search)) |
-            (models.Customer.id_number.ilike(search))
-        )
+        filters = [
+            models.Customer.name.ilike(search),
+            models.Customer.id_number.ilike(search),
+            models.Customer.phone.ilike(search),
+        ]
+        digits = "".join(ch for ch in q if ch.isdigit())
+        if digits.startswith("0") and len(digits) > 1:
+            filters.append(models.Customer.phone.ilike(f"%58{digits[1:]}%"))
+        elif digits and not digits.startswith("58"):
+            filters.append(models.Customer.phone.ilike(f"%58{digits}%"))
+        query = query.filter(or_(*filters))
     total = query.count()
     items = query.offset(skip).limit(limit).all()
     result = {
