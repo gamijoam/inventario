@@ -16,7 +16,7 @@ const getColumnCount = (width, simpleMode = false) => {
         return 3;
     }
     if (width >= 1536) return 8;
-    if (width >= 1280) return 7;
+    if (width >= 1280) return 6;
     if (width >= 1024) return 5;
     if (width >= 768) return 4;
     return 2;
@@ -148,11 +148,11 @@ const POSCatalog = forwardRef(({
     const columnCount = getColumnCount(containerSize.width, simpleMode);
     const rowCount = Math.ceil(products.length / columnCount);
     const GAP = 8; // gap entre cards
-    const PADDING = 12; // p-3 = 12px
+    const PADDING = 10;
     const columnWidth = containerSize.width > 0
         ? (containerSize.width - PADDING * 2 - GAP * (columnCount - 1)) / columnCount
         : 0;
-    const ROW_HEIGHT = simpleMode ? 92 : 158;
+    const ROW_HEIGHT = simpleMode ? 88 : 136;
 
     const totalHeight = rowCount * ROW_HEIGHT;
     const gridHeight = containerSize.height;
@@ -198,10 +198,10 @@ const POSCatalog = forwardRef(({
     const showTotalCount = isServerSide && totalCount != null && products.length > 0;
 
     return (
-        <div className="flex flex-col h-full bg-muted/10 overflow-hidden rounded-2xl border border-slate-200">
+        <div className="flex flex-col h-full bg-muted/10 overflow-hidden rounded-xl border border-slate-200">
 
             {/* Sticky Header */}
-            <div className="p-3 bg-background border-b z-10 space-y-2.5 shadow-sm">
+            <div className="p-2.5 bg-background border-b z-10 space-y-2 shadow-sm">
                 {/* Row 1: Search */}
                 <SearchWithScanner
                     ref={searchInputRef}
@@ -210,7 +210,7 @@ const POSCatalog = forwardRef(({
                     onChange={handleSearchInput}
                     placeholder="Buscar productos por nombre o código..."
                     autoFocus
-                    inputClassName="h-9 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-xl"
+                    inputClassName="h-9 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-lg"
                 />
 
                 {/* Row 2: Categories + Count */}
@@ -220,7 +220,7 @@ const POSCatalog = forwardRef(({
                         size="md"
                         onClick={() => handleCategoryClick(null)}
                         className={cn(
-                            "rounded-lg px-3 h-7 font-black transition-all uppercase text-[9px] tracking-widest",
+                            "rounded-md px-3 h-7 font-black transition-all uppercase text-[9px] tracking-widest",
                             selectedCategoryId === null
                                 ? "bg-slate-900 hover:bg-black text-white shadow-md shadow-slate-900/10"
                                 : "border-slate-200 text-slate-500 bg-white hover:text-slate-900 hover:border-slate-400"
@@ -235,7 +235,7 @@ const POSCatalog = forwardRef(({
                             size="md"
                             onClick={() => handleCategoryClick(cat.id)}
                             className={cn(
-                                "rounded-lg px-3 h-7 font-black transition-all uppercase text-[9px] tracking-widest whitespace-nowrap",
+                                "rounded-md px-3 h-7 font-black transition-all uppercase text-[9px] tracking-widest whitespace-nowrap",
                                 selectedCategoryId === cat.id
                                     ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-300/20"
                                     : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
@@ -255,7 +255,7 @@ const POSCatalog = forwardRef(({
             </div>
 
             {/* Grid Area */}
-            <div ref={containerRef} className="flex-1 min-h-0 relative bg-slate-50/30">
+            <div ref={containerRef} className="flex-1 min-h-0 relative bg-slate-50/30 overflow-hidden">
                 {loading ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                         <div className="animate-pulse flex flex-col items-center">
@@ -285,6 +285,7 @@ const POSCatalog = forwardRef(({
                             rowCount={rowCount}
                             rowHeight={ROW_HEIGHT}
                             width={containerSize.width}
+                            style={{ overflowX: 'hidden' }}
                             overscanRowCount={2}
                             onScroll={isServerSide ? handleGridScroll : undefined}
                         >
