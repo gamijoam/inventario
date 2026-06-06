@@ -20,6 +20,10 @@ export const ConfigProvider = ({ children }) => {
     // Feature flags a la carta (activados por tenant desde panel admin)
     const [featureFlags, setFeatureFlags] = useState({});
     const [autoPrintTicket, setAutoPrintTicket] = useState(false);
+    const [posSettings, setPosSettings] = useState({
+        pos_default_price_list_id: '',
+        pos_show_bs: true,
+    });
 
     // Module Feature Flags
     const [modules, setModules] = useState({
@@ -106,18 +110,38 @@ export const ConfigProvider = ({ children }) => {
 
     const fetchConfig = async () => {
         try {
-            // 0. OPTIMIZACIÓN: Cargar todo lo necesario del POS en 1 request
-            // Reemplaza 4 requests individuales (business, exchange-rates, payment-methods, settings)
+            // 0. OPTIMIZACION: Cargar lo necesario del POS en 1 request cacheado en Redis.
+            // Si responde, evitamos repetir business/exchange-rates/payment-methods/settings.
+            let loadedFromPosInit = {
+                business: false,
+                exchangeRates: false,
+                paymentMethods: false,
+                autoPrint: false,
+            };
+
             try {
                 const posInit = await apiClient.get('/config/pos-init', { _silentNetworkError: true });
                 if (posInit.data) {
                     const { business, exchange_rates, payment_methods, settings } = posInit.data;
-                    if (business?.name) setBusiness(prev => ({ ...prev, ...business }));
-                    if (exchange_rates?.length) setCurrencies(exchange_rates);
-                    if (payment_methods?.length) setPaymentMethods(payment_methods);
-                    if (settings) setAutoPrintTicket(!!settings.auto_print_ticket);
+                    if (business?.name) {
+                        setBusiness(prev => ({ ...prev, ...business }));
+                        loadedFromPosInit.business = true;
+                    }
+                    if (exchange_rates?.length) {
+                        setCurrencies(exchange_rates);
+                        loadedFromPosInit.exchangeRates = true;
+                    }
+                    if (payment_methods?.length) {
+                        setPaymentMethods(payment_methods);
+                        loadedFromPosInit.paymentMethods = true;
+                    }
+                    if (settings) {
+                        setAutoPrintTicket(!!settings.auto_print_ticket);
+                        setPosSettings(prev => ({ ...prev, ...settings }));
+                        loadedFromPosInit.autoPrint = true;
+                    }
                 }
-            } catch { /* silencioso — los requests individuales como fallback */ }
+            } catch { /* silencioso: los requests individuales quedan como fallback */ }
 
             // 1. Fetch Feature Flags (Public) & Tenant Info
             // This runs FIRST to set the correct branding on Login
@@ -145,13 +169,13 @@ export const ConfigProvider = ({ children }) => {
                     }
 
                     // tenant_name es el nombre del tenant en SaaS admin
-                    // NO sobreescribir — el business_name lo carga el paso 3
+                    // NO sobreescribir; el business_name lo carga el paso 3
                     // Solo guardarlo como fallback si no hay business_name
                     if (publicConfig.data.tenant_name) {
                         setBusiness(prev => ({
                             ...prev,
                             tenant_name_fallback: publicConfig.data.tenant_name,
-                            // Solo usar si name está vacío o es el default
+                            // Solo usar si name esta vacio o es el default
                             name: prev.name && prev.name !== 'Cargando...' ? prev.name : publicConfig.data.tenant_name
                         }));
                     }
@@ -160,13 +184,12 @@ export const ConfigProvider = ({ children }) => {
                 console.warn("Failed to load feature flags/public config:", error);
             }
 
-            // 2. Load Payment Methods (Authenticated only usually, but good to try)
-            fetchPaymentMethods();
+            // 2. Load Payment Methods only if pos-init did not provide them
+            if (!loadedFromPosInit.paymentMethods) fetchPaymentMethods();
 
-            // 3. Authenticated Business Info (Full details)
-            // Only try this if we have a token or it might 401
+            // 3. Authenticated Business Info only if pos-init did not provide it
             const token = localStorage.getItem('token');
-            if (token) {
+            if (token && !loadedFromPosInit.business) {
                 try {
                     const bizData = await configService.getBusinessInfo();
                     setBusiness(bizData);
@@ -175,20 +198,24 @@ export const ConfigProvider = ({ children }) => {
                 }
             }
 
-            // 4. Fetch Exchange Rates
-            try {
-                const ratesResponse = await apiClient.get('/config/exchange-rates?is_active=true', { _silentNetworkError: true });
-                console.log('💱 Exchange Rates Loaded:', ratesResponse.data);
-                setCurrencies(ratesResponse.data);
-            } catch (e) {
-                console.warn("Could not load exchange rates:", e);
+            // 4. Fetch Exchange Rates only if pos-init did not provide them
+            if (!loadedFromPosInit.exchangeRates) {
+                try {
+                    const ratesResponse = await apiClient.get('/config/exchange-rates?is_active=true', { _silentNetworkError: true });
+                    console.log('Exchange Rates Loaded:', ratesResponse.data);
+                    setCurrencies(ratesResponse.data);
+                } catch (e) {
+                    console.warn("Could not load exchange rates:", e);
+                }
             }
 
-            // 5. Fetch Auto Print Ticket setting
-            try {
-                const apRes = await apiClient.get('/config/pos/auto-print-ticket', { _silentNetworkError: true });
-                setAutoPrintTicket(!!apRes.data.auto_print_ticket);
-            } catch (e) { /* silencioso */ }
+            // 5. Fetch Auto Print Ticket only if pos-init did not provide it
+            if (!loadedFromPosInit.autoPrint) {
+                try {
+                    const apRes = await apiClient.get('/config/pos/auto-print-ticket', { _silentNetworkError: true });
+                    setAutoPrintTicket(!!apRes.data.auto_print_ticket);
+                } catch (e) { /* silencioso */ }
+            }
 
         } catch (err) {
             console.error("Critical Config Error", err);
@@ -312,6 +339,7 @@ export const ConfigProvider = ({ children }) => {
             business,
             currencies,
             autoPrintTicket,
+            posSettings,
             loading,
             refreshConfig,
             getExchangeRate,

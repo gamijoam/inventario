@@ -494,6 +494,8 @@ def get_pos_init(db: Session = Depends(get_db)):
         "settings": {
             "auto_print_ticket": configs.get("auto_print_ticket", "false").lower() == "true",
             "paper_width": configs.get("paper_width", "58"),
+            "pos_default_price_list_id": configs.get("pos_default_price_list_id", ""),
+            "pos_show_bs": configs.get("pos_show_bs", "true").lower() != "false",
         }
     }
 
@@ -956,6 +958,12 @@ def set_config(
     }
 
     db.commit()
+    try:
+        invalidate_resource(current_schema, "pos_init")
+        invalidate_resource(current_schema, "pos-init")
+        invalidate_resource(current_schema, "business_config")
+    except Exception:
+        pass
     # db.refresh(config)
     return response_data
 

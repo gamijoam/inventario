@@ -53,7 +53,7 @@ const POS = () => {
     const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
-    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency } = useConfig();
+    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings } = useConfig();
     const { subscribe } = useWebSocket();
     const {
         products: displayProducts, isLoading: catalogLoading, isLoadingMore,
@@ -73,22 +73,13 @@ const POS = () => {
         } catch { return {}; }
     });
     
-    // ── Config por tenant: lista de precio predeterminada + mostrar Bs ──
-    const [posShowBs, setPosShowBs] = useState(true);
+    // Config por tenant: viene de ConfigContext (/config/pos-init cacheado en Redis).
+    const posShowBs = posSettings?.pos_show_bs !== false;
     useEffect(() => {
-        // Cargar lista predeterminada → localStorage (la usa CartContext.addToCart)
-        apiClient.get('/config/pos_default_price_list_id')
-            .then(r => {
-                const v = r.data?.value || '';
-                if (v) localStorage.setItem('pos_default_price_list_id', v);
-                else localStorage.removeItem('pos_default_price_list_id');
-            })
-            .catch(() => localStorage.removeItem('pos_default_price_list_id'));
-        // Cargar preferencia de mostrar Bs
-        apiClient.get('/config/pos_show_bs')
-            .then(r => setPosShowBs(r.data?.value !== 'false'))
-            .catch(() => setPosShowBs(true));
-    }, []);
+        const listId = posSettings?.pos_default_price_list_id || '';
+        if (listId) localStorage.setItem('pos_default_price_list_id', listId);
+        else localStorage.removeItem('pos_default_price_list_id');
+    }, [posSettings?.pos_default_price_list_id]);
 
     const isCurrencyVisible = (code) => showCurrencies[code] !== false;
     const toggleCurrency = (code) => {
