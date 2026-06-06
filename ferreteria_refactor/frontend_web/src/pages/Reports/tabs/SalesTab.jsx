@@ -640,10 +640,10 @@ const SalesTab = ({ dateRange }) => {
     // RENDER: Analisis sub-view
     // -----------------------------------------------------------------------
     const renderAnalysis = () => (
-        <div className="space-y-5">
+        <div className="space-y-3">
             {/* Analysis mini-tabs + export */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 overflow-x-auto max-w-full">
                     {ANALYSIS_TABS.map(tab => {
                         const TabIcon = tab.icon;
                         const isActive = analysisTab === tab.id;
@@ -652,7 +652,7 @@ const SalesTab = ({ dateRange }) => {
                                 key={tab.id}
                                 onClick={() => setAnalysisTab(tab.id)}
                                 className={clsx(
-                                    'px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
+                                    'px-2.5 py-1.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all whitespace-nowrap',
                                     isActive
                                         ? 'bg-white text-indigo-600 shadow-sm border border-slate-200'
                                         : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
@@ -668,7 +668,7 @@ const SalesTab = ({ dateRange }) => {
                 <Button
                     variant="outline"
                     size="sm"
-                    className="gap-2 border-slate-200 text-slate-600 hover:text-indigo-600"
+                    className="h-8 gap-2 border-slate-200 text-slate-600 hover:text-indigo-600"
                     onClick={handleExportAnalysis}
                 >
                     <FileDown size={14} /> Exportar Detallado
@@ -676,7 +676,7 @@ const SalesTab = ({ dateRange }) => {
             </div>
 
             {/* Date override for analysis */}
-            <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl shadow-sm border border-slate-200 w-fit">
+            <div className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg shadow-sm border border-slate-200 w-fit">
                 <Input
                     type="date"
                     className="bg-transparent border-none text-xs font-bold text-slate-600 p-0 h-auto focus-visible:ring-0"
@@ -693,15 +693,15 @@ const SalesTab = ({ dateRange }) => {
             </div>
 
             {/* Analysis Table Content */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                 {analysisLoading ? (
-                    <div className="h-64 flex flex-col items-center justify-center text-slate-400">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div>
+                    <div className="h-44 flex flex-col items-center justify-center text-slate-400">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mb-2"></div>
                         Cargando datos...
                     </div>
                 ) : analysisData.length === 0 ? (
-                    <div className="h-64 flex flex-col items-center justify-center text-slate-400 opacity-60">
-                        <FileText size={48} className="mb-2" />
+                    <div className="h-44 flex flex-col items-center justify-center text-slate-400 opacity-60">
+                        <FileText size={32} className="mb-2" />
                         <p className="font-medium">No hay datos para el periodo seleccionado</p>
                     </div>
                 ) : (
@@ -721,14 +721,14 @@ const SalesTab = ({ dateRange }) => {
     const renderPaymentMethodTable = () => {
         const globalTotal = analysisData.reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
         return (
-            <table className="min-w-full divide-y divide-slate-100">
-                <thead className="bg-slate-50">
+            <table className="min-w-full divide-y divide-slate-100 text-sm">
+                <thead className="bg-slate-50/80">
                     <tr>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Metodo</th>
-                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Transacciones</th>
-                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Ventas ($)</th>
-                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total Ventas (Bs)</th>
-                        <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">% del Total</th>
+                        <th className="px-4 py-2.5 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Metodo</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Transacciones</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Ventas ($)</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total Ventas (Bs)</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">% del Total</th>
                     </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-100">
@@ -736,16 +736,16 @@ const SalesTab = ({ dateRange }) => {
                         const percentage = globalTotal > 0 ? (item.total_amount / globalTotal) * 100 : 0;
                         return (
                             <tr key={index} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-700">{item.method}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-slate-500 font-medium font-mono">{item.count}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right font-black text-slate-800">
+                                <td className="px-4 py-2.5 whitespace-nowrap font-bold text-slate-700 text-xs">{item.method}</td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-right text-slate-500 font-medium font-mono text-xs">{item.count}</td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-right font-black text-slate-800 tabular-nums">
                                     {formatCurrency ? formatCurrency(item.total_amount) : `$${fmtUSD(item.total_amount)}`}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right font-medium text-blue-600">
+                                <td className="px-4 py-2.5 whitespace-nowrap text-right font-medium text-blue-600 tabular-nums">
                                     {formatCurrency ? formatCurrency(item.total_amount_bs, 'VES') : `Bs ${fmtVES(item.total_amount_bs)}`}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right">
-                                    <div className="flex items-center justify-end w-48 ml-auto">
+                                <td className="px-4 py-2.5 whitespace-nowrap text-right">
+                                    <div className="flex items-center justify-end w-36 ml-auto">
                                         <span className="text-xs font-bold text-slate-400 mr-2 w-12 text-right">{percentage.toFixed(1)}%</span>
                                         <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                                             <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${percentage}%` }} />
@@ -756,14 +756,14 @@ const SalesTab = ({ dateRange }) => {
                         );
                     })}
                     <tr className="bg-slate-50 font-black border-t-2 border-slate-200">
-                        <td className="px-6 py-4 text-slate-800">TOTAL</td>
-                        <td className="px-6 py-4 text-right text-slate-800">
+                        <td className="px-4 py-2.5 text-slate-800">TOTAL</td>
+                        <td className="px-4 py-2.5 text-right text-slate-800">
                             {analysisData.reduce((acc, curr) => acc + (curr.count || 0), 0)}
                         </td>
-                        <td className="px-6 py-4 text-right text-indigo-600 text-lg">
+                        <td className="px-4 py-2.5 text-right text-indigo-600 text-base">
                             {formatCurrency ? formatCurrency(globalTotal) : `$${fmtUSD(globalTotal)}`}
                         </td>
-                        <td className="px-6 py-4 text-right text-blue-600 text-lg">
+                        <td className="px-4 py-2.5 text-right text-blue-600 text-base">
                             {formatCurrency
                                 ? formatCurrency(analysisData.reduce((acc, curr) => acc + (curr.total_amount_bs || 0), 0), 'VES')
                                 : `Bs ${fmtVES(analysisData.reduce((acc, curr) => acc + (curr.total_amount_bs || 0), 0))}`
@@ -780,7 +780,7 @@ const SalesTab = ({ dateRange }) => {
         const filtered = analysisData.filter(i => (i.product_name || "").toLowerCase().includes(productSearch.toLowerCase()));
         return (
             <div className="space-y-0">
-                <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center gap-3">
+                <div className="px-4 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center gap-2">
                     <div className="relative flex-1 max-w-sm">
                         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input 
@@ -788,7 +788,7 @@ const SalesTab = ({ dateRange }) => {
                             placeholder="Filtrar productos..." 
                             value={productSearch} 
                             onChange={(e) => setProductSearch(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                         />
                     </div>
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -796,15 +796,15 @@ const SalesTab = ({ dateRange }) => {
                     </div>
                 </div>
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-100">
-                        <thead className="bg-slate-50">
+                    <table className="min-w-full divide-y divide-slate-100 text-sm">
+                        <thead className="bg-slate-50/80">
                             <tr>
-                                <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Producto</th>
-                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Cant.</th>
-                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Venta Total</th>
-                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Costo Total</th>
-                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Ganancia</th>
-                                <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Margen</th>
+                                <th className="px-4 py-2.5 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Producto</th>
+                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Cant.</th>
+                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Venta Total</th>
+                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Costo Total</th>
+                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Ganancia</th>
+                                <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Margen</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-100">
@@ -812,14 +812,14 @@ const SalesTab = ({ dateRange }) => {
                                 const margin = item.total_revenue > 0 ? ((item.total_profit / item.total_revenue) * 100) : 0;
                                 return (
                                     <tr key={index} className="hover:bg-slate-50/80 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-700">{item.product_name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-slate-500 font-bold font-mono">{item.total_quantity}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right font-black text-slate-800">${item.total_revenue?.toFixed(2)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-slate-400 font-medium font-mono text-xs">${item.total_cost?.toFixed(2)}</td>
-                                        <td className={`px-6 py-4 whitespace-nowrap text-right font-black ${item.total_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                        <td className="px-4 py-2.5 whitespace-nowrap font-bold text-slate-700 text-xs">{item.product_name}</td>
+                                        <td className="px-4 py-2.5 whitespace-nowrap text-right text-slate-500 font-bold font-mono text-xs">{item.total_quantity}</td>
+                                        <td className="px-4 py-2.5 whitespace-nowrap text-right font-black text-slate-800 tabular-nums">${item.total_revenue?.toFixed(2)}</td>
+                                        <td className="px-4 py-2.5 whitespace-nowrap text-right text-slate-400 font-medium font-mono text-xs">${item.total_cost?.toFixed(2)}</td>
+                                        <td className={`px-4 py-2.5 whitespace-nowrap text-right font-black ${item.total_profit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                             ${item.total_profit?.toFixed(2)}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                        <td className="px-4 py-2.5 whitespace-nowrap text-right">
                                             <span className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase ${margin > 20 ? 'bg-emerald-100 text-emerald-700' : margin > 0 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
                                                 {margin.toFixed(1)}%
                                             </span>
@@ -835,30 +835,30 @@ const SalesTab = ({ dateRange }) => {
     };
 
     const renderCustomerTable = () => (
-        <table className="min-w-full divide-y divide-slate-100">
-            <thead className="bg-slate-50">
+        <table className="min-w-full divide-y divide-slate-100 text-sm">
+            <thead className="bg-slate-50/80">
                 <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-12">#</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Cliente</th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Compras</th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total ($)</th>
-                    <th className="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total (Bs)</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest w-10">#</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Compras</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total ($)</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-black text-slate-400 uppercase tracking-widest">Total (Bs)</th>
                 </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
                 {analysisData.map((item, index) => (
                     <tr key={index} className="hover:bg-slate-50 transition-colors group">
-                        <td className="px-6 py-4 whitespace-nowrap text-slate-400 text-sm font-bold group-hover:text-indigo-500">
+                        <td className="px-4 py-2.5 whitespace-nowrap text-slate-400 text-xs font-bold group-hover:text-indigo-500">
                             {index + 1}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-bold text-slate-700">{item.customer_name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-slate-500 font-medium font-mono">
+                        <td className="px-4 py-2.5 whitespace-nowrap font-bold text-slate-700 text-xs">{item.customer_name}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap text-right text-slate-500 font-medium font-mono text-xs">
                             {item.transaction_count}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right font-black text-slate-800">
+                        <td className="px-4 py-2.5 whitespace-nowrap text-right font-black text-slate-800 tabular-nums">
                             {formatCurrency ? formatCurrency(item.total_purchased) : `$${fmtUSD(item.total_purchased)}`}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right font-medium text-blue-600">
+                        <td className="px-4 py-2.5 whitespace-nowrap text-right font-medium text-blue-600 tabular-nums">
                             {formatCurrency
                                 ? formatCurrency(item.total_purchased_bs || 0, 'VES')
                                 : `Bs ${fmtVES(item.total_purchased_bs || 0)}`
@@ -874,7 +874,7 @@ const SalesTab = ({ dateRange }) => {
     // MAIN RENDER
     // -----------------------------------------------------------------------
     return (
-        <div className="space-y-5">
+        <div className="space-y-3">
             {/* Sub-tab navigation (pill style) */}
             <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 w-fit">
                 {SUB_TABS.map(tab => (
@@ -882,7 +882,7 @@ const SalesTab = ({ dateRange }) => {
                         key={tab.id}
                         onClick={() => setActiveSubTab(tab.id)}
                         className={clsx(
-                            'px-4 py-2 rounded-md text-sm font-bold transition-all',
+                            'px-3 py-1.5 rounded-md text-xs font-bold transition-all',
                             activeSubTab === tab.id
                                 ? 'bg-white text-slate-900 shadow-sm'
                                 : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
