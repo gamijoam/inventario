@@ -68,10 +68,10 @@ const WarehousesTab = () => {
         try {
             if (editingWarehouse) {
                 await apiClient.put(`/warehouses/${editingWarehouse.id}`, formData);
-                toast.success('Almacen actualizado');
+                toast.success('Almacén actualizado');
             } else {
                 await apiClient.post('/warehouses', formData);
-                toast.success('Almacen creado');
+                toast.success('Almacén creado');
             }
             fetchWarehouses();
             setIsModalOpen(false);
@@ -82,11 +82,11 @@ const WarehousesTab = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('¿Estas seguro de eliminar este almacen? Esta accion no se puede deshacer.')) return;
+        if (!confirm('¿Estas seguro de eliminar este almacén? Esta accion no se puede deshacer.')) return;
 
         try {
             await apiClient.delete(`/warehouses/${id}`);
-            toast.success('Almacen eliminado');
+            toast.success('Almacén eliminado');
             fetchWarehouses();
         } catch (error) {
             console.error(error);
@@ -113,7 +113,7 @@ const WarehousesTab = () => {
                     className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 active:translate-y-0"
                 >
                     <Plus size={20} />
-                    Nuevo Almacen
+                    Nuevo Almacén
                 </button>
             </div>
 
@@ -143,7 +143,7 @@ const WarehousesTab = () => {
                                 <h3 className="text-xl font-bold text-slate-800 mb-1 truncate">{warehouse.name}</h3>
                                 <div className="flex items-center gap-2 text-sm text-slate-500">
                                     <MapPin size={14} className="mt-0.5 shrink-0" />
-                                    <span className="truncate">{warehouse.address || 'Sin direccion registrada'}</span>
+                                    <span className="truncate">{warehouse.address || 'Sin dirección registrada'}</span>
                                 </div>
                             </div>
                         </div>
@@ -201,7 +201,7 @@ const WarehousesTab = () => {
                         <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
                             <h3 className="font-bold text-xl text-slate-800 flex items-center gap-2">
                                 <Warehouse className="text-indigo-600" size={24} />
-                                {editingWarehouse ? 'Editar Almacen' : 'Nuevo Almacen'}
+                                {editingWarehouse ? 'Editar Almacén' : 'Nuevo Almacén'}
                             </h3>
                             <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-xl transition-colors">
                                 <X size={20} />
@@ -210,7 +210,7 @@ const WarehousesTab = () => {
 
                         <form onSubmit={handleSave} className="p-6 space-y-6">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nombre del Almacen</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nombre del Almacén</label>
                                 <input
                                     type="text"
                                     required
@@ -223,13 +223,13 @@ const WarehousesTab = () => {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Direccion</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Dirección</label>
                                 <textarea
                                     className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none font-medium text-slate-700 placeholder-slate-300"
                                     rows="3"
                                     value={formData.address}
                                     onChange={e => setFormData({ ...formData, address: e.target.value })}
-                                    placeholder="Direccion fisica..."
+                                    placeholder="Dirección fisica..."
                                 ></textarea>
                             </div>
 
@@ -248,10 +248,10 @@ const WarehousesTab = () => {
                                     </div>
                                     <div className="flex-1">
                                         <span className={clsx("font-bold block", formData.is_main ? "text-amber-900" : "text-slate-700")}>
-                                            Almacen Principal
+                                            Almacén Principal
                                         </span>
                                         <span className={clsx("text-xs block mt-0.5", formData.is_main ? "text-amber-700" : "text-slate-500")}>
-                                            El inventario no asignado y las ventas por defecto utilizaran este almacen.
+                                            El inventario no asignado y las ventas por defecto utilizarán este almacén.
                                         </span>
                                     </div>
                                 </label>
@@ -267,7 +267,7 @@ const WarehousesTab = () => {
                                         onChange={e => setFormData({ ...formData, is_active: e.target.checked })}
                                     />
                                     <span className={clsx("font-bold", formData.is_active ? "text-emerald-900" : "text-slate-700")}>
-                                        Almacen Activo
+                                        Almacén Activo
                                     </span>
                                 </label>
                             </div>
@@ -285,7 +285,7 @@ const WarehousesTab = () => {
                                     className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center gap-2"
                                 >
                                     <Check size={18} />
-                                    Guardar Almacen
+                                    Guardar Almacén
                                 </button>
                             </div>
                         </form>
@@ -364,8 +364,8 @@ const WarehouseInventoryModal = ({ isOpen, onClose, warehouse }) => {
                     ) : inventory.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                             <Package size={48} className="mb-4 opacity-50" />
-                            <p className="font-bold text-slate-600">Almacen vacio</p>
-                            <p className="text-sm">No hay productos asignados a este almacen</p>
+                            <p className="font-bold text-slate-600">Almacén vacío</p>
+                            <p className="text-sm">No hay productos asignados a este almacén</p>
                         </div>
                     ) : filteredInventory.length === 0 ? (
                         <div className="p-12 text-center text-slate-500">
@@ -400,7 +400,7 @@ const WarehouseInventoryModal = ({ isOpen, onClose, warehouse }) => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                                             <div className="flex items-center gap-1">
                                                 <MapPin size={14} className="text-slate-400" />
-                                                {item.location || <span className="text-slate-300 italic">Sin ubicacion</span>}
+                                                {item.location || <span className="text-slate-300 italic">Sin ubicación</span>}
                                             </div>
                                         </td>
                                     </tr>

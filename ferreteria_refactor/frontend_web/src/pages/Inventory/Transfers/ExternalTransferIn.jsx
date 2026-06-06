@@ -312,7 +312,7 @@ const ExternalTransferIn = () => {
             <h2 className="text-2xl font-bold text-slate-800">Importar Inventario</h2>
           </div>
           <p className="text-slate-500 mb-8 text-sm">
-            Carga el archivo JSON generado por la otra sucursal. Podr?s revisar y mapear los productos antes de confirmar.
+            Carga el archivo JSON generado por la otra sucursal. Podrás revisar y mapear los productos antes de confirmar.
           </p>
 
           <div
@@ -379,7 +379,7 @@ const ExternalTransferIn = () => {
         {/* Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Revisi?n de Productos</h2>
+            <h2 className="text-xl font-bold text-slate-800">Revisión de Productos</h2>
             {sourceCompany && (
               <p className="text-sm text-slate-500">Origen: <span className="font-semibold">{sourceCompany}</span></p>
             )}
@@ -409,7 +409,7 @@ const ExternalTransferIn = () => {
               onChange={(e) => handleGlobalWarehouseChange(e.target.value)}
               className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 outline-none min-w-[200px]"
             >
-              <option value="">-- Sin almac?n (stock global) --</option>
+              <option value="">-- Sin almacén (stock global) --</option>
               {warehouses.map((wh) => (
                 <option key={wh.id} value={wh.id}>{wh.name}</option>
               ))}

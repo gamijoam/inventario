@@ -67,11 +67,11 @@ const ExternalTransferOut = () => {
 
     const addToTransfer = (product) => {
         if (!product.sku) {
-            toast.error(`El producto "${product.name}" no tiene C?digo de Barras (SKU) y no se puede transferir.`);
+            toast.error(`El producto "${product.name}" no tiene Código de Barras (SKU) y no se puede transferir.`);
             return;
         }
         if (selectedItems.find(i => i.product_id === product.id)) {
-            toast('El producto ya est? en la lista', { icon: '??' });
+            toast('El producto ya está en la lista', { icon: 'info' });
             return;
         }
         setSelectedItems([...selectedItems, {
@@ -151,7 +151,7 @@ const ExternalTransferOut = () => {
         if (!code) return;
         const instance = imeiPicker.instances.find(pi => (pi.serial_number || '').toUpperCase() === code);
         if (!instance) {
-            toast.error('IMEI no disponible en el almac?n origen');
+            toast.error('IMEI no disponible en el almacén origen');
             return;
         }
         toggleImeiForItem(itemIdx, instance);
@@ -219,7 +219,7 @@ const ExternalTransferOut = () => {
     const handleExport = async () => {
         if (selectedItems.length === 0) return;
         if (!selectedWarehouseId) {
-            toast.error("Seleccione un almac?n de origen");
+            toast.error("Seleccione un almacén de origen");
             return;
         }
         for (const item of selectedItems) {
@@ -444,7 +444,7 @@ const ExternalTransferOut = () => {
                                                 <div className="text-xs text-slate-400 py-3 text-center">Cargando IMEIs disponibles...</div>
                                             ) : imeiPicker.instances.length === 0 ? (
                                                 <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                                    No hay IMEIs disponibles de este producto en el almac?n origen.
+                                                    No hay IMEIs disponibles de este producto en el almacén origen.
                                                 </div>
                                             ) : (
                                                 <div className="space-y-2">
@@ -612,7 +612,7 @@ const ExternalTransferOut = () => {
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
                         <AlertTriangle className="flex-shrink-0" size={20} />
                         <p>
-                            Al generar el paquete, el stock se descontar? <strong>autom?ticamente</strong> del almac?n seleccionado ({warehouses.find(w => w.id == selectedWarehouseId)?.name}) como "Traspaso de Salida".
+                            Al generar el paquete, el stock se descontará <strong>automáticamente</strong> del almacén seleccionado ({warehouses.find(w => w.id == selectedWarehouseId)?.name}) como "Traspaso de Salida".
                         </p>
                     </div>
 
@@ -621,7 +621,7 @@ const ExternalTransferOut = () => {
                         <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4">
                             <p className="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
                                 <AlertTriangle size={16} />
-                                Se descontar? del inventario:
+                                Se descontará del inventario:
                             </p>
                             <ul className="text-sm text-amber-900 space-y-1 mb-3 ml-1">
                                 {selectedItems.map(item => (

@@ -327,7 +327,7 @@ const InventoryTransfers = () => {
                         <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
                             <Truck className="text-indigo-600" size={32} /> Traslados de Inventario
                         </h1>
-                        <p className="text-slate-500 font-medium">Historial y gesti?n de movimientos entre bodegas</p>
+                        <p className="text-slate-500 font-medium">Historial y gestión de movimientos entre bodegas</p>
                     </div>
                     <button
                         id="tour-transfers-add-btn"
@@ -347,7 +347,7 @@ const InventoryTransfers = () => {
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Fecha</th>
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Origen</th>
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Destino</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Art?culos</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Artículos</th>
                                     <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Estado</th>
                                 </tr>
                             </thead>
