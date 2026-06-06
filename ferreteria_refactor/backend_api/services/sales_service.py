@@ -1121,6 +1121,7 @@ class SalesService:
         # Get sale with all relationships (includes IMEI instances and warranty policies)
         sale = db.query(models.Sale).options(
             joinedload(models.Sale.details).joinedload(models.SaleDetail.product).joinedload(models.Product.warranty_policy),
+            joinedload(models.Sale.details).joinedload(models.SaleDetail.unit),
             joinedload(models.Sale.details).joinedload(models.SaleDetail.instances).joinedload(models.SaleDetailInstance.product_instance),
             joinedload(models.Sale.customer),
             joinedload(models.Sale.payments)
