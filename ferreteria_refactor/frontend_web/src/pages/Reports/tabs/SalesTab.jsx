@@ -401,77 +401,77 @@ const SalesTab = ({ dateRange }) => {
     // RENDER: Historial sub-view
     // -----------------------------------------------------------------------
     const renderHistorial = () => (
-        <div className="space-y-5">
+        <div className="space-y-3">
             {/* Metric Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+                        <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest">
                             Ventas Totales
                         </CardTitle>
                         <FileText className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-black text-slate-800">{metrics.totalSales}</div>
-                        <p className="text-xs text-slate-400 font-bold mt-1">Transacciones filtradas</p>
+                        <div className="text-xl font-black text-slate-800 tabular-nums">{metrics.totalSales}</div>
+                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">Transacciones filtradas</p>
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+                        <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest">
                             Ingreso Total
                         </CardTitle>
                         <AlertTriangle className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-black text-emerald-600">
+                        <div className="text-xl font-black text-emerald-600 tabular-nums">
                             ${fmtUSD(metrics.totalRevenue)}
                         </div>
-                        <p className="text-xs text-slate-400 font-bold mt-1">En USD (aprox)</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">En USD (aprox)</p>
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-slate-500 uppercase tracking-wider">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+                        <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest">
                             Ticket Promedio
                         </CardTitle>
                         <FileText className="h-4 w-4 text-indigo-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-black text-indigo-600">
+                        <div className="text-xl font-black text-indigo-600 tabular-nums">
                             ${fmtUSD(metrics.averageTicket)}
                         </div>
-                        <p className="text-xs text-slate-400 font-bold mt-1">Por transaccion</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">Por transaccion</p>
                     </CardContent>
                 </Card>
             </div>
 
             {/* Filter Toolbar */}
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <div className="flex items-center gap-3 w-full md:w-auto flex-1">
-                    <div className="relative w-full max-w-sm">
+            <div className="flex flex-col md:flex-row gap-2 items-center justify-between bg-white p-2.5 rounded-lg shadow-sm border border-slate-200">
+                <div className="flex items-center gap-2 w-full md:w-auto flex-1">
+                    <div className="relative w-full max-w-md">
                         <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                         <Input
                             placeholder="Buscar folio, cliente o referencia..."
-                            className="pl-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-colors"
+                            className="h-9 pl-9 bg-slate-50/50 border-slate-200 focus:bg-white transition-colors"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <Input
                             type="date"
-                            className="w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
+                            className="h-9 w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
                             value={dateFrom}
                             onChange={(e) => setDateFrom(e.target.value)}
                         />
                         <span className="text-slate-300">-</span>
                         <Input
                             type="date"
-                            className="w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
+                            className="h-9 w-full sm:w-auto bg-slate-50/50 border-slate-200 text-xs font-bold text-slate-600 uppercase"
                             value={dateTo}
                             onChange={(e) => setDateTo(e.target.value)}
                         />
@@ -479,7 +479,7 @@ const SalesTab = ({ dateRange }) => {
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="gap-2 border-slate-200 text-slate-600">
+                            <Button variant="outline" className="h-9 gap-2 border-slate-200 text-slate-600">
                                 <Filter size={14} /> Filtro: {selectedStatus === '' ? 'Todos' : selectedStatus === 'VOIDED' ? 'Anulados' : 'Completados'}
                             </Button>
                         </DropdownMenuTrigger>
@@ -494,7 +494,7 @@ const SalesTab = ({ dateRange }) => {
 
                     <Button
                         variant="outline"
-                        className="gap-2 border-slate-200 text-slate-600 hover:text-indigo-600 active:scale-95 transition-transform"
+                        className="h-9 gap-2 border-slate-200 text-slate-600 hover:text-indigo-600 active:scale-95 transition-transform"
                         onClick={handleExportHistorial}
                     >
                         <FileDown size={14} /> Exportar
@@ -503,57 +503,57 @@ const SalesTab = ({ dateRange }) => {
             </div>
 
             {/* Sales Table */}
-            <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+            <div className="rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
                 <Table>
-                    <TableHeader className="bg-slate-50/50">
+                    <TableHeader className="bg-slate-50/80">
                         <TableRow>
-                            <TableHead className="w-[100px] font-bold text-slate-500 uppercase text-xs tracking-wider">Folio</TableHead>
-                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider">Fecha</TableHead>
-                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider">Cliente</TableHead>
-                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider">Cajero / Caja</TableHead>
-                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider text-right">Total</TableHead>
-                            <TableHead className="font-bold text-slate-500 uppercase text-xs tracking-wider text-center">Estado</TableHead>
+                            <TableHead className="w-[86px] font-black text-slate-400 uppercase text-[11px] tracking-widest">Folio</TableHead>
+                            <TableHead className="font-black text-slate-400 uppercase text-[11px] tracking-widest">Fecha</TableHead>
+                            <TableHead className="font-black text-slate-400 uppercase text-[11px] tracking-widest">Cliente</TableHead>
+                            <TableHead className="font-black text-slate-400 uppercase text-[11px] tracking-widest">Cajero / Caja</TableHead>
+                            <TableHead className="font-black text-slate-400 uppercase text-[11px] tracking-widest text-right">Total</TableHead>
+                            <TableHead className="font-black text-slate-400 uppercase text-[11px] tracking-widest text-center">Estado</TableHead>
                             <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-32 text-center text-slate-400 font-medium animate-pulse">
+                                <TableCell colSpan={7} className="h-24 text-center text-slate-400 font-medium animate-pulse">
                                     Cargando datos...
                                 </TableCell>
                             </TableRow>
                         ) : filteredSales.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-32 text-center text-slate-400 font-medium">
+                                <TableCell colSpan={7} className="h-24 text-center text-slate-400 font-medium">
                                     No se encontraron ventas
                                 </TableCell>
                             </TableRow>
                         ) : (
                             filteredSales.map((sale) => (
-                                <TableRow key={sale.id} className="hover:bg-slate-50/50 group">
-                                    <TableCell className="font-mono font-bold text-slate-700">
+                                <TableRow key={sale.id} className="hover:bg-slate-50/70 group">
+                                    <TableCell className="font-mono font-black text-slate-700 text-xs">
                                         #{sale.id}
                                     </TableCell>
-                                    <TableCell className="text-slate-500 text-xs">
+                                    <TableCell className="text-slate-500 text-[11px]">
                                         <div className="flex flex-col">
                                             <span className="font-medium text-slate-600">{new Date(sale.date).toLocaleDateString()}</span>
                                             <span>{new Date(sale.date).toLocaleTimeString()}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8 bg-indigo-100 text-indigo-600 font-bold border border-indigo-200">
+                                        <div className="flex items-center gap-2">
+                                            <Avatar className="h-7 w-7 bg-indigo-100 text-indigo-600 font-bold border border-indigo-200 text-[10px]">
                                                 <AvatarFallback>
                                                     {sale.customer?.name ? sale.customer.name.substring(0, 2).toUpperCase() : 'GN'}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <div className="flex flex-col">
-                                                <span className="font-bold text-slate-700 text-sm">
+                                                <span className="font-bold text-slate-700 text-xs">
                                                     {sale.customer?.name || 'Cliente General'}
                                                 </span>
                                                 {sale.customer?.id_number && (
-                                                    <span className="text-[10px] text-slate-400 font-medium">
+                                                    <span className="text-[9px] text-slate-400 font-medium">
                                                         {sale.customer.id_number}
                                                     </span>
                                                 )}
@@ -591,8 +591,8 @@ const SalesTab = ({ dateRange }) => {
                                     <TableCell>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="secondary" className="h-8 px-3 gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-sm transition-all hover:scale-105 active:scale-95">
-                                                    <span className="text-xs font-bold">Opciones</span>
+                                                <Button variant="secondary" className="h-7 px-2 gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-sm transition-all hover:scale-105 active:scale-95">
+                                                    <span className="text-[11px] font-bold">Opciones</span>
                                                     <MoreHorizontal className="h-3.5 w-3.5" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -925,7 +925,7 @@ const SalesTab = ({ dateRange }) => {
                         <div className="flex-1 flex flex-col p-6 overflow-hidden">
                             {selectedSale.is_credit && selectedSale.bloqueo_codigo_activacion && (
                                 <div className="col-span-full mb-2 p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-2">
                                         <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-200">
                                             <ScanBarcode size={20} />
                                         </div>
