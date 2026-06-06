@@ -242,6 +242,30 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
     const [expandedGroup, setExpandedGroup] = useState(null);
 
+    const getMenuSection = (group) => {
+        const label = group.type === 'single' ? group.item.label : group.label;
+        const normalizedLabel = label.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        if (normalizedLabel === 'Resumen' || normalizedLabel === 'Centro de Ventas' || ['Restaurante', 'Servicios', 'Lavanderia', 'Farmacia', 'Barberia / Salon', 'Comandera'].includes(normalizedLabel)) {
+            return 'Operaci\u00f3n';
+        }
+        if (normalizedLabel === 'Centro de Inventario') return 'Inventario';
+        if (normalizedLabel === 'Finanzas') return 'Finanzas';
+        if (normalizedLabel === 'Configuracion' || normalizedLabel === 'Panel Empresarial') return 'Administraci\u00f3n';
+        return 'M\u00f3dulos';
+    };
+
+    const renderSectionMarker = (section, idx) => {
+        if (!section) return null;
+        if (isCollapsed) {
+            return idx === 0 ? null : <div className="mx-auto my-2 h-px w-8 bg-slate-100" />;
+        }
+        return (
+            <div className={cn("px-4 pb-1 pt-4 text-[10px] font-black uppercase tracking-widest text-slate-400", idx === 0 && "pt-0")}>
+                {section}
+            </div>
+        );
+    };
+
     useEffect(() => {
         if (isCollapsed) return;
         menuStructure.forEach(group => {
@@ -312,27 +336,33 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
             {/* Navigation - Scrollable Area */}
             <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-1 custom-scrollbar scroll-smooth">
                 {menuStructure.map((group, idx) => {
+                    const section = getMenuSection(group);
+                    const previousSection = idx > 0 ? getMenuSection(menuStructure[idx - 1]) : null;
+                    const sectionMarker = section !== previousSection ? renderSectionMarker(section, idx) : null;
+
                     // SINGLE ITEM
                     if (group.type === 'single') {
                         const isActive = location.pathname === group.item.path;
                         return (
-                            <Link
-                                key={group.item.path}
-                                to={group.item.path}
-                                id={group.item.label === 'Resumen' ? 'sidebar-dashboard' : undefined}
-                                onClick={closeMobileMenu}
-                                className={cn(
-                                    "flex items-center px-4 py-3 rounded-lg text-sm transition-colors relative group mb-1",
-                                    isActive
-                                        ? "bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-100"
-                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
-                                    isCollapsed && "justify-center px-0 h-11"
-                                )}
-                                title={isCollapsed ? group.item.label : ''}
-                            >
-                                <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600")} strokeWidth={isActive ? 2.4 : 2} />
-                                {!isCollapsed && <span className="ml-3 font-bold">{group.item.label}</span>}
-                            </Link>
+                            <div key={`nav-${group.item.path}`}>
+                                {sectionMarker}
+                                <Link
+                                    to={group.item.path}
+                                    id={group.item.label === 'Resumen' ? 'sidebar-dashboard' : undefined}
+                                    onClick={closeMobileMenu}
+                                    className={cn(
+                                        "flex items-center px-4 py-3 rounded-lg text-sm transition-colors relative group mb-1",
+                                        isActive
+                                            ? "bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-100"
+                                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium",
+                                        isCollapsed && "justify-center px-0 h-11"
+                                    )}
+                                    title={isCollapsed ? group.item.label : ''}
+                                >
+                                    <group.item.icon size={20} className={cn("shrink-0", isActive ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600")} strokeWidth={isActive ? 2.4 : 2} />
+                                    {!isCollapsed && <span className="ml-3 font-bold">{group.item.label}</span>}
+                                </Link>
+                            </div>
                         );
                     }
 
@@ -343,24 +373,28 @@ export default function Sidebar({ isCollapsed, toggleSidebar, isMobileMenuOpen, 
 
                     if (isCollapsed) {
                         return (
-                            <div key={idx} className="flex justify-center my-1 group relative">
-                                <button
-                                    id={groupId}
-                                    onClick={() => toggleGroup(group.label)}
-                                    className={cn(
-                                        "w-11 h-11 flex items-center justify-center rounded-lg transition-colors",
-                                        hasActiveChild ? "bg-indigo-50 text-indigo-600 shadow-sm" : "text-slate-400 hover:bg-slate-50"
-                                    )}
-                                    title={group.label}
-                                >
-                                    <group.icon size={20} />
-                                </button>
+                            <div key={`nav-${group.label}`} className="group relative">
+                                {sectionMarker}
+                                <div className="flex justify-center my-1">
+                                    <button
+                                        id={groupId}
+                                        onClick={() => toggleGroup(group.label)}
+                                        className={cn(
+                                            "w-11 h-11 flex items-center justify-center rounded-lg transition-colors",
+                                            hasActiveChild ? "bg-indigo-50 text-indigo-600 shadow-sm" : "text-slate-400 hover:bg-slate-50"
+                                        )}
+                                        title={group.label}
+                                    >
+                                        <group.icon size={20} />
+                                    </button>
+                                </div>
                             </div>
                         );
                     }
 
                     return (
-                        <div key={idx} className="mb-2">
+                        <div key={`nav-${group.label}`} className="mb-2">
+                            {sectionMarker}
                             <button
                                 onClick={() => toggleGroup(group.label)}
                                 id={groupId}
