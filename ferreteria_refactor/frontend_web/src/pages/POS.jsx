@@ -174,8 +174,8 @@ const POS = () => {
     const categories = posCategories || [];
     const warehouses = posWarehouses || [];
     const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
-    const [salespeople, setSalespeople] = useState([]);
     const [employees, setEmployees] = useState([]);
+    const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
     const [selectedSalespersonId, setSelectedSalespersonId] = useState(''); // NEW: Global Salesperson
 
     const [isLoading, setIsLoading] = useState(true);
@@ -187,6 +187,7 @@ const POS = () => {
 
     // Refs
     const catalogRef = useRef(null);
+    const employeesLoadedRef = useRef(false);
 
     // ... (Existing hotkeys remain same) ...
     // F3: Focus search input
@@ -364,18 +365,6 @@ const POS = () => {
             try {
                 setSelectedWarehouseId('all');
 
-                // PERF: users/employees se cargan en background DESPUES del render inicial
-
-                // No bloquean la carga del catalogo ni los pagos
-                setTimeout(() => {
-                    Promise.all([
-                        apiClient.get('/users', { _silent403: true, _silentNetworkError: true }),
-                        apiClient.get('/employees', { _silent403: true, _silentNetworkError: true })
-                    ]).then(([usersRes, employeesRes]) => {
-                        if (Array.isArray(usersRes.data)) setSalespeople(usersRes.data.filter(u => u.is_active));
-                        if (Array.isArray(employeesRes.data)) setEmployees(employeesRes.data.filter(e => e.status === 'ACTIVE'));
-                    }).catch(() => {});
-                }, 1500); // Diferir 1.5s — el POS ya está visible y funcional
 
                 if (modules?.services) {
                     // Other service-specific logic if any
@@ -472,6 +461,20 @@ const POS = () => {
 
     const focusSearch = focusAndSelectSearch;
 
+    const loadEmployees = useCallback(async () => {
+        if (employeesLoadedRef.current || isLoadingEmployees) return;
+        setIsLoadingEmployees(true);
+        try {
+            const { data } = await apiClient.get('/employees', { _silent403: true, _silentNetworkError: true });
+            setEmployees(Array.isArray(data) ? data.filter(e => e.status === 'ACTIVE' || e.is_active) : []);
+            employeesLoadedRef.current = true;
+        } catch {
+            setEmployees([]);
+        } finally {
+            setIsLoadingEmployees(false);
+        }
+    }, [isLoadingEmployees]);
+
     const handleProductClick = (product) => {
         // Bug [006] fix: clear search text and keep focus on search bar
         setSearchTerm('');
@@ -483,6 +486,7 @@ const POS = () => {
         if (product.is_barbershop_service) {
             setSelectedProductForEmployee(product);
             setIsEmployeeModalOpen(true);
+            loadEmployees();
             return;
         }
 
@@ -1153,6 +1157,7 @@ const POS = () => {
                     isOpen={isEmployeeModalOpen}
                     onClose={() => setIsEmployeeModalOpen(false)}
                     employees={employees}
+                    loading={isLoadingEmployees}
                     onSelect={handleEmployeeSelect}
                 />
 
