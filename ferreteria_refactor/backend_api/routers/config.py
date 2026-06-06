@@ -468,6 +468,7 @@ def get_pos_init(db: Session = Depends(get_db)):
     configs = {r[0]: r[1] for r in db.execute(text(f"SELECT key, value FROM {schema}.business_config")).all()}
     exchange_rates = db.query(models.ExchangeRate).filter(models.ExchangeRate.is_active == True).all()
     payment_methods = db.query(models.PaymentMethod).filter(models.PaymentMethod.is_active == True).all()
+    price_lists = db.query(models.PriceList).filter(models.PriceList.is_active == True).order_by(models.PriceList.id.asc()).all()
 
     result = {
         "business": {
@@ -490,6 +491,11 @@ def get_pos_init(db: Session = Depends(get_db)):
              "is_system": m.is_system, "is_external_financer": getattr(m, 'is_external_financer', False),
              "requires_reference": getattr(m, 'requires_reference', False)}
             for m in payment_methods
+        ],
+        "price_lists": [
+            {"id": pl.id, "name": pl.name, "requires_auth": pl.requires_auth,
+             "is_active": pl.is_active, "created_at": pl.created_at.isoformat() if pl.created_at else None}
+            for pl in price_lists
         ],
         "settings": {
             "auto_print_ticket": configs.get("auto_print_ticket", "false").lower() == "true",

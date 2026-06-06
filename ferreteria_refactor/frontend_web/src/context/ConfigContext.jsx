@@ -20,6 +20,7 @@ export const ConfigProvider = ({ children }) => {
     // Feature flags a la carta (activados por tenant desde panel admin)
     const [featureFlags, setFeatureFlags] = useState({});
     const [autoPrintTicket, setAutoPrintTicket] = useState(false);
+    const [priceLists, setPriceLists] = useState([]);
     const [posSettings, setPosSettings] = useState({
         pos_default_price_list_id: '',
         pos_show_bs: true,
@@ -117,12 +118,13 @@ export const ConfigProvider = ({ children }) => {
                 exchangeRates: false,
                 paymentMethods: false,
                 autoPrint: false,
+                priceLists: false,
             };
 
             try {
                 const posInit = await apiClient.get('/config/pos-init', { _silentNetworkError: true });
                 if (posInit.data) {
-                    const { business, exchange_rates, payment_methods, settings } = posInit.data;
+                    const { business, exchange_rates, payment_methods, price_lists, settings } = posInit.data;
                     if (business?.name) {
                         setBusiness(prev => ({ ...prev, ...business }));
                         loadedFromPosInit.business = true;
@@ -134,6 +136,10 @@ export const ConfigProvider = ({ children }) => {
                     if (payment_methods?.length) {
                         setPaymentMethods(payment_methods);
                         loadedFromPosInit.paymentMethods = true;
+                    }
+                    if (Array.isArray(price_lists)) {
+                        setPriceLists(price_lists.filter(pl => pl.is_active));
+                        loadedFromPosInit.priceLists = true;
                     }
                     if (settings) {
                         setAutoPrintTicket(!!settings.auto_print_ticket);
@@ -186,6 +192,16 @@ export const ConfigProvider = ({ children }) => {
 
             // 2. Load Payment Methods only if pos-init did not provide them
             if (!loadedFromPosInit.paymentMethods) fetchPaymentMethods();
+
+            // 2.5. Load price lists only as fallback for older/stale pos-init cache payloads
+            if (!loadedFromPosInit.priceLists) {
+                apiClient.get('/price-lists/', {
+                    params: { active_only: true },
+                    _silentNetworkError: true,
+                })
+                    .then(res => setPriceLists(Array.isArray(res.data) ? res.data.filter(pl => pl.is_active) : []))
+                    .catch(() => {});
+            }
 
             // 3. Authenticated Business Info only if pos-init did not provide it
             const token = localStorage.getItem('token');
@@ -339,6 +355,7 @@ export const ConfigProvider = ({ children }) => {
             business,
             currencies,
             autoPrintTicket,
+            priceLists,
             posSettings,
             loading,
             refreshConfig,

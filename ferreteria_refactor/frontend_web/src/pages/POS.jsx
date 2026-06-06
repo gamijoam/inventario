@@ -53,7 +53,7 @@ const POS = () => {
     const { user, updateUserPreferences } = useAuth();
     const { cart, addToCart, removeFromCart, updateQuantity, updateCartItem, clearCart, totalUSD, totalBs, totalsByCurrency, exchangeRates, discountUSD, cartDiscount, heldCart, holdCart, resumeHeldCart, discardHeldCart, overwriteCart } = useCart();
     const { isSessionOpen, openSession, loading: isCashLoading } = useCash();
-    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings } = useConfig();
+    const { getActiveCurrencies, getPrimaryLocalCurrency, convertPrice, convertProductPrice, currencies, modules, formatCurrency, posSettings, priceLists } = useConfig();
     const { subscribe } = useWebSocket();
     const {
         products: displayProducts, isLoading: catalogLoading, isLoadingMore,
@@ -154,7 +154,6 @@ const POS = () => {
     const [activeQuoteId, setActiveQuoteId] = useState(null);
 
     // NEW: Price Lists & Security State
-    const [priceLists, setPriceLists] = useState([]);
     const [pinModalOpen, setPinModalOpen] = useState(false);
     const [pendingPriceUpdate, setPendingPriceUpdate] = useState(null); // { itemId, price, listId }
     const [activePricePopover, setActivePricePopover] = useState(null); // itemId
@@ -363,17 +362,12 @@ const POS = () => {
             // Assuming session check is handled by context/other logic or implicit here
 
             try {
-                const [categoriesRes, warehousesRes, priceListsRes] = await Promise.all([
+                const [categoriesRes, warehousesRes] = await Promise.all([
                     apiClient.get('/categories'),
-                    apiClient.get('/warehouses'),
-                    apiClient.get('/price-lists/') // NEW
+                    apiClient.get('/warehouses')
                 ]);
                 setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
                 setWarehouses(Array.isArray(warehousesRes.data) ? warehousesRes.data : []);
-
-                if (priceListsRes && Array.isArray(priceListsRes.data)) {
-                    setPriceLists(priceListsRes.data.filter(pl => pl.is_active));
-                }
                 setSelectedWarehouseId('all');
 
                 // PERF: users/employees se cargan en background DESPUÉS del render inicial

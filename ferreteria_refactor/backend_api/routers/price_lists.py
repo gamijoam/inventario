@@ -5,11 +5,22 @@ from ..database.db import get_db
 from ..models import models
 from .. import schemas
 from datetime import datetime
+from ..cache import invalidate_resource
+from ..tenant_context import get_tenant_schema
 
 router = APIRouter(
     prefix="/price-lists",
     tags=["Price Lists"]
 )
+
+
+def _invalidate_pos_price_list_cache():
+    try:
+        schema = get_tenant_schema()
+        invalidate_resource(schema, "pos_init")
+        invalidate_resource(schema, "pos-init")
+    except Exception:
+        pass
 
 @router.get("/", response_model=List[schemas.PriceListRead])
 def get_price_lists(
@@ -45,6 +56,7 @@ def create_price_list(
     )
     db.add(new_list)
     db.commit()
+    _invalidate_pos_price_list_cache()
     db.expunge(new_list)
     return new_list
 
@@ -67,6 +79,7 @@ def update_price_list(
     price_list.requires_auth = list_data.requires_auth
     price_list.is_active = list_data.is_active
     db.commit()
+    _invalidate_pos_price_list_cache()
     return price_list
 
 @router.patch("/{list_id}", response_model=schemas.PriceListRead)
@@ -87,6 +100,7 @@ def patch_price_list(
         price_list.name = list_data["name"]
 
     db.commit()
+    _invalidate_pos_price_list_cache()
     return price_list
 
 @router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -101,4 +115,5 @@ def delete_price_list(list_id: int, db: Session = Depends(get_db)):
     
     db.delete(price_list)
     db.commit()
+    _invalidate_pos_price_list_cache()
     return None
