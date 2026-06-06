@@ -1,6 +1,11 @@
 import apiClient from '../config/axios';
 
 const unifiedReportService = {
+    getDashboardInit: async (params) => {
+        const response = await apiClient.get('/reports/dashboard-init', { params });
+        return response.data;
+    },
+
     // Sales & Financials
     getSalesSummary: async (params) => {
         // params: { start_date, end_date }

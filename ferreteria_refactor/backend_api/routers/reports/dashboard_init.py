@@ -25,6 +25,7 @@ def _float(v):
 def get_dashboard_init(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
+    refresh: bool = False,
     db: Session = Depends(get_db),
     _: models.User = Depends(get_current_active_user)
 ):
@@ -50,7 +51,7 @@ def get_dashboard_init(
 
     cache_key = f"dashboard_init:{d_from}:{d_to}"
     cached = get_cached(schema, cache_key)
-    if cached:
+    if cached and not refresh:
         return cached
 
     import logging
@@ -132,6 +133,36 @@ def get_dashboard_init(
         WHERE date::date BETWEEN :d_from AND :d_to
     """), {"d_from": prev_from, "d_to": prev_to}).first()
 
+    try:
+        prev_profit = db.execute(text(f"""
+            SELECT
+                COALESCE(SUM(sd.subtotal), 0) AS revenue,
+                COALESCE(SUM(sd.cost_at_sale * sd.quantity), 0) AS cost
+            FROM {schema}.sale_details sd
+            JOIN {schema}.sales s ON s.id = sd.sale_id
+            WHERE s.date::date BETWEEN :d_from AND :d_to
+        """), {"d_from": prev_from, "d_to": prev_to}).first()
+    except Exception as e:
+        log.error(f"[dashboard-init] ERROR en previous profit query: {e}")
+        prev_profit = type('obj', (object,), {'revenue': 0, 'cost': 0})()
+
+    daily_rows = db.execute(text(f"""
+        WITH sale_costs AS (
+            SELECT sale_id, COALESCE(SUM(cost_at_sale * quantity), 0) AS cost
+            FROM {schema}.sale_details
+            GROUP BY sale_id
+        )
+        SELECT
+            s.date::date AS day,
+            COALESCE(SUM(s.total_amount), 0) AS revenue,
+            COALESCE(SUM(sc.cost), 0) AS cost
+        FROM {schema}.sales s
+        LEFT JOIN sale_costs sc ON sc.sale_id = s.id
+        WHERE s.date::date BETWEEN :d_from AND :d_to
+        GROUP BY s.date::date
+        ORDER BY s.date::date
+    """), {"d_from": d_from, "d_to": d_to}).all()
+
     result = {
         "period": {"from": str(d_from), "to": str(d_to)},
         "sales": {
@@ -150,6 +181,9 @@ def get_dashboard_init(
         "vs_previous": {
             "sales_count":   int(prev_sales.count or 0),
             "sales_revenue": _float(prev_sales.revenue),
+            "profit_revenue": _float(prev_profit.revenue),
+            "profit_cost": _float(prev_profit.cost),
+            "gross_profit": _float(prev_profit.revenue) - _float(prev_profit.cost),
             "count_change_pct": round(
                 ((int(sales_summary.total_count or 0) - int(prev_sales.count or 0))
                  / max(int(prev_sales.count or 1), 1)) * 100, 1
@@ -170,6 +204,14 @@ def get_dashboard_init(
         "low_stock": [
             {"name": r.name, "stock": _float(r.stock), "min_stock": _float(r.min_stock), "category": r.category}
             for r in low_stock
+        ],
+        "daily": [
+            {
+                "date": str(r.day),
+                "revenue": _float(r.revenue),
+                "gross_profit": _float(r.revenue) - _float(r.cost),
+            }
+            for r in daily_rows
         ],
     }
 

@@ -253,78 +253,116 @@ const Dashboard = () => {
     const [paymentPie,    setPaymentPie]    = useState([]);
 
     /* ── carga principal ── */
-    const load = useCallback(async (silent = false) => {
+    const buildChartFromDaily = useCallback((dailyRows = [], start, end) => {
+        const startD = new Date(start + 'T12:00:00');
+        const endD   = new Date(end   + 'T12:00:00');
+        const days   = Math.round((endD - startD) / 86400000) + 1;
+        const points = Math.min(days, 30);
+        const dayNames = ['Dom','Lun','Mar','Mie','Jue','Vie','Sab'];
+        const pad = (n) => String(n).padStart(2, '0');
+        const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        const byDate = new Map((dailyRows || []).map(row => [row.date, row]));
+
+        return Array.from({ length: points }, (_, i) => {
+            const d = new Date(startD);
+            d.setDate(startD.getDate() + i);
+            const ds = iso(d);
+            const row = byDate.get(ds) || {};
+            return {
+                name: points <= 7 ? (i === points - 1 && preset === 'today' ? 'Hoy' : dayNames[d.getDay()]) : `${d.getDate()}/${d.getMonth()+1}`,
+                Ventas: Number(row.revenue || 0),
+                Ganancia: Number(row.gross_profit || 0),
+            };
+        });
+    }, [preset]);
+
+    const load = useCallback(async (silent = false, forceRefresh = false) => {
         if (!silent) setLoading(true);
         try {
-            const { start, end, prevStart, prevEnd } = period;
+            const { start, end } = period;
 
-            const [curr, prev, profC, profP, topP, empC, cred, recent, payments] = await Promise.all([
-                unifiedReportService.getSalesSummary({ start_date: start, end_date: end }),
-                unifiedReportService.getSalesSummary({ start_date: prevStart, end_date: prevEnd }),
-                unifiedReportService.getProfitability({ start_date: start, end_date: end }),
-                unifiedReportService.getProfitability({ start_date: prevStart, end_date: prevEnd }),
-                unifiedReportService.getTopProducts({ start_date: start, end_date: end, limit: 5, by: 'revenue' }).catch(() => []),
+            const [init, empC, cred, recent, tallerData] = await Promise.all([
+                unifiedReportService.getDashboardInit({ date_from: start, date_to: end, refresh: forceRefresh }),
                 apiClient.get(`/commissions/summary`).catch(() => ({ data: [] })),
                 unifiedReportService.getCreditsSummary().catch(() => null),
                 unifiedReportService.getRecentTransactions(8).catch(() => []),
-                unifiedReportService.getSalesByPaymentMethod({ start_date: start, end_date: end }).catch(() => []),
+                apiClient.get('/services/orders/status/ready').catch(() => ({ data: [] })),
             ]);
 
-            setSalesCurr(curr);
-            setSalesPrev(prev);
-            setProfitCurr(profC);
-            setProfitPrev(profP);
-            setTopProducts(Array.isArray(topP) ? topP : []);
+            const sales = init?.sales || {};
+            const profit = init?.profit || {};
+            const previous = init?.vs_previous || {};
+            const revenue = Number(sales.revenue || 0);
+            const count = Number(sales.count || 0);
+            const previousCount = Number(previous.sales_count || 0);
+            const previousRevenue = Number(previous.sales_revenue || 0);
+
+            setSalesCurr({
+                total_revenue: revenue,
+                net_transactions: count,
+                total_transactions: count,
+                average_ticket: count > 0 ? revenue / count : 0,
+            });
+            setSalesPrev({
+                total_revenue: previousRevenue,
+                net_transactions: previousCount,
+                total_transactions: previousCount,
+                average_ticket: previousCount > 0 ? previousRevenue / previousCount : 0,
+            });
+            setProfitCurr({
+                realized_profit: Number(profit.gross_profit || 0),
+                total_profit: Number(profit.gross_profit || 0),
+            });
+            setProfitPrev({
+                realized_profit: Number(previous.gross_profit || 0),
+                total_profit: Number(previous.gross_profit || 0),
+            });
+
+            setTopProducts((init?.top_products || []).map((p, i) => ({
+                product_id: p.product_id || i,
+                product_name: p.product_name || p.name || 'Producto',
+                revenue: Number(p.revenue || 0),
+                quantity_sold: Number(p.quantity_sold || p.qty || 0),
+            })));
+
             const empData = Array.isArray(empC?.data) ? empC.data : [];
-            // Consolidar por usuario (puede haber VENDOR + TECHNICIAN del mismo user)
             const empMap = {};
             empData.forEach(e => {
                 const key = e.user_id;
                 if (!empMap[key]) {
                     empMap[key] = {
-                        user_id:        e.user_id,
-                        username:       e.user_name,
-                        full_name:      e.full_name || e.user_name,
+                        user_id:         e.user_id,
+                        username:        e.user_name,
+                        full_name:       e.full_name || e.user_name,
                         commission_role: e.commission_role,
-                        total_earned:   Number(e.total_earned || 0),
-                        total_pending:  Number(e.pending_amount || 0),
+                        total_earned:    Number(e.total_earned || 0),
+                        total_pending:   Number(e.pending_amount || 0),
                     };
                 } else {
                     empMap[key].total_earned  += Number(e.total_earned || 0);
                     empMap[key].total_pending += Number(e.pending_amount || 0);
                 }
             });
-            const consolidated = Object.values(empMap)
-                .sort((a, b) => b.total_earned - a.total_earned)
-                .slice(0, 5);
-            setTopEmployees(consolidated);
+            setTopEmployees(Object.values(empMap).sort((a, b) => b.total_earned - a.total_earned).slice(0, 5));
             setCredits(cred);
             setRecentSales(Array.isArray(recent) ? recent : []);
 
-            /* métodos de pago → pie */
             const PIE_COLORS = ['#6366f1','#10b981','#f59e0b','#3b82f6','#8b5cf6','#ef4444'];
-            const pieArr = Array.isArray(payments) ? payments : (payments?.data || []);
-            setPaymentPie(pieArr.slice(0, 6).map((p, i) => ({
+            setPaymentPie((init?.payment_methods || []).slice(0, 6).map((p, i) => ({
                 name:  p.method || p.payment_method || 'Otro',
                 value: Number(p.total_amount || p.total || p.amount || 0),
                 color: PIE_COLORS[i % PIE_COLORS.length],
             })));
 
-            /* gráfico diario del periodo */
-            await buildChart(start, end);
+            setChartData(buildChartFromDaily(init?.daily || [], start, end));
 
-            /* alertas */
-            const [lowStockData, tallerData] = await Promise.all([
-                unifiedReportService.getLowStock(5).catch(() => []),
-                apiClient.get('/services/orders/status/ready').catch(() => ({ data: [] })),
-            ]);
             const overdueCount = cred?.overdue_count || 0;
-            const pendingComm  = empC?.data?.filter(e => Number(e.total_pending || 0) > 0)?.length || 0;
+            const pendingComm  = empData.filter(e => Number(e.pending_amount || e.total_pending || 0) > 0).length;
             setAlerts({
-                lowStock:            Array.isArray(lowStockData) ? lowStockData.length : 0,
-                tallerReady:         Array.isArray(tallerData?.data) ? tallerData.data.length : 0,
-                overdueCredits:      overdueCount,
-                pendingCommissions:  pendingComm,
+                lowStock:           Array.isArray(init?.low_stock) ? init.low_stock.length : 0,
+                tallerReady:        Array.isArray(tallerData?.data) ? tallerData.data.length : 0,
+                overdueCredits:     overdueCount,
+                pendingCommissions: pendingComm,
             });
 
         } catch (e) {
@@ -332,42 +370,12 @@ const Dashboard = () => {
         } finally {
             setLoading(false);
         }
-    }, [period]);
-
-    const buildChart = async (start, end) => {
-        const startD = new Date(start + 'T12:00:00');
-        const endD   = new Date(end   + 'T12:00:00');
-        const days   = Math.round((endD - startD) / 86400000) + 1;
-        const points = Math.min(days, 30);
-        const dayNames = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-        const pad = (n) => String(n).padStart(2, '0');
-        const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-
-        const promises = [];
-        const labels   = [];
-        for (let i = 0; i < points; i++) {
-            const d = new Date(startD); d.setDate(startD.getDate() + i);
-            const ds = iso(d);
-            labels.push(points <= 7 ? (i === points-1 && preset === 'today' ? 'Hoy' : dayNames[d.getDay()]) : `${d.getDate()}/${d.getMonth()+1}`);
-            promises.push(
-                Promise.all([
-                    unifiedReportService.getSalesSummary({ start_date: ds, end_date: ds }).catch(() => ({ total_revenue: 0 })),
-                    unifiedReportService.getProfitability({ start_date: ds, end_date: ds }).catch(() => ({ realized_profit: 0 })),
-                ])
-            );
-        }
-        const results = await Promise.all(promises);
-        setChartData(results.map(([s, p], i) => ({
-            name:    labels[i],
-            Ventas:  Number(s?.total_revenue || 0),
-            Ganancia: Number(p?.realized_profit || p?.total_profit || 0),
-        })));
-    };
+    }, [period, buildChartFromDaily]);
 
     useEffect(() => { if (user && user.role !== 'CASHIER') load(); }, [load, user]);
     useEffect(() => {
         if (!user || user.role === 'CASHIER') return;
-        return subscribe('sale:created', () => load(true));
+        return subscribe('sale:created', () => load(true, true));
     }, [subscribe, user, load]);
 
     /* cajero → panel simplificado */
@@ -394,7 +402,7 @@ const Dashboard = () => {
                         ))}
                     </div>
                     <HelpButton contextKey="dashboard" onClick={help.open} />
-                    <button onClick={() => load()} title="Actualizar"
+                    <button onClick={() => load(false, true)} title="Actualizar"
                         className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm">
                         <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                     </button>
