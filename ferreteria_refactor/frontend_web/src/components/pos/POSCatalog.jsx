@@ -15,8 +15,8 @@ const getColumnCount = (width, simpleMode = false) => {
         if (width >= 768) return 5;
         return 3;
     }
-    if (width >= 1536) return 7;
-    if (width >= 1280) return 6;
+    if (width >= 1536) return 8;
+    if (width >= 1280) return 7;
     if (width >= 1024) return 5;
     if (width >= 768) return 4;
     return 2;
@@ -147,12 +147,12 @@ const POSCatalog = forwardRef(({
 
     const columnCount = getColumnCount(containerSize.width, simpleMode);
     const rowCount = Math.ceil(products.length / columnCount);
-    const GAP = 10; // gap entre cards
-    const PADDING = 16; // p-4 = 16px
+    const GAP = 8; // gap entre cards
+    const PADDING = 12; // p-3 = 12px
     const columnWidth = containerSize.width > 0
         ? (containerSize.width - PADDING * 2 - GAP * (columnCount - 1)) / columnCount
         : 0;
-    const ROW_HEIGHT = simpleMode ? 100 : 185;
+    const ROW_HEIGHT = simpleMode ? 92 : 158;
 
     const totalHeight = rowCount * ROW_HEIGHT;
     const gridHeight = containerSize.height;
@@ -198,10 +198,10 @@ const POSCatalog = forwardRef(({
     const showTotalCount = isServerSide && totalCount != null && products.length > 0;
 
     return (
-        <div className="flex flex-col h-full bg-muted/10 overflow-hidden rounded-3xl border border-slate-200">
+        <div className="flex flex-col h-full bg-muted/10 overflow-hidden rounded-2xl border border-slate-200">
 
             {/* Sticky Header */}
-            <div className="p-4 bg-background border-b z-10 space-y-4 shadow-sm">
+            <div className="p-3 bg-background border-b z-10 space-y-2.5 shadow-sm">
                 {/* Row 1: Search */}
                 <SearchWithScanner
                     ref={searchInputRef}
@@ -210,17 +210,17 @@ const POSCatalog = forwardRef(({
                     onChange={handleSearchInput}
                     placeholder="Buscar productos por nombre o código..."
                     autoFocus
-                    inputClassName="h-10 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-xl"
+                    inputClassName="h-9 pl-10 text-sm bg-slate-50 border-slate-200 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all shadow-sm rounded-xl"
                 />
 
                 {/* Row 2: Categories + Count */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mask-gradient-right">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pr-2 scrollbar-hide mask-gradient-right [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     <Button
                         variant={selectedCategoryId === null ? "default" : "outline"}
                         size="md"
                         onClick={() => handleCategoryClick(null)}
                         className={cn(
-                            "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest",
+                            "rounded-lg px-3 h-7 font-black transition-all uppercase text-[9px] tracking-widest",
                             selectedCategoryId === null
                                 ? "bg-slate-900 hover:bg-black text-white shadow-md shadow-slate-900/10"
                                 : "border-slate-200 text-slate-500 bg-white hover:text-slate-900 hover:border-slate-400"
@@ -235,7 +235,7 @@ const POSCatalog = forwardRef(({
                             size="md"
                             onClick={() => handleCategoryClick(cat.id)}
                             className={cn(
-                                "rounded-xl px-4 h-8 font-black transition-all uppercase text-[10px] tracking-widest whitespace-nowrap",
+                                "rounded-lg px-3 h-7 font-black transition-all uppercase text-[9px] tracking-widest whitespace-nowrap",
                                 selectedCategoryId === cat.id
                                     ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-300/20"
                                     : "border-slate-200 text-slate-500 bg-white hover:text-blue-600 hover:border-blue-300"
@@ -247,7 +247,7 @@ const POSCatalog = forwardRef(({
 
                     {/* Total count indicator */}
                     {showTotalCount && (
-                        <span className="ml-auto text-xs text-slate-400 font-medium whitespace-nowrap shrink-0 pl-4">
+                        <span className="ml-auto text-[11px] text-slate-400 font-medium whitespace-nowrap shrink-0 pl-3">
                             Mostrando {products.length} de {totalCount} productos
                         </span>
                     )}
