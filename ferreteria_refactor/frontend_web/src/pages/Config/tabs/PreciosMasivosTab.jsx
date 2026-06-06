@@ -176,10 +176,10 @@ export default function PreciosMasivosTab() {
   };
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shadow-md">
+      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
           <Calculator className="text-white" size={22} />
         </div>
         <div>
@@ -191,21 +191,21 @@ export default function PreciosMasivosTab() {
       </div>
 
       {/* Banner explicativo */}
-      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
-        <Info size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-blue-900 leading-relaxed">
+      <div className="flex items-start gap-3 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+        <Info size={18} className="mt-0.5 flex-shrink-0 text-indigo-600" />
+        <div className="text-xs leading-relaxed text-indigo-900">
           <p className="font-bold mb-1">¿Qué hace cada opción de "A qué actualizar"?</p>
           <ul className="space-y-0.5 ml-4 list-disc">
-            <li><strong>Lista de precios</strong> — actualiza el precio que el cliente paga en el POS (table <code className="bg-blue-100 px-1 rounded">product_prices</code>). El precio en el formulario del producto NO cambia.</li>
-            <li><strong>Precio base</strong> — actualiza el campo "PRECIO DE VENTA" que ves en el formulario del producto (<code className="bg-blue-100 px-1 rounded">products.price</code>).</li>
+            <li><strong>Lista de precios</strong> — actualiza el precio que el cliente paga en el POS (table <code className="rounded bg-indigo-100 px-1">product_prices</code>). El precio en el formulario del producto NO cambia.</li>
+            <li><strong>Precio base</strong> — actualiza el campo "PRECIO DE VENTA" que ves en el formulario del producto (<code className="rounded bg-indigo-100 px-1">products.price</code>).</li>
             <li><strong>Ambos (recomendado)</strong> — actualiza los dos a la vez. Lo que ves en el formulario y lo que paga el cliente quedan iguales.</li>
           </ul>
         </div>
       </div>
 
       {/* Formulario */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-5 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Margen */}
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block flex items-center gap-1">
@@ -216,7 +216,7 @@ export default function PreciosMasivosTab() {
                 type="number" step="0.01" min="-99" max="10000"
                 value={form.margin_percent}
                 onChange={e => setForm(p => ({ ...p, margin_percent: e.target.value }))}
-                className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                className="w-full pl-3 pr-10 py-2.5 rounded-md border border-slate-200 text-lg font-bold focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20" />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
@@ -225,7 +225,7 @@ export default function PreciosMasivosTab() {
             <button
               type="button"
               onClick={saveDefaultMargin}
-              className="mt-2 text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg py-1.5 px-2.5 transition-all"
+              className="mt-2 text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md px-2.5 py-1.5 transition-colors"
               title="Guarda este valor como margen predeterminado (lo usará también el formulario de producto al calcular)"
             >
               ⭐ Guardar como margen predeterminado
@@ -239,7 +239,7 @@ export default function PreciosMasivosTab() {
             </label>
             <select value={form.target}
               onChange={e => setForm(p => ({ ...p, target: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+              className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white">
               <option value="price_list">Lista de precios (recomendado)</option>
               <option value="product_price">Precio base del producto</option>
               <option value="both">Ambos</option>
@@ -254,7 +254,7 @@ export default function PreciosMasivosTab() {
               </label>
               <select value={form.price_list_id || ''}
                 onChange={e => setForm(p => ({ ...p, price_list_id: parseInt(e.target.value) }))}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white">
                 <option value="">-- Selecciona --</option>
                 {priceLists.map(l => (
                   <option key={l.id} value={l.id}>
@@ -272,7 +272,7 @@ export default function PreciosMasivosTab() {
             </label>
             <select value={form.rounding}
               onChange={e => setForm(p => ({ ...p, rounding: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+              className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-white">
               {Object.entries(ROUNDING_LABELS).map(([k,v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
@@ -288,19 +288,19 @@ export default function PreciosMasivosTab() {
           <input type="text" placeholder="Ej: Ajuste por inflación de mayo"
             value={form.notes}
             onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-            className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+            className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20" />
         </div>
 
         {/* Botones */}
         <div className="flex gap-3 pt-2">
           <button onClick={handlePreview} disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition disabled:opacity-50">
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition disabled:opacity-50">
             {loading ? <RefreshCw size={14} className="animate-spin" /> : <Eye size={14} />}
             Generar vista previa
           </button>
           <button onClick={handleApply}
             disabled={!preview || applying}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold text-sm shadow-md disabled:opacity-50 transition">
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-sm disabled:opacity-50 transition-colors">
             {applying ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
             Aplicar a todos
           </button>
@@ -309,18 +309,18 @@ export default function PreciosMasivosTab() {
 
       {/* Gestión de listas de precios existentes */}
       {priceLists.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="font-black text-slate-800 text-sm flex items-center gap-2 mb-3">
             <DollarSign size={14} className="text-slate-500" /> Listas de precios existentes
           </h3>
           <div className="space-y-2">
             {priceLists.map(l => (
               <div key={l.id}
-                className={`flex items-center justify-between p-3 rounded-xl border ${
+                className={`flex items-center justify-between rounded-md border p-3 ${
                   l.is_active ? 'border-slate-200' : 'border-slate-100 bg-slate-50 opacity-70'
                 }`}>
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-md ${
                     l.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-200 text-slate-400'
                   }`}>
                     <DollarSign size={15} />
@@ -335,7 +335,7 @@ export default function PreciosMasivosTab() {
                 <button
                   onClick={() => handleDeleteList(l)}
                   title="Eliminar lista y todos sus precios"
-                  className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5">
+                  className="flex items-center gap-1.5 rounded-md bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100">
                   <Trash2 size={12} /> Borrar
                 </button>
               </div>
@@ -346,14 +346,14 @@ export default function PreciosMasivosTab() {
 
       {/* Preview */}
       {preview && (
-        <div className="bg-white rounded-2xl border border-purple-200 p-6 shadow-sm space-y-4">
+        <div className="space-y-4 rounded-lg border border-indigo-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h3 className="font-black text-slate-800 flex items-center gap-2">
-              <Eye size={16} className="text-purple-500" />
+              <Eye size={16} className="text-indigo-500" />
               Vista previa
             </h3>
             <div className="flex items-center gap-3 text-xs">
-              <span className="bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full font-bold">
+              <span className="rounded-md bg-indigo-50 px-2.5 py-1 font-bold text-indigo-700">
                 {preview.total_products} productos
               </span>
               <span className="text-slate-500">
@@ -370,7 +370,7 @@ export default function PreciosMasivosTab() {
           </div>
 
           {Math.abs(preview.total_value_after - preview.total_value_before) < 0.01 && (
-            <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 flex items-start gap-2">
+            <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 flex items-start gap-2">
               <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="text-sm font-bold text-amber-800">No hay cambios que aplicar</p>
@@ -413,7 +413,7 @@ export default function PreciosMasivosTab() {
             </table>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
             <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <p className="text-[11px] text-amber-800">
               Al hacer click en "Aplicar a todos" se actualizan los precios de los {preview.total_products} productos.
@@ -424,7 +424,7 @@ export default function PreciosMasivosTab() {
       )}
 
       {/* Historial */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-black text-slate-800 flex items-center gap-2">
             <History size={16} className="text-slate-500" /> Historial de cambios
@@ -442,12 +442,12 @@ export default function PreciosMasivosTab() {
           <div className="space-y-2">
             {history.map(h => (
               <div key={h.id}
-                className={`rounded-xl border p-3 flex items-center justify-between gap-3 ${
-                  h.reverted_at ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-100 hover:border-purple-200'
+                className={`flex items-center justify-between gap-3 rounded-md border p-3 ${
+                  h.reverted_at ? 'bg-slate-50 border-slate-200 opacity-60' : 'bg-white border-slate-100 hover:border-indigo-200'
                 }`}>
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    h.reverted_at ? 'bg-slate-200 text-slate-500' : 'bg-purple-50 text-purple-600'
+                  <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md ${
+                    h.reverted_at ? 'bg-slate-200 text-slate-500' : 'bg-indigo-50 text-indigo-600'
                   }`}>
                     <DollarSign size={16} />
                   </div>
@@ -479,7 +479,7 @@ export default function PreciosMasivosTab() {
                 </div>
                 {!h.reverted_at && (
                   <button onClick={() => handleRevert(h.id)}
-                    className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold flex items-center gap-1.5 flex-shrink-0">
+                    className="flex flex-shrink-0 items-center gap-1.5 rounded-md bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 hover:bg-amber-100">
                     <Undo2 size={12} /> Revertir
                   </button>
                 )}
