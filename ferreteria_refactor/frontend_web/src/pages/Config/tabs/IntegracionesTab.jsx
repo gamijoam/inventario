@@ -14,7 +14,8 @@ export default function IntegracionesTab() {
     const [loading, setLoading]     = useState(true);
     const [form, setForm]           = useState({ email: '', password: '' });
     const [isSplitLogic, setIsSplitLogic] = useState(false);
-    const [actualizandoFlag, setActualizandoFlag] = useState(false);     const [conectando, setConectando] = useState(false);
+    const [actualizandoFlag, setActualizandoFlag] = useState(false);
+    const [conectando, setConectando] = useState(false);
     const [mostrarPass, setMostrarPass] = useState(false);
 
     // Cargar estado actual de la integración
@@ -37,7 +38,9 @@ export default function IntegracionesTab() {
             toast.success("Lógica de venta mixta actualizada");
         } catch (e) { toast.error("Error al actualizar configuración"); }
         finally { setActualizandoFlag(false); }
-    };     const cargarEstado = async () => {
+    };
+
+    const cargarEstado = async () => {
         setLoading(true);
         try {
             const r = await apiClient.get('/bloqueo/config/estado');
@@ -63,7 +66,7 @@ export default function IntegracionesTab() {
                 email   : form.email,
                 password: form.password,
             });
-            toast.success(r.data?.mensaje || '✅ Conectado correctamente');
+            toast.success(r.data?.mensaje || 'Conectado correctamente');
             setForm({ email: '', password: '' });
             cargarEstado();
         } catch (e) {
@@ -86,18 +89,18 @@ export default function IntegracionesTab() {
     };
 
     return (
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-5 max-w-5xl">
             <div>
-                <h2 className="text-lg font-black text-slate-800 mb-1">Integraciones</h2>
+                <h2 className="text-lg font-black text-slate-900 mb-1">Integraciones</h2>
                 <p className="text-sm text-slate-400">Conecta Mi Inventario con sistemas externos.</p>
             </div>
 
             {/* ── Tarjeta BloqueCelular ── */}
-            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
 
                 {/* Header */}
                 <div className="flex items-center gap-4 p-5 border-b border-slate-100">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                    <div className="h-10 w-10 rounded-md bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
                         <Lock className="w-6 h-6 text-indigo-600" />
                     </div>
                     <div className="flex-1">
@@ -109,11 +112,11 @@ export default function IntegracionesTab() {
                     {loading ? (
                         <RefreshCw className="w-4 h-4 text-slate-400 animate-spin" />
                     ) : estado?.enabled ? (
-                        <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-bold">
+                        <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md text-xs font-bold">
                             <CheckCircle2 className="w-3.5 h-3.5" /> Conectado
                         </span>
                     ) : (
-                        <span className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 text-slate-500 border border-slate-200 rounded-full text-xs font-bold">
+                        <span className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 text-slate-500 border border-slate-200 rounded-md text-xs font-bold">
                             <XCircle className="w-3.5 h-3.5" /> No conectado
                         </span>
                     )}
@@ -123,7 +126,7 @@ export default function IntegracionesTab() {
 
                     {/* Estado conectado */}
                     {estado?.enabled && (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-2">
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-2">
                             <p className="text-sm font-bold text-emerald-800">
                                 ✅ Integración activa
                             </p>
@@ -139,7 +142,7 @@ export default function IntegracionesTab() {
                                 <div>
                                     <p className="text-emerald-600 font-medium">Token JWT</p>
                                     <p className="text-emerald-800 font-bold">
-                                        {estado.token_vigente ? '✅ Vigente' : '⚠️ Expirado'}
+                                        {estado.token_vigente ? 'Vigente' : 'Expirado'}
                                     </p>
                                 </div>
                                 <div>
@@ -165,9 +168,9 @@ export default function IntegracionesTab() {
                         </div>
                     )}
                         {/* --- SECCION AUDITORIA --- */}
-                        <div className="mt-6 pt-4 border-t border-emerald-100">
-                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3">Configuración de Auditoría</p>
-                            <div className="bg-white/50 border border-emerald-100 rounded-xl p-3 flex items-center justify-between gap-4">
+                        <div className="mt-4 pt-4 border-t border-slate-100">
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Configuración de Auditoría</p>
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-4">
                                 <div className="flex-1">
                                     <p className="text-xs font-bold text-slate-700">Separación Crédito / Contado</p>
                                     <p className="text-[10px] text-slate-500 leading-tight mt-1">
@@ -185,7 +188,7 @@ export default function IntegracionesTab() {
                         </div> 
                     {/* Cómo funciona */}
                     {!estado?.enabled && (
-                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
                             <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">¿Cómo funciona?</p>
                             <ul className="space-y-1.5 text-xs text-slate-600">
                                 {[
@@ -195,7 +198,7 @@ export default function IntegracionesTab() {
                                     'Cuando el cliente paga, desbloqueas el equipo con un clic',
                                 ].map((item, i) => (
                                     <li key={i} className="flex items-start gap-2">
-                                        <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                                        <span className="h-4 w-4 rounded-md bg-indigo-600 text-white text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">
                                             {i+1}
                                         </span>
                                         {item}
@@ -229,7 +232,7 @@ export default function IntegracionesTab() {
                                     value={form.email}
                                     onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
                                     placeholder="admin@tutienda.com"
-                                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-400 text-sm outline-none"
+                                    className="w-full px-3 py-2.5 rounded-md border border-slate-200 focus:border-indigo-400 text-sm outline-none"
                                 />
                             </div>
                             <div>
@@ -243,7 +246,7 @@ export default function IntegracionesTab() {
                                         onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                                         onKeyDown={e => e.key === 'Enter' && conectar()}
                                         placeholder="••••••••"
-                                        className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-400 text-sm outline-none pr-10"
+                                        className="w-full px-3 py-2.5 rounded-md border border-slate-200 focus:border-indigo-400 text-sm outline-none pr-10"
                                     />
                                     <button
                                         type="button"
@@ -259,7 +262,7 @@ export default function IntegracionesTab() {
                         <button
                             onClick={conectar}
                             disabled={conectando || !form.email || !form.password}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-60"
                         >
                             {conectando
                                 ? <RefreshCw className="w-4 h-4 animate-spin" />
