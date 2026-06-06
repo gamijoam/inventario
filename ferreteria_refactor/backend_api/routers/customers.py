@@ -22,6 +22,22 @@ def _invalidate_customers_cache():
         pass
 
 
+def _serialize_customer(customer):
+    return {
+        "id": customer.id,
+        "name": customer.name,
+        "id_number": customer.id_number,
+        "phone": customer.phone,
+        "email": customer.email,
+        "address": customer.address,
+        "credit_limit": str(customer.credit_limit or 0),
+        "payment_term_days": customer.payment_term_days if customer.payment_term_days is not None else 15,
+        "unique_uuid": getattr(customer, "unique_uuid", None),
+        "is_blocked": bool(customer.is_blocked),
+        "is_active": customer.is_active if customer.is_active is not None else True,
+    }
+
+
 @router.get("/")
 @router.get("", include_in_schema=False)
 def read_customers(
@@ -49,7 +65,7 @@ def read_customers(
     total = query.count()
     items = query.offset(skip).limit(limit).all()
     result = {
-        "items": [schemas.CustomerRead.model_validate(item).model_dump(mode="json") for item in items],
+        "items": [_serialize_customer(item) for item in items],
         "total": total,
         "has_more": (skip + limit) < total
     }
