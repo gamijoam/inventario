@@ -645,58 +645,58 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         )}
 
         {/* ── OVERLAY ──────────────────────────────────────────────────────── */}
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
-            style={{ background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(8px)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3"
+            style={{ background: 'rgba(15,23,42,0.62)', backdropFilter: 'blur(6px)' }}>
 
-            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
-                style={{ maxHeight: '92vh' }}>
+            <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+                style={{ maxHeight: '94vh' }}>
 
                 {/* ── TOP: Total destacado ──────────────────────────────────── */}
-                <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 px-5 py-4 relative overflow-hidden">
-                    <div className="absolute -top-8 -right-8 w-32 h-32 bg-white/5 rounded-full" />
-                    <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-white/5 rounded-full" />
+                <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 px-4 py-3 relative overflow-hidden">
+                    <div className="absolute -top-8 -right-8 w-24 h-24 bg-white/5 rounded-full" />
+                    <div className="absolute -bottom-6 -left-6 w-20 h-20 bg-white/5 rounded-full" />
 
                     <div className="flex items-start justify-between relative z-10">
                         <div>
                             <p className="text-indigo-200 text-[10px] font-bold uppercase tracking-widest mb-0.5">Total a Cobrar</p>
                             <div className="flex items-baseline gap-1.5">
                                 <span className="text-indigo-300 text-lg font-light">$</span>
-                                <span className="text-4xl font-black text-white tracking-tighter leading-none">
+                                <span className="text-3xl font-black text-white tracking-tighter leading-none">
                                     {formatLocalCurrency(totalUSD)}
                                 </span>
                             </div>
                             {/* Equivalentes monedas */}
-                            <div className="flex flex-wrap gap-1.5 mt-2">
+                            <div className="flex flex-wrap gap-1 mt-1.5">
                                 {Object.entries(totalsByCurrency || {}).filter(([c, a]) => c !== 'USD' && a > 0.005).map(([code, amt]) => {
                                     const curr = getActiveCurrencies().find(c => c.currency_code === code);
                                     const sym = curr?.currency_symbol || code;
                                     const rate = getExchangeRate(code) || 1;
                                     return (
-                                        <span key={code} className="bg-white/10 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                                        <span key={code} className="bg-white/10 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">
                                             {sym} {formatLocalCurrency(amt)} <span className="text-white/60 text-xs">· {formatLocalCurrency(rate)}</span>
                                         </span>
                                     );
                                 })}
                                 {Object.entries(totalsByCurrency || {}).filter(([c, a]) => c !== 'USD' && a > 0.005).length === 0 && (
-                                    <span className="bg-white/10 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                                    <span className="bg-white/10 text-white text-[11px] font-bold px-2 py-0.5 rounded-md">
                                         Bs {formatLocalCurrency(displayTotalBs)} <span className="text-white/60 text-xs">· {formatLocalCurrency(defaultBsRate)}</span>
                                     </span>
                                 )}
                                 {discountUSD > 0 && (
-                                    <span className="bg-rose-500/30 text-rose-200 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1">
+                                    <span className="bg-rose-500/30 text-rose-200 text-[10px] font-black px-2 py-0.5 rounded-md flex items-center gap-1">
                                         <Tag size={9} /> −${formatLocalCurrency(discountUSD)}
                                     </span>
                                 )}
                             </div>
                         </div>
-                        <button onClick={onClose} className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 hover:text-white transition-all shrink-0">
+                        <button onClick={onClose} className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/70 hover:text-white transition-all shrink-0">
                             <X size={16} />
                         </button>
                     </div>
 
                     {/* Estado pago */}
                     {!isCreditSale && totalPaidUSD > 0 && (
-                        <div className={`mt-3 rounded-xl px-3 py-2.5 relative z-10 transition-all ${
+                        <div className={`mt-2 rounded-lg px-3 py-2 relative z-10 transition-all ${
                             isComplete ? 'bg-emerald-500/25 border border-emerald-400/30' : 'bg-rose-500/20 border border-rose-400/20'
                         }`}>
                             <div className="flex items-center justify-between">
@@ -728,20 +728,20 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         }
                                         return (
                                             <>
-                                                <p className="text-white font-black text-lg font-mono">${formatLocalCurrency(changeUSD)}</p>
+                                                <p className="text-white font-black text-base font-mono">${formatLocalCurrency(changeUSD)}</p>
                                                 {!allUSD && localSym && (
-                                                    <p className="text-emerald-300 font-bold text-sm font-mono">{localSym} {formatLocalCurrency(changeLocal)}</p>
+                                                    <p className="text-emerald-300 font-bold text-xs font-mono">{localSym} {formatLocalCurrency(changeLocal)}</p>
                                                 )}
                                                 {allUSD && defaultBsRate > 1 && (
-                                                    <p className="text-emerald-300 font-bold text-sm font-mono">Bs {formatLocalCurrency(changeUSD * defaultBsRate)}</p>
+                                                    <p className="text-emerald-300 font-bold text-xs font-mono">Bs {formatLocalCurrency(changeUSD * defaultBsRate)}</p>
                                                 )}
                                             </>
                                         );
                                     })() : !isComplete ? (
                                         <>
-                                            <p className={`font-black text-lg font-mono ${isComplete ? "text-white" : "text-rose-200"}`}>${formatLocalCurrency(remainingUSD)}</p>
+                                            <p className={`font-black text-base font-mono ${isComplete ? "text-white" : "text-rose-200"}`}>${formatLocalCurrency(remainingUSD)}</p>
                                             {defaultBsRate > 1 && (
-                                                <p className="text-rose-300 font-bold text-sm font-mono">Bs {formatLocalCurrency(remainingUSD * defaultBsRate)}</p>
+                                                <p className="text-rose-300 font-bold text-xs font-mono">Bs {formatLocalCurrency(remainingUSD * defaultBsRate)}</p>
                                             )}
                                         </>
                                     ) : null}
@@ -750,13 +750,13 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         </div>
                     )}
                     {isCreditSale && (
-                        <div className="mt-3 bg-white/10 border border-white/20 rounded-xl px-3 py-2 flex items-center gap-2 relative z-10">
+                        <div className="mt-2 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 flex items-center gap-2 relative z-10">
                             <CreditCard size={16} className="text-indigo-200 shrink-0" />
                             <span className="text-xs font-black text-indigo-100">Venta a Crédito — pago diferido</span>
                         </div>
                     )}
                     {isFinancingMode && (
-                        <div className="mt-3 bg-white/10 border border-emerald-300/30 rounded-xl px-3 py-2 flex items-center gap-2 relative z-10">
+                        <div className="mt-2 bg-white/10 border border-emerald-300/30 rounded-lg px-3 py-1.5 flex items-center gap-2 relative z-10">
                             <span className="text-emerald-200 shrink-0">🏦</span>
                             <span className="text-xs font-black text-emerald-100">Financiamiento — Cashea / Krece</span>
                         </div>
@@ -764,7 +764,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 </div>
 
                 {/* ── BODY scrollable ──────────────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
 
                     {isFinancingMode ? (
                         <FinancingStep
@@ -776,7 +776,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
                     {/* Cliente */}
                     <div>
-                        <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center justify-between mb-1">
                             <p className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                                 <User size={12} /> Cliente {isCreditSale && <span className="text-rose-500">*</span>}
                             </p>
@@ -796,25 +796,25 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 ) : creditInfo ? (
                                     <div className="space-y-1.5">
                                         <div className="grid grid-cols-3 gap-1.5">
-                                            <div className="bg-slate-50 rounded-xl p-2 text-center border border-slate-100">
+                                            <div className="bg-slate-50 rounded-lg p-1.5 text-center border border-slate-100">
                                                 <p className="text-[8px] text-slate-400 font-bold uppercase mb-0.5">Límite</p>
                                                 <p className="text-xs font-black text-slate-700 font-mono">${formatLocalCurrency(creditInfo.credit_limit)}</p>
                                             </div>
-                                            <div className="bg-rose-50 rounded-xl p-2 text-center border border-rose-100">
+                                            <div className="bg-rose-50 rounded-lg p-1.5 text-center border border-rose-100">
                                                 <p className="text-[8px] text-rose-400 font-bold uppercase mb-0.5">Deuda</p>
                                                 <p className="text-xs font-black text-rose-600 font-mono">${formatLocalCurrency(creditInfo.total_debt)}</p>
                                             </div>
-                                            <div className={`rounded-xl p-2 text-center border ${creditInfo.available_credit >= totalUSD ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-200'}`}>
+                                            <div className={`rounded-lg p-1.5 text-center border ${creditInfo.available_credit >= totalUSD ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-200'}`}>
                                                 <p className={`text-[8px] font-bold uppercase mb-0.5 ${creditInfo.available_credit >= totalUSD ? 'text-emerald-500' : 'text-rose-500'}`}>Disp.</p>
                                                 <p className={`text-xs font-black font-mono ${creditInfo.available_credit >= totalUSD ? 'text-emerald-700' : 'text-rose-700'}`}>${formatLocalCurrency(creditInfo.available_credit)}</p>
                                             </div>
                                         </div>
-                                        {creditInfo.available_credit < totalUSD && <div className="flex items-center gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-xl text-[10px] text-rose-700 font-bold"><X size={11} className="shrink-0 text-rose-500" />Crédito insuficiente. Falta ${formatLocalCurrency(totalUSD - creditInfo.available_credit)}</div>}
-                                        {creditInfo.is_blocked && <div className="flex items-center gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-xl text-[10px] text-rose-700 font-bold"><X size={11} className="shrink-0 text-rose-500" />Cliente bloqueado</div>}
-                                        {creditInfo.overdue_invoices > 0 && <div className="flex items-center gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-700 font-bold"><Calculator size={11} className="shrink-0 text-amber-500" />{creditInfo.overdue_invoices} factura(s) vencida(s) — ${formatLocalCurrency(creditInfo.overdue_amount)}</div>}
+                                        {creditInfo.available_credit < totalUSD && <div className="flex items-center gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 font-bold"><X size={11} className="shrink-0 text-rose-500" />Crédito insuficiente. Falta ${formatLocalCurrency(totalUSD - creditInfo.available_credit)}</div>}
+                                        {creditInfo.is_blocked && <div className="flex items-center gap-1.5 p-2 bg-rose-50 border border-rose-200 rounded-lg text-[10px] text-rose-700 font-bold"><X size={11} className="shrink-0 text-rose-500" />Cliente bloqueado</div>}
+                                        {creditInfo.overdue_invoices > 0 && <div className="flex items-center gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-lg text-[10px] text-amber-700 font-bold"><Calculator size={11} className="shrink-0 text-amber-500" />{creditInfo.overdue_invoices} factura(s) vencida(s) — ${formatLocalCurrency(creditInfo.overdue_amount)}</div>}
                                     </div>
                                 ) : (
-                                    <div className="mt-1 bg-indigo-50 rounded-xl p-2 border border-indigo-100 text-xs font-black text-indigo-700">
+                                    <div className="mt-1 bg-indigo-50 rounded-lg p-1.5 border border-indigo-100 text-xs font-black text-indigo-700">
                                         Límite: ${formatLocalCurrency(Number(selectedCustomer.credit_limit || 0))}
                                     </div>
                                 )}
@@ -823,7 +823,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                     </div>
 
                     {/* Toggle crédito */}
-                    <label className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all select-none ${isCreditSale ? 'border-indigo-400 bg-indigo-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
+                    <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all select-none ${isCreditSale ? 'border-indigo-400 bg-indigo-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${isCreditSale ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300'}`}>
                             {isCreditSale && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
                         </div>
@@ -834,7 +834,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                         </div>
                     </label>
                     {business?.external_financing_enabled !== false && (
-                    <label className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all select-none ${isFinancingMode ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
+                    <label className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all select-none ${isFinancingMode ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-slate-50/50 hover:border-slate-300'}`}>
                         <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${isFinancingMode ? 'bg-emerald-600 border-emerald-600' : 'border-slate-300'}`}>
                             {isFinancingMode && <CheckCircle size={12} className="text-white" strokeWidth={4} />}
                         </div>
@@ -848,7 +848,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
 
                     {/* Calculadora crédito celular */}
                     {isCreditSale && cart.some(i => i.has_imei) && (
-                        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 flex items-center justify-between">
+                        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2.5 flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-black text-indigo-700">📱 Celular en carrito</p>
                                 <p className="text-[10px] text-indigo-500 mt-0.5">Calcula las cuotas antes de confirmar</p>
@@ -866,12 +866,12 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                                     <Layers size={10} /> Métodos de Pago
                                 </p>
-                                <button onClick={addPaymentRow} className="text-[11px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-lg transition-all">
+                                <button onClick={addPaymentRow} className="text-[10px] font-black text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-md transition-all">
                                     + Agregar
                                 </button>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                                 {payments.map((payment, index) => {
                                     const selMethod = paymentMethods.find(m => m.name === payment.method);
                                     const needsRef = selMethod?.requires_reference;
@@ -881,9 +881,9 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                         : null;
 
                                     return (
-                                        <div key={index} className="rounded-xl border border-slate-200 overflow-hidden focus-within:border-indigo-400 transition-all bg-white">
+                                        <div key={index} className="rounded-lg border border-slate-200 overflow-hidden focus-within:border-indigo-400 transition-all bg-white">
                                             {/* Fila superior: método + moneda */}
-                                            <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50/50">
+                                            <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100 bg-slate-50/50">
                                                 <select
                                                     className="flex-1 bg-transparent text-xs font-bold text-slate-700 focus:outline-none"
                                                     value={payment.method}
@@ -898,7 +898,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                         <button
                                                             key={c.symbol}
                                                             onClick={() => updatePayment(index, 'currency', c.symbol)}
-                                                            className={`px-2.5 py-1 rounded-md text-xs font-black transition-all ${
+                                                            className={`px-2 py-0.5 rounded-md text-[11px] font-black transition-all ${
                                                                 payment.currency === c.symbol
                                                                     ? 'bg-indigo-600 text-white shadow-sm'
                                                                     : 'bg-white text-slate-500 border border-slate-200 hover:border-indigo-300'
@@ -906,20 +906,20 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                                         >{c.symbol}</button>
                                                     ))}
                                                     {payments.length > 1 && (
-                                                        <button onClick={() => removePaymentRow(index)} className="ml-1 w-7 h-7 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-all">
+                                                        <button onClick={() => removePaymentRow(index)} className="ml-1 w-6 h-6 flex items-center justify-center text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-md transition-all">
                                                             <Trash2 size={13} />
                                                         </button>
                                                     )}
                                                 </div>
                                             </div>
                                             {/* Input monto grande */}
-                                            <div className="flex items-center px-3 py-2.5">
-                                                <span className="text-2xl font-black text-slate-300 mr-2">
+                                            <div className="flex items-center px-3 py-2">
+                                                <span className="text-xl font-black text-slate-300 mr-2">
                                                     {payment.currency === 'USD' || payment.currency === '$' ? '$' : payment.currency}
                                                 </span>
                                                 <CurrencyInput
                                                     autoFocus={index === 0}
-                                                    className="flex-1 text-3xl font-black text-slate-900 bg-transparent border-none focus:ring-0 focus:outline-none text-right font-mono placeholder:text-slate-200"
+                                                    className="flex-1 text-2xl font-black text-slate-900 bg-transparent border-none focus:ring-0 focus:outline-none text-right font-mono placeholder:text-slate-200"
                                                     placeholder="0,00"
                                                     value={payment.amount}
                                                     onChange={val => updatePayment(index, 'amount', val)}
@@ -927,20 +927,20 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                             </div>
                                             {/* Tasa hint */}
                                             {rate && (
-                                                <div className="px-3 pb-2 flex justify-end">
-                                                    <span className="text-[11px] text-slate-500 font-mono bg-slate-100 px-2.5 py-1 rounded-full font-bold">
+                                                <div className="px-3 pb-1.5 flex justify-end">
+                                                    <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-md font-bold">
                                                         Tasa: {formatLocalCurrency(rate)} {payment.currency}/$
                                                     </span>
                                                 </div>
                                             )}
                                             {/* Referencia */}
                                             {needsRef && (
-                                                <div className="flex gap-2 px-3 pb-2.5 animate-in fade-in slide-in-from-top-1">
-                                                    <Input type="text" placeholder="Referencia / # Transferencia" className="flex-1 text-xs h-8 rounded-xl border-indigo-200 bg-indigo-50/50"
+                                                <div className="flex gap-2 px-3 pb-2 animate-in fade-in slide-in-from-top-1">
+                                                    <Input type="text" placeholder="Referencia / # Transferencia" className="flex-1 text-xs h-8 rounded-lg border-indigo-200 bg-indigo-50/50"
                                                         value={payment.reference || ''} onChange={e => updatePayment(index, 'reference', e.target.value)} />
                                                     <div className="relative w-36 shrink-0">
                                                         <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
-                                                        <Input type="date" className="text-xs h-8 rounded-xl border-indigo-200 bg-indigo-50/50 pl-6 w-full"
+                                                        <Input type="date" className="text-xs h-8 rounded-lg border-indigo-200 bg-indigo-50/50 pl-6 w-full"
                                                             value={payment.payment_date || new Date().toISOString().split('T')[0]}
                                                             onChange={e => updatePayment(index, 'payment_date', e.target.value)} />
                                                     </div>
@@ -957,15 +957,15 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 </div>
 
                 {!isFinancingMode && (
-                <div className="px-4 pb-4 pt-2.5 border-t border-slate-100 flex gap-2 shrink-0 bg-white">
-                    <button onClick={onClose} className="px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">
+                <div className="px-3 pb-3 pt-2 border-t border-slate-100 flex gap-2 shrink-0 bg-white">
+                    <button onClick={onClose} className="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all">
                         Cancelar
                     </button>
                     <button
                         onClick={handleConfirm}
                         disabled={processing || (!isCreditSale && !isComplete && !isFinancingMode) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))}
                         className={cn(
-                            'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-black text-sm transition-all',
+                            'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-black text-sm transition-all',
                             processing || (!isCreditSale && !isComplete && !isFinancingMode) || (isCreditSale && !selectedCustomer) || (isCreditSale && creditInfo && (creditInfo.available_credit < totalUSD || creditInfo.is_blocked))
                                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                 : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200/60 hover:-translate-y-0.5 active:scale-[0.98]'
