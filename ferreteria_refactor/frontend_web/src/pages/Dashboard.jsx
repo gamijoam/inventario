@@ -503,44 +503,78 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Métodos de pago */}
+                {/* Metodos de pago */}
                 <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-                    <h3 className="font-bold text-slate-800 mb-1">Métodos de Pago</h3>
-                    <p className="text-xs text-slate-400 mb-3">Distribución del periodo</p>
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                            <h3 className="font-black text-slate-900 text-sm">Metodos de Pago</h3>
+                            <p className="text-xs text-slate-400">Distribucion del periodo</p>
+                        </div>
+                        {!loading && paymentPie.length > 0 && (
+                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-600">
+                                {paymentPie.length} activos
+                            </span>
+                        )}
+                    </div>
                     {loading ? (
-                        <div className="h-44 bg-slate-50 rounded-xl animate-pulse" />
-                    ) : paymentPie.length > 0 ? (
-                        <>
-                            <div className="h-36">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie data={paymentPie} cx="50%" cy="50%" innerRadius="55%" outerRadius="80%"
-                                             paddingAngle={3} dataKey="value" animationDuration={800}>
-                                            {paymentPie.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
-                                        </Pie>
-                                        <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`]} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgb(0 0 0 / .1)', fontSize: 12 }} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="space-y-1.5 mt-2">
-                                {paymentPie.map((e, i) => (
-                                    <div key={i} className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="w-2.5 h-2.5 rounded-full" style={{ background: e.color }} />
-                                            <span className="text-slate-600 font-medium">{e.name}</span>
-                                        </div>
-                                        <span className="font-bold text-slate-700">${Number(e.value).toFixed(0)}</span>
+                        <div className="h-52 bg-slate-50 rounded-lg animate-pulse" />
+                    ) : paymentPie.length > 0 ? (() => {
+                        const paymentTotal = paymentPie.reduce((sum, item) => sum + Number(item.value || 0), 0);
+                        const mainPayment = paymentPie.reduce((max, item) => Number(item.value || 0) > Number(max.value || 0) ? item : max, paymentPie[0]);
+                        return (
+                            <>
+                                <div className="relative h-40">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={paymentPie} cx="50%" cy="50%" innerRadius="62%" outerRadius="86%"
+                                                 paddingAngle={3} dataKey="value" animationDuration={700}>
+                                                {paymentPie.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
+                                            </Pie>
+                                            <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`]} contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 8px 20px rgb(15 23 42 / .10)', fontSize: 12 }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total</span>
+                                        <span className="text-xl font-black tracking-tight text-slate-950">{fmtCompact(paymentTotal)}</span>
                                     </div>
-                                ))}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="h-44 flex items-center justify-center text-slate-400 text-xs">Sin pagos en el periodo</div>
+                                </div>
+                                <div className="mb-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                                    <div className="flex items-center justify-between gap-3 text-xs">
+                                        <span className="font-bold text-slate-500">Principal</span>
+                                        <span className="font-black text-slate-900 truncate">{mainPayment.name}</span>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    {paymentPie.map((e, i) => {
+                                        const pct = paymentTotal > 0 ? Math.round((Number(e.value || 0) / paymentTotal) * 100) : 0;
+                                        return (
+                                            <div key={i}>
+                                                <div className="mb-1 flex items-center justify-between gap-2 text-xs">
+                                                    <div className="flex min-w-0 items-center gap-1.5">
+                                                        <div className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: e.color }} />
+                                                        <span className="truncate font-bold text-slate-600">{e.name}</span>
+                                                    </div>
+                                                    <div className="shrink-0 text-right">
+                                                        <span className="font-black text-slate-800">${Number(e.value).toFixed(0)}</span>
+                                                        <span className="ml-1 text-[10px] font-bold text-slate-400">{pct}%</span>
+                                                    </div>
+                                                </div>
+                                                <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                                    <div className="h-full rounded-full" style={{ width: `${Math.max(pct, 4)}%`, background: e.color }} />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        );
+                    })() : (
+                        <EmptyState icon={CreditCard} title="Sin pagos en el periodo" desc="Los metodos usados apareceran cuando existan ventas." />
                     )}
                 </div>
             </div>
 
-            {/* ── TOP PRODUCTOS + TOP EMPLEADOS ── */}
+            {/* Top productos + equipo */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Top productos */}
@@ -624,79 +658,52 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            {/* ── ACTIVIDAD RECIENTE MEJORADA ── */}
+            {/* Actividad reciente */}
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
                     <div>
                         <h3 className="font-black text-slate-800 text-sm">Actividad Reciente</h3>
-                        <p className="text-xs text-slate-400">Últimas 8 transacciones</p>
+                        <p className="text-xs text-slate-400">Ultimas 8 transacciones</p>
                     </div>
-                    <button onClick={() => navigate('/sales-history')} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5">
+                    <button onClick={() => navigate('/sales-history')} className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-0.5 shrink-0">
                         Ver todo <ChevronRight size={13} />
                     </button>
                 </div>
                 {loading ? (
-                    <div className="p-4 space-y-2">{[...Array(5)].map((_,i) => <div key={i} className="h-10 bg-slate-50 rounded-xl animate-pulse" />)}</div>
+                    <div className="grid gap-2 p-4 md:grid-cols-2">{[...Array(6)].map((_,i) => <div key={i} className="h-16 bg-slate-50 rounded-lg animate-pulse" />)}</div>
                 ) : recentSales.length > 0 ? (
-                    <>
-                        {/* Mobile */}
-                        <div className="block md:hidden divide-y divide-slate-50">
-                            {recentSales.slice(0,5).map(sale => (
-                                <div key={sale.id} className="px-4 py-2.5 hover:bg-slate-50">
-                                    <div className="flex justify-between items-start">
-                                        <p className="font-semibold text-slate-800 text-sm">{sale.customer?.name || 'Cliente General'}</p>
-                                        <span className="font-bold text-slate-900 text-sm">${Number(sale.total_amount||0).toFixed(2)}</span>
+                    <div className="grid gap-2 p-3 md:grid-cols-2 xl:grid-cols-4">
+                        {recentSales.map(sale => {
+                            const isCredit = !!sale.credit_sale;
+                            const saleDate = sale.date ? new Date(sale.date) : null;
+                            return (
+                                <button key={sale.id} onClick={() => navigate('/sales-history')}
+                                    className="group rounded-lg border border-slate-100 bg-slate-50/60 p-3 text-left transition-all hover:-translate-y-0.5 hover:border-indigo-100 hover:bg-white hover:shadow-md">
+                                    <div className="mb-2 flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                            <p className="truncate text-sm font-black text-slate-900">{sale.customer?.name || 'Cliente General'}</p>
+                                            <p className="mt-0.5 text-[11px] font-bold text-slate-400">#{sale.id}</p>
+                                        </div>
+                                        <span className="shrink-0 text-sm font-black text-slate-950">${Number(sale.total_amount||0).toFixed(2)}</span>
                                     </div>
-                                    <div className="flex justify-between text-xs text-slate-400 mt-0.5">
-                                        <span>#{sale.id} · {sale.payment_method || 'Efectivo'}</span>
-                                        <span>{sale.date ? new Date(sale.date).toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'}) : ''}</span>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-white px-2 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+                                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
+                                            <span className="truncate">{sale.payment_method || 'Efectivo'}</span>
+                                        </span>
+                                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black ${isCredit ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                                            {isCredit ? <Clock size={10}/> : <CheckCircle size={10}/>}
+                                            {isCredit ? 'Credito' : 'Pagado'}
+                                        </span>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                        {/* Desktop */}
-                        <div className="hidden md:block overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                                <thead className="border-b border-slate-100 bg-slate-50/50">
-                                    <tr>
-                                        <th className="px-4 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Cliente</th>
-                                        <th className="px-4 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Fecha</th>
-                                        <th className="px-4 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Método</th>
-                                        <th className="px-4 py-2.5 text-left font-semibold text-slate-500 text-xs uppercase tracking-wider">Estado</th>
-                                        <th className="px-4 py-2.5 text-right font-semibold text-slate-500 text-xs uppercase tracking-wider">Monto</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {recentSales.map(sale => (
-                                        <tr key={sale.id} className="hover:bg-slate-50/80 transition-colors">
-                                            <td className="px-4 py-2.5">
-                                                <p className="font-semibold text-slate-800">{sale.customer?.name || 'Cliente General'}</p>
-                                                <p className="text-xs text-slate-400">#{sale.id}</p>
-                                            </td>
-                                            <td className="px-4 py-2.5 text-slate-500 text-xs">
-                                                {sale.date ? new Date(sale.date).toLocaleDateString('es-VE',{ month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '—'}
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 font-medium">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-300" />
-                                                    {sale.payment_method || 'Efectivo'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${sale.credit_sale ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                                                    {sale.credit_sale ? <Clock size={10}/> : <CheckCircle size={10}/>}
-                                                    {sale.credit_sale ? 'Crédito' : 'Pagado'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-2.5 text-right font-bold text-slate-900">
-                                                ${Number(sale.total_amount||0).toFixed(2)}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </>
+                                    <div className="mt-2 flex items-center justify-between text-[11px] font-semibold text-slate-400">
+                                        <span>{saleDate ? saleDate.toLocaleDateString('es-VE',{ month:'short', day:'numeric' }) : 'Sin fecha'}</span>
+                                        <span>{saleDate ? saleDate.toLocaleTimeString('es-VE',{ hour:'2-digit', minute:'2-digit' }) : ''}</span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
                 ) : (
                     <EmptyState icon={ShoppingCart} title="Sin transacciones recientes" desc="Las ultimas ventas apareceran en esta seccion." />
                 )}
