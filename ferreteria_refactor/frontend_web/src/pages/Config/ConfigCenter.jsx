@@ -96,10 +96,9 @@ const renderTabContent = (activeTab) => {
 const ConfigCenter = () => {
     const { modules, featureFlags } = useConfig();
     const [searchParams, setSearchParams] = useSearchParams();
-    const activeTab = searchParams.get('tab') || 'general';
+    const requestedTab = searchParams.get('tab') || 'general';
     const [mobileOpen, setMobileOpen] = useState(false);
     const help = useHelp();
-    const configHelpKey = `config/${activeTab}`;
 
     const setTab = (id) => {
         setSearchParams({ tab: id });
@@ -110,6 +109,7 @@ const ConfigCenter = () => {
     const visibleGroups = GROUPS.map(group => ({
         ...group,
         items: group.items.filter(item => {
+            if (item.id === 'impuestos') return false;
             if (item.id === 'integraciones') return modules?.services;
             if (item.id === 'whatsapp') return featureFlags?.whatsapp_business;
             if (item.id === 'catalogo') return featureFlags?.catalogo_publico;
@@ -122,6 +122,8 @@ const ConfigCenter = () => {
     // Aplanar para búsqueda rápida (solo tabs visibles)
     const allTabs = visibleGroups.flatMap(g => g.items);
 
+    const activeTab = allTabs.some(t => t.id === requestedTab) ? requestedTab : 'general';
+    const configHelpKey = `config/${activeTab}`;
     const currentItem = allTabs.find(t => t.id === activeTab);
     const CurrentIcon = currentItem?.icon || Building2;
 
