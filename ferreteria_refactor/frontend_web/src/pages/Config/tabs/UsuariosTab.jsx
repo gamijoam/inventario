@@ -164,7 +164,7 @@ const UsuariosTab = () => {
         };
 
         return (
-            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${badges[role] || 'bg-slate-100 text-slate-800'}`}>
+            <span className={`rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${badges[role] || 'bg-slate-100 text-slate-800'}`}>
                 {labels[role] || role}
             </span>
         );
@@ -187,13 +187,13 @@ const UsuariosTab = () => {
     };
 
     return (
-        <div className="p-6">
+        <div className="space-y-5">
             {/* Header */}
-            <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
-                        <div className="p-2.5 bg-blue-600 rounded-2xl shadow-lg shadow-indigo-300/30">
-                            <Users className="text-white" size={28} />
+                    <h1 className="flex items-center gap-2 text-xl font-black text-slate-900">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
+                            <Users className="text-white" size={21} />
                         </div>
                         Gestión de Usuarios
                     </h1>
@@ -203,33 +203,31 @@ const UsuariosTab = () => {
                 <button
                     id="tour-users-add-btn"
                     onClick={() => handleOpenModal('create')}
-                    className="group flex items-center gap-2 bg-slate-900 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-xl shadow-slate-200 active:scale-95"
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700 active:scale-[0.98]"
                 >
-                    <Plus size={22} className="group-hover:rotate-90 transition-transform" />
+                    <Plus size={18} />
                     <span>Nuevo Usuario</span>
                 </button>
             </div>
 
             {/* Users List: Mobile Cards / Desktop Table */}
-            <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 {/* Mobile View: Cards */}
-                <div className="block md:hidden p-4 space-y-4 bg-slate-50/50">
+                <div className="block space-y-3 bg-slate-50/50 p-4 md:hidden">
                     {loading ? (
                         <div className="text-center p-8 text-slate-400 font-medium">Cargando usuarios...</div>
                     ) : users.length === 0 ? (
                         <div className="text-center p-8 text-slate-400 font-medium italic">No hay usuarios registrados</div>
                     ) : (
                         users.map(user => (
-                            <div key={user.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-12 -mt-12 group-hover:bg-blue-100 transition-colors" />
-
+                            <div key={user.id} className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-indigo-200">
                                 <div className="flex justify-between items-start mb-4 relative z-10">
                                     <div className="flex items-center gap-3">
-                                        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-2.5 shadow-md">
-                                            <Users size={20} className="text-white" />
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
+                                            <Users size={18} className="text-white" />
                                         </div>
                                         <div>
-                                            <h3 className="font-black text-slate-800 text-lg leading-tight tracking-tight">{user.username}</h3>
+                                            <h3 className="text-base font-black leading-tight text-slate-900">{user.username}</h3>
                                             <p className="text-slate-400 text-xs font-bold uppercase mt-1">{user.full_name || 'Sin nombre asignado'}</p>
                                         </div>
                                     </div>
@@ -243,24 +241,24 @@ const UsuariosTab = () => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-slate-50 relative z-10">
+                                <div className="relative z-10 mt-4 grid grid-cols-4 gap-2 border-t border-slate-100 pt-4">
                                     <button
                                         onClick={() => handleOpenModal('edit', user)}
-                                        className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-slate-50 text-slate-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-95"
+                                        className="flex flex-col items-center gap-1.5 p-2.5 rounded-md bg-slate-50 text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
                                     >
                                         <Edit size={18} />
                                         <span className="text-[10px] font-black uppercase">Editar</span>
                                     </button>
                                     <button
                                         onClick={() => handleOpenPinModal(user)}
-                                        className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-slate-50 text-slate-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm active:scale-95"
+                                        className="flex flex-col items-center gap-1.5 p-2.5 rounded-md bg-slate-50 text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
                                     >
                                         <Lock size={18} />
                                         <span className="text-[10px] font-black uppercase">PIN</span>
                                     </button>
                                     <button
                                         onClick={() => handleOpenModal('password', user)}
-                                        className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-slate-50 text-slate-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm active:scale-95"
+                                        className="flex flex-col items-center gap-1.5 p-2.5 rounded-md bg-slate-50 text-slate-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
                                     >
                                         <Key size={18} />
                                         <span className="text-[10px] font-black uppercase">Clave</span>
@@ -268,7 +266,7 @@ const UsuariosTab = () => {
                                     {user.id !== currentUser?.id && (
                                         <button
                                             onClick={() => handleDeactivate(user.id)}
-                                            className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-slate-50 text-slate-600 hover:bg-rose-600 hover:text-white transition-all shadow-sm active:scale-95"
+                                            className="flex flex-col items-center gap-1.5 p-2.5 rounded-md bg-slate-50 text-slate-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
                                         >
                                             <Trash2 size={18} />
                                             <span className="text-[10px] font-black uppercase">Borrar</span>
@@ -283,15 +281,15 @@ const UsuariosTab = () => {
                 {/* Desktop View: Table */}
                 <table className="w-full hidden md:table">
                     <thead>
-                        <tr className="bg-slate-50/80 border-b border-slate-100">
-                            <th className="text-left p-6 text-xs font-black uppercase tracking-widest text-slate-400">Usuario</th>
-                            <th className="text-left p-6 text-xs font-black uppercase tracking-widest text-slate-400">Nombre Completo</th>
-                            <th className="text-left p-6 text-xs font-black uppercase tracking-widest text-slate-400">Rol</th>
-                            <th className="text-center p-6 text-xs font-black uppercase tracking-widest text-slate-400">Estado</th>
-                            <th className="text-center p-6 text-xs font-black uppercase tracking-widest text-slate-400">Acciones</th>
+                        <tr className="border-b border-slate-100 bg-slate-50/80">
+                            <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-400">Usuario</th>
+                            <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-400">Nombre Completo</th>
+                            <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-400">Rol</th>
+                            <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest text-slate-400">Estado</th>
+                            <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest text-slate-400">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-100">
                         {loading ? (
                             <tr>
                                 <td colSpan="5" className="text-center p-12 text-slate-400 font-medium">
@@ -306,55 +304,55 @@ const UsuariosTab = () => {
                             </tr>
                         ) : (
                             users.map(user => (
-                                <tr key={user.id} className="hover:bg-blue-50/30 transition-colors group">
-                                    <td className="p-6">
+                                <tr key={user.id} className="group transition-colors hover:bg-indigo-50/30">
+                                    <td className="px-4 py-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-inner">
+                                            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-slate-100 text-slate-400 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
                                                 <Users size={18} />
                                             </div>
                                             <span className="font-black text-slate-800 tracking-tight">{user.username}</span>
                                         </div>
                                     </td>
-                                    <td className="p-6">
+                                    <td className="px-4 py-3">
                                         <span className="text-sm font-bold text-slate-600">
                                             {user.full_name || <span className="text-slate-300 font-normal italic">N/A</span>}
                                         </span>
                                     </td>
-                                    <td className="p-6">
+                                    <td className="px-4 py-3">
                                         {getRoleBadge(user.role)}
                                     </td>
-                                    <td className="p-6 text-center">
+                                    <td className="px-4 py-3 text-center">
                                         {user.is_active ? (
-                                            <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-tighter flex items-center gap-1.5 justify-center w-fit mx-auto border border-emerald-100">
+                                            <span className="mx-auto flex w-fit items-center justify-center gap-1.5 rounded-md border border-emerald-100 bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
                                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                                 Activo
                                             </span>
                                         ) : (
-                                            <span className="px-3 py-1.5 bg-rose-50 text-rose-700 rounded-xl text-[10px] font-black uppercase tracking-tighter flex items-center gap-1.5 justify-center w-fit mx-auto border border-rose-100">
+                                            <span className="mx-auto flex w-fit items-center justify-center gap-1.5 rounded-md border border-rose-100 bg-rose-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-rose-700">
                                                 <X size={12} />
                                                 Inactivo
                                             </span>
                                         )}
                                     </td>
-                                    <td className="p-6">
+                                    <td className="px-4 py-3">
                                         <div className="flex items-center justify-center gap-2">
                                             <button
                                                 onClick={() => handleOpenModal('edit', user)}
-                                                className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded-xl transition-all hover:shadow-lg active:scale-90"
+                                                className="rounded-md p-2 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
                                                 title="Editar perfil"
                                             >
                                                 <Edit size={20} />
                                             </button>
                                             <button
                                                 onClick={() => handleOpenPinModal(user)}
-                                                className="p-2.5 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-xl transition-all hover:shadow-lg active:scale-90"
+                                                className="rounded-md p-2 text-slate-400 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
                                                 title="Configurar PIN"
                                             >
                                                 <Lock size={20} />
                                             </button>
                                             <button
                                                 onClick={() => handleOpenModal('password', user)}
-                                                className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-xl transition-all hover:shadow-lg active:scale-90"
+                                                className="rounded-md p-2 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-700"
                                                 title="Nueva contraseña"
                                             >
                                                 <Key size={20} />
@@ -362,7 +360,7 @@ const UsuariosTab = () => {
                                             {user.id !== currentUser?.id && (
                                                 <button
                                                     onClick={() => handleDeactivate(user.id)}
-                                                    className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-xl transition-all hover:shadow-lg active:scale-90"
+                                                    className="rounded-md p-2 text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-700"
                                                     title="Eliminar acceso"
                                                 >
                                                     <Trash2 size={20} />
@@ -379,12 +377,12 @@ const UsuariosTab = () => {
 
             {/* Modal */}
             {showModal && (
-                <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-950/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="w-full max-w-2xl rounded-lg bg-white shadow-xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
                         {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white flex justify-between items-center shadow-lg">
+                        <div className="flex items-center justify-between bg-indigo-600 p-5 text-white">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/20 rounded-lg">
+                                <div className="rounded-md bg-white/15 p-2">
                                     {modalMode === 'create' && <Plus size={24} />}
                                     {modalMode === 'edit' && <Edit size={24} />}
                                     {modalMode === 'password' && <Key size={24} />}
@@ -396,7 +394,7 @@ const UsuariosTab = () => {
                                         {modalMode === 'password' && 'Cambiar Contraseña'}
                                     </h3>
                                     {selectedUser && (
-                                        <p className="text-blue-100 text-sm mt-0.5">
+                                        <p className="text-indigo-100 text-sm mt-0.5">
                                             {selectedUser.username}
                                         </p>
                                     )}
@@ -411,23 +409,23 @@ const UsuariosTab = () => {
                         </div>
 
                         {/* Modal Body */}
-                        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto max-h-[80vh] bg-slate-50/30">
+                        <form onSubmit={handleSubmit} className="max-h-[80vh] space-y-5 overflow-y-auto bg-slate-50/30 p-5">
                             {modalMode !== 'password' && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     {modalMode === 'create' && (
                                         <div className="md:col-span-1">
                                             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
                                                 Usuario *
                                             </label>
                                             <div className="relative group">
-                                                <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                                <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-indigo-600 transition-colors">
                                                     <Users size={18} />
                                                 </div>
                                                 <input
                                                     type="text"
                                                     value={formData.username}
                                                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 outline-none transition-all"
+                                                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-md outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                                                     required
                                                     placeholder="ej. perez.juan"
                                                 />
@@ -440,14 +438,14 @@ const UsuariosTab = () => {
                                             Correo Electrónico *
                                         </label>
                                         <div className="relative group">
-                                            <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                            <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-indigo-600 transition-colors">
                                                 <Edit size={18} className="rotate-12" />
                                             </div>
                                             <input
                                                 type="email"
                                                 value={formData.email}
                                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 outline-none transition-all"
+                                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-md outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                                                 placeholder="ejemplo@correo.com"
                                                 required
                                             />
@@ -459,14 +457,14 @@ const UsuariosTab = () => {
                                             Nombre Completo
                                         </label>
                                         <div className="relative group">
-                                            <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                            <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-indigo-600 transition-colors">
                                                 <Users size={18} />
                                             </div>
                                             <input
                                                 type="text"
                                                 value={formData.full_name}
                                                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 outline-none transition-all"
+                                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-md outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                                                 placeholder="Juan Pérez"
                                             />
                                         </div>
@@ -477,13 +475,13 @@ const UsuariosTab = () => {
                                             Rol de Usuario *
                                         </label>
                                         <div className="relative group">
-                                            <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                            <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-indigo-600 transition-colors">
                                                 <Shield size={18} />
                                             </div>
                                             <select
                                                 value={formData.role}
                                                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 outline-none transition-all appearance-none cursor-pointer"
+                                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-md outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 appearance-none cursor-pointer"
                                                 required
                                             >
                                                 <option value="ADMIN">Administrador</option>
@@ -512,7 +510,7 @@ const UsuariosTab = () => {
                                                 % Comisión (Servicios)
                                             </label>
                                             <div className="relative group">
-                                                <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                                                <div className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-indigo-600 transition-colors">
                                                     <Check size={18} />
                                                 </div>
                                                 <input
@@ -522,7 +520,7 @@ const UsuariosTab = () => {
                                                     max="100"
                                                     value={formData.commission_percentage}
                                                     onChange={(e) => setFormData({ ...formData, commission_percentage: e.target.value })}
-                                                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 outline-none transition-all"
+                                                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-md outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                                                     placeholder="0.00"
                                                 />
                                             </div>
@@ -532,42 +530,42 @@ const UsuariosTab = () => {
                             )}
 
                             {(modalMode === 'create' || modalMode === 'password') && (
-                                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                                    <label className="block text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
+                                <div className="bg-indigo-50/50 p-4 rounded-lg border border-indigo-100">
+                                    <label className="block text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">
                                         Contraseña {modalMode === 'create' && '*'}
                                     </label>
                                     <div className="relative group">
-                                        <div className="absolute left-3 top-3.5 text-blue-400 group-focus-within:text-blue-600 transition-colors">
+                                        <div className="absolute left-3 top-3.5 text-indigo-400 group-focus-within:text-indigo-600 transition-colors">
                                             <Lock size={18} />
                                         </div>
                                         <input
                                             type="password"
                                             value={formData.password}
                                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                            className="w-full pl-10 pr-4 py-3 bg-white border border-blue-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 outline-none transition-all placeholder:text-blue-200"
+                                            className="w-full pl-10 pr-4 py-3 bg-white border border-indigo-200 rounded-md outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-indigo-200"
                                             required={modalMode === 'create'}
                                             placeholder="••••••••"
                                             minLength={6}
                                         />
                                     </div>
-                                    <p className="text-[10px] text-blue-400 mt-2 ml-1 font-medium italic">
+                                    <p className="text-[10px] text-indigo-400 mt-2 ml-1 font-medium italic">
                                         Mínimo 6 caracteres para mayor seguridad
                                     </p>
                                 </div>
                             )}
 
                             {/* Modal Footer */}
-                            <div className="flex flex-col sm:flex-row gap-3 pt-4 sticky bottom-0 bg-slate-50/10 backdrop-blur-sm -mx-6 -mb-6 p-6 border-t border-slate-100">
+                            <div className="flex flex-col sm:flex-row gap-3 pt-4 sticky bottom-0 -mx-5 -mb-5 border-t border-slate-100 bg-white p-5">
                                 <button
                                     type="button"
                                     onClick={handleCloseModal}
-                                    className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                                    className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-md text-slate-600 font-bold transition-colors hover:bg-slate-50"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black transition-all shadow-lg shadow-indigo-300/30 active:scale-95 disabled:opacity-50"
+                                    className="flex-1 px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md font-black transition-colors shadow-sm disabled:opacity-50"
                                 >
                                     {modalMode === 'create' && 'Crear Usuario'}
                                     {modalMode === 'edit' && 'Guardar Cambios'}
