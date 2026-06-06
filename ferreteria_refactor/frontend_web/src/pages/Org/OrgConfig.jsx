@@ -11,9 +11,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Settings, MessageCircle, Package, Users,
-    Save, Loader2, Check, X, Plus, Trash2,
-    Building2, Info, Smartphone, Crown
+    Settings, MessageCircle, Users,
+    Save, Loader2, Plus, Trash2,
+    Building2, Info, Smartphone, Crown, ShieldCheck, CreditCard, CalendarDays
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -26,26 +26,47 @@ import { useAuth } from '../../context/AuthContext';
 /**
  * SectionCard — Envoltorio de sección con título e ícono
  */
-function SectionCard({ icon: Icon, title, subtitle, children, color = 'indigo' }) {
+function SectionCard({ icon: Icon, title, subtitle, children, color = 'indigo', action }) {
     const colors = {
+        indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+        amber: 'bg-amber-50 text-amber-600 border-amber-100',
+        purple: 'bg-purple-50 text-purple-600 border-purple-100',
+        slate: 'bg-slate-50 text-slate-600 border-slate-100',
+    };
+    return (
+        <section className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+            <div className="flex items-start justify-between gap-4 p-4 border-b border-slate-100">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${colors[color]}`}>
+                        <Icon size={18} />
+                    </div>
+                    <div className="min-w-0">
+                        <h2 className="font-black text-slate-900 leading-tight">{title}</h2>
+                        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+                    </div>
+                </div>
+                {action}
+            </div>
+            <div className="p-4">{children}</div>
+        </section>
+    );
+}
+
+function MetricCard({ icon: Icon, label, value, tone = 'indigo' }) {
+    const tones = {
         indigo: 'bg-indigo-50 text-indigo-600',
         emerald: 'bg-emerald-50 text-emerald-600',
         amber: 'bg-amber-50 text-amber-600',
-        purple: 'bg-purple-50 text-purple-600',
+        slate: 'bg-slate-100 text-slate-600',
     };
     return (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            {/* Header de sección */}
-            <div className="flex items-center gap-3 p-5 border-b border-slate-50">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colors[color]}`}>
-                    <Icon size={20} />
-                </div>
-                <div>
-                    <h2 className="font-bold text-slate-800">{title}</h2>
-                    {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
-                </div>
+        <div className="bg-white p-4">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${tones[tone]}`}>
+                <Icon size={16} />
             </div>
-            <div className="p-5">{children}</div>
+            <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+            <p className="mt-1 text-xl font-black text-slate-900">{value}</p>
         </div>
     );
 }
@@ -69,7 +90,7 @@ function ToggleSwitch({ value, onChange, label, description }) {
             >
                 <span className={`
                     absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200
-                    ${value ? 'left-6.5 translate-x-0.5' : 'left-0.5'}
+                    ${value ? 'left-[26px]' : 'left-0.5'}
                 `} />
             </button>
         </div>
@@ -185,11 +206,14 @@ export default function OrgConfig() {
 
     // ── Labels de plan ────────────────────────────────────────────────────────
     const planLabels = {
-        duo       : { label: 'Dúo',       color: 'emerald', icon: '🤝' },
-        multi     : { label: 'Multi',      color: 'indigo',  icon: '🏢' },
-        enterprise: { label: 'Enterprise', color: 'purple',  icon: '👑' },
+        duo       : { label: 'Duo',       color: 'emerald' },
+        multi     : { label: 'Multi',      color: 'indigo' },
+        enterprise: { label: 'Enterprise', color: 'purple' },
     };
-    const planMeta = planLabels[org.plan] || { label: org.plan, color: 'slate', icon: '📦' };
+    const planMeta = planLabels[org.plan] || { label: org.plan, color: 'slate' };
+    const maxTenants = planInfo?.max_tenants || 0;
+    const usedTenants = planInfo?.current_tenants || 0;
+    const usagePct = maxTenants > 0 ? Math.min(100, (usedTenants / maxTenants) * 100) : 0;
 
     // ── Render principal ──────────────────────────────────────────────────────
     // ── Guard: solo el dueño puede ver la configuración completa ─────────────
@@ -211,187 +235,126 @@ export default function OrgConfig() {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
-
-                {/* ── Header ── */}
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
-                        <Building2 size={24} className="text-white" />
+            <div className="max-w-6xl mx-auto px-4 py-5 space-y-5">
+                <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <div className="p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="flex items-start gap-3 min-w-0">
+                            <div className="w-11 h-11 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
+                                <ShieldCheck size={22} className="text-white" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-[11px] font-black uppercase tracking-wide text-indigo-500">Administracion empresarial</p>
+                                <h1 className="text-2xl font-black text-slate-950 truncate">{org.name}</h1>
+                                <p className="text-sm text-slate-500">Control del grupo, miembros, permisos y servicios compartidos.</p>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-black border border-indigo-100">Plan {planMeta.label}</span>
+                            <span className={`px-3 py-1.5 rounded-lg text-xs font-black border ${planInfo?.is_expired ? 'bg-rose-50 text-rose-700 border-rose-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
+                                {planInfo?.is_expired ? 'Vencido' : 'Activo'}
+                            </span>
+                        </div>
                     </div>
-                    <div>
-                        <h1 className="text-xl font-black text-slate-900">{org.name}</h1>
-                        <p className="text-sm text-slate-400">Configuración del grupo empresarial</p>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-slate-200 border-t border-slate-200">
+                        <MetricCard icon={Building2} label="Empresas" value={`${usedTenants}/${maxTenants || '-'}`} tone="indigo" />
+                        <MetricCard icon={CreditCard} label="Disponibles" value={planInfo?.slots_available ?? 0} tone="emerald" />
+                        <MetricCard icon={CalendarDays} label="Vence" value={planInfo?.plan_expires_at ? new Date(planInfo.plan_expires_at).toLocaleDateString('es-VE') : 'Sin fecha'} tone="amber" />
+                        <MetricCard icon={MessageCircle} label="WhatsApp" value={waConfig.use_shared_whatsapp ? 'Compartido' : 'Individual'} tone="slate" />
                     </div>
                 </div>
 
-                {/* ── Sección: Información del plan ── */}
-                <SectionCard
-                    icon={Crown}
-                    title="Plan actual"
-                    subtitle="Límites y estado de tu suscripción"
-                    color="amber"
-                >
-                    <div className="space-y-4">
-                        {/* Badge del plan */}
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl">{planMeta.icon}</span>
+                {planInfo?.is_expired && (
+                    <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-lg">
+                        <Info size={16} className="text-rose-500 shrink-0" />
+                        <p className="text-xs text-rose-700 font-semibold">Tu plan ha vencido. Contacta al soporte para renovar.</p>
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-5 items-start">
+                    <div className="space-y-5">
+                        <SectionCard icon={Crown} title="Plan y capacidad" subtitle="Limites activos de la organizacion" color="amber">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between gap-4 rounded-lg bg-slate-50 border border-slate-100 p-4">
+                                    <div>
+                                        <p className="text-xs font-bold text-slate-400">Uso de empresas</p>
+                                        <p className="text-lg font-black text-slate-900">{usedTenants} de {maxTenants || '-'} empresas</p>
+                                    </div>
+                                    <p className="text-2xl font-black text-indigo-600">{Math.round(usagePct)}%</p>
+                                </div>
                                 <div>
-                                    <p className="font-black text-slate-800">Plan {planMeta.label}</p>
-                                    <p className="text-xs text-slate-400">
-                                        {planInfo?.current_tenants} de {planInfo?.max_tenants} empresas usadas
+                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all ${usagePct > 80 ? 'bg-amber-500' : 'bg-indigo-500'}`} style={{ width: `${usagePct}%` }} />
+                                    </div>
+                                    <div className="flex justify-between text-xs text-slate-500 mt-2">
+                                        <span>{planInfo?.slots_available ?? 0} cupos disponibles</span>
+                                        <span>{planInfo?.plan_price > 0 ? `$${planInfo.plan_price}/mes` : 'Sin costo'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </SectionCard>
+
+                        <SectionCard icon={MessageCircle} title="WhatsApp compartido" subtitle="Una instancia para notificaciones del grupo" color="emerald">
+                            <div className="space-y-4">
+                                <ToggleSwitch
+                                    value={waConfig.use_shared_whatsapp}
+                                    onChange={v => setWaConfig(prev => ({ ...prev, use_shared_whatsapp: v }))}
+                                    label="Activar WhatsApp compartido"
+                                    description="Todas las empresas del grupo usaran la misma instancia de Baileys para enviar mensajes a clientes."
+                                />
+
+                                {waConfig.use_shared_whatsapp && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-1.5">Instancia Baileys</label>
+                                        <div className="relative">
+                                            <Smartphone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                value={waConfig.whatsapp_instance}
+                                                onChange={e => setWaConfig(prev => ({ ...prev, whatsapp_instance: e.target.value }))}
+                                                placeholder="ej: grupo-rodriguez"
+                                                className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none font-mono"
+                                            />
+                                        </div>
+                                        <p className="text-xs text-slate-400 mt-1">Debe coincidir con el nombre configurado en el servidor de Baileys.</p>
+                                    </div>
+                                )}
+
+                                <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                                    <Info size={14} className="text-emerald-600 shrink-0 mt-0.5" />
+                                    <p className="text-xs text-emerald-700">Cada mensaje conserva la empresa de origen aunque use el numero compartido.</p>
+                                </div>
+
+                                <button onClick={handleSaveWa} disabled={savingWa} className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-60">
+                                    {savingWa ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                                    {savingWa ? 'Guardando...' : 'Guardar WhatsApp'}
+                                </button>
+                            </div>
+                        </SectionCard>
+                    </div>
+
+                    <div className="space-y-5">
+                        <SectionCard icon={Users} title="Miembros y accesos" subtitle="Usuarios que pueden operar entre empresas" color="purple">
+                            <MembersSection orgId={orgId} />
+                        </SectionCard>
+
+                        <SectionCard icon={Building2} title="Empresas del grupo" subtitle="Capacidad y administracion de tenants" color="indigo">
+                            {usedTenants === 0 ? (
+                                <p className="text-slate-400 text-sm text-center py-3">No hay empresas asignadas aun.</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-4">
+                                        <p className="text-sm text-indigo-900 font-bold">{usedTenants} empresa(s) activa(s)</p>
+                                        <p className="text-xs text-indigo-700 mt-1">La entrada a cada empresa se mantiene en el sidebar empresarial.</p>
+                                    </div>
+                                    <p className="text-xs text-slate-500 leading-relaxed">
+                                        Para asociar nuevas empresas hoy se usa el panel SaaS o el bot de Telegram con:
+                                        <code className="block mt-2 bg-slate-100 px-2 py-1.5 rounded-lg text-xs font-mono text-slate-700 overflow-x-auto">/org agregar {orgId} [schema]</code>
                                     </p>
                                 </div>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-xs text-slate-400">Disponibles</p>
-                                <p className="text-2xl font-black text-indigo-600">
-                                    {planInfo?.slots_available}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Barra de uso de empresas */}
-                        <div>
-                            <div className="flex justify-between text-xs text-slate-500 mb-1.5">
-                                <span>Empresas usadas</span>
-                                <span>{planInfo?.current_tenants}/{planInfo?.max_tenants}</span>
-                            </div>
-                            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all ${
-                                        (planInfo?.current_tenants / planInfo?.max_tenants) > 0.8
-                                            ? 'bg-amber-500'
-                                            : 'bg-indigo-500'
-                                    }`}
-                                    style={{ width: `${Math.min(100, (planInfo?.current_tenants / planInfo?.max_tenants) * 100)}%` }}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Precio y vencimiento */}
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="p-3 bg-slate-50 rounded-xl">
-                                <p className="text-slate-400 text-xs mb-1">Precio mensual</p>
-                                <p className="font-black text-slate-800">
-                                    {planInfo?.plan_price > 0 ? `$${planInfo.plan_price}/mes` : 'Sin costo'}
-                                </p>
-                            </div>
-                            <div className="p-3 bg-slate-50 rounded-xl">
-                                <p className="text-slate-400 text-xs mb-1">Vencimiento</p>
-                                <p className={`font-black ${planInfo?.is_expired ? 'text-rose-600' : 'text-slate-800'}`}>
-                                    {planInfo?.plan_expires_at
-                                        ? new Date(planInfo.plan_expires_at).toLocaleDateString('es-VE')
-                                        : 'Sin vencimiento'}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Alerta si está vencida */}
-                        {planInfo?.is_expired && (
-                            <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                                <Info size={16} className="text-rose-500 shrink-0" />
-                                <p className="text-xs text-rose-700 font-semibold">
-                                    Tu plan ha vencido. Contacta al soporte para renovar.
-                                </p>
-                            </div>
-                        )}
+                            )}
+                        </SectionCard>
                     </div>
-                </SectionCard>
-
-                {/* ── Sección: WhatsApp compartido ── */}
-                <SectionCard
-                    icon={MessageCircle}
-                    title="WhatsApp compartido"
-                    subtitle="Usa una sola instancia de WhatsApp para todo el grupo"
-                    color="emerald"
-                >
-                    <div className="space-y-4">
-                        {/* Toggle principal */}
-                        <ToggleSwitch
-                            value={waConfig.use_shared_whatsapp}
-                            onChange={v => setWaConfig(prev => ({ ...prev, use_shared_whatsapp: v }))}
-                            label="Activar WhatsApp compartido"
-                            description="Todas las empresas del grupo usarán la misma instancia de Baileys para enviar mensajes a clientes."
-                        />
-
-                        {/* Nombre de la instancia — solo visible si está activo */}
-                        {waConfig.use_shared_whatsapp && (
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                                    Nombre de la instancia Baileys
-                                </label>
-                                <div className="relative">
-                                    <Smartphone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        value={waConfig.whatsapp_instance}
-                                        onChange={e => setWaConfig(prev => ({ ...prev, whatsapp_instance: e.target.value }))}
-                                        placeholder="ej: grupo-rodriguez"
-                                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-400 text-sm outline-none font-mono"
-                                    />
-                                </div>
-                                <p className="text-xs text-slate-400 mt-1">
-                                    Debe coincidir exactamente con el nombre de la instancia configurada en el servidor de Baileys.
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Info de cómo funciona */}
-                        <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-                            <Info size={14} className="text-emerald-600 shrink-0 mt-0.5" />
-                            <p className="text-xs text-emerald-700">
-                                Cuando está activo, los mensajes de WhatsApp (notificaciones de ventas, taller, etc.)
-                                se enviarán desde el número del grupo en lugar del número individual de cada empresa.
-                                Cada mensaje incluirá el nombre de la empresa de origen.
-                            </p>
-                        </div>
-
-                        {/* Botón guardar WA */}
-                        <button
-                            onClick={handleSaveWa}
-                            disabled={savingWa}
-                            className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors disabled:opacity-60"
-                        >
-                            {savingWa ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                            {savingWa ? 'Guardando...' : 'Guardar configuración de WhatsApp'}
-                        </button>
-                    </div>
-                </SectionCard>
-
-                {/* ── Sección: Empresas del grupo ── */}
-                <SectionCard
-                    icon={Building2}
-                    title="Empresas del grupo"
-                    subtitle="Empresas que forman parte de esta organización"
-                    color="indigo"
-                >
-                    {planInfo?.current_tenants === 0 ? (
-                        <p className="text-slate-400 text-sm text-center py-3">
-                            No hay empresas asignadas aún. El administrador puede agregarlas desde el panel SaaS o el bot de Telegram.
-                        </p>
-                    ) : (
-                        <div className="space-y-2">
-                            {/* Las empresas las muestra el CompanySwitcher */}
-                            <p className="text-sm text-slate-500">
-                                Tu grupo tiene <span className="font-bold text-indigo-600">{planInfo?.current_tenants}</span> empresa(s) activa(s).
-                                Para gestionar las empresas del grupo, utiliza el panel de administración del sistema o el bot de Telegram con el comando{' '}
-                                <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono">/org agregar {orgId} [schema]</code>.
-                            </p>
-                        </div>
-                    )}
-                </SectionCard>
-
-                {/* ── Sección: Miembros con acceso al grupo ── */}
-                <SectionCard
-                    icon={Users}
-                    title="Miembros del grupo"
-                    subtitle="Usuarios que pueden cambiar entre empresas"
-                    color="purple"
-                >
-                    <MembersSection orgId={orgId} />
-                </SectionCard>
-
+                </div>
             </div>
         </div>
     );
@@ -454,9 +417,11 @@ function MembersSection({ orgId }) {
 
     return (
         <div className="space-y-3">
-            {/* Lista de miembros */}
+            {members.length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-4">Aun no hay miembros agregados.</p>
+            )}
             {members.map(m => (
-                <div key={m.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                <div key={m.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
                         <span className="text-xs font-black text-purple-600">
                             {m.user_email.charAt(0).toUpperCase()}
@@ -470,7 +435,7 @@ function MembersSection({ orgId }) {
                                 {m.role}
                             </span>
                             {m.can_switch && (
-                                <span className="text-[10px] text-emerald-600 font-semibold">🔄 puede cambiar</span>
+                                <span className="text-[10px] text-emerald-600 font-semibold">Puede cambiar</span>
                             )}
                         </div>
                     </div>
@@ -478,6 +443,7 @@ function MembersSection({ orgId }) {
                         <button
                             onClick={() => handleRemove(m.id)}
                             className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Quitar miembro"
                         >
                             <Trash2 size={14} />
                         </button>
@@ -485,20 +451,19 @@ function MembersSection({ orgId }) {
                 </div>
             ))}
 
-            {/* Agregar nuevo miembro */}
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
                 <input
                     type="email"
                     value={newEmail}
                     onChange={e => setNewEmail(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleAddMember()}
                     placeholder="email@empresa.com"
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:border-indigo-400 text-sm outline-none"
+                    className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none"
                 />
                 <button
                     onClick={handleAddMember}
                     disabled={adding}
-                    className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors disabled:opacity-60"
+                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60"
                 >
                     {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                     Agregar
