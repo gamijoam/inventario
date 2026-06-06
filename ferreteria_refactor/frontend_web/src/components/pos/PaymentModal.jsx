@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import FinancingStep from './FinancingStep';
 import { createPortal } from 'react-dom';
 import { DollarSign, CreditCard, Banknote, CheckCircle, Calculator, Users, X, UserPlus, User, Receipt, Layers, Trash2, Tag, Calendar, FileText } from 'lucide-react';
@@ -52,6 +52,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
     const [showCalcCredito, setShowCalcCredito]   = useState(false);
     const [customers, setCustomers] = useState([]);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [loadingCustomers, setLoadingCustomers] = useState(false);
 
     // Quick Customer Modal
     const [isQuickCustomerOpen, setIsQuickCustomerOpen] = useState(false);
@@ -129,7 +130,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                 setSelectedCustomer(null);
             }
 
-            fetchCustomers();
+            setCustomers(initialCustomer ? [initialCustomer] : []);
         }
     }, [isOpen, initialCustomer]);
 
@@ -149,14 +150,29 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
         };
     }, [subscribe]);
 
-    const fetchCustomers = async () => {
-        try {
-            const response = await apiClient.get('/customers', { params: { limit: 500 } });
-            setCustomers(response.data.items || response.data);
-        } catch (error) {
-            console.error('Error fetching customers:', error);
+    const fetchCustomers = useCallback(async (query = '') => {
+        const q = query.trim();
+        if (q.length < 2) {
+            setCustomers(selectedCustomer ? [selectedCustomer] : []);
+            return;
         }
-    };
+        setLoadingCustomers(true);
+        try {
+            const response = await apiClient.get('/customers', { params: { q, limit: 20 } });
+            const items = response.data.items || response.data;
+            setCustomers(prev => {
+                const merged = selectedCustomer ? [selectedCustomer, ...items] : items;
+                return merged.filter((customer, index, arr) =>
+                    customer?.id && arr.findIndex(c => c?.id === customer.id) === index
+                );
+            });
+        } catch (error) {
+            console.error('Error searching customers:', error);
+            setCustomers(selectedCustomer ? [selectedCustomer] : []);
+        } finally {
+            setLoadingCustomers(false);
+        }
+    }, [selectedCustomer]);
 
     const handleQuickCustomerSuccess = (newCustomer) => {
         // Add new customer directly to list for immediate visibility in CustomerSearch
@@ -768,7 +784,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
                                 <UserPlus size={10} /> Registrar nuevo cliente
                             </button>
                         </div>
-                        <CustomerSearch customers={customers} selectedCustomer={selectedCustomer} onSelect={setSelectedCustomer} />
+                        <CustomerSearch customers={customers} selectedCustomer={selectedCustomer} onSelect={setSelectedCustomer} onSearch={fetchCustomers} loading={loadingCustomers} />
 
                         {isCreditSale && selectedCustomer && (
                             <div className="mt-2">

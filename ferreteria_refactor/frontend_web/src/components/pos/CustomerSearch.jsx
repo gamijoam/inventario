@@ -2,12 +2,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, X, Check } from 'lucide-react';
 import { normalizeSearch } from '../../utils/search';
 
-const CustomerSearch = ({ customers, selectedCustomer, onSelect, disabled = false }) => {
+const CustomerSearch = ({ customers = [], selectedCustomer, onSelect, disabled = false, onSearch, loading = false }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const inputRef = useRef(null);
     const dropdownRef = useRef(null);
+    const debounceRef = useRef(null);
+
+    useEffect(() => {
+        if (!onSearch || selectedCustomer) return;
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => onSearch(searchTerm.trim()), 250);
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [searchTerm, onSearch, selectedCustomer]);
 
     // Filter customers based on search term (exclude inactive customers)
     const filteredCustomers = customers.filter(c => {
@@ -134,7 +144,12 @@ const CustomerSearch = ({ customers, selectedCustomer, onSelect, disabled = fals
             {/* Dropdown Results */}
             {isOpen && !disabled && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                    {filteredCustomers.length > 0 ? (
+                    {loading ? (
+                        <div className="p-4 text-center text-gray-500 text-sm">
+                            <div className="w-4 h-4 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-2" />
+                            Buscando clientes...
+                        </div>
+                    ) : filteredCustomers.length > 0 ? (
                         <ul>
                             {filteredCustomers.map((customer, index) => (
                                 <li
@@ -167,9 +182,9 @@ const CustomerSearch = ({ customers, selectedCustomer, onSelect, disabled = fals
                         </ul>
                     ) : (
                         <div className="p-4 text-center text-gray-500 text-sm">
-                            <p>No se encontraron clientes.</p>
+                            <p>{searchTerm ? 'No se encontraron clientes.' : 'Escribe para buscar clientes.'}</p>
                             {searchTerm && (
-                                <p className="text-xs mt-1">Prueba con "Nuevo Cliente"</p>
+                                <p className="text-xs mt-1">Prueba con "Registrar nuevo cliente"</p>
                             )}
                         </div>
                     )}
