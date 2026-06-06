@@ -43,13 +43,29 @@ def _get_org_or_404(db: Session, org_id: int) -> Organization:
     return org
 
 
+def _org_member(org: Organization, user: User):
+    email = (user.email or "").lower().strip()
+    return next((m for m in org.members if (m.user_email or "").lower().strip() == email), None)
+
+
 def _assert_org_access(org: Organization, user: User):
-    """Verifica que el usuario tiene acceso a esta organización."""
+    """Verifica que el usuario tiene acceso a esta organizacion."""
     if user.is_superuser:
-        return
-    member = next((m for m in org.members if m.user_email == user.email), None)
-    if not member:
-        raise HTTPException(status_code=403, detail="No tienes acceso a esta organización")
+        return None
+    member = _org_member(org, user)
+    if not member or not member.can_switch:
+        raise HTTPException(status_code=403, detail="No tienes acceso a esta organizacion")
+    return member
+
+
+def _assert_org_role(org: Organization, user: User, allowed_roles: set[str], detail: str):
+    """Verifica rol dentro de la organizacion: owner, manager o viewer."""
+    if user.is_superuser:
+        return None
+    member = _assert_org_access(org, user)
+    if (member.role or "").lower() not in allowed_roles:
+        raise HTTPException(status_code=403, detail=detail)
+    return member
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -334,6 +350,8 @@ def stock_search_my_org(
     q_clean   = q.strip()
     sku_like  = f"{q_clean}%"
     name_like = f"%{q_clean}%"
+    member_role = (membership.role or "").lower()
+    can_view_cost = current_user.is_superuser or member_role in {"owner", "manager"}
 
     results: List[StockSearchMatch] = []
     for t in tenants:
@@ -362,7 +380,7 @@ def stock_search_my_org(
                     stock         = stk,
                     min_stock     = ms,
                     price         = float(r.price or 0),
-                    cost_price    = float(r.cost_price or 0),
+                    cost_price    = float(r.cost_price or 0) if can_view_cost else 0,
                     is_active     = bool(r.is_active),
                     low_stock     = (ms > 0 and stk <= ms)
                 ))
@@ -630,11 +648,9 @@ def invite_member(
     org = _get_org_or_404(db, org_id)
     _assert_org_access(org, current_user)
 
-    # Solo owner puede invitar
-    if not current_user.is_superuser:
-        me = next((m for m in org.members if m.user_email == current_user.email), None)
-        if not me or me.role != "owner":
-            raise HTTPException(status_code=403, detail="Solo el owner puede invitar miembros")
+    _assert_org_role(org, current_user, {"owner"}, "Solo el owner puede invitar miembros")
+    if data.role not in {"owner", "manager", "viewer"}:
+        raise HTTPException(status_code=400, detail="Rol invalido para miembro de organizacion")
 
     existing = db.query(OrganizationUser).filter(
         OrganizationUser.organization_id == org_id,
@@ -664,7 +680,7 @@ def remove_member(
 ):
     """Eliminar un miembro de la organización."""
     org = _get_org_or_404(db, org_id)
-    _assert_org_access(org, current_user)
+    _assert_org_role(org, current_user, {"owner"}, "Solo el owner puede eliminar miembros")
     member = db.query(OrganizationUser).filter(
         OrganizationUser.id == member_id,
         OrganizationUser.organization_id == org_id
@@ -710,7 +726,7 @@ def add_to_catalog(
 ):
     """Agregar producto al catálogo compartido."""
     org = _get_org_or_404(db, org_id)
-    _assert_org_access(org, current_user)
+    _assert_org_role(org, current_user, {"owner", "manager"}, "Solo owner o manager puede modificar el catalogo compartido")
 
     product = SharedProduct(
         organization_id = org_id,
@@ -743,7 +759,7 @@ def import_catalog_to_tenant(
     from ..tenant_context import get_tenant_schema
 
     org = _get_org_or_404(db, org_id)
-    _assert_org_access(org, current_user)
+    _assert_org_role(org, current_user, {"owner", "manager"}, "Solo owner o manager puede importar catalogo compartido")
 
     schema = get_tenant_schema()
     if schema == "public":

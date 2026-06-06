@@ -329,7 +329,11 @@ function App() {
                             <Route element={<DashboardLayout />}>
                               <Route path="/" element={<OnboardingGate><Dashboard /></OnboardingGate>} />
                               {/* Panel Multi-Empresa con layout propio */}
-                              <Route path="/org" element={<OrgPanel />}>
+                              <Route path="/org" element={
+                                <ProtectedRoute roles={['ADMIN', 'WAREHOUSE']}>
+                                  <OrgPanel />
+                                </ProtectedRoute>
+                              }>
                                 <Route index element={<ConsolidatedDashboard />} />
                                 <Route path="dashboard" element={<ConsolidatedDashboard />} />
                                 <Route path="transfers" element={<InterCompanyTransfers />} />

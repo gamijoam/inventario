@@ -71,6 +71,29 @@ def _notify_wa_destination(db: Session, from_tenant: Tenant, to_tenant: Tenant,
         print(f"[WA Transfer] Notificación falló (no bloqueante): {e}")
 
 
+def _role_value(user: User) -> str:
+    role = getattr(user, "role", "")
+    return getattr(role, "value", role) or ""
+
+
+def _assert_inventory_actor(user: User):
+    if user.is_superuser:
+        return
+    if _role_value(user) not in {"ADMIN", "WAREHOUSE"}:
+        raise HTTPException(status_code=403, detail="Solo ADMIN o WAREHOUSE puede gestionar traslados entre empresas")
+
+
+def _assert_org_operator(db: Session, organization_id: int, user: User):
+    if user.is_superuser:
+        return
+    member = db.query(OrganizationUser).filter(
+        OrganizationUser.organization_id == organization_id,
+        OrganizationUser.user_email == (user.email or "").lower().strip(),
+        OrganizationUser.can_switch == True
+    ).first()
+    if not member or (member.role or "").lower() not in {"owner", "manager"}:
+        raise HTTPException(status_code=403, detail="Solo owner o manager de la organizacion puede gestionar traslados")
+
 router = APIRouter(prefix="/inter-transfers", tags=["inter-transfers"])
 
 
@@ -105,6 +128,8 @@ def create_transfer(
     Crear solicitud de transferencia de stock a otra empresa del mismo grupo.
     El tenant de origen es el tenant actual del usuario.
     """
+    _assert_inventory_actor(current_user)
+
     schema = get_tenant_schema()
     if schema == "public":
         raise HTTPException(status_code=400, detail="Debes estar dentro de una empresa")
@@ -113,7 +138,8 @@ def create_transfer(
     if not from_tenant:
         raise HTTPException(status_code=404, detail="Empresa de origen no encontrada")
     if not from_tenant.organization_id:
-        raise HTTPException(status_code=400, detail="Esta empresa no pertenece a ninguna organización")
+        raise HTTPException(status_code=400, detail="Esta empresa no pertenece a ninguna organizacion")
+    _assert_org_operator(db, from_tenant.organization_id, current_user)
 
     to_tenant = db.query(Tenant).filter(Tenant.id == data.to_tenant_id).first()
     if not to_tenant:
@@ -205,8 +231,12 @@ def accept_transfer(
     Descuenta stock de la empresa origen, suma en la empresa destino,
     y registra en Kardex de ambas.
     """
+    _assert_inventory_actor(current_user)
+
     schema = get_tenant_schema()
     tenant = db.query(Tenant).filter(Tenant.schema_name == schema).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
 
     transfer = db.query(InterCompanyTransfer).options(
         joinedload(InterCompanyTransfer.items)
@@ -214,6 +244,7 @@ def accept_transfer(
 
     if not transfer:
         raise HTTPException(status_code=404, detail="Transferencia no encontrada")
+    _assert_org_operator(db, transfer.organization_id, current_user)
     if transfer.to_tenant_id != tenant.id:
         raise HTTPException(status_code=403, detail="Solo la empresa destino puede aceptar")
     if transfer.status != "PENDING":
@@ -393,8 +424,12 @@ def reject_transfer(
     current_user: User = Depends(get_current_active_user)
 ):
     """Rechazar una transferencia entrante."""
+    _assert_inventory_actor(current_user)
+
     schema = get_tenant_schema()
     tenant = db.query(Tenant).filter(Tenant.schema_name == schema).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Empresa no encontrada")
 
     transfer = db.query(InterCompanyTransfer).options(
         joinedload(InterCompanyTransfer.items)
@@ -402,6 +437,7 @@ def reject_transfer(
 
     if not transfer:
         raise HTTPException(status_code=404, detail="Transferencia no encontrada")
+    _assert_org_operator(db, transfer.organization_id, current_user)
     if transfer.to_tenant_id != tenant.id and transfer.from_tenant_id != tenant.id:
         raise HTTPException(status_code=403, detail="No tienes acceso a esta transferencia")
     if transfer.status != "PENDING":
