@@ -46,12 +46,12 @@ const UpdatePaymentModal = ({ record, onClose, onSuccess }) => {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-                <div className="bg-slate-900 px-6 py-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div className="bg-slate-900 px-3 py-2.5">
                     <h3 className="text-white font-black text-lg">Registrar Pago</h3>
                     <p className="text-slate-400 text-sm">{record.financer_name} — Venta #{record.sale_id}</p>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="p-4 space-y-4">
                     <div className="grid grid-cols-3 gap-3 text-center">
                         <div className="bg-slate-50 rounded-xl p-3">
                             <p className="text-xs text-slate-400 font-bold uppercase">Total</p>
@@ -73,12 +73,12 @@ const UpdatePaymentModal = ({ record, onClose, onSuccess }) => {
                             value={abono} onChange={e => setAbono(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && handleSave()}
                             placeholder={`Máx. ${fmt(pendiente)}`}
-                            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-indigo-400"
                             autoFocus
                         />
                     </div>
                     {abono && abonoNum > 0 && (
-                        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${nuevoSt.bg} ${nuevoSt.border}`}>
+                        <div className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border ${nuevoSt.bg} ${nuevoSt.border}`}>
                             <div className={`w-2 h-2 rounded-full ${nuevoSt.dot}`} />
                             <span className={`text-sm font-bold ${nuevoSt.color}`}>
                                 Nuevo estado: {nuevoSt.label} — Pagado total: {fmt(nuevoPagado)}
@@ -107,8 +107,8 @@ const FinancingCard = ({ record, onUpdate, onDelete }) => {
         : 0;
 
     return (
-        <div className={`bg-white rounded-2xl border ${st.border} shadow-sm overflow-hidden hover:shadow-md transition-shadow`}>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <div className={`bg-white rounded-xl border ${st.border} shadow-sm overflow-hidden hover:shadow-md transition-shadow`}>
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${st.dot}`} />
                     <span className={`text-xs font-black uppercase tracking-wide ${st.color}`}>{st.label}</span>
@@ -161,8 +161,8 @@ const FinancerSummaryCard = ({ name, data, isExpanded, onToggle }) => {
     const pct = data.total_financed > 0 ? (data.total_paid / data.total_financed) * 100 : 0;
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <button onClick={onToggle} className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <button onClick={onToggle} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
                         <Building2 size={18} className="text-indigo-600" />
@@ -172,7 +172,7 @@ const FinancerSummaryCard = ({ name, data, isExpanded, onToggle }) => {
                         <p className="text-xs text-slate-500">{data.count} venta{data.count !== 1 ? 's' : ''}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                     <div className="text-right">
                         <p className="text-xs text-amber-600 font-bold">Te debe</p>
                         <p className="font-black text-amber-700 text-lg">{fmt(pendiente)}</p>
@@ -182,7 +182,7 @@ const FinancerSummaryCard = ({ name, data, isExpanded, onToggle }) => {
             </button>
             {isExpanded && (
                 <div className="px-5 pb-5 border-t border-slate-100 pt-4 space-y-3">
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="bg-slate-50 rounded-xl p-3 text-center">
                             <p className="text-xs text-slate-400 font-bold uppercase">Total ventas</p>
                             <p className="font-black text-slate-900">{fmt(data.total_amount)}</p>
@@ -289,45 +289,45 @@ export default function FinanciadoresTab() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {/* Header con resumen */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total ventas</p>
-                    <p className="text-2xl font-black text-slate-900 mt-1">{fmt(summary?.total_amount)}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-wide">Total ventas</p>
+                    <p className="text-xl font-black text-slate-900 mt-1">{fmt(summary?.total_amount)}</p>
                     <p className="text-xs text-slate-400 mt-1">{summary?.total_count || 0} operaciones</p>
                 </div>
-                <div className="bg-emerald-50 rounded-2xl border border-emerald-200 p-4 shadow-sm">
-                    <p className="text-xs font-bold text-emerald-600 uppercase tracking-wide">Cobrado</p>
-                    <p className="text-2xl font-black text-emerald-700 mt-1">{fmt(summary?.total_paid)}</p>
+                <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-4 shadow-sm">
+                    <p className="text-[11px] font-black text-emerald-600 uppercase tracking-wide">Cobrado</p>
+                    <p className="text-xl font-black text-emerald-700 mt-1">{fmt(summary?.total_paid)}</p>
                     <p className="text-xs text-emerald-600 mt-1">{summary?.completed_count || 0} pagados</p>
                 </div>
-                <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 shadow-sm">
-                    <p className="text-xs font-bold text-amber-600 uppercase tracking-wide">Por cobrar</p>
-                    <p className="text-2xl font-black text-amber-700 mt-1">{fmt(totalPendiente)}</p>
+                <div className="bg-amber-50 rounded-xl border border-amber-200 p-4 shadow-sm">
+                    <p className="text-[11px] font-black text-amber-600 uppercase tracking-wide">Por cobrar</p>
+                    <p className="text-xl font-black text-amber-700 mt-1">{fmt(totalPendiente)}</p>
                     <p className="text-xs text-amber-600 mt-1">{summary?.pending_count || 0} pendientes</p>
                 </div>
-                <div className="bg-blue-50 rounded-2xl border border-blue-200 p-4 shadow-sm">
-                    <p className="text-xs font-bold text-blue-600 uppercase tracking-wide">Financiadoras</p>
-                    <p className="text-2xl font-black text-blue-700 mt-1">{financers.length}</p>
+                <div className="bg-blue-50 rounded-xl border border-blue-200 p-4 shadow-sm">
+                    <p className="text-[11px] font-black text-blue-600 uppercase tracking-wide">Financiadoras</p>
+                    <p className="text-xl font-black text-blue-700 mt-1">{financers.length}</p>
                     <p className="text-xs text-blue-600 mt-1">activas</p>
                 </div>
             </div>
 
             {/* Tabs vista */}
             <div className="flex items-center gap-3">
-                <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+                <div className="flex bg-slate-100 rounded-lg p-1 gap-1 shadow-inner shadow-slate-200/60">
                     {[
                         { id: 'por-empresa', label: 'Por empresa' },
                         { id: 'detalle', label: 'Detalle' },
                     ].map(v => (
                         <button key={v.id} onClick={() => setView(v.id)}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${view === v.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+                            className={`px-3 py-2 rounded-md text-xs font-black transition-all ${view === v.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
                             {v.label}
                         </button>
                     ))}
                 </div>
-                <button onClick={load} className="p-2 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-indigo-600 transition-colors">
+                <button onClick={load} className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-indigo-600 transition-colors">
                     <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
                 </button>
             </div>
@@ -381,7 +381,7 @@ export default function FinanciadoresTab() {
                             <p className="font-semibold">Sin registros</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                             {records.map(r => (
                                 <FinancingCard key={r.id} record={r} onUpdate={setUpdateRecord} onDelete={handleDelete} />
                             ))}

@@ -23,7 +23,7 @@ const HotCard = ({ item, bsRate }) => {
             : 'border-orange-200 bg-orange-50';
 
     return (
-        <div className={`rounded-2xl border-2 p-4 flex items-start gap-3 ${urgency}`}>
+        <div className={`rounded-xl border-2 p-4 flex items-start gap-3 ${urgency}`}>
             <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center shrink-0">
                 <Flame size={18} className="text-orange-500" />
             </div>
@@ -59,7 +59,7 @@ const HotCard = ({ item, bsRate }) => {
 
 // ─── Card producto dormido ────────────────────────────────────────────────────
 const DormantCard = ({ item }) => (
-    <div className="rounded-2xl border-2 border-slate-200 bg-white p-4 flex items-start gap-3 hover:border-slate-300 transition-all">
+    <div className="rounded-xl border-2 border-slate-200 bg-white p-4 flex items-start gap-3 hover:border-slate-300 transition-all">
         <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
             <Snowflake size={18} className="text-slate-400" />
         </div>
@@ -91,7 +91,7 @@ const TransferCard = ({ item }) => {
     }[item.priority] || {};
 
     return (
-        <div className="rounded-2xl border-2 border-indigo-100 bg-indigo-50/30 p-4 flex items-start gap-3">
+        <div className="rounded-xl border-2 border-indigo-100 bg-indigo-50/30 p-4 flex items-start gap-3">
             <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center shrink-0">
                 <TruckIcon size={18} className="text-indigo-500" />
             </div>
@@ -120,10 +120,10 @@ const TransferCard = ({ item }) => {
 const Section = ({ icon: Icon, title, subtitle, color, count, children, defaultOpen = true }) => {
     const [open, setOpen] = useState(defaultOpen);
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
             <button
                 onClick={() => setOpen(o => !o)}
-                className="w-full flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors"
+                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors"
             >
                 <div className={`w-9 h-9 ${color} rounded-xl flex items-center justify-center shrink-0`}>
                     <Icon size={18} className="text-white" />
@@ -180,7 +180,7 @@ const IntelligenceTab = () => {
     const totalCapitalDormido = dormant.reduce((s, d) => s + (d.stock_value || 0), 0);
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-4">
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
@@ -190,7 +190,7 @@ const IntelligenceTab = () => {
                     <p className="text-xs text-slate-400 mt-0.5">Análisis automático basado en ventas reales</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+                    <div className="flex bg-slate-100 rounded-lg p-1 gap-1 shadow-inner shadow-slate-200/60">
                         {PERIOD_OPTIONS.map(opt => (
                             <button key={opt.value} onClick={() => setDays(opt.value)}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${days === opt.value ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -198,7 +198,7 @@ const IntelligenceTab = () => {
                             </button>
                         ))}
                     </div>
-                    <button onClick={load} className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all">
+                    <button onClick={load} className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all">
                         <RefreshCw size={15} className={loading ? 'animate-spin text-indigo-500' : ''} />
                     </button>
                 </div>
@@ -206,17 +206,17 @@ const IntelligenceTab = () => {
 
             {/* KPI summary */}
             {!loading && (
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-orange-50 border border-orange-100 rounded-2xl p-3 text-center">
-                        <p className="text-2xl font-black text-orange-600">{hot.length}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 text-center">
+                        <p className="text-xl font-black text-orange-600">{hot.length}</p>
                         <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Calientes</p>
                     </div>
-                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 text-center">
-                        <p className="text-2xl font-black text-slate-500">{dormant.length}</p>
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                        <p className="text-xl font-black text-slate-500">{dormant.length}</p>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dormidos</p>
                     </div>
-                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-3 text-center">
-                        <p className="text-2xl font-black text-rose-600">{fmtUSD(totalCapitalDormido)}</p>
+                    <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-center">
+                        <p className="text-xl font-black text-rose-600">{fmtUSD(totalCapitalDormido)}</p>
                         <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Capital inmovilizado</p>
                     </div>
                 </div>
@@ -233,7 +233,7 @@ const IntelligenceTab = () => {
                     <Section icon={Flame} title="Productos Calientes" color="bg-orange-500"
                         subtitle={`Más vendidos en los últimos ${days} días`} count={`${hot.length} productos`} defaultOpen={true}>
                         {hot.length === 0
-                            ? <p className="text-sm text-slate-400 text-center py-4">Sin ventas en este período</p>
+                            ? <p className="text-sm text-slate-400 text-center py-3">Sin ventas en este período</p>
                             : hot.map(item => <HotCard key={item.id} item={item} bsRate={bsRate} />)
                         }
                     </Section>
@@ -242,7 +242,7 @@ const IntelligenceTab = () => {
                     <Section icon={Snowflake} title="Productos Dormidos" color="bg-slate-500"
                         subtitle={`Con stock pero sin ventas en ${days}+ días`} count={`${dormant.length} productos`} defaultOpen={true}>
                         {dormant.length === 0
-                            ? <p className="text-sm text-slate-400 text-center py-4">¡Todo el inventario está rotando! 🎉</p>
+                            ? <p className="text-sm text-slate-400 text-center py-3">¡Todo el inventario está rotando! 🎉</p>
                             : dormant.map(item => <DormantCard key={item.id} item={item} />)
                         }
                     </Section>
@@ -251,7 +251,7 @@ const IntelligenceTab = () => {
                     <Section icon={TruckIcon} title="Sugerencias para Otros Locales" color="bg-indigo-500"
                         subtitle="Productos dormidos con mayor capital inmovilizado" count={`${transfers.length} sugerencias`} defaultOpen={true}>
                         {transfers.length === 0
-                            ? <p className="text-sm text-slate-400 text-center py-4">Sin sugerencias de traslado</p>
+                            ? <p className="text-sm text-slate-400 text-center py-3">Sin sugerencias de traslado</p>
                             : transfers.map(item => <TransferCard key={item.id} item={item} />)
                         }
                     </Section>

@@ -15,15 +15,15 @@ const ConfirmPayModal = ({ summary, onConfirm, onCancel, isProcessing, bsRate, p
     if (!summary) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
-                <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-amber-50">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+                <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-amber-50">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-amber-100 rounded-xl text-amber-600"><AlertTriangle className="w-5 h-5" /></div>
                         <h3 className="text-lg font-bold text-slate-800">Confirmar Pago</h3>
                     </div>
                     <button onClick={onCancel} disabled={isProcessing} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
                 </div>
-                <div className="p-5 space-y-4">
+                <div className="p-4 space-y-4">
                     <div className="bg-slate-50 rounded-xl p-4 space-y-2 border border-slate-100">
                         <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Vendedor</span>
@@ -38,7 +38,7 @@ const ConfirmPayModal = ({ summary, onConfirm, onCancel, isProcessing, bsRate, p
                             <span className="font-black text-emerald-600">${parseFloat(summary.pending_amount).toFixed(2)}</span>
                         </div>
                         {bsRate && (
-                            <div className="flex justify-between text-sm text-slate-500">
+                            <div className="flex justify-between text-xs font-semibold text-slate-500">
                                 <span>E.Q Bs</span>
                                 <span className="font-bold">Bs {(parseFloat(summary.pending_amount) * bsRate).toFixed(2)}</span>
                             </div>
@@ -88,7 +88,7 @@ const VendorDetailTable = ({ userId, bsRate }) => {
     }, [userId]);
 
     if (loading) return (
-        <div className="p-6 flex justify-center">
+        <div className="p-4 flex justify-center">
             <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
         </div>
     );
@@ -297,9 +297,9 @@ const VendorDetailTable = ({ userId, bsRate }) => {
 
 // ─── Fila de resumen por vendedor ─────────────────────────────────────────────
 const VendorRow = ({ s, bsRate, onPay, expanded, onToggle }) => (
-    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
         {/* Header */}
-        <div className={`flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-slate-50 transition-colors ${expanded ? 'bg-indigo-50/30 border-b border-indigo-100' : 'bg-white'}`}
+        <div className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors ${expanded ? 'bg-indigo-50/30 border-b border-indigo-100' : 'bg-white'}`}
             onClick={onToggle}>
             {/* Avatar */}
             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
@@ -313,7 +313,7 @@ const VendorRow = ({ s, bsRate, onPay, expanded, onToggle }) => (
             {/* Montos */}
             <div className="text-right shrink-0">
                 <p className="font-black text-emerald-600 text-base">{fmtUSD(s.pending_amount)}</p>
-                {bsRate && <p className="text-xs font-bold text-slate-400 mt-0.5">{fmtBs(s.pending_amount, bsRate)}</p>}
+                {bsRate && <p className="text-[11px] font-black text-slate-400 mt-0.5">{fmtBs(s.pending_amount, bsRate)}</p>}
             </div>
             {/* Botón pagar */}
             <button
@@ -399,7 +399,7 @@ const CommissionsTab = () => {
     const totalEmpleados = filtered.filter(r => parseFloat(r.pending_amount || 0) > 0).length;
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-4">
             <ConfirmPayModal
                 summary={pendingPayout}
                 onConfirm={handleConfirmPay}
@@ -411,22 +411,22 @@ const CommissionsTab = () => {
             />
 
             {/* KPIs */}
-            <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Total Pendiente</p>
-                    <p className="text-3xl font-black text-emerald-600">{fmtUSD(totalPendiente)}</p>
+                    <p className="text-xl font-black text-emerald-600">{fmtUSD(totalPendiente)}</p>
                     {bsRate && <p className="text-sm font-bold text-slate-400 mt-1">{fmtBs(totalPendiente, bsRate)}</p>}
                     <p className="text-xs text-slate-400 mt-1">Tasa {bsRate ? bsRate.toFixed(2) : '—'} Bs/$</p>
                 </div>
-                <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                     <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Vendedores</p>
-                    <p className="text-3xl font-black text-indigo-600">{totalEmpleados}</p>
+                    <p className="text-xl font-black text-indigo-600">{totalEmpleados}</p>
                     <p className="text-xs text-slate-400 mt-1">con comisiones pendientes</p>
                 </div>
             </div>
 
             {/* Buscador */}
-            <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-sm">
                 <Search size={15} className="text-slate-400 shrink-0" />
                 <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
                     placeholder="Buscar vendedor..."
