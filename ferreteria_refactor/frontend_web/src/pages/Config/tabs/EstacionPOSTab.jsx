@@ -110,24 +110,24 @@ const EstacionPOSTab = () => {
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="space-y-5 animate-in fade-in duration-300">
 
             {/* ── Precios en el POS — Solo ADMIN ──────────────────────────────── */}
             {user?.role === 'ADMIN' && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                <Card className="rounded-lg border-slate-200 shadow-sm">
+                    <CardHeader className="p-5 pb-3">
+                        <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
                             <Zap className="h-5 w-5 text-emerald-600" />
                             Precios en el Punto de Venta
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs font-medium text-slate-500">
                             Configura qué lista de precios se aplica por defecto al agregar
                             productos al carrito, y si se muestra el equivalente en Bolívares.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-3 p-5 pt-0">
                         {/* Lista de precio predeterminada */}
-                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                             <p className="font-bold text-slate-800 text-sm mb-1">Lista de precio predeterminada</p>
                             <p className="text-xs text-slate-500 mb-3">
                                 Se aplica automáticamente al agregar cada producto al carrito.
@@ -136,7 +136,7 @@ const EstacionPOSTab = () => {
                                 value={defaultPriceListId}
                                 onChange={e => saveDefaultPriceList(e.target.value)}
                                 disabled={savingPricing}
-                                className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+                                className="w-full px-3 py-2.5 rounded-md border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
                             >
                                 <option value="">Precio Base (divisa)</option>
                                 {priceLists.map(l => (
@@ -146,13 +146,13 @@ const EstacionPOSTab = () => {
                         </div>
 
                         {/* Toggle mostrar Bs */}
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <div className="flex items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                             <div>
                                 <p className="font-bold text-slate-800 text-sm">Mostrar equivalente en Bolívares</p>
                                 <p className="text-xs text-slate-500 mt-0.5">
                                     {showBs
-                                        ? '🟢 Mostrando precios en $ y Bs'
-                                        : '⚪ Solo divisa ($), sin Bs'}
+                                        ? 'Activo: mostrando precios en $ y Bs'
+                                        : 'Inactivo: solo divisa ($), sin Bs'}
                                 </p>
                             </div>
                             <button
@@ -172,24 +172,24 @@ const EstacionPOSTab = () => {
 
             {/* ── Auto Print Ticket — Solo ADMIN ──────────────────────────────── */}
             {user?.role === 'ADMIN' && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                <Card className="rounded-lg border-slate-200 shadow-sm">
+                    <CardHeader className="p-5 pb-3">
+                        <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
                             <Zap className="h-5 w-5 text-indigo-600" />
                             Impresión Automática de Ticket
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs font-medium text-slate-500">
                             Cuando está activo, el ticket se imprime automáticamente al confirmar el pago, sin necesidad de presionar "Imprimir Ticket".
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    <CardContent className="p-5 pt-0">
+                        <div className="flex items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                             <div>
                                 <p className="font-bold text-slate-800 text-sm">Imprimir ticket al confirmar pago</p>
                                 <p className="text-xs text-slate-500 mt-0.5">
                                     {autoPrint
-                                        ? '🟢 Activo — el ticket se imprime automáticamente'
-                                        : '⚪ Inactivo — flujo normal (requiere confirmar impresión)'}
+                                        ? 'Activo: el ticket se imprime automaticamente'
+                                        : 'Inactivo: flujo normal, requiere confirmar impresion'}
                                 </p>
                             </div>
                             <button
@@ -204,29 +204,29 @@ const EstacionPOSTab = () => {
                                 }`} />
                             </button>
                         </div>
-                        <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3 flex items-center gap-1.5">
-                            ⚠️ Requiere que la impresora esté configurada y el Hardware Bridge esté activo.
+                        <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mt-3 flex items-center gap-1.5">
+                            Requiere que la impresora este configurada y el Hardware Bridge este activo.
                         </p>
                     </CardContent>
                 </Card>
             )}
 
             {/* HARDWARE BRIDGE - MANUAL CONFIGURATION GUIDE */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+            <Card className="rounded-lg border-slate-200 shadow-sm">
+                <CardHeader className="p-5 pb-3">
+                    <CardTitle className="flex items-center gap-2 text-lg font-black text-slate-900">
                         <Printer className="h-5 w-5 text-indigo-600" />
                         Hardware Bridge (Puente de Impresión)
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-xs font-medium text-slate-500">
                         Sigue estos pasos para conectar tu impresora local:
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-4 p-5 pt-0">
 
                     {/* STEP 1: DOWNLOAD */}
-                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                        <div className="h-8 w-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold shrink-0">1</div>
+                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="h-8 w-8 bg-indigo-50 text-indigo-600 rounded-md flex items-center justify-center font-black shrink-0">1</div>
                         <div className="flex-1">
                             <h4 className="font-bold text-slate-800">Descargar e Instalar</h4>
                             <p className="text-sm text-slate-600 mb-3">
@@ -241,7 +241,7 @@ const EstacionPOSTab = () => {
                             <a
                                 href="/downloads/ConexionImpresora.zip"
                                 download
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors shadow-sm"
+                                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-sm"
                             >
                                 <Download size={16} />
                                 Descargar ConexionImpresora.zip
@@ -250,8 +250,8 @@ const EstacionPOSTab = () => {
                     </div>
 
                     {/* STEP 2: CONFIGURE */}
-                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                        <div className="h-8 w-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold shrink-0">2</div>
+                    <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="h-8 w-8 bg-indigo-50 text-indigo-600 rounded-md flex items-center justify-center font-black shrink-0">2</div>
                         <div className="flex-1 space-y-4">
                             <div>
                                 <h4 className="font-bold text-slate-800">Configuración Manual</h4>
@@ -264,7 +264,7 @@ const EstacionPOSTab = () => {
                             <div className="grid gap-2">
                                 <label className="text-xs font-semibold text-slate-500 uppercase">Servidor WebSocket (Host)</label>
                                 <div className="flex gap-2">
-                                    <code className="flex-1 bg-white border border-slate-200 p-2 rounded text-sm font-mono text-slate-700">
+                                    <code className="flex-1 bg-white border border-slate-200 p-2 rounded-md text-sm font-mono text-slate-700">
                                         {(() => {
                                             let host = API_ROOT_URL;
                                             if (host.startsWith('https://')) host = host.replace('https://', 'wss://');
@@ -299,7 +299,7 @@ const EstacionPOSTab = () => {
                                 <div className="grid gap-2">
                                     <label className="text-xs font-semibold text-slate-500 uppercase">Tenant ID (Empresa)</label>
                                     <div className="flex gap-2">
-                                        <code className="flex-1 bg-white border border-slate-200 p-2 rounded text-sm font-mono text-slate-700">
+                                        <code className="flex-1 bg-white border border-slate-200 p-2 rounded-md text-sm font-mono text-slate-700">
                                             {(() => {
                                                 if (user?.tenant_id && user.tenant_id !== 'public') {
                                                     return user.tenant_id;
@@ -357,7 +357,7 @@ const EstacionPOSTab = () => {
                                 <div className="grid gap-2">
                                     <label className="text-xs font-semibold text-slate-500 uppercase">Client ID (Nombre Caja)</label>
                                     <div className="flex gap-2">
-                                        <code className="flex-1 bg-white border border-slate-200 p-2 rounded text-sm font-mono text-slate-700">
+                                        <code className="flex-1 bg-white border border-slate-200 p-2 rounded-md text-sm font-mono text-slate-700">
                                             caja-1
                                         </code>
                                         <Button
@@ -378,7 +378,7 @@ const EstacionPOSTab = () => {
                             <div className="grid gap-2">
                                 <label className="text-xs font-semibold text-slate-500 uppercase">Tu Token de Acceso</label>
                                 <div className="flex gap-2">
-                                    <code className="flex-1 bg-white border border-slate-200 p-2 rounded text-sm font-mono text-slate-700 break-all truncate">
+                                    <code className="flex-1 bg-white border border-slate-200 p-2 rounded-md text-sm font-mono text-slate-700 break-all truncate">
                                         {localStorage.getItem('token')?.replace(/^"|"$/g, '').substring(0, 20) || '...'}...
                                     </code>
                                     <Button
@@ -398,8 +398,8 @@ const EstacionPOSTab = () => {
                     </div>
 
                     {/* STEP 3: CONNECT */}
-                    <div className="flex items-start gap-4 p-4 bg-green-50 rounded-lg border border-green-100">
-                        <div className="h-8 w-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold shrink-0">3</div>
+                    <div className="flex items-start gap-4 p-4 bg-emerald-50 rounded-lg border border-emerald-100">
+                        <div className="h-8 w-8 bg-emerald-100 text-emerald-600 rounded-md flex items-center justify-center font-black shrink-0">3</div>
                         <div>
                             <h4 className="font-bold text-slate-800">Conectar</h4>
                             <p className="text-sm text-slate-600">
