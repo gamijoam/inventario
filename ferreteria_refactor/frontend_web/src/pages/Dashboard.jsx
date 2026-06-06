@@ -28,6 +28,13 @@ import { useNavigate }    from 'react-router-dom';
 /*  HELPERS                                                                    */
 /* ─────────────────────────────────────────────────────────────────────────── */
 const fmt = (n = 0) => `$${Number(n).toFixed(2)}`;
+const fmtCompact = (n = 0) => {
+    const value = Number(n || 0);
+    if (Math.abs(value) >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+    if (Math.abs(value) >= 1000) return `$${(value / 1000).toFixed(1)}K`;
+    return fmt(value);
+};
+const fmtNumber = (n = 0) => Number(n || 0).toLocaleString('es-VE');
 
 const pctChange = (curr, prev) => {
     if (!prev || prev === 0) return null;
@@ -113,89 +120,102 @@ const CashierDashboard = () => {
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  KPI CARD con tendencia real                                                */
 /* ─────────────────────────────────────────────────────────────────────────── */
-const KPICard = ({ title, value, prevValue, icon: Icon, prefix = '$', isCurrency = true, color = 'indigo', loading = false }) => {
-    const pct   = prevValue != null ? pctChange(Number(value || 0), Number(prevValue || 0)) : null;
-    const up    = pct !== null && pct >= 0;
+const KPICard = ({ title, value, prevValue, icon: Icon, isCurrency = true, color = 'indigo', loading = false }) => {
+    const pct = prevValue != null ? pctChange(Number(value || 0), Number(prevValue || 0)) : null;
+    const up = pct !== null && pct >= 0;
     const colorMap = {
-        indigo:  'bg-indigo-50 text-indigo-600',
-        emerald: 'bg-emerald-50 text-emerald-600',
-        amber:   'bg-amber-50 text-amber-600',
-        blue:    'bg-blue-50 text-blue-600',
-        violet:  'bg-violet-50 text-violet-600',
-        rose:    'bg-rose-50 text-rose-600',
+        indigo:  { accent: 'from-indigo-600 to-blue-600', icon: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
+        emerald: { accent: 'from-emerald-600 to-teal-600', icon: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+        amber:   { accent: 'from-amber-500 to-orange-500', icon: 'text-amber-600 bg-amber-50 border-amber-100' },
+        blue:    { accent: 'from-blue-600 to-cyan-600', icon: 'text-blue-600 bg-blue-50 border-blue-100' },
+        violet:  { accent: 'from-violet-600 to-indigo-600', icon: 'text-violet-600 bg-violet-50 border-violet-100' },
+        rose:    { accent: 'from-rose-600 to-pink-600', icon: 'text-rose-600 bg-rose-50 border-rose-100' },
     };
+    const palette = colorMap[color] || colorMap.indigo;
 
     if (loading) return (
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-pulse">
-            <div className="h-3 bg-slate-100 rounded w-24 mb-4" />
-            <div className="h-8 bg-slate-100 rounded w-32 mb-3" />
-            <div className="h-3 bg-slate-100 rounded w-16" />
+        <div className="min-h-[112px] rounded-lg border border-slate-200 bg-white p-3 shadow-sm animate-pulse">
+            <div className="flex items-center justify-between mb-4">
+                <div className="h-3 bg-slate-100 rounded w-24" />
+                <div className="h-8 w-8 bg-slate-100 rounded-lg" />
+            </div>
+            <div className="h-6 bg-slate-100 rounded w-28 mb-3" />
+            <div className="h-3 bg-slate-100 rounded w-20" />
         </div>
     );
 
     return (
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
-            <div className="flex items-center justify-between mb-2.5">
-                <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest leading-tight">{title}</p>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorMap[color] || colorMap.indigo}`}>
-                    <Icon size={16} />
+        <div className="relative min-h-[112px] overflow-hidden rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${palette.accent}`} />
+            <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 leading-tight">{title}</p>
+                    <div className="mt-2 text-[22px] leading-none font-black tracking-tight text-slate-950 truncate">
+                        {isCurrency ? fmtCompact(value) : fmtNumber(value)}
+                    </div>
+                </div>
+                <div className={`h-8 w-8 shrink-0 rounded-lg border flex items-center justify-center ${palette.icon}`}>
+                    <Icon size={16} strokeWidth={2.5} />
                 </div>
             </div>
-            <div className="text-xl font-black text-slate-900 tracking-tight mb-1.5">
-                {isCurrency ? fmt(value) : (Number(value || 0).toLocaleString())}
-            </div>
             {pct !== null ? (
-                <div className="flex items-center gap-1.5">
-                    <span className={`inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${up ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'}`}>
+                <div className="mt-3 flex items-center gap-1.5 text-[11px]">
+                    <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-black ${up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
                         {up ? <ArrowUpRight size={12} strokeWidth={3}/> : <ArrowDownRight size={12} strokeWidth={3}/>}
                         {Math.abs(pct).toFixed(1)}%
                     </span>
-                    <span className="text-slate-400 text-[10px]">vs periodo anterior</span>
+                    <span className="truncate font-semibold text-slate-400">vs anterior</span>
                 </div>
             ) : (
-                <span className="text-slate-400 text-[10px]">Sin datos anteriores</span>
+                <div className="mt-3 text-[11px] font-semibold text-slate-400">Sin comparativo</div>
             )}
         </div>
     );
 };
 
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* --------------------------------------------------------------------------- */
 /*  ALERT CARD                                                                 */
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* --------------------------------------------------------------------------- */
 const AlertCard = ({ icon: Icon, title, count, desc, color, onClick }) => {
     const colorMap = {
-        red:    'border-red-200 bg-red-50',
-        amber:  'border-amber-200 bg-amber-50',
-        blue:   'border-blue-200 bg-blue-50',
-        violet: 'border-violet-200 bg-violet-50',
-    };
-    const iconMap = {
-        red:    'text-red-600 bg-red-100',
-        amber:  'text-amber-600 bg-amber-100',
-        blue:   'text-blue-600 bg-blue-100',
-        violet: 'text-violet-600 bg-violet-100',
+        red:    'border-red-200 bg-red-50/80 text-red-700',
+        amber:  'border-amber-200 bg-amber-50/80 text-amber-700',
+        blue:   'border-blue-200 bg-blue-50/80 text-blue-700',
+        violet: 'border-violet-200 bg-violet-50/80 text-violet-700',
     };
     return (
         <button onClick={onClick}
-            className={`w-full text-left p-3 rounded-xl border flex items-center gap-3 hover:shadow-sm transition-all ${colorMap[color]}`}>
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconMap[color]}`}>
-                <Icon size={18} />
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                    <span className="font-black text-slate-800 text-sm">{title}</span>
-                    <span className={`text-xs font-black px-1.5 py-0.5 rounded-full ${iconMap[color]}`}>{count}</span>
+            className={`group w-full rounded-lg border p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${colorMap[color]}`}>
+            <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/80 shadow-sm">
+                    <Icon size={16} strokeWidth={2.5} />
                 </div>
-                <p className="text-[11px] font-semibold text-slate-500 truncate mt-0.5">{desc}</p>
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-black text-slate-900">{title}</span>
+                        <span className="rounded-full bg-white/90 px-1.5 py-0.5 text-xs font-black shadow-sm">{count}</span>
+                    </div>
+                    <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">{desc}</p>
+                </div>
+                <ChevronRight size={15} className="shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
             </div>
-            <ChevronRight size={16} className="text-slate-400 shrink-0" />
         </button>
     );
 };
 
-/* ─────────────────────────────────────────────────────────────────────────── */
+const EmptyState = ({ icon: Icon = Package, title, desc }) => (
+    <div className="flex min-h-[168px] flex-col items-center justify-center px-4 py-8 text-center">
+        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
+            <Icon size={22} />
+        </div>
+        <p className="text-sm font-black text-slate-500">{title}</p>
+        {desc && <p className="mt-1 max-w-xs text-xs font-semibold text-slate-400">{desc}</p>}
+    </div>
+);
+
+/* --------------------------------------------------------------------------- */
 /*  TOOLTIP PERSONALIZADO                                                      */
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* --------------------------------------------------------------------------- */
 const ChartTooltip = ({ active, payload, label }) => {
     if (!active || !payload?.length) return null;
     return (
@@ -383,15 +403,19 @@ const Dashboard = () => {
 
     /* ── RENDER ── */
     return (
-        <div className="space-y-4 animate-in fade-in duration-300 max-w-[1520px] mx-auto pb-10 px-1">
+        <div className="space-y-3 animate-in fade-in duration-300 max-w-[1540px] mx-auto pb-8 px-1">
 
             {/* ── HEADER ── */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
                 <div>
                     <h1 className="text-xl font-black text-slate-900 tracking-tight">Resumen del Negocio</h1>
-                    <p className="text-slate-500 text-xs font-semibold mt-0.5">Vista general de tu actividad</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                        <span>Vista ejecutiva de ventas, ganancia y actividad</span>
+                        <span className="hidden sm:inline text-slate-300">/</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{period.start} a {period.end}</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:justify-end">
                     {/* Selector de periodo */}
                     <div className="flex bg-slate-100 p-1 rounded-lg gap-1 shadow-inner shadow-slate-200/60">
                         {PRESETS.map(p => (
@@ -414,7 +438,7 @@ const Dashboard = () => {
             </div>
 
             {/* ── KPIs ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-3", modules?.services ? "lg:grid-cols-6" : "lg:grid-cols-5")}>
                 <KPICard title="Ingresos"     value={salesCurr?.total_revenue || 0}      prevValue={salesPrev?.total_revenue}                             icon={DollarSign}   color="emerald" loading={loading} />
                 <KPICard title="Ganancia real" value={profitCurr?.realized_profit || profitCurr?.total_profit || 0} prevValue={profitPrev?.realized_profit || profitPrev?.total_profit} icon={TrendingUp}  color="indigo"  loading={loading} />
                 <KPICard title="Transacciones" value={salesCurr?.net_transactions || salesCurr?.total_transactions || 0} prevValue={salesPrev?.net_transactions || salesPrev?.total_transactions} icon={ShoppingCart} color="blue" isCurrency={false} loading={loading} />
@@ -427,8 +451,8 @@ const Dashboard = () => {
 
             {/* ── ALERTAS ACCIONABLES ── */}
             {!loading && (alerts.lowStock > 0 || (modules?.services && alerts.tallerReady > 0) || alerts.overdueCredits > 0 || alerts.pendingCommissions > 0) && (
-                <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <p className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                         <Bell size={12} /> Requieren atención
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -452,14 +476,14 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
                 {/* Gráfico combinado */}
-                <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm p-4">
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h3 className="font-bold text-slate-800">Ventas vs Ganancia</h3>
+                            <h3 className="font-black text-slate-900 text-sm">Ventas vs Ganancia</h3>
                             <p className="text-xs text-slate-400 mt-0.5">{period.label} — comparativa diaria</p>
                         </div>
                     </div>
-                    <div className="h-64">
+                    <div className="h-[260px]">
                         {loading ? (
                             <div className="h-full bg-slate-50 rounded-xl animate-pulse" />
                         ) : chartData.length > 0 ? (
@@ -480,7 +504,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Métodos de pago */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
                     <h3 className="font-bold text-slate-800 mb-1">Métodos de Pago</h3>
                     <p className="text-xs text-slate-400 mb-3">Distribución del periodo</p>
                     {loading ? (
@@ -520,7 +544,7 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
                 {/* Top productos */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <div>
                             <h3 className="font-black text-slate-800 text-sm">Top Productos</h3>
@@ -534,24 +558,33 @@ const Dashboard = () => {
                         <div className="p-4 space-y-3">{[...Array(5)].map((_,i) => <div key={i} className="h-8 bg-slate-50 rounded-xl animate-pulse" />)}</div>
                     ) : topProducts.length > 0 ? (
                         <div className="divide-y divide-slate-50">
-                            {topProducts.map((p, i) => (
-                                <div key={p.product_id || i} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors">
-                                    <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-xs font-black flex items-center justify-center shrink-0">{i+1}</span>
-                                    <p className="flex-1 text-sm font-semibold text-slate-700 truncate">{p.product_name}</p>
-                                    <div className="text-right">
-                                        <p className="text-sm font-bold text-slate-900">${Number(p.revenue || 0).toFixed(0)}</p>
-                                        <p className="text-xs text-slate-400">{Number(p.quantity_sold || 0).toFixed(0)} uds</p>
+                            {topProducts.map((p, i) => {
+                                const maxRevenue = Math.max(...topProducts.map(item => Number(item.revenue || 0)), 1);
+                                const width = Math.max(8, Math.round((Number(p.revenue || 0) / maxRevenue) * 100));
+                                return (
+                                    <div key={p.product_id || i} className="px-4 py-2.5 hover:bg-slate-50 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            <span className="w-5 h-5 rounded-full bg-indigo-50 text-indigo-600 text-xs font-black flex items-center justify-center shrink-0">{i+1}</span>
+                                            <p className="flex-1 text-sm font-bold text-slate-700 truncate">{p.product_name}</p>
+                                            <div className="text-right shrink-0">
+                                                <p className="text-sm font-black text-slate-900">${Number(p.revenue || 0).toFixed(0)}</p>
+                                                <p className="text-[11px] font-semibold text-slate-400">{Number(p.quantity_sold || 0).toFixed(0)} uds</p>
+                                            </div>
+                                        </div>
+                                        <div className="ml-8 mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                            <div className="h-full rounded-full bg-indigo-500" style={{ width: `${width}%` }} />
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
-                        <div className="py-10 text-center text-slate-400 text-sm">Sin ventas en el periodo</div>
+                        <EmptyState icon={Package} title="Sin ventas en el periodo" desc="Cuando registres ventas apareceran aqui los productos con mejor rendimiento." />
                     )}
                 </div>
 
                 {/* Top empleados por comisiones */}
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                         <div>
                             <h3 className="font-black text-slate-800 text-sm">Rendimiento Equipo</h3>
@@ -586,13 +619,13 @@ const Dashboard = () => {
                             })}
                         </div>
                     ) : (
-                        <div className="py-10 text-center text-slate-400 text-sm">Sin comisiones registradas</div>
+                        <EmptyState icon={Users} title="Sin comisiones registradas" desc="El rendimiento del equipo aparecera cuando existan comisiones." />
                     )}
                 </div>
             </div>
 
             {/* ── ACTIVIDAD RECIENTE MEJORADA ── */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                     <div>
                         <h3 className="font-black text-slate-800 text-sm">Actividad Reciente</h3>
@@ -665,10 +698,7 @@ const Dashboard = () => {
                         </div>
                     </>
                 ) : (
-                    <div className="py-14 text-center">
-                        <Package size={36} className="text-slate-200 mx-auto mb-3" />
-                        <p className="text-slate-400 text-sm font-medium">Sin transacciones recientes</p>
-                    </div>
+                    <EmptyState icon={ShoppingCart} title="Sin transacciones recientes" desc="Las ultimas ventas apareceran en esta seccion." />
                 )}
             </div>
 
