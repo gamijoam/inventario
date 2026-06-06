@@ -269,6 +269,17 @@ class SalesService:
             # 2. Process Items
             employee_cache = {}
             salesperson_cache = {}
+            product_stock_cache = {}
+
+            def get_product_stock(product_id):
+                key = (product_id, warehouse_id)
+                if key not in product_stock_cache:
+                    product_stock_cache[key] = db.query(models.ProductStock).filter(
+                        models.ProductStock.product_id == product_id,
+                        models.ProductStock.warehouse_id == warehouse_id
+                    ).first()
+                return product_stock_cache[key]
+
             for item in sale_data.items:
                 sold_instances = [] 
                 
@@ -607,10 +618,7 @@ class SalesService:
                             for instance in sold_instances:
                                 instance.status = models.ProductInstanceStatus.SOLD
 
-                            product_stock = db.query(models.ProductStock).filter(
-                                models.ProductStock.product_id == product.id,
-                                models.ProductStock.warehouse_id == warehouse_id
-                            ).first()
+                            product_stock = get_product_stock(product.id)
 
                             available_qty = product_stock.quantity if product_stock else 0
 
@@ -638,10 +646,7 @@ class SalesService:
                             ))
 
                         else:
-                            product_stock = db.query(models.ProductStock).filter(
-                                models.ProductStock.product_id == product.id,
-                                models.ProductStock.warehouse_id == warehouse_id
-                            ).first()
+                            product_stock = get_product_stock(product.id)
 
                             available_qty = product_stock.quantity if product_stock else 0
 
