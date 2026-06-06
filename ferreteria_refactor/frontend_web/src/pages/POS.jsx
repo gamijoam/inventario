@@ -1013,7 +1013,7 @@ const POS = () => {
                 </div>
             )}
 
-            <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-4 p-4">
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-3 p-3 lg:gap-4 lg:p-4">
                 {isExpressMode ? (
                     /* ===== MODO EXPRESS ===== */
                     <>
@@ -1033,7 +1033,7 @@ const POS = () => {
                             </div>
                         </div>
                         {/* Derecha: carrito normal (igual que modo completo) */}
-                        <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
+                        <div className="md:w-[340px] lg:w-[380px] xl:w-[420px] flex-none h-full z-10 w-full hidden md:block">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
@@ -1084,7 +1084,7 @@ const POS = () => {
                         </div>
 
                         {/* SECCIÓN DERECHA: CARRITO (Fixed Width on Desktop) */}
-                        <div className="md:w-[400px] lg:w-[450px] flex-none h-full z-10 w-full hidden md:block">
+                        <div className="md:w-[340px] lg:w-[380px] xl:w-[420px] flex-none h-full z-10 w-full hidden md:block">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
@@ -1111,10 +1111,11 @@ const POS = () => {
                     {cart.length > 0 && (
                         <Button
                             size="icon"
-                            className="rounded-full h-14 w-14 shadow-xl bg-indigo-600 text-white hover:bg-indigo-700 relative"
+                            className="h-12 min-h-12 w-auto rounded-full px-4 shadow-xl bg-indigo-600 text-white hover:bg-indigo-700 relative gap-2"
                             onClick={() => setIsMobileCartOpen(true)}
                         >
-                            <ShoppingCart size={22} />
+                            <ShoppingCart size={20} />
+                            <span className="text-sm font-black tabular-nums">{anchorCurrency.symbol}{totalUSD.toFixed(2)}</span>
                             <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs font-black rounded-full h-6 w-6 flex items-center justify-center shadow-md">
                                 {cart.reduce((sum, item) => sum + item.quantity, 0)}
                             </span>
@@ -1124,11 +1125,11 @@ const POS = () => {
 
                 {/* Mobile Cart Sheet */}
                 <Sheet open={isMobileCartOpen} onOpenChange={setIsMobileCartOpen}>
-                    <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl">
-                        <SheetHeader className="px-4 pt-4 pb-2 border-b border-slate-100">
-                            <SheetTitle className="text-lg font-black text-slate-800">Carrito ({cart.length})</SheetTitle>
+                    <SheetContent side="bottom" className="h-[88vh] p-0 rounded-t-2xl">
+                        <SheetHeader className="px-4 pt-3 pb-2 border-b border-slate-100">
+                            <SheetTitle className="text-base font-black text-slate-800">Carrito ({cart.length})</SheetTitle>
                         </SheetHeader>
-                        <div className="flex-1 overflow-y-auto h-[calc(85vh-60px)]">
+                        <div className="flex-1 overflow-y-auto h-[calc(88vh-54px)]">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
@@ -1143,6 +1144,8 @@ const POS = () => {
                                 onItemClick={(item) => { setIsMobileCartOpen(false); setSelectedItemForEdit(item); }}
                                 secondaryCurrency={secondaryCurrency}
                                 convertPrice={convertPrice}
+                                priceLists={priceLists}
+                                getFromCache={getFromCache}
                             />
                         </div>
                     </SheetContent>
