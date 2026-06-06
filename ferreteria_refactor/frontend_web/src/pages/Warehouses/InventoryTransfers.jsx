@@ -283,7 +283,7 @@ const InventoryTransfers = () => {
                 })
             };
             const { data: newTransfer } = await apiClient.post('/transfers', payload);
-            toast.success("Traslado realizado con ?xito");
+            toast.success("Traslado realizado con exito");
 
             if (shouldPrint) {
                 // Reconstruct full object for print with item names
@@ -482,7 +482,7 @@ const InventoryTransfers = () => {
                                 <input
                                     type="text"
                                     className="w-full p-3.5 bg-transparent outline-none font-medium text-slate-700 placeholder:text-slate-400"
-                                    placeholder="Buscar producto por nombre o c?digo..."
+                                    placeholder="Buscar producto por nombre o codigo..."
                                     value={productSearch}
                                     onChange={e => {
                                         setProductSearch(e.target.value);
@@ -524,7 +524,7 @@ const InventoryTransfers = () => {
                                             <div className="font-bold text-slate-700 flex items-center gap-2">
                                                 {item.name}
                                                 {showImeiPicker && (
-                                                    <span className="text-[10px] uppercase font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">?? IMEI</span>
+                                                    <span className="text-[10px] uppercase font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">IMEI</span>
                                                 )}
                                             </div>
                                             <div className="text-xs text-slate-400 mt-0.5">Stock disponible: {item.stock_available}</div>
@@ -598,7 +598,7 @@ const InventoryTransfers = () => {
                                                     </div>
                                                     <div className="flex items-center justify-between mb-2">
                                                         <div className="text-xs text-slate-600">
-                                                            IMEIs en bodega origen: <b>{imeiPicker.instances.length}</b> disponibles ? <b className={selectedCount === item.quantity ? 'text-emerald-600' : 'text-amber-600'}>{selectedCount}/{item.quantity}</b> seleccionados
+                                                            IMEIs en bodega origen: <b>{imeiPicker.instances.length}</b> disponibles - <b className={selectedCount === item.quantity ? 'text-emerald-600' : 'text-amber-600'}>{selectedCount}/{item.quantity}</b> seleccionados
                                                         </div>
                                                         {imeiPicker.instances.length >= item.quantity && selectedCount < item.quantity && (
                                                             <button
@@ -629,7 +629,7 @@ const InventoryTransfers = () => {
                                                                         "w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0",
                                                                         isSel ? "bg-amber-500 border-amber-500 text-white" : "border-slate-300"
                                                                     )}>
-                                                                        {isSel && '?'}
+                                                                        {isSel && <CheckCircle size={10} />}
                                                                     </span>
                                                                     <span className="flex-1 truncate">{pi.serial_number}</span>
                                                                     {pi.warehouse?.name && <span className="text-[9px] text-slate-400">{pi.warehouse.name}</span>}
@@ -647,7 +647,7 @@ const InventoryTransfers = () => {
                             {items.length === 0 && (
                                 <div className="h-full flex flex-col items-center justify-center text-center py-12 text-slate-400 border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/30">
                                     <Package size={48} className="mb-4 opacity-30" />
-                                    <p className="font-bold text-slate-500">Lista de traslado vac?a</p>
+                                    <p className="font-bold text-slate-500">Lista de traslado vacia</p>
                                     <p className="text-sm">Busca productos arriba para agregarlos</p>
                                 </div>
                             )}
@@ -659,7 +659,7 @@ const InventoryTransfers = () => {
                 <div className="space-y-6">
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 sticky top-6">
                         <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg border-b border-slate-100 pb-4">
-                            <Calendar className="text-indigo-600" size={20} /> Detalles del Env?o
+                            <Calendar className="text-indigo-600" size={20} /> Detalles del envio
                         </h3>
                         <div className="space-y-5">
                             <div>
@@ -675,7 +675,7 @@ const InventoryTransfers = () => {
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Notas / Referencia</label>
                                 <textarea
                                     className="w-full p-3 border border-slate-200 rounded-xl resize-none h-32 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-slate-700"
-                                    placeholder="Raz?n del traslado, n?mero de gu?a..."
+                                    placeholder="Razon del traslado, numero de guia..."
                                     value={formData.notes}
                                     onChange={e => setFormData({ ...formData, notes: e.target.value })}
                                 ></textarea>
@@ -686,7 +686,7 @@ const InventoryTransfers = () => {
                             <div className="bg-indigo-50 rounded-xl p-4 mb-4 flex items-start gap-3">
                                 <Truck className="text-indigo-600 shrink-0 mt-1" size={18} />
                                 <div className="text-xs text-indigo-800 font-medium">
-                                    Est?s moviendo <span className="font-bold">{items.length} productos</span> de {warehouses.find(w => w.id == formData.source_warehouse_id)?.name || '...'} a {warehouses.find(w => w.id == formData.target_warehouse_id)?.name || '...'}.
+                                    Estas moviendo <span className="font-bold">{items.length} productos</span> de {warehouses.find(w => w.id == formData.source_warehouse_id)?.name || '...'} a {warehouses.find(w => w.id == formData.target_warehouse_id)?.name || '...'}.
                                 </div>
                             </div>
 

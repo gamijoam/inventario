@@ -21,6 +21,9 @@ const ExternalTransferOut = () => {
     // Check if any item exceeds available stock
     const hasStockError = selectedItems.some(i => i.quantity > i.current_stock);
     const hasImeiError = selectedItems.some(i => i.has_imei && (i.selected_imeis?.length || 0) !== Number(i.quantity));
+    const selectedWarehouse = warehouses.find(w => String(w.id) === String(selectedWarehouseId));
+    const totalUnits = selectedItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const imeiItemsCount = selectedItems.filter(item => item.has_imei).length;
 
     // Load warehouses on mount
     useEffect(() => {
@@ -300,9 +303,9 @@ const ExternalTransferOut = () => {
     };
 
     return (
-        <div className="flex h-screen bg-slate-50">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.85fr)]">
             {/* Left Panel: Search */}
-            <div className="w-1/2 p-6 flex flex-col border-r border-slate-200">
+            <div className="flex min-h-[620px] flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <Search className="text-indigo-600" />
                     Buscar Productos
@@ -310,7 +313,7 @@ const ExternalTransferOut = () => {
 
                 {/* Warehouse Selector */}
                 <div className="mb-4 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almac?n de Origen</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Almacen de origen</label>
                     <select
                         value={selectedWarehouseId}
                         onChange={(e) => setSelectedWarehouseId(e.target.value)}
@@ -325,7 +328,7 @@ const ExternalTransferOut = () => {
                 <div className="relative mb-6">
                     <input
                         type="text"
-                        placeholder="Buscar por nombre o c?digo..."
+                        placeholder="Buscar por nombre o codigo..."
                         className="w-full pl-10 pr-4 py-3 rounded-xl border-none shadow-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-indigo-500 transition-all font-medium text-slate-600"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -373,11 +376,26 @@ const ExternalTransferOut = () => {
             </div>
 
             {/* Right Panel: Transfer List */}
-            <div className="w-1/2 p-6 flex flex-col bg-white">
+            <div className="flex min-h-[620px] flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <Package className="text-emerald-600" />
-                    Paquete de Salida
+                    Paquete de salida
                 </h2>
+
+                <div className="mb-3 grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Productos</p>
+                        <p className="text-lg font-black text-slate-800">{selectedItems.length}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Unidades</p>
+                        <p className="text-lg font-black text-slate-800">{totalUnits}</p>
+                    </div>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase text-amber-600">IMEI</p>
+                        <p className="text-lg font-black text-amber-700">{imeiItemsCount}</p>
+                    </div>
+                </div>
 
                 <div className="flex-1 overflow-y-auto mb-4 border border-slate-100 rounded-xl bg-slate-50 p-4">
                     {selectedItems.length === 0 ? (
@@ -399,7 +417,7 @@ const ExternalTransferOut = () => {
                                         <p className={`text-xs mt-0.5 ${item.quantity > item.current_stock ? 'text-red-600 font-semibold' : 'text-slate-500'}`}>
                                             Stock: {item.current_stock}
                                             {item.quantity > item.current_stock && (
-                                                <span className="ml-1">? Excede el stock disponible</span>
+                                                <span className="ml-1">Excede el stock disponible</span>
                                             )}
                                         </p>
                                     </div>
@@ -470,7 +488,7 @@ const ExternalTransferOut = () => {
                                                         </button>
                                                     </div>
                                                     <div className="flex items-center justify-between text-xs text-slate-600">
-                                                        <span><b>{imeiPicker.instances.length}</b> disponibles ? <b>{item.selected_imeis?.length || 0}/{item.quantity}</b> seleccionados</span>
+                                                        <span><b>{imeiPicker.instances.length}</b> disponibles - <b>{item.selected_imeis?.length || 0}/{item.quantity}</b> seleccionados</span>
                                                         {(item.selected_imeis?.length || 0) < item.quantity && imeiPicker.instances.length >= item.quantity && (
                                                             <button type="button" onClick={() => selectFirstN(selectedItems.indexOf(item), item.quantity)} className="font-bold text-indigo-600">
                                                                 Auto-seleccionar {item.quantity}
@@ -490,7 +508,7 @@ const ExternalTransferOut = () => {
                                                                     }`}
                                                                 >
                                                                     <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${isSelected ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300'}`}>
-                                                                        {isSelected && '?'}
+                                                                        {isSelected && <CheckCircle size={10} />}
                                                                     </span>
                                                                     <span className="flex-1 truncate">{pi.serial_number}</span>
                                                                 </button>
@@ -512,7 +530,7 @@ const ExternalTransferOut = () => {
                     <div className="flex items-center justify-between mb-2">
                         <h3 className="text-sm font-bold text-slate-600 flex items-center gap-2">
                             <Camera size={16} className="text-indigo-500" />
-                            Evidencia Fotogr?fica
+                            Evidencia fotografica
                         </h3>
                         <button
                             onClick={() => fileInputRef.current?.click()}
@@ -597,7 +615,7 @@ const ExternalTransferOut = () => {
                         <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-red-700">
                             <AlertTriangle className="flex-shrink-0 text-red-500" size={20} />
                             <p>
-                                Uno o m?s productos exceden el stock disponible. Ajusta las cantidades antes de continuar.
+                                Uno o mas productos exceden el stock disponible. Ajusta las cantidades antes de continuar.
                             </p>
                         </div>
                     )}
@@ -612,7 +630,7 @@ const ExternalTransferOut = () => {
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex gap-3 text-sm text-amber-800">
                         <AlertTriangle className="flex-shrink-0" size={20} />
                         <p>
-                            Al generar el paquete, el stock se descontará <strong>automáticamente</strong> del almacén seleccionado ({warehouses.find(w => w.id == selectedWarehouseId)?.name}) como "Traspaso de Salida".
+                            Al generar el paquete, el stock se descontará <strong>automáticamente</strong> del almacén seleccionado ({selectedWarehouse?.name || 'sin almacen'}) como "Traspaso de salida".
                         </p>
                     </div>
 
@@ -626,7 +644,7 @@ const ExternalTransferOut = () => {
                             <ul className="text-sm text-amber-900 space-y-1 mb-3 ml-1">
                                 {selectedItems.map(item => (
                                     <li key={item.product_id}>
-                                        ? <span className="font-mono text-xs">{item.sku}</span> {item.name} ? <strong>{item.quantity}</strong> unidades
+                                        <span className="font-mono text-xs">{item.sku}</span> {item.name} - <strong>{item.quantity}</strong> unidades
                                     </li>
                                 ))}
                             </ul>
@@ -647,7 +665,7 @@ const ExternalTransferOut = () => {
                                     ) : (
                                         <>
                                             <CheckCircle size={16} />
-                                            Confirmar y Generar
+                                            Confirmar y generar
                                         </>
                                     )}
                                 </button>
@@ -661,7 +679,7 @@ const ExternalTransferOut = () => {
                         className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
                     >
                         <Download size={20} />
-                        Generar Paquete
+                        Generar paquete
                     </button>
                 </div>
             </div>

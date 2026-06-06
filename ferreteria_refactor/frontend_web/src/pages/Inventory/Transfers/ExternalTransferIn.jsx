@@ -7,7 +7,7 @@ import {
   ArrowRight, X, FileJson, RefreshCw, Warehouse, Camera, Image as ImageIcon
 } from 'lucide-react';
 
-/* ??? Product Search Modal (replaces inline dropdown) ??? */
+/* Product search modal */
 function ProductSearchModal({ isOpen, onClose, onSelect }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -50,7 +50,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect }) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar producto por nombre o c?digo..."
+            placeholder="Buscar producto por nombre o codigo..."
             className="flex-1 bg-transparent outline-none text-slate-700 font-medium placeholder:text-slate-400"
           />
           <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-lg transition-colors">
@@ -100,7 +100,7 @@ function ProductSearchModal({ isOpen, onClose, onSelect }) {
   );
 }
 
-/* ??? Match badge helper ??? */
+/* Match badge helper */
 const MATCH_CONFIG = {
   exact:  { label: 'Exacto',     color: 'bg-emerald-100 text-emerald-700', icon: Check },
   fuzzy:  { label: 'Similar',    color: 'bg-yellow-100 text-yellow-700',   icon: AlertTriangle },
@@ -119,7 +119,7 @@ function MatchBadge({ type }) {
   );
 }
 
-/* ??? Main component ??? */
+/* Main component */
 const ExternalTransferIn = () => {
   const fileInputRef = useRef(null);
   const [step, setStep] = useState('upload');
@@ -200,7 +200,7 @@ const ExternalTransferIn = () => {
       }));
       setPreviewItems(items);
       setStep('preview');
-      toast.success(`${items.length} productos cargados para revisi?n`);
+      toast.success(`${items.length} productos cargados para revision`);
     } catch (error) {
       const detail = error.response?.data?.detail;
       const msg = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join(', ') : 'Error al previsualizar el archivo';
@@ -298,9 +298,9 @@ const ExternalTransferIn = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  /* ???????????????????? RENDER ???????????????????? */
+  /* Render */
 
-  // ?? Step 1: Upload ??
+  // Step 1: Upload
   if (step === 'upload') {
     return (
       <div className="flex h-full bg-slate-50 items-center justify-center p-6">
@@ -365,7 +365,7 @@ const ExternalTransferIn = () => {
     );
   }
 
-  // ?? Step 2: Preview table ??
+  // Step 2: Preview table
   if (step === 'preview') {
     return (
       <div className="flex flex-col h-full bg-slate-50">
@@ -422,7 +422,7 @@ const ExternalTransferIn = () => {
           <div className="bg-white border-b border-slate-200 px-6 py-3">
             <div className="flex items-center gap-2 mb-2">
               <Camera size={16} className="text-indigo-500" />
-              <span className="text-sm font-bold text-slate-700">Evidencia Fotogr?fica ({photoUrls.length} foto{photoUrls.length !== 1 ? 's' : ''})</span>
+              <span className="text-sm font-bold text-slate-700">Evidencia fotografica ({photoUrls.length} foto{photoUrls.length !== 1 ? 's' : ''})</span>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {photoUrls.map((url, idx) => (
@@ -498,9 +498,9 @@ const ExternalTransferIn = () => {
                   <th className="text-center px-4 py-3 font-semibold text-slate-600 w-28">Match</th>
                   <th className="text-left px-4 py-3 font-semibold text-slate-600 min-w-[240px]">Producto Local</th>
                   {warehouses.length > 0 && (
-                    <th className="text-center px-4 py-3 font-semibold text-slate-600 w-40">Almac?n</th>
+                    <th className="text-center px-4 py-3 font-semibold text-slate-600 w-40">Almacen</th>
                   )}
-                  <th className="text-center px-4 py-3 font-semibold text-slate-600 w-32">Acci?n</th>
+                  <th className="text-center px-4 py-3 font-semibold text-slate-600 w-32">Accion</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -620,7 +620,7 @@ const ExternalTransferIn = () => {
     );
   }
 
-  // ?? Step 3: Result ??
+  // Step 3: Result
   return (
     <div className="flex h-full bg-slate-50 items-center justify-center p-6">
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl p-8">
