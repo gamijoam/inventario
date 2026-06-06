@@ -6,11 +6,21 @@ from ..models import models
 from .. import schemas
 from ..websocket.manager import manager
 from ..websocket.events import WebSocketEvents
+from ..cache import get_cached, set_cached, invalidate_resource, TTL
+from ..tenant_context import get_tenant_schema
 
 router = APIRouter(
     prefix="/customers",
     tags=["customers"]
 )
+
+
+def _invalidate_customers_cache():
+    try:
+        invalidate_resource(get_tenant_schema(), "customers")
+    except Exception:
+        pass
+
 
 @router.get("/")
 @router.get("", include_in_schema=False)
@@ -21,6 +31,12 @@ def read_customers(
     include_inactive: bool = Query(default=False, description="Incluir clientes inactivos (soft-deleted)"),
     db: Session = Depends(get_db)
 ):
+    schema = get_tenant_schema()
+    cache_extra = f"skip={skip}:limit={limit}:q={q or ''}:inactive={include_inactive}"
+    cached = get_cached(schema, "customers", cache_extra)
+    if cached is not None:
+        return cached
+
     query = db.query(models.Customer)
     if not include_inactive:
         query = query.filter(models.Customer.is_active == True)
@@ -32,7 +48,13 @@ def read_customers(
         )
     total = query.count()
     items = query.offset(skip).limit(limit).all()
-    return {"items": items, "total": total, "has_more": (skip + limit) < total}
+    result = {
+        "items": [schemas.CustomerRead.model_validate(item).model_dump(mode="json") for item in items],
+        "total": total,
+        "has_more": (skip + limit) < total
+    }
+    set_cached(schema, "customers", result, cache_extra, ttl=TTL.get("customers", 120))
+    return result
 
 @router.post("/", response_model=schemas.CustomerRead)
 @router.post("", response_model=schemas.CustomerRead, include_in_schema=False)
@@ -62,6 +84,7 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
     }
 
     db.commit()
+    _invalidate_customers_cache()
     # db.refresh(db_customer) # REMOVED
 
     # Broadcast customer created
@@ -127,6 +150,7 @@ async def update_customer(customer_id: int, customer_data: schemas.CustomerCreat
     }
 
     db.commit()
+    _invalidate_customers_cache()
     # db.refresh(db_customer) # REMOVED
 
     # Broadcast customer updated
@@ -245,6 +269,7 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db)):
 
     customer.is_active = False
     db.commit()
+    _invalidate_customers_cache()
     return {"status": "success", "message": "Cliente desactivado"}
 
 
@@ -257,6 +282,7 @@ def deactivate_customer(customer_id: int, db: Session = Depends(get_db)):
 
     customer.is_active = False
     db.commit()
+    _invalidate_customers_cache()
     return {"status": "success", "message": "Cliente desactivado"}
 
 
