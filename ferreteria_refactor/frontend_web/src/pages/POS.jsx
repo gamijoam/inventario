@@ -1017,7 +1017,7 @@ const POS = () => {
                 </div>
             )}
 
-            <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-3 p-3 lg:gap-4 lg:p-4">
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden gap-2 p-2 lg:gap-3 lg:p-3">
                 {isExpressMode ? (
                     /* ===== MODO EXPRESS ===== */
                     <>
@@ -1037,7 +1037,7 @@ const POS = () => {
                             </div>
                         </div>
                         {/* Derecha: carrito normal (igual que modo completo) */}
-                        <div className="md:w-[340px] lg:w-[380px] xl:w-[420px] flex-none h-full z-10 w-full hidden md:block">
+                        <div className="md:w-[300px] lg:w-[330px] xl:w-[360px] 2xl:w-[390px] flex-none h-full z-10 w-full hidden md:block">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
@@ -1088,7 +1088,7 @@ const POS = () => {
                         </div>
 
                         {/* SECCIÓN DERECHA: CARRITO (Fixed Width on Desktop) */}
-                        <div className="md:w-[340px] lg:w-[380px] xl:w-[420px] flex-none h-full z-10 w-full hidden md:block">
+                        <div className="md:w-[300px] lg:w-[330px] xl:w-[360px] 2xl:w-[390px] flex-none h-full z-10 w-full hidden md:block">
                             <POSCart
                                 cartItems={cart}
                                 onRemoveItem={removeFromCart}
