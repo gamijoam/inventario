@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   ArrowLeftRight, Plus, RefreshCw, Store,
-  CheckCircle, XCircle, Clock, Search, Trash2, AlertCircle
+  CheckCircle, XCircle, Clock, Search, Trash2, AlertCircle, Send, Inbox, Package
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -24,6 +24,28 @@ const COLORS = {
 };
 
 const EMPTY_ITEM = { product_sku: '', product_name: '', quantity: 1, stock: 0, unit_cost: 0 };
+
+function MetricCard({ icon: Icon, label, value, tone = 'indigo' }) {
+  const tones = {
+    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+    amber: 'bg-amber-50 text-amber-600 border-amber-100',
+    rose: 'bg-rose-50 text-rose-600 border-rose-100',
+  };
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
+        </div>
+        <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${tones[tone]}`}>
+          <Icon size={18} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function InterCompanyTransfers() {
   const [transfers, setTransfers]           = useState([]);
@@ -142,6 +164,20 @@ export default function InterCompanyTransfers() {
   const getId   = (c) => (c.id || c.tenant_id)?.toString() || '';
   const getName = (c) => c.name || c.schema_name || '';
 
+  const currentSchema = useMemo(() => {
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const parts = hostname.split('.');
+    const subdomain = parts.length >= 3 ? parts[0] : null;
+    const lsTenant = typeof localStorage !== 'undefined' ? localStorage.getItem('selected_tenant') : null;
+    return subdomain || lsTenant || '';
+  }, []);
+
+  const currentCompany = useMemo(
+    () => companies.find(c => c.schema_name === currentSchema),
+    [companies, currentSchema]
+  );
+  const currentTenantId = Number(currentCompany?.id || currentCompany?.tenant_id || 0);
+
   // Filtrar productos en tiempo real
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products.slice(0, 50);
@@ -227,33 +263,52 @@ export default function InterCompanyTransfers() {
     }
   };
 
-  const filtered = transfers.filter(t =>
-    !search ||
-    t.from_tenant_name?.toLowerCase().includes(search.toLowerCase()) ||
-    t.to_tenant_name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = transfers.filter(t => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      t.from_tenant_name?.toLowerCase().includes(q) ||
+      t.to_tenant_name?.toLowerCase().includes(q) ||
+      t.notes?.toLowerCase().includes(q) ||
+      t.items?.some(i => i.product_name?.toLowerCase().includes(q) || i.product_sku?.toLowerCase().includes(q))
+    );
+  });
+
+  const isPending = (t) => t.status === 'pending' || t.status === 'PENDING';
+  const isIncoming = (t) => currentTenantId && Number(t.to_tenant_id) === currentTenantId;
+  const isOutgoing = (t) => currentTenantId && Number(t.from_tenant_id) === currentTenantId;
+  const pendingIncoming = transfers.filter(t => isPending(t) && isIncoming(t)).length;
+  const pendingOutgoing = transfers.filter(t => isPending(t) && isOutgoing(t)).length;
+  const acceptedCount = transfers.filter(t => ['ACCEPTED', 'accepted', 'COMPLETED'].includes(t.status)).length;
+  const rejectedCount = transfers.filter(t => ['REJECTED', 'rejected'].includes(t.status)).length;
 
   return (
     <div className="space-y-6 max-w-5xl" onClick={() => setShowDropdown(false)}>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900">Traslados Entre Empresas</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            {companies.length} empresa{companies.length !== 1 ? 's' : ''} en el grupo
-            {' · '}Los productos se trasladan desde tu empresa actual
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={loadAll}
-            className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-colors">
-            <RefreshCw size={16} />
-          </button>
-          <button onClick={handleOpenForm}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
-            <Plus size={16} /> Nuevo Traslado
-          </button>
+      <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="w-11 h-11 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0">
+              <ArrowLeftRight size={22} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-wide text-indigo-500">Operacion empresarial</p>
+              <h1 className="text-2xl font-black text-slate-950 truncate">Traslados entre empresas</h1>
+              <p className="text-sm text-slate-500">
+                {companies.length} empresa{companies.length !== 1 ? 's' : ''} en el grupo. Origen actual: {currentCompany?.name || currentSchema || 'empresa actual'}.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button onClick={loadAll}
+              className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors text-sm font-bold">
+              <RefreshCw size={15} /> Actualizar
+            </button>
+            <button onClick={handleOpenForm}
+              className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 text-sm">
+              <Plus size={16} /> Nuevo traslado
+            </button>
+          </div>
         </div>
       </div>
 
@@ -277,6 +332,13 @@ export default function InterCompanyTransfers() {
           </button>
         </div>
       )}
+
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        <MetricCard icon={Inbox} label="Por aceptar" value={pendingIncoming} tone="amber" />
+        <MetricCard icon={Send} label="Enviados pend." value={pendingOutgoing} tone="indigo" />
+        <MetricCard icon={CheckCircle} label="Aceptados" value={acceptedCount} tone="emerald" />
+        <MetricCard icon={XCircle} label="Rechazados" value={rejectedCount} tone="rose" />
+      </div>
 
       {/* Formulario */}
       {showForm && (
@@ -433,75 +495,118 @@ export default function InterCompanyTransfers() {
         </div>
       )}
 
-      {/* Buscador historial */}
-      <div className="relative">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input type="text" placeholder="Buscar traslados..."
-          value={search} onChange={e => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
-      </div>
+      <section className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center">
+              <Package size={18} />
+            </div>
+            <div>
+              <h2 className="font-black text-slate-900">Historial de traslados</h2>
+              <p className="text-xs text-slate-500">Entrantes y salientes de la empresa actual.</p>
+            </div>
+          </div>
+          <div className="relative w-full lg:w-80">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input type="text" placeholder="Buscar por empresa, producto, SKU o nota..."
+              value={search} onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white" />
+          </div>
+        </div>
 
-      {/* Lista de traslados */}
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <RefreshCw size={24} className="text-indigo-500 animate-spin" />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">
-          <ArrowLeftRight size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="font-semibold">Sin traslados aún</p>
-          <p className="text-sm">Crea el primero para mover inventario entre empresas</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map(t => {
-            const s = STATUS[t.status] || STATUS.PENDING;
-            const SIcon = s.icon;
-            return (
-              <div key={t.id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Store size={16} className="text-indigo-500" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-bold text-slate-800 flex-wrap">
-                        <span>{t.from_tenant_name || ('Empresa #' + t.from_tenant_id)}</span>
-                        <ArrowLeftRight size={14} className="text-indigo-400 flex-shrink-0" />
-                        <span>{t.to_tenant_name || ('Empresa #' + t.to_tenant_id)}</span>
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <RefreshCw size={24} className="text-indigo-500 animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 text-slate-400">
+            <ArrowLeftRight size={40} className="mx-auto mb-3 opacity-30" />
+            <p className="font-semibold">Sin traslados</p>
+            <p className="text-sm">Crea uno para mover inventario entre empresas.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {filtered.map(t => {
+              const s = STATUS[t.status] || STATUS.PENDING;
+              const SIcon = s.icon;
+              const incoming = isIncoming(t);
+              const outgoing = isOutgoing(t);
+              const canResolve = isPending(t) && incoming;
+              const itemsCount = t.items?.length || 0;
+              const units = (t.items || []).reduce((sum, item) => sum + (parseFloat(item.quantity) || 0), 0);
+              return (
+                <div key={t.id} className="p-4 hover:bg-slate-50 transition-colors">
+                  <div className="flex flex-col xl:flex-row xl:items-center gap-4">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${incoming ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-indigo-50 text-indigo-600 border border-indigo-100'}`}>
+                        {incoming ? <Inbox size={18} /> : <Send size={18} />}
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        #{t.id} · {t.created_at ? new Date(t.created_at).toLocaleDateString('es-VE') : '—'}
-                        {t.notes ? ' · ' + t.notes : ''}
-                        {t.items && t.items.length > 0
-                          ? ' · ' + t.items.map(i => i.quantity + ' ' + i.product_name).join(', ')
-                          : ''}
-                      </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2 text-sm font-black text-slate-900">
+                          <span>{t.from_tenant_name || ('Empresa #' + t.from_tenant_id)}</span>
+                          <ArrowLeftRight size={14} className="text-indigo-400 flex-shrink-0" />
+                          <span>{t.to_tenant_name || ('Empresa #' + t.to_tenant_id)}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${incoming ? 'bg-amber-50 text-amber-700' : outgoing ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+                            {incoming ? 'Entrante' : outgoing ? 'Saliente' : 'Grupo'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          #{t.id} - {t.created_at ? new Date(t.created_at).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) : '--'}
+                          {t.notes ? ' - ' + t.notes : ''}
+                        </p>
+                        {itemsCount > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {t.items.slice(0, 4).map(i => (
+                              <span key={i.id || i.product_sku} className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-slate-100 text-slate-600">
+                                {Number(i.quantity).toFixed(Number(i.quantity) % 1 ? 2 : 0)} x {i.product_name || i.product_sku}
+                              </span>
+                            ))}
+                            {itemsCount > 4 && <span className="text-[11px] font-bold px-2 py-1 rounded-lg bg-slate-100 text-slate-500">+{itemsCount - 4} mas</span>}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={'flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ' + COLORS[s.color]}>
-                      <SIcon size={11} /> {s.label}
-                    </span>
-                    {(t.status === 'pending' || t.status === 'PENDING') && (
-                      <>
-                        <button onClick={() => handleAction(t.id, 'accept')} title="Aceptar"
-                          className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all">
-                          <CheckCircle size={14} />
-                        </button>
-                        <button onClick={() => handleAction(t.id, 'reject')} title="Rechazar"
-                          className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all">
-                          <XCircle size={14} />
-                        </button>
-                      </>
-                    )}
+
+                    <div className="grid grid-cols-3 gap-2 xl:w-[360px]">
+                      <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                        <p className="text-[10px] text-slate-400 font-black uppercase">Productos</p>
+                        <p className="text-base font-black text-slate-800">{itemsCount}</p>
+                      </div>
+                      <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
+                        <p className="text-[10px] text-slate-400 font-black uppercase">Unidades</p>
+                        <p className="text-base font-black text-slate-800">{units.toFixed(units % 1 ? 2 : 0)}</p>
+                      </div>
+                      <div className={'rounded-lg border p-3 ' + COLORS[s.color]}>
+                        <p className="text-[10px] font-black uppercase">Estado</p>
+                        <p className="text-sm font-black flex items-center gap-1"><SIcon size={13} /> {s.label}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 xl:justify-end">
+                      {canResolve ? (
+                        <>
+                          <button onClick={() => handleAction(t.id, 'accept')}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-all text-sm font-bold">
+                            <CheckCircle size={14} /> Aceptar
+                          </button>
+                          <button onClick={() => handleAction(t.id, 'reject')}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all text-sm font-bold border border-rose-100">
+                            <XCircle size={14} /> Rechazar
+                          </button>
+                        </>
+                      ) : isPending(t) ? (
+                        <span className="text-xs font-bold text-slate-400 px-3 py-2 rounded-lg bg-slate-50 border border-slate-100">
+                          {outgoing ? 'Esperando destino' : 'Sin accion disponible'}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
