@@ -14,7 +14,7 @@ import {
     Settings, MessageCircle, Users,
     Save, Loader2, Plus, Trash2,
     Building2, Info, Smartphone, Crown, ShieldCheck, CreditCard, CalendarDays,
-    UserPlus, CheckCircle, Clock, Mail
+    UserPlus, CheckCircle, Clock, Mail, Radio, Power, Server
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -294,38 +294,77 @@ export default function OrgConfig() {
                             </div>
                         </SectionCard>
 
-                        <SectionCard icon={MessageCircle} title="WhatsApp compartido" subtitle="Una instancia para notificaciones del grupo" color="emerald">
+                        <SectionCard icon={MessageCircle} title="WhatsApp compartido" subtitle="Mensajeria centralizada del grupo" color="emerald">
                             <div className="space-y-4">
-                                <ToggleSwitch
-                                    value={waConfig.use_shared_whatsapp}
-                                    onChange={v => setWaConfig(prev => ({ ...prev, use_shared_whatsapp: v }))}
-                                    label="Activar WhatsApp compartido"
-                                    description="Todas las empresas del grupo usaran la misma instancia de Baileys para enviar mensajes a clientes."
-                                />
-
-                                {waConfig.use_shared_whatsapp && (
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 mb-1.5">Instancia Baileys</label>
-                                        <div className="relative">
-                                            <Smartphone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                                            <input
-                                                type="text"
-                                                value={waConfig.whatsapp_instance}
-                                                onChange={e => setWaConfig(prev => ({ ...prev, whatsapp_instance: e.target.value }))}
-                                                placeholder="ej: grupo-rodriguez"
-                                                className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none font-mono"
-                                            />
+                                <div className={`rounded-lg border p-4 ${waConfig.use_shared_whatsapp ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-200'}`}>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex items-start gap-3 min-w-0">
+                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${waConfig.use_shared_whatsapp ? 'bg-emerald-600 text-white' : 'bg-white text-slate-500 border border-slate-200'}`}>
+                                                {waConfig.use_shared_whatsapp ? <Radio size={18} /> : <Power size={18} />}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className={`text-sm font-black ${waConfig.use_shared_whatsapp ? 'text-emerald-900' : 'text-slate-800'}`}>
+                                                    {waConfig.use_shared_whatsapp ? 'Compartido activo' : 'Modo individual'}
+                                                </p>
+                                                <p className={`text-xs mt-0.5 ${waConfig.use_shared_whatsapp ? 'text-emerald-700' : 'text-slate-500'}`}>
+                                                    {waConfig.use_shared_whatsapp
+                                                        ? 'Todas las empresas usaran una instancia comun para mensajes.'
+                                                        : 'Cada empresa mantiene su propia configuracion de WhatsApp.'}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <p className="text-xs text-slate-400 mt-1">Debe coincidir con el nombre configurado en el servidor de Baileys.</p>
+                                        <button
+                                            onClick={() => setWaConfig(prev => ({ ...prev, use_shared_whatsapp: !prev.use_shared_whatsapp }))}
+                                            className={`w-12 h-6 rounded-full transition-all duration-200 relative shrink-0 mt-1 ${waConfig.use_shared_whatsapp ? 'bg-emerald-600' : 'bg-slate-300'}`}
+                                            title={waConfig.use_shared_whatsapp ? 'Desactivar compartido' : 'Activar compartido'}
+                                        >
+                                            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200 ${waConfig.use_shared_whatsapp ? 'left-[26px]' : 'left-0.5'}`} />
+                                        </button>
                                     </div>
-                                )}
-
-                                <div className="flex items-start gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
-                                    <Info size={14} className="text-emerald-600 shrink-0 mt-0.5" />
-                                    <p className="text-xs text-emerald-700">Cada mensaje conserva la empresa de origen aunque use el numero compartido.</p>
                                 </div>
 
-                                <button onClick={handleSaveWa} disabled={savingWa} className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-60">
+                                <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <Server size={15} className="text-indigo-500" />
+                                        <label className="text-xs font-black uppercase tracking-wide text-slate-500">Instancia Baileys</label>
+                                    </div>
+                                    <div className="relative">
+                                        <Smartphone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            value={waConfig.whatsapp_instance}
+                                            onChange={e => setWaConfig(prev => ({ ...prev, whatsapp_instance: e.target.value }))}
+                                            placeholder="ej: grupo-rodriguez"
+                                            disabled={!waConfig.use_shared_whatsapp}
+                                            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-sm outline-none font-mono disabled:bg-slate-50 disabled:text-slate-400"
+                                        />
+                                    </div>
+                                    <div className={`flex items-start gap-2 p-3 rounded-lg border ${waConfig.use_shared_whatsapp && !waConfig.whatsapp_instance.trim() ? 'bg-amber-50 border-amber-100 text-amber-700' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                                        <Info size={14} className="shrink-0 mt-0.5" />
+                                        <p className="text-xs leading-relaxed">
+                                            {waConfig.use_shared_whatsapp && !waConfig.whatsapp_instance.trim()
+                                                ? 'Activa una instancia valida antes de usar el envio compartido en operaciones reales.'
+                                                : 'El nombre debe coincidir con la instancia configurada en el servidor de Baileys.'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                    <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3 text-emerald-800">
+                                        <p className="font-black">Mantiene origen</p>
+                                        <p className="mt-1">Los mensajes conservan la empresa que genero la accion.</p>
+                                    </div>
+                                    <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-3 text-indigo-800">
+                                        <p className="font-black">Ahorra sesiones</p>
+                                        <p className="mt-1">Centraliza envios cuando varias empresas comparten numero.</p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={handleSaveWa}
+                                    disabled={savingWa || (waConfig.use_shared_whatsapp && !waConfig.whatsapp_instance.trim())}
+                                    className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
                                     {savingWa ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
                                     {savingWa ? 'Guardando...' : 'Guardar WhatsApp'}
                                 </button>
