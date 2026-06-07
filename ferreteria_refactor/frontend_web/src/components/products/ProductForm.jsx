@@ -45,6 +45,7 @@ import { Label } from '../../components/ui/label';
 import { Separator } from '../../components/ui/separator';
 import { Textarea } from '../../components/ui/textarea';
 import { normalizeSearch } from '../../utils/search';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories = [], warehouses = [], exchangeRates = [] }) => {
     const { getActiveCurrencies, currencies, modules } = useConfig();
@@ -57,6 +58,20 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
     const [priceLists, setPriceLists] = useState([]);
     const [listPct, setListPct] = useState(45);
+
+    // Margen por defecto para "Calcular" — fetched desde /config (config-center).
+    // Si el setting existe y es válido, sobreescribe el 45 hardcoded.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data } = await apiClient.get('/config/default_price_list_margin');
+                const v = parseFloat(data?.value);
+                if (!cancelled && Number.isFinite(v)) setListPct(v);
+            } catch (_) { /* fallback: mantener 45 si falla */ }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
     // ── Crear categoría inline ────────────────────────────────────────────────
     const handleCreateCategory = async () => {

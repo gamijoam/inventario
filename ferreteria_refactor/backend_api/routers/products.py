@@ -4,7 +4,7 @@ from ..tenant_context import get_tenant_schema
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload, subqueryload, selectinload
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 import json
 import asyncio
 from datetime import date, datetime
@@ -24,6 +24,28 @@ from ..services.bg_remover import remove_background, is_available as bg_is_avail
 from fastapi.responses import Response
 
 router = APIRouter(prefix="/products", tags=["products"])
+
+
+def _normalize_sku(value):
+    if value is None:
+        return None
+    sku = str(value).strip()
+    return sku or None
+
+
+def _ensure_product_sku_available(db: Session, sku, product_id: Optional[int] = None):
+    normalized = _normalize_sku(sku)
+    if not normalized:
+        return
+    query = db.query(models.Product).filter(models.Product.sku == normalized)
+    if product_id is not None:
+        query = query.filter(models.Product.id != product_id)
+    existing = query.first()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f'Ya existe un producto con el SKU "{normalized}". Usa otro codigo o deja el SKU vacio si no aplica.'
+        )
 
 @router.post("/upload-image", dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
 async def upload_product_image(
@@ -519,6 +541,7 @@ def read_products(
 @router.post("/", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))])
 @router.post("", response_model=schemas.ProductRead, dependencies=[Depends(has_role([UserRole.ADMIN, UserRole.WAREHOUSE]))], include_in_schema=False)
 async def create_product(product: schemas.ProductCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_active_user)):
+    _ensure_product_sku_available(db, product.sku)
     # 1. Operaciones DB (Síncronas en Threadpool)
     # 1. Operaciones DB (Transaction Wrapper)
     try:
@@ -693,9 +716,9 @@ async def create_product(product: schemas.ProductCreate, background_tasks: Backg
         db.rollback()
         error_msg = str(e).lower()
         if "unique" in error_msg or "duplicate" in error_msg:
-             raise HTTPException(status_code=400, detail=f"Error: SKU or Name already exists.")
+             raise HTTPException(status_code=400, detail="Ya existe un producto con ese SKU. Usa otro codigo o deja el SKU vacio si no aplica.")
         print(f"[ERROR] Product Creation Failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=400, detail="No se pudo crear el producto. Revisa los datos e intenta nuevamente.")
 
     # 2. WebSocket en Background
     payload = {
@@ -741,6 +764,8 @@ async def update_product(product_id: int, product_update: schemas.ProductUpdate,
         raise HTTPException(status_code=404, detail="Product not found")
     
     update_data = product_update.dict(exclude_unset=True)
+    if "sku" in update_data:
+        _ensure_product_sku_available(db, update_data.get("sku"), product_id=product_id)
     
     # Separate list data if present
     units_data = None

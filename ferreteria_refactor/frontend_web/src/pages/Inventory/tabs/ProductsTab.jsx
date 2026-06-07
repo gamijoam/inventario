@@ -24,6 +24,7 @@ import clsx from 'clsx';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import { cn } from '../../../utils/cn';
 import { normalizeSearch } from '../../../utils/search';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import {
@@ -138,6 +139,10 @@ const ProductsTab = () => {
                 const total = data?.total ?? items.length;
                 setProducts(items);
                 setFilteredTotal(total);
+            } else {
+                toast.error(getApiErrorMessage(res.reason, 'No se pudo cargar el catalogo de productos'));
+                setProducts([]);
+                setFilteredTotal(0);
             }
 
             if (kpisRes.status === 'fulfilled') {
@@ -149,7 +154,9 @@ const ProductsTab = () => {
                     outOfStock: k.out_of_stock ?? 0,
                 });
             }
-        } catch {}
+        } catch (e) {
+            toast.error(getApiErrorMessage(e, 'No se pudo cargar el catalogo de productos'));
+        }
         finally { setIsLoading(false); }
     };
 
@@ -158,7 +165,7 @@ const ProductsTab = () => {
         try {
             await apiClient.delete(`/products/${product.id}`);
             toast.success('Producto eliminado');
-        } catch { toast.error('Error al eliminar'); }
+        } catch (e) { toast.error(getApiErrorMessage(e, 'No se pudo eliminar el producto')); }
     };
 
     useEffect(() => {
@@ -594,7 +601,7 @@ const ProductsTab = () => {
                         if (selectedProduct) { await apiClient.put(`/products/${selectedProduct.id}`, data); toast.success('Actualizado'); }
                         else { await apiClient.post('/products/', data); toast.success('Producto creado'); }
                         await fetchProducts(); setIsModalOpen(false); setSelectedProduct(null);
-                    } catch (e) { toast.error(e.response?.data?.detail || 'Error'); }
+                    } catch (e) { toast.error(getApiErrorMessage(e, selectedProduct ? 'No se pudo actualizar el producto' : 'No se pudo crear el producto')); }
                 }}
             />
             <ProductInstancesModal

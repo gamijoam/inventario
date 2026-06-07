@@ -1,0 +1,73 @@
+const FIELD_LABELS = {
+    name: 'Nombre',
+    sku: 'SKU',
+    price: 'Precio',
+    stock: 'Stock',
+    category_id: 'Categoria',
+    warehouse_id: 'Almacen',
+    email: 'Correo',
+    password: 'Contrasena',
+    username: 'Usuario',
+};
+
+const normalizeText = (value) => String(value || '').trim();
+
+const translateKnownMessage = (message) => {
+    const text = normalizeText(message);
+    const lower = text.toLowerCase();
+
+    if (!text) return '';
+    if ((lower.includes('sku') || lower.includes('barcode')) && (lower.includes('already exists') || lower.includes('duplicate') || lower.includes('unique'))) {
+        return 'Ya existe un producto con ese SKU. Usa otro codigo o deja el SKU vacio si no aplica.';
+    }
+    if (lower.includes('product not found')) return 'Producto no encontrado. Puede que haya sido eliminado o movido por otro usuario.';
+    if (lower.includes('payment method already exists')) return 'Ya existe un metodo de pago con ese nombre.';
+    if (lower.includes('name already exists')) return 'Ya existe un registro con ese nombre.';
+    if (lower.includes('customer with this id number already exists')) return 'Ya existe un cliente con esa cedula/RIF.';
+    if (lower.includes('username already exists')) return 'Ya existe un usuario con ese correo o nombre de usuario.';
+    if (lower.includes('database error')) return 'No se pudo guardar por una restriccion de datos. Revisa campos duplicados o valores invalidos.';
+    if (lower.includes('not enough stock') || lower.includes('stock insuficiente')) return 'No hay stock suficiente para completar la operacion.';
+
+    return text;
+};
+
+const formatValidationDetail = (detail) => {
+    if (!Array.isArray(detail) || detail.length === 0) return '';
+    return detail.map((item) => {
+        if (typeof item === 'string') return translateKnownMessage(item);
+        const rawLoc = Array.isArray(item?.loc) ? item.loc.filter(Boolean) : [];
+        const field = rawLoc[rawLoc.length - 1];
+        const label = FIELD_LABELS[field] || field;
+        const msg = translateKnownMessage(item?.msg || item?.message || 'valor invalido');
+        return label ? `${label}: ${msg}` : msg;
+    }).filter(Boolean).join(' | ');
+};
+
+export const getApiErrorMessage = (error, fallback = 'No se pudo completar la accion') => {
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+    const detail = data?.detail ?? data?.message ?? data?.error;
+
+    if (status === 401) return 'Tu sesion expiro. Inicia sesion nuevamente.';
+    if (status === 403) return 'No tienes permisos para realizar esta accion.';
+    if (status === 404) return translateKnownMessage(detail) || 'No encontramos el registro solicitado.';
+    if (status === 409) return translateKnownMessage(detail) || 'Ya existe un registro con esos datos.';
+    if (!status) return 'No hay conexion con el servidor. Revisa internet o intenta de nuevo.';
+
+    if (typeof detail === 'string') return translateKnownMessage(detail) || fallback;
+    if (Array.isArray(detail)) return formatValidationDetail(detail) || fallback;
+    if (detail && typeof detail === 'object') {
+        const values = Object.entries(detail).map(([key, value]) => {
+            const label = FIELD_LABELS[key] || key;
+            const msg = Array.isArray(value) ? value.join(', ') : value;
+            return `${label}: ${translateKnownMessage(msg)}`;
+        }).join(' | ');
+        return values || fallback;
+    }
+
+    return translateKnownMessage(error?.message) || fallback;
+};
+
+export const showApiError = (toast, error, fallback) => {
+    toast.error(getApiErrorMessage(error, fallback));
+};

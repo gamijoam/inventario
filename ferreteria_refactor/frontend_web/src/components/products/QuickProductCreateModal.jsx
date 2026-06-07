@@ -8,19 +8,7 @@ import { Label } from '../ui/label';
 import { Zap, Loader2, Tag } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
-
-// Helper para errores de Pydantic v2 (detail puede ser array de {loc, msg, input})
-const getApiErrorMessage = (error, fallback = 'Error al crear el producto') => {
-    const detail = error?.response?.data?.detail;
-    if (typeof detail === 'string') return detail;
-    if (Array.isArray(detail) && detail.length > 0) {
-        return detail.map(d => {
-            const loc = Array.isArray(d?.loc) ? d.loc.slice(1).join('.') || d.loc.join('.') : '';
-            return loc ? `${loc}: ${d.msg || 'inválido'}` : (d.msg || 'inválido');
-        }).join(' | ') || fallback;
-    }
-    return fallback;
-};
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const QuickProductCreateModal = ({ isOpen, onClose, onSuccess }) => {
     const [name, setName] = useState('');
@@ -105,7 +93,7 @@ const QuickProductCreateModal = ({ isOpen, onClose, onSuccess }) => {
             onSuccess?.(data);
             onClose();
         } catch (err) {
-            toast.error(getApiErrorMessage(err));
+            toast.error(getApiErrorMessage(err, 'No se pudo crear el producto rapido'));
         } finally {
             setSubmitting(false);
         }

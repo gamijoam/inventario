@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../utils/apiErrors';
 import { Plus, Search, Package, Filter, X, Trash2, Pencil, RefreshCw, MoreHorizontal, FileDown, FileUp, ChevronDown, Barcode } from 'lucide-react';
 import SearchWithScanner from '../components/common/SearchWithScanner';
 import ProductForm from '../components/products/ProductForm';
