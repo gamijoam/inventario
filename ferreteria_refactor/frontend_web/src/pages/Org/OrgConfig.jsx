@@ -13,7 +13,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Settings, MessageCircle, Users,
     Save, Loader2, Plus, Trash2,
-    Building2, Info, Smartphone, Crown, ShieldCheck, CreditCard, CalendarDays
+    Building2, Info, Smartphone, Crown, ShieldCheck, CreditCard, CalendarDays,
+    UserPlus, CheckCircle, Clock, Mail
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
@@ -382,7 +383,7 @@ function MembersSection({ orgId }) {
 
     const handleAddMember = async () => {
         if (!newEmail.trim() || !newEmail.includes('@')) {
-            toast.error('Ingresa un email válido');
+            toast.error('Ingresa un email valido');
             return;
         }
         setAdding(true);
@@ -392,7 +393,7 @@ function MembersSection({ orgId }) {
                 role      : 'manager',
                 can_switch: true,
             });
-            toast.success('✅ Miembro agregado');
+            toast.success('Miembro agregado');
             setNewEmail('');
             fetchMembers();
         } catch (err) {
@@ -403,7 +404,7 @@ function MembersSection({ orgId }) {
     };
 
     const handleRemove = async (memberId) => {
-        if (!window.confirm('¿Quitar este miembro del grupo?')) return;
+        if (!window.confirm('Quitar este miembro del grupo?')) return;
         try {
             await apiClient.delete(`/organizations/${orgId}/members/${memberId}`);
             toast.success('Miembro eliminado');
@@ -413,61 +414,116 @@ function MembersSection({ orgId }) {
         }
     };
 
-    if (loading) return <Loader2 size={20} className="animate-spin text-slate-400 mx-auto" />;
+    const owners = members.filter(m => m.role === 'owner').length;
+    const managers = members.length - owners;
+    const canSwitch = members.filter(m => m.can_switch).length;
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center py-8">
+                <Loader2 size={20} className="animate-spin text-indigo-500" />
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-3">
-            {members.length === 0 && (
-                <p className="text-sm text-slate-400 text-center py-4">Aun no hay miembros agregados.</p>
-            )}
-            {members.map(m => (
-                <div key={m.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
-                        <span className="text-xs font-black text-purple-600">
-                            {m.user_email.charAt(0).toUpperCase()}
-                        </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-700 truncate">{m.user_email}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full
-                                ${m.role === 'owner' ? 'bg-amber-100 text-amber-700' : 'bg-slate-200 text-slate-500'}`}>
-                                {m.role}
-                            </span>
-                            {m.can_switch && (
-                                <span className="text-[10px] text-emerald-600 font-semibold">Puede cambiar</span>
-                            )}
-                        </div>
-                    </div>
-                    {m.role !== 'owner' && (
-                        <button
-                            onClick={() => handleRemove(m.id)}
-                            className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Quitar miembro"
-                        >
-                            <Trash2 size={14} />
-                        </button>
-                    )}
+        <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-3">
+                    <p className="text-[10px] font-black uppercase text-indigo-500">Total</p>
+                    <p className="text-xl font-black text-indigo-900">{members.length}</p>
                 </div>
-            ))}
+                <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
+                    <p className="text-[10px] font-black uppercase text-amber-600">Owners</p>
+                    <p className="text-xl font-black text-amber-900">{owners}</p>
+                </div>
+                <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
+                    <p className="text-[10px] font-black uppercase text-emerald-600">Switch</p>
+                    <p className="text-xl font-black text-emerald-900">{canSwitch}</p>
+                </div>
+            </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                <input
-                    type="email"
-                    value={newEmail}
-                    onChange={e => setNewEmail(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleAddMember()}
-                    placeholder="email@empresa.com"
-                    className="flex-1 px-4 py-2.5 rounded-lg border border-slate-200 focus:border-indigo-400 text-sm outline-none"
-                />
-                <button
-                    onClick={handleAddMember}
-                    disabled={adding}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60"
-                >
-                    {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    Agregar
-                </button>
+            {members.length === 0 ? (
+                <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center">
+                    <Users size={30} className="mx-auto mb-2 text-slate-300" />
+                    <p className="text-sm font-black text-slate-700">Aun no hay miembros agregados</p>
+                    <p className="text-xs text-slate-500 mt-1">Agrega un gerente para operar entre empresas.</p>
+                </div>
+            ) : (
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex items-center justify-between gap-2">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-500">Miembros</p>
+                        <span className="text-[10px] font-black text-slate-400">{managers} gerente{managers !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                        {members.map(m => {
+                            const isOwner = m.role === 'owner';
+                            return (
+                                <div key={m.id} className="p-3 hover:bg-slate-50 transition-colors">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${isOwner ? 'bg-amber-50 border-amber-100' : 'bg-indigo-50 border-indigo-100'}`}>
+                                            <span className={`text-xs font-black ${isOwner ? 'text-amber-700' : 'text-indigo-600'}`}>
+                                                {(m.user_email || '?').charAt(0).toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-black text-slate-800 truncate">{m.user_email}</p>
+                                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                                <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full border ${isOwner ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                                                    {isOwner ? <Crown size={10} /> : <ShieldCheck size={10} />}
+                                                    {isOwner ? 'Propietario' : 'Gerente'}
+                                                </span>
+                                                {m.can_switch ? (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-full font-black">
+                                                        <CheckCircle size={10} /> Puede cambiar
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] bg-slate-50 text-slate-500 border border-slate-100 px-2 py-0.5 rounded-full font-bold">
+                                                        <Clock size={10} /> Sin switch
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {m.role !== 'owner' && (
+                                            <button
+                                                onClick={() => handleRemove(m.id)}
+                                                className="p-2 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                                title="Quitar miembro"
+                                            >
+                                                <Trash2 size={15} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            <div className="rounded-lg bg-indigo-50 border border-indigo-100 p-3 space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-wide text-indigo-600">Agregar gerente</label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                        <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="email"
+                            value={newEmail}
+                            onChange={e => setNewEmail(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAddMember()}
+                            placeholder="email@empresa.com"
+                            className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-indigo-100 bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 text-sm outline-none"
+                        />
+                    </div>
+                    <button
+                        onClick={handleAddMember}
+                        disabled={adding}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors disabled:opacity-60"
+                    >
+                        {adding ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+                        Agregar
+                    </button>
+                </div>
             </div>
         </div>
     );
