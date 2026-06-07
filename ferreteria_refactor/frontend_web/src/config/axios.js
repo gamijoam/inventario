@@ -115,7 +115,7 @@ apiClient.interceptors.response.use(
                 // Redirect to login (Using Hash)
                 // Avoid infinite loop if already at login
                 if (currentPath !== '/login') {
-                    window.location.href = '/#/login';
+                    window.location.href = '/#/login?reason=session_expired';
                 }
             }
             // For auth routes or public pages, let the component handle the error

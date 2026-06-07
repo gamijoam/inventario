@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useConfig } from '../context/ConfigContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
     Lock, User, LogIn, AlertCircle, Eye, EyeOff, LayoutTemplate,
     Briefcase, MessageCircle, X, Phone, Mail, Send, ShieldCheck,
@@ -30,6 +30,10 @@ const Login = () => {
     const [orgCompanies, setOrgCompanies]       = useState([]);
     const { business } = useConfig();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const reason = new URLSearchParams(location.search || '').get('reason');
+    const sessionExpired = reason === 'session_expired';
 
     useEffect(() => {
         if (!loading && isAuthenticated && user) {
@@ -256,6 +260,13 @@ const Login = () => {
                             </div>
 
                             <form onSubmit={handleSubmit} className="p-6 sm:p-7 space-y-5">
+                                {sessionExpired && !error && (
+                                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-start gap-3">
+                                        <AlertCircle className="shrink-0 mt-0.5" size={16} />
+                                        <p>Tu sesion expiro por seguridad. Inicia sesion nuevamente para continuar.</p>
+                                    </div>
+                                )}
+
                                 {error && (
                                     <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-start gap-3">
                                         <AlertCircle className="shrink-0 mt-0.5" size={16} />
