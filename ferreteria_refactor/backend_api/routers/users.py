@@ -39,7 +39,7 @@ def create_user(
     if current_user.role != models.UserRole.ADMIN and not current_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can create new users"
+            detail="Solo los administradores pueden crear usuarios"
         )
 
     # Check if email exists within the same tenant (only if provided)
@@ -57,7 +57,7 @@ def create_user(
         models.User.tenant_id == current_user.tenant_id
     ).first()
     if existing_username:
-        raise HTTPException(status_code=400, detail="Username already exists in your company")
+        raise HTTPException(status_code=400, detail="Ya existe un usuario con ese nombre en tu empresa")
 
     # Resolve tenant_id: Priority to user's fixed tenant, fallback to current context (for Superadmins)
     target_tenant_id = current_user.tenant_id
@@ -198,7 +198,7 @@ def get_user(
     ).first()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User not found in your company")
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en tu empresa")
     return user
 
 @router.put("/{user_id}", response_model=schemas.UserRead)
@@ -225,11 +225,11 @@ def update_user(
     ).first()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User not found in your company")
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en tu empresa")
     
     # Authorization: Admins can update anyone in their tenant, others can only update themselves (limited)
     if current_user.role != models.UserRole.ADMIN and current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Permission denied")
+        raise HTTPException(status_code=403, detail="No tienes permisos para modificar este usuario")
 
     # Protección del dueño de organización — solo él mismo puede modificar su cuenta
     if current_user.id != user_id:
@@ -258,7 +258,7 @@ def update_user(
                 models.User.id != user_id
             ).first()
             if existing:
-                raise HTTPException(status_code=400, detail="Email already in use by another user")
+                raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo")
             user.email = user_data.email
     if user_data.role:
         user.role = user_data.role
@@ -314,7 +314,7 @@ def delete_user(
     """Deactivate user (soft delete) with tenant isolation"""
     # Authorization: Only admins can deactivate users
     if current_user.role != models.UserRole.ADMIN:
-        raise HTTPException(status_code=403, detail="Only administrators can deactivate users")
+        raise HTTPException(status_code=403, detail="Solo los administradores pueden desactivar usuarios")
         
     # Resolve target tenant_id
     target_tenant_id = current_user.tenant_id
@@ -332,11 +332,11 @@ def delete_user(
     ).first()
     
     if not user:
-        raise HTTPException(status_code=404, detail="User not found in your company")
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en tu empresa")
     
     # Prevent self-deactivation of the last admin
     if user.id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot deactivate your own account")
+        raise HTTPException(status_code=400, detail="No puedes desactivar tu propia cuenta")
     
     user.is_active = False
     db.commit()
@@ -352,13 +352,13 @@ def login(request: Request, credentials: schemas.UserLogin, db: Session = Depend
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password"
+            detail="Usuario o contrasena incorrectos"
         )
     
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
+            detail="La cuenta de usuario esta inactiva"
         )
     
     return {
@@ -378,7 +378,7 @@ def pin_login(request: Request, payload: dict, db: Session = Depends(get_db)):
     """
     pin = payload.get("pin")
     if not pin:
-        raise HTTPException(status_code=400, detail="PIN is required")
+        raise HTTPException(status_code=400, detail="El PIN es obligatorio")
 
     # Buscar usuarios activos y verificar PIN con bcrypt
     active_users = db.query(models.User).filter(
@@ -388,7 +388,7 @@ def pin_login(request: Request, payload: dict, db: Session = Depends(get_db)):
     users = [u for u in active_users if u.pin and pwd_context.verify(pin, u.pin)]
 
     if not users:
-        raise HTTPException(status_code=401, detail="Invalid PIN")
+        raise HTTPException(status_code=401, detail="PIN invalido")
 
     # Prioridad: ADMIN > CASHIER > WAITER > KITCHEN
     # Definimos un score manual si hay colisión
@@ -426,7 +426,7 @@ def verify_pin(request: Request, user_id: int, body: PinVerifyRequest, db: Sessi
     """Verify user PIN for authorization (e.g., discounts). PIN must be sent in the JSON body."""
     user = db.query(models.User).get(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     if user.pin and pwd_context.verify(body.pin, user.pin):
         return {"verified": True, "role": user.role.value if hasattr(user.role, 'value') else user.role}
@@ -438,14 +438,14 @@ def update_pin(user_id: int, pin_data: dict, db: Session = Depends(get_db)):
     """Update user PIN for security operations"""
     user = db.query(models.User).get(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
     # Validate PIN (should be 4-6 digits)
     pin = pin_data.get("pin", "")
     if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
         raise HTTPException(
             status_code=400, 
-            detail="PIN must be 4-6 digits"
+            detail="El PIN debe tener entre 4 y 6 digitos"
         )
     
     # Update PIN (store as bcrypt hash)
@@ -466,7 +466,7 @@ def update_own_pin(pin_data: dict, db: Session = Depends(get_db), current_user =
     """
     pin = pin_data.get("pin", "")
     if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
-        raise HTTPException(status_code=400, detail="PIN must be 4-6 digits")
+        raise HTTPException(status_code=400, detail="El PIN debe tener entre 4 y 6 digitos")
     
     current_user.pin = get_password_hash(pin)
     db.commit()

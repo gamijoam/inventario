@@ -87,7 +87,7 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
     if customer.id_number:
         exists = db.query(models.Customer).filter(models.Customer.id_number == customer.id_number).first()
         if exists:
-            raise HTTPException(status_code=400, detail="Customer with this ID Number already exists")
+            raise HTTPException(status_code=400, detail="Ya existe un cliente con esa cedula/RIF.")
             
     db_customer = models.Customer(**customer.model_dump())
     db.add(db_customer)
@@ -154,9 +154,19 @@ async def create_customer(customer: schemas.CustomerCreate, db: Session = Depend
 async def update_customer(customer_id: int, customer_data: schemas.CustomerCreate, db: Session = Depends(get_db)):
     db_customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not db_customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    update_payload = customer_data.model_dump(exclude_unset=True)
+    new_id_number = update_payload.get("id_number")
+    if new_id_number:
+        exists = db.query(models.Customer).filter(
+            models.Customer.id_number == new_id_number,
+            models.Customer.id != customer_id
+        ).first()
+        if exists:
+            raise HTTPException(status_code=400, detail="Ya existe un cliente con esa cedula/RIF.")
         
-    for key, value in customer_data.model_dump(exclude_unset=True).items():
+    for key, value in update_payload.items():
         setattr(db_customer, key, value)
         
     # Capture data before commit
@@ -236,7 +246,7 @@ def get_customer_financial_status(customer_id: int, db: Session = Depends(get_db
         
         customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
         if not customer:
-            raise HTTPException(status_code=404, detail="Customer not found")
+            raise HTTPException(status_code=404, detail="Cliente no encontrado")
         
         # Calculate total debt from balance_pending of unpaid credit sales
         # Use coalesce to handle None
@@ -289,7 +299,7 @@ def delete_customer(customer_id: int, db: Session = Depends(get_db)):
     """Soft-delete a customer (set is_active=False)"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     customer.is_active = False
     db.commit()
@@ -302,7 +312,7 @@ def deactivate_customer(customer_id: int, db: Session = Depends(get_db)):
     """Deactivate (soft-delete) a customer"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     customer.is_active = False
     db.commit()
@@ -315,7 +325,7 @@ def activate_customer(customer_id: int, db: Session = Depends(get_db)):
     """Reactivate a soft-deleted customer"""
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
     customer.is_active = True
     db.commit()
@@ -327,7 +337,7 @@ from ..dependencies import cashier_or_admin
 def create_customer_payment(customer_id: int, payment: schemas.CustomerPaymentCreate, db: Session = Depends(get_db)):
     db_customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not db_customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
         
     new_payment = models.Payment(
         customer_id=customer_id,

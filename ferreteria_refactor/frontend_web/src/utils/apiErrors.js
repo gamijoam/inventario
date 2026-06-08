@@ -8,6 +8,7 @@ const FIELD_LABELS = {
     email: 'Correo',
     password: 'Contrasena',
     username: 'Usuario',
+    id_number: 'Cedula/RIF',
 };
 
 const normalizeText = (value) => String(value || '').trim();
@@ -27,6 +28,13 @@ const translateKnownMessage = (message) => {
     if (lower.includes('username already exists')) return 'Ya existe un usuario con ese correo o nombre de usuario.';
     if (lower.includes('database error')) return 'No se pudo guardar por una restriccion de datos. Revisa campos duplicados o valores invalidos.';
     if (lower.includes('not enough stock') || lower.includes('stock insuficiente')) return 'No hay stock suficiente para completar la operacion.';
+    if (lower.includes('cannot deactivate your own account')) return 'No puedes desactivar tu propia cuenta.';
+    if (lower.includes('incorrect username or password')) return 'Usuario o contrasena incorrectos.';
+    if (lower.includes('user account is inactive')) return 'La cuenta de usuario esta inactiva.';
+    if (lower.includes('pin is required')) return 'El PIN es obligatorio.';
+    if (lower.includes('invalid pin')) return 'PIN invalido.';
+    if (lower.includes('pin must be 4-6 digits')) return 'El PIN debe tener entre 4 y 6 digitos.';
+    if (lower.includes('user not found')) return 'Usuario no encontrado.';
 
     return text;
 };

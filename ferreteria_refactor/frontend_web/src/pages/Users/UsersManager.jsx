@@ -8,6 +8,7 @@ import SetPinModal from '../../components/users/SetPinModal';
 import { useConfig } from '../../context/ConfigContext';
 import userService from '../../services/userService';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const UsersManager = () => {
     const { user: currentUser } = useAuth();
@@ -45,7 +46,7 @@ const UsersManager = () => {
             setUsers(response.data);
         } catch (error) {
             console.error('Error fetching users:', error);
-            toast.error('Error al cargar usuarios');
+            toast.error(getApiErrorMessage(error, 'No se pudieron cargar los usuarios'));
         } finally {
             setLoading(false);
         }
@@ -137,7 +138,7 @@ const UsersManager = () => {
             fetchUsers();
         } catch (error) {
             console.error('Error saving user:', error);
-            toast.error('Error: ' + (error.response?.data?.detail || error.message));
+            toast.error(getApiErrorMessage(error, modalMode === 'create' ? 'No se pudo crear el usuario' : modalMode === 'password' ? 'No se pudo actualizar la contrasena' : 'No se pudo actualizar el usuario'));
         }
     };
 
@@ -150,7 +151,7 @@ const UsersManager = () => {
             fetchUsers();
         } catch (error) {
             console.error('Error deactivating user:', error);
-            toast.error('Error al desactivar usuario');
+            toast.error(getApiErrorMessage(error, 'No se pudo desactivar el usuario'));
         }
     };
 
