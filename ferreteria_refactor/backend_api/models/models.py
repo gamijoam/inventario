@@ -690,9 +690,21 @@ class ReturnDetail(Base):
 
     return_obj = relationship("Return", back_populates="details")
     product = relationship("Product")
+    instances = relationship("ReturnDetailInstance", back_populates="return_detail", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ReturnDetail(product='{self.product_id}', qty={self.quantity})>"
+
+class ReturnDetailInstance(Base):
+    __tablename__ = "return_detail_instances"
+
+    id = Column(Integer, primary_key=True, index=True)
+    return_detail_id = Column(Integer, ForeignKey("return_details.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_instance_id = Column(Integer, ForeignKey("product_instances.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=get_venezuela_now)
+
+    return_detail = relationship("ReturnDetail", back_populates="instances")
+    product_instance = relationship("ProductInstance")
 
 class Customer(Base):
     __tablename__ = "customers"
@@ -1014,12 +1026,16 @@ class SaleDetailInstance(Base):
     product_instance_id = Column(Integer, ForeignKey("product_instances.id"), nullable=False)
     warranty_end_date = Column(DateTime, nullable=True) # Legacy / Backup
     warranty_expiration_date = Column(DateTime, nullable=True) # Standardized Field
+    status = Column(String(20), nullable=False, default="SOLD")
+    returned_at = Column(DateTime, nullable=True)
+    returned_in_return_id = Column(Integer, ForeignKey("returns.id"), nullable=True)
 
     sale_detail = relationship("SaleDetail", back_populates="instances")
     product_instance = relationship("ProductInstance")
+    returned_in_return = relationship("Return")
 
     def __repr__(self):
-        return f"<SaleDetailInstance(detail={self.sale_detail_id}, instance={self.product_instance_id})>"
+        return f"<SaleDetailInstance(detail={self.sale_detail_id}, instance={self.product_instance_id}, status='{self.status}')>"
 
 
 # =====================================

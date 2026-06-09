@@ -772,6 +772,11 @@ class ReturnCreate(BaseModel):
     reason: Optional[str] = None
     refund_currency: str = "USD"
     exchange_rate: Decimal = Decimal("1.0")
+    resolution_type: str = Field("REFUND", description="REFUND o EXCHANGE")
+    exchange_credit_amount: Decimal = Field(Decimal("0.00"), ge=0, description="Monto USD aplicado como credito de canje")
+
+class ReturnExchangeCreate(ReturnCreate):
+    replacement_sale: SaleCreate
 
 class ReturnDetailRead(BaseModel):
     id: int
@@ -789,6 +794,16 @@ class ReturnRead(BaseModel):
     total_refunded: Decimal
     reason: Optional[str]
     details: List[ReturnDetailRead] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ReturnExchangeRead(BaseModel):
+    return_record: ReturnRead
+    replacement_sale_id: int
+    exchange_credit_amount: Decimal
+    difference_due: Decimal
+    cash_refund_amount: Decimal
 
     model_config = ConfigDict(from_attributes=True)
 
