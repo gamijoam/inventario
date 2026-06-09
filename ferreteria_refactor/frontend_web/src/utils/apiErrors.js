@@ -9,6 +9,11 @@ const FIELD_LABELS = {
     password: 'Contrasena',
     username: 'Usuario',
     id_number: 'Cedula/RIF',
+    amount: 'Monto del pago',
+    payment_method: 'Metodo de pago',
+    reference: 'Referencia',
+    payment_date: 'Fecha del pago',
+    currency: 'Moneda',
 };
 
 const normalizeText = (value) => String(value || '').trim();
@@ -21,6 +26,12 @@ const translateKnownMessage = (message) => {
     if ((lower.includes('sku') || lower.includes('barcode')) && (lower.includes('already exists') || lower.includes('duplicate') || lower.includes('unique'))) {
         return 'Ya existe un producto con ese SKU. Usa otro codigo o deja el SKU vacio si no aplica.';
     }
+    if (lower.includes('decimal input should be') || lower.includes('valid decimal') || lower.includes('finite number')) return 'debe ser un numero valido';
+    if (lower.includes('field required')) return 'es obligatorio';
+    if (lower.includes('input should be greater than') || lower.includes('greater than 0')) return 'debe ser mayor que cero';
+    if (lower.includes('payment method requires reference') || lower.includes('requires reference')) return 'Este metodo de pago requiere numero de referencia.';
+    if (lower.includes('cash session') && (lower.includes('closed') || lower.includes('not open'))) return 'La caja esta cerrada. Abre una caja antes de cobrar.';
+    if (lower.includes('warehouse') && lower.includes('required')) return 'Selecciona un almacen para completar la operacion.';
     if (lower.includes('product not found')) return 'Producto no encontrado. Puede que haya sido eliminado o movido por otro usuario.';
     if (lower.includes('payment method already exists')) return 'Ya existe un metodo de pago con ese nombre.';
     if (lower.includes('name already exists')) return 'Ya existe un registro con ese nombre.';

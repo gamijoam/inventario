@@ -43,6 +43,7 @@ import { DEFAULT_THEME, POS_THEMES } from '../constants/posThemes';
 
 import apiClient from '../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../utils/apiErrors';
 
 // Helper to format stock: show as integer if whole number, otherwise show decimals
 const formatStock = (stock) => {
@@ -445,7 +446,7 @@ const POS = () => {
             toast.success(`Cotización #${id} cargada (${addedCount} productos)`);
         } catch (error) {
             console.error("Error loading quote into POS:", error);
-            toast.error("No se pudo cargar la cotización");
+            toast.error(getApiErrorMessage(error, "No se pudo cargar la cotizacion"));
         }
     };
 

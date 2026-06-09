@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { useConfig } from "../../context/ConfigContext";
 import { printFacturaA4 } from "./FacturaA4";
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
     const [printing, setPrinting] = useState(false);
@@ -57,7 +58,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
             await printerService.printTicket(saleId);
             toast.success("Ticket enviado a la impresora");
         } catch (error) {
-            toast.error("Error: " + error.message);
+            toast.error(getApiErrorMessage(error, 'No se pudo imprimir el ticket'));
         } finally {
             setPrinting(false);
         }
@@ -80,7 +81,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
             window.URL.revokeObjectURL(url);
             toast.success('Abriendo garantía para imprimir...');
         } catch (error) {
-            toast.error(error.response?.data?.detail || 'Error al generar la garantía');
+            toast.error(getApiErrorMessage(error, 'No se pudo generar la garantia'));
         } finally {
             setPrintingWarranty(false);
         }
@@ -93,7 +94,7 @@ const SaleSuccessModal = ({ isOpen, onClose, saleData }) => {
             const res = await apiClient.post(`/warranties/send-whatsapp/${saleId}`);
             toast.success(`Garantía enviada a ${res.data.customer} por WhatsApp`);
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al enviar por WhatsApp');
+            toast.error(getApiErrorMessage(err, 'No se pudo enviar la garantia por WhatsApp'));
         } finally {
             setSendingWarrantyWa(false);
         }

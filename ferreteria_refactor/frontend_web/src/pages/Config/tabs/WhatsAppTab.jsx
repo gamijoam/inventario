@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import {
     MessageCircle, Wifi, WifiOff, QrCode, RefreshCw,
     Send, ShoppingCart, Wrench, CreditCard, FileText,
@@ -117,7 +118,7 @@ export default function WhatsAppTab() {
             const r = await apiClient.get('/whatsapp/config');
             setConfig(r.data);
             if (r.data.status === 'PENDING_QR') pollQr();
-        } catch { toast.error('Error cargando configuración de WhatsApp'); }
+        } catch (e) { toast.error(getApiErrorMessage(e, 'No se pudo cargar la configuracion de WhatsApp')); }
         finally { setLoading(false); }
     };
 
@@ -140,7 +141,7 @@ export default function WhatsAppTab() {
             await apiClient.post('/whatsapp/instance/create');
             setConfig(c => ({ ...c, status: 'PENDING_QR' }));
             toast.success('Generando código QR...');
-        } catch (e) { toast.error('Error: ' + (e?.response?.data?.detail || e.message)); }
+        } catch (e) { toast.error(getApiErrorMessage(e, 'No se pudo completar la accion de WhatsApp')); }
         finally { setCreating(false); }
     };
 
@@ -151,32 +152,32 @@ export default function WhatsAppTab() {
             setConfig(c => ({ ...c, status: 'DISCONNECTED', enabled: false }));
             setQr('');
             toast.success('WhatsApp desconectado');
-        } catch (e) { toast.error('Error: ' + (e?.response?.data?.detail || e.message)); }
+        } catch (e) { toast.error(getApiErrorMessage(e, 'No se pudo desconectar WhatsApp')); }
     };
 
     const handleToggle = async (field, value) => {
         const prev = config;
         setConfig(c => ({ ...c, [field]: value }));
         try { await apiClient.post('/whatsapp/config', { [field]: value }); }
-        catch { setConfig(prev); toast.error('Error guardando'); }
+        catch (e) { setConfig(prev); toast.error(getApiErrorMessage(e, 'No se pudo guardar la configuracion')); }
     };
 
     const handleSaveTemplate = async (key, value) => {
         if (!value.trim()) return;
         try { await apiClient.post('/whatsapp/config', { [key]: value }); toast.success('Plantilla guardada'); }
-        catch { toast.error('Error guardando plantilla'); }
+        catch (e) { toast.error(getApiErrorMessage(e, 'No se pudo guardar la plantilla')); }
     };
 
     const handleSendRemindersNow = async () => {
         try {
             await apiClient.post('/whatsapp/credit-reminders/send-now');
             toast.success('✅ Recordatorios enviándose en segundo plano');
-        } catch (e) { toast.error('Error: ' + (e?.response?.data?.detail || e.message)); }
+        } catch (e) { toast.error(getApiErrorMessage(e, 'No se pudieron enviar los recordatorios')); }
     };
 
     const handleSaveAdminPhone = async (value) => {
         try { await apiClient.post('/whatsapp/config', { admin_phone: value }); toast.success('Número guardado'); }
-        catch { toast.error('Error guardando número'); }
+        catch (e) { toast.error(getApiErrorMessage(e, 'No se pudo guardar el numero')); }
     };
 
     const handleTest = async () => {
@@ -185,7 +186,7 @@ export default function WhatsAppTab() {
         try {
             await apiClient.post('/whatsapp/test', { phone: testPhone, message: '✅ Prueba desde Mi Inventario Fácil.\n\n¡WhatsApp configurado correctamente! 🎉' });
             toast.success('¡Mensaje enviado!');
-        } catch (e) { toast.error('Error: ' + (e?.response?.data?.detail || e.message)); }
+        } catch (e) { toast.error(getApiErrorMessage(e, 'No se pudo enviar el mensaje de prueba')); }
         finally { setTesting(false); }
     };
 

@@ -16,6 +16,7 @@ import CustomerSearch from './CustomerSearch';
 import CurrencyInput from '../common/CurrencyInput';
 import { cn } from '../../lib/utils';
 import CreditoCelularModal from '../credit/CreditoCelularModal';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 // Local formatCurrency removed to use ConfigContext one globaly
 
@@ -418,36 +419,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             onClose();
         } catch (error) {
             console.error('Error creating sale:', error);
-            let errorMessage = "Error desconocido al procesar venta";
-
-            if (error.response?.data?.detail) {
-                const detail = error.response.data.detail;
-                if (typeof detail === 'string') {
-                    errorMessage = detail;
-                } else if (Array.isArray(detail)) {
-                    errorMessage = detail.map(e => {
-                        const field = e.loc?.[e.loc.length - 1];
-                        let msg = e.msg;
-
-                        if (msg.includes('Decimal input should be')) msg = "debe ser un número válido o no estar vacío";
-                        else if (msg.includes('field required')) msg = "es obligatorio";
-
-                        const fieldMap = {
-                            'amount': 'El monto del pago',
-                            'payment_method': 'El método de pago',
-                            'reference': 'La referencia'
-                        };
-
-                        return `${fieldMap[field] || field}: ${msg}`;
-                    }).join('. ');
-                } else {
-                    errorMessage = JSON.stringify(detail);
-                }
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-
-            toast.error(errorMessage);
+            toast.error(getApiErrorMessage(error, 'No se pudo procesar la venta'));
             setProcessing(false);
         }
     };
@@ -527,11 +499,7 @@ const PaymentModal = ({ isOpen, onClose, totalUSD, totalBs, totalsByCurrency, ca
             setProcessing(false);
             onClose();
         } catch (error) {
-            const detail = error?.response?.data?.detail;
-            let msg = typeof detail === 'string' ? detail
-                    : Array.isArray(detail) ? detail.map(d => d?.msg || '').join(', ')
-                    : error?.message || 'Error al procesar la venta';
-            toast.error(msg);
+            toast.error(getApiErrorMessage(error, 'No se pudo procesar la venta financiada'));
             setProcessing(false);
         }
     };

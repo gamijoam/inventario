@@ -4,6 +4,7 @@ import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 
 const PagosTab = () => {
     const { refreshConfig } = useConfig();
@@ -25,7 +26,7 @@ const PagosTab = () => {
             setMethods(response.data);
         } catch (error) {
             console.error('Error fetching payment methods:', error);
-            toast.error('Error al cargar métodos de pago');
+            toast.error(getApiErrorMessage(error, 'No se pudieron cargar los metodos de pago'));
         } finally {
             setLoading(false);
         }
@@ -46,7 +47,7 @@ const PagosTab = () => {
         } catch (error) {
             console.error('Error toggling method:', error);
             fetchMethods();
-            toast.error('Error al actualizar método');
+            toast.error(getApiErrorMessage(error, 'No se pudo actualizar el metodo de pago'));
         }
     };
 
@@ -64,7 +65,7 @@ const PagosTab = () => {
         } catch (error) {
             console.error('Error updating reference requirement:', error);
             fetchMethods();
-            toast.error('Error al actualizar configuración');
+            toast.error(getApiErrorMessage(error, 'No se pudo actualizar la configuracion del metodo'));
         }
     };
 
@@ -82,7 +83,7 @@ const PagosTab = () => {
         } catch (error) {
             console.error('Error updating external financer:', error);
             fetchMethods();
-            toast.error('Error al actualizar configuración');
+            toast.error(getApiErrorMessage(error, 'No se pudo actualizar la configuracion del metodo'));
         }
     };
 
@@ -94,7 +95,7 @@ const PagosTab = () => {
             refreshConfig();
             toast.success('Método eliminado');
         } catch (error) {
-            toast.error(error.response?.data?.detail || 'Error al eliminar método');
+            toast.error(getApiErrorMessage(error, 'No se pudo eliminar el metodo de pago'));
         }
     };
 
@@ -116,7 +117,7 @@ const PagosTab = () => {
             toast.success('Método de pago agregado');
         } catch (error) {
             console.error('Error adding method:', error);
-            toast.error(error.response?.data?.detail || 'Error al crear método');
+            toast.error(getApiErrorMessage(error, 'No se pudo crear el metodo de pago'));
         } finally {
             setProcessing(false);
         }

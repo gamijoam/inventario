@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { API_ROOT_URL } from '../../../config/constants';
 import { toast } from 'react-hot-toast';
 import apiClient from '../../../config/axios';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 
 const EstacionPOSTab = () => {
     const { user } = useAuth();
@@ -41,8 +42,8 @@ const EstacionPOSTab = () => {
             toast.success(value
                 ? `Lista predeterminada: ${priceLists.find(l => String(l.id) === String(value))?.name || value}`
                 : 'Precio base predeterminado');
-        } catch {
-            toast.error('Error guardando lista predeterminada');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo guardar la lista predeterminada'));
         } finally { setSavingPricing(false); }
     };
 
@@ -52,8 +53,8 @@ const EstacionPOSTab = () => {
         try {
             await apiClient.put('/config/pos_show_bs', { key: 'pos_show_bs', value: next ? 'true' : 'false' });
             toast.success(next ? 'Mostrando equivalente en Bs' : 'Bs oculto en el POS');
-        } catch {
-            toast.error('Error guardando preferencia de Bs');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo guardar la preferencia de Bs'));
         }
     };
 
@@ -75,7 +76,7 @@ const EstacionPOSTab = () => {
                 : 'Impresión automática desactivada');
         } catch (err) {
             console.error('Error guardando auto-print:', err);
-            toast.error('Error guardando configuración');
+            toast.error(getApiErrorMessage(err, 'No se pudo guardar la configuracion de impresion'));
         } finally {
             setSavingAutoPrint(false);
         }

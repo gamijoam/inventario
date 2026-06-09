@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { cn } from '../../../lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../../components/ui/card';
 import { format } from 'date-fns';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { es } from 'date-fns/locale';
 
 const PREDEFINED_CURRENCIES = [
@@ -38,7 +39,7 @@ const MonedasTab = () => {
             setExchangeRates(Array.isArray(response.data) ? response.data : []);
         } catch (error) {
             console.error('Error fetching exchange rates:', error);
-            toast.error('Error al cargar tasas de cambio');
+            toast.error(getApiErrorMessage(error, 'No se pudieron cargar las tasas de cambio'));
         } finally {
             setLoading(false);
         }
@@ -51,7 +52,7 @@ const MonedasTab = () => {
             refreshConfig();
             toast.success('Tasa actualizada');
         } catch (error) {
-            toast.error('Error al actualizar tasa');
+            toast.error(getApiErrorMessage(error, 'No se pudo actualizar la tasa'));
         }
     };
 
@@ -63,7 +64,7 @@ const MonedasTab = () => {
             refreshConfig();
             toast.success('Tasa eliminada');
         } catch (error) {
-            toast.error(error.response?.data?.detail || 'Error al eliminar tasa');
+            toast.error(getApiErrorMessage(error, 'No se pudo eliminar la tasa'));
         }
     };
 
@@ -89,7 +90,7 @@ const MonedasTab = () => {
             refreshConfig();
             toast.success('Nueva tasa registrada');
         } catch (error) {
-            toast.error('Error al crear tasa');
+            toast.error(getApiErrorMessage(error, 'No se pudo crear la tasa'));
         } finally {
             setProcessing(false);
         }
@@ -101,7 +102,7 @@ const MonedasTab = () => {
             const res = await apiClient.get('/config/exchange-rates/bcv');
             setBcvRates(res.data);
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'No se pudo consultar el BCV. Intenta más tarde.');
+            toast.error(getApiErrorMessage(err, 'No se pudo consultar el BCV. Intenta mas tarde.'));
         } finally {
             setBcvLoading(false);
         }
@@ -123,8 +124,8 @@ const MonedasTab = () => {
             await fetchExchangeRates();
             refreshConfig();
             toast.success(`"${targetRate.name}" actualizada a ${bcvValue.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} ${selectedCurrency}`);
-        } catch {
-            toast.error('Error al aplicar la tasa');
+        } catch (error) {
+            toast.error(getApiErrorMessage(error, 'No se pudo aplicar la tasa'));
         } finally {
             setBcvApplying(false);
         }
