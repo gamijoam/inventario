@@ -422,64 +422,63 @@ const DevolucionesTab = () => {
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-0">
-                                <table className="w-full">
-                                    <thead className="bg-slate-50 border-b border-slate-200">
-                                        <tr>
-                                            <th className="text-left p-4 font-bold text-slate-600 text-sm uppercase">Producto</th>
-                                            <th className="text-center p-4 font-bold text-slate-600 text-sm uppercase">Comprado</th>
-                                            <th className="text-center p-4 font-bold text-slate-600 text-sm uppercase w-32">Cant. Devolver</th>
-                                            <th className="text-center p-4 font-bold text-slate-600 text-sm uppercase">Condición</th>
-                                            <th className="text-right p-4 font-bold text-slate-600 text-sm uppercase">Reembolso</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {returnItems.map((item, index) => (
-                                            <tr key={index} className={clsx("hover:bg-slate-50 transition-colors", item.quantity_to_return > 0 && "bg-blue-50/30")}>
-                                                <td className="p-4 font-bold text-slate-700">{item.product_name}</td>
-                                                <td className="p-4 text-center font-mono text-slate-500">{item.quantity_sold}</td>
-                                                <td className="p-4">
-                                                    <input
-                                                        type="number"
-                                                        value={item.quantity_to_return || ''}
-                                                        onChange={(e) => handleQuantityChange(index, e.target.value)}
-                                                        min="0"
-                                                        max={item.quantity_sold}
-                                                        step="0.01"
-                                                        className="w-full p-2 border border-slate-200 rounded-lg text-center font-bold focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none"
-                                                    />
-                                                </td>
-                                                <td className="p-4 flex justify-center">
-                                                    <div className="flex bg-slate-100 p-1 rounded-lg">
-                                                        <button
-                                                            onClick={() => handleConditionChange(index, 'GOOD')}
-                                                            title="Buen Estado"
-                                                            className={clsx(
-                                                                "p-1.5 rounded-lg transition-all",
-                                                                item.condition === 'GOOD' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                                                            )}
-                                                        >
-                                                            <CheckCircle size={18} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleConditionChange(index, 'DAMAGED')}
-                                                            title="Dañado"
-                                                            className={clsx(
-                                                                "p-1.5 rounded-lg transition-all",
-                                                                item.condition === 'DAMAGED' ? "bg-white text-rose-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
-                                                            )}
-                                                        >
-                                                            <XCircle size={18} />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 text-right font-black text-slate-800">
-                                                    ${Number(item.subtotal || 0).toFixed(2)}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/40">
+                                {returnItems.map((item, index) => (
+                                    <div
+                                        key={index}
+                                        className={clsx(
+                                            "rounded-xl border bg-white p-4 shadow-sm transition-all",
+                                            item.quantity_to_return > 0 ? "border-indigo-200 ring-2 ring-indigo-500/10" : "border-slate-200 hover:border-indigo-100"
+                                        )}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-base font-black leading-snug text-slate-800 break-words">{item.product_name}</p>
+                                                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
+                                                    <span className="rounded-md bg-slate-100 px-2 py-1">Comprado: {Number(item.quantity_sold || 0).toLocaleString()}</span>
+                                                    <span className="rounded-md bg-indigo-50 px-2 py-1 text-indigo-700">Reembolso: ${Number(item.subtotal || 0).toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                value={item.quantity_to_return || ''}
+                                                onChange={(e) => handleQuantityChange(index, e.target.value)}
+                                                min="0"
+                                                max={item.quantity_sold}
+                                                step="0.01"
+                                                className="h-11 w-20 shrink-0 rounded-lg border border-slate-200 bg-white text-center text-base font-black text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                            />
+                                        </div>
+
+                                        <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                                            <span className="text-xs font-black uppercase tracking-wider text-slate-400">Condicion</span>
+                                            <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleConditionChange(index, 'GOOD')}
+                                                    title="Buen Estado"
+                                                    className={clsx(
+                                                        "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-black transition-all",
+                                                        item.condition === 'GOOD' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                                                    )}
+                                                >
+                                                    <CheckCircle size={16} /> Bueno
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleConditionChange(index, 'DAMAGED')}
+                                                    title="Danado"
+                                                    className={clsx(
+                                                        "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-black transition-all",
+                                                        item.condition === 'DAMAGED' ? "bg-white text-rose-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                                                    )}
+                                                >
+                                                    <XCircle size={16} /> Danado
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
 
                             <div className="p-4 border-t border-slate-200 bg-slate-50/50">
