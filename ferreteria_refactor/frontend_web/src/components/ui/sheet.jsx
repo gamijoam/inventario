@@ -15,7 +15,7 @@ const SheetPortal = DialogPrimitive.Portal
 const SheetOverlay = React.forwardRef(({ className, ...props }, ref) => (
     <DialogPrimitive.Overlay
         className={cn(
-            "fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+            "fixed inset-0 z-[1000] bg-slate-900/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
             className
         )}
         {...props}
@@ -42,7 +42,7 @@ const SheetContent = React.forwardRef(
             <DialogPrimitive.Content
                 ref={ref}
                 className={cn(
-                    "fixed z-50 gap-4 bg-white shadow-xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+                    "fixed z-[1001] gap-4 bg-white shadow-xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
                     sheetVariants.side[side],
                     side === "bottom" && "h-[90vh] rounded-t-2xl",
                     "pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",

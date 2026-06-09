@@ -403,32 +403,32 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent side="right" className="w-full sm:w-[92vw] sm:max-w-[1100px] flex flex-col p-0 gap-0 bg-[#f8f9fb]">
+            <SheetContent side="right" className="w-full sm:w-[94vw] sm:max-w-[1180px] flex flex-col p-0 gap-0 border-l border-slate-200 bg-slate-50 shadow-2xl [&>button.absolute]:hidden">
 
                 {/* ── Header fijo ─────────────────────────────────────────────── */}
-                <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 sticky top-0 z-20">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-sm">
+                <div className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur sm:px-6">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 shadow-sm shadow-indigo-200">
                             <Package size={18} className="text-white" />
                         </div>
                         <div>
-                            <h2 className="text-base font-black text-slate-900 leading-none">
+                            <h2 className="truncate text-lg font-black text-slate-900 leading-none">
                                 {initialData ? 'Editar Producto' : 'Nuevo Producto'}
                             </h2>
                             {initialData && (
-                                <p className="text-xs text-slate-400 mt-0.5 font-medium">
+                                <p className="mt-1 max-w-[48vw] truncate text-xs font-bold text-slate-500">
                                     Editando: {initialData.name}
                                 </p>
                             )}
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" onClick={onClose} className="text-slate-500 hover:text-slate-700 h-9">
+                    <div className="flex shrink-0 items-center gap-2">
+                        <Button variant="ghost" onClick={onClose} className="h-9 text-slate-500 hover:text-slate-700">
                             Cancelar
                         </Button>
                         <Button
                             onClick={handleSubmit}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-9 px-5 shadow-sm shadow-indigo-200"
+                            className="h-9 rounded-md bg-indigo-600 px-5 font-bold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700"
                         >
                             <Check size={15} className="mr-1.5" /> Guardar
                         </Button>
@@ -436,12 +436,12 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                 </div>
 
                 {/* ── Body scrollable ─────────────────────────────────────────── */}
-                <div className="flex-1 overflow-y-auto">
-                    <div className="max-w-5xl mx-auto p-6 space-y-5 pb-24">
+                <div className="flex-1 overflow-y-auto overscroll-contain">
+                    <div className="mx-auto max-w-6xl space-y-4 px-4 py-5 pb-24 sm:px-6">
 
                         {/* ══ SECCIÓN 1: Imagen + Identidad ════════════════════ */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="p-5 grid grid-cols-1 md:grid-cols-[220px_1fr] gap-5">
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="grid grid-cols-1 gap-5 p-4 sm:p-5 lg:grid-cols-[250px_minmax(0,1fr)]">
 
                                 {/* Imagen */}
                                 <div className="flex flex-col items-center justify-center">
@@ -471,7 +471,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                     </div>
 
                                     {/* SKU + Categoría */}
-                                    <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                                         <div>
                                             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
                                                 SKU / Código
@@ -580,7 +580,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                     </div>
 
                                     {/* Toggles de propiedades en grid compacto */}
-                                    <div className="grid grid-cols-2 gap-2 pt-1">
+                                    <div className="grid grid-cols-1 gap-2 pt-1 xl:grid-cols-2">
                                         {[
                                             { key: 'is_service', label: 'Es un servicio', desc: 'No descuenta stock', icon: Package, color: 'bg-indigo-500' },
                                             { key: 'has_imei', label: 'Maneja IMEI/Serial', desc: 'Serial único por unidad', icon: ScanBarcode, color: 'bg-blue-500', show: modules.services },
@@ -608,13 +608,13 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                         }
                                                     }}
                                                     className={cn(
-                                                        'flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all',
+                                                        'flex min-h-[62px] items-center gap-2.5 rounded-lg border p-3 text-left transition-all',
                                                         active
                                                             ? 'bg-indigo-50 border-indigo-200 ring-1 ring-indigo-400/20'
                                                             : 'bg-slate-50 border-slate-200 hover:border-slate-300'
                                                     )}
                                                 >
-                                                    <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors', active ? toggle.color + ' text-white' : 'bg-slate-200 text-slate-400')}>
+                                                    <div className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md transition-colors', active ? toggle.color + ' text-white' : 'bg-slate-200 text-slate-400')}>
                                                         <Icon size={13} />
                                                     </div>
                                                     <div className="min-w-0">
@@ -635,8 +635,8 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                         </div>
 
                         {/* ══ SECCIÓN 2: PRECIOS — Unificado ═══════════════════ */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
                                 <SectionHeader icon={DollarSign} label="Precios" color="text-emerald-600" bg="bg-emerald-100">
                                 </SectionHeader>
                                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
@@ -646,10 +646,10 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                     </span>
                                 </div>
                             </div>
-                            <div className="p-5 space-y-5">
+                            <div className="space-y-5 p-4 sm:p-5">
 
                                 {/* Costo + Margen + Precio en una fila */}
-                                <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1.6fr] gap-3 items-end">
+                                <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-[1fr_1fr_1.35fr]">
                                     <div>
                                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Costo Neto</label>
                                         <div className="relative">
@@ -699,7 +699,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 onFocus={e => e.target.select()}
                                                 step="0.01"
                                                 className={cn(
-                                                    'pl-10 h-14 text-3xl font-black text-right border-2 transition-all',
+                                                    'h-12 border-2 pl-10 text-right text-2xl font-black transition-all',
                                                     parseFloat(formData.price) > 0
                                                         ? 'text-emerald-600 border-emerald-400/30 bg-emerald-50/40'
                                                         : 'text-slate-400 border-slate-200 bg-slate-50'
@@ -885,7 +885,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                         {/* ══ SECCIÓN 3: INVENTARIO ═════════════════════════════ */}
                         {!formData.is_service && !formData.is_combo && (
-                            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                                     <SectionHeader icon={Warehouse} label="Inventario" color="text-amber-600" bg="bg-amber-100" />
                                     <div className="flex items-center gap-2">
@@ -965,7 +965,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                     );
                                                 }) : (
                                                     <div className="text-center py-4 border border-dashed border-slate-200 rounded-lg">
-                                                        <p className="text-xs text-slate-400">No hay almacenes configurados</p>
+                                                        <p className="truncate text-xs font-medium text-slate-500">No hay almacenes configurados</p>
                                                     </div>
                                                 )}
                                             </div>
@@ -983,7 +983,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                         {/* Stock mínimo para productos con IMEI */}
                         {!formData.is_service && formData.has_imei && (
-                            <div className="bg-white rounded-2xl border border-blue-100 shadow-sm p-5">
+                            <div className="bg-white rounded-lg border border-blue-100 shadow-sm p-5">
                                 <SectionHeader icon={Bell} label="Alerta de Stock Mínimo" color="text-blue-600" bg="bg-blue-100" />
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -999,7 +999,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                         )}
 
                         {/* ══ SECCIÓN 4: PRESENTACIONES / UNIDADES ════════════ */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                             <div className="px-5 py-4 border-b border-slate-100">
                                 <SectionHeader icon={Layers} label="Presentaciones y Unidades Alternativas" color="text-indigo-600" bg="bg-indigo-100" />
                             </div>
@@ -1015,7 +1015,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                         {/* ══ SECCIÓN 5: COMBO ══════════════════════════════════ */}
                         {formData.is_combo && (
-                            <div className="bg-white rounded-2xl border border-violet-200 shadow-sm overflow-hidden">
+                            <div className="bg-white rounded-lg border border-violet-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-violet-100 bg-violet-50/30">
                                     <SectionHeader icon={Layers} label="Configuración de Combo / Kit" color="text-violet-600" bg="bg-violet-100" />
                                 </div>
@@ -1027,7 +1027,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                         )}
 
                         {/* ══ SECCIÓN 6: GARANTÍA ══════════════════════════════ */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                        <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
                             <SectionHeader icon={ShieldCheck} label="Política de Garantía" color="text-teal-600" bg="bg-teal-100" />
                             <Select
                                 value={formData.warranty_policy_id?.toString()}
@@ -1049,7 +1049,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                         {/* ══ SECCIÓN 7: DESCUENTOS POR VOLUMEN (si existe) ═══ */}
                         {initialData?.id && (
-                            <div className="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+                            <div className="bg-white rounded-lg border border-amber-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-amber-100 bg-amber-50/30">
                                     <SectionHeader icon={Zap} label="Reglas de Descuento por Volumen" color="text-amber-600" bg="bg-amber-100" />
                                 </div>
@@ -1064,7 +1064,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                         {/* ══ MÓDULO FARMACIA ═══════════════════════════════════ */}
                         {modules?.pharmacy && (
-                            <div className="bg-white rounded-2xl border border-indigo-200 shadow-sm overflow-hidden">
+                            <div className="bg-white rounded-lg border border-indigo-200 shadow-sm overflow-hidden">
                                 <div className="px-5 py-4 border-b border-indigo-100 bg-indigo-50/30">
                                     <SectionHeader icon={Shield} label="Información Farmacéutica" color="text-indigo-600" bg="bg-indigo-100" />
                                 </div>
@@ -1123,17 +1123,17 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                 </div>
 
                 {/* ── Footer fijo con guardar ─────────────────────────────── */}
-                <div className="border-t border-slate-200 bg-white px-6 py-4 flex items-center justify-between sticky bottom-0">
-                    <p className="text-xs text-slate-400">
+                <div className="sticky bottom-0 z-30 flex flex-col gap-3 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <p className="truncate text-xs font-medium text-slate-500">
                         {initialData ? `Modificando: ${initialData.name}` : 'Nuevo producto'}
                     </p>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" onClick={onClose} className="text-slate-500 h-10">
+                    <div className="flex items-center justify-end gap-2">
+                        <Button variant="ghost" onClick={onClose} className="h-10 text-slate-500">
                             Cancelar
                         </Button>
                         <Button
                             onClick={handleSubmit}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 px-6 shadow-md shadow-indigo-200 hover:-translate-y-0.5 transition-all"
+                            className="h-10 rounded-md bg-indigo-600 px-6 font-bold text-white shadow-md shadow-indigo-200 transition-all hover:-translate-y-0.5 hover:bg-indigo-700"
                         >
                             <Check size={15} className="mr-2" /> Guardar Producto
                         </Button>
@@ -1142,7 +1142,7 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
 
                 {/* Scanner modal */}
                 {isScanning && (
-                    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/70 p-4">
                         <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="font-bold text-slate-800">Escanear código</h3>
