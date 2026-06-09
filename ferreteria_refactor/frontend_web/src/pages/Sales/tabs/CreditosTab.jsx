@@ -9,6 +9,7 @@ import { useConfig } from '../../../context/ConfigContext';
 import InvoiceDetailModal from '../../../components/credit/InvoiceDetailModal';
 import CreditosCelularesTab from './CreditosCelularesTab';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import clsx from 'clsx';
 
 // ---------------------------------------------------------------------------
@@ -128,7 +129,7 @@ const CreditosTab = ({ dateRange }) => {
             setHasMore(responseHasMore);
         } catch (error) {
             console.error('Error fetching invoices:', error);
-            toast.error('Error al cargar cuentas por cobrar');
+            toast.error(getApiErrorMessage(error, 'Error al cargar cuentas por cobrar'));
         } finally {
             setLoading(false);
         }
@@ -144,7 +145,7 @@ const CreditosTab = ({ dateRange }) => {
             setClientsList(sorted.map(item => ({ id: item.client_id, name: item.client_name })));
         } catch (error) {
             console.error('Error fetching aging report:', error);
-            toast.error('Error al cargar reporte de antigüedad');
+            toast.error(getApiErrorMessage(error, 'Error al cargar reporte de antigüedad'));
         } finally {
             setLoadingAging(false);
         }
@@ -159,7 +160,7 @@ const CreditosTab = ({ dateRange }) => {
             setLedgerData(response.data);
         } catch (error) {
             console.error('Error fetching ledger:', error);
-            toast.error('Error al cargar estado de cuenta');
+            toast.error(getApiErrorMessage(error, 'Error al cargar estado de cuenta'));
         } finally {
             setLoadingLedger(false);
         }
@@ -385,7 +386,7 @@ const CreditosTab = ({ dateRange }) => {
             setDetailSale(response.data);
         } catch (error) {
             console.error('Error fetching sale detail:', error);
-            toast.error('Error al cargar el detalle de la factura');
+            toast.error(getApiErrorMessage(error, 'Error al cargar el detalle de la factura'));
             setShowDetailModal(false);
         } finally {
             setLoadingDetail(false);
@@ -453,7 +454,7 @@ const CreditosTab = ({ dateRange }) => {
                 await fetchInvoices(0, false);
             } catch (error) {
                 console.error('Error in bulk payment:', error);
-                toast.error('Error al registrar pagos masivos');
+                toast.error(getApiErrorMessage(error, 'Error al registrar pagos masivos'));
             }
             return;
         }
@@ -491,7 +492,7 @@ const CreditosTab = ({ dateRange }) => {
             await fetchInvoices(0, false);
         } catch (error) {
             console.error('Error registering payment:', error);
-            toast.error('Error al registrar el pago');
+            toast.error(getApiErrorMessage(error, 'Error al registrar el pago'));
         }
     };
 

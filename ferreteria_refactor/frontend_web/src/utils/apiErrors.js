@@ -32,6 +32,12 @@ const translateKnownMessage = (message) => {
     if (lower.includes('payment method requires reference') || lower.includes('requires reference')) return 'Este metodo de pago requiere numero de referencia.';
     if (lower.includes('cash session') && (lower.includes('closed') || lower.includes('not open'))) return 'La caja esta cerrada. Abre una caja antes de cobrar.';
     if (lower.includes('warehouse') && lower.includes('required')) return 'Selecciona un almacen para completar la operacion.';
+    if (lower.includes('sale') && lower.includes('void')) return 'No se pudo anular la venta. Verifica permisos, PIN o estado de la factura.';
+    if (lower.includes('warranty') && lower.includes('not found')) return 'No se encontro garantia para esta venta o IMEI.';
+    if (lower.includes('imei') && lower.includes('not found')) return 'IMEI no encontrado.';
+    if (lower.includes('supplier') && (lower.includes('already exists') || lower.includes('duplicate'))) return 'Ya existe un proveedor con esos datos.';
+    if (lower.includes('purchase') && lower.includes('not found')) return 'Compra no encontrada.';
+    if (lower.includes('quote') && lower.includes('not found')) return 'Cotizacion no encontrada.';
     if (lower.includes('product not found')) return 'Producto no encontrado. Puede que haya sido eliminado o movido por otro usuario.';
     if (lower.includes('payment method already exists')) return 'Ya existe un metodo de pago con ese nombre.';
     if (lower.includes('name already exists')) return 'Ya existe un registro con ese nombre.';

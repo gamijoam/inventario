@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 // ─── Status Badge ────────────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -304,7 +305,7 @@ const CashRegistersPage = () => {
             const enriched = data.map(r => ({ ...r, isDefault: r.code === 'C01' }));
             setRegisters(enriched);
         } catch (err) {
-            toast.error('Error al cargar las cajas');
+            toast.error(getApiErrorMessage(error, 'Error al cargar las cajas'));
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -342,7 +343,7 @@ const CashRegistersPage = () => {
             toast.success(`Caja ${register.is_active ? 'desactivada' : 'activada'}`);
             fetchRegisters(true);
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al actualizar');
+            toast.error(getApiErrorMessage(err, 'Error al actualizar'));
         }
     };
 
@@ -359,7 +360,7 @@ const CashRegistersPage = () => {
             toast.success(`✅ Sesión de ${register.name} liberada`);
             fetchRegisters(true);
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al forzar cierre');
+            toast.error(getApiErrorMessage(err, 'Error al forzar cierre'));
         }
     };
 

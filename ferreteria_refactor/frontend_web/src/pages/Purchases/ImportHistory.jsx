@@ -5,6 +5,7 @@
 import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import apiClient from '../../config/axios';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import { toast } from 'react-hot-toast';
 import {
     Upload, FileSpreadsheet, CheckCircle, XCircle,
@@ -121,7 +122,7 @@ export default function ImportHistory() {
                 count++;
                 setImported(count);
             } catch (e) {
-                errs.push(`Fila ${i + 2}: ${e?.response?.data?.detail || e.message}`);
+                errs.push(`Fila ${i + 2}: ${getApiErrorMessage(e, 'No se pudo importar la fila')}`);
             }
         }
 

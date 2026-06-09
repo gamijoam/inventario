@@ -8,6 +8,7 @@ import {
     ResponsiveContainer
 } from 'recharts';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { getLots, getAlerts } from '../../../services/pharmacyService';
 import apiClient from '../../../config/axios';
 
@@ -137,7 +138,7 @@ const VencimientosSubTab = () => {
             }
         } catch (err) {
             console.error('Error loading pharmacy expiry data:', err);
-            toast.error('Error al cargar datos de vencimientos');
+            toast.error(getApiErrorMessage(error, 'Error al cargar datos de vencimientos'));
         } finally {
             setLoading(false);
         }
@@ -357,7 +358,7 @@ const VentasClasificacionSubTab = ({ dateRange }) => {
             setSalesRows(items);
         } catch (err) {
             console.error('Error loading pharmacy sales data:', err);
-            toast.error('Error al cargar ventas farmacéuticas');
+            toast.error(getApiErrorMessage(error, 'Error al cargar ventas farmacéuticas'));
             setSalesRows([]);
         } finally {
             setLoading(false);
@@ -592,7 +593,7 @@ const ValoracionSubTab = () => {
             setLots(Array.isArray(data) ? data : []);
         } catch (err) {
             console.error('Error loading pharmacy valuation:', err);
-            toast.error('Error al cargar valoración farmacéutica');
+            toast.error(getApiErrorMessage(error, 'Error al cargar valoración farmacéutica'));
             setLots([]);
         } finally {
             setLoading(false);

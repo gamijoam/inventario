@@ -4,6 +4,7 @@ import { useConfig } from '../../context/ConfigContext';
 import { AlertTriangle, CheckCircle, TrendingUp, Calculator, X, Printer, Banknote, CreditCard, Coins, ArrowRight, Wallet } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import apiClient from '../../config/axios';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
 
@@ -60,7 +61,7 @@ const CashClosingModal = ({ isOpen, onClose }) => {
             setSessionDetails(response.data);
         } catch (error) {
             console.error("Error fetching detailed closing info:", error);
-            toast.error("Error obteniendo detalles del sistema");
+            toast.error(getApiErrorMessage(error, 'No se pudieron obtener los detalles del sistema'));
         } finally {
             setLoadingDetails(false);
         }

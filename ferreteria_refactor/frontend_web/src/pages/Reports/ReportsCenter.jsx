@@ -13,6 +13,7 @@ import {
     ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import unifiedReportService from '../../services/unifiedReportService';
 import reportService from '../../services/reportService';
 import { useConfig } from '../../context/ConfigContext';
@@ -355,7 +356,7 @@ const ReportsCenter = () => {
             toast.success('Reporte descargado correctamente', { id: toastId });
         } catch (error) {
             console.error('Export error:', error);
-            toast.error('Error al generar el reporte Excel', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al generar el reporte Excel'), { id: toastId });
         }
     };
 

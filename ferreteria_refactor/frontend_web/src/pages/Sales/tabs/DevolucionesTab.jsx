@@ -4,6 +4,7 @@ import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import clsx from 'clsx';
 
 const DevolucionesTab = () => {
@@ -56,7 +57,7 @@ const DevolucionesTab = () => {
             }
         } catch (error) {
             console.error('Error searching sales:', error);
-            toast.error('Error al buscar ventas');
+            toast.error(getApiErrorMessage(error, 'Error al buscar ventas'));
         } finally {
             setLoading(false);
         }
@@ -81,7 +82,7 @@ const DevolucionesTab = () => {
             setStep(2);
         } catch (error) {
             console.error('Error fetching sale details:', error);
-            toast.error('Error al cargar detalles');
+            toast.error(getApiErrorMessage(error, 'Error al cargar detalles'));
         } finally {
             setLoading(false);
         }
@@ -147,7 +148,7 @@ const DevolucionesTab = () => {
             setReason('');
         } catch (error) {
             console.error('Error processing return:', error);
-            toast.error(error.response?.data?.detail || 'Error al procesar devolución');
+            toast.error(getApiErrorMessage(error, 'Error al procesar devolución'));
         } finally {
             setLoading(false);
         }

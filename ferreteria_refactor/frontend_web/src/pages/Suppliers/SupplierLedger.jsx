@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 // Simple local component for currency formatting
 const FormatCurrency = ({ amount, currency = 'USD' }) => {
@@ -31,7 +32,7 @@ const SupplierLedger = () => {
             setData(response.data);
         } catch (error) {
             console.error('Error fetching ledger:', error);
-            toast.error('Error al cargar estado de cuenta');
+            toast.error(getApiErrorMessage(error, 'Error al cargar estado de cuenta'));
         } finally {
             setLoading(false);
         }

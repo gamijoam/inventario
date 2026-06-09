@@ -8,6 +8,7 @@ import reportService from '../../../services/reportService';
 import printerService from '../../../services/printerService';
 import { useConfig } from '../../../context/ConfigContext';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { pdf } from '@react-pdf/renderer';
 import ZReportPDF from '../../../components/pdf/ZReportPDF';
 import apiClient from '../../../config/axios';
@@ -41,7 +42,7 @@ const CashTab = ({ dateRange }) => {
             const data = await cashService.getHistory({ startDate: start, endDate: end });
             setSessions(Array.isArray(data) ? data : []);
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al cargar el historial');
+            toast.error(getApiErrorMessage(err, 'Error al cargar el historial'));
             setSessions([]);
         } finally {
             setLoading(false);
@@ -175,7 +176,7 @@ const CashTab = ({ dateRange }) => {
             toast.success('Reporte descargado', { id: toastId });
         } catch (error) {
             console.error('Error downloading report:', error);
-            toast.error('Error al descargar reporte', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al descargar reporte'), { id: toastId });
         } finally {
             setDownloading(false);
         }
@@ -189,7 +190,7 @@ const CashTab = ({ dateRange }) => {
             toast.success('Reporte Z enviado a impresora', { id: toastId });
         } catch (error) {
             console.error('Error reprinting Z-Report:', error);
-            toast.error('Error al reimprimir. Verifica que el Hardware Bridge este activo.', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al reimprimir. Verifica que el Hardware Bridge este activo.'), { id: toastId });
         }
     };
 
@@ -206,7 +207,7 @@ const CashTab = ({ dateRange }) => {
             toast.success('PDF descargado', { id: toastId });
         } catch (error) {
             console.error('Error generating PDF:', error);
-            toast.error('Error al generar PDF', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al generar PDF'), { id: toastId });
         }
     };
 

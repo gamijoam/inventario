@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, DollarSign, Calendar, FileText, CreditCard, Package, User, Clock, CheckCircle, AlertCircle, TrendingUp, ChevronDown } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import clsx from 'clsx';
 
 const PurchaseDetail = () => {
@@ -26,7 +27,7 @@ const PurchaseDetail = () => {
             setPurchase(response.data);
         } catch (error) {
             console.error('Error fetching purchase:', error);
-            toast.error('Error al cargar detalles de la compra');
+            toast.error(getApiErrorMessage(error, 'Error al cargar detalles de la compra'));
         } finally {
             setLoading(false);
         }
@@ -38,7 +39,7 @@ const PurchaseDetail = () => {
             setPayments(response.data);
         } catch (error) {
             console.error('Error fetching payments:', error);
-            toast.error('Error al cargar historial de pagos');
+            toast.error(getApiErrorMessage(error, 'Error al cargar historial de pagos'));
         }
     };
 
@@ -354,7 +355,7 @@ const PaymentModal = ({ purchase, balance, onClose, onSuccess }) => {
             onSuccess();
         } catch (error) {
             console.error('Error registering payment:', error);
-            toast.error(error.response?.data?.detail || 'Error al registrar pago');
+            toast.error(getApiErrorMessage(error, 'Error al registrar pago'));
         } finally {
             setLoading(false);
         }

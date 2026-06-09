@@ -4,6 +4,7 @@ import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import { useAuth } from '../../../context/AuthContext';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtUSD = (n) => `$${parseFloat(n || 0).toFixed(2)}`;
@@ -354,7 +355,7 @@ const CommissionsTab = () => {
         try {
             const res = await apiClient.get('/commissions/summary');
             setSummary(res.data);
-        } catch { toast.error('Error al cargar comisiones'); }
+        } catch (error) { toast.error(getApiErrorMessage(error, 'Error al cargar comisiones')); }
         finally { setIsLoading(false); }
     }, []);
 
@@ -388,7 +389,7 @@ const CommissionsTab = () => {
             setPendingPayout(null); setExpandedUser(null); setPayMode('USD');
             loadData();
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al procesar el pago');
+            toast.error(getApiErrorMessage(err, 'Error al procesar el pago'));
         } finally { setIsProcessing(false); }
     };
 

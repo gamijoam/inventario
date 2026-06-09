@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../config/axios';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../utils/apiErrors';
 
 const Purchases = () => {
     const navigate = useNavigate();
@@ -61,7 +62,7 @@ const Purchases = () => {
             toast.success(`Factura ${ref} anulada. Se revirtieron ${res.data.reversed_items?.length || 0} productos.`);
             fetchPurchases();
         } catch (err) {
-            toast.error(err.response?.data?.detail || 'Error al anular la factura');
+            toast.error(getApiErrorMessage(err, 'Error al anular la factura'));
         }
     };
 

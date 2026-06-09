@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import unifiedReportService from '../../../services/unifiedReportService';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import clsx from 'clsx';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -67,7 +68,7 @@ const InventoryTab = ({ dateRange }) => {
             if (lowRes.status === 'fulfilled') setLowStock(Array.isArray(lowRes.value) ? lowRes.value : []);
         } catch (error) {
             console.error('Error loading inventory data:', error);
-            toast.error('Error al cargar datos de inventario');
+            toast.error(getApiErrorMessage(error, 'Error al cargar datos de inventario'));
         } finally {
             setLoading(false);
         }
@@ -93,7 +94,7 @@ const InventoryTab = ({ dateRange }) => {
             toast.success('Reporte descargado correctamente', { id: toastId });
         } catch (error) {
             console.error('Export error:', error);
-            toast.error('Error al generar el reporte', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al generar el reporte'), { id: toastId });
         }
     };
 

@@ -8,6 +8,7 @@ import apiClient from '../../../config/axios';
 import { useConfig } from '../../../context/ConfigContext';
 import PurchaseItemsModal from '../../../components/purchases/PurchaseItemsModal';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import clsx from 'clsx';
 
 // ---------------------------------------------------------------------------
@@ -78,7 +79,7 @@ const PaymentModal = ({ purchase, onClose, onSuccess }) => {
             onSuccess();
         } catch (error) {
             console.error('Error registering payment:', error);
-            toast.error(error.response?.data?.detail || 'Error al registrar pago');
+            toast.error(getApiErrorMessage(error, 'Error al registrar pago'));
         } finally {
             setLoading(false);
         }
@@ -309,7 +310,7 @@ const SuppliersTab = ({ dateRange }) => {
             setOverdueInvoices(overdue.length);
         } catch (error) {
             console.error('Error fetching suppliers:', error);
-            toast.error('Error al cargar proveedores con deuda');
+            toast.error(getApiErrorMessage(error, 'Error al cargar proveedores con deuda'));
         } finally {
             setLoading(false);
         }
@@ -321,7 +322,7 @@ const SuppliersTab = ({ dateRange }) => {
             setSupplierPurchases(response.data);
         } catch (error) {
             console.error('Error fetching purchases:', error);
-            toast.error('Error al cargar facturas');
+            toast.error(getApiErrorMessage(error, 'Error al cargar facturas'));
         }
     };
 
@@ -365,7 +366,7 @@ const SuppliersTab = ({ dateRange }) => {
             setLedgerData(response.data);
         } catch (error) {
             console.error('Error fetching ledger:', error);
-            toast.error('Error al cargar estado de cuenta');
+            toast.error(getApiErrorMessage(error, 'Error al cargar estado de cuenta'));
         } finally {
             setLedgerLoading(false);
         }

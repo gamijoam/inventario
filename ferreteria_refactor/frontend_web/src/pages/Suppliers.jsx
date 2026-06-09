@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import apiClient from '../config/axios';
 import clsx from 'clsx';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../utils/apiErrors';
 import {
     Sheet,
     SheetContent,
@@ -57,7 +58,7 @@ const Suppliers = () => {
             setSuppliers(response.data);
         } catch (error) {
             console.error('Error fetching suppliers:', error);
-            toast.error('Error cargando proveedores');
+            toast.error(getApiErrorMessage(error, 'Error cargando proveedores'));
         } finally {
             setLoading(false);
         }
@@ -81,7 +82,7 @@ const Suppliers = () => {
             fetchSuppliers();
             toast.success('Proveedor eliminado');
         } catch (error) {
-            toast.error(error.response?.data?.detail || 'Error al eliminar proveedor');
+            toast.error(getApiErrorMessage(error, 'Error al eliminar proveedor'));
         }
     };
 
@@ -383,7 +384,7 @@ const SupplierForm = ({ supplier, onClose, onSuccess }) => {
             onSuccess();
         } catch (error) {
             console.error('Error saving supplier:', error);
-            toast.error(error.response?.data?.detail || 'Error al guardar proveedor');
+            toast.error(getApiErrorMessage(error, 'Error al guardar proveedor'));
         } finally {
             setLoading(false);
         }

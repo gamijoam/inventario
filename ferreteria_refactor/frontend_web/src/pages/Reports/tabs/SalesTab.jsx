@@ -6,6 +6,7 @@ import {
 import { Wallet, Users, Package, MessageCircle } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import { useAuth } from '../../../context/AuthContext';
 import { useConfig } from '../../../context/ConfigContext';
 import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
@@ -172,7 +173,7 @@ const SalesTab = ({ dateRange }) => {
             setAnalysisData(response.data);
         } catch (error) {
             console.error('Error fetching analysis:', error);
-            toast.error('Error al cargar reporte');
+            toast.error(getApiErrorMessage(error, 'Error al cargar reporte'));
         } finally {
             setAnalysisLoading(false);
         }
@@ -192,7 +193,7 @@ const SalesTab = ({ dateRange }) => {
             setShowDetailModal(true);
         } catch (error) {
             console.error('Error fetching sale details:', error);
-            toast.error('Error al cargar detalles de la venta');
+            toast.error(getApiErrorMessage(error, 'Error al cargar detalles de la venta'));
         }
     };
 
@@ -251,7 +252,7 @@ const SalesTab = ({ dateRange }) => {
             if (error.response?.status === 401) {
                 setPinError('PIN incorrecto');
             } else {
-                setPinError(error.response?.data?.detail || 'Error al anular venta');
+                setPinError(getApiErrorMessage(error, 'No se pudo anular la venta'));
             }
         }
     };
@@ -263,7 +264,7 @@ const SalesTab = ({ dateRange }) => {
             window.open(url, '_blank');
         } catch (error) {
             console.error('Error generating PDF:', error);
-            toast.error('Error al generar el PDF');
+            toast.error(getApiErrorMessage(error, 'Error al generar el PDF'));
         }
     };
 
@@ -273,7 +274,7 @@ const SalesTab = ({ dateRange }) => {
             toast.success('Ticket enviado a impresora exitosamente');
         } catch (error) {
             console.error('Error reprinting:', error);
-            toast.error(`Error al reimprimir: ${error.message}`);
+            toast.error(getApiErrorMessage(error, 'No se pudo completar la accion'));
         }
     };
 
@@ -294,8 +295,7 @@ const SalesTab = ({ dateRange }) => {
             window.URL.revokeObjectURL(url);
             toast.success('Abriendo garantía para imprimir...');
         } catch (error) {
-            const detail = error.response?.data?.detail || 'Error al generar la garantía';
-            toast.error(detail);
+            toast.error(getApiErrorMessage(error, 'No se pudo generar la garantia'));
         }
     };
 
@@ -305,8 +305,7 @@ const SalesTab = ({ dateRange }) => {
             const res = await apiClient.post(`/warranties/send-whatsapp/${sale.id}`);
             toast.success(`✅ Garantía enviada a ${res.data.customer} por WhatsApp`, { id: toastId });
         } catch (err) {
-            const detail = err.response?.data?.detail || 'Error al enviar por WhatsApp';
-            toast.error(detail, { id: toastId });
+            toast.error(getApiErrorMessage(err, 'No se pudo enviar la garantia por WhatsApp'), { id: toastId });
         }
     };
 
@@ -320,7 +319,7 @@ const SalesTab = ({ dateRange }) => {
             toast.success('Reporte descargado correctamente', { id: toastId });
         } catch (error) {
             console.error('Export error:', error);
-            toast.error('Error al generar el reporte Excel', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al generar el reporte Excel'), { id: toastId });
         }
     };
 
@@ -331,7 +330,7 @@ const SalesTab = ({ dateRange }) => {
             toast.success('Reporte descargado correctamente', { id: toastId });
         } catch (error) {
             console.error('Export error:', error);
-            toast.error('Error al generar el reporte', { id: toastId });
+            toast.error(getApiErrorMessage(error, 'Error al generar el reporte'), { id: toastId });
         }
     };
 

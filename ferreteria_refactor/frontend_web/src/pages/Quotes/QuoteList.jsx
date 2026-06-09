@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import { useConfig } from '../../context/ConfigContext';
 import { API_BASE_URL } from '../../config/constants';
 import clsx from 'clsx';
@@ -63,7 +64,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
         try {
             const { data } = await apiClient.get('/quotes', { params: { limit: 500 } });
             setQuotes((data.items || []).sort((a, b) => b.id - a.id));
-        } catch { toast.error('Error al cargar cotizaciones'); }
+        } catch (error) { toast.error(getApiErrorMessage(error, 'Error al cargar cotizaciones')); }
         finally { setLoading(false); }
     };
 
@@ -100,7 +101,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             await apiClient.delete(`/quotes/${id}`);
             setQuotes(prev => prev.filter(q => q.id !== id));
             toast.success('Cotización eliminada');
-        } catch { toast.error('No se pudo eliminar'); }
+        } catch (error) { toast.error(getApiErrorMessage(error, 'No se pudo eliminar')); }
     };
 
     const handleSendWhatsApp = async (quote, e) => {
@@ -112,7 +113,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             toast.success(data.message || '✅ Cotización enviada por WhatsApp');
         } catch (err) {
             const msg = err?.response?.data?.detail || err.message;
-            toast.error('Error: ' + msg);
+            toast.error(getApiErrorMessage(error, msg || 'No se pudo completar la accion'));
         } finally {
             setSendingWa(null);
         }
@@ -125,7 +126,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             const { data } = await apiClient.post(`/quotes/${quote.id}/duplicate`);
             toast.success(`Cotización #${data.id} creada como copia`);
             fetchQuotes();
-        } catch { toast.error('Error al duplicar'); }
+        } catch (error) { toast.error(getApiErrorMessage(error, 'Error al duplicar')); }
         finally { setDuplicating(null); }
     };
 
@@ -150,7 +151,7 @@ const QuoteList = ({ onCreateNew, onEdit }) => {
             const rows = items.map(i => `<tr><td>${i.product?.name || 'Ítem'}</td><td style="text-align:center">${i.quantity}</td><td style="text-align:right">${anchorCurrency.symbol}${Number(i.unit_price).toFixed(2)}</td><td style="text-align:right">${anchorCurrency.symbol}${Number(i.subtotal).toFixed(2)}</td></tr>`).join('');
             win.document.write(`<!DOCTYPE html><html><head><title>Cotización #${fullQuote.id}</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#f1f5f9;padding:8px;text-align:left}td{padding:8px;border-bottom:1px solid #eee}.total{text-align:right;font-size:18px;font-weight:bold;margin-top:16px}@media print{.np{display:none}}</style></head><body><h2>Cotización #${fullQuote.id}</h2><p><strong>Cliente:</strong> ${fullQuote.customer?.name || 'General'} | <strong>Fecha:</strong> ${new Date(fullQuote.date).toLocaleDateString()}</p><table><thead><tr><th>Descripción</th><th>Cant.</th><th>Precio</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total: ${anchorCurrency.symbol}${Number(fullQuote.total_amount).toFixed(2)}</div><div class="np" style="margin-top:20px;text-align:center"><button onclick="window.print()" style="padding:10px 20px;cursor:pointer">Imprimir</button><button onclick="window.close()" style="padding:10px 20px;margin-left:10px;cursor:pointer">Cerrar</button></div><script>window.onload=function(){window.print()}<\/script></body></html>`);
             win.document.close();
-        } catch { toast.error('Error al generar impresión'); }
+        } catch (error) { toast.error(getApiErrorMessage(error, 'Error al generar impresión')); }
     };
 
     const handleThermal = async (quote, width, e) => {

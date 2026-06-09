@@ -5,6 +5,7 @@ import HelpDrawer, { HelpButton } from '../../help/HelpDrawer';
 import { useHelp } from '../../help/useHelp';
 import apiClient from '../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 import clsx from 'clsx';
 import { normalizeSearch } from '../../utils/search';
 
@@ -58,7 +59,7 @@ const CreatePurchase = () => {
             setSuppliers(response.data);
         } catch (error) {
             console.error('Error fetching suppliers:', error);
-            toast.error('Error al cargar proveedores');
+            toast.error(getApiErrorMessage(error, 'Error al cargar proveedores'));
         }
     };
 
@@ -68,7 +69,7 @@ const CreatePurchase = () => {
             setProducts(Array.isArray(response.data) ? response.data : (response.data?.items || []));
         } catch (error) {
             console.error('Error fetching products:', error);
-            toast.error('Error al cargar productos');
+            toast.error(getApiErrorMessage(error, 'Error al cargar productos'));
         }
     };
 

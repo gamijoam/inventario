@@ -15,6 +15,7 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Textarea } from '../../../components/ui/textarea';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import WarrantyTemplateSelector from './WarrantyTemplateSelector';
 
 const GarantiasConfigTab = () => {
@@ -33,7 +34,7 @@ const GarantiasConfigTab = () => {
             setPolicies(response.data);
         } catch (error) {
             console.error('Error fetching policies:', error);
-            toast.error('Error al cargar las políticas de garantía');
+            toast.error(getApiErrorMessage(error, 'Error al cargar las políticas de garantía'));
         } finally {
             setLoading(false);
         }
@@ -47,7 +48,7 @@ const GarantiasConfigTab = () => {
             toast.success('Política eliminada');
             fetchPolicies();
         } catch (error) {
-            toast.error(error.response?.data?.detail || 'Error al eliminar política');
+            toast.error(getApiErrorMessage(error, 'Error al eliminar política'));
         }
     };
 
@@ -228,7 +229,7 @@ const PolicyModal = ({ policy, onClose, onSuccess }) => {
 
             onSuccess();
         } catch (error) {
-            toast.error(error.response?.data?.detail || 'Error al guardar política');
+            toast.error(getApiErrorMessage(error, 'Error al guardar política'));
         } finally {
             setLoading(false);
         }

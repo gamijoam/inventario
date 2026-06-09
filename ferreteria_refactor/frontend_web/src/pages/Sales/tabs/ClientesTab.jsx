@@ -170,7 +170,7 @@ const ClientesTab = () => {
             fetchFinancialStatus();
             toast.success('Límite de crédito actualizado');
         } catch (error) {
-            toast.error('Error al actualizar límite de crédito');
+            toast.error(getApiErrorMessage(error, 'Error al actualizar límite de crédito'));
         }
     };
 
@@ -185,7 +185,7 @@ const ClientesTab = () => {
             fetchFinancialStatus();
             toast.success('Días de crédito actualizados');
         } catch (error) {
-            toast.error('Error al actualizar días de crédito');
+            toast.error(getApiErrorMessage(error, 'Error al actualizar días de crédito'));
         }
     };
 

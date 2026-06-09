@@ -3,6 +3,7 @@ import { X, TrendingDown, RefreshCw, Calculator, DollarSign } from 'lucide-react
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
     const { getActiveCurrencies, formatCurrency } = useConfig();
@@ -100,7 +101,7 @@ const CashAdvanceModal = ({ isOpen, onClose, onSuccess }) => {
             onClose();
         } catch (err) {
             console.error("Cash Advance Error", err);
-            toast.error(err.response?.data?.detail || "Error al procesar avance");
+            toast.error(getApiErrorMessage(err, "Error al procesar avance"));
         } finally {
             setLoading(false);
         }

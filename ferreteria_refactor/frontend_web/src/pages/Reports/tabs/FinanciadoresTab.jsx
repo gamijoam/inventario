@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Building2, RefreshCw, CheckCircle2, Clock, AlertTriangle, Plus, Trash2, ChevronDown, ChevronUp, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 import apiClient from '../../../config/axios';
 import { toast } from 'react-hot-toast';
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 
 const STATUS_CONFIG = {
     PENDING:   { label: 'Pendiente',  color: 'text-amber-700',   bg: 'bg-amber-50',   border: 'border-amber-200',  dot: 'bg-amber-400',   icon: Clock },
@@ -38,7 +39,7 @@ const UpdatePaymentModal = ({ record, onClose, onSuccess }) => {
             onSuccess(updated.data);
             onClose();
         } catch {
-            toast.error('Error al actualizar');
+            toast.error(getApiErrorMessage(error, 'Error al actualizar'));
         } finally {
             setSaving(false);
         }
@@ -238,7 +239,7 @@ export default function FinanciadoresTab() {
             setSummary(sumRes.data);
             setFinancers(Array.isArray(finRes.data) ? finRes.data : []);
         } catch {
-            toast.error('Error cargando datos');
+            toast.error(getApiErrorMessage(error, 'Error cargando datos'));
         } finally {
             setIsLoading(false);
         }
@@ -260,7 +261,7 @@ export default function FinanciadoresTab() {
             setRecords(prev => prev.filter(r => r.id !== record.id));
             apiClient.get('/external-financing/summary').then(res => setSummary(res.data)).catch(() => {});
         } catch {
-            toast.error('Error al eliminar');
+            toast.error(getApiErrorMessage(error, 'Error al eliminar'));
         }
     };
 

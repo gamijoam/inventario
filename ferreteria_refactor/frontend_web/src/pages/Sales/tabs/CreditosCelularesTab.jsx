@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import apiClient from "../../../config/axios";
 import { toast } from "react-hot-toast";
+import { getApiErrorMessage } from '../../../utils/apiErrors';
 import clsx from "clsx";
 
 const formatUSD = (val) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(val || 0);
@@ -39,7 +40,7 @@ function ModalPagoCelular({ isOpen, onClose, inv, onRefresh }) {
             onRefresh();
             onClose();
         } catch (e) {
-            toast.error("Error al registrar pago");
+            toast.error(getApiErrorMessage(error, "Error al registrar pago"));
         } finally {
             setLoading(false);
         }
@@ -124,7 +125,7 @@ function FilaEquipo({ inv, onRefresh }) {
             const r = await apiClient.post(`/bloqueo/sales/${inv.id}/${a}`);
             toast.success(r.data.mensaje || "Exito");
             onRefresh();
-        } catch (e) { toast.error("Error"); }
+        } catch (e) { toast.error(getApiErrorMessage(e, "Error")); }
         finally { setLoadingAction(false); }
     };
 
@@ -218,7 +219,7 @@ export default function CreditosCelularesTab() {
             const r = await apiClient.get("/products/credits?limit=500");
             const items = Array.isArray(r.data) ? r.data : (r.data?.items || []);
             setVentas(items.filter(i => i.has_imei || i.bloqueo_sincronizado || i.bloqueo_imei || i.bloqueo_cliente_id));
-        } catch (e) { toast.error("Error al cargar"); }
+        } catch (e) { toast.error(getApiErrorMessage(e, "Error al cargar")); }
         finally { setLoading(false); }
     }, []);
     useEffect(() => { cargar(); }, [cargar]);

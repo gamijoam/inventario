@@ -3,6 +3,7 @@ import { X, DollarSign, TrendingDown, TrendingUp } from 'lucide-react';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
 import toast from 'react-hot-toast';
+import { getApiErrorMessage } from '../../utils/apiErrors';
 
 const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
     const { getActiveCurrencies } = useConfig();
@@ -73,7 +74,7 @@ const CashMovementModal = ({ isOpen, onClose, onSuccess }) => {
             onClose();
         } catch (err) {
             console.error('Error registering movement:', err);
-            toast.error('Error al registrar movimiento: ' + (err.response?.data?.detail || err.message));
+            toast.error(getApiErrorMessage(err, 'Error al registrar movimiento'));
         } finally {
             setLoading(false);
         }
