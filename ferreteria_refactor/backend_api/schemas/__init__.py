@@ -204,6 +204,19 @@ class PriceListRead(PriceListBase):
     
     model_config = ConfigDict(from_attributes=True)
 
+def normalize_product_prices(value):
+    if value in (None, ''):
+        return [] if value == '' else value
+    if isinstance(value, dict):
+        normalized = []
+        for list_id, price in value.items():
+            if price in (None, ''):
+                continue
+            normalized.append({"price_list_id": list_id, "price": price})
+        return normalized
+    return value
+
+
 class ProductPriceBase(BaseModel):
     price_list_id: int
     price: Decimal = Field(..., description="Precio en la lista", ge=0, json_schema_extra={'example': "10.5000"})
@@ -235,6 +248,11 @@ class ProductCreate(ProductBase):
     combo_items: List[ComboItemCreate] = Field([], description="Lista de componentes si es un combo")
     warehouse_stocks: List[ProductStockCreate] = Field([], description="Distribución de stock por almacén")
     prices: List[ProductPriceInput] = Field([], description="Precios por lista (Mayorista, VIP, etc)") # NEW
+
+    @field_validator('prices', mode='before')
+    @classmethod
+    def normalize_prices(cls, value):
+        return normalize_product_prices(value)
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -273,6 +291,11 @@ class ProductUpdate(BaseModel):
     combo_items: Optional[List[ComboItemCreate]] = None  # NEW: Allow updating combo items
     warehouse_stocks: Optional[List[ProductStockCreate]] = None  # NEW: Allow updating stocks per warehouse
     prices: Optional[List[ProductPriceInput]] = None # NEW
+
+    @field_validator('prices', mode='before')
+    @classmethod
+    def normalize_prices(cls, value):
+        return normalize_product_prices(value)
     
     # Warranty Updates
     warranty_duration: Optional[int] = None
