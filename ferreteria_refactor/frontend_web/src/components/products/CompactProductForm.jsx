@@ -50,6 +50,27 @@ const defaultForm = {
     commission_percentage: '',
 };
 
+
+const formatMoneyInput = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toFixed(2) : '';
+};
+
+const formatPercentInput = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '';
+    return number.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
+};
+
+const formatQtyInput = (value) => {
+    if (value === null || value === undefined || value === '') return '';
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '';
+    return number.toFixed(3).replace(/\.?0+$/, '');
+};
+
 const FieldLabel = ({ children }) => (
     <label className="mb-1 block text-[10px] font-black uppercase tracking-widest text-slate-500">
         {children}
@@ -93,10 +114,12 @@ const mapInitialProduct = (product) => {
     if (Array.isArray(product.prices)) {
         product.prices.forEach(item => {
             const listId = item.price_list_id || item.price_list?.id;
-            if (listId) prices[listId] = item.price ?? '';
+            if (listId) prices[listId] = formatMoneyInput(item.price);
         });
     } else if (product.prices && typeof product.prices === 'object') {
-        Object.assign(prices, product.prices);
+        Object.entries(product.prices).forEach(([listId, price]) => {
+            prices[listId] = formatMoneyInput(price);
+        });
     }
 
     return {
@@ -104,11 +127,11 @@ const mapInitialProduct = (product) => {
         name: product.name || '',
         sku: product.sku || '',
         category_id: product.category_id || product.category?.id || null,
-        cost: product.cost_price ?? product.cost ?? '',
-        price: product.price ?? '',
-        profit_margin: product.profit_margin ?? '',
-        stock: product.stock ?? 0,
-        min_stock: product.min_stock ?? 5,
+        cost: formatMoneyInput(product.cost_price ?? product.cost),
+        price: formatMoneyInput(product.price),
+        profit_margin: formatPercentInput(product.profit_margin),
+        stock: formatQtyInput(product.stock ?? 0),
+        min_stock: formatQtyInput(product.min_stock ?? 5),
         location: product.location || '',
         unit_type: product.unit_type || 'UNID',
         exchange_rate_id: product.exchange_rate_id || null,
@@ -385,15 +408,15 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                         <Panel title="Precio de venta" eyebrow="POS y catalogo" className="border-emerald-200">
                                             <div className="relative">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl font-black text-emerald-500">$</span>
-                                                <Input type="number" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} className="h-12 border-2 border-emerald-200 pl-8 text-right text-2xl font-black text-emerald-600" placeholder="0.00" />
+                                                <Input type="number" step="0.01" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, price: formatMoneyInput(e.target.value) }))} className="h-12 border-2 border-emerald-200 pl-8 text-right text-2xl font-black text-emerald-600" placeholder="0.00" />
                                             </div>
                                         </Panel>
                                         <Panel title="Costo" eyebrow="Compra">
-                                            <Input type="number" value={formData.cost} onChange={e => setFormData(p => ({ ...p, cost: e.target.value }))} className="h-12 text-right text-lg font-black" placeholder="0.00" />
+                                            <Input type="number" step="0.01" value={formData.cost} onChange={e => setFormData(p => ({ ...p, cost: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, cost: formatMoneyInput(e.target.value) }))} className="h-12 text-right text-lg font-black" placeholder="0.00" />
                                         </Panel>
                                         <Panel title="Margen" eyebrow="Utilidad">
                                             <div className="grid grid-cols-2 gap-2">
-                                                <Input type="number" value={formData.profit_margin} onChange={e => setFormData(p => ({ ...p, profit_margin: e.target.value }))} className="h-12 text-center text-lg font-black text-indigo-600" placeholder="0" />
+                                                <Input type="number" step="0.01" value={formData.profit_margin} onChange={e => setFormData(p => ({ ...p, profit_margin: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, profit_margin: formatPercentInput(e.target.value) }))} className="h-12 text-center text-lg font-black text-indigo-600" placeholder="0" />
                                                 <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                                                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Utilidad</p>
                                                     <p className={cn('text-lg font-black', profitValue < 0 ? 'text-rose-600' : 'text-slate-900')}>${profitValue.toFixed(2)}</p>
@@ -431,6 +454,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                                             step="0.01"
                                                             value={formData.prices?.[list.id] || ''}
                                                             onChange={e => setFormData(prev => ({ ...prev, prices: { ...prev.prices, [list.id]: e.target.value } }))}
+                                                            onBlur={e => setFormData(prev => ({ ...prev, prices: { ...prev.prices, [list.id]: formatMoneyInput(e.target.value) } }))}
                                                             placeholder="0.00"
                                                             className="h-8 text-right text-sm font-black text-indigo-700"
                                                         />
@@ -454,7 +478,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                         <>
                                             <Panel title="Parametros" eyebrow="Stock">
                                                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                                                    <div><FieldLabel>Stock minimo</FieldLabel><Input type="number" value={formData.min_stock} onChange={e => setFormData(p => ({ ...p, min_stock: e.target.value }))} className="h-10 font-bold" /></div>
+                                                    <div><FieldLabel>Stock minimo</FieldLabel><Input type="number" step="0.001" value={formData.min_stock} onChange={e => setFormData(p => ({ ...p, min_stock: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, min_stock: formatQtyInput(e.target.value) }))} className="h-10 font-bold" /></div>
                                                     <div><FieldLabel>Ubicacion</FieldLabel><Input value={formData.location} onChange={e => setFormData(p => ({ ...p, location: e.target.value }))} className="h-10 font-bold" placeholder="Pasillo A" /></div>
                                                     <div>
                                                         <FieldLabel>Unidad</FieldLabel>
@@ -474,7 +498,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                                         return (
                                                             <div key={warehouse.id} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                                                                 <span className="truncate text-sm font-bold text-slate-700">{warehouse.name}</span>
-                                                                <Input type="number" value={Number(qty).toString()} onChange={e => setWarehouseQty(warehouse.id, e.target.value)} className="h-8 w-24 text-right font-black" />
+                                                                <Input type="number" step="0.001" value={formatQtyInput(qty)} onChange={e => setWarehouseQty(warehouse.id, e.target.value)} className="h-8 w-24 text-right font-black" />
                                                             </div>
                                                         );
                                                     })}
@@ -487,7 +511,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, cat
                                         <Panel title="Control serializado" eyebrow="IMEI / Serial">
                                             <p className="mb-4 text-sm font-medium text-slate-500">Las unidades se cargan luego desde Recepcion IMEI. Aqui defines alerta y ubicacion sugerida.</p>
                                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                <Input type="number" value={formData.min_stock} onChange={e => setFormData(p => ({ ...p, min_stock: e.target.value }))} placeholder="Alerta minima" />
+                                                <Input type="number" step="0.001" value={formData.min_stock} onChange={e => setFormData(p => ({ ...p, min_stock: e.target.value }))} onBlur={e => setFormData(p => ({ ...p, min_stock: formatQtyInput(e.target.value) }))} placeholder="Alerta minima" />
                                                 <Input value={formData.location} onChange={e => setFormData(p => ({ ...p, location: e.target.value }))} placeholder="Ubicacion sugerida" />
                                             </div>
                                         </Panel>
