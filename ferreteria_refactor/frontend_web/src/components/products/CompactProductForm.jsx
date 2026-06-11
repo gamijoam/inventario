@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { X, Package, DollarSign, Warehouse, Layers, ScanBarcode, Scissors, Check, ChevronDown } from 'lucide-react';
+import { Package, DollarSign, Warehouse, Layers, ScanBarcode, Scissors, Check, ChevronDown, Plus, Pencil, ShieldCheck } from 'lucide-react';
 import { Sheet, SheetContent } from '../../components/ui/sheet';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
 import { useConfig } from '../../context/ConfigContext';
 import apiClient from '../../config/axios';
+import ProductImageUploader from './ProductImageUploader';
+import toast from 'react-hot-toast';
 
 const defaultForm = {
     name: '',
@@ -29,6 +31,8 @@ const defaultForm = {
     units: [],
     combo_items: [],
     warranty_policy_id: null,
+    image_url: '',
+    image_url_original: '',
     commission_amount: '',
     commission_percentage: '',
 };
@@ -58,21 +62,56 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
     const [activeTab, setActiveTab] = useState('precios');
     const [saving, setSaving] = useState(false);
     const [priceLists, setPriceLists] = useState([]);
+    const [policies, setPolicies] = useState([]);
 
+
+    const fetchPriceLists = async () => {
+        try {
+            const { data } = await apiClient.get('/price-lists/');
+            setPriceLists(Array.isArray(data) ? data.filter(list => list.is_active !== false) : []);
+        } catch {
+            setPriceLists([]);
+        }
+    };
+
+    const fetchPolicies = async () => {
+        try {
+            const { data } = await apiClient.get('/warranties/policies');
+            setPolicies(Array.isArray(data) ? data.filter(policy => policy.is_active !== false) : []);
+        } catch {
+            setPolicies([]);
+        }
+    };
 
     useEffect(() => {
         if (!isOpen) return;
-        let cancelled = false;
-        (async () => {
-            try {
-                const { data } = await apiClient.get('/price-lists/');
-                if (!cancelled) setPriceLists(Array.isArray(data) ? data.filter(list => list.is_active !== false) : []);
-            } catch {
-                if (!cancelled) setPriceLists([]);
-            }
-        })();
-        return () => { cancelled = true; };
+        fetchPriceLists();
+        fetchPolicies();
     }, [isOpen]);
+
+    const createPriceList = async () => {
+        const name = window.prompt('Nombre de la nueva lista de precios:');
+        if (!name?.trim()) return;
+        try {
+            await apiClient.post('/price-lists/', { name: name.trim(), is_active: true, requires_auth: false });
+            await fetchPriceLists();
+            toast.success(`Lista "${name.trim()}" creada`);
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || 'No se pudo crear la lista');
+        }
+    };
+
+    const renamePriceList = async (list) => {
+        const name = window.prompt('Nuevo nombre de la lista:', list.name);
+        if (!name?.trim() || name.trim() === list.name) return;
+        try {
+            await apiClient.patch(`/price-lists/${list.id}`, { name: name.trim() });
+            await fetchPriceLists();
+            toast.success('Lista actualizada');
+        } catch (e) {
+            toast.error(e?.response?.data?.detail || 'No se pudo actualizar la lista');
+        }
+    };
 
     const priceValue = parseFloat(formData.price || 0) || 0;
     const costValue = parseFloat(formData.cost || 0) || 0;
@@ -169,6 +208,16 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                             </div>
 
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Imagen</p>
+                                <ProductImageUploader
+                                    currentImageUrl={formData.image_url}
+                                    currentImageOriginalUrl={formData.image_url_original}
+                                    onImageUpdate={(url) => setFormData(prev => ({ ...prev, image_url: url || '' }))}
+                                    onOriginalUpdate={(url) => setFormData(prev => ({ ...prev, image_url_original: url || '' }))}
+                                />
+                            </div>
+
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                                 <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Tipo</p>
                                 <div className="grid grid-cols-1 gap-2">
                                     <ProductTypeButton active={productType === 'physical'} icon={Package} label="Fisico" desc="Stock por almacen" onClick={() => setProductType('physical')} />
@@ -235,9 +284,13 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                                 <h3 className="text-sm font-black text-slate-900">Listas de precios</h3>
                                                 <p className="text-xs font-bold text-slate-400">Precio base ${priceValue.toFixed(2)} - {priceLists.length} listas activas</p>
                                             </div>
-                                            <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-600">
-                                                Opcional
-                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={createPriceList}
+                                                className="inline-flex items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-indigo-600 hover:bg-indigo-100"
+                                            >
+                                                <Plus size={12} /> Nueva lista
+                                            </button>
                                         </div>
                                         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
                                             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
@@ -248,7 +301,17 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                                 const listPrice = formData.prices?.[list.id] || '';
                                                 return (
                                                     <div key={list.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                                                        <label className="mb-1 block truncate text-[10px] font-black uppercase tracking-wider text-slate-500">{list.name}</label>
+                                                        <div className="mb-1 flex items-center justify-between gap-2">
+                                                            <label className="block truncate text-[10px] font-black uppercase tracking-wider text-slate-500">{list.name}</label>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => renamePriceList(list)}
+                                                                className="shrink-0 rounded p-1 text-slate-400 hover:bg-white hover:text-indigo-600"
+                                                                title="Renombrar lista"
+                                                            >
+                                                                <Pencil size={12} />
+                                                            </button>
+                                                        </div>
                                                         <div className="relative">
                                                             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
                                                             <Input
@@ -350,6 +413,19 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                             <select value={formData.exchange_rate_id || ''} onChange={e => setFormData(p => ({ ...p, exchange_rate_id: e.target.value || null }))} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-bold">
                                                 <option value="">Tasa global</option>
                                                 {exchangeRates.map(rate => <option key={rate.id} value={rate.id}>{rate.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="mb-1 flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                                                <ShieldCheck size={12} /> Garantia
+                                            </label>
+                                            <select value={formData.warranty_policy_id || ''} onChange={e => setFormData(p => ({ ...p, warranty_policy_id: e.target.value || null }))} className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm font-bold">
+                                                <option value="">Sin garantia</option>
+                                                {policies.map(policy => (
+                                                    <option key={policy.id} value={policy.id}>
+                                                        {policy.name} {policy.type === 'LIFETIME' ? '(De por vida)' : `(${policy.duration} ${policy.type})`}
+                                                    </option>
+                                                ))}
                                             </select>
                                         </div>
                                     </div>
