@@ -744,14 +744,14 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                 </div>
                             </div>
                             <div className="space-y-4 p-4 sm:p-5">
-                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.15fr_0.85fr]">
-                                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4">
+                                <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+                                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3">
                                         <div className="mb-3 flex items-center justify-between gap-3">
                                             <div>
                                                 <label className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-600">
                                                     <Calculator size={10} /> Precio de venta
                                                 </label>
-                                                <p className="mt-0.5 text-xs font-medium text-emerald-700/70">Valor principal que vera el POS y el catalogo.</p>
+                                                <p className="mt-0.5 text-xs font-medium text-emerald-700/70">Precio base del POS y catalogo.</p>
                                             </div>
                                             {needsRound(formData.price) && (
                                                 <button
@@ -781,13 +781,30 @@ const ProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories
                                                 onFocus={e => e.target.select()}
                                                 step="0.01"
                                                 className={cn(
-                                                    'h-14 border-2 pl-10 text-right text-3xl font-black transition-all',
+                                                    'h-12 border-2 pl-10 text-right text-2xl font-black transition-all',
                                                     priceValue > 0
                                                         ? 'border-emerald-400/40 bg-white text-emerald-600'
                                                         : 'border-slate-200 bg-white text-slate-400'
                                                 )}
                                                 placeholder="0.00"
                                             />
+                                        </div>
+                                        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleSection('priceLists')}
+                                                className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-white/80 px-3 py-2 text-left transition-colors hover:bg-white"
+                                            >
+                                                <span className="min-w-0">
+                                                    <span className="block truncate text-[11px] font-black uppercase tracking-wider text-emerald-700">Listas de precios</span>
+                                                    <span className="block truncate text-[10px] font-bold text-slate-400">{priceLists.length} configuradas</span>
+                                                </span>
+                                                <ChevronDown size={14} className={cn('shrink-0 text-emerald-500 transition-transform', openSections.priceLists && 'rotate-180')} />
+                                            </button>
+                                            <div className="rounded-lg border border-emerald-200 bg-white/80 px-3 py-2">
+                                                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Base actual</p>
+                                                <p className="text-sm font-black text-slate-800">${priceValue.toFixed(2)}</p>
+                                            </div>
                                         </div>
                                     </div>
 
