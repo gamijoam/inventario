@@ -101,6 +101,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
     const productType = formData.is_service ? 'service' : formData.is_combo ? 'combo' : formData.has_imei ? 'serial' : 'physical';
     const selectedCategory = categories.find(category => String(category.id) === String(formData.category_id));
     const selectedWarranty = policies.find(policy => String(policy.id) === String(formData.warranty_policy_id));
+    const productTypeLabel = { physical: 'Fisico', serial: 'Serial', service: 'Servicio', combo: 'Combo' }[productType] || 'Fisico';
 
     const fetchPriceLists = async () => {
         try {
@@ -212,7 +213,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                             </div>
                             <div className="min-w-0">
                                 <h2 className="truncate text-lg font-black leading-tight text-slate-900">Nuevo producto</h2>
-                                <p className="truncate text-xs font-bold text-slate-500">Ficha compacta experimental</p>
+                                <p className="truncate text-xs font-bold text-slate-500">Registro rapido de producto</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -225,9 +226,9 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                 </header>
 
                 <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)]">
-                    <aside className="min-h-0 overflow-y-auto border-r border-slate-200 bg-white">
+                    <aside className="min-h-0 overflow-y-auto border-r border-slate-200 bg-white [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                         <div className="space-y-4 p-4">
-                            <Panel title="Ficha base" eyebrow="Identidad" className="shadow-none">
+                            <Panel title="Datos principales" eyebrow="Producto" className="shadow-none">
                                 <div className="space-y-3">
                                     <div>
                                         <FieldLabel>Nombre *</FieldLabel>
@@ -253,9 +254,9 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                 </div>
                             </Panel>
 
-                            <Panel title="Tipo" eyebrow="Comportamiento" className="shadow-none">
+                            <Panel title="Tipo de producto" eyebrow="Configuracion" className="shadow-none">
                                 <div className="grid grid-cols-2 gap-2">
-                                    <TypeOption active={productType === 'physical'} icon={Package} label="Fisico" onClick={() => setProductType('physical')} />
+                                    <TypeOption active={productType === 'physical'} icon={Package} label="Producto" onClick={() => setProductType('physical')} />
                                     {modules?.services && <TypeOption active={productType === 'serial'} icon={ScanBarcode} label="Serial" onClick={() => setProductType('serial')} />}
                                     <TypeOption active={productType === 'service'} icon={Scissors} label="Servicio" onClick={() => setProductType('service')} />
                                     <TypeOption active={productType === 'combo'} icon={Layers} label="Combo" onClick={() => setProductType('combo')} />
@@ -263,9 +264,9 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                             </Panel>
 
                             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Resumen</p>
+                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vista rapida</p>
                                 <div className="mt-2 space-y-2 text-xs font-bold text-slate-600">
-                                    <div className="flex justify-between gap-3"><span>Tipo</span><span className="text-slate-900">{productType}</span></div>
+                                    <div className="flex justify-between gap-3"><span>Tipo</span><span className="text-slate-900">{productTypeLabel}</span></div>
                                     <div className="flex justify-between gap-3"><span>Categoria</span><span className="truncate text-slate-900">{selectedCategory?.name || 'Sin categoria'}</span></div>
                                     <div className="flex justify-between gap-3"><span>Precio</span><span className="text-emerald-700">${priceValue.toFixed(2)}</span></div>
                                     <div className="flex justify-between gap-3"><span>Stock</span><span className="text-slate-900">{Number(formData.stock || 0)}</span></div>
@@ -298,20 +299,20 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                             </div>
                         </nav>
 
-                        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                        <div className="min-h-0 flex-1 overflow-y-auto p-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             {activeTab === 'precios' && (
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_1fr_1fr]">
-                                        <Panel title="Precio venta" eyebrow="Principal" className="border-emerald-200">
+                                        <Panel title="Precio de venta" eyebrow="POS y catalogo" className="border-emerald-200">
                                             <div className="relative">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xl font-black text-emerald-500">$</span>
                                                 <Input type="number" value={formData.price} onChange={e => setFormData(p => ({ ...p, price: e.target.value }))} className="h-12 border-2 border-emerald-200 pl-8 text-right text-2xl font-black text-emerald-600" placeholder="0.00" />
                                             </div>
                                         </Panel>
-                                        <Panel title="Costo neto" eyebrow="Compra">
+                                        <Panel title="Costo" eyebrow="Compra">
                                             <Input type="number" value={formData.cost} onChange={e => setFormData(p => ({ ...p, cost: e.target.value }))} className="h-12 text-right text-lg font-black" placeholder="0.00" />
                                         </Panel>
-                                        <Panel title="Margen / utilidad" eyebrow="Resultado">
+                                        <Panel title="Margen" eyebrow="Utilidad">
                                             <div className="grid grid-cols-2 gap-2">
                                                 <Input type="number" value={formData.profit_margin} onChange={e => setFormData(p => ({ ...p, profit_margin: e.target.value }))} className="h-12 text-center text-lg font-black text-indigo-600" placeholder="0" />
                                                 <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
@@ -422,7 +423,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
 
                             {activeTab === 'media' && (
                                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-[280px_1fr]">
-                                    <Panel title="Imagen del producto" eyebrow="Media">
+                                    <Panel title="Imagen del producto" eyebrow="Foto">
                                         <p className="text-sm font-medium text-slate-500">Carga una imagen, toma foto con camara o ajusta el recorte sin ensuciar la ficha principal.</p>
                                     </Panel>
                                     <Panel>
@@ -452,7 +453,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                             </label>
                                         </div>
                                     </Panel>
-                                    <Panel title="Garantia y moneda" eyebrow="Politicas">
+                                    <Panel title="Garantia y moneda" eyebrow="Venta">
                                         <div className="space-y-3">
                                             <div>
                                                 <FieldLabel>Tasa de referencia</FieldLabel>
