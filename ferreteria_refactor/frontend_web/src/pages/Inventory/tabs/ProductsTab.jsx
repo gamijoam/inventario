@@ -37,32 +37,57 @@ import {
 } from "../../../components/ui/dropdown-menu";
 
 const formatStock = (stock) => {
-    const num = Number(stock);
+    const num = Number(stock || 0);
     return num % 1 === 0 ? num.toFixed(0) : num.toFixed(3).replace(/\.?0+$/, '');
 };
 
-// ─── Stock Pill ───────────────────────────────────────────────────────────────
-const StockPill = ({ stock, minStock }) => {
-    const total = Number(stock || 0);
-    const min   = Number(minStock ?? 5);
-    const isOut = total === 0;
-    const isLow = !isOut && total < min;
+const formatMoney = (value) => `$${Number(value || 0).toFixed(2)}`;
 
-    const cfg = isOut
-        ? { label: 'Agotado',    bg: 'bg-rose-50',    text: 'text-rose-600',    dot: 'bg-rose-400' }
-        : isLow
-        ? { label: 'Bajo',       bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-400' }
-        : { label: 'Disponible', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-400' };
+const ProductTypeBadges = ({ product }) => {
+    const badges = [
+        product.is_service && { label: 'Servicio', className: 'border-sky-100 bg-sky-50 text-sky-700' },
+        product.has_imei && { label: 'Serial', className: 'border-indigo-100 bg-indigo-50 text-indigo-700' },
+        product.is_combo && { label: 'Combo', className: 'border-violet-100 bg-violet-50 text-violet-700' },
+        product.is_commissionable && { label: 'Comision', className: 'border-emerald-100 bg-emerald-50 text-emerald-700' },
+    ].filter(Boolean);
+
+    if (!badges.length) return null;
 
     return (
-        <div className="flex min-w-[88px] flex-col items-end gap-1">
-            <span className={cn('text-xl font-black tracking-tight leading-none', cfg.text)}>
-                {formatStock(total)} <span className="text-[10px] font-bold opacity-60">un.</span>
-            </span>
-            <span className={cn('inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-bold', cfg.bg, cfg.text)}>
-                <span className={cn('h-1.5 w-1.5 rounded-full', cfg.dot, isOut && 'animate-pulse')} />
-                {cfg.label}
-            </span>
+        <div className="mt-1 flex flex-wrap gap-1">
+            {badges.map(badge => (
+                <span key={badge.label} className={cn('rounded-md border px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide', badge.className)}>
+                    {badge.label}
+                </span>
+            ))}
+        </div>
+    );
+};
+
+// Stock compacto del listado
+const StockPill = ({ stock, minStock }) => {
+    const total = Number(stock || 0);
+    const min = Number(minStock ?? 5);
+    const isOut = total === 0;
+    const isLow = !isOut && total < min;
+    const ratio = min > 0 ? Math.min(100, Math.max(8, (total / Math.max(min, total)) * 100)) : 100;
+
+    const cfg = isOut
+        ? { label: 'Agotado', text: 'text-rose-600', bar: 'bg-rose-400', bg: 'bg-rose-50' }
+        : isLow
+        ? { label: 'Bajo', text: 'text-amber-700', bar: 'bg-amber-400', bg: 'bg-amber-50' }
+        : { label: 'Disponible', text: 'text-emerald-700', bar: 'bg-emerald-500', bg: 'bg-emerald-50' };
+
+    return (
+        <div className="ml-auto w-[118px] text-right">
+            <div className="flex items-baseline justify-end gap-1">
+                <span className={cn('text-base font-black leading-none', cfg.text)}>{formatStock(total)}</span>
+                <span className="text-[10px] font-bold text-slate-400">un.</span>
+            </div>
+            <div className={cn('mt-1 h-1.5 overflow-hidden rounded-full', cfg.bg)}>
+                <div className={cn('h-full rounded-full', cfg.bar)} style={{ width: `${isOut ? 100 : ratio}%` }} />
+            </div>
+            <div className={cn('mt-1 text-[10px] font-black uppercase tracking-wide', cfg.text)}>{cfg.label}</div>
         </div>
     );
 };
@@ -406,130 +431,148 @@ const ProductsTab = () => {
                     />
                 ))}
             </div>
-
-            {/* ── Tabla Desktop ─────────────────────────────────────────────── */}
+            {/* Tabla Desktop */}
             <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:block">
-                <table className="w-full text-sm">
+                <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-400">Catalogo</p>
+                        <p className="text-sm font-bold text-slate-700">Productos listos para venta, inventario y edicion rapida</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                        <span className="rounded-md bg-white px-2.5 py-1 shadow-sm">{filteredProducts.length} en vista</span>
+                        {hasActiveConstraints && <span className="rounded-md bg-indigo-50 px-2.5 py-1 text-indigo-700">Filtrado</span>}
+                    </div>
+                </div>
+                <table className="w-full table-fixed text-sm">
                     <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50">
-                            <th className="w-14 px-4 py-3 text-left" />
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Producto</th>
-                            <th className="px-4 py-3 text-left text-xs font-black text-slate-400 uppercase tracking-wider">Categoría</th>
-                            <th className="px-4 py-3 text-right text-xs font-black text-slate-400 uppercase tracking-wide">Precio</th>
-                            <th className="px-4 py-3 text-right text-xs font-black text-slate-400 uppercase tracking-wide">Stock</th>
-                            <th className="w-16 px-4 py-3" />
+                        <tr className="border-b border-slate-200 bg-white">
+                            <th className="w-[46%] px-4 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-400">Producto</th>
+                            <th className="w-[18%] px-4 py-3 text-left text-xs font-black uppercase tracking-wider text-slate-400">Categoria</th>
+                            <th className="w-[18%] px-4 py-3 text-right text-xs font-black uppercase tracking-wide text-slate-400">Precio</th>
+                            <th className="w-[12%] px-4 py-3 text-right text-xs font-black uppercase tracking-wide text-slate-400">Stock</th>
+                            <th className="w-[6%] px-3 py-3" />
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-100">
                         {isLoading ? (
-                            <tr><td colSpan={6} className="py-16 text-center">
+                            <tr><td colSpan={5} className="py-16 text-center">
                                 <div className="flex items-center justify-center gap-2 text-slate-400">
-                                    <RefreshCw size={16} className="animate-spin" /> Cargando...
+                                    <RefreshCw size={16} className="animate-spin" /> Cargando productos...
                                 </div>
                             </td></tr>
                         ) : filteredProducts.length === 0 ? (
-                            <tr><td colSpan={6} className="py-16 text-center text-slate-400">No se encontraron productos.</td></tr>
+                            <tr>
+                                <td colSpan={5} className="py-16 text-center">
+                                    <div className="mx-auto max-w-sm rounded-lg border border-dashed border-slate-200 bg-slate-50 px-6 py-8">
+                                        <Package size={28} className="mx-auto mb-3 text-slate-300" />
+                                        <p className="font-black text-slate-700">No se encontraron productos</p>
+                                        <p className="mt-1 text-xs font-medium text-slate-400">Prueba limpiar filtros o buscar por otro SKU.</p>
+                                    </div>
+                                </td>
+                            </tr>
                         ) : filteredProducts.map(product => (
-                            <tr key={product.id} className="group hover:bg-slate-50 transition-colors">
-
-                                {/* Imagen */}
-                                <td className="px-3 py-2">
-                                    <ProductThumbnail
-                                        imageUrl={product.image_url}
-                                        productName={product.name}
-                                        size="sm"
-                                        className="h-10 w-10 rounded-md border border-slate-100 shadow-sm mix-blend-multiply group-hover:scale-105 transition-transform"
-                                    />
+                            <tr key={product.id} className="group transition-colors hover:bg-slate-50/80">
+                                <td className="px-4 py-3 align-middle">
+                                    <div className="flex min-w-0 items-center gap-3">
+                                        <ProductThumbnail
+                                            imageUrl={product.image_url}
+                                            productName={product.name}
+                                            size="sm"
+                                            className="h-11 w-11 flex-shrink-0 rounded-lg border border-slate-100 bg-slate-50 object-cover shadow-sm transition-transform group-hover:scale-[1.03]"
+                                        />
+                                        <div className="min-w-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => { setSelectedProduct(product); setIsCompactModalOpen(true); }}
+                                                className="line-clamp-1 text-left text-sm font-black leading-tight text-slate-900 transition-colors hover:text-indigo-700"
+                                            >
+                                                {product.name}
+                                            </button>
+                                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                                <span className="rounded-md border border-slate-100 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                                                    {product.sku || 'Sin SKU'}
+                                                </span>
+                                                {Array.isArray(product.prices) && product.prices.length > 0 && (
+                                                    <span className="rounded-md border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-indigo-600">
+                                                        {product.prices.length} lista{product.prices.length === 1 ? '' : 's'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <ProductTypeBadges product={product} />
+                                        </div>
+                                    </div>
                                 </td>
 
-                                {/* Producto */}
-                                <td className="px-4 py-3.5 max-w-xs">
-                                    <div className="line-clamp-1 text-sm font-black leading-tight text-slate-900 transition-colors group-hover:text-slate-700">
-                                        {product.name}
-                                    </div>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                        <span className="text-xs text-slate-400 font-mono">
-                                            {product.sku || '—'}
-                                        </span>
-                                        {product.has_imei && (
-                                            <span className="rounded-md border border-blue-100 bg-blue-50 px-1.5 py-0.5 text-[9px] font-black text-blue-600">SERIAL</span>
-                                        )}
-                                    </div>
-                                </td>
-
-                                {/* Categoría */}
-                                <td className="px-4 py-2.5">
+                                <td className="px-4 py-3 align-middle">
                                     {product.category?.name ? (
                                         <button
                                             onClick={() => setFilterCategory(product.category_id.toString())}
-                                            className="rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900"
+                                            className="max-w-full truncate rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                                            title={product.category.name}
                                         >
                                             {product.category.name}
                                         </button>
                                     ) : (
-                                        <span className="text-[11px] text-slate-300 italic">Sin categoría</span>
+                                        <span className="text-[11px] italic text-slate-300">Sin categoria</span>
                                     )}
                                 </td>
 
-                                {/* Precios */}
-                                <td className="px-4 py-3.5 text-right align-top">
-                                    <div className="font-black text-slate-900">${Number(product.price).toFixed(2)}</div>
+                                <td className="px-4 py-3 text-right align-middle">
+                                    <div className="text-base font-black leading-tight text-slate-900">{formatMoney(product.price)}</div>
                                     {convertProductPrice && (
-                                        <div className="mt-0.5 text-xs font-medium text-slate-400">
+                                        <div className="mt-0.5 text-[11px] font-bold text-slate-400">
                                             Bs {Number(convertProductPrice(product, 'VES') || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </div>
                                     )}
                                     {showPriceList && Array.isArray(product.prices) && product.prices.length > 0 && (
-                                        <div className="mt-2 space-y-1">
-                                            {product.prices.slice(0, 3).map((priceItem, idx) => (
-                                                <div key={priceItem.id ?? `${priceItem.price_list_id ?? 'list'}-${idx}`} className="text-[11px] font-bold text-slate-500">
+                                        <div className="mt-1 flex flex-col items-end gap-0.5">
+                                            {product.prices.slice(0, 2).map((priceItem, idx) => (
+                                                <div key={priceItem.id ?? `${priceItem.price_list_id ?? 'list'}-${idx}`} className="max-w-[150px] truncate text-[11px] font-bold text-slate-500">
                                                     <span className="text-slate-400">{priceItem.price_list?.name || 'Lista'}:</span>{' '}
-                                                    <span className="text-slate-700">${Number(priceItem.price || 0).toFixed(2)}</span>
+                                                    <span className="text-indigo-700">{formatMoney(priceItem.price)}</span>
                                                 </div>
                                             ))}
-                                            {product.prices.length > 3 && (
-                                                <div className="text-[11px] font-bold text-slate-400">+{product.prices.length - 3} listas</div>
+                                            {product.prices.length > 2 && (
+                                                <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">+{product.prices.length - 2} mas</div>
                                             )}
                                         </div>
                                     )}
                                 </td>
 
-                                {/* Stock */}
-                                <td className="px-4 py-3.5 text-right">
+                                <td className="px-4 py-3 align-middle">
                                     <StockPill stock={product.stock} minStock={product.min_stock} />
                                 </td>
 
-                                {/* Acciones */}
-                                <td className="px-3 py-3.5 text-right">
+                                <td className="px-3 py-3 text-right align-middle">
                                     {isAdmin && (
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <button className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900">
-                                                    <Pencil size={13} /> Editar
+                                                <button className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700" title="Acciones del producto">
+                                                    <MoreHorizontal size={17} />
                                                 </button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="min-w-[160px] rounded-lg border-slate-100 shadow-xl">
-                                                <DropdownMenuLabel className="text-[10px] uppercase text-slate-400 tracking-widest">Opciones</DropdownMenuLabel>
+                                            <DropdownMenuContent align="end" className="min-w-[190px] rounded-lg border-slate-100 shadow-xl">
+                                                <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-slate-400">Opciones</DropdownMenuLabel>
+                                                <DropdownMenuItem
+                                                    onClick={() => { setSelectedProduct(product); setIsCompactModalOpen(true); }}
+                                                    className="cursor-pointer rounded-md font-bold"
+                                                >
+                                                    <Pencil size={14} className="mr-2 text-indigo-500" /> Editar producto
+                                                </DropdownMenuItem>
                                                 {product.has_imei && (
                                                     <DropdownMenuItem
                                                         onClick={() => { setSelectedProductForInstances(product); setIsInstancesModalOpen(true); }}
-                                                        className="rounded-xl cursor-pointer font-medium text-slate-700"
+                                                        className="cursor-pointer rounded-md font-medium text-slate-700"
                                                     >
                                                         <Search size={14} className="mr-2 text-indigo-400" /> Ver Seriales / IMEIs
                                                     </DropdownMenuItem>
                                                 )}
-                                                <DropdownMenuItem
-                                                    onClick={() => { setSelectedProduct(product); setIsCompactModalOpen(true); }}
-                                                    className="rounded-xl cursor-pointer font-bold"
-                                                >
-                                                    <Pencil size={14} className="mr-2 text-indigo-500" /> Editar
-                                                </DropdownMenuItem>
                                                 {user?.role === 'ADMIN' && (
                                                     <>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
                                                             onClick={() => handleDelete(product)}
-                                                            className="rounded-xl cursor-pointer font-bold text-rose-600 hover:text-rose-700 focus:bg-rose-50"
+                                                            className="cursor-pointer rounded-md font-bold text-rose-600 hover:text-rose-700 focus:bg-rose-50"
                                                         >
                                                             <Trash2 size={14} className="mr-2" /> Eliminar
                                                         </DropdownMenuItem>
@@ -544,6 +587,8 @@ const ProductsTab = () => {
                     </tbody>
                 </table>
             </div>
+
+
 
             {/* ── Paginación ───────────────────────────────────────────────── */}
             {/* ── Paginación con info completa ─────────────────────────── */}
