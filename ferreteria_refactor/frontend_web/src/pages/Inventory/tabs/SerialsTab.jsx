@@ -158,64 +158,74 @@ const SerialAuditPanel = ({ product, instances }) => {
     const hasPhysicalAudit = physicalList.length > 0;
     const statusOk = stockDiff === 0;
 
+    const auditItems = [
+        { label: 'Sistema', value: systemStock, cls: 'border-slate-200 bg-slate-900 text-white' },
+        { label: 'Disponibles', value: availableCount, cls: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+        { label: 'Vendidos', value: sold.length, cls: 'border-rose-200 bg-rose-50 text-rose-700' },
+        { label: 'Transito', value: transit.length, cls: 'border-violet-200 bg-violet-50 text-violet-700' },
+        { label: 'Otros', value: reserved.length + damaged.length, cls: 'border-amber-200 bg-amber-50 text-amber-700' },
+    ];
+
     return (
-        <div className="border-t border-slate-100 bg-slate-50/70 p-3">
-            <div className="flex flex-col gap-3 lg:flex-row">
-                <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-5">
-                    {[
-                        { label: 'Stock sistema', value: systemStock, cls: 'bg-slate-900 text-white border-slate-900' },
-                        { label: 'Disponibles', value: availableCount, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-                        { label: 'Vendidos', value: sold.length, cls: 'bg-rose-50 text-rose-700 border-rose-200' },
-                        { label: 'Transito', value: transit.length, cls: 'bg-violet-50 text-violet-700 border-violet-200' },
-                        { label: 'Otros', value: reserved.length + damaged.length, cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-                    ].map(item => (
-                        <div key={item.label} className={`rounded-lg border px-2 py-2 text-center ${item.cls}`}>
-                            <div className="text-lg font-black leading-none">{item.value}</div>
-                            <div className="mt-1 text-[9px] font-black uppercase tracking-wide opacity-75">{item.label}</div>
+        <div className="border-t border-slate-100 bg-white p-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Auditoria IMEI</div>
+                    <div className={clsx('inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-black uppercase', statusOk ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700')}>
+                        {statusOk ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
+                        {statusOk ? 'Cuadra' : `Dif. ${stockDiff > 0 ? '+' : ''}${stockDiff}`}
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    {auditItems.map(item => (
+                        <div key={item.label} className={clsx('flex min-w-0 items-center justify-between rounded-md border px-2.5 py-2', item.cls)}>
+                            <span className="truncate text-[10px] font-black uppercase tracking-wide opacity-75">{item.label}</span>
+                            <span className="ml-2 shrink-0 text-base font-black leading-none">{item.value}</span>
                         </div>
                     ))}
                 </div>
-                <div className={clsx('rounded-lg border px-3 py-2 lg:w-56', statusOk ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700')}>
-                    <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide">
-                        {statusOk ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
-                        Cuadre sistema
-                    </div>
-                    <div className="mt-1 text-sm font-bold">
-                        {statusOk ? 'Stock e IMEIs disponibles cuadran.' : `Diferencia: ${stockDiff > 0 ? '+' : ''}${stockDiff}`}
-                    </div>
-                    <div className="mt-1 text-[10px] font-medium opacity-80">Compara stock del producto contra IMEIs AVAILABLE.</div>
-                </div>
+                <p className="mt-2 text-[11px] font-semibold text-slate-500">
+                    {statusOk ? 'El stock del producto coincide con los IMEIs disponibles.' : 'Hay diferencia entre el stock del producto y los IMEIs disponibles.'}
+                </p>
             </div>
 
             <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                        <div className="text-xs font-black uppercase tracking-wide text-slate-500">Conteo fisico por IMEI</div>
-                        <p className="mt-0.5 text-xs font-medium text-slate-400">Pega o escanea los IMEIs que tienes fisicamente. Puedes separarlos por espacios, coma o saltos de linea.</p>
+                <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                        <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Conteo fisico</div>
+                        <p className="mt-0.5 text-xs font-medium leading-snug text-slate-400">Pega IMEIs separados por espacio, coma o salto de linea.</p>
                     </div>
-                    {hasPhysicalAudit && <div className={clsx('rounded-md px-2 py-1 text-xs font-black', missingPhysical.length === 0 && extraPhysical.length === 0 && duplicates.length === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>{physicalList.length} contados</div>}
+                    {hasPhysicalAudit && (
+                        <div className={clsx('shrink-0 rounded-md px-2 py-1 text-[10px] font-black', missingPhysical.length === 0 && extraPhysical.length === 0 && duplicates.length === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>
+                            {physicalList.length} contados
+                        </div>
+                    )}
                 </div>
                 <textarea
                     value={physicalText}
                     onChange={e => setPhysicalText(e.target.value)}
-                    rows={3}
-                    placeholder="Ej: 353791682868853 353791682872913 ..."
-                    className="mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                    rows={2}
+                    placeholder="Ej: 353791682868853 353791682872913"
+                    className="mt-2 w-full resize-y rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700 outline-none focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
                 />
                 {hasPhysicalAudit && (
-                    <div className="mt-3 grid gap-2 lg:grid-cols-3">
-                        <div className={clsx('rounded-lg border p-2', missingPhysical.length ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-50')}>
+                    <div className="mt-3 grid gap-2">
+                        <div className={clsx('rounded-md border p-2', missingPhysical.length ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-50')}>
                             <div className={clsx('text-[10px] font-black uppercase tracking-wide', missingPhysical.length ? 'text-rose-700' : 'text-emerald-700')}>Faltan fisicamente ({missingPhysical.length})</div>
-                            <div className="mt-1 max-h-24 overflow-auto font-mono text-[11px] text-slate-700">{missingPhysical.length ? missingPhysical.map(i => <div key={i.id}>{i.serial_number}</div>) : <span className="font-sans text-xs font-bold text-emerald-700">Todo contado</span>}</div>
+                            <div className="mt-1 max-h-20 overflow-auto font-mono text-[11px] text-slate-700">{missingPhysical.length ? missingPhysical.map(i => <div key={i.id}>{i.serial_number}</div>) : <span className="font-sans text-xs font-bold text-emerald-700">Todo contado</span>}</div>
                         </div>
-                        <div className={clsx('rounded-lg border p-2', extraPhysical.length ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50')}>
-                            <div className={clsx('text-[10px] font-black uppercase tracking-wide', extraPhysical.length ? 'text-amber-700' : 'text-slate-500')}>Sobrantes no disponibles ({extraPhysical.length})</div>
-                            <div className="mt-1 max-h-24 overflow-auto font-mono text-[11px] text-slate-700">{extraPhysical.length ? [...new Set(extraPhysical)].map(code => <div key={code}>{code}</div>) : <span className="font-sans text-xs font-bold text-slate-500">Sin sobrantes</span>}</div>
-                        </div>
-                        <div className={clsx('rounded-lg border p-2', duplicates.length ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-slate-50')}>
-                            <div className={clsx('text-[10px] font-black uppercase tracking-wide', duplicates.length ? 'text-amber-700' : 'text-slate-500')}>Duplicados en conteo ({new Set(duplicates).size})</div>
-                            <div className="mt-1 max-h-24 overflow-auto font-mono text-[11px] text-slate-700">{duplicates.length ? [...new Set(duplicates)].map(code => <div key={code}>{code}</div>) : <span className="font-sans text-xs font-bold text-slate-500">Sin duplicados</span>}</div>
-                        </div>
+                        {(extraPhysical.length > 0 || duplicates.length > 0) && (
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
+                                    <div className="text-[10px] font-black uppercase tracking-wide text-amber-700">Sobrantes ({extraPhysical.length})</div>
+                                    <div className="mt-1 max-h-20 overflow-auto font-mono text-[11px] text-slate-700">{[...new Set(extraPhysical)].map(code => <div key={code}>{code}</div>)}</div>
+                                </div>
+                                <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
+                                    <div className="text-[10px] font-black uppercase tracking-wide text-amber-700">Duplicados ({new Set(duplicates).size})</div>
+                                    <div className="mt-1 max-h-20 overflow-auto font-mono text-[11px] text-slate-700">{[...new Set(duplicates)].map(code => <div key={code}>{code}</div>)}</div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
