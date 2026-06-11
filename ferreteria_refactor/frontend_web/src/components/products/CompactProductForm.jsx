@@ -87,13 +87,56 @@ const TypeOption = ({ active, icon: Icon, label, onClick }) => (
     </button>
 );
 
-const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], warehouses = [], exchangeRates = [] }) => {
+const mapInitialProduct = (product) => {
+    if (!product) return { ...defaultForm };
+    const prices = {};
+    if (Array.isArray(product.prices)) {
+        product.prices.forEach(item => {
+            const listId = item.price_list_id || item.price_list?.id;
+            if (listId) prices[listId] = item.price ?? '';
+        });
+    } else if (product.prices && typeof product.prices === 'object') {
+        Object.assign(prices, product.prices);
+    }
+
+    return {
+        ...defaultForm,
+        name: product.name || '',
+        sku: product.sku || '',
+        category_id: product.category_id || product.category?.id || null,
+        cost: product.cost_price ?? product.cost ?? '',
+        price: product.price ?? '',
+        profit_margin: product.profit_margin ?? '',
+        stock: product.stock ?? 0,
+        min_stock: product.min_stock ?? 5,
+        location: product.location || '',
+        unit_type: product.unit_type || 'UNID',
+        exchange_rate_id: product.exchange_rate_id || null,
+        is_service: !!product.is_service,
+        has_imei: !!product.has_imei,
+        is_combo: !!product.is_combo,
+        is_menu_item: !!product.is_menu_item,
+        is_commissionable: !!product.is_commissionable,
+        warehouse_stocks: Array.isArray(product.stocks) ? product.stocks : (Array.isArray(product.warehouse_stocks) ? product.warehouse_stocks : []),
+        prices,
+        units: Array.isArray(product.units) ? product.units : [],
+        combo_items: Array.isArray(product.combo_items) ? product.combo_items : [],
+        warranty_policy_id: product.warranty_policy_id || null,
+        image_url: product.image_url || '',
+        image_url_original: product.image_url_original || '',
+        commission_amount: product.commission_amount ?? '',
+        commission_percentage: product.commission_percentage ?? '',
+    };
+};
+
+const CompactProductForm = ({ isOpen, onClose, onSubmit, initialData = null, categories = [], warehouses = [], exchangeRates = [] }) => {
     const { modules } = useConfig();
     const [formData, setFormData] = useState(defaultForm);
     const [activeTab, setActiveTab] = useState('precios');
     const [saving, setSaving] = useState(false);
     const [priceLists, setPriceLists] = useState([]);
     const [policies, setPolicies] = useState([]);
+    const isEditing = !!initialData?.id;
 
     const priceValue = parseFloat(formData.price || 0) || 0;
     const costValue = parseFloat(formData.cost || 0) || 0;
@@ -124,9 +167,11 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
 
     useEffect(() => {
         if (!isOpen) return;
+        setFormData(mapInitialProduct(initialData));
+        setActiveTab('precios');
         fetchPriceLists();
         fetchPolicies();
-    }, [isOpen]);
+    }, [isOpen, initialData]);
 
     const createPriceList = async () => {
         const name = window.prompt('Nombre de la nueva lista de precios:');
@@ -221,9 +266,9 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
         setSaving(true);
         try {
             await onSubmit(payload);
-            setFormData(defaultForm);
+            setFormData({ ...defaultForm });
         } catch (error) {
-            toast.error(getApiErrorMessage(error, 'No se pudo crear el producto. Revisa los datos e intenta de nuevo.'));
+            toast.error(getApiErrorMessage(error, isEditing ? 'No se pudo actualizar el producto. Revisa los datos e intenta de nuevo.' : 'No se pudo crear el producto. Revisa los datos e intenta de nuevo.'));
         } finally {
             setSaving(false);
         }
@@ -246,14 +291,14 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                 <Package size={18} />
                             </div>
                             <div className="min-w-0">
-                                <h2 className="truncate text-lg font-black leading-tight text-slate-900">Nuevo producto</h2>
-                                <p className="truncate text-xs font-bold text-slate-500">Registro rapido de producto</p>
+                                <h2 className="truncate text-lg font-black leading-tight text-slate-900">{isEditing ? 'Editar producto' : 'Nuevo producto'}</h2>
+                                <p className="truncate text-xs font-bold text-slate-500">{isEditing ? 'Actualiza la ficha del producto' : 'Registro rapido de producto'}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
                             <Button type="button" variant="ghost" onClick={onClose} className="font-bold">Cancelar</Button>
                             <Button type="button" onClick={handleSubmit} disabled={saving || !formData.name.trim()} className="bg-indigo-600 font-black text-white hover:bg-indigo-700">
-                                <Check size={16} className="mr-2" /> {saving ? 'Guardando...' : 'Guardar'}
+                                <Check size={16} className="mr-2" /> {saving ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Guardar')}
                             </Button>
                         </div>
                     </div>

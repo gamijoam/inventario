@@ -6,10 +6,9 @@ import {
     MoreHorizontal, ChevronDown, Barcode, ArrowUpAZ, ArrowDownAZ,
     TrendingUp, TrendingDown, Download, Upload, FileSpreadsheet,
     FileText, SlidersHorizontal, Boxes, AlertTriangle, Ban,
-    Sparkles, Zap
+    Zap
 } from 'lucide-react';
 import SearchWithScanner from '../../../components/common/SearchWithScanner';
-import ProductForm from '../../../components/products/ProductForm';
 import CompactProductForm from '../../../components/products/CompactProductForm';
 import QuickProductCreateModal from '../../../components/products/QuickProductCreateModal';
 import ProductMobileCard from '../../../components/products/ProductMobileCard';
@@ -89,7 +88,6 @@ const ProductsTab = () => {
     const { convertProductPrice, modules } = useConfig();
     const { subscribe } = useWebSocket();
 
-    const [isModalOpen, setIsModalOpen]   = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isQuickModalOpen, setIsQuickModalOpen] = useState(false);
     const [isCompactModalOpen, setIsCompactModalOpen] = useState(false);
@@ -322,20 +320,10 @@ const ProductsTab = () => {
                             </button>
                         )}
 
-                        {isAdmin && (
-                            <button
-                                onClick={() => setIsCompactModalOpen(true)}
-                                className="inline-flex h-10 items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
-                                title="Probar el nuevo formulario compacto"
-                            >
-                                <Sparkles size={15} />
-                                <span className="hidden sm:inline">Nuevo diseno</span>
-                            </button>
-                        )}
 
                         {isAdmin && (
                             <button
-                                onClick={() => { setSelectedProduct(null); setIsModalOpen(true); }}
+                                onClick={() => { setSelectedProduct(null); setIsCompactModalOpen(true); }}
                                 className="inline-flex h-10 items-center gap-2 rounded-md bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-colors hover:bg-indigo-700"
                             >
                                 <Plus size={16} />
@@ -412,7 +400,7 @@ const ProductsTab = () => {
                     <div className="py-12 text-center text-slate-400 border border-dashed border-slate-200 rounded-2xl">No se encontraron productos.</div>
                 ) : filteredProducts.map(p => (
                     <ProductMobileCard key={p.id} product={p}
-                        onEdit={p => { setSelectedProduct(p); setIsModalOpen(true); }}
+                        onEdit={p => { setSelectedProduct(p); setIsCompactModalOpen(true); }}
                         onDelete={handleDelete}
                         onCategoryClick={id => setFilterCategory(id.toString())}
                     />
@@ -531,7 +519,7 @@ const ProductsTab = () => {
                                                     </DropdownMenuItem>
                                                 )}
                                                 <DropdownMenuItem
-                                                    onClick={() => { setSelectedProduct(product); setIsModalOpen(true); }}
+                                                    onClick={() => { setSelectedProduct(product); setIsCompactModalOpen(true); }}
                                                     className="rounded-xl cursor-pointer font-bold"
                                                 >
                                                     <Pencil size={14} className="mr-2 text-indigo-500" /> Editar
@@ -602,21 +590,6 @@ const ProductsTab = () => {
             })()}
 
             {/* ── Modales ──────────────────────────────────────────────────── */}
-            <ProductForm
-                isOpen={isModalOpen}
-                onClose={() => { setIsModalOpen(false); setSelectedProduct(null); }}
-                initialData={selectedProduct}
-                categories={categories}
-                warehouses={warehouses}
-                exchangeRates={exchangeRates}
-                onSubmit={async (data) => {
-                    try {
-                        if (selectedProduct) { await apiClient.put(`/products/${selectedProduct.id}`, data); toast.success('Actualizado'); }
-                        else { await apiClient.post('/products/', data); toast.success('Producto creado'); }
-                        await fetchProducts(); setIsModalOpen(false); setSelectedProduct(null);
-                    } catch (e) { toast.error(getApiErrorMessage(e, selectedProduct ? 'No se pudo actualizar el producto' : 'No se pudo crear el producto')); }
-                }}
-            />
             <ProductInstancesModal
                 isOpen={isInstancesModalOpen}
                 onClose={() => { setIsInstancesModalOpen(false); setSelectedProductForInstances(null); }}
@@ -624,16 +597,23 @@ const ProductsTab = () => {
             />
             <CompactProductForm
                 isOpen={isCompactModalOpen}
-                onClose={() => setIsCompactModalOpen(false)}
+                onClose={() => { setIsCompactModalOpen(false); setSelectedProduct(null); }}
+                initialData={selectedProduct}
                 categories={categories}
                 warehouses={warehouses}
                 exchangeRates={exchangeRates}
                 onSubmit={async (data) => {
                     try {
-                        await apiClient.post('/products/', data);
-                        toast.success('Producto creado');
+                        if (selectedProduct) {
+                            await apiClient.put(`/products/${selectedProduct.id}`, data);
+                            toast.success('Producto actualizado');
+                        } else {
+                            await apiClient.post('/products/', data);
+                            toast.success('Producto creado');
+                        }
                         await fetchProducts();
                         setIsCompactModalOpen(false);
+                        setSelectedProduct(null);
                     } catch (e) {
                         throw e;
                     }
