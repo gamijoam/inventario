@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Package, DollarSign, Warehouse, Layers, ScanBarcode, Scissors, Check, ChevronDown } from 'lucide-react';
 import { Sheet, SheetContent } from '../../components/ui/sheet';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { cn } from '../../lib/utils';
+import { useConfig } from '../../context/ConfigContext';
+import apiClient from '../../config/axios';
 
 const defaultForm = {
     name: '',
@@ -51,9 +53,26 @@ const ProductTypeButton = ({ active, icon: Icon, label, desc, onClick }) => (
 );
 
 const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], warehouses = [], exchangeRates = [] }) => {
+    const { modules } = useConfig();
     const [formData, setFormData] = useState(defaultForm);
     const [activeTab, setActiveTab] = useState('precios');
     const [saving, setSaving] = useState(false);
+    const [priceLists, setPriceLists] = useState([]);
+
+
+    useEffect(() => {
+        if (!isOpen) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data } = await apiClient.get('/price-lists/');
+                if (!cancelled) setPriceLists(Array.isArray(data) ? data.filter(list => list.is_active !== false) : []);
+            } catch {
+                if (!cancelled) setPriceLists([]);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isOpen]);
 
     const priceValue = parseFloat(formData.price || 0) || 0;
     const costValue = parseFloat(formData.cost || 0) || 0;
@@ -113,7 +132,7 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                         </div>
                         <div className="min-w-0">
                             <h2 className="truncate text-lg font-black text-slate-900">Nuevo producto compacto</h2>
-                            <p className="truncate text-xs font-bold text-slate-500">Dise?o experimental horizontal</p>
+                            <p className="truncate text-xs font-bold text-slate-500">Diseno experimental horizontal</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -153,7 +172,9 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                 <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Tipo</p>
                                 <div className="grid grid-cols-1 gap-2">
                                     <ProductTypeButton active={productType === 'physical'} icon={Package} label="Fisico" desc="Stock por almacen" onClick={() => setProductType('physical')} />
-                                    <ProductTypeButton active={productType === 'serial'} icon={ScanBarcode} label="Serial / IMEI" desc="Un serial por unidad" onClick={() => setProductType('serial')} />
+                                    {modules.services && (
+                                        <ProductTypeButton active={productType === 'serial'} icon={ScanBarcode} label="Serial / IMEI" desc="Un serial por unidad" onClick={() => setProductType('serial')} />
+                                    )}
                                     <ProductTypeButton active={productType === 'service'} icon={Scissors} label="Servicio" desc="Sin inventario" onClick={() => setProductType('service')} />
                                     <ProductTypeButton active={productType === 'combo'} icon={Layers} label="Combo / kit" desc="Componentes" onClick={() => setProductType('combo')} />
                                 </div>
@@ -206,6 +227,50 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                                         <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Utilidad estimada</p>
                                             <p className={cn('mt-1 text-xl font-black', profitValue < 0 ? 'text-rose-600' : 'text-slate-900')}>${profitValue.toFixed(2)}</p>
+                                        </div>
+                                    </section>
+                                    <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+                                        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                            <div>
+                                                <h3 className="text-sm font-black text-slate-900">Listas de precios</h3>
+                                                <p className="text-xs font-bold text-slate-400">Precio base ${priceValue.toFixed(2)} - {priceLists.length} listas activas</p>
+                                            </div>
+                                            <span className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                                                Opcional
+                                            </span>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                                            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                                                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Precio base</p>
+                                                <p className="text-lg font-black text-emerald-700">${priceValue.toFixed(2)}</p>
+                                            </div>
+                                            {priceLists.map(list => {
+                                                const listPrice = formData.prices?.[list.id] || '';
+                                                return (
+                                                    <div key={list.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                                                        <label className="mb-1 block truncate text-[10px] font-black uppercase tracking-wider text-slate-500">{list.name}</label>
+                                                        <div className="relative">
+                                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">$</span>
+                                                            <Input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={listPrice}
+                                                                onChange={e => setFormData(prev => ({
+                                                                    ...prev,
+                                                                    prices: { ...prev.prices, [list.id]: e.target.value }
+                                                                }))}
+                                                                placeholder="0.00"
+                                                                className="h-9 border-slate-200 bg-white pl-6 text-right text-sm font-black text-indigo-700"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {priceLists.length === 0 && (
+                                                <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs font-bold text-slate-400 md:col-span-2">
+                                                    No hay listas de precios activas.
+                                                </div>
+                                            )}
                                         </div>
                                     </section>
                                 </div>
@@ -270,10 +335,12 @@ const CompactProductForm = ({ isOpen, onClose, onSubmit, categories = [], wareho
                             {activeTab === 'avanzado' && (
                                 <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                        <label className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-black text-slate-700">
-                                            Item de menu
-                                            <input type="checkbox" checked={formData.is_menu_item} onChange={e => setFormData(p => ({ ...p, is_menu_item: e.target.checked }))} />
-                                        </label>
+                                        {modules?.restaurant && (
+                                            <label className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-black text-slate-700">
+                                                Item de menu
+                                                <input type="checkbox" checked={formData.is_menu_item} onChange={e => setFormData(p => ({ ...p, is_menu_item: e.target.checked }))} />
+                                            </label>
+                                        )}
                                         <label className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-black text-slate-700">
                                             Aplica comision
                                             <input type="checkbox" checked={formData.is_commissionable} onChange={e => setFormData(p => ({ ...p, is_commissionable: e.target.checked }))} />
