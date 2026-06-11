@@ -330,10 +330,10 @@ const POSCart = ({
                                 <div
                                     key={`${item.id}-${item.unit_id}-${idx}`}
                                     onClick={() => onItemClick && onItemClick(item)}
-                                    className="group flex items-start gap-2 px-2 py-1.5 bg-white border border-slate-200/80 rounded-lg hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer relative"
+                                    className="group relative flex items-start gap-2.5 rounded-lg border border-slate-200/80 bg-white px-2.5 py-2 pr-9 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md cursor-pointer"
                                 >
                                     {/* Thumbnail */}
-                                    <div className="w-7 h-7 flex-shrink-0 bg-slate-50 rounded-md overflow-hidden border border-slate-100 relative group-hover:bg-white transition-colors mt-0.5">
+                                    <div className="relative mt-0.5 h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 transition-colors group-hover:bg-white">
                                         <ProductThumbnail
                                             imageUrl={item.image_url}
                                             productName={item.name}
@@ -347,21 +347,21 @@ const POSCart = ({
                                     <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
                                         <div className="flex justify-between items-start gap-2">
                                             <div className="min-w-0 flex-1">
-                                                <h4 className="text-[11px] font-black text-slate-800 leading-tight line-clamp-2 pr-1" title={item.name}>
+                                                <h4 className="line-clamp-2 pr-1 text-xs font-black leading-tight text-slate-900" title={item.name}>
                                                     {item.name}
                                                 </h4>
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="text-[8px] font-bold text-blue-500 bg-blue-50 px-1 py-0.5 rounded border border-blue-100/50">
+                                                <div className="mt-1 flex flex-wrap items-center gap-1">
+                                                    <span className="rounded-md border border-blue-100/70 bg-blue-50 px-1.5 py-0.5 text-[9px] font-black text-blue-600">
                                                         {item.unit_name}
                                                     </span>
                                                     {item.discount_percentage > 0 && (
-                                                        <span className="text-[8px] font-black bg-rose-500 text-white px-1 py-0.5 rounded-md">
+                                                        <span className="rounded-md bg-rose-500 px-1.5 py-0.5 text-[9px] font-black text-white">
                                                             -{item.discount_percentage}%
                                                         </span>
                                                     )}
                                                 </div>
                                                 {item.location && (
-                                                    <div className="flex items-center gap-1 mt-0.5">
+                                                    <div className="mt-1 flex flex-wrap items-center gap-1">
                                                         <MapPin size={9} className="text-slate-400 flex-shrink-0" />
                                                         <span className="text-[9px] font-bold text-slate-400 truncate">{item.location}</span>
                                                     </div>
@@ -381,7 +381,7 @@ const POSCart = ({
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="text-right flex flex-col items-end gap-0.5 flex-shrink-0">
+                                            <div className="flex min-w-[92px] flex-shrink-0 flex-col items-end gap-1 text-right">
                                                 {/* Precio — editable si precio_libre_pos está activo */}
                                                 {precioLibre && editingPriceItemId === item.id ? (
                                                     <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
@@ -422,18 +422,18 @@ const POSCart = ({
                                                                 <span className="text-[8px] font-black text-orange-500 bg-orange-50 border border-orange-200 px-1 rounded">MOD</span>
                                                             )}
                                                             <div className={cn(
-                                                                "text-[13px] font-black text-blue-600 tabular-nums",
+                                                                "text-base font-black leading-none text-blue-600 tabular-nums",
                                                                 precioLibre && "group-hover/price:text-blue-400 transition-colors"
                                                             )}>
-                                                                <span className="text-[10px] mr-0.5">$</span>
+                                                                <span className="mr-0.5 text-[11px]">$</span>
                                                                 {formatLocalCurrency(item.subtotal_usd)}
                                                             </div>
                                                             {precioLibre && (
                                                                 <Pencil size={9} className="text-blue-300 opacity-0 group-hover/price:opacity-100 transition-opacity flex-shrink-0" />
                                                             )}
                                                         </div>
-                                                        {item.qty > 1 && (
-                                                            <span className="text-[10px] text-slate-400 tabular-nums">
+                                                        {Number(item.quantity || 0) > 1 && (
+                                                            <span className="text-[10px] font-bold text-slate-400 tabular-nums">
                                                                 ${formatLocalCurrency(item.unit_price_usd)} c/u
                                                             </span>
                                                         )}
@@ -443,7 +443,7 @@ const POSCart = ({
                                                     const rateObj = currencies.find(r => r.id === item.exchange_rate_id);
                                                     const localSym = rateObj?.currency_symbol || rateObj?.currency_code || secondaryCurrency.symbol;
                                                     return (
-                                                        <div className="text-[9px] font-black text-emerald-700 tabular-nums bg-emerald-100/50 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                                                        <div className="rounded-md border border-emerald-200/60 bg-emerald-100/50 px-1.5 py-0.5 text-[10px] font-black tabular-nums text-emerald-700">
                                                             <span className="text-[8px] mr-1 italic opacity-60">{localSym}</span>
                                                             {formatLocalCurrency(item.subtotal_bs)}
                                                         </div>
@@ -452,7 +452,7 @@ const POSCart = ({
                                             </div>
                                         </div>
 
-                                        <div className="mt-2 flex items-center justify-between gap-2">
+                                        <div className="mt-2 flex items-center justify-between gap-2 border-t border-dashed border-slate-100 pt-2">
                                             {/* Quantity Control */}
                                             <div className="flex h-8 items-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm ring-1 ring-slate-100">
                                                 <button
@@ -527,7 +527,7 @@ const POSCart = ({
                                             e.stopPropagation();
                                             onRemoveItem(item.cartItemId || item.id);
                                         }}
-                                        className="absolute top-1 right-1 bg-rose-50 border border-rose-100 text-rose-500 hover:bg-rose-500 hover:text-white rounded-md w-6 h-6 flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 active:scale-95"
+                                        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-md border border-rose-100 bg-rose-50 text-rose-500 shadow-sm transition-all hover:bg-rose-500 hover:text-white active:scale-95"
                                         title="Eliminar item"
                                     >
                                         <Trash2 size={13} />
