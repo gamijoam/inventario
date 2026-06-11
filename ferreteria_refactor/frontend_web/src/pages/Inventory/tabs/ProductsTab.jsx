@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import SearchWithScanner from '../../../components/common/SearchWithScanner';
 import ProductForm from '../../../components/products/ProductForm';
+import CompactProductForm from '../../../components/products/CompactProductForm';
 import QuickProductCreateModal from '../../../components/products/QuickProductCreateModal';
 import ProductMobileCard from '../../../components/products/ProductMobileCard';
 import BulkProductActions from '../../../components/products/BulkProductActions';
@@ -91,6 +92,7 @@ const ProductsTab = () => {
     const [isModalOpen, setIsModalOpen]   = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [isQuickModalOpen, setIsQuickModalOpen] = useState(false);
+    const [isCompactModalOpen, setIsCompactModalOpen] = useState(false);
     const [isInstancesModalOpen, setIsInstancesModalOpen] = useState(false);
     const [selectedProductForInstances, setSelectedProductForInstances] = useState(null);
     const [searchTerm, setSearchTerm]     = useState('');
@@ -317,6 +319,17 @@ const ProductsTab = () => {
                             >
                                 <Zap size={15} />
                                 <span className="hidden sm:inline">Rápido</span>
+                            </button>
+                        )}
+
+                        {isAdmin && (
+                            <button
+                                onClick={() => setIsCompactModalOpen(true)}
+                                className="inline-flex h-10 items-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
+                                title="Probar el nuevo formulario compacto"
+                            >
+                                <Sparkles size={15} />
+                                <span className="hidden sm:inline">Nuevo diseno</span>
                             </button>
                         )}
 
@@ -608,6 +621,24 @@ const ProductsTab = () => {
                 isOpen={isInstancesModalOpen}
                 onClose={() => { setIsInstancesModalOpen(false); setSelectedProductForInstances(null); }}
                 product={selectedProductForInstances}
+            />
+            <CompactProductForm
+                isOpen={isCompactModalOpen}
+                onClose={() => setIsCompactModalOpen(false)}
+                categories={categories}
+                warehouses={warehouses}
+                exchangeRates={exchangeRates}
+                onSubmit={async (data) => {
+                    try {
+                        await apiClient.post('/products/', data);
+                        toast.success('Producto creado');
+                        await fetchProducts();
+                        setIsCompactModalOpen(false);
+                    } catch (e) {
+                        toast.error(getApiErrorMessage(e, 'No se pudo crear el producto'));
+                        throw e;
+                    }
+                }}
             />
             <QuickProductCreateModal
                 isOpen={isQuickModalOpen}
